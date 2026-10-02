@@ -1,0 +1,194 @@
+name: parking-system
+
+x-dotnet-environment: &dotnet-environment
+  ASPNETCORE_ENVIRONMENT: Development
+  ASPNETCORE_HTTP_PORTS: 8080
+
+x-dotnet-service: &dotnet-service
+  environment: *dotnet-environment
+  networks:
+    - parking-network
+  restart: unless-stopped
+
+x-default-database-connection: &default-database-connection >-
+  Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-parking_system};Username=${POSTGRES_USER:-parking_dev};Password=${POSTGRES_PASSWORD:-parking_dev_local_only}
+
+services:
+  postgres:
+    image: postgres:17.11-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-parking_system}
+      POSTGRES_USER: ${POSTGRES_USER:-parking_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-parking_dev_local_only}
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.3.6-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-parking_dev}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "127.0.0.1:${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_HOST_PORT:-15672}:15672"
+      - "127.0.0.1:${RABBITMQ_MQTT_HOST_PORT:-1883}:1883"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./deploy/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway/Dockerfile
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-5000}:8080"
+    <<: *dotnet-service
+
+  identity-api:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Identity.WebAPI/Dockerfile
+    ports:
+      - "127.0.0.1:${IDENTITY_PORT:-5001}:8080"
+    <<: *dotnet-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: *default-database-connection
+      RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
+      RabbitMq__Port: ${RABBITMQ_PORT:-5672}
+      RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
+      RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+
+  parking-api:
+    build:
+      context: .
+      dockerfile: src/Services/Parking/Parking.WebAPI/Dockerfile
+    ports:
+      - "127.0.0.1:${PARKING_PORT:-5002}:8080"
+    <<: *dotnet-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: *default-database-connection
+      RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
+      RabbitMq__Port: ${RABBITMQ_PORT:-5672}
+      RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
+      RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+
+  booking-api:
+    build:
+      context: .
+      dockerfile: src/Services/Booking/Booking.WebAPI/Dockerfile
+    ports:
+      - "127.0.0.1:${BOOKING_PORT:-5003}:8080"
+    <<: *dotnet-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: *default-database-connection
+      RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
+      RabbitMq__Port: ${RABBITMQ_PORT:-5672}
+      RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
+      RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+
+  payment-api:
+    build:
+      context: .
+      dockerfile: src/Services/Payment/Payment.WebAPI/Dockerfile
+    ports:
+      - "127.0.0.1:${PAYMENT_PORT:-5004}:8080"
+    <<: *dotnet-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: *default-database-connection
+      RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
+      RabbitMq__Port: ${RABBITMQ_PORT:-5672}
+      RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
+      RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+
+  notification-api:
+    build:
+      context: .
+      dockerfile: src/Services/Notification/Notification.WebAPI/Dockerfile
+    ports:
+      - "127.0.0.1:${NOTIFICATION_PORT:-5005}:8080"
+    <<: *dotnet-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: *default-database-connection
+      RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
+      RabbitMq__Port: ${RABBITMQ_PORT:-5672}
+      RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
+      RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai/ai-service/Dockerfile
+    ports:
+      - "127.0.0.1:${AI_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+  iot-simulator:
+    build:
+      context: .
+      dockerfile: edge/iot-simulator/Dockerfile
+    environment:
+      MQTT_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      MQTT_PORT: ${RABBITMQ_MQTT_PORT:-1883}
+      MQTT_USERNAME: ${RABBITMQ_USER:-parking_dev}
+      MQTT_PASSWORD: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
+      DEVICE_SIMULATION_ENABLED: ${DEVICE_SIMULATION_ENABLED:-false}
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+networks:
+  parking-network:
+    name: parking-network
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: parking_postgres_data
+  rabbitmq_data:
+    name: parking_rabbitmq_data
+

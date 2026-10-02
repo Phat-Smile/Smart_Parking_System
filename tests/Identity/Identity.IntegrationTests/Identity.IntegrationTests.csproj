@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>ParkingSystem.Tests.Identity.IntegrationTests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Services\Identity\Identity.Persistence\Identity.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Identity\Identity.Infrastructure\Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Identity\Identity.Infrastructure\Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
+  </ItemGroup>
+</Project>

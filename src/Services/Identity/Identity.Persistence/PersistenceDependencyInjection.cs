@@ -1,0 +1,33 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
+using ParkingSystem.Identity.Application.Common.Messaging.Inbox;
+using ParkingSystem.Identity.Persistence.Outbox;
+using ParkingSystem.Identity.Persistence.Inbox;
+
+namespace ParkingSystem.Identity.Persistence;
+
+public static class PersistenceDependencyInjection
+{
+    public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Identity persistence requires ConnectionStrings:DefaultConnection (or ConnectionStrings__DefaultConnection). Configure it before starting the Identity API.");
+        }
+
+        services.AddDbContext<IdentityDbContext>(options => options.UseNpgsql(
+            connectionString,
+            npgsql =>
+            {
+                npgsql.MigrationsAssembly(typeof(IdentityDbContext).Assembly.GetName().Name!);
+                npgsql.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.DefaultSchema);
+            }));
+        services.AddScoped<IOutboxStore, OutboxStore>();
+        services.AddScoped<IInboxExecutionCoordinator, IdentityInboxExecutionCoordinator>();
+        return services;
+    }
+}
