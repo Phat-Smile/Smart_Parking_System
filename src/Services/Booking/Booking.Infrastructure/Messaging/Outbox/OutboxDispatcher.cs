@@ -26,6 +26,8 @@ public sealed class OutboxDispatcher(
             return;
         }
 
+        logger.LogInformation("Outbox dispatcher started; polling every {PollingInterval}.", _options.PollingInterval);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -39,7 +41,10 @@ public sealed class OutboxDispatcher(
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "Outbox polling iteration failed; retrying after {PollingInterval}.", _options.PollingInterval);
+                logger.LogError(
+                    "Outbox polling iteration failed. ExceptionType={ExceptionType} RetryingAfter={PollingInterval}.",
+                    exception.GetType().FullName,
+                    _options.PollingInterval);
             }
 
             await Task.Delay(_options.PollingInterval, stoppingToken);

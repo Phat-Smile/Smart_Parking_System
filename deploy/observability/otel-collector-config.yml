@@ -1,0 +1,37 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  resource/remove_instance_id:
+    attributes:
+      - key: service.instance.id
+        action: delete
+  batch: {}
+
+exporters:
+  otlp_grpc/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_grpc/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/remove_instance_id, batch]
+      exporters: [prometheus]
