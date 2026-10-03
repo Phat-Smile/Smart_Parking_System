@@ -12,4 +12,4 @@ Parking lots, floors, zones, spots and layouts; capacity and spot assignment; pa
 - Parking.Infrastructure
 - Parking.WebAPI
 
-No feature endpoints, business entities, or migrations are implemented in Phase 02.
+No business entities or feature endpoints exist yet. Persistence contains only the service-owned Outbox, Inbox, and three EF migrations.

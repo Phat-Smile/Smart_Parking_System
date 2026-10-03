@@ -12,4 +12,4 @@ Notifications and delivery boundaries for email, reservation, payment, refund, a
 - Notification.Infrastructure
 - Notification.WebAPI
 
-No feature endpoints, business entities, or migrations are implemented in Phase 02.
+No business entities or feature endpoints exist yet. Persistence contains only the service-owned Outbox, Inbox, and three EF migrations.

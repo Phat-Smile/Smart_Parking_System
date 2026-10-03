@@ -1,26 +1,17 @@
 # AI Service
 
-Python 3.12 scaffold with FastAPI health routes and a gRPC server bootstrap. It contains no AI business logic, prediction behavior, or trained model.
+Python 3.12 scaffold with FastAPI HTTP on port `8000` and standard gRPC health on internal port `50051`. FastAPI starts and stops the gRPC server in its application lifecycle, including in the Compose container. Development enables gRPC reflection. No AI business logic, prediction model, or business RPC exists.
 
-Structure:
-- app/api: HTTP health routes
-- app/application: reserved application layer
-- app/domain: reserved domain layer
-- app/grpc: gRPC server bootstrap; no service contract is registered yet
-- app/infrastructure: reserved provider adapters
-- tests: reserved test directory
+`app/api` contains HTTP health routes; `app/grpc` contains the technical gRPC server. `app/application`, `app/domain`, and `app/infrastructure` are reserved for future slices. `tests` contains the foundation tests.
 
-Health semantics:
-- /health/live reports that the HTTP process is serving requests.
-- /health/ready reports application startup readiness only. It checks no PostgreSQL, RabbitMQ, or external dependency.
+`/health/live` reports a running HTTP process. `/health/ready` reports AI application startup readiness; it does not check PostgreSQL, RabbitMQ, or telemetry backends.
 
-Install and run from this directory:
+Use Python 3.12 with the locked dependencies. From this directory:
 
-    python3.12 -m pip install -e .
-    python3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```sh
+python -m pip install -r requirements.lock
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
+python -m unittest discover -s tests -v
+```
 
-The root Docker Compose stack builds this service from `python:3.12-slim-bookworm` and exposes its health routes on `http://localhost:8000`. The image installs dependencies from `pyproject.toml` only. Its gRPC bootstrap remains a separate command and is not started in the HTTP container.
-
-Run the standalone gRPC bootstrap:
-
-    python3.12 -m app.grpc.server
+The HTTP command also starts gRPC on port `50051`. The root Compose stack builds the service from `python:3.12-slim-bookworm` and publishes only HTTP on `localhost:8000`; gRPC is available only on the Compose network. `pyproject.toml` is the human-maintained direct dependency declaration; `requirements.lock` pins the validated runtime and test environment. To regenerate it, build the AI image with reviewed `pyproject.toml` dependencies, run `python -m pip freeze` in that Python 3.12 image, omit the local `parking-ai-service @ file:///app` entry, then validate a clean environment before committing the lock.
