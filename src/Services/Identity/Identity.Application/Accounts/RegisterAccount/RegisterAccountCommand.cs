@@ -1,0 +1,70 @@
+using FluentValidation;
+using MediatR;
+using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Identity.Application.Common.Security;
+using ParkingSystem.Identity.Domain.Accounts;
+
+namespace ParkingSystem.Identity.Application.Accounts.RegisterAccount;
+
+public sealed record RegisterAccountCommand(string Email, string Password, string? PhoneNumber)
+    : IRequest<Result<RegisteredAccount>>;
+
+public sealed record RegisteredAccount(Guid AccountId, string Email, string Status);
+
+public static class RegisterAccountErrors
+{
+    public static readonly Error EmailAlreadyRegistered =
+        new("identity.email_already_registered", "The email address is already registered.");
+}
+
+public sealed class RegisterAccountCommandValidator : AbstractValidator<RegisterAccountCommand>
+{
+    public RegisterAccountCommandValidator()
+    {
+        RuleFor(command => command.Email).NotEmpty().MaximumLength(254).EmailAddress();
+
+        // Context 6.1: at least 8 characters with upper case, lower case, digit and special character.
+        RuleFor(command => command.Password)
+            .NotEmpty()
+            .MinimumLength(8)
+            .MaximumLength(72) // bcrypt only uses the first 72 bytes.
+            .Matches("[A-Z]").WithMessage("Password must contain an upper-case letter.")
+            .Matches("[a-z]").WithMessage("Password must contain a lower-case letter.")
+            .Matches("[0-9]").WithMessage("Password must contain a digit.")
+            .Matches("[^A-Za-z0-9]").WithMessage("Password must contain a special character.");
+
+        // Phone number is optional and only validated when supplied. The accepted format is not
+        // specified in Context yet; digits with an optional leading '+' (9-15 digits) is a placeholder.
+        RuleFor(command => command.PhoneNumber)
+            .Matches(@"^\+?[0-9]{9,15}$")
+            .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
+    }
+}
+
+public sealed class RegisterAccountCommandHandler(
+    IAccountRepository accounts,
+    IPasswordHasher passwordHasher,
+    IClock clock) : IRequestHandler<RegisterAccountCommand, Result<RegisteredAccount>>
+{
+    public async Task<Result<RegisteredAccount>> Handle(RegisterAccountCommand request, CancellationToken cancellationToken)
+    {
+        var email = Account.NormalizeEmail(request.Email);
+        if (await accounts.EmailExistsAsync(email, cancellationToken))
+            return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
+
+        var account = Account.Register(
+            Guid.NewGuid(),
+            email,
+            passwordHasher.Hash(request.Password),
+            request.PhoneNumber,
+            clock.UtcNow);
+        accounts.Add(account);
+
+        // A concurrent registration with the same email loses the race on the unique index.
+        if (!await accounts.TrySaveChangesAsync(cancellationToken))
+            return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
+
+        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, account.Status.ToString()));
+    }
+}

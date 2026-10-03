@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Messaging.Inbox;
+using ParkingSystem.Identity.Persistence.Accounts;
 using ParkingSystem.Identity.Persistence.Outbox;
 using ParkingSystem.Identity.Persistence.Inbox;
 
@@ -28,6 +30,7 @@ public static class PersistenceDependencyInjection
             }));
         services.AddScoped<IOutboxStore, OutboxStore>();
         services.AddScoped<IInboxExecutionCoordinator, IdentityInboxExecutionCoordinator>();
+        services.AddScoped<IAccountRepository, AccountRepository>();
         return services;
     }
 }

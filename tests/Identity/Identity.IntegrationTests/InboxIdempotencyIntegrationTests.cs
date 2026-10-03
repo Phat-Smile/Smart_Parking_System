@@ -57,7 +57,8 @@ public sealed class InboxIdempotencyIntegrationTests(
             await PostgreSqlOutboxAssertions.AssertServiceIsolationAndOutboxMetadataAsync(
                 dbContext,
                 "identity",
-                cancellationToken);
+                cancellationToken,
+                "accounts");
         }
 
         var bus = provider.GetRequiredService<IBusControl>();

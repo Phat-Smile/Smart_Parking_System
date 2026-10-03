@@ -3,8 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
+using ParkingSystem.Identity.Infrastructure.Security;
 using ParkingSystem.BuildingBlocks.Time;
 
 namespace ParkingSystem.Identity.Infrastructure;
@@ -38,6 +40,7 @@ public static class DependencyInjection
             .Validate(options => options.MaxRetryDelay >= options.BaseRetryDelay, "Outbox:MaxRetryDelay must be greater than or equal to Outbox:BaseRetryDelay.")
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddIntegrationEventRegistry();
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();

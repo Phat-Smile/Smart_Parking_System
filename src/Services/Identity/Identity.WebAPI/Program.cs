@@ -6,6 +6,7 @@ using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Identity.Application;
 using ParkingSystem.Identity.Infrastructure;
 using ParkingSystem.Identity.Persistence;
+using ParkingSystem.Identity.WebAPI.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
@@ -54,6 +55,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
         [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
     }
 });
+app.MapAccountEndpoints();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
