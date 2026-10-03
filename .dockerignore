@@ -9,10 +9,12 @@ TestResults
 coverage
 logs
 .env*
+.local/
 .venv
 venv
 **/__pycache__
 *.user
 *.csproj.user
 *.py[cod]
+*.pem
 
