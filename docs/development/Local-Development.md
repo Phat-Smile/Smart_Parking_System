@@ -1,5 +1,15 @@
 # Local development
 
+## Clean source archive
+
+From the repository root, create a source-only zip from the current commit:
+
+```sh
+git archive --format=zip --output=OJT2026_Individual-clean.zip HEAD
+```
+
+Keep the archive outside the repository or remove it after sharing. Manually zipping the working directory can include `.git`, ignored `.env` and `.local/` files, private keys, `bin/`, `obj/`, `TestResults/`, and `__pycache__/`. Never add private keys to tracked source.
+
 ## Prerequisites
 
 - Docker Desktop or Docker Engine with Docker Compose v2
