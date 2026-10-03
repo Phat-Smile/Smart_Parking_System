@@ -7,6 +7,7 @@ Freeze date: **2026-10-03 (Asia/Saigon)**. Phase 07 is the final foundation chec
 - Five .NET business bounded contexts: Identity, Parking, Booking, Payment, Notification. Each has Domain, Application, Persistence, Infrastructure, and WebAPI projects.
 - Gateway: external REST boundary using YARP; production proxy routes are currently empty.
 - AI: Python 3.12, FastAPI and internal gRPC; no business model or inference workflow.
+- AI direct dependencies remain declared in `pyproject.toml`; the validated Python 3.12 runtime/test environment is pinned in `requirements.lock` and installed from that file by the image and CI.
 - IoT Simulator: idle scaffold with MQTT environment configuration; `DEVICE_SIMULATION_ENABLED=false`. No publisher, consumer, device simulation, or gRPC client.
 - Shared projects: transport-neutral `ParkingSystem.BuildingBlocks` and host-specific `ParkingSystem.AspNetCore`.
 - Solution inventory: **41 .NET projects = 28 production + 12 test projects + 1 test-support library** (`ParkingSystem.Testing`). AI and IoT are separate Python components.
@@ -110,6 +111,7 @@ HTTP liveness checks only the process. The five APIs' readiness checks their Pos
 Phase 07 validation on 2026-10-03:
 
 - .NET tool restore, solution restore/build: PASS; 0 build warnings/errors.
+- `.github/workflows/foundation-ci.yml` enforces the .NET suite and Python 3.12 suite using `requirements.lock` on develop and feature branch pushes/pull requests; it does not deploy.
 - .NET: **45/45**, including **14/14 architecture**; no skips. Focused Identity integration regression: **4/4**.
 - AI: **10 tests plus 3 subtests**, PASS on Python **3.12.15**, including grpc/OpenTelemetry imports.
 - PostgreSQL/RabbitMQ integration tests use disposable Testcontainers with dynamic ports and cleanup; they do not use local host 5433 or populate the application database.

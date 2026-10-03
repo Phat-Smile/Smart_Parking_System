@@ -52,6 +52,8 @@ The current foundation includes:
 - HTTP liveness and dependency-aware readiness; gRPC health checks
 - Architecture and integration tests
 
+GitHub Actions runs the .NET and Python foundation suites for pushes and pull requests targeting `develop` and feature branches. The workflow is in `.github/workflows/foundation-ci.yml`.
+
 ### Business implementation
 
 **NOT STARTED**
