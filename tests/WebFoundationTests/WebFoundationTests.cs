@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
+using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Correlation;
 using Xunit;
@@ -133,6 +135,8 @@ public sealed class WebFoundationTests
         var capture = new CapturingLoggerProvider();
         builder.Logging.AddProvider(capture);
         var app = builder.Build();
+        Assert.False(app.Services.GetRequiredService<IOptionsMonitor<JsonConsoleFormatterOptions>>()
+            .Get(ConsoleFormatterNames.Json).IncludeScopes);
         app.UseParkingSystemWebFoundation();
         app.MapGet("/privacy/{identifier}", (string identifier) => Results.Ok());
         await app.StartAsync(TestContext.Current.CancellationToken);

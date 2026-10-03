@@ -25,7 +25,9 @@ public static class ParkingSystemWebFoundationExtensions
         builder.Services.AddExceptionHandler<SafeExceptionHandler>();
 
         builder.Logging.ClearProviders();
-        builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+        // ASP.NET Core's ambient scope includes the raw RequestPath. The request
+        // event writes correlation and trace fields explicitly without that scope.
+        builder.Logging.AddJsonConsole(options => options.IncludeScopes = false);
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogLevel.Warning);
 
