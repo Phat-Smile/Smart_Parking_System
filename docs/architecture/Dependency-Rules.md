@@ -6,12 +6,14 @@ The required dependency direction for every business service is:
 - Application may reference its own Domain and generic BuildingBlocks.
 - Persistence may reference its own Domain and Application.
 - Infrastructure may reference its own Application and generic BuildingBlocks.
-- WebAPI may reference its own Application, Persistence, Infrastructure, and generic BuildingBlocks.
+- WebAPI may reference its own Application, Persistence, Infrastructure, generic BuildingBlocks, and the host-specific ParkingSystem.AspNetCore foundation.
 - Persistence and Infrastructure do not reference each other.
 - Projects in one business service do not reference projects belonging to another service.
 - MassTransit and the RabbitMQ transport are referenced only by the five service Infrastructure projects. WebAPI invokes each service's Infrastructure registration; Domain, Application, Persistence, and BuildingBlocks remain transport-free.
 
 BuildingBlocks contains only dependency-light technical primitives. It must not reference ASP.NET Core, EF Core, Npgsql, YARP, MassTransit, RabbitMQ, or any business service.
+
+ParkingSystem.AspNetCore references generic BuildingBlocks and supplies HTTP error handling, correlation, logging, telemetry, and JWT validation to WebAPI and Gateway hosts only. Inner service layers do not reference this host foundation. Current gRPC server packages remain in WebAPI hosts; adding future Infrastructure gRPC clients requires an explicitly reviewed adjustment to the corresponding architecture rule.
 
 The ArchitectureTests suite reads project-reference edges from the service csproj files and enforces these rules. Run it with:
 
