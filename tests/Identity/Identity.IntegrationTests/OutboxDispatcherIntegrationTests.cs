@@ -114,8 +114,11 @@ public sealed class OutboxDispatcherIntegrationTests(
             Assert.False(string.IsNullOrWhiteSpace(rows[malformedId].Error));
             Assert.False(string.IsNullOrWhiteSpace(rows[unknownId].Error));
             Assert.True(rows[malformedId].NextAttemptAtUtc > DateTimeOffset.UtcNow);
+            Assert.True(rows[unknownId].NextAttemptAtUtc > DateTimeOffset.UtcNow);
             Assert.Null(rows[malformedId].LockId);
             Assert.Null(rows[malformedId].LockedUntilUtc);
+            Assert.Null(rows[unknownId].LockId);
+            Assert.Null(rows[unknownId].LockedUntilUtc);
 
             await WaitForConsumedCountAsync(capture, 2, cancellationToken);
             var received = capture.Messages.ToArray();
@@ -129,6 +132,41 @@ public sealed class OutboxDispatcherIntegrationTests(
 
             await Task.Delay(TimeSpan.FromMilliseconds(300), cancellationToken);
             Assert.Equal(2, capture.Messages.Count);
+
+            // The following assertions exercise store-level lease concurrency independently
+            // from the background poller, which would otherwise race to claim the seeded row.
+            await dispatcher.StopAsync(CancellationToken.None);
+
+            // The two poison rows remain pending and retryable after the assertions above. Their
+            // two-second retry backoff can legitimately expire while this combined integration
+            // test performs the RabbitMQ and lease scenarios. This fixture uses SystemClock; no
+            // fake clock is advanced. Defer only these test rows for the lease-only claim so its
+            // eligible set is deterministic; do not mark them processed.
+            var poisonIds = new[] { malformedId, unknownId };
+            await using (var retryIsolationScope = productionProvider.CreateAsyncScope())
+            {
+                var db = retryIsolationScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+                var poisonRows = await db.OutboxMessages.AsNoTracking()
+                    .Where(message => poisonIds.Contains(message.Id))
+                    .ToDictionaryAsync(message => message.Id, cancellationToken);
+
+                foreach (var poisonId in poisonIds)
+                {
+                    var poisonRow = poisonRows[poisonId];
+                    Assert.Null(poisonRow.ProcessedAtUtc);
+                    Assert.Equal(1, poisonRow.RetryCount);
+                    Assert.NotNull(poisonRow.NextAttemptAtUtc);
+                    Assert.Null(poisonRow.LockId);
+                    Assert.Null(poisonRow.LockedUntilUtc);
+                }
+
+                var leaseScenarioRetryAtUtc = DateTimeOffset.UtcNow.AddHours(1);
+                await db.OutboxMessages
+                    .Where(message => poisonIds.Contains(message.Id) && message.ProcessedAtUtc == null)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(message => message.NextAttemptAtUtc, (DateTimeOffset?)leaseScenarioRetryAtUtc),
+                        cancellationToken);
+            }
 
             var leaseId = Guid.NewGuid();
             await using (var seedScope = productionProvider.CreateAsyncScope())
@@ -155,9 +193,19 @@ public sealed class OutboxDispatcherIntegrationTests(
                 await db.SaveChangesAsync(cancellationToken);
             }
 
-            var reclaimed = await ClaimAsync(productionProvider, Guid.NewGuid(), cancellationToken);
+            var reclaimedLockId = Guid.NewGuid();
+            var reclaimed = await ClaimAsync(productionProvider, reclaimedLockId, cancellationToken);
             Assert.Single(reclaimed);
             Assert.Equal(leaseId, reclaimed[0].Id);
+            Assert.Equal(reclaimedLockId, reclaimed[0].LockId);
+
+            await using var ownershipScope = productionProvider.CreateAsyncScope();
+            var outboxStore = ownershipScope.ServiceProvider
+                .GetRequiredService<ParkingSystem.Identity.Application.Common.Messaging.Outbox.IOutboxStore>();
+            Assert.False(await outboxStore.MarkProcessedAsync(
+                leaseId, claimedLease.LockId, DateTimeOffset.UtcNow, cancellationToken));
+            Assert.True(await outboxStore.MarkProcessedAsync(
+                leaseId, reclaimedLockId, DateTimeOffset.UtcNow, cancellationToken));
         }
         finally
         {
