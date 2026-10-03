@@ -1,25 +1,40 @@
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using ParkingSystem.AspNetCore;
+using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Identity.Application;
 using ParkingSystem.Identity.Infrastructure;
 using ParkingSystem.Identity.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddParkingSystemWebFoundation();
+builder.AddParkingSystemSecurity();
+builder.AddParkingSystemTelemetry("identity-api");
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(8080, listen => listen.Protocols = HttpProtocols.Http1);
+    options.ListenAnyIP(8081, listen => listen.Protocols = HttpProtocols.Http2);
+});
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<IdentityDbContext>(name: "postgresql", tags: ["ready"]);
-builder.Services.AddProblemDetails();
-builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
+builder.Services.AddGrpcHealthChecks(options =>
+        options.Services.Map("", check => check.Tags.Contains("grpc")))
+    .AddCheck("grpc-server", () => HealthCheckResult.Healthy(), tags: ["grpc"]);
+builder.Services.AddGrpc();
+var enableGrpcReflection = builder.Environment.IsDevelopment();
+if (enableGrpcReflection)
+    builder.Services.AddGrpcReflection();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-app.UseExceptionHandler();
+app.UseParkingSystemWebFoundation();
+app.UseParkingSystemAuthentication();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -39,19 +54,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
         [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
     }
 });
+app.MapGrpcHealthChecksService();
+if (enableGrpcReflection)
+    app.MapGrpcReflectionService();
 app.Run();
-
-internal sealed class ServiceExceptionHandler(ILogger<ServiceExceptionHandler> logger) : IExceptionHandler
-{
-    public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
-    {
-        logger.LogError(exception, "Unhandled request exception");
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        await context.Response.WriteAsJsonAsync(new ProblemDetails
-        {
-            Status = StatusCodes.Status500InternalServerError,
-            Title = "An unexpected error occurred."
-        }, cancellationToken);
-        return true;
-    }
-}

@@ -25,7 +25,7 @@ Each WebAPI startup project references `Microsoft.EntityFrameworkCore.Design` wi
 Design-time commands run on the host and connect to PostgreSQL at `localhost:5433`. Supply the local password through the process environment; replace the placeholder before running:
 
 ```powershell
-$env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5433;Database=parking_system;Username=parking_dev;Password=<your-local-password>'
+$env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5433;Database=parking_system;Username=parking_dev;Password=<your-local-password>;GSS Encryption Mode=Disable'
 ```
 
 Do not put a real password in this document, source code, or `appsettings.json`. The five API containers receive their runtime connection string from Compose and use `postgres:5432`.

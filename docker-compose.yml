@@ -2,16 +2,25 @@ name: parking-system
 
 x-dotnet-environment: &dotnet-environment
   ASPNETCORE_ENVIRONMENT: Development
-  ASPNETCORE_HTTP_PORTS: 8080
+
+x-jwt-environment: &jwt-environment
+  Security__Jwt__Issuer: ParkingSystem.Identity
+  Security__Jwt__Audience: ParkingSystem
+  Security__Jwt__PublicKeyPath: /run/parking-system/security/jwt/public.pem
+  Security__Jwt__ClockSkewSeconds: "30"
+
+x-jwt-public-key-volume: &jwt-public-key-volume
+  - ./.local/security/jwt/public.pem:/run/parking-system/security/jwt/public.pem:ro
 
 x-dotnet-service: &dotnet-service
   environment: *dotnet-environment
+  volumes: *jwt-public-key-volume
   networks:
     - parking-network
   restart: unless-stopped
 
 x-default-database-connection: &default-database-connection >-
-  Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-parking_system};Username=${POSTGRES_USER:-parking_dev};Password=${POSTGRES_PASSWORD:-parking_dev_local_only}
+  Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-parking_system};Username=${POSTGRES_USER:-parking_dev};Password=${POSTGRES_PASSWORD:-parking_dev_local_only};GSS Encryption Mode=Disable
 
 services:
   postgres:
@@ -64,6 +73,17 @@ services:
       dockerfile: src/Gateway/Dockerfile
     ports:
       - "127.0.0.1:${GATEWAY_PORT:-5000}:8080"
+    environment:
+      <<: *jwt-environment
+      ASPNETCORE_ENVIRONMENT: Development
+      Security__Cors__AllowedOrigins: ${GATEWAY_CORS_ALLOWED_ORIGINS:-}
+      ASPNETCORE_HTTP_PORTS: 8080
+      OTEL_SERVICE_NAME: parking-gateway
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
     <<: *dotnet-service
 
   identity-api:
@@ -72,10 +92,25 @@ services:
       dockerfile: src/Services/Identity/Identity.WebAPI/Dockerfile
     ports:
       - "127.0.0.1:${IDENTITY_PORT:-5001}:8080"
+    expose:
+      - "8081"
     <<: *dotnet-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      <<: *jwt-environment
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: 8080
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+      OTEL_SERVICE_NAME: identity-api
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION: "true"
       ConnectionStrings__DefaultConnection: *default-database-connection
       RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMq__Port: ${RABBITMQ_PORT:-5672}
@@ -89,10 +124,25 @@ services:
       dockerfile: src/Services/Parking/Parking.WebAPI/Dockerfile
     ports:
       - "127.0.0.1:${PARKING_PORT:-5002}:8080"
+    expose:
+      - "8081"
     <<: *dotnet-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      <<: *jwt-environment
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: 8080
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+      OTEL_SERVICE_NAME: parking-api
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION: "true"
       ConnectionStrings__DefaultConnection: *default-database-connection
       RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMq__Port: ${RABBITMQ_PORT:-5672}
@@ -106,10 +156,25 @@ services:
       dockerfile: src/Services/Booking/Booking.WebAPI/Dockerfile
     ports:
       - "127.0.0.1:${BOOKING_PORT:-5003}:8080"
+    expose:
+      - "8081"
     <<: *dotnet-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      <<: *jwt-environment
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: 8080
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+      OTEL_SERVICE_NAME: booking-api
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION: "true"
       ConnectionStrings__DefaultConnection: *default-database-connection
       RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMq__Port: ${RABBITMQ_PORT:-5672}
@@ -123,10 +188,25 @@ services:
       dockerfile: src/Services/Payment/Payment.WebAPI/Dockerfile
     ports:
       - "127.0.0.1:${PAYMENT_PORT:-5004}:8080"
+    expose:
+      - "8081"
     <<: *dotnet-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      <<: *jwt-environment
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: 8080
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+      OTEL_SERVICE_NAME: payment-api
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION: "true"
       ConnectionStrings__DefaultConnection: *default-database-connection
       RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMq__Port: ${RABBITMQ_PORT:-5672}
@@ -140,10 +220,25 @@ services:
       dockerfile: src/Services/Notification/Notification.WebAPI/Dockerfile
     ports:
       - "127.0.0.1:${NOTIFICATION_PORT:-5005}:8080"
+    expose:
+      - "8081"
     <<: *dotnet-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      <<: *jwt-environment
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: 8080
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+      OTEL_SERVICE_NAME: notification-api
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION: "true"
       ConnectionStrings__DefaultConnection: *default-database-connection
       RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMq__Port: ${RABBITMQ_PORT:-5672}
@@ -157,12 +252,57 @@ services:
       dockerfile: ai/ai-service/Dockerfile
     ports:
       - "127.0.0.1:${AI_PORT:-8000}:8000"
+    expose:
+      - "50051"
+    environment:
+      APP_ENVIRONMENT: Development
+      AI_GRPC_PORT: 50051
+      OTEL_SERVICE_NAME: ai-service
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      - "127.0.0.1:${OTEL_GRPC_HOST_PORT:-4317}:4317"
+      - "127.0.0.1:${OTEL_HTTP_HOST_PORT:-4318}:4318"
+    volumes:
+      - ./deploy/observability/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:2.21.0
+    command: ["--config", "/etc/jaeger/config.yml"]
+    ports:
+      - "127.0.0.1:${JAEGER_UI_HOST_PORT:-16686}:16686"
+    volumes:
+      - ./deploy/observability/jaeger-config.yml:/etc/jaeger/config.yml:ro
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       - parking-network
     restart: unless-stopped

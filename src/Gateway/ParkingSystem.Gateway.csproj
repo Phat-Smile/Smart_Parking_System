@@ -4,4 +4,7 @@
     <PackageReference Include="Yarp.ReverseProxy" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BuildingBlocks\ParkingSystem.AspNetCore\ParkingSystem.AspNetCore.csproj" />
+  </ItemGroup>
 </Project>

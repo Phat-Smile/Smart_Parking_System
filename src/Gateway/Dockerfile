@@ -2,9 +2,12 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.301 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props ./
+COPY src/BuildingBlocks/ParkingSystem.BuildingBlocks.csproj src/BuildingBlocks/
+COPY src/BuildingBlocks/ParkingSystem.AspNetCore/ParkingSystem.AspNetCore.csproj src/BuildingBlocks/ParkingSystem.AspNetCore/
 COPY src/Gateway/ParkingSystem.Gateway.csproj src/Gateway/
 RUN dotnet restore src/Gateway/ParkingSystem.Gateway.csproj
 
+COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY src/Gateway/ src/Gateway/
 RUN dotnet publish src/Gateway/ParkingSystem.Gateway.csproj \
     --configuration Release \

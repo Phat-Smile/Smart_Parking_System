@@ -25,7 +25,7 @@ The PostgreSQL port inside Docker is `5432`; the host port is `5433` by default.
 Tools and API processes running directly on the host use `localhost:5433`. For example, to run an API directly from PowerShell with the local development credentials:
 
 ```powershell
-$env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5433;Database=parking_system;Username=parking_dev;Password=parking_dev_local_only'
+$env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5433;Database=parking_system;Username=parking_dev;Password=parking_dev_local_only;GSS Encryption Mode=Disable'
 $env:RabbitMq__Host = 'localhost'
 $env:RabbitMq__Port = '5672'
 $env:RabbitMq__Username = 'parking_dev'
@@ -78,9 +78,64 @@ docker run --rm --network parking-network eclipse-mosquitto:2 `
 docker compose up --build
 ```
 
-This builds and starts the Gateway, five .NET APIs, AI HTTP service, IoT simulator, PostgreSQL, and RabbitMQ. The five .NET APIs receive `RabbitMq__Host`, `RabbitMq__Port`, `RabbitMq__Username`, `RabbitMq__Password`, and `RabbitMq__VirtualHost` from the existing `RABBITMQ_*` variables and connect over authenticated AMQP on port `5672`. The IoT simulator receives `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, and `MQTT_PASSWORD` from the same local RabbitMQ settings and uses MQTT port `1883`; it does not connect to MQTT or generate traffic in this scaffold.
+This builds and starts the Gateway, five .NET APIs, AI HTTP service, IoT simulator, PostgreSQL, RabbitMQ, OpenTelemetry Collector, Jaeger, and Prometheus. The five .NET APIs receive `RabbitMq__Host`, `RabbitMq__Port`, `RabbitMq__Username`, `RabbitMq__Password`, and `RabbitMq__VirtualHost` from the existing `RABBITMQ_*` variables and connect over authenticated AMQP on port `5672`. The IoT simulator receives `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, and `MQTT_PASSWORD` from the same local RabbitMQ settings and uses MQTT port `1883`; it does not connect to MQTT or generate traffic in this scaffold.
 
 The five business APIs require valid PostgreSQL and RabbitMQ configuration to start. They do not open PostgreSQL during startup and do not apply migrations automatically. MassTransit starts one RabbitMQ AMQP bus per API and uses its built-in reconnect behavior. A temporarily unavailable broker does not prevent the API process from starting.
+
+## Local observability
+
+The applications export traces and metrics over OTLP/gRPC to `http://otel-collector:4317` inside Compose. The Collector accepts OTLP/gRPC on `4317` and OTLP/HTTP on `4318`, exports traces to Jaeger, and exposes translated metrics for Prometheus to scrape at `otel-collector:8889`. Applications do not send telemetry directly to Jaeger or Prometheus. There is no OTLP log pipeline; structured JSON console logs remain the application log output.
+
+Open these local interfaces:
+
+| Component | Default host address | Use |
+| --- | --- | --- |
+| Jaeger | `http://localhost:16686` | Search traces and inspect service names/spans |
+| Prometheus | `http://localhost:9090` | Query Collector-exported application metrics |
+| OTLP/gRPC receiver | `localhost:4317` | SDKs on the host |
+| OTLP/HTTP receiver | `localhost:4318` | Host SDKs configured for OTLP HTTP/protobuf |
+
+Change `JAEGER_UI_HOST_PORT`, `PROMETHEUS_HOST_PORT`, `OTEL_GRPC_HOST_PORT`, or `OTEL_HTTP_HOST_PORT` in `.env` if a host port is occupied. The internal Compose receiver ports stay `4317` and `4318`.
+
+The .NET processes use these canonical `service.name` values: `parking-gateway`, `identity-api`, `parking-api`, `booking-api`, `payment-api`, and `notification-api`. AI uses `ai-service`. The resource namespace is `ParkingSystem`; Compose sets the environment to `Development`. Local sampling defaults to 100%. Production should use an environment-appropriate sampling policy and ratio.
+
+Generate safe request traces without adding a business endpoint. A `404` from an unconfigured technical path is expected and is recorded as a diagnostic request span; health requests are filtered from traces:
+
+```powershell
+curl.exe -sS -o NUL -w "%{http_code}`n" http://localhost:5000/telemetry-check
+curl.exe -sS -o NUL -w "%{http_code}`n" http://localhost:5001/telemetry-check
+curl.exe -sS -o NUL -w "%{http_code}`n" http://localhost:8000/telemetry-check
+```
+
+Open Jaeger, select a service (for example `parking-gateway`), and find the request by its recent time. Direct API requests make their own service appear after a traced request. Prometheus scrapes the Collector every 10 seconds; search metric names for `http_server_request_duration` and runtime/process metric families after generating requests.
+
+To check non-critical Collector outage behavior, stop only the Collector, check application endpoints and dependency status, then restart it. Do not restart applications as part of this check:
+
+```powershell
+docker compose stop otel-collector
+curl.exe -i http://localhost:5000/health/live
+curl.exe -i http://localhost:5000/health/ready
+curl.exe -i http://localhost:5001/health/live
+curl.exe -i http://localhost:5001/health/ready
+curl.exe -i http://localhost:8000/health/live
+curl.exe -i http://localhost:8000/health/ready
+docker compose ps
+docker compose start otel-collector
+```
+
+The five APIs' readiness still depends only on PostgreSQL and RabbitMQ. Gateway and AI keep their existing readiness semantics. Once Collector returns, OTLP exporters continue with later batches; no API restart is needed. Jaeger and Prometheus also remain outside business readiness checks. See [Observability](../architecture/Observability.md) for trace filtering, data privacy, resource attributes, and the durable Outbox trace-continuity boundary.
+
+## Internal gRPC listeners
+
+The five .NET APIs listen for REST on container port `8080` (HTTP/1.1) and internal gRPC on `8081` (HTTP/2 cleartext). The AI service runs FastAPI on `8000` and gRPC on `50051` concurrently. gRPC ports are exposed only to containers on `parking-network`; they are not published to the host. The Gateway remains REST-only.
+
+All six gRPC hosts expose standard `grpc.health.v1.Health`; its empty service name reports `SERVING` while the gRPC listener is running. This technical status is independent of PostgreSQL/RabbitMQ readiness. Development reflection is enabled only in Development and currently lists only standard health/reflection protocol services. No business RPCs are present. See [gRPC communication foundation](../architecture/Grpc.md).
+
+After starting the stack, run the gRPC network smoke test from PowerShell:
+
+```powershell
+./tests/GrpcHealthSmoke.ps1
+```
 
 ## Health endpoint semantics
 
@@ -89,6 +144,14 @@ The five business APIs require valid PostgreSQL and RabbitMQ configuration to st
 - Gateway readiness remains independent of downstream APIs. AI and IoT do not have PostgreSQL readiness checks.
 
 When PostgreSQL or RabbitMQ is stopped, the five API processes remain running and their `/health/live` endpoints continue returning 200. Their `/health/ready` endpoints return 503. RabbitMQ readiness uses an authenticated AMQP handshake because the MassTransit bus health check alone does not verify broker availability for services without receive endpoints. After the dependency starts again, readiness recovers to 200 without restarting the APIs.
+
+HTTP requests may send `X-Correlation-ID` with a Guid value (up to 128 characters). The Gateway and service hosts preserve a valid value or generate a new one for missing or invalid input, then return it in the same response header. Example:
+
+```powershell
+curl.exe -i -H "X-Correlation-ID: 6B0D3575-9F7F-4366-9C00-5F606E694331" http://localhost:5000/health/live
+```
+
+Errors use safe `application/problem+json` responses. See [error handling](../architecture/Error-Handling.md) and [correlation](../architecture/Correlation.md).
 
 To exercise this behavior without deleting local data:
 
@@ -112,6 +175,12 @@ All published ports bind to `127.0.0.1` by default.
 | Payment API | 5004 | `http://localhost:5004/health/live`, `/health/ready` |
 | Notification API | 5005 | `http://localhost:5005/health/live`, `/health/ready` |
 | AI Service | 8000 | `http://localhost:8000/health/live`, `http://localhost:8000/health/ready` |
+| Jaeger UI | 16686 | `http://localhost:16686` |
+| Prometheus UI | 9090 | `http://localhost:9090` |
+| OTLP/gRPC | 4317 | SDKs on the host connect to `localhost:4317`; Docker apps use `otel-collector:4317` |
+| OTLP/HTTP | 4318 | Host SDKs can connect to `localhost:4318`; Docker apps use `otel-collector:4318` |
+| .NET API gRPC | 8081 (container only) | `identity-api:8081`, `parking-api:8081`, `booking-api:8081`, `payment-api:8081`, `notification-api:8081` on `parking-network` |
+| AI gRPC | 50051 (container only) | `ai-service:50051` on `parking-network` |
 | PostgreSQL | 5433 (container: 5432) | Host tools use `localhost:5433`; containers use `postgres:5432`. Database `parking_system`, user `parking_dev` |
 | RabbitMQ AMQP | 5672 | Host `localhost`, user `parking_dev`, password `parking_dev_local_only`, vhost `/` |
 | RabbitMQ Management | 15672 | `http://localhost:15672` (same local RabbitMQ credentials) |
@@ -124,6 +193,13 @@ Each .NET app currently has `/health/live` and `/health/ready` routes, but Compo
 Host ports can be changed in `.env` with `POSTGRES_HOST_PORT`, `RABBITMQ_HOST_PORT`, `RABBITMQ_MANAGEMENT_HOST_PORT`, `RABBITMQ_MQTT_HOST_PORT`, and the API port variables.
 
 ## Logs and stop commands
+
+### Non-blocking local runtime warnings
+
+- RabbitMQ may report that `management_metrics_collection` is deprecated. It does not prevent the local Management, AMQP, or MQTT listeners from starting.
+- Gateway DataProtection keys are stored in the container filesystem and are local, ephemeral keys. Recreating the Gateway container may replace them. This skeleton has no authentication or cookie-protected business flows that depend on a persistent key ring.
+
+These warnings are accepted for local development; they do not require Redis, a persistent key store, or RabbitMQ configuration workarounds in this phase.
 
 Follow logs for the whole stack or selected services:
 
@@ -149,3 +225,27 @@ The reset command deletes the PostgreSQL and RabbitMQ data stored in this Compos
 ## PostgreSQL ownership
 
 Compose initializes one database named `parking_system`. Each service's explicit EF migration owns its schema, `outbox_messages` table, and migration history table. The API does not apply migrations during startup. See `docs/data/Data-Ownership.md` for schema ownership.
+
+## Local JWT verification key
+
+The .NET Gateway and APIs validate RS256 tokens with a public key. Before starting the full Compose stack, generate a local development key pair once:
+
+```powershell
+./scripts/security/New-DevelopmentJwtKey.ps1
+```
+
+The script creates `.local/security/jwt/private.pem` and `public.pem` and refuses to overwrite an existing file. Validators mount only `public.pem`, read-only. The private key is ignored by Git and excluded from Docker build contexts; it is not needed by any application in this phase. Never paste either key into tracked files, logs, or documentation. Do not generate keys on application startup.
+
+Gateway browser origins are configured in `.env` with comma-separated explicit origins:
+
+```dotenv
+GATEWAY_CORS_ALLOWED_ORIGINS=http://localhost:3000
+```
+
+Leave it empty until a frontend origin is selected; an empty list allows no browser origins. This local example does not define a production domain. See [Security](../architecture/Security.md) for route authorization and token validation policy.
+
+Security plumbing can be exercised without production auth endpoints using the test-only hosts:
+
+```powershell
+dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --filter FullyQualifiedName~SecurityFoundationTests
+```
