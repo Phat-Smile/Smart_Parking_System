@@ -14,6 +14,6 @@ The existing `ParkingSystem.BuildingBlocks.Results.Result<T>` and `Error` types 
 
 ## Logging
 
-Each .NET HTTP host has one JSON console provider. Request events contain method, path without query, status, duration, trace ID, and correlation scope. Successful `/health/live` and `/health/ready` requests log at Debug; 4xx at Information; 5xx at Error. Request and response bodies, authorization/cookie headers, and exception objects are not logged by this middleware. The Outbox dispatcher emits one startup event; polling failures log the exception type only and per-message failures retain the existing sanitized error text.
+Each .NET HTTP host has one JSON console provider. Request events contain method, matched route template (or `<unmatched>`), status, duration, trace ID, and correlation scope; raw path and query values are omitted. Successful `/health/live` and `/health/ready` requests log at Debug; 4xx at Information; 5xx at Error. Request and response bodies, authorization/cookie headers, and exception objects are not logged by this middleware. The Outbox dispatcher emits one startup event; polling failures log the exception type only and per-message failures retain the existing sanitized error text.
 
 The AI service uses structured JSON request events with the same fields and status-level policy. Uvicorn access logging is disabled so routine health probes are not duplicated. The IoT simulator's existing startup prints report only broker host/port and whether credentials were configured; they do not print credential values.

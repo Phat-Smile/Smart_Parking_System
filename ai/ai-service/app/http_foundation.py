@@ -127,6 +127,9 @@ class CorrelationAndRequestLoggingMiddleware:
                 )
         finally:
             duration_ms = (time.perf_counter() - started_at) * 1000
+            route = scope.get("route")
+            route_template = getattr(route, "path_format", None)
+            logged_path = route_template if isinstance(route_template, str) else "<unmatched>"
             log_level = (
                 logging.ERROR
                 if status_code >= 500
@@ -141,7 +144,7 @@ class CorrelationAndRequestLoggingMiddleware:
                 "HTTP request completed",
                 extra={
                     "method": method,
-                    "path": path,
+                    "path": logged_path,
                     "status_code": status_code,
                     "duration_ms": round(duration_ms, 3),
                     "trace_id": trace_id,

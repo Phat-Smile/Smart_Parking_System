@@ -84,6 +84,7 @@ Errors use safe `application/problem+json`, including status, title, traceId, co
 ## Logging and observability
 
 - Each .NET host has one JSON console provider. AI request/error logs are structured; Uvicorn emits one lifecycle sequence with access logging disabled.
+- HTTP request logs use matched route templates or `<unmatched>`; raw route identifiers and query values are omitted.
 - Successful EF `Database.Command` messages are suppressed at `Warning` in local containers; warnings and failed commands remain visible. No request-body, token, cookie, credential or PII logging.
 - Applications send OTLP/gRPC traces and metrics to Collector `4317`; Collector exports traces to Jaeger and exposes metrics on `8889` for Prometheus. There is **no OTLP application log pipeline**.
 - Service names: `parking-gateway`, `identity-api`, `parking-api`, `booking-api`, `payment-api`, `notification-api`, `ai-service`; namespace `ParkingSystem`.
