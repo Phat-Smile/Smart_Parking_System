@@ -1,6 +1,11 @@
 namespace ParkingSystem.Identity.Application.Common.Messaging.Inbox;
 
-public sealed record InboxMessageDescriptor(Guid MessageId, string ConsumerKey, DateTimeOffset ReceivedAtUtc);
+public sealed record InboxMessageDescriptor(
+    Guid MessageId,
+    string ConsumerKey,
+    DateTimeOffset ReceivedAtUtc,
+    Guid? CorrelationId = null,
+    Guid? CausationId = null);
 
 public enum InboxExecutionResult
 {

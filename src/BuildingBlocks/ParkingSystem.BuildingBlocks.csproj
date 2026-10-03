@@ -1,3 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><RootNamespace>ParkingSystem.BuildingBlocks</RootNamespace></PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="ParkingSystem.AspNetCore/**/*.cs" />
+  </ItemGroup>
 </Project>

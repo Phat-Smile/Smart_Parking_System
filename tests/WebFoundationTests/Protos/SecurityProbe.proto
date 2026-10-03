@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option csharp_namespace = "ParkingSystem.Tests.WebFoundation.SecurityProbe";
+
+package parkingsystem.securitytest;
+
+service SecurityProbe {
+  rpc Ping (ProbeRequest) returns (ProbeReply);
+}
+
+message ProbeRequest {}
+
+message ProbeReply {
+  string subject_id = 1;
+}

@@ -14,7 +14,7 @@ internal sealed class InboxConsumerFilter<TConsumer>(string consumerKey) : IFilt
 
         var serviceProvider = context.GetPayload<IServiceProvider>();
         var coordinator = serviceProvider.GetRequiredService<IInboxExecutionCoordinator>();
-        var message = new InboxMessageDescriptor(messageId, consumerKey, DateTimeOffset.UtcNow);
+        var message = new InboxMessageDescriptor(messageId, consumerKey, DateTimeOffset.UtcNow, context.CorrelationId, context.InitiatorId);
         await coordinator.ExecuteAsync(message, token => next.Send(context), context.CancellationToken);
     }
 

@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="src/BuildingBlocks/ParkingSystem.BuildingBlocks.csproj" Id="bfcb2654-e9e8-4585-9b9d-6387b60360b1" />
+  <Project Path="src/BuildingBlocks/ParkingSystem.AspNetCore/ParkingSystem.AspNetCore.csproj" />
   <Project Path="src/Gateway/ParkingSystem.Gateway.csproj" Id="3d189e83-412f-412a-909e-7a6c57b47bae" />
   <Project Path="src/Services/Booking/Booking.Application/Booking.Application.csproj" Id="b6d530f6-732f-48db-8d2e-172d734db3c8" />
   <Project Path="src/Services/Booking/Booking.Domain/Booking.Domain.csproj" Id="e7829ca6-20cc-4be1-b6b0-45c8141d0716" />
@@ -27,6 +28,7 @@
   <Project Path="src/Services/Payment/Payment.Persistence/Payment.Persistence.csproj" Id="917d4c3f-735b-41b4-afec-3a473ad9bf7c" />
   <Project Path="src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj" Id="d6fdd1cb-45a8-4fc3-8e6d-0a3ba20c6d69" />
   <Project Path="tests/ArchitectureTests/ArchitectureTests.csproj" Id="c6fedad5-20d6-490e-9a42-be4534386b0c" />
+  <Project Path="tests/WebFoundationTests/WebFoundationTests.csproj" />
   <Project Path="tests/BuildingBlocks/ParkingSystem.Testing/ParkingSystem.Testing.csproj" Id="842b59ba-7aa1-4ec3-86fb-c27fa749e80d" />
   <Project Path="tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj" Id="181cd3c0-295f-4d36-bf7f-25ae2b8f031f" />
   <Project Path="tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj" Id="d1ac45ba-8c28-4beb-a3df-cb8dd549c7d0" />
