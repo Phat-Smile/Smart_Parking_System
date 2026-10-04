@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Parking.Application.Common.Messaging.Inbox;
 using ParkingSystem.Parking.Persistence.Outbox;
@@ -27,6 +29,8 @@ public static class PersistenceDependencyInjection
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", ParkingDbContext.DefaultSchema);
             }));
         services.AddScoped<IOutboxStore, OutboxStore>();
+        services.AddScoped<IOutboxWriter, OutboxWriter>();
+        services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, ParkingInboxExecutionCoordinator>();
         return services;
     }
