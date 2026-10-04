@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
@@ -11,11 +10,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("notification-api");
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(8080, listen => listen.Protocols = HttpProtocols.Http1);
-    options.ListenAnyIP(8081, listen => listen.Protocols = HttpProtocols.Http2);
-});
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
