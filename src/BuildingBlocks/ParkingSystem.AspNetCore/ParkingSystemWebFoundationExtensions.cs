@@ -28,6 +28,8 @@ public static class ParkingSystemWebFoundationExtensions
         builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogLevel.Warning);
+        // The Outbox dispatcher polls every second; executed-SQL logs at Information drown out real errors.
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 
         return builder;
     }
