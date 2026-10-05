@@ -1,10 +1,21 @@
 # Local development
 
+## Clean source archive
+
+From the repository root, create a source-only zip from the current commit:
+
+```sh
+git archive --format=zip --output=OJT2026_Individual-clean.zip HEAD
+```
+
+Keep the archive outside the repository or remove it after sharing. Manually zipping the working directory can include `.git`, ignored `.env` and `.local/` files, private keys, `bin/`, `obj/`, `TestResults/`, and `__pycache__/`. Never add private keys to tracked source.
+
 ## Prerequisites
 
 - Docker Desktop or Docker Engine with Docker Compose v2
 - .NET SDK 10.0.302 for running or validating .NET projects on the host
 - Python 3.12 only when running the AI service directly on the host
+- Node 24.16.0 and npm 11.13.0 for running the Next.js web app on the host
 
 The Compose stack builds the AI container with Python 3.12. It does not change the Python version installed on the host.
 
@@ -249,3 +260,19 @@ Security plumbing can be exercised without production auth endpoints using the t
 ```powershell
 dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --filter FullyQualifiedName~SecurityFoundationTests
 ```
+
+## Frontend local development
+
+The one Next.js app is in `web/`. From the repository root:
+
+```powershell
+cd web
+npm ci
+npm run dev
+```
+
+Browse `http://localhost:3000`. The browser uses `NEXT_PUBLIC_API_BASE_URL=http://localhost:5000` for YARP Gateway requests; Docker-only hostname `gateway:8080` is not browser-resolvable. Run `npm run lint`, `npm run typecheck`, `npm run test:run`, and `npm run build` for the technical baseline. Install Chromium with `npx playwright install chromium` once, then run `npm run test:e2e` for shell and 404 smoke checks.
+
+The local Compose Gateway explicitly allows origin `http://localhost:3000` by default through `GATEWAY_CORS_ALLOWED_ORIGINS`; unrelated origins are not allowed. Production origins remain configurable. `web/.env.example` contains only browser-visible variable names. The public Mapbox token is optional until an interactive map feature is used. Never copy a private Mapbox token or backend secret into `NEXT_PUBLIC_*`.
+
+Compose also offers the production-style frontend container: `docker compose build web` and `docker compose up -d web`. The container serves `http://localhost:3000`. See [Frontend architecture](../architecture/Frontend.md) and [Web README](../../web/README.md).

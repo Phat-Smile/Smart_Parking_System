@@ -12,4 +12,4 @@ Accounts, email/OTP and Google authentication, profiles, roles, and registered v
 - Identity.Infrastructure
 - Identity.WebAPI
 
-No feature endpoints, business entities, or migrations are implemented in Phase 02.
+No business entities or feature endpoints exist yet. Persistence contains only the service-owned Outbox, Inbox, and three EF migrations.

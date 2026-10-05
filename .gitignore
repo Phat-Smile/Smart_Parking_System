@@ -25,3 +25,14 @@ venv/
 *.py[cod]
 
 /net-commander
+
+# Frontend artifacts and local configuration
+web/node_modules/
+web/.next/
+web/out/
+web/coverage/
+web/playwright-report/
+web/test-results/
+web/.env
+web/.env.local
+web/.env.*.local
