@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
+using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Correlation;
 using Xunit;
@@ -118,6 +120,55 @@ public sealed class WebFoundationTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal(Guid.Parse("2CF64A6F-5A31-43C7-9A2A-88F160DA6B2B"),
                 await response.Content.ReadFromJsonAsync<Guid>(TestContext.Current.CancellationToken));
+        }
+    }
+
+    [Fact]
+    public async Task Request_logging_uses_route_templates_without_identifiers_queries_or_authorization()
+    {
+        const string routeValue = "SENSITIVE_ROUTE_VALUE_12345";
+        const string queryValue = "SENSITIVE_QUERY_VALUE_12345";
+        const string bearerValue = "SENSITIVE_AUTH_VALUE_12345";
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        builder.WebHost.UseTestServer();
+        builder.AddParkingSystemWebFoundation();
+        var capture = new CapturingLoggerProvider();
+        builder.Logging.AddProvider(capture);
+        var app = builder.Build();
+        Assert.False(app.Services.GetRequiredService<IOptionsMonitor<JsonConsoleFormatterOptions>>()
+            .Get(ConsoleFormatterNames.Json).IncludeScopes);
+        app.UseParkingSystemWebFoundation();
+        app.MapGet("/privacy/{identifier}", (string identifier) => Results.Ok());
+        await app.StartAsync(TestContext.Current.CancellationToken);
+
+        await using (app)
+        {
+            using var matched = new HttpRequestMessage(HttpMethod.Get, $"/privacy/{routeValue}?query={queryValue}");
+            matched.Headers.TryAddWithoutValidation("Authorization", $"Bearer {bearerValue}");
+            using var matchedResponse = await app.GetTestClient().SendAsync(matched, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, matchedResponse.StatusCode);
+
+            using var unmatchedResponse = await app.GetTestClient().GetAsync(
+                $"/missing/{routeValue}?query={queryValue}", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NotFound, unmatchedResponse.StatusCode);
+
+            var requestLogs = capture.Messages.Where(message =>
+                message.Contains("HTTP request completed.", StringComparison.Ordinal)).ToArray();
+            Assert.Equal(2, requestLogs.Length);
+            Assert.Contains(requestLogs, message => message.Contains("Path=/privacy/{identifier}", StringComparison.Ordinal));
+            Assert.Contains(requestLogs, message => message.Contains("Path=<unmatched>", StringComparison.Ordinal));
+            Assert.All(requestLogs, message =>
+            {
+                Assert.DoesNotContain(routeValue, message, StringComparison.Ordinal);
+                Assert.DoesNotContain(queryValue, message, StringComparison.Ordinal);
+                Assert.DoesNotContain(bearerValue, message, StringComparison.Ordinal);
+                Assert.Contains("Method=GET", message, StringComparison.Ordinal);
+                Assert.Contains("StatusCode=", message, StringComparison.Ordinal);
+                Assert.Contains("CorrelationId=", message, StringComparison.Ordinal);
+                Assert.Contains("TraceId=", message, StringComparison.Ordinal);
+                Assert.Contains("SpanId=", message, StringComparison.Ordinal);
+                Assert.Contains("TraceIdentifier=", message, StringComparison.Ordinal);
+            });
         }
     }
 

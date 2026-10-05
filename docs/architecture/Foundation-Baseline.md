@@ -5,8 +5,9 @@ Freeze date: **2026-10-03 (Asia/Saigon)**. Phase 07 is the final foundation chec
 ## Services and solution
 
 - Five .NET business bounded contexts: Identity, Parking, Booking, Payment, Notification. Each has Domain, Application, Persistence, Infrastructure, and WebAPI projects.
-- Gateway: external REST boundary using YARP; production proxy routes are currently empty.
+- Gateway: external REST boundary using YARP; current catch-all routes and clusters under `/api/identity/`, `/api/parking/`, `/api/booking/`, `/api/payment/`, and `/api/notification/` forward to the five business APIs. No business endpoint implementation exists yet.
 - AI: Python 3.12, FastAPI and internal gRPC; no business model or inference workflow.
+- AI direct dependencies remain declared in `pyproject.toml`; the validated Python 3.12 runtime/test environment is pinned in `requirements.lock` and installed from that file by the image and CI.
 - IoT Simulator: idle scaffold with MQTT environment configuration; `DEVICE_SIMULATION_ENABLED=false`. No publisher, consumer, device simulation, or gRPC client.
 - Shared projects: transport-neutral `ParkingSystem.BuildingBlocks` and host-specific `ParkingSystem.AspNetCore`.
 - Solution inventory: **41 .NET projects = 28 production + 12 test projects + 1 test-support library** (`ParkingSystem.Testing`). AI and IoT are separate Python components.
@@ -84,6 +85,7 @@ Errors use safe `application/problem+json`, including status, title, traceId, co
 ## Logging and observability
 
 - Each .NET host has one JSON console provider. AI request/error logs are structured; Uvicorn emits one lifecycle sequence with access logging disabled.
+- HTTP request logs use matched route templates or `<unmatched>`; raw route identifiers and query values are omitted.
 - Successful EF `Database.Command` messages are suppressed at `Warning` in local containers; warnings and failed commands remain visible. No request-body, token, cookie, credential or PII logging.
 - Applications send OTLP/gRPC traces and metrics to Collector `4317`; Collector exports traces to Jaeger and exposes metrics on `8889` for Prometheus. There is **no OTLP application log pipeline**.
 - Service names: `parking-gateway`, `identity-api`, `parking-api`, `booking-api`, `payment-api`, `notification-api`, `ai-service`; namespace `ParkingSystem`.
@@ -109,6 +111,7 @@ HTTP liveness checks only the process. The five APIs' readiness checks their Pos
 Phase 07 validation on 2026-10-03:
 
 - .NET tool restore, solution restore/build: PASS; 0 build warnings/errors.
+- `.github/workflows/foundation-ci.yml` enforces the .NET suite and Python 3.12 suite using `requirements.lock` on develop and feature branch pushes/pull requests; it does not deploy.
 - .NET: **45/45**, including **14/14 architecture**; no skips. Focused Identity integration regression: **4/4**.
 - AI: **10 tests plus 3 subtests**, PASS on Python **3.12.15**, including grpc/OpenTelemetry imports.
 - PostgreSQL/RabbitMQ integration tests use disposable Testcontainers with dynamic ports and cleanup; they do not use local host 5433 or populate the application database.
@@ -149,4 +152,4 @@ Frozen future invariants:
 
 Foundation changes require separate justification, review and regression: layer dependencies, service boundaries, Outbox/Inbox, transport, database ownership, correlation/error contracts, telemetry, JWT validation, ports and Docker topology must not be casually redesigned for a feature.
 
-Future business work uses `features/Implementation_<UserStoryName>` → Merge Request → `develop`; do not implement directly on develop. Work to a logical checkpoint, validate, commit one logical change, then push without force. Phase 07 may commit/push this existing develop checkpoint. No release branch or Git tag represents this freeze; the baseline document, passing report and pushed clean history do. Starting a vertical slice requires a separate explicit request.
+Future business work uses `features/Implementation_<UserStoryName>` → Merge Request → `develop`; do not implement directly on develop. Work to a logical checkpoint, validate, commit one logical change, then push without force. The annotated `foundation-setup-complete` tag marks the accepted Phase 07 commit; do not move it for later hygiene changes. No release branch is created. Starting a vertical slice requires a separate explicit request.

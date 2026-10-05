@@ -13,7 +13,7 @@ contains the completed technical foundation for future business Vertical Slices.
 
 See:
 
-- `docs/architecture/Foundation-Baseline.md`
+- [Foundation baseline](docs/architecture/Foundation-Baseline.md)
 - `docs/architecture/`
 - `docs/data/`
 - `docs/development/`
@@ -37,19 +37,22 @@ The current foundation includes:
 - Inbox / consumer idempotency
 - RabbitMQ + MassTransit
 - MQTT support for IoT Simulator
-- gRPC communication foundation
+- gRPC health and Development reflection
 - ProblemDetails error handling
 - Correlation ID propagation
 - Structured logging
 - OpenTelemetry tracing and metrics
+- OpenTelemetry Collector
 - Jaeger
 - Prometheus
 - JWT RS256 validation foundation
 - Authorization foundation
 - CORS
 - Security headers
-- HTTP and gRPC health checks
+- HTTP liveness and dependency-aware readiness; gRPC health checks
 - Architecture and integration tests
+
+GitHub Actions runs the .NET and Python foundation suites for pushes and pull requests targeting `develop` and feature branches. The workflow is in `.github/workflows/foundation-ci.yml`.
 
 ### Business implementation
 

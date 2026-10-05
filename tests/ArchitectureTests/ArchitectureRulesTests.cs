@@ -60,6 +60,15 @@ public sealed class ArchitectureRulesTests
         }
     }
 
+    [Theory]
+    [InlineData(@"..\ParkingSystem.BuildingBlocks\ParkingSystem.BuildingBlocks.csproj")]
+    [InlineData("../ParkingSystem.BuildingBlocks/ParkingSystem.BuildingBlocks.csproj")]
+    public void Project_reference_names_support_both_separator_styles(string reference)
+    {
+        Assert.Equal("ParkingSystem.BuildingBlocks",
+            Path.GetFileNameWithoutExtension(NormalizeProjectReference(reference)));
+    }
+
     [Fact]
     public void Business_service_projects_do_not_reference_another_service()
     {
@@ -321,9 +330,12 @@ public sealed class ArchitectureRulesTests
             .Where(element => element.Name.LocalName == "ProjectReference")
             .Select(element => (string?)element.Attribute("Include"))
             .Where(include => !string.IsNullOrWhiteSpace(include))
-            .Select(include => include!)
+            .Select(include => NormalizeProjectReference(include!))
             .ToArray();
     }
+
+    private static string NormalizeProjectReference(string reference) =>
+        reference.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
 
     private static string[] ReadPackageReferences(string project)
     {
