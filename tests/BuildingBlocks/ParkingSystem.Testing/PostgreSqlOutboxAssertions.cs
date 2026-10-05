@@ -11,7 +11,8 @@ public static class PostgreSqlOutboxAssertions
     public static async Task AssertServiceIsolationAndOutboxMetadataAsync(
         DbContext dbContext,
         string serviceSchema,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        params string[] businessTables)
     {
         Require(AllowedServiceSchemas.Contains(serviceSchema), $"Unexpected service schema '{serviceSchema}'.");
 
@@ -30,7 +31,13 @@ public static class PostgreSqlOutboxAssertions
             "WHERE table_schema = @service_schema AND table_type = 'BASE TABLE' ORDER BY table_name",
             cancellationToken,
             ("service_schema", serviceSchema));
-        Require(serviceTables.SequenceEqual(["__EFMigrationsHistory", "inbox_messages", "outbox_messages"]), $"Unexpected tables in '{serviceSchema}': {string.Join(", ", serviceTables)}.");
+        // Technical tables every service owns, plus the business tables its migrations have created so far.
+        var expectedTables = new[] { "__EFMigrationsHistory", "inbox_messages", "outbox_messages" }
+            .Concat(businessTables)
+            .Order(StringComparer.Ordinal);
+        Require(
+            serviceTables.Order(StringComparer.Ordinal).SequenceEqual(expectedTables),
+            $"Unexpected tables in '{serviceSchema}': {string.Join(", ", serviceTables)}.");
 
         var publicTableCount = await QueryScalarAsync<long>(
             dbContext,
@@ -54,7 +61,10 @@ public static class PostgreSqlOutboxAssertions
             dbContext,
             $"SELECT \"MigrationId\" FROM \"{serviceSchema}\".\"__EFMigrationsHistory\" ORDER BY \"MigrationId\"",
             cancellationToken);
-        Require(migrationIds.Count == 3 && migrationIds[0].EndsWith("_AddOutboxFoundation", StringComparison.Ordinal) &&
+        // The three technical migrations come first; business migrations may follow only for services
+        // that declared business tables.
+        var expectedMigrationCountIsValid = businessTables.Length == 0 ? migrationIds.Count == 3 : migrationIds.Count > 3;
+        Require(expectedMigrationCountIsValid && migrationIds[0].EndsWith("_AddOutboxFoundation", StringComparison.Ordinal) &&
                 migrationIds[1].EndsWith("_AddOutboxDispatchLeasing", StringComparison.Ordinal) &&
                 migrationIds[2].EndsWith("_AddInboxFoundation", StringComparison.Ordinal),
             $"Unexpected migration history for '{serviceSchema}': {string.Join(", ", migrationIds)}.");

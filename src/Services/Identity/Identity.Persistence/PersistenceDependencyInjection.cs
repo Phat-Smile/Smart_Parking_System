@@ -3,8 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Messaging.Inbox;
+using ParkingSystem.Identity.Persistence.Accounts;
 using ParkingSystem.Identity.Persistence.Outbox;
 using ParkingSystem.Identity.Persistence.Inbox;
 
@@ -32,6 +34,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, IdentityInboxExecutionCoordinator>();
+        services.AddScoped<IAccountRepository, AccountRepository>();
         return services;
     }
 }
