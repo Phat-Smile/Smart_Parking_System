@@ -1,22 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ThemeProvider, useTheme } from "@/shared/ui/theme/ThemeContext";
-import { Logo } from "@/shared/ui/Logo";
+import { AuthGlyph } from "./AuthGlyph";
 import { LoginForm } from "./LoginForm";
-import { LoginIcon } from "./LoginIcon";
 import { LoginIllustration } from "./LoginIllustration";
 
-function LoginThemeToggle() {
+function ThemeButton() {
     const { isDark, toggleTheme } = useTheme();
     return (
         <button
             type="button"
             aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
             onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--auth-panel-border)] bg-[var(--auth-feature)] text-[var(--auth-text-secondary)] hover:text-[var(--auth-accent)] focus-visible:outline-2 focus-visible:outline-[var(--auth-accent)]"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--login-control)] text-[var(--login-muted)] hover:bg-[var(--login-control-hover)] hover:text-[var(--login-text)] focus-visible:outline-2 focus-visible:outline-[var(--login-accent)]"
         >
-            <LoginIcon name={isDark ? "sun" : "moon"} className="h-5 w-5" />
+            <AuthGlyph
+                name={isDark ? "sun" : "moon"}
+                className="h-[18px] w-[18px]"
+            />
         </button>
     );
 }
@@ -24,60 +27,60 @@ function LoginThemeToggle() {
 function LoginHeader() {
     const [menuOpen, setMenuOpen] = useState(false);
     return (
-        <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--auth-panel-border)] bg-[var(--auth-navbar)] backdrop-blur-xl">
-            <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6">
-                <Logo href="/guest" size="large" variant="auth" />
-                <nav
-                    className="hidden items-center gap-6 md:flex"
-                    aria-label="Main navigation"
+        <header className="flex h-[52px] w-full shrink-0 items-center justify-between border-b border-[var(--login-border)]">
+            <Link
+                href="/"
+                className="flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-accent)]"
+            >
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--login-control)] text-[var(--login-accent)] shadow-sm">
+                    <AuthGlyph name="parking" className="h-[19px] w-[19px]" />
+                </span>
+                <span className="font-heading text-lg font-bold tracking-tight text-[var(--login-text)]">
+                    Smart Parking System
+                </span>
+            </Link>
+            <nav
+                className="hidden items-center gap-6 md:flex"
+                aria-label="Main navigation"
+            >
+                <Link
+                    href="/guest#how-it-works"
+                    className="font-mono text-sm text-[var(--login-muted)] hover:text-[var(--login-text)] focus-visible:outline-2 focus-visible:outline-[var(--login-accent)]"
                 >
-                    <a
-                        href="/guest#how-it-works"
-                        className="font-mono text-sm tracking-[0.04em] text-[var(--auth-text-muted)] hover:text-[var(--auth-text)] focus-visible:outline-2 focus-visible:outline-[var(--auth-accent)]"
-                    >
-                        How It Works
-                    </a>
-                    <a
-                        href="/guest#pageFooter"
-                        className="font-mono text-sm tracking-[0.04em] text-[var(--auth-text-muted)] hover:text-[var(--auth-text)] focus-visible:outline-2 focus-visible:outline-[var(--auth-accent)]"
-                    >
-                        Support
-                    </a>
-                </nav>
-                <div className="flex items-center gap-4">
-                    <LoginThemeToggle />
-                    <span
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--auth-accent)] text-white"
-                        aria-hidden="true"
-                    >
-                        <LoginIcon
-                            name="person"
-                            className="h-[18px] w-[18px]"
-                        />
-                    </span>
-                    <button
-                        type="button"
-                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--auth-panel-border)] text-[var(--auth-text)] focus-visible:outline-2 focus-visible:outline-[var(--auth-accent)] md:hidden"
-                        aria-label="Toggle navigation menu"
-                        aria-expanded={menuOpen}
-                        onClick={() => setMenuOpen((open) => !open)}
-                    >
-                        <span
-                            aria-hidden="true"
-                            className="text-xl leading-none"
-                        >
-                            {menuOpen ? "×" : "☰"}
-                        </span>
-                    </button>
-                </div>
+                    How It Works
+                </Link>
+                <Link
+                    href="/guest#pageFooter"
+                    className="font-mono text-sm text-[var(--login-muted)] hover:text-[var(--login-text)] focus-visible:outline-2 focus-visible:outline-[var(--login-accent)]"
+                >
+                    Support
+                </Link>
+            </nav>
+            <div className="flex items-center gap-3">
+                <ThemeButton />
+                <span
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--login-accent)] text-[var(--login-accent-contrast)]"
+                    aria-hidden="true"
+                >
+                    <AuthGlyph name="person" className="h-[17px] w-[17px]" />
+                </span>
+                <button
+                    type="button"
+                    aria-label="Toggle navigation menu"
+                    aria-expanded={menuOpen}
+                    onClick={() => setMenuOpen((open) => !open)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--login-border)] text-[var(--login-text)] focus-visible:outline-2 focus-visible:outline-[var(--login-accent)] md:hidden"
+                >
+                    <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>
+                </button>
             </div>
             {menuOpen && (
                 <nav
-                    className="flex flex-col gap-3 border-t border-[var(--auth-panel-border)] bg-[var(--auth-navbar)] px-4 py-4 text-sm text-[var(--auth-text)] md:hidden"
                     aria-label="Mobile navigation"
+                    className="absolute top-[62px] right-6 left-6 z-30 flex flex-col gap-3 rounded-xl border border-[var(--login-border)] bg-[var(--login-panel)] p-4 text-sm text-[var(--login-text)] shadow-xl md:hidden"
                 >
-                    <a href="/guest#how-it-works">How It Works</a>
-                    <a href="/guest#pageFooter">Support</a>
+                    <Link href="/guest#how-it-works">How It Works</Link>
+                    <Link href="/guest#pageFooter">Support</Link>
                 </nav>
             )}
         </header>
@@ -94,26 +97,26 @@ function LoginBenefits() {
     return (
         <section
             aria-label="Smart Parking benefits"
-            className="mx-auto mt-10 w-full max-w-4xl pt-6 lg:mt-12"
+            className="mt-3 mb-1 w-full shrink-0"
         >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:gap-8">
-                {benefits.map((benefit) => (
+            <div className="mx-auto grid max-w-[860px] grid-cols-1 gap-4 md:grid-cols-3">
+                {benefits.map((item) => (
                     <div
-                        key={benefit.title}
-                        className="flex items-center gap-4 rounded-2xl border border-[var(--auth-panel-border)] bg-[var(--auth-feature)] p-4 backdrop-blur-md"
+                        key={item.title}
+                        className="flex h-[54px] items-center gap-3 rounded-xl border border-[var(--login-border)] bg-[var(--login-benefit)] px-4 shadow-sm backdrop-blur-md"
                     >
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--auth-feature-icon)] text-[var(--auth-feature-icon-color)]">
-                            <LoginIcon
-                                name={benefit.icon}
-                                className="h-6 w-6"
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--login-benefit-icon-bg)] text-[var(--login-accent)]">
+                            <AuthGlyph
+                                name={item.icon}
+                                className="h-[18px] w-[18px]"
                             />
                         </span>
-                        <span className="flex flex-col">
-                            <span className="font-heading text-xl font-semibold text-[var(--auth-text)]">
-                                {benefit.title}
+                        <span className="flex flex-col leading-tight">
+                            <span className="font-heading text-[13px] font-semibold text-[var(--login-text)]">
+                                {item.title}
                             </span>
-                            <span className="text-[13px] leading-5 text-[var(--auth-text-muted)]">
-                                {benefit.detail}
+                            <span className="text-[11px] text-[var(--login-muted)]">
+                                {item.detail}
                             </span>
                         </span>
                     </div>
@@ -123,42 +126,18 @@ function LoginBenefits() {
     );
 }
 
-function LoginFooter() {
-    return (
-        <footer className="w-full border-t border-[var(--auth-panel-border)] bg-[var(--auth-bg)]">
-            <div className="flex w-full flex-col items-center justify-between gap-4 px-4 py-6 font-mono text-[10px] tracking-[0.08em] text-[var(--auth-text-muted)] sm:px-6 md:flex-row">
-                <span>
-                    © 2024 Smart Parking System. Telemetry Architecture.
-                </span>
-                <div className="flex flex-wrap justify-center gap-4">
-                    <span>Privacy Policy</span>
-                    <span>Terms of Service</span>
-                    <span>Sensor Status</span>
-                </div>
-            </div>
-        </footer>
-    );
-}
-
 export function LoginPage() {
     return (
         <ThemeProvider defaultTheme="dark">
-            <div className="min-h-screen bg-[var(--auth-bg)] text-[var(--auth-text)] transition-colors">
-                <LoginHeader />
-                <main className="flex min-h-[calc(100vh-4rem)] flex-col pt-16">
-                    <div className="relative flex min-h-[calc(100vh-4rem)] w-full flex-col items-center justify-center overflow-hidden px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-                        <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-[var(--auth-accent)] opacity-20 blur-3xl" />
-                        <div className="pointer-events-none absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-[var(--auth-accent)] opacity-15 blur-3xl" />
-                        <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center">
-                            <div className="grid w-full grid-cols-1 items-stretch gap-6 lg:grid-cols-12 lg:gap-8">
-                                <LoginIllustration />
-                                <LoginForm />
-                            </div>
-                            <LoginBenefits />
-                        </div>
-                    </div>
-                </main>
-                <LoginFooter />
+            <div className="min-h-screen w-full bg-[var(--login-bg)] text-[var(--login-text)]">
+                <div className="mx-auto flex min-h-screen w-full max-w-[1404px] flex-col px-6 py-2.5 lg:h-[730px] lg:min-h-[730px] lg:px-8">
+                    <LoginHeader />
+                    <main className="my-6 grid w-full grid-cols-1 items-stretch gap-6 lg:my-auto lg:h-[475px] lg:shrink-0 lg:grid-cols-12">
+                        <LoginIllustration />
+                        <LoginForm />
+                    </main>
+                    <LoginBenefits />
+                </div>
             </div>
         </ThemeProvider>
     );

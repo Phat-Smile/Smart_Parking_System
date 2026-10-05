@@ -5,7 +5,6 @@ export interface LogoProps {
     className?: string;
     showText?: boolean;
     size?: "default" | "large";
-    variant?: "brand" | "auth";
 }
 
 export function Logo({
@@ -13,16 +12,15 @@ export function Logo({
     className = "",
     showText = true,
     size = "default",
-    variant = "brand",
 }: LogoProps) {
     const isLarge = size === "large";
     const content = (
         <div className={`flex items-center gap-2.5 group ${className}`.trim()}>
             <div
-                className={`${isLarge ? "w-9 h-9" : "w-7 h-7"} rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform shrink-0 ${variant === "auth" ? "bg-[var(--auth-feature-icon)]" : "bg-gradient-to-br from-brand-500 to-brand-600 shadow-glow-purple"}`}
+                className={`${isLarge ? "w-9 h-9" : "w-7 h-7"} rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform shrink-0 bg-gradient-to-br from-brand-500 to-brand-600 shadow-glow-purple`}
             >
                 <span
-                    className={`font-heading font-black tracking-tighter ${variant === "auth" ? "text-[var(--auth-feature-icon-color)]" : "text-white"} ${isLarge ? "text-lg" : "text-xs"}`}
+                    className={`font-heading font-black tracking-tighter text-white ${isLarge ? "text-lg" : "text-xs"}`}
                 >
                     P
                 </span>

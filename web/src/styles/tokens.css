@@ -36,34 +36,33 @@
     --guest-success-text: #17a36b;
     --guest-shadow-soft: 0 10px 30px rgba(18, 24, 38, 0.06);
 
-    /* Stitch Login surface tokens */
-    --auth-bg: #f8f9fc;
-    --auth-navbar: rgb(255 255 255 / 90%);
-    --auth-panel: #ffffff;
-    --auth-panel-border: rgb(17 19 34 / 8%);
-    --auth-panel-shadow: 0 20px 60px rgb(20 24 40 / 8%);
-    --auth-input: #f7f8fb;
-    --auth-input-border: rgb(17 19 34 / 10%);
-    --auth-input-placeholder: #8a90a0;
-    --auth-input-icon: #596070;
-    --auth-google: #ffffff;
-    --auth-feature: #ffffff;
-    --auth-feature-icon: #f1edff;
-    --auth-feature-icon-color: #7657ff;
-    --auth-text: #111322;
-    --auth-text-secondary: #4b5565;
-    --auth-text-muted: #7c8496;
-    --auth-accent: #7657ff;
-    --auth-accent-gradient: linear-gradient(135deg, #7657ff, #5a3fe0);
-    --auth-accent-shadow: 0 10px 25px -4px rgb(118 87 255 / 35%);
-    --auth-badge: #f1edff;
-    --auth-badge-text: #6945ff;
-    --auth-visual: #eaeff7;
-    --auth-live: #10b981;
-    --auth-vignette: linear-gradient(
+    /* Compact Login surface tokens */
+    --login-bg: #f8f9fc;
+    --login-panel: #ffffff;
+    --login-text: #111322;
+    --login-muted: #4b5565;
+    --login-accent: #7657ff;
+    --login-heading-accent: #7657ff;
+    --login-accent-contrast: #ffffff;
+    --login-border: rgb(17 19 34 / 8%);
+    --login-control: #eef1f7;
+    --login-control-hover: #e5e8f1;
+    --login-input: #f7f8fb;
+    --login-divider: #d8dbe5;
+    --login-back-bg: rgb(118 87 255 / 8%);
+    --login-back-border: rgb(118 87 255 / 20%);
+    --login-back-text: #7657ff;
+    --login-back-hover: #e7e0ff;
+    --login-visual: #eaeff7;
+    --login-badge-bg: rgb(255 255 255 / 90%);
+    --login-badge-border: rgb(17 19 34 / 8%);
+    --login-benefit: #ffffff;
+    --login-benefit-icon-bg: #f1edff;
+    --login-live: #10b981;
+    --login-vignette: linear-gradient(
         to top,
-        rgb(248 249 252 / 50%),
-        transparent 40%
+        rgb(0 0 0 / 20%),
+        transparent 45%
     );
 }
 
@@ -96,32 +95,31 @@ html.dark {
     --guest-success-text: #34d399;
     --guest-shadow-soft: 0 12px 32px -8px rgba(0, 0, 0, 0.7);
 
-    --auth-bg: #03010e;
-    --auth-navbar: rgb(8 7 19 / 85%);
-    --auth-panel: rgb(11 12 23 / 92%);
-    --auth-panel-border: rgb(255 255 255 / 8%);
-    --auth-panel-shadow: 0 24px 60px -12px rgb(0 0 0 / 70%);
-    --auth-input: #121423;
-    --auth-input-border: rgb(255 255 255 / 10%);
-    --auth-input-placeholder: #686d80;
-    --auth-input-icon: #7c8298;
-    --auth-google: #151829;
-    --auth-feature: rgb(16 17 29 / 85%);
-    --auth-feature-icon: rgb(138 107 255 / 12%);
-    --auth-feature-icon-color: #a085ff;
-    --auth-text: #ffffff;
-    --auth-text-secondary: #d4d6e0;
-    --auth-text-muted: #878a99;
-    --auth-accent: #937aff;
-    --auth-accent-gradient: linear-gradient(135deg, #937aff, #4d36d0);
-    --auth-accent-shadow: 0 10px 25px -4px rgb(116 87 255 / 45%);
-    --auth-badge: rgb(147 122 255 / 12%);
-    --auth-badge-text: #b49fff;
-    --auth-visual: #090916;
-    --auth-live: #00e396;
-    --auth-vignette: linear-gradient(
+    --login-bg: #151123;
+    --login-panel: rgb(13 12 29 / 90%);
+    --login-text: #e7def8;
+    --login-muted: #cac4d6;
+    --login-accent: #cabeff;
+    --login-heading-accent: #937aff;
+    --login-accent-contrast: #320099;
+    --login-border: rgb(255 255 255 / 5%);
+    --login-control: #211d2f;
+    --login-control-hover: #2c273a;
+    --login-input: rgb(55 50 70 / 40%);
+    --login-divider: #373246;
+    --login-back-bg: rgb(147 122 255 / 12%);
+    --login-back-border: rgb(147 122 255 / 25%);
+    --login-back-text: #b8a4ff;
+    --login-back-hover: rgb(147 122 255 / 20%);
+    --login-visual: #1d192b;
+    --login-badge-bg: rgb(13 12 29 / 85%);
+    --login-badge-border: rgb(202 190 255 / 20%);
+    --login-benefit: rgb(33 29 47 / 40%);
+    --login-benefit-icon-bg: #373246;
+    --login-live: #9cf0ff;
+    --login-vignette: linear-gradient(
         to top,
-        rgb(3 1 14 / 80%),
+        rgb(16 11 29 / 80%),
         transparent 60%
     );
 }

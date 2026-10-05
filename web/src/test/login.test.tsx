@@ -23,14 +23,20 @@ describe("Login UI before Identity integration", () => {
             screen.getByRole("button", { name: /Continue with Google/i }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("link", { name: /Forgot password/i }),
+            screen.getByRole("button", { name: /Forgot password/i }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("link", { name: /Sign up/i }),
+            screen.getByRole("button", { name: /Sign up/i }),
         ).toBeInTheDocument();
+        expect(
+            screen.getByRole("link", { name: /Back to Home/i }),
+        ).toHaveAttribute("href", "/");
         expect(
             screen.getByRole("img", { name: /parking structure at dusk/i }),
         ).toBeInTheDocument();
+        expect(
+            screen.queryByText(/Telemetry Architecture/i),
+        ).not.toBeInTheDocument();
     });
 
     it("requires a valid email and a password", async () => {
@@ -92,12 +98,12 @@ describe("Login UI before Identity integration", () => {
             "Google sign-in is not available yet",
         );
         await user.click(
-            screen.getByRole("link", { name: /Forgot password/i }),
+            screen.getByRole("button", { name: /Forgot password/i }),
         );
         expect(screen.getByRole("status")).toHaveTextContent(
             "Password reset is not available yet",
         );
-        await user.click(screen.getByRole("link", { name: /Sign up/i }));
+        await user.click(screen.getByRole("button", { name: /Sign up/i }));
         expect(screen.getByRole("status")).toHaveTextContent(
             "Account registration UI is not available yet",
         );

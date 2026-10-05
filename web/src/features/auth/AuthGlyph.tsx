@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
 
-type IconName =
+type Glyph =
+    | "parking"
     | "sun"
     | "moon"
     | "person"
@@ -14,18 +15,19 @@ type IconName =
     | "pin"
     | "sensor";
 
-const paths: Record<IconName, React.ReactNode> = {
+const artwork: Record<Glyph, React.ReactNode> = {
+    parking: <path d="M7 21V3h7a5 5 0 0 1 0 10H7m0-5h7" />,
     sun: (
         <>
             <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+            <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4m0-14.2-1.4 1.4M6.3 17.7l-1.4 1.4" />
         </>
     ),
-    moon: <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" />,
+    moon: <path d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z" />,
     person: (
         <>
-            <circle cx="12" cy="8" r="3.5" />
-            <path d="M5 20a7 7 0 0 1 14 0" />
+            <circle cx="12" cy="8" r="3.3" />
+            <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
         </>
     ),
     mail: (
@@ -74,15 +76,15 @@ const paths: Record<IconName, React.ReactNode> = {
     sensor: (
         <>
             <circle cx="12" cy="12" r="2" />
-            <path d="M7 7a7 7 0 0 0 0 10m10-10a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16m16-16a11 11 0 0 1 0 16" />
+            <path d="M7 7a7 7 0 0 0 0 10m10-10a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16m16-16a11 11 0 0 0 0 16" />
         </>
     ),
 };
 
-export function LoginIcon({
+export function AuthGlyph({
     name,
     ...props
-}: { name: IconName } & SVGProps<SVGSVGElement>) {
+}: { name: Glyph } & SVGProps<SVGSVGElement>) {
     return (
         <svg
             viewBox="0 0 24 24"
@@ -94,7 +96,7 @@ export function LoginIcon({
             aria-hidden="true"
             {...props}
         >
-            {paths[name]}
+            {artwork[name]}
         </svg>
     );
 }
