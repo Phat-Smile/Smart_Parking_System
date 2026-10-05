@@ -78,12 +78,15 @@ public sealed class VerifyEmailOtpCommandHandler(
                 : Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.InvalidOtpCode);
         }
 
-        account.VerifyEmail();
+        var transitioned = account.VerifyEmail();
 
-        outboxWriter.Enqueue(
-            new AccountEmailVerifiedIntegrationEvent(account.Id, account.Email, now),
-            "identity.account-email-verified.v1",
-            1);
+        if (transitioned)
+        {
+            outboxWriter.Enqueue(
+                new AccountEmailVerifiedIntegrationEvent(account.Id, account.Email, now),
+                "identity.account-email-verified.v1",
+                1);
+        }
 
         await emailVerifications.SaveChangesAsync(cancellationToken);
 

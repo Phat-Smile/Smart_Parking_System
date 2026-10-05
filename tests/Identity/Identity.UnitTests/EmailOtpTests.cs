@@ -215,9 +215,10 @@ public sealed class EmailOtpTests
         Assert.Equal(300, result.Value.ExpiresInSeconds);
         Assert.Equal(60, result.Value.CooldownSeconds);
 
-        Assert.True(oldVerification.IsUsed); // Old one invalidated
+        Assert.True(oldVerification.IsInvalidated); // Old one invalidated
+        Assert.Equal(clock.UtcNow, oldVerification.InvalidatedAtUtc);
         var newVerification = Assert.Single(verificationRepo.Saved, v => v.Id != oldVerification.Id);
-        Assert.Equal("987654", newVerification.OtpCode);
+        Assert.Equal(EmailVerification.HashOtp("987654", account.Id), newVerification.OtpHash);
 
         var enqueued = Assert.Single(outboxWriter.Enqueued);
         Assert.Equal("identity.user-verification-otp-issued.v1", enqueued.EventType);
@@ -300,6 +301,52 @@ public sealed class EmailOtpTests
     }
 
     [Fact]
+    public void EmailVerification_hashes_otp_and_does_not_expose_plaintext()
+    {
+        var accountId = Guid.NewGuid();
+        var verification = EmailVerification.Issue(Guid.NewGuid(), accountId, "user@example.com", "123456", InitialTime);
+
+        Assert.Equal(64, verification.OtpHash.Length);
+        Assert.Equal(EmailVerification.HashOtp("123456", accountId), verification.OtpHash);
+        Assert.False(verification.IsUsed);
+        Assert.False(verification.IsInvalidated);
+        Assert.Null(verification.InvalidatedAtUtc);
+        Assert.Equal(1, verification.RowVersion);
+
+        // Verification succeeds with matching OTP
+        Assert.True(verification.RecordAttempt("123456", InitialTime));
+        Assert.True(verification.IsUsed);
+        Assert.Equal(2, verification.RowVersion);
+    }
+
+    [Fact]
+    public void EmailVerification_invalidated_cannot_be_attempted()
+    {
+        var accountId = Guid.NewGuid();
+        var verification = EmailVerification.Issue(Guid.NewGuid(), accountId, "user@example.com", "123456", InitialTime);
+
+        var invalidateTime = InitialTime.AddMinutes(1);
+        verification.Invalidate(invalidateTime);
+
+        Assert.True(verification.IsInvalidated);
+        Assert.Equal(invalidateTime, verification.InvalidatedAtUtc);
+        Assert.False(verification.CanAttempt());
+        Assert.False(verification.RecordAttempt("123456", InitialTime));
+        Assert.Equal(2, verification.RowVersion);
+    }
+
+    [Fact]
+    public void EmailVerification_record_attempt_increments_row_version_on_failure()
+    {
+        var accountId = Guid.NewGuid();
+        var verification = EmailVerification.Issue(Guid.NewGuid(), accountId, "user@example.com", "123456", InitialTime);
+
+        Assert.False(verification.RecordAttempt("000000", InitialTime));
+        Assert.Equal(1, verification.AttemptCount);
+        Assert.Equal(2, verification.RowVersion);
+    }
+
+    [Fact]
     public void SecureOtpGenerator_generates_cryptographic_6_digit_otp()
     {
         var generator = new SecureOtpGenerator();
@@ -347,7 +394,7 @@ public sealed class EmailOtpTests
 
         public Task<EmailVerification?> GetLatestActiveForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
             Task.FromResult(Saved
-                .Where(v => v.AccountId == accountId && !v.IsUsed)
+                .Where(v => v.AccountId == accountId && !v.IsUsed && v.InvalidatedAtUtc == null)
                 .OrderByDescending(v => v.CreatedAtUtc)
                 .FirstOrDefault());
 

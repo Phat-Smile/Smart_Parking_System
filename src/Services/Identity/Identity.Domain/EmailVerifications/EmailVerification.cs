@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace ParkingSystem.Identity.Domain.EmailVerifications;
 
 public sealed class EmailVerification
@@ -15,11 +18,25 @@ public sealed class EmailVerification
     public Guid Id { get; private set; }
     public Guid AccountId { get; private set; }
     public string Email { get; private set; } = null!;
-    public string OtpCode { get; private set; } = null!;
+    public string OtpHash { get; private set; } = null!;
     public DateTimeOffset ExpiresAtUtc { get; private set; }
     public int AttemptCount { get; private set; }
     public bool IsUsed { get; private set; }
+    public DateTimeOffset? InvalidatedAtUtc { get; private set; }
+    public bool IsInvalidated => InvalidatedAtUtc.HasValue;
     public DateTimeOffset CreatedAtUtc { get; private set; }
+    public int RowVersion { get; private set; } = 1;
+
+    public static string HashOtp(string otpCode, Guid accountId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(otpCode);
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("AccountId must not be empty.", nameof(accountId));
+
+        var raw = $"{accountId:D}:{otpCode.Trim()}";
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+        return Convert.ToHexString(bytes);
+    }
 
     public static EmailVerification Issue(
         Guid id,
@@ -40,26 +57,36 @@ public sealed class EmailVerification
             Id = id,
             AccountId = accountId,
             Email = email.Trim().ToLowerInvariant(),
-            OtpCode = otpCode.Trim(),
+            OtpHash = HashOtp(otpCode, accountId),
             ExpiresAtUtc = createdAtUtc.AddMinutes(ExpirationMinutes),
             AttemptCount = 0,
             IsUsed = false,
-            CreatedAtUtc = createdAtUtc
+            InvalidatedAtUtc = null,
+            CreatedAtUtc = createdAtUtc,
+            RowVersion = 1
         };
     }
 
     public bool IsExpired(DateTimeOffset nowUtc) => nowUtc >= ExpiresAtUtc;
 
-    public bool CanAttempt() => !IsUsed && AttemptCount < MaxAttempts;
+    public bool CanAttempt() => !IsUsed && !IsInvalidated && AttemptCount < MaxAttempts;
 
     public bool RecordAttempt(string inputOtp, DateTimeOffset nowUtc)
     {
-        if (IsUsed || IsExpired(nowUtc) || AttemptCount >= MaxAttempts)
+        if (IsUsed || IsInvalidated || IsExpired(nowUtc) || AttemptCount >= MaxAttempts)
             return false;
 
         AttemptCount++;
+        RowVersion++;
 
-        if (string.Equals(OtpCode, inputOtp.Trim(), StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(inputOtp))
+            return false;
+
+        var inputHash = HashOtp(inputOtp, AccountId);
+        var expectedBytes = Encoding.UTF8.GetBytes(OtpHash);
+        var actualBytes = Encoding.UTF8.GetBytes(inputHash);
+
+        if (CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes))
         {
             IsUsed = true;
             return true;
@@ -68,8 +95,13 @@ public sealed class EmailVerification
         return false;
     }
 
-    public void Invalidate()
+    public void Invalidate(DateTimeOffset nowUtc)
     {
-        IsUsed = true;
+        if (IsInvalidated)
+            return;
+
+        InvalidatedAtUtc = nowUtc;
+        RowVersion++;
     }
 }
+

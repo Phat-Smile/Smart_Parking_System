@@ -73,7 +73,7 @@ public sealed class ResendOtpCommandHandler(
 
         // Invalidate active OTP
         var previousActive = await emailVerifications.GetLatestActiveForAccountAsync(account.Id, cancellationToken);
-        previousActive?.Invalidate();
+        previousActive?.Invalidate(now);
 
         // Issue new OTP
         var otpCode = otpGenerator.GenerateNumericOtp(EmailVerification.OtpLength);

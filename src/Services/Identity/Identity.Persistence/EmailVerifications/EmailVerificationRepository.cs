@@ -8,7 +8,7 @@ internal sealed class EmailVerificationRepository(IdentityDbContext dbContext) :
 {
     public Task<EmailVerification?> GetLatestActiveForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
         dbContext.EmailVerifications
-            .Where(verification => verification.AccountId == accountId && !verification.IsUsed)
+            .Where(verification => verification.AccountId == accountId && !verification.IsUsed && verification.InvalidatedAtUtc == null)
             .OrderByDescending(verification => verification.CreatedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
 

@@ -97,17 +97,28 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at_utc");
 
+                    b.Property<DateTimeOffset?>("InvalidatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invalidated_at_utc");
+
                     b.Property<bool>("IsUsed")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("is_used");
 
-                    b.Property<string>("OtpCode")
+                    b.Property<string>("OtpHash")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("otp_code");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("otp_hash");
+
+                    b.Property<int>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("row_version");
 
                     b.HasKey("Id")
                         .HasName("pk_email_verifications");

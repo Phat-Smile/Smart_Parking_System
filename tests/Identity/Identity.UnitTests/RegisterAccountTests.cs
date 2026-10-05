@@ -110,7 +110,7 @@ public sealed class RegisterAccountTests
         var verification = Assert.Single(verificationRepository.Saved);
         Assert.Equal(account.Id, verification.AccountId);
         Assert.Equal("user@example.com", verification.Email);
-        Assert.Equal("123456", verification.OtpCode);
+        Assert.Equal(EmailVerification.HashOtp("123456", account.Id), verification.OtpHash);
 
         var enqueued = Assert.Single(outboxWriter.Enqueued);
         Assert.Equal("identity.user-verification-otp-issued.v1", enqueued.EventType);
@@ -226,7 +226,7 @@ public sealed class RegisterAccountTests
 
         public Task<EmailVerification?> GetLatestActiveForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
             Task.FromResult(Saved
-                .Where(v => v.AccountId == accountId && !v.IsUsed)
+                .Where(v => v.AccountId == accountId && !v.IsUsed && v.InvalidatedAtUtc == null)
                 .OrderByDescending(v => v.CreatedAtUtc)
                 .FirstOrDefault());
 

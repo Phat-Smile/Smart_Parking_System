@@ -28,9 +28,18 @@ internal sealed class EmailVerificationConfiguration : IEntityTypeConfiguration<
             .HasMaxLength(254)
             .IsRequired();
 
-        builder.Property(verification => verification.OtpCode)
-            .HasColumnName("otp_code")
-            .HasMaxLength(10)
+        builder.Property(verification => verification.OtpHash)
+            .HasColumnName("otp_hash")
+            .HasMaxLength(64)
+            .IsRequired();
+
+        builder.Property(verification => verification.InvalidatedAtUtc)
+            .HasColumnName("invalidated_at_utc");
+
+        builder.Property(verification => verification.RowVersion)
+            .HasColumnName("row_version")
+            .HasDefaultValue(1)
+            .IsConcurrencyToken()
             .IsRequired();
 
         builder.Property(verification => verification.ExpiresAtUtc)
