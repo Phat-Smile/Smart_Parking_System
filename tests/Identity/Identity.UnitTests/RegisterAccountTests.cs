@@ -51,11 +51,29 @@ public sealed class RegisterAccountTests
     [InlineData("09012345678", false)]   // 11 digits (too long)
     [InlineData("+8490123456", false)]   // +84 followed by 8 digits (too short)
     [InlineData("+849012345678", false)] // +84 followed by 10 digits (too long)
+    [InlineData("0312345678", true)]
+    [InlineData(" 0901234567 ", true)]   // surrounding spaces are trimmed when stored
+    [InlineData("+84012345678", false)]  // +84 must not be followed by 0
+    [InlineData("0123456789", false)]    // 1 is not a mobile prefix
+    [InlineData("0212345678", false)]    // landline prefix
+    [InlineData("0000000000", false)]
+    [InlineData("84901234567", false)]   // country code without '+'
     public void Validator_checks_phone_number_only_when_supplied(string phoneNumber, bool expectedValid)
     {
         var result = validator.Validate(new RegisterAccountCommand("user@example.com", ValidPassword, phoneNumber));
 
         Assert.Equal(expectedValid, result.IsValid);
+    }
+
+    [Theory]
+    [InlineData("0901234567", "+84901234567")]
+    [InlineData("+84901234567", "+84901234567")]
+    [InlineData(" 0901234567 ", "+84901234567")]
+    [InlineData(null, null)]
+    [InlineData("  ", null)]
+    public void Account_stores_phone_number_in_plus84_form(string? phoneNumber, string? expected)
+    {
+        Assert.Equal(expected, Account.NormalizePhoneNumber(phoneNumber));
     }
 
     [Fact]
@@ -72,6 +90,7 @@ public sealed class RegisterAccountTests
         var account = Assert.Single(repository.Saved);
         Assert.Equal("user@example.com", account.Email);
         Assert.Equal("hashed:" + ValidPassword, account.PasswordHash);
+        Assert.Equal("+84901234567", account.PhoneNumber);
         Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
         Assert.Equal(FixedClock.Now, account.CreatedAtUtc);
         Assert.Equal(new RegisteredAccount(account.Id, "user@example.com", "PendingEmailVerification"), result.Value);

@@ -25,7 +25,7 @@ public sealed class Account
             Id = id,
             Email = NormalizeEmail(email),
             PasswordHash = passwordHash,
-            PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim(),
+            PhoneNumber = NormalizePhoneNumber(phoneNumber),
             Status = AccountStatus.PendingEmailVerification,
             CreatedAtUtc = createdAtUtc
         };
@@ -33,4 +33,14 @@ public sealed class Account
 
     // Email uniqueness is case-insensitive, so the stored form is trimmed lower case.
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
+    // 0901234567 and +84901234567 are the same number, so both are stored as +84901234567.
+    public static string? NormalizePhoneNumber(string? phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            return null;
+
+        var trimmed = phoneNumber.Trim();
+        return trimmed.StartsWith('0') ? "+84" + trimmed[1..] : trimmed;
+    }
 }
