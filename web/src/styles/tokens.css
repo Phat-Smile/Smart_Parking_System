@@ -35,6 +35,36 @@
     --guest-success-soft: #eafbf3;
     --guest-success-text: #17a36b;
     --guest-shadow-soft: 0 10px 30px rgba(18, 24, 38, 0.06);
+
+    /* Stitch Login surface tokens */
+    --auth-bg: #f8f9fc;
+    --auth-navbar: rgb(255 255 255 / 90%);
+    --auth-panel: #ffffff;
+    --auth-panel-border: rgb(17 19 34 / 8%);
+    --auth-panel-shadow: 0 20px 60px rgb(20 24 40 / 8%);
+    --auth-input: #f7f8fb;
+    --auth-input-border: rgb(17 19 34 / 10%);
+    --auth-input-placeholder: #8a90a0;
+    --auth-input-icon: #596070;
+    --auth-google: #ffffff;
+    --auth-feature: #ffffff;
+    --auth-feature-icon: #f1edff;
+    --auth-feature-icon-color: #7657ff;
+    --auth-text: #111322;
+    --auth-text-secondary: #4b5565;
+    --auth-text-muted: #7c8496;
+    --auth-accent: #7657ff;
+    --auth-accent-gradient: linear-gradient(135deg, #7657ff, #5a3fe0);
+    --auth-accent-shadow: 0 10px 25px -4px rgb(118 87 255 / 35%);
+    --auth-badge: #f1edff;
+    --auth-badge-text: #6945ff;
+    --auth-visual: #eaeff7;
+    --auth-live: #10b981;
+    --auth-vignette: linear-gradient(
+        to top,
+        rgb(248 249 252 / 50%),
+        transparent 40%
+    );
 }
 
 :root[data-theme="dark"],
@@ -65,4 +95,33 @@ html.dark {
     --guest-success-soft: rgba(16, 185, 129, 0.15);
     --guest-success-text: #34d399;
     --guest-shadow-soft: 0 12px 32px -8px rgba(0, 0, 0, 0.7);
+
+    --auth-bg: #03010e;
+    --auth-navbar: rgb(8 7 19 / 85%);
+    --auth-panel: rgb(11 12 23 / 92%);
+    --auth-panel-border: rgb(255 255 255 / 8%);
+    --auth-panel-shadow: 0 24px 60px -12px rgb(0 0 0 / 70%);
+    --auth-input: #121423;
+    --auth-input-border: rgb(255 255 255 / 10%);
+    --auth-input-placeholder: #686d80;
+    --auth-input-icon: #7c8298;
+    --auth-google: #151829;
+    --auth-feature: rgb(16 17 29 / 85%);
+    --auth-feature-icon: rgb(138 107 255 / 12%);
+    --auth-feature-icon-color: #a085ff;
+    --auth-text: #ffffff;
+    --auth-text-secondary: #d4d6e0;
+    --auth-text-muted: #878a99;
+    --auth-accent: #937aff;
+    --auth-accent-gradient: linear-gradient(135deg, #937aff, #4d36d0);
+    --auth-accent-shadow: 0 10px 25px -4px rgb(116 87 255 / 45%);
+    --auth-badge: rgb(147 122 255 / 12%);
+    --auth-badge-text: #b49fff;
+    --auth-visual: #090916;
+    --auth-live: #00e396;
+    --auth-vignette: linear-gradient(
+        to top,
+        rgb(3 1 14 / 80%),
+        transparent 60%
+    );
 }
