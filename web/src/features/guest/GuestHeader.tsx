@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Logo, ThemeToggle } from "@/shared/ui";
 
 export function GuestHeader() {
@@ -37,13 +38,13 @@ export function GuestHeader() {
                         <ThemeToggle />
 
                         {/* Log In Button */}
-                        <a
+                        <Link
                             id="loginBtn"
-                            href="#"
+                            href="/login"
                             className="px-5 py-1.5 rounded-full text-xs font-semibold border border-black/[0.12] dark:border-white/[0.12] text-[#111322] dark:text-white hover:border-brand-500 hover:bg-[#F4F5F8] dark:hover:bg-white/5 transition-all active:scale-95"
                         >
                             Log In
-                        </a>
+                        </Link>
                     </div>
                 </div>
 
@@ -103,12 +104,13 @@ export function GuestHeader() {
                         Support
                     </a>
                     <div className="pt-2 border-t border-black/[0.08] dark:border-white/[0.08] flex items-center justify-between">
-                        <a
-                            href="#"
+                        <Link
+                            href="/login"
+                            onClick={() => setMobileMenuOpen(false)}
                             className="w-full text-center px-4 py-2 rounded-xl border border-black/[0.12] dark:border-white/[0.12] text-[#111322] dark:text-white hover:border-brand-500"
                         >
                             Log In
-                        </a>
+                        </Link>
                     </div>
                 </div>
             )}

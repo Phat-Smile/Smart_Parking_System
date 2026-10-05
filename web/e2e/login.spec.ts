@@ -1,5 +1,36 @@
 import { expect, test } from "@playwright/test";
 
+for (const width of [390, 1280]) {
+    test(`Guest Login navigates to /login at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        const errors: string[] = [];
+        page.on("pageerror", (error) => errors.push(error.message));
+        await page.goto("/guest");
+        if (width === 390) {
+            await page
+                .getByRole("button", { name: "Toggle navigation menu" })
+                .click();
+        }
+        await page.getByRole("link", { name: "Log In" }).click();
+        await expect(page).toHaveURL(/\/login$/);
+        await expect(
+            page.getByRole("heading", { name: /Sign in to your account/i }),
+        ).toBeVisible();
+        expect(errors).toEqual([]);
+    });
+}
+
+test("Back to Home returns to the Guest landing page", async ({ page }) => {
+    await page.goto("/login");
+    const backLink = page.getByRole("link", { name: "Back to Home" });
+    await expect(backLink).toHaveAttribute("href", "/");
+    await backLink.click();
+    await expect(page).toHaveURL(/\/guest$/);
+    await expect(
+        page.getByRole("heading", { name: /Find parking before you arrive/i }),
+    ).toBeVisible();
+});
+
 for (const width of [390, 768, 1280]) {
     test(`Login is usable without overflow at ${width}px`, async ({ page }) => {
         await page.setViewportSize({
@@ -48,7 +79,7 @@ test("Login validates by keyboard and does not fake success", async ({
         "type",
         "text",
     );
-    await page.getByRole("button", { name: "Log In" }).click();
+    await page.locator("#login-password").press("Enter");
     await expect(page.getByRole("status")).toContainText(
         "Sign-in is not available yet",
     );
@@ -75,7 +106,7 @@ for (const osTheme of ["light", "dark"] as const) {
             await expect(page.locator("body > div.min-h-screen")).toHaveCSS(
                 "background-color",
                 selectedTheme === "dark"
-                    ? "rgb(3, 1, 14)"
+                    ? "rgb(21, 17, 35)"
                     : "rgb(248, 249, 252)",
             );
         });
@@ -112,6 +143,6 @@ test("Login theme toggle changes the rendered theme", async ({ page }) => {
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expect(page.locator("body > div.min-h-screen")).toHaveCSS(
         "background-color",
-        "rgb(3, 1, 14)",
+        "rgb(21, 17, 35)",
     );
 });
