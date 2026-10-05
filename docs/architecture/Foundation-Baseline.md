@@ -5,7 +5,7 @@ Freeze date: **2026-10-03 (Asia/Saigon)**. Phase 07 is the final foundation chec
 ## Services and solution
 
 - Five .NET business bounded contexts: Identity, Parking, Booking, Payment, Notification. Each has Domain, Application, Persistence, Infrastructure, and WebAPI projects.
-- Gateway: external REST boundary using YARP; production proxy routes are currently empty.
+- Gateway: external REST boundary using YARP; current catch-all routes and clusters under `/api/identity/`, `/api/parking/`, `/api/booking/`, `/api/payment/`, and `/api/notification/` forward to the five business APIs. No business endpoint implementation exists yet.
 - AI: Python 3.12, FastAPI and internal gRPC; no business model or inference workflow.
 - AI direct dependencies remain declared in `pyproject.toml`; the validated Python 3.12 runtime/test environment is pinned in `requirements.lock` and installed from that file by the image and CI.
 - IoT Simulator: idle scaffold with MQTT environment configuration; `DEVICE_SIMULATION_ENABLED=false`. No publisher, consumer, device simulation, or gRPC client.
