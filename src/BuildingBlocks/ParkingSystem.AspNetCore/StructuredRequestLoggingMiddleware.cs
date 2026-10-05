@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 
 namespace ParkingSystem.AspNetCore;
@@ -17,7 +18,9 @@ internal sealed class StructuredRequestLoggingMiddleware(RequestDelegate next, I
         {
             stopwatch.Stop();
             var method = context.Request.Method;
-            var path = context.Request.Path.Value ?? "/";
+            var path = context.GetEndpoint() is RouteEndpoint endpoint
+                ? endpoint.RoutePattern.RawText ?? "<matched>"
+                : "<unmatched>";
             var statusCode = context.Response.StatusCode;
             var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
 

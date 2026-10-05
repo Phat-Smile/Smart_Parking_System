@@ -1,11 +1,11 @@
-# Smart Parking System Backend
+# Smart Parking System
 
-Backend foundation for the Smart Parking System.
+Full-stack technical foundation for the Smart Parking System: one Next.js web app, a .NET YARP Gateway and five business service skeletons, Python AI, an IoT simulator, PostgreSQL, RabbitMQ, and observability services. Business User Stories are not implemented.
 
 The repository uses Clean Architecture and microservice boundaries and currently
 contains the completed technical foundation for future business Vertical Slices.
 
-> Foundation status: **COMPLETE / FROZEN**
+> Backend foundation status: **COMPLETE / FROZEN**
 >
 > Phases 00–07 have been completed.
 >
@@ -13,7 +13,7 @@ contains the completed technical foundation for future business Vertical Slices.
 
 See:
 
-- `docs/architecture/Foundation-Baseline.md`
+- [Foundation baseline](docs/architecture/Foundation-Baseline.md)
 - `docs/architecture/`
 - `docs/data/`
 - `docs/development/`
@@ -22,7 +22,7 @@ See:
 
 ## Project Status
 
-### Foundation
+### Backend foundation
 
 **COMPLETE**
 
@@ -37,20 +37,26 @@ The current foundation includes:
 - Inbox / consumer idempotency
 - RabbitMQ + MassTransit
 - MQTT support for IoT Simulator
-- gRPC communication foundation
+- gRPC health and Development reflection
 - ProblemDetails error handling
 - Correlation ID propagation
 - Structured logging
 - OpenTelemetry tracing and metrics
+- OpenTelemetry Collector
 - Jaeger
 - Prometheus
 - JWT RS256 validation foundation
 - Authorization foundation
 - CORS
 - Security headers
-- HTTP and gRPC health checks
+- HTTP liveness and dependency-aware readiness; gRPC health checks
 - Architecture and integration tests
 
+GitHub Actions runs the .NET, Python AI, and Next.js frontend foundation suites for pushes and pull requests targeting `develop` and feature branches. The workflow is in `.github/workflows/foundation-ci.yml`.
+
+### Frontend foundation
+
+The single Next.js / React / TypeScript application lives in `web/`. It includes a technical App Router shell, Gateway-only API client, TanStack Query provider, strict TypeScript, Tailwind design tokens, Mapbox/Three.js/SignalR technical boundaries, Vitest/Playwright tests, Docker image, and CI. No frontend business feature, Login/Register flow, parking data, or backend business endpoint is implemented. See [Frontend architecture](docs/architecture/Frontend.md) and [Web setup](web/README.md).
 ### Business implementation
 
 **NOT STARTED**

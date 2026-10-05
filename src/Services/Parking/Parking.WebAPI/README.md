@@ -9,4 +9,5 @@ Feature routes:
 Foundation routes:
 
 - `/health/live`: process can serve an HTTP request.
-- `/health/ready`: checks the Parking PostgreSQL DbContext and returns HTTP 503 when PostgreSQL is unavailable. It does not check RabbitMQ or other services.
+- `/health/ready`: checks the Parking PostgreSQL DbContext, MassTransit bus, and authenticated RabbitMQ AMQP connection. It returns HTTP 503 when PostgreSQL or RabbitMQ is unavailable; telemetry backends and other services are not readiness dependencies.
+

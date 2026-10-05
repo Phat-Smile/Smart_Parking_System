@@ -5,8 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY ai/ai-service/pyproject.toml ./pyproject.toml
+COPY ai/ai-service/requirements.lock ./requirements.lock
 COPY ai/ai-service/app ./app
-RUN pip install --no-cache-dir --disable-pip-version-check .
+RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.lock
 
 EXPOSE 8000 50051
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 \

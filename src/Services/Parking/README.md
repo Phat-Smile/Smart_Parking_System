@@ -21,3 +21,4 @@ Parking lots, floors, zones, spots and layouts; capacity and spot assignment; pa
 - Parking Service owns `parking.parking_lots`.
 - Catalog response currently contains lot identity, name, address, coordinates and parking-lot type.
 - Search radius, vehicle-group filtering, availability, Parking Detail, Nominatim, OSRM and AI recommendation remain separate feature branches.
+
