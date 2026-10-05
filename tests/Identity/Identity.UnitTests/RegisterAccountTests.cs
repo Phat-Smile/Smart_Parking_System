@@ -46,6 +46,11 @@ public sealed class RegisterAccountTests
     [InlineData("+84901234567", true)]
     [InlineData("090-123", false)]
     [InlineData("abc", false)]
+    [InlineData("1234567890", false)]   // does not start with 0 or +84
+    [InlineData("090123456", false)]     // 9 digits (too short)
+    [InlineData("09012345678", false)]   // 11 digits (too long)
+    [InlineData("+8490123456", false)]   // +84 followed by 8 digits (too short)
+    [InlineData("+849012345678", false)] // +84 followed by 10 digits (too long)
     public void Validator_checks_phone_number_only_when_supplied(string phoneNumber, bool expectedValid)
     {
         var result = validator.Validate(new RegisterAccountCommand("user@example.com", ValidPassword, phoneNumber));

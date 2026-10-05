@@ -34,10 +34,11 @@ public sealed class RegisterAccountCommandValidator : AbstractValidator<Register
             .Matches("[0-9]").WithMessage("Password must contain a digit.")
             .Matches("[^A-Za-z0-9]").WithMessage("Password must contain a special character.");
 
-        // Phone number is optional and only validated when supplied. The accepted format is not
-        // specified in Context yet; digits with an optional leading '+' (9-15 digits) is a placeholder.
+        // Phone number is optional and only validated when supplied. Must start with '0'
+        // (10 digits total) or '+84' (followed by 9 digits).
         RuleFor(command => command.PhoneNumber)
-            .Matches(@"^\+?[0-9]{9,15}$")
+            .Matches(@"^(0[0-9]{9}|\+84[0-9]{9})$")
+            .WithMessage("Phone number must start with 0 (10 digits) or +84 (followed by 9 digits).")
             .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
     }
 }
