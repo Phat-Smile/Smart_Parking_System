@@ -149,6 +149,12 @@ public sealed class RegisterAccountTests
         public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
             Task.FromResult(normalizedEmail == ExistingEmail);
 
+        public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Email == normalizedEmail));
+
+        public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Id == id));
+
         public void Add(Account account) => pending.Add(account);
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)

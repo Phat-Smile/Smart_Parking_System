@@ -41,7 +41,12 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+        services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
         services.AddIntegrationEventRegistry();
+        services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.AccountEmailVerifiedIntegrationEvent>(
+            "identity.account-email-verified.v1", 1);
+        services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.SendEmailOtpIntegrationEvent>(
+            "identity.send-email-otp.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()

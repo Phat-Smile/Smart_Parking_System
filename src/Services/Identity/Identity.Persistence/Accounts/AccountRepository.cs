@@ -10,6 +10,12 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
     public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         dbContext.Accounts.AsNoTracking().AnyAsync(account => account.Email == normalizedEmail, cancellationToken);
 
+    public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+        dbContext.Accounts.SingleOrDefaultAsync(account => account.Email == normalizedEmail, cancellationToken);
+
+    public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Accounts.SingleOrDefaultAsync(account => account.Id == id, cancellationToken);
+
     public void Add(Account account) => dbContext.Accounts.Add(account);
 
     public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
