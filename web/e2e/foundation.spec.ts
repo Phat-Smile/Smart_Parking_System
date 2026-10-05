@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-test("home shell loads", async ({ page }) => {
+test("home opens the Guest landing page", async ({ page }) => {
     await page.goto("/");
+    await expect(page).toHaveURL(/\/guest$/);
     await expect(
-        page.getByRole("heading", { name: "Web foundation" }),
+        page.getByRole("heading", { name: /Find parking before you arrive/i }),
     ).toBeVisible();
 });
 
