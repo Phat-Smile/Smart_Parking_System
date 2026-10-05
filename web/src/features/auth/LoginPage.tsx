@@ -38,7 +38,7 @@ function LoginHeader() {
                         How It Works
                     </a>
                     <a
-                        href="/guest#live-preview"
+                        href="/guest#pageFooter"
                         className="font-mono text-sm tracking-[0.04em] text-[var(--auth-text-muted)] hover:text-[var(--auth-text)] focus-visible:outline-2 focus-visible:outline-[var(--auth-accent)]"
                     >
                         Support
@@ -77,7 +77,7 @@ function LoginHeader() {
                     aria-label="Mobile navigation"
                 >
                     <a href="/guest#how-it-works">How It Works</a>
-                    <a href="/guest#live-preview">Support</a>
+                    <a href="/guest#pageFooter">Support</a>
                 </nav>
             )}
         </header>

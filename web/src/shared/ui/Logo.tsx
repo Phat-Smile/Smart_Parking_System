@@ -39,7 +39,10 @@ export function Logo({
 
     if (href) {
         return (
-            <a href={href} className="focus:outline-none flex items-center">
+            <a
+                href={href}
+                className="flex items-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--guest-primary)]"
+            >
                 {content}
             </a>
         );
