@@ -1,11 +1,11 @@
-# Smart Parking System Backend
+# Smart Parking System
 
-Backend foundation for the Smart Parking System.
+Full-stack technical foundation for the Smart Parking System: one Next.js web app, a .NET YARP Gateway and five business service skeletons, Python AI, an IoT simulator, PostgreSQL, RabbitMQ, and observability services. Business User Stories are not implemented.
 
 The repository uses Clean Architecture and microservice boundaries and currently
 contains the completed technical foundation for future business Vertical Slices.
 
-> Foundation status: **COMPLETE / FROZEN**
+> Backend foundation status: **COMPLETE / FROZEN**
 >
 > Phases 00–07 have been completed.
 >
@@ -22,7 +22,7 @@ See:
 
 ## Project Status
 
-### Foundation
+### Backend foundation
 
 **COMPLETE**
 
@@ -52,8 +52,11 @@ The current foundation includes:
 - HTTP liveness and dependency-aware readiness; gRPC health checks
 - Architecture and integration tests
 
-GitHub Actions runs the .NET and Python foundation suites for pushes and pull requests targeting `develop` and feature branches. The workflow is in `.github/workflows/foundation-ci.yml`.
+GitHub Actions runs the .NET, Python AI, and Next.js frontend foundation suites for pushes and pull requests targeting `develop` and feature branches. The workflow is in `.github/workflows/foundation-ci.yml`.
 
+### Frontend foundation
+
+The single Next.js / React / TypeScript application lives in `web/`. It includes a technical App Router shell, Gateway-only API client, TanStack Query provider, strict TypeScript, Tailwind design tokens, Mapbox/Three.js/SignalR technical boundaries, Vitest/Playwright tests, Docker image, and CI. No frontend business feature, Login/Register flow, parking data, or backend business endpoint is implemented. See [Frontend architecture](docs/architecture/Frontend.md) and [Web setup](web/README.md).
 ### Business implementation
 
 **NOT STARTED**
