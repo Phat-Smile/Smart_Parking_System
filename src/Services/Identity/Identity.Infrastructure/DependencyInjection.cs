@@ -45,8 +45,8 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.AccountEmailVerifiedIntegrationEvent>(
             "identity.account-email-verified.v1", 1);
-        services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.SendEmailOtpIntegrationEvent>(
-            "identity.send-email-otp.v1", 1);
+        services.AddIntegrationEvent<ParkingSystem.BuildingBlocks.Events.UserVerificationOtpIssuedIntegrationEvent>(
+            "identity.user-verification-otp-issued.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()

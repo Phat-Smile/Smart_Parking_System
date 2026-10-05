@@ -7,7 +7,38 @@ using ParkingSystem.Identity.Infrastructure;
 using ParkingSystem.Identity.Persistence;
 using ParkingSystem.Identity.WebAPI.Endpoints;
 
+LoadRootEnvFile();
+
 var builder = WebApplication.CreateBuilder(args);
+
+static void LoadRootEnvFile()
+{
+    var current = new DirectoryInfo(AppContext.BaseDirectory);
+    while (current is not null)
+    {
+        var envPath = Path.Combine(current.FullName, ".env");
+        if (File.Exists(envPath))
+        {
+            foreach (var line in File.ReadAllLines(envPath))
+            {
+                var trimmed = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith('#')) continue;
+                var separatorIndex = trimmed.IndexOf('=');
+                if (separatorIndex > 0)
+                {
+                    var key = trimmed[..separatorIndex].Trim();
+                    var val = trimmed[(separatorIndex + 1)..].Trim();
+                    if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+                    {
+                        Environment.SetEnvironmentVariable(key, val);
+                    }
+                }
+            }
+            break;
+        }
+        current = current.Parent;
+    }
+}
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("identity-api");

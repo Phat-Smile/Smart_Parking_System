@@ -40,6 +40,14 @@ internal sealed class SafeExceptionHandler(
             };
             SafeProblemDetails.AddRequestExtensions(context, problem, "request.validation_failed");
         }
+        else if (exception is BadHttpRequestException badHttpRequestException)
+        {
+            var statusCode = badHttpRequestException.StatusCode;
+            problem = SafeProblemDetails.Create(context, statusCode);
+            problem.Title = "Invalid request format.";
+            problem.Detail = "Failed to parse request body. Please ensure the request body is valid JSON.";
+            SafeProblemDetails.AddRequestExtensions(context, problem, "request.malformed");
+        }
         else
         {
             var exceptionDetails = SafeExceptionDiagnostics.Format(exception, configuration);

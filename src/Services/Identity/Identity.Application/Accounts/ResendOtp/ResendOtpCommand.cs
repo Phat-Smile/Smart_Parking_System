@@ -2,7 +2,7 @@ using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.Identity.Application.Accounts.Events;
+using ParkingSystem.BuildingBlocks.Events;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
@@ -81,8 +81,8 @@ public sealed class ResendOtpCommandHandler(
         emailVerifications.Add(newVerification);
 
         outboxWriter.Enqueue(
-            new SendEmailOtpIntegrationEvent(account.Id, email, otpCode, newVerification.ExpiresAtUtc),
-            "identity.send-email-otp.v1",
+            new UserVerificationOtpIssuedIntegrationEvent(account.Id, email, otpCode, newVerification.ExpiresAtUtc),
+            "identity.user-verification-otp-issued.v1",
             1);
 
         await emailVerifications.SaveChangesAsync(cancellationToken);

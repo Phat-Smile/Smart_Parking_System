@@ -1,3 +1,4 @@
+using ParkingSystem.BuildingBlocks.Events;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.Events;
@@ -219,8 +220,8 @@ public sealed class EmailOtpTests
         Assert.Equal("987654", newVerification.OtpCode);
 
         var enqueued = Assert.Single(outboxWriter.Enqueued);
-        Assert.Equal("identity.send-email-otp.v1", enqueued.EventType);
-        var payload = Assert.IsType<SendEmailOtpIntegrationEvent>(enqueued.Payload);
+        Assert.Equal("identity.user-verification-otp-issued.v1", enqueued.EventType);
+        var payload = Assert.IsType<UserVerificationOtpIssuedIntegrationEvent>(enqueued.Payload);
         Assert.Equal(account.Id, payload.AccountId);
         Assert.Equal("987654", payload.OtpCode);
     }
