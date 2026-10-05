@@ -23,6 +23,49 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.PricingPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BillingMode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("BlockMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("OvernightFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId", "VehicleType", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ux_pricing_policies_lot_vehicle_version");
+
+                    b.ToTable("pricing_policies", "parking");
+                });
+
             modelBuilder.Entity("ParkingSystem.Parking.Persistence.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")

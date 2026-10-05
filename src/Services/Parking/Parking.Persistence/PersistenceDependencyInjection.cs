@@ -28,6 +28,9 @@ public static class PersistenceDependencyInjection
                 npgsql.MigrationsAssembly(typeof(ParkingDbContext).Assembly.GetName().Name!);
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", ParkingDbContext.DefaultSchema);
             }));
+
+        services.AddScoped<ParkingSystem.Parking.Application.Common.Interfaces.IParkingDbContext>(
+            provider => provider.GetRequiredService<ParkingDbContext>());
         services.AddScoped<IOutboxStore, OutboxStore>();
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
