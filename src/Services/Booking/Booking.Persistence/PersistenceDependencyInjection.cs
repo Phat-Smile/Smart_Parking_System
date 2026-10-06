@@ -32,6 +32,8 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, BookingInboxExecutionCoordinator>();
+        services.AddScoped<ParkingSystem.Booking.Application.Reservations.IReservationRepository, ParkingSystem.Booking.Persistence.Reservations.ReservationRepository>();
+        services.AddScoped<ParkingSystem.Booking.Application.Reservations.IReservationCapacityCoordinator, ParkingSystem.Booking.Persistence.Reservations.PostgreSqlReservationCapacityCoordinator>();
         return services;
     }
 }

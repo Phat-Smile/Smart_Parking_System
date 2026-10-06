@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.Booking.Persistence.Outbox;
 using ParkingSystem.Booking.Persistence.Inbox;
 
@@ -11,6 +12,10 @@ public sealed class BookingDbContext(DbContextOptions<BookingDbContext> options)
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
+    public DbSet<Reservation> Reservations => Set<Reservation>();
+
+    public DbSet<ReservationCapacity> ReservationCapacities => Set<ReservationCapacity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
