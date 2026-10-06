@@ -11,6 +11,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<Account> Accounts => Set<Account>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     public DbSet<ParkingSystem.Identity.Domain.EmailVerifications.EmailVerification> EmailVerifications => Set<ParkingSystem.Identity.Domain.EmailVerifications.EmailVerification>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();

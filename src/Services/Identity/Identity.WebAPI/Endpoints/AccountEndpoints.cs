@@ -1,4 +1,5 @@
 using MediatR;
+using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
@@ -10,6 +11,7 @@ internal static class AccountEndpoints
     public sealed record RegisterAccountRequest(string Email, string Password, string? PhoneNumber);
     public sealed record VerifyEmailRequest(string Email, string OtpCode);
     public sealed record ResendOtpRequest(string Email);
+    public sealed record LoginRequest(string Email, string Password);
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -72,6 +74,37 @@ internal static class AccountEndpoints
             .Produces<ResentOtpResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        // US-AUTH-004: user login (public endpoint).
+        app.MapPost("/api/identity/accounts/login", async (LoginRequest request, ISender sender, CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(
+                    new LoginCommand(request.Email, request.Password),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error!.Code switch
+                {
+                    "identity.invalid_credentials" => StatusCodes.Status401Unauthorized,
+                    "identity.email_not_verified" => StatusCodes.Status403Forbidden,
+                    "identity.account_temporarily_locked" => StatusCodes.Status423Locked,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: result.Error.Code,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .WithName("Login")
+            .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status423Locked);
 
         return app;
     }

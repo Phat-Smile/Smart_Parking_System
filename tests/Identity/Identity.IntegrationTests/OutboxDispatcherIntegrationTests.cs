@@ -55,7 +55,7 @@ public sealed class OutboxDispatcherIntegrationTests(
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
             await dbContext.Database.MigrateAsync(cancellationToken);
-            await PostgreSqlOutboxAssertions.AssertServiceIsolationAndOutboxMetadataAsync(dbContext, "identity", cancellationToken, "accounts", "email_verifications");
+            await PostgreSqlOutboxAssertions.AssertServiceIsolationAndOutboxMetadataAsync(dbContext, "identity", cancellationToken, "accounts", "email_verifications", "refresh_tokens");
             dbContext.OutboxMessages.AddRange(
                 Message(validId, eventType, """{"Value":"first"}""", correlationId, causationId),
                 Message(secondValidId, eventType, """{"Value":"second"}""", null, null),

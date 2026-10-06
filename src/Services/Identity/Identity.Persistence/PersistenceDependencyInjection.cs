@@ -35,6 +35,7 @@ public static class PersistenceDependencyInjection
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, IdentityInboxExecutionCoordinator>();
         services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEmailVerificationRepository, ParkingSystem.Identity.Persistence.EmailVerifications.EmailVerificationRepository>();
         return services;
     }

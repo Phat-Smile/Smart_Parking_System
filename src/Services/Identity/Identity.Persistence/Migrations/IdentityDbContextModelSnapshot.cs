@@ -39,6 +39,16 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("failed_login_attempts");
+
+                    b.Property<DateTimeOffset?>("LockoutEndUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lockout_end_utc");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -49,6 +59,13 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("phone_number");
+
+                    b.Property<int>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("row_version");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -64,6 +81,52 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasDatabaseName("ux_accounts_email");
 
                     b.ToTable("accounts", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<string>("ReplacedByTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("replaced_by_token_hash");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at_utc");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_refresh_tokens");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_refresh_tokens_account_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_refresh_tokens_token_hash");
+
+                    b.ToTable("refresh_tokens", "identity");
                 });
 
             modelBuilder.Entity("ParkingSystem.Identity.Domain.EmailVerifications.EmailVerification", b =>
@@ -225,6 +288,16 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasFilter("processed_at_utc IS NULL");
 
                     b.ToTable("outbox_messages", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.RefreshToken", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_refresh_tokens_accounts_account_id");
                 });
 #pragma warning restore 612, 618
         }
