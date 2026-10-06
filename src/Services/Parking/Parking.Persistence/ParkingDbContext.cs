@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Parking.Persistence.Outbox;
 using ParkingSystem.Parking.Persistence.Inbox;
+using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -11,6 +12,8 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
+    public DbSet<ParkingSession> ParkingSessions => Set<ParkingSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -23,6 +23,71 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingSessions.ParkingSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("BookingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("booking_id");
+
+                    b.Property<DateTimeOffset>("EnteredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("entered_at");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<string>("PlateNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("plate_number");
+
+                    b.Property<string>("QrToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("qr_token");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid?>("VehicleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vehicle_id");
+
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("vehicle_type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_parking_sessions");
+
+                    b.HasIndex("QrToken")
+                        .IsUnique()
+                        .HasDatabaseName("ux_parking_sessions_qr_token");
+
+                    b.HasIndex("LotId", "PlateNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_parking_sessions_lot_plate_open")
+                        .HasFilter("status IN ('Active', 'Paid')");
+
+                    b.ToTable("parking_sessions", "parking");
+                });
+
             modelBuilder.Entity("ParkingSystem.Parking.Persistence.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
