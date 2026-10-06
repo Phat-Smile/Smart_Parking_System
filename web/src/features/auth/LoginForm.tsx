@@ -75,6 +75,7 @@ export function LoginForm() {
             </div>
 
             <form
+                method="post"
                 noValidate
                 onSubmit={handleSubmit(() =>
                     setNotice(

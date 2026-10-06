@@ -72,6 +72,9 @@ describe("Login UI before Identity integration", () => {
         const user = userEvent.setup();
         const fetchSpy = vi.spyOn(globalThis, "fetch");
         render(<LoginForm />);
+        expect(
+            screen.getByRole("button", { name: "Log In" }).closest("form"),
+        ).toHaveAttribute("method", "post");
         await user.type(
             screen.getByLabelText("Email Address"),
             " user@example.com ",

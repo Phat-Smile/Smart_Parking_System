@@ -60,7 +60,12 @@ for (const width of [390, 768, 1280]) {
 test("Login validates by keyboard and does not fake success", async ({
     page,
 }) => {
+    const loginNavigations: string[] = [];
+    page.on("framenavigated", (frame) => {
+        if (frame === page.mainFrame()) loginNavigations.push(frame.url());
+    });
     await page.goto("/login");
+    await expect(page.locator("form")).toHaveAttribute("method", "post");
     await page.getByLabel("Email Address").focus();
     await page.keyboard.press("Tab");
     await expect(page.locator("#login-password")).toBeFocused();
@@ -79,6 +84,10 @@ test("Login validates by keyboard and does not fake success", async ({
         "Sign-in is not available yet",
     );
     await expect(page).toHaveURL(/\/login$/);
+    expect(new URL(page.url()).search).toBe("");
+    expect(loginNavigations.every((url) => new URL(url).search === "")).toBe(
+        true,
+    );
 });
 
 for (const osTheme of ["light", "dark"] as const) {
