@@ -386,6 +386,8 @@ public sealed class EmailOtpTests
         public void Add(Account account) => accounts.Add(account);
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakeEmailVerificationRepository(IEnumerable<EmailVerification> initial) : IEmailVerificationRepository

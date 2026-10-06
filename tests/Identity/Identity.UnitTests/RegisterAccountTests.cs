@@ -206,6 +206,13 @@ public sealed class RegisterAccountTests
             pending.Clear();
             return Task.FromResult(true);
         }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken)
+        {
+            Saved.AddRange(pending);
+            pending.Clear();
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher
@@ -213,6 +220,8 @@ public sealed class RegisterAccountTests
         public string Hash(string password) => "hashed:" + password;
 
         public bool Verify(string password, string passwordHash) => passwordHash == "hashed:" + password;
+
+        public void VerifyDummy(string password) { }
     }
 
     private sealed class FakeOtpGenerator(string fixedOtp) : IOtpGenerator

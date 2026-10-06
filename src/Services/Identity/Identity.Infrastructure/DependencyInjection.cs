@@ -42,6 +42,10 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
+        services.AddOptions<JwtIssuerOptions>()
+            .Bind(configuration.GetSection(JwtIssuerOptions.SectionName));
+        services.AddSingleton<IJwtTokenIssuer, JwtTokenIssuer>();
+        services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.AccountEmailVerifiedIntegrationEvent>(
             "identity.account-email-verified.v1", 1);

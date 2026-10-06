@@ -35,4 +35,7 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
             return false;
         }
     }
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
+        dbContext.SaveChangesAsync(cancellationToken);
 }

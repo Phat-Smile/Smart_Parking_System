@@ -14,4 +14,6 @@ public interface IAccountRepository
 
     /// <summary>Saves pending changes. Returns false when the email is already registered (unique index).</summary>
     Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
 }

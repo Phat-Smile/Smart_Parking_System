@@ -1,4 +1,5 @@
 using MediatR;
+using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
@@ -10,6 +11,7 @@ internal static class AccountEndpoints
     public sealed record RegisterAccountRequest(string Email, string Password, string? PhoneNumber);
     public sealed record VerifyEmailRequest(string Email, string OtpCode);
     public sealed record ResendOtpRequest(string Email);
+    public sealed record LoginRequest(string Email, string Password);
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -72,6 +74,45 @@ internal static class AccountEndpoints
             .Produces<ResentOtpResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        // US-AUTH-004 & US-AUTH-008: standard email/password login, JWT RS256 token issuance & lockout policy
+        app.MapPost("/api/identity/accounts/login", async (LoginRequest request, MediatR.ISender sender, CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(
+                    new LoginCommand(request.Email, request.Password),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error switch
+                {
+                    _ when result.Error == LoginErrors.InvalidCredentials => StatusCodes.Status401Unauthorized,
+                    _ when result.Error == LoginErrors.EmailNotVerified => StatusCodes.Status403Forbidden,
+                    _ when result.Error == LoginErrors.AccountTemporarilyLocked => StatusCodes.Status423Locked,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                var title = statusCode switch
+                {
+                    StatusCodes.Status401Unauthorized => "Unauthorized",
+                    StatusCodes.Status403Forbidden => "Forbidden",
+                    StatusCodes.Status423Locked => "Locked",
+                    _ => "Bad Request"
+                };
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: title,
+                    detail: result.Error!.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .WithName("LoginAccount")
+            .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status423Locked);
 
         return app;
     }

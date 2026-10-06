@@ -18,6 +18,9 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(account => account.PhoneNumber).HasColumnName("phone_number").HasMaxLength(16);
         builder.Property(account => account.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(account => account.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
+        builder.Property(account => account.FailedLoginAttempts).HasColumnName("failed_login_attempts").HasDefaultValue(0).IsRequired();
+        builder.Property(account => account.LockoutEndUtc).HasColumnName("lockout_end_utc");
+        builder.Property(account => account.RowVersion).HasColumnName("row_version").HasDefaultValue(1).IsConcurrencyToken().IsRequired();
         builder.HasIndex(account => account.Email).IsUnique().HasDatabaseName(EmailIndexName);
     }
 }
