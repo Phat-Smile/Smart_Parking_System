@@ -235,7 +235,7 @@ Thực thể [EmailVerification](file:///f:/Ky_5/Smart_Parking_System/src/Servic
 
 ### 4.2 Bảo mật Băm OTP Keyed HMAC-SHA256 (Server Pepper) & Chống Timing Attack
 
-* **Vấn đề bảo mật**: Không bao giờ lưu trữ OTP dạng thô (plain-text) trong cơ sở dữ liệu. Vì không gian mẫu của mã OTP 6 chữ số rất nhỏ (chỉ $10^6$ trường hợp), kẻ tấn công nếu dump được cơ sở dữ liệu có thể dùng Rainbow Table giải mã toàn bộ OTP trong tích tắc nếu dùng thuật toán băm thông thường (MD5, SHA-256).
+* **Vấn đề bảo mật**: Không bao giờ lưu trữ OTP dạng thô (plain-text) trong bảng nghiệp vụ (`email_verifications`). Vì không gian mẫu của mã OTP 6 chữ số rất nhỏ (chỉ $10^6$ trường hợp), kẻ tấn công nếu truy cập được cơ sở dữ liệu có thể dùng Rainbow Table giải mã toàn bộ OTP trong tích tắc nếu dùng thuật toán băm thông thường (MD5, SHA-256). Mã OTP dạng thô chỉ xuất hiện tạm thời trong payload sự kiện Outbox (`identity.outbox_messages`) để Worker phục vụ gửi email qua Event-Driven Architecture và được dọn dẹp sau khi gửi.
 * **Giải pháp Keyed HMAC-SHA256**:
   * Sử dụng khóa bí mật cấp server (**Server Pepper**) được cấu hình qua biến môi trường `Security:Otp:Pepper`.
   * Kết hợp **Account Salt** theo từng tài khoản: Chuỗi đầu vào được băm có dạng `{accountId}:{otpCode}`.
@@ -338,12 +338,13 @@ public sealed class SecureOtpGenerator : IOtpGenerator
   * Khóa bí mật (**RSA Private Key**): Chỉ duy nhất Identity Service nắm giữ để ký số Token.
   * Khóa công khai (**RSA Public Key**): Các service khác (Parking, Booking, Payment) hoặc API Gateway sử dụng để kiểm tra chữ ký số mà không bao giờ cần biết khóa bí mật.
 * **Tối ưu Caching trong [JwtTokenIssuer.cs](file:///f:/Ky_5/Smart_Parking_System/src/Services/Identity/Identity.Infrastructure/Security/JwtTokenIssuer.cs)**:
-  * Khởi tạo và nạp RSA Key từ cấu hình hoặc tự sinh lúc khởi động.
+  * Khởi tạo và nạp RSA Private Key từ cấu hình (.pem / secret vault). Hệ thống fail-fast ngay lúc khởi động (`ValidateOnStart`) nếu thiếu private key, tuyệt đối không tự sinh ngẫu nhiên trên RAM trong môi trường Production để bảo đảm tính nhất quán chữ ký trên toàn cụm đa instance và không làm mất phiên đăng nhập khi restart pod.
   * Cache đối tượng `SigningCredentials` và `RsaSecurityKey` trong suốt vòng đời ứng dụng (Singleton), loại bỏ chi phí khởi tạo lại RSA key cho mỗi request (giảm CPU overhead đáng kể).
   * Claims trong Token:
     * `sub`: Mã định danh tài khoản (`account.Id`).
     * `email`: Địa chỉ email.
-    * `jti`: Mã định danh duy nhất của Token (chống replay).
+    * `role`: Vai trò người dùng (`Customer`, `Staff`, `ParkingLotOwner`, `SystemAdmin`) dùng cho downstream services (Parking, Booking, Gate, Payment) authorize.
+    * `jti`: Mã định danh duy nhất của Token (phục vụ audit log, tracing và thu hồi token).
     * `exp`: Thời hạn 15 phút.
 
 ### 5.3 Kiến trúc Quản lý Refresh Token & Lưu trữ Băm SHA-256
@@ -356,18 +357,19 @@ public sealed class SecureOtpGenerator : IOtpGenerator
   * `DateTimeOffset? RevokedAtUtc`: Thời gian bị thu hồi.
 * **Cơ chế Xoay vòng (Rotation)**: Mỗi khi dùng Refresh Token để lấy cặp Token mới, Refresh Token cũ sẽ bị thu hồi ngay lập tức (`RevokedAtUtc = now`) và một Refresh Token mới được cấp phát.
 
-### 5.4 Chính sách Khóa tài khoản (Account Lockout Policy: 5 lần/15 phút)
+### 5.4 Chính sách Khóa tài khoản (Account Lockout Policy: 3 lần/15 phút)
 
-Theo yêu cầu nghiệp vụ `US-AUTH-008`:
+Theo yêu cầu nghiệp vụ `FR-USER-008` (Mục 6.1 Context & Master Sheet):
 1. **Theo dõi đăng nhập sai**:
-   * Thuộc tính `FailedLoginCount` và `LockoutEndUtc` trên `Account`.
-   * Khi người dùng nhập sai mật khẩu: `FailedLoginCount++`.
+   * Thuộc tính `FailedLoginAttempts` và `LockoutEndUtc` trên `Account`.
+   * Khóa bi quan PostgreSQL (`SELECT FOR UPDATE`) trong `ExecuteInTransactionAsync` tuần tự hóa các yêu cầu đăng nhập sai đồng thời, chống triệt để race condition và lỗi xung đột đồng thời.
+   * Khi người dùng nhập sai mật khẩu: `FailedLoginAttempts++`.
 2. **Kích hoạt khóa**:
-   * Khi `FailedLoginCount >= 5`: Thiết lập `LockoutEndUtc = clock.UtcNow.AddMinutes(15)`.
-   * Các request tiếp theo trong vòng 15 phút sẽ bị từ chối ngay lập tức với lỗi `identity.account_locked`.
+   * Khi `FailedLoginAttempts >= 3`: Thiết lập `LockoutEndUtc = clock.UtcNow.AddMinutes(15)`.
+   * Các request tiếp theo trong vòng 15 phút sẽ bị từ chối ngay lập tức với lỗi `identity.account_temporarily_locked` (HTTP 423 Locked).
 3. **Mở khóa và Reset**:
    * Khi hết thời gian 15 phút: Tài khoản tự động được phép thử lại.
-   * Khi người dùng đăng nhập thành công với mật khẩu chính xác: `FailedLoginCount = 0` và `LockoutEndUtc = null`.
+   * Khi người dùng đăng nhập thành công với mật khẩu chính xác: `FailedLoginAttempts = 0` và `LockoutEndUtc = null`.
 
 ### 5.5 Kiểm tra Trạng thái Tài khoản: Yêu cầu `EmailVerified`
 
@@ -398,7 +400,7 @@ Các sự kiện được định nghĩa trong [BuildingBlocks/Events](file:///f
 
 * **Đảm bảo tính nhất quán Dual-Write**: Không bao giờ gửi trực tiếp message lên RabbitMQ trong request HTTP. Lệnh ghi dữ liệu nghiệp vụ (`Account`, `EmailVerification`) và lệnh ghi message sự kiện vào bảng `identity.outbox_messages` được thực thi trong **cùng 1 Database Transaction**.
 * **Background Dispatcher**:
-  * Chạy định kỳ, sử dụng cơ chế **Lease Lock** (`locked_until_utc`) để nhiều instance Identity Service có thể scale ngang mà không bao giờ gửi trùng lặp sự kiện.
+  * Chạy định kỳ, sử dụng cơ chế **Lease Lock** (`locked_until_utc`) để nhiều instance Identity Service có thể scale ngang với cam kết gửi ít nhất một lần (**At-least-once delivery**). Việc khử trùng lặp (de-duplication) được đảm bảo ở phía consumer qua mẫu Idempotent Inbox.
   * Đọc bản ghi outbox, publish lên RabbitMQ exchange, sau đó đánh dấu `processed_at_utc = now`.
 
 ### 6.3 RabbitMQ Consumer & Idempotent Inbox tại Notification Service

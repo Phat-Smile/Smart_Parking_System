@@ -42,7 +42,13 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
-        services.Configure<JwtIssuerOptions>(configuration.GetSection(JwtIssuerOptions.SectionName));
+        services.AddOptions<JwtIssuerOptions>()
+            .Bind(configuration.GetSection(JwtIssuerOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Issuer), "Security:Jwt:Issuer is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Audience), "Security:Jwt:Audience is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.PrivateKeyPath), "Security:Jwt:PrivateKeyPath is required.")
+            .Validate(options => options.ExpirationMinutes > 0, "Security:Jwt:ExpirationMinutes must be positive.")
+            .ValidateOnStart();
         services.AddSingleton<IJwtTokenIssuer, JwtTokenIssuer>();
         services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
         services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
