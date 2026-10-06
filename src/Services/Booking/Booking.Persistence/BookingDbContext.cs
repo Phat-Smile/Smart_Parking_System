@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.Booking.Persistence.Outbox;
 using ParkingSystem.Booking.Persistence.Inbox;
@@ -16,6 +17,12 @@ public sealed class BookingDbContext(DbContextOptions<BookingDbContext> options)
     public DbSet<Reservation> Reservations => Set<Reservation>();
 
     public DbSet<ReservationCapacity> ReservationCapacities => Set<ReservationCapacity>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        optionsBuilder.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
