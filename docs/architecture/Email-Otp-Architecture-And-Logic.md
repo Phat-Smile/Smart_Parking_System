@@ -8,7 +8,7 @@
 > - **PR #17**: `feat(auth): implement user login` — Tính năng `US-AUTH-004 & US-AUTH-008` (User Login, Dummy BCrypt Timing Attack Mitigation, RS256 Asymmetric JWT Issuer, Refresh Token SHA-256 Storage & Rotation, Account Lockout Policy 3 lần/15 phút).  
 > - **PR #19**: `feat(auth): implement user registration` — Tính năng `US-AUTH-001 Tinh giản` (Họ tên Unicode tiếng Việt, Chuẩn hóa Email, Số điện thoại Việt Nam tùy chọn, Mặc định Role = Customer, Entity `Profile` quan hệ 1:1 Cascade DB, Frontend Registration Page).  
 > **Kiến trúc áp dụng:** Clean Architecture, Domain-Driven Design (DDD), Transactional Outbox Pattern, Event-Driven Architecture (EDA) qua RabbitMQ, Idempotent Consumer, Single Synchronization Point (PostgreSQL Row Lock), Asymmetric Cryptography (RS256).  
-> **Trạng thái:** Sprint 1 Architecture Baseline (Đã kiểm thử Unit & Architecture Tests 100% Green; Integration Tests đang chuẩn bị môi trường Docker daemon/Testcontainers).
+> **Trạng thái:** Bản thảo Kiến trúc Đang Rà Soát (Architecture Proposal under Review — Chờ Mentor phê duyệt các Open Decisions) | Unit & Architecture Tests đạt 100% Green.
 
 ---
 
@@ -29,11 +29,11 @@
    - 4.5 [Application Layer: Xử lý Xác thực (`VerifyEmailOtpCommand`) & Gửi lại (`ResendOtpCommand`)](#45-application-layer-xử-lý-xác-thực-verifyemailotpcommand--gửi-lại-resendotpcommand)
 5. [Chi tiết Coding & Logic PR #17: Đăng nhập, RS256 JWT & Khóa tài khoản (US-AUTH-004 & US-AUTH-008)](#5-chi-tiết-coding--logic-pr-17-đăng-nhập-rs256-jwt--khóa-tài-khoản-us-auth-004--us-auth-008)
    - 5.1 [Chống Tấn công Timing Enumeration: Dummy BCrypt Password Verification](#51-chống-tấn-công-timing-enumeration-dummy-bcrypt-password-verification)
-   - 5.2 [Hạ tầng Ký Asymmetric JWT Token RS256 & Cache Private Key (TTL 15m)](#52-hạ-tầng-ký-asymmetric-jwt-token-rs256--cache-private-key-ttl-15m)
+   - 5.2 [Hạ tầng Ký Asymmetric JWT Token RS256 & Cache Private Key ([OPEN DECISION] TTL 15m vs 24h)](#52-hạ-tầng-ký-asymmetric-jwt-token-rs256--cache-private-key-open-decision-ttl-15m-vs-24h)
    - 5.3 [Kiến trúc Quản lý Refresh Token & Lưu trữ Băm SHA-256](#53-kiến-trúc-quản-lý-refresh-token--lưu-trữ-băm-sha-256)
    - 5.4 [Chính sách Khóa tài khoản (Account Lockout Policy: 3 lần/15 phút)](#54-chính-sách-khóa-tài-khoản-account-lockout-policy-3-lần15-phút)
    - 5.5 [Kiểm tra Trạng thái Tài khoản: Yêu cầu `EmailVerified`, `Suspended`, `Disabled`](#55-kiểm-tra-trạng-thái-tài-khoản-yêu-cầu-emailverified-suspended-disabled)
-   - 5.6 [Phân quyền Người dùng & Vòng đời Cấp phát Role (Role Assignment Lifecycle)](#56-phân-quyền-người-dùng--vòng-đời-cấp-phát-role-role-assignment-lifecycle)
+   - 5.6 [Phân quyền Người dùng & Vòng đời Cấp phát Role ([PROPOSED] Role Lifecycle)](#56-phân-quyền-người-dùng--vòng-đời-cấp-phát-role-proposed-role-lifecycle)
    - 5.7 [Đóng băng Thứ tự Kiểm tra Đăng nhập (Frozen Login Check Order)](#57-đóng-băng-thứ-tự-kiểm-tra-đăng-nhập-frozen-login-check-order)
 6. [Tích hợp EDA, Transactional Outbox & Notification Service](#6-tích-hợp-eda-transactional-outbox--notification-service)
    - 6.1 [Sự kiện Tích hợp (Integration Event Contracts)](#61-sự-kiện-tích-hợp-integration-event-contracts)
@@ -53,7 +53,7 @@
 | **Pull Request** | **[PR #18](https://github.com/Phat-Smile/Smart_Parking_System/pull/18)** | **[PR #17](https://github.com/Phat-Smile/Smart_Parking_System/pull/17)** | **[PR #19](https://github.com/Phat-Smile/Smart_Parking_System/pull/19)** |
 | **Nhánh (Branch)** | `features/Implementation_EmailOtpVerification` | `features/Implementation_LoginWithEmail` | `features/Implementation_UserRegistration` |
 | **Tiêu đề Commit** | `feat(auth): implement email otp verification and resend` | `feat(auth): implement user login` | `feat(auth): implement user registration` |
-| **Trọng tâm nghiệp vụ** | Phát hành & xác thực mã OTP, băm HMAC-SHA256, khóa dòng Postgres `SELECT FOR UPDATE`, Outbox EDA, Notification SMTP retry/DLQ. | Xác thực đăng nhập, phòng thủ timing attack qua dummy BCrypt, ký RS256 JWT, Refresh Token SHA-256, lockout 15 phút. | Đăng ký tài khoản, mở rộng trường FullName Unicode tiếng Việt, Ngày sinh $\ge 16$ tuổi, SĐT tùy chọn, Điều khoản, Entity `Profile` 1:1, UI Form. |
+| **Trọng tâm nghiệp vụ** | Phát hành & xác thực mã OTP, băm HMAC-SHA256, khóa dòng Postgres `SELECT FOR UPDATE`, Outbox EDA, Notification SMTP retry/DLQ. | Xác thực đăng nhập, phòng thủ timing attack qua dummy BCrypt, ký RS256 JWT, Refresh Token SHA-256, lockout 15 phút. | Đăng ký tài khoản tinh giản (Lean Registration: FullName Unicode tiếng Việt, Email chuẩn hóa, Password, SĐT tùy chọn), gán mặc định Role Customer, Entity Profile 1:1, UI Form. |
 | **Trạng thái CI** | **100% PASS (7/7 checks)** | **100% PASS (7/7 checks)** | **100% PASS (All checks)** |
 
 ---
@@ -187,7 +187,7 @@ public sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
         builder.HasKey(profile => profile.AccountId);
         builder.Property(profile => profile.AccountId).HasColumnName("account_id");
         builder.Property(profile => profile.FullName).HasColumnName("full_name").HasMaxLength(100).IsRequired();
-        builder.Property(profile => profile.DateOfBirth).HasColumnName("date_of_birth").HasColumnType("date").IsRequired();
+        builder.Property(profile => profile.DateOfBirth).HasColumnName("date_of_birth").HasColumnType("date").IsRequired(false);
         
         // Cấu hình quan hệ 1:1 với Account, cascade delete khi Account bị xóa
         builder.HasOne<Account>()
@@ -219,8 +219,8 @@ public sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
 Thực thể [EmailVerification](file:///f:/Ky_5/Smart_Parking_System/src/Services/Identity/Identity.Domain/EmailVerifications/EmailVerification.cs) đảm bảo các quy tắc kinh doanh nghiêm ngặt:
 1. **Thời hạn OTP**: Hết hạn chính xác sau 5 phút kể từ lúc phát hành (`ExpiresAtUtc = now.AddMinutes(5)`).
 2. **Giới hạn số lần thử**: Cho phép tối đa 3 lần nhập sai (`MaxAttempts = 3`). Vượt quá giới hạn (lần thứ 3 nhập sai), mã OTP bị vô hiệu hóa ngay lập tức (trả về lỗi `identity.otp_max_attempts_exceeded`) và người dùng bắt buộc phải yêu cầu gửi lại mã OTP mới qua Resend OTP.
-3. **Thời gian chờ giữa các lần gửi (Cooldown)**: Tối thiểu 60 giây giữa 2 lần yêu cầu gửi lại mã (`ResendCooldownSeconds = 60`).
-4. **Giới hạn gửi lại trong 1 giờ**: Cho phép tối đa 5 lần gửi lại mã trong vòng 1 giờ (`MaxResendsPerHour = 5`).
+3. **Thời gian chờ giữa các lần gửi (Cooldown)**: [PROPOSED / OPEN DECISION] Tối thiểu 60 giây giữa 2 lần yêu cầu gửi lại mã (`ResendCooldownSeconds = 60`) nhằm chống flood request và tiết kiệm chi phí gửi email, chờ Mentor/team phê duyệt tham số chính thức.
+4. **Giới hạn phát hành OTP trong 1 giờ**: Tối đa phát hành 5 mã OTP / 1 giờ / 1 email (`MaxHourlyOtpIssued = 5`), tính gộp cả OTP phát hành lần đầu lúc Đăng ký (Register) lẫn các lần Gửi lại (Resend). Với mỗi mã có tối đa 3 lần thử, tương ứng tối đa 15 lần thử/giờ.
 5. **Vòng đời vô hiệu hóa (Invalidation Lifecycle)**: Khi người dùng yêu cầu gửi lại OTP mới, bản ghi OTP cũ chưa sử dụng sẽ được đánh dấu `IsInvalidated = true`, ngăn chặn việc dùng lại mã OTP cũ.
 
 ### 4.2 Bảo mật Băm OTP Keyed HMAC-SHA256 (Server Pepper) & Chống Timing Attack
@@ -287,7 +287,7 @@ public sealed class SecureOtpGenerator : IOtpGenerator
   1. Mở transaction và lấy khóa dòng `Account` qua `SELECT FOR UPDATE`.
   2. Kiểm tra tài khoản tồn tại và trạng thái là `PendingEmailVerification`.
   3. Lấy bản ghi OTP mới nhất còn hiệu lực của tài khoản.
-  4. Kiểm tra OTP hết hạn (quá 5 phút) hoặc đã vượt quá 5 lần thử.
+  4. Kiểm tra OTP hết hạn (quá 5 phút) hoặc đã vượt quá 3 lần thử (`MaxAttempts = 3`).
   5. Gọi `otpHasher.VerifyOtp`:
      * Nếu sai: Tăng số lần thử `FailedAttempts++`, lưu DB và trả về lỗi.
      * Nếu đúng: Đánh dấu `IsUsed = true`, chuyển trạng thái `Account.Status = EmailVerified`.
@@ -296,7 +296,7 @@ public sealed class SecureOtpGenerator : IOtpGenerator
 
 * **Luồng Gửi lại (`ResendOtpCommand`)**:
   1. Mở transaction và lấy khóa dòng `Account` qua `SELECT FOR UPDATE`.
-  2. Kiểm tra cooldown 60 giây và quota tối đa 5 lần trong 1 giờ.
+  2. Kiểm tra cooldown [PROPOSED] (mặc định 60s) và quota phát hành tối đa 5 mã OTP trong 1 giờ (`MaxHourlyOtpIssued = 5`) tính cả OTP khởi tạo lúc đăng ký.
   3. Đánh dấu vô hiệu hóa toàn bộ OTP cũ của tài khoản (`IsInvalidated = true`).
   4. Sinh mã OTP 6 số mới qua CSPRNG, băm HMAC-SHA256 và lưu bản ghi mới.
   5. Enqueue sự kiện `UserVerificationOtpIssuedIntegrationEvent` vào Outbox.
@@ -333,7 +333,7 @@ public sealed class SecureOtpGenerator : IOtpGenerator
   ```
   Hàm `VerifyDummy` tiêu tốn thời gian tính toán của CPU tương đương hoàn toàn với việc kiểm tra một tài khoản có thật (~50-100ms), triệt tiêu hoàn toàn khả năng nhận biết tài khoản tồn tại dựa vào thời gian phản hồi (timing side-channel).
 
-### 5.2 Hạ tầng Ký Asymmetric JWT Token RS256 & Cache Private Key (TTL 15m)
+### 5.2 Hạ tầng Ký Asymmetric JWT Token RS256 & Cache Private Key ([OPEN DECISION] TTL 15m vs 24h)
 
 * **Thuật toán RS256**: Sử dụng cặp khóa bất đối xứng RSA:
   * Khóa bí mật (**RSA Private Key**): Chỉ duy nhất Identity Service nắm giữ để ký số Token.
@@ -345,12 +345,15 @@ public sealed class SecureOtpGenerator : IOtpGenerator
     * `sub`: Mã định danh tài khoản (`account.Id`).
     * `email`: Địa chỉ email.
     * `role`: Vai trò người dùng (`Customer`, `Staff`, `ParkingLotOwner`, `SystemAdmin`) dùng cho downstream services (Parking, Booking, Gate, Payment) authorize.
-    * `jti`: Mã định danh duy nhất của Token (phục vụ audit log, tracing và thu hồi token).
+    * `jti`: Mã định danh duy nhất của Token (phục vụ audit log và distributed tracing; hiện chưa hỗ trợ thu hồi token trực tiếp do không duy trì blacklist phân tán).
     * `exp`: Thời hạn hiệu lực của Access Token.
 * > [!IMPORTANT]
-  > **[APPROVED ARCHITECTURE DECISION] Thời hạn hiệu lực Access Token: 15 Phút (900 Giây)**:  
-  > - **Quyết định chính thức**: Hệ thống áp dụng chuẩn bảo mật **15 phút** (`expiresIn = 900`, `ExpirationMinutes = 15`) theo khuyến nghị bảo mật OWASP API Security và OAuth 2.0 Best Current Practice. Token ngắn hạn thu hẹp tối đa cửa sổ rủi ro nếu access token bị lộ. Trải nghiệm người dùng duy trì liền mạch thông qua Refresh Token rotation (7 ngày) chạy ngầm dưới background.  
-  > - **Khả năng cấu hình (Configurable)**: Tham số được liên kết động qua `Security:Jwt:ExpirationMinutes` trong `appsettings.json`, cho phép tùy biến thời hạn khi phát triển hoặc kiểm thử nội bộ mà không cần sửa code.
+  > **[OPEN DECISION / CONFLICT] Thời hạn hiệu lực Access Token: Mặc định 15 Phút + Configurable (Chờ Mentor phê duyệt 15 Phút vs 24 Giờ)**:  
+  > - **Hiện trạng triển khai**: Hệ thống áp dụng cấu hình mặc định **15 phút** (`expiresIn = 900`, `ExpirationMinutes = 15`) theo khuyến nghị bảo mật OWASP API Security và OAuth 2.0 Best Current Practice (giảm thiểu rủi ro khi Access Token bị rò rỉ). Trải nghiệm người dùng duy trì liền mạch thông qua Refresh Token rotation (7 ngày) chạy ngầm dưới background.  
+  > - **Khả năng cấu hình (Configurable)**: Tham số được liên kết động qua `Security:Jwt:ExpirationMinutes` trong `appsettings.json`, cho phép tùy biến thời hạn khi phát triển, kiểm thử hoặc thay đổi chính sách mà không cần sửa code.  
+  > - **Trạng thái quyết định**: Đang chờ Mentor và Solution Architect chốt chính thức giữa:  
+  >   * **Phương án 1 (Khuyến nghị OWASP)**: **15 Phút** (Security-First + Refresh Token Rotation 7 ngày).  
+  >   * **Phương án 2**: **24 Giờ** (Simplicity-First — đơn giản hóa phía client nếu hạn chế gọi Refresh Token).
 
 ### 5.3 Kiến trúc Quản lý Refresh Token & Lưu trữ Băm SHA-256
 
@@ -384,17 +387,20 @@ Hệ thống bảo vệ đăng nhập qua ma trận trạng thái:
 * `Disabled`: Tài khoản bị vô hiệu hóa vĩnh viễn -> Trả về `identity.account_disabled` (HTTP 403 Forbidden).
 * `EmailVerified`: Trạng thái hợp lệ duy nhất cho phép phát hành token (HTTP 200 OK).
 
-### 5.6 Phân quyền Người dùng & Vòng đời Cấp phát Role (Role Assignment Lifecycle)
+### 5.6 Phân quyền Người dùng & Vòng đời Cấp phát Role ([PROPOSED] Role Lifecycle — Sprint 2 / Backoffice Spec)
 
 Hệ thống định nghĩa 4 Role trong enum [`AccountRole`](file:///f:/Ky_5/Smart_Parking_System/src/Services/Identity/Identity.Domain/Accounts/AccountRole.cs):
-1. **`Customer`**:
+1. **`Customer`** (Người dùng cuối / Khách gửi xe) — **[CONFIRMED BASELINE]**:
    * Tự động gán mặc định cho tất cả tài khoản tạo qua Public Registration. Client không được truyền role khi đăng ký.
-2. **`Staff`** (Nhân viên soát vé / vận hành bãi xe):
-   * Không thể tự đăng ký. Được cấp tài khoản bởi `ParkingLotOwner` hoặc `SystemAdmin` qua Backoffice Portal.
-3. **`ParkingLotOwner`** (Chủ bãi đỗ xe đối tác):
-   * Phải trải qua quy trình Onboarding Đối tác, nộp hồ sơ pháp lý bãi đỗ, được `SystemAdmin` thẩm định KYC và phê duyệt cấp quyền qua `account.AssignRole(AccountRole.ParkingLotOwner)`.
-4. **`SystemAdmin`** (Quản trị viên nền tảng):
-   * Được khởi tạo ban đầu qua Migration Database Seed hoặc được cấp quyền bởi Super Admin.
+2. **`Staff`** (Nhân viên soát vé / vận hành bãi xe) — **[PROPOSED — SPRINT 2 / BACKOFFICE SPEC]**:
+   * Không thể tự đăng ký. [PROPOSED] Được cấp tài khoản bởi `ParkingLotOwner` hoặc `SystemAdmin` qua Backoffice Portal (chờ chốt đặc tả Backoffice).
+3. **`ParkingLotOwner`** (Chủ bãi đỗ xe đối tác) — **[PROPOSED — SPRINT 2 / BACKOFFICE SPEC]**:
+   * Không thể tự đăng ký public. [PROPOSED] Trải qua quy trình Onboarding Đối tác, nộp hồ sơ pháp lý bãi đỗ, được `SystemAdmin` thẩm định KYC và phê duyệt cấp quyền (chờ chốt quy trình Onboarding).
+4. **`SystemAdmin`** (Quản trị viên nền tảng) — **[PROPOSED — SPRINT 2 / BACKOFFICE SPEC]**:
+   * [PROPOSED] Được khởi tạo ban đầu qua Migration Database Seed hoặc được cấp quyền bởi Super Admin (chờ chốt quy trình quản trị hạ tầng).
+
+> [!NOTE]
+> **[SCOPE BOUNDARY]**: Vòng đời cấp phát (lifecycle) cho các vai trò `Staff`, `ParkingLotOwner`, `SystemAdmin` hiện được đánh dấu là **[PROPOSED]** và thuộc phạm vi thiết kế của Sprint 2 (Backoffice & Admin Management), không nằm trong các requirement đã chốt của Sprint 1 Identity Baseline.
 
 ### 5.7 Đóng băng Thứ tự Kiểm tra Đăng nhập (Frozen Login Check Order)
 
@@ -518,9 +524,11 @@ Notification Service hỗ trợ 3 chiến lược gửi email theo môi trườn
 }
 ```
 * **Mã lỗi RFC 7807**:
-  * `400 Bad Request`: `errorCode: "identity.invalid_otp"` (Sai OTP, OTP hết hạn, hoặc tài khoản đã verify).
-  * `400 Bad Request`: `errorCode: "identity.otp_max_attempts_exceeded"` (Nhập sai quá 3 lần, mã OTP bị hủy).
-  * `404 Not Found`: Không tìm thấy tài khoản.
+  * `400 Bad Request`: `errorCode: "identity.invalid_otp"` (Sai mã OTP).
+  * `400 Bad Request`: `errorCode: "identity.otp_expired"` (OTP hết hạn hoặc không tìm thấy phiên xác thực hợp lệ).
+  * `400 Bad Request`: `errorCode: "identity.otp_max_attempts_exceeded"` (Nhập sai quá 3 lần, mã OTP bị vô hiệu hóa).
+  * > [!NOTE]
+    > **[SECURITY / ANTI-ENUMERATION — OPEN DECISION CONFIRMED]**: Endpoint Verify OTP là public endpoint, hệ thống chủ động **không trả về 404 Not Found** khi email không tồn tại hoặc sai trạng thái, mà trả về lỗi generic `identity.otp_expired` (HTTP 400) như đã triển khai trong `VerifyEmailOtpCommand.cs`, nhằm triệt tiêu hoàn toàn nguy cơ rò rỉ sự tồn tại của tài khoản (User Enumeration Attack).
 
 ---
 
@@ -539,7 +547,7 @@ Notification Service hỗ trợ 3 chiến lược gửi email theo môi trườn
 }
 ```
 * **Mã lỗi RFC 7807**:
-  * `429 Too Many Requests`: `errorCode: "identity.otp_cooldown_active"` (Chưa hết 60s cooldown hoặc vượt quá 5 lần/giờ).
+  * `429 Too Many Requests`: `errorCode: "identity.otp_cooldown_active"` (Chưa hết thời gian cooldown 60s [PROPOSED] hoặc vượt quá quota phát hành 5 mã OTP/giờ).
   * `400 Bad Request`: `errorCode: "identity.account_already_verified"`.
 
 ---
@@ -626,7 +634,7 @@ Dưới đây là danh mục toàn bộ các file mã nguồn cốt lõi phân t
 | **Notification** | `src/Services/Notification/Notification.Infrastructure/Email/LoggingEmailSender.cs` | **PR #18** | Fallback gửi email qua console log cho môi trường local dev. |
 | **Frontend** | `web/src/features/auth/register/RegisterForm.tsx` & `registerSchema.ts` | **PR #19** | Giao diện form đăng ký tài khoản Next.js, Zod schema validation. |
 | **CI / CD** | `scripts/ci/check_git_policy.py` & `test_git_policy.py` | Cả 3 PR | Bộ công cụ tự động kiểm tra quy chuẩn nhánh, PR title và commit Conventional. |
-| **Unit Tests** | `tests/Identity/Identity.UnitTests/RegisterAccountTests.cs` | **PR #19** | Bộ 54 test unit kiểm thử toàn diện quy chuẩn đăng ký và hồ sơ. |
+| **Unit Tests** | `tests/Identity/Identity.UnitTests/RegisterAccountTests.cs` | **PR #19** | Bộ 50 test unit kiểm thử toàn diện quy chuẩn đăng ký và hồ sơ (Registration & Profile Lean). |
 | **Unit Tests** | `tests/Identity/Identity.UnitTests/EmailOtpTests.cs` | **PR #18** | Bộ test unit kiểm thử toàn diện các case OTP, cooldown, limit, hết hạn. |
 | **Unit Tests** | `tests/Identity/Identity.UnitTests/LoginTests.cs` | **PR #17** | Bộ test unit kiểm thử đăng nhập, lockout, RS256 token. |
 | **Unit Tests** | `tests/Notification/Notification.UnitTests/SmtpEmailSenderTests.cs` | **PR #18** | Bộ test unit kiểm thử cơ chế re-throw lỗi của SMTP sender. |
