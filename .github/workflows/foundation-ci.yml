@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   dotnet:
-    name: .NET foundation
+    name: .NET / Build & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
       - run: dotnet test ParkingSystem.slnx --no-build
 
   ai:
-    name: AI foundation
+    name: AI / Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   frontend:
-    name: Frontend foundation
+    name: Frontend / Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
     defaults:
       run:
