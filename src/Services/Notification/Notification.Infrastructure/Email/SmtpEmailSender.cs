@@ -8,30 +8,54 @@ namespace ParkingSystem.Notification.Infrastructure.Email;
 
 public sealed class SmtpEmailSender(
     IConfiguration configuration,
-    ILogger<SmtpEmailSender> logger) : IEmailSender
+    ILogger<SmtpEmailSender> logger,
+    LoggingEmailSender loggingFallback) : IEmailSender
 {
-    public async Task SendVerificationOtpEmailAsync(string email, string otpCode, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken = default)
+    public async Task SendVerificationOtpEmailAsync(
+        string email,
+        string otpCode,
+        DateTimeOffset expiresAtUtc,
+        CancellationToken cancellationToken = default)
     {
-        var host = configuration["SMTP_HOST"] ?? configuration["Smtp:Host"] ?? "smtp.gmail.com";
+        var host = configuration["SMTP_HOST"] ?? configuration["Smtp:Host"];
+        if (string.IsNullOrWhiteSpace(host) || host.Equals("console", StringComparison.OrdinalIgnoreCase) || host.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            await loggingFallback.SendVerificationOtpEmailAsync(email, otpCode, expiresAtUtc, cancellationToken);
+            return;
+        }
+
         var portStr = configuration["SMTP_PORT"] ?? configuration["Smtp:Port"] ?? "587";
         var port = int.TryParse(portStr, out var p) ? p : 587;
         var username = configuration["SMTP_USERNAME"] ?? configuration["Smtp:Username"];
         var password = configuration["SMTP_PASSWORD"] ?? configuration["Smtp:Password"];
-        var fromAddress = configuration["SMTP_FROM_ADDRESS"] ?? configuration["Smtp:FromAddress"] ?? username;
+        var fromAddress = configuration["SMTP_FROM_ADDRESS"] ?? configuration["Smtp:FromAddress"] ?? (!string.IsNullOrWhiteSpace(username) ? username : "noreply@smartparking.local");
 
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        var hasCredentials = !string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password);
+        var isLocalOrMailpit = host.Equals("mailpit", StringComparison.OrdinalIgnoreCase)
+                               || host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                               || host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                               || port == 1025;
+
+        if (!hasCredentials && !isLocalOrMailpit)
         {
-            logger.LogInformation("SMTP credentials are not configured. Skipping email dispatch to {Email}.", email);
+            logger.LogWarning("External SMTP host '{Host}' specified without credentials. Falling back to console logger.", host);
+            await loggingFallback.SendVerificationOtpEmailAsync(email, otpCode, expiresAtUtc, cancellationToken);
             return;
         }
 
         try
         {
-            using var client = new SmtpClient(host, port)
+            using var client = new SmtpClient(host, port);
+            if (hasCredentials)
             {
-                Credentials = new NetworkCredential(username.Trim(), password.Trim()),
-                EnableSsl = true
-            };
+                client.Credentials = new NetworkCredential(username!.Trim(), password!.Trim());
+                client.EnableSsl = port != 1025;
+            }
+            else
+            {
+                client.UseDefaultCredentials = false;
+                client.EnableSsl = false;
+            }
 
             var mailMessage = new MailMessage
             {
@@ -71,11 +95,12 @@ public sealed class SmtpEmailSender(
 
             mailMessage.To.Add(email.Trim());
             await client.SendMailAsync(mailMessage, cancellationToken);
-            logger.LogInformation("Successfully sent OTP email to {Email}", email);
+            logger.LogInformation("Successfully sent OTP email to {Email} via SMTP ({Host}:{Port})", email, host, port);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to send OTP email to {Email}", email);
+            logger.LogError(ex, "Failed to send OTP email via SMTP ({Host}:{Port}). Falling back to console logger.", host, port);
+            await loggingFallback.SendVerificationOtpEmailAsync(email, otpCode, expiresAtUtc, cancellationToken);
         }
     }
 }

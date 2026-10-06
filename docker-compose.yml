@@ -261,6 +261,21 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-noreply@smartparking.local}
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: parking_mailpit
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    networks:
+      - parking-network
+    restart: unless-stopped
 
   ai-service:
     build:

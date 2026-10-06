@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
+        services.AddSingleton<LoggingEmailSender>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddIdempotentConsumer<UserVerificationOtpIssuedConsumer>("notification.user-verification-otp-issued.v1");
         services.AddHealthChecks()
