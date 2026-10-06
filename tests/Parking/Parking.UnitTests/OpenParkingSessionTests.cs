@@ -75,12 +75,13 @@ public sealed class OpenParkingSessionTests
         Assert.Equal(ParkingSessionStatus.Active, session.Status);
         Assert.Equal("51A-123.45", session.PlateNumber);
         Assert.Equal(VehicleType.Car, session.VehicleType);
-        Assert.Equal(Now, session.EnteredAt);
+        Assert.Equal(Now, session.EntryTime);
         Assert.Null(session.UserId);
         Assert.Null(session.VehicleId);
         Assert.False(result.Value!.IsAccountLinked);
+        Assert.Equal("UnregisteredWalkIn", result.Value.CustomerType);
         Assert.Equal("Active", result.Value.Status);
-        Assert.Null(result.Value.BookingId);
+        Assert.Null(result.Value.ReservationId);
         Assert.Equal(session.Id, result.Value.SessionId);
     }
 
@@ -96,6 +97,7 @@ public sealed class OpenParkingSessionTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.Value!.IsAccountLinked);
+        Assert.Equal("RegisteredWalkIn", result.Value.CustomerType);
         var session = Assert.Single(repository.Saved);
         Assert.Equal(owner.UserId, session.UserId);
         Assert.Equal(owner.VehicleId, session.VehicleId);
@@ -152,6 +154,9 @@ public sealed class OpenParkingSessionTests
 
         public Task<bool> HasOpenSessionAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
             Task.FromResult(HasOpenSession);
+
+        public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult(Added.FirstOrDefault(session => session.Id == sessionId));
 
         public void Add(ParkingSession session) => Added.Add(session);
 
