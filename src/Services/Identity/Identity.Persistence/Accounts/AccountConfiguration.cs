@@ -7,6 +7,7 @@ namespace ParkingSystem.Identity.Persistence.Accounts;
 internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
 {
     internal const string EmailIndexName = "ux_accounts_email";
+    internal const string PhoneNumberIndexName = "ux_accounts_phone_number";
 
     public void Configure(EntityTypeBuilder<Account> builder)
     {
@@ -22,5 +23,9 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(account => account.LockoutEndUtc).HasColumnName("lockout_end_utc");
         builder.Property(account => account.RowVersion).HasColumnName("row_version").HasDefaultValue(1).IsConcurrencyToken().IsRequired();
         builder.HasIndex(account => account.Email).IsUnique().HasDatabaseName(EmailIndexName);
+        builder.HasIndex(account => account.PhoneNumber)
+            .IsUnique()
+            .HasFilter("phone_number IS NOT NULL")
+            .HasDatabaseName(PhoneNumberIndexName);
     }
 }
