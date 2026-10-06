@@ -468,19 +468,39 @@ Các sự kiện được định nghĩa trong [BuildingBlocks/Events](file:///f
 ### 6.3 RabbitMQ Consumer & Idempotent Inbox tại Notification Service
 
 * **Consumer**: `UserVerificationOtpIssuedConsumer` tại Notification Service đăng ký lắng nghe sự kiện qua MassTransit.
-* **Quy trình Thực thi Idempotent Inbox & Cơ chế Transactional Rollback**:
-  * Khi nhận event từ RabbitMQ qua MassTransit, `NotificationInboxExecutionCoordinator` mở 1 Database Transaction cục bộ:
+* **Quy trình Thực thi Idempotent Inbox & Cơ chế Transactional Rollback (Frozen Semantics)**:
+  * **Bước 1: Tiếp nhận Message & Mở Transaction**:
+    Khi nhận event từ RabbitMQ, `NotificationInboxExecutionCoordinator` mở một Database Transaction cục bộ và chèn bản ghi Inbox với `processed_at_utc = NULL` (chưa xử lý):
     ```sql
-    INSERT INTO "notification"."inbox_messages" ("message_id", "consumer_key", "received_at_utc", "processed_at_utc")
-    VALUES (@messageId, @consumerKey, @now, @initialProcessedAtUtc)
+    -- 1. Khi nhận message: processed_at_utc = NULL
+    INSERT INTO "notification"."inbox_messages" 
+        ("message_id", "consumer_key", "received_at_utc", "processed_at_utc")
+    VALUES 
+        (@messageId, @consumerKey, @now, NULL)
     ON CONFLICT ("message_id", "consumer_key") DO NOTHING;
     ```
-  * **Nếu bản tin đã được xử lý trước đó** (`inserted == 0`): Rollback transaction và trả về `InboxExecutionResult.Duplicate` $\rightarrow$ Bỏ qua message, ngăn chặn gửi email lặp lại khi RabbitMQ re-deliver.
-  * **Nếu bản tin mới** (`inserted == 1`):
-    1. **Khi tiếp nhận event**: Bản ghi Inbox được khởi tạo với thời điểm tiếp nhận (`received_at_utc = now`), trong khi trạng thái xử lý logic là chưa hoàn tất (`processed_at_utc = NULL` về mặt logic nghiệp vụ / giữ trong transaction chưa commit).
-    2. **Thực thi nghiệp vụ**: Gọi `IEmailSender.SendVerificationOtpEmailAsync(...)` để gửi email chứa mã OTP.
-    3. **Chỉ sau khi gửi email thành công**: Cập nhật chính thức `processed_at_utc = now`, gọi `transaction.CommitAsync()` $\rightarrow$ Bản ghi inbox được lưu vĩnh viễn và commit thành công vào database.
-    4. **Nếu SMTP gặp sự cố (Timeout, Network Failure, SMTP error)**: Bắt ngoại lệ trong khối `catch`, kích hoạt `transaction.RollbackAsync()` $\rightarrow$ **Toàn bộ bản ghi inbox bị rollback hoàn toàn khỏi cơ sở dữ liệu**! Lỗi sau đó được `throw;` lại để MassTransit kích hoạt Retry Policy. Khi MassTransit thử lại sau vài giây, vì bảng inbox chưa ghi nhận message này, Consumer được phép thực thi lại để gửi email thành công.
+    * Nếu bản ghi đã tồn tại (`inserted == 0`): Message đã được xử lý thành công trước đó $\rightarrow$ Kích hoạt `ROLLBACK` và trả về `InboxExecutionResult.Duplicate` để bỏ qua, ngăn chặn gửi email lặp lại khi RabbitMQ re-deliver.
+  * **Bước 2: Thực thi Gửi Email**:
+    Thực thi nghiệp vụ gọi `IEmailSender.SendVerificationOtpEmailAsync(...)` gửi mã OTP qua SMTP.
+  * **Bước 3: Gửi Thành Công $\rightarrow$ Đánh dấu Hoàn tất & Commit**:
+    Chỉ sau khi SMTP gửi email thành công, thực thi câu lệnh cập nhật `processed_at_utc = now` và commit transaction:
+    ```sql
+    -- 2. Chỉ sau khi gửi email thành công: Cập nhật processed_at_utc = now và COMMIT
+    UPDATE "notification"."inbox_messages"
+    SET "processed_at_utc" = @now
+    WHERE "message_id" = @messageId AND "consumer_key" = @consumerKey;
+
+    COMMIT;
+    ```
+  * **Bước 4: Gửi Thất Bại $\rightarrow$ Rollback để Retry**:
+    Nếu SMTP gặp sự cố (Network Timeout, SMTP Exception):
+    ```sql
+    -- 3. Nếu SMTP fail: rollback hoàn toàn để MassTransit có thể retry
+    ROLLBACK;
+    ```
+    * Khối `catch` kích hoạt `transaction.RollbackAsync()` $\rightarrow$ Bản ghi inbox bị rollback hoàn toàn khỏi cơ sở dữ liệu.
+    * Lỗi sau đó được ném lại (`throw;`) để MassTransit kích hoạt Retry Policy (exponential backoff).
+    * Khi MassTransit retry ở lần tiếp theo, do bản ghi inbox chưa từng được commit, Consumer được phép thực thi lại từ đầu để gửi email thành công.
 
 ### 6.4 Hạ tầng Gửi Email Linh hoạt & Cơ chế Retry / DLQ qua MassTransit
 
