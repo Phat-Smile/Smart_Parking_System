@@ -345,7 +345,12 @@ public sealed class SecureOtpGenerator : IOtpGenerator
     * `email`: Địa chỉ email.
     * `role`: Vai trò người dùng (`Customer`, `Staff`, `ParkingLotOwner`, `SystemAdmin`) dùng cho downstream services (Parking, Booking, Gate, Payment) authorize.
     * `jti`: Mã định danh duy nhất của Token (phục vụ audit log, tracing và thu hồi token).
-    * `exp`: Thời hạn 15 phút.
+    * `exp`: Thời hạn hiệu lực của Access Token.
+  * > [!IMPORTANT]
+    > **[OPEN DECISION / CONFLICT] Thời hạn hiệu lực Access Token (TTL: 15 phút vs 24 giờ)**:  
+    > - **Hiện trạng hệ thống**: Mặc định là **15 phút** (`ExpirationMinutes = 15`, `expiresIn = 900`) theo khuyến nghị bảo mật OWASP và tiêu chuẩn OAuth 2.0 / OIDC Best Current Practice.  
+    > - **Nguồn gốc xung đột**: Tài liệu Context ban đầu có đề cập thời hạn **24 giờ** để client web/mobile giảm thiểu tần suất gọi refresh token.  
+    > - **Giải pháp thiết kế**: Toàn bộ thời hạn được điều khiển qua cấu hình `Security:Jwt:ExpirationMinutes` (trong `appsettings.json`) kết hợp `ValidateOnStart`, tuyệt đối không hardcode trong mã nguồn. Hệ thống sẵn sàng chuyển đổi giữa 15 phút (kèm silent refresh) và 24 giờ bằng 1 dòng cấu hình mà không phải sửa code. Trạng thái giữ nhãn **OPEN DECISION** chờ Mentor chốt quyết định chính thức.
 
 ### 5.3 Kiến trúc Quản lý Refresh Token & Lưu trữ Băm SHA-256
 

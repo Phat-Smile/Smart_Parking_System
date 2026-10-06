@@ -33,6 +33,12 @@ public static class LoginErrors
 
     public static readonly Error AccountTemporarilyLocked =
         new("identity.account_temporarily_locked", "Account is temporarily locked due to multiple failed login attempts. Please try again later.");
+
+    public static readonly Error AccountSuspended =
+        new("identity.account_suspended", "Account has been suspended. Please contact support.");
+
+    public static readonly Error AccountDisabled =
+        new("identity.account_disabled", "Account has been disabled.");
 }
 
 public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
@@ -93,6 +99,18 @@ public sealed class LoginCommandHandler(
 
             // Correct password breaks consecutive failed attempts streak
             account.RecordCorrectCredential();
+
+            if (account.Status == AccountStatus.Suspended)
+            {
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<LoginResponse>.Failure(LoginErrors.AccountSuspended);
+            }
+
+            if (account.Status == AccountStatus.Disabled)
+            {
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<LoginResponse>.Failure(LoginErrors.AccountDisabled);
+            }
 
             if (account.Status != AccountStatus.EmailVerified)
             {

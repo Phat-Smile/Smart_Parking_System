@@ -70,6 +70,7 @@ public sealed class EmailOtpTests
         Assert.True(result.IsSuccess);
         Assert.Equal(account.Id, result.Value!.AccountId);
         Assert.Equal("user@example.com", result.Value.Email);
+        Assert.Equal("EmailVerified", result.Value.Status);
         Assert.True(result.Value.IsVerified);
 
         Assert.Equal(AccountStatus.EmailVerified, account.Status);

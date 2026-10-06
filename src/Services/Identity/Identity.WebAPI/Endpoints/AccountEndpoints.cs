@@ -101,6 +101,8 @@ internal static class AccountEndpoints
                 {
                     "identity.invalid_credentials" => StatusCodes.Status401Unauthorized,
                     "identity.email_not_verified" => StatusCodes.Status403Forbidden,
+                    "identity.account_suspended" => StatusCodes.Status403Forbidden,
+                    "identity.account_disabled" => StatusCodes.Status403Forbidden,
                     "identity.account_temporarily_locked" => StatusCodes.Status423Locked,
                     _ => StatusCodes.Status400BadRequest
                 };

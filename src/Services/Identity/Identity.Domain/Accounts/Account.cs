@@ -61,6 +61,24 @@ public sealed class Account
         return true;
     }
 
+    public void Suspend()
+    {
+        Status = AccountStatus.Suspended;
+        RowVersion++;
+    }
+
+    public void Disable()
+    {
+        Status = AccountStatus.Disabled;
+        RowVersion++;
+    }
+
+    public void Activate()
+    {
+        Status = AccountStatus.EmailVerified;
+        RowVersion++;
+    }
+
     public bool IsLockedOut(DateTimeOffset nowUtc) =>
         LockoutEndUtc.HasValue && LockoutEndUtc.Value > nowUtc;
 

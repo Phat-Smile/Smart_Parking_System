@@ -282,6 +282,50 @@ public sealed class LoginTests
     }
 
     [Fact]
+    public async Task Scenario9b_Correct_password_on_suspended_account_returns_suspended_error()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+        account.Suspend();
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var refreshTokenRepo = new FakeRefreshTokenRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
+        var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
+
+        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(LoginErrors.AccountSuspended, result.Error);
+        Assert.Empty(refreshTokenRepo.Saved);
+    }
+
+    [Fact]
+    public async Task Scenario9c_Correct_password_on_disabled_account_returns_disabled_error()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+        account.Disable();
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var refreshTokenRepo = new FakeRefreshTokenRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
+        var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
+
+        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(LoginErrors.AccountDisabled, result.Error);
+        Assert.Empty(refreshTokenRepo.Saved);
+    }
+
+    [Fact]
     public void Scenario10_JwtTokenIssuer_generates_valid_rs256_token_with_required_claims()
     {
         using var rsa = RSA.Create(2048);

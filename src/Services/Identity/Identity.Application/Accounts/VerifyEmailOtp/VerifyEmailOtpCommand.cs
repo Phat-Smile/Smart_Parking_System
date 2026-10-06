@@ -13,7 +13,7 @@ namespace ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 public sealed record VerifyEmailOtpCommand(string Email, string OtpCode)
     : IRequest<Result<VerifiedEmailAccount>>;
 
-public sealed record VerifiedEmailAccount(Guid AccountId, string Email, bool IsVerified);
+public sealed record VerifiedEmailAccount(Guid AccountId, string Email, string Status, bool IsVerified = true);
 
 public static class VerifyEmailOtpErrors
 {
@@ -96,7 +96,7 @@ public sealed class VerifyEmailOtpCommandHandler(
 
             await emailVerifications.SaveChangesAsync(cancellationToken);
 
-            return Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(account.Id, account.Email, true));
+            return Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(account.Id, account.Email, account.Status.ToString(), true));
         }, cancellationToken);
     }
 }
