@@ -106,7 +106,7 @@ Hệ thống Identity & Authentication được thiết kế theo kiến trúc *
   * Thuộc tính:
     * `Guid AccountId`: Khóa chính (Primary Key), đồng thời là Khóa ngoại (Foreign Key) tham chiếu trực tiếp tới `Account.Id`.
     * `string FullName`: Họ và tên người dùng (2 - 100 ký tự, hỗ trợ Unicode tiếng Việt).
-    * `DateOnly? DateOfBirth`: Ngày tháng năm sinh (tùy chọn, cập nhật khi xác minh danh tính/KYC sau).
+    * `DateOnly? DateOfBirth`: Ngày tháng năm sinh (tùy chọn, người dùng có thể cập nhật trong trang Hồ sơ cá nhân sau).
     * `string? CitizenIdNumber`: Số CCCD / CMND (tùy chọn, cập nhật ở bước hồ sơ).
     * `string? DriverLicenseNumber`: Số giấy phép lái xe (tùy chọn, cập nhật ở bước hồ sơ).
     * `string? AvatarUrl`: Đường dẫn ảnh đại diện (tùy chọn).
@@ -136,7 +136,7 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
             .MaximumLength(254)
             .EmailAddress().WithMessage("Email must be a valid email address.");
 
-        // 3. Mật khẩu: 8 - 72 ký tự, gồm chữ hoa, chữ thường, số, ký tự đặc biệt (giới hạn 72 bytes do thuật toán BCrypt)
+        // 3. Mật khẩu: 8 - 72 ký tự, gồm chữ hoa, chữ thường, số, ký tự đặc biệt (giới hạn 72 characters application constraint)
         RuleFor(command => command.Password)
             .NotEmpty().WithMessage("Password is required.")
             .MinimumLength(8)
@@ -161,7 +161,7 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
 > [!NOTE]
 > **Quy chuẩn Scope Đăng ký & Tách biệt Trách nhiệm**:
 > - Client **tuyệt đối không được gửi role** (Hệ thống tự động gán `AccountRole.Customer`).
-> - Thông tin Ngày sinh (`DateOfBirth`), CCCD (`CitizenIdNumber`), Giấy phép lái xe (`DriverLicenseNumber`), Phương tiện xe (`Vehicle`), Ảnh đại diện (`Avatar`) được tách biệt hoàn toàn và chuyển sang trang **Hồ sơ cá nhân (Profile / KYC)** sau khi người dùng đăng nhập.
+> - Thông tin Ngày sinh (`DateOfBirth`), CCCD (`CitizenIdNumber`), Giấy phép lái xe (`DriverLicenseNumber`), Phương tiện xe (`Vehicle`), Ảnh đại diện (`Avatar`) được tách biệt hoàn toàn và chuyển sang trang **Hồ sơ cá nhân (Profile)** sau khi người dùng đăng nhập.
 
 ### 3.3 Application Layer: Command, Validator & Handler
 
@@ -331,7 +331,7 @@ public sealed class SecureOtpGenerator : IOtpGenerator
       return Result<LoginResponse>.Failure(LoginErrors.InvalidCredentials);
   }
   ```
-  Hàm `VerifyDummy` tiêu tốn thời gian tính toán của CPU tương đương hoàn toàn với việc kiểm tra một tài khoản có thật (~50-100ms), triệt tiêu hoàn toàn khả năng nhận biết tài khoản tồn tại dựa vào thời gian phản hồi (timing side-channel).
+  Hàm `VerifyDummy` tiêu tốn thời gian tính toán của CPU tương đương với việc kiểm tra một tài khoản có thật (~50-100ms), giúp giảm thiểu timing side-channel khi kiểm tra tài khoản không tồn tại.
 
 ### 5.2 Hạ tầng Ký Asymmetric JWT Token RS256 & Cache Private Key ([OPEN DECISION] TTL 15m vs 24h)
 
@@ -341,12 +341,23 @@ public sealed class SecureOtpGenerator : IOtpGenerator
 * **Tối ưu Caching trong [JwtTokenIssuer.cs](file:///f:/Ky_5/Smart_Parking_System/src/Services/Identity/Identity.Infrastructure/Security/JwtTokenIssuer.cs)**:
   * Khởi tạo và nạp RSA Private Key từ cấu hình (.pem / secret vault). Hệ thống fail-fast ngay lúc khởi động (`ValidateOnStart`) nếu thiếu private key, tuyệt đối không tự sinh ngẫu nhiên trên RAM trong môi trường Production để bảo đảm tính nhất quán chữ ký trên toàn cụm đa instance và không làm mất phiên đăng nhập khi restart pod.
   * Cache đối tượng `SigningCredentials` và `RsaSecurityKey` trong suốt vòng đời ứng dụng (Singleton), loại bỏ chi phí khởi tạo lại RSA key cho mỗi request (giảm CPU overhead đáng kể).
-  * Claims trong Token:
-    * `sub`: Mã định danh tài khoản (`account.Id`).
-    * `email`: Địa chỉ email.
-    * `role`: Vai trò người dùng (`Customer`, `Staff`, `ParkingLotOwner`, `SystemAdmin`) dùng cho downstream services (Parking, Booking, Gate, Payment) authorize.
-    * `jti`: Mã định danh duy nhất của Token (phục vụ audit log và distributed tracing; hiện chưa hỗ trợ thu hồi token trực tiếp do không duy trì blacklist phân tán).
-    * `exp`: Thời hạn hiệu lực của Access Token.
+* **Claims trong Token (Frozen JWT Contract)**:
+  * `sub`: Mã định danh tài khoản (`account.Id`).
+  * `email`: Địa chỉ email.
+  * `role`: Vai trò người dùng (`Customer`, `Staff`, `ParkingLotOwner`, `SystemAdmin`) dùng cho downstream services (Parking, Booking, Gate, Payment) authorize.
+  * `iss`: Issuer định danh Identity Service (nạp từ cấu hình `Security:Jwt:Issuer`).
+  * `aud`: Audience định danh API Audience (nạp từ cấu hình `Security:Jwt:Audience`).
+  * `jti`: Mã định danh duy nhất của Token (phục vụ audit log và distributed tracing; hiện chưa hỗ trợ thu hồi token trực tiếp do không duy trì blacklist phân tán).
+  * `iat`: Unix timestamp thời điểm phát hành (Issued At).
+  * `nbf`: Unix timestamp thời điểm bắt đầu có hiệu lực (Not Before).
+  * `exp`: Unix timestamp thời điểm hết hạn (Expiration Time).
+* **Quy chuẩn Kiểm thực Phía Downstream Services (Frozen Downstream JWT Validation Contract)**:
+  Mọi downstream service (Parking, Booking, Payment, Gate, v.v.) và API Gateway khi xác thực JWT Bearer token **BẮT BUỘC** phải cấu hình kiểm tra đầy đủ 5 tiêu chuẩn bảo mật sau:
+  1. **Signature (`ValidateIssuerSigningKey = true`)**: Kiểm tra chữ ký số bằng RSA Public Key (`.pem` hoặc JWKS của Identity Service).
+  2. **Algorithm (`ValidAlgorithms = ["RS256"]`)**: Bắt buộc thuật toán ký là `RS256` (`SecurityAlgorithms.RsaSha256`), từ chối tuyệt đối các token dùng thuật toán đối xứng (HS256) hoặc thuật toán không an toàn (`none`).
+  3. **Issuer (`ValidateIssuer = true`, `ValidIssuer = ...`)**: Chuỗi Issuer phải khớp chính xác với `Security:Jwt:Issuer`.
+  4. **Audience (`ValidateAudience = true`, `ValidAudience = ...`)**: Chuỗi Audience phải khớp chính xác với `Security:Jwt:Audience`.
+  5. **Expiration (`ValidateLifetime = true`)**: Kiểm tra token còn trong thời hạn hiệu lực (`exp`), với độ lệch đồng hồ tối đa cho phép nhỏ (`ClockSkew = TimeSpan.FromSeconds(5)` hoặc `TimeSpan.Zero`).
 * > [!IMPORTANT]
   > **[OPEN DECISION / CONFLICT] Thời hạn hiệu lực Access Token: Mặc định 15 Phút + Configurable (Chờ Mentor phê duyệt 15 Phút vs 24 Giờ)**:  
   > - **Hiện trạng triển khai**: Hệ thống áp dụng cấu hình mặc định **15 phút** (`expiresIn = 900`, `ExpirationMinutes = 15`) theo khuyến nghị bảo mật OWASP API Security và OAuth 2.0 Best Current Practice (giảm thiểu rủi ro khi Access Token bị rò rỉ). Trải nghiệm người dùng duy trì liền mạch thông qua Refresh Token rotation (7 ngày) chạy ngầm dưới background.  
@@ -379,13 +390,17 @@ Theo yêu cầu nghiệp vụ `FR-USER-008` (Mục 6.1 Context & Master Sheet):
    * Khi hết thời gian 15 phút: Tài khoản tự động được phép thử lại (`ClearExpiredLockout`).
    * Khi người dùng đăng nhập thành công với mật khẩu chính xác: `FailedLoginAttempts = 0` và `LockoutEndUtc = null` (`RecordCorrectCredential`).
 
-### 5.5 Kiểm tra Trạng thái Tài khoản: Yêu cầu `EmailVerified`, `Suspended`, `Disabled`
+### 5.5 Kiểm tra Trạng thái Tài khoản: Yêu cầu `EmailVerified` & Các Trạng thái Đề xuất ([PROPOSED ACCOUNT STATE])
 
 Hệ thống bảo vệ đăng nhập qua ma trận trạng thái:
-* `PendingEmailVerification`: Trả về `identity.email_not_verified` (HTTP 403 Forbidden).
-* `Suspended`: Tài khoản bị tạm khóa do vi phạm hoặc điều tra -> Trả về `identity.account_suspended` (HTTP 403 Forbidden).
-* `Disabled`: Tài khoản bị vô hiệu hóa vĩnh viễn -> Trả về `identity.account_disabled` (HTTP 403 Forbidden).
-* `EmailVerified`: Trạng thái hợp lệ duy nhất cho phép phát hành token (HTTP 200 OK).
+* **`PendingEmailVerification`** — **[CONFIRMED BASELINE]**: Trả về `identity.email_not_verified` (HTTP 403 Forbidden).
+* **`EmailVerified`** — **[CONFIRMED BASELINE]**: Trạng thái hợp lệ duy nhất cho phép phát hành token (HTTP 200 OK).
+* **`Suspended`** — **[PROPOSED ACCOUNT STATE — SPRINT 2 / ADMIN SPEC]**: Tài khoản bị tạm khóa do vi phạm hoặc điều tra $\rightarrow$ Trả về `identity.account_suspended` (HTTP 403 Forbidden).
+* **`Disabled`** — **[PROPOSED ACCOUNT STATE — SPRINT 2 / ADMIN SPEC]**: Tài khoản bị vô hiệu hóa vĩnh viễn $\rightarrow$ Trả về `identity.account_disabled` (HTTP 403 Forbidden).
+
+> [!NOTE]
+> **[SCOPE BOUNDARY — ACCOUNT STATES]**:
+> Trong phạm vi Sprint 1 Baseline, tài liệu nghiệp vụ chỉ mới chính thức xác nhận luồng chuyển đổi giữa `PendingEmailVerification` và `EmailVerified`. Hai trạng thái `Suspended` và `Disabled` được nhóm kỹ thuật định nghĩa sẵn trong enum `AccountStatus` để phục vụ khả năng mở rộng kiến trúc, nhưng được đánh dấu chính thức là **`[PROPOSED ACCOUNT STATE]`** cho tới khi Backoffice/Admin Specification của Sprint 2 được chốt.
 
 ### 5.6 Phân quyền Người dùng & Vòng đời Cấp phát Role ([PROPOSED] Role Lifecycle — Sprint 2 / Backoffice Spec)
 
@@ -395,7 +410,7 @@ Hệ thống định nghĩa 4 Role trong enum [`AccountRole`](file:///f:/Ky_5/Sm
 2. **`Staff`** (Nhân viên soát vé / vận hành bãi xe) — **[PROPOSED — SPRINT 2 / BACKOFFICE SPEC]**:
    * Không thể tự đăng ký. [PROPOSED] Được cấp tài khoản bởi `ParkingLotOwner` hoặc `SystemAdmin` qua Backoffice Portal (chờ chốt đặc tả Backoffice).
 3. **`ParkingLotOwner`** (Chủ bãi đỗ xe đối tác) — **[PROPOSED — SPRINT 2 / BACKOFFICE SPEC]**:
-   * Không thể tự đăng ký public. [PROPOSED] Trải qua quy trình Onboarding Đối tác, nộp hồ sơ pháp lý bãi đỗ, được `SystemAdmin` thẩm định KYC và phê duyệt cấp quyền (chờ chốt quy trình Onboarding).
+   * Không thể tự đăng ký public. [PROPOSED] Trải qua quy trình Onboarding Đối tác, nộp hồ sơ pháp lý bãi đỗ, được `SystemAdmin` thẩm định hồ sơ và phê duyệt cấp quyền (chờ chốt quy trình Onboarding).
 4. **`SystemAdmin`** (Quản trị viên nền tảng) — **[PROPOSED — SPRINT 2 / BACKOFFICE SPEC]**:
    * [PROPOSED] Được khởi tạo ban đầu qua Migration Database Seed hoặc được cấp quyền bởi Super Admin (chờ chốt quy trình quản trị hạ tầng).
 
@@ -420,14 +435,14 @@ Toàn bộ quy trình đăng nhập trong [`LoginCommand.cs`](file:///f:/Ky_5/Sm
    * **Nếu ĐÚNG**:
      * Reset chuỗi thất bại `account.RecordCorrectCredential()`.
 6. Kiểm tra Trạng thái tài khoản:
-   * `Suspended` $\rightarrow$ Lưu DB $\rightarrow$ Trả về **`403 Forbidden`** (`identity.account_suspended`).
-   * `Disabled` $\rightarrow$ Lưu DB $\rightarrow$ Trả về **`403 Forbidden`** (`identity.account_disabled`).
+   * `Suspended` [PROPOSED] $\rightarrow$ Lưu DB $\rightarrow$ Trả về **`403 Forbidden`** (`identity.account_suspended`).
+   * `Disabled` [PROPOSED] $\rightarrow$ Lưu DB $\rightarrow$ Trả về **`403 Forbidden`** (`identity.account_disabled`).
    * Khác `EmailVerified` $\rightarrow$ Lưu DB $\rightarrow$ Trả về **`403 Forbidden`** (`identity.email_not_verified`).
 7. Đăng nhập thành công:
    * Sinh `RefreshToken` (raw 64 ký tự hex, lưu hash SHA-256 vào DB).
    * Commit transaction nguyên tử.
-   * Ký JWT Access Token RS256 (thời hạn 15 phút, claim `sub`, `email`, `role`, `jti`).
-   * Trả về **`200 OK`** (`accessToken`, `tokenType: "Bearer"`, `expiresIn: 900`, `refreshToken`, `account: { id, email, role, status }`).
+   * Ký JWT Access Token RS256: Thời hạn token được nạp động từ cấu hình `Security:Jwt:ExpirationMinutes` (mặc định 15 phút [OPEN DECISION: 15m vs 24h], `expiresIn = AccessTokenExpirationSeconds`), payload chứa đầy đủ các claims chuẩn hóa: `sub`, `email`, `role`, `iss`, `aud`, `jti`, `iat`, `nbf`, `exp`.
+   * Trả về **`200 OK`** (`accessToken`, `tokenType: "Bearer"`, `expiresIn`, `refreshToken`, `account: { id, email, role, status }`).
 
 ---
 
@@ -441,7 +456,7 @@ Các sự kiện được định nghĩa trong [BuildingBlocks/Events](file:///f
   * Được phát hành khi tài khoản đăng ký mới hoặc khi yêu cầu gửi lại OTP.
 * `AccountEmailVerifiedIntegrationEvent(Guid AccountId, string Email, DateTimeOffset VerifiedAtUtc)`:
   * Event Type: `identity.account-email-verified.v1` (Version 1).
-  * Được phát hành khi xác thực email thành công, báo hiệu cho các domain khác (Notification, Marketing, Audit).
+  * Được phát hành khi xác thực email thành công, báo hiệu cho các domain khác (Notification, Audit).
 
 ### 6.2 Transactional Outbox Pattern & Background Dispatcher
 
@@ -454,16 +469,18 @@ Các sự kiện được định nghĩa trong [BuildingBlocks/Events](file:///f
 
 * **Consumer**: `UserVerificationOtpIssuedConsumer` tại Notification Service đăng ký lắng nghe sự kiện qua MassTransit.
 * **Quy trình Thực thi Idempotent Inbox & Cơ chế Transactional Rollback**:
-  * `NotificationInboxExecutionCoordinator` mở 1 Database Transaction cục bộ:
+  * Khi nhận event từ RabbitMQ qua MassTransit, `NotificationInboxExecutionCoordinator` mở 1 Database Transaction cục bộ:
     ```sql
     INSERT INTO "notification"."inbox_messages" ("message_id", "consumer_key", "received_at_utc", "processed_at_utc")
-    VALUES (@messageId, @consumerKey, @now, @now)
+    VALUES (@messageId, @consumerKey, @now, @initialProcessedAtUtc)
     ON CONFLICT ("message_id", "consumer_key") DO NOTHING;
     ```
-  * **Nếu bản tin đã xử lý trước đó** (`inserted == 0`): Rollback transaction và trả về `InboxExecutionResult.Duplicate` $\rightarrow$ Bỏ qua, ngăn chặn gửi email lần 2 khi RabbitMQ re-deliver.
-  * **Nếu bản tin mới** (`inserted == 1`): Thực thi logic gọi `IEmailSender.SendVerificationOtpEmailAsync(...)`.
-    * **Trường hợp gửi email thành công**: Cập nhật `processed_at_utc = now`, gọi `transaction.CommitAsync()` $\rightarrow$ Bản ghi inbox được lưu vĩnh viễn và commit thành công.
-    * **Trường hợp SMTP gặp sự cố (Timeout, Network Failure, SMTP error)**: Bắt ngoại lệ trong khối `catch`, kích hoạt `transaction.RollbackAsync()` $\rightarrow$ **Toàn bộ bản ghi inbox bị rollback hoàn toàn khỏi cơ sở dữ liệu**! Lỗi sau đó được `throw;` lại để MassTransit kích hoạt Retry Policy. Khi MassTransit thử lại sau vài giây, vì bảng inbox chưa ghi nhận message này, Consumer được phép thực thi lại để gửi email thành công.
+  * **Nếu bản tin đã được xử lý trước đó** (`inserted == 0`): Rollback transaction và trả về `InboxExecutionResult.Duplicate` $\rightarrow$ Bỏ qua message, ngăn chặn gửi email lặp lại khi RabbitMQ re-deliver.
+  * **Nếu bản tin mới** (`inserted == 1`):
+    1. **Khi tiếp nhận event**: Bản ghi Inbox được khởi tạo với thời điểm tiếp nhận (`received_at_utc = now`), trong khi trạng thái xử lý logic là chưa hoàn tất (`processed_at_utc = NULL` về mặt logic nghiệp vụ / giữ trong transaction chưa commit).
+    2. **Thực thi nghiệp vụ**: Gọi `IEmailSender.SendVerificationOtpEmailAsync(...)` để gửi email chứa mã OTP.
+    3. **Chỉ sau khi gửi email thành công**: Cập nhật chính thức `processed_at_utc = now`, gọi `transaction.CommitAsync()` $\rightarrow$ Bản ghi inbox được lưu vĩnh viễn và commit thành công vào database.
+    4. **Nếu SMTP gặp sự cố (Timeout, Network Failure, SMTP error)**: Bắt ngoại lệ trong khối `catch`, kích hoạt `transaction.RollbackAsync()` $\rightarrow$ **Toàn bộ bản ghi inbox bị rollback hoàn toàn khỏi cơ sở dữ liệu**! Lỗi sau đó được `throw;` lại để MassTransit kích hoạt Retry Policy. Khi MassTransit thử lại sau vài giây, vì bảng inbox chưa ghi nhận message này, Consumer được phép thực thi lại để gửi email thành công.
 
 ### 6.4 Hạ tầng Gửi Email Linh hoạt & Cơ chế Retry / DLQ qua MassTransit
 
@@ -528,7 +545,7 @@ Notification Service hỗ trợ 3 chiến lược gửi email theo môi trườn
   * `400 Bad Request`: `errorCode: "identity.otp_expired"` (OTP hết hạn hoặc không tìm thấy phiên xác thực hợp lệ).
   * `400 Bad Request`: `errorCode: "identity.otp_max_attempts_exceeded"` (Nhập sai quá 3 lần, mã OTP bị vô hiệu hóa).
   * > [!NOTE]
-    > **[SECURITY / ANTI-ENUMERATION — OPEN DECISION CONFIRMED]**: Endpoint Verify OTP là public endpoint, hệ thống chủ động **không trả về 404 Not Found** khi email không tồn tại hoặc sai trạng thái, mà trả về lỗi generic `identity.otp_expired` (HTTP 400) như đã triển khai trong `VerifyEmailOtpCommand.cs`, nhằm triệt tiêu hoàn toàn nguy cơ rò rỉ sự tồn tại của tài khoản (User Enumeration Attack).
+    > **[SECURITY / ANTI-ENUMERATION — OPEN DECISION]**: Endpoint Verify OTP là public endpoint, hệ thống chủ động **không trả về 404 Not Found** khi email không tồn tại hoặc sai trạng thái, mà trả về lỗi generic `identity.otp_expired` (HTTP 400) như đã triển khai trong `VerifyEmailOtpCommand.cs`, nhằm giảm thiểu nguy cơ rò rỉ sự tồn tại của tài khoản (User Enumeration Attack).
 
 ---
 
@@ -576,12 +593,15 @@ Notification Service hỗ trợ 3 chiến lược gửi email theo môi trườn
   }
 }
 ```
+> [!NOTE]
+> `expiresIn` được nạp động từ cấu hình `Security:Jwt:ExpirationMinutes` (mặc định 900 giây tương ứng 15 phút `[OPEN DECISION: 15m vs 24h]`, hoặc 86400 giây nếu chọn cấu hình 24 giờ).
+
 * **Mã lỗi RFC 7807**:
-  * `401 Unauthorized`: `errorCode: "identity.invalid_credentials"` (Sai email hoặc mật khẩu, chạy dummy verify chống timing attack).
+  * `401 Unauthorized`: `errorCode: "identity.invalid_credentials"` (Sai email hoặc mật khẩu, chạy dummy verify giúp giảm timing side-channel).
   * `423 Locked`: `errorCode: "identity.account_temporarily_locked"` (Tài khoản đang bị khóa 15 phút do nhập sai mật khẩu 3 lần liên tiếp).
   * `403 Forbidden`: `errorCode: "identity.email_not_verified"` (Chưa xác thực email).
-  * `403 Forbidden`: `errorCode: "identity.account_suspended"` (Tài khoản đang bị tạm đình chỉ).
-  * `403 Forbidden`: `errorCode: "identity.account_disabled"` (Tài khoản đã bị vô hiệu hóa).
+  * `403 Forbidden`: `errorCode: "identity.account_suspended"` [PROPOSED] (Tài khoản đang bị tạm đình chỉ).
+  * `403 Forbidden`: `errorCode: "identity.account_disabled"` [PROPOSED] (Tài khoản đã bị vô hiệu hóa).
 
 ---
 
