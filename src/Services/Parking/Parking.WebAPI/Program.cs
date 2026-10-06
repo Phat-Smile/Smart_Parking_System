@@ -50,6 +50,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 app.MapParkingSessionEndpoints();
+app.MapParkingLotEndpoints();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();

@@ -12,4 +12,13 @@ Parking lots, floors, zones, spots and layouts; capacity and spot assignment; pa
 - Parking.Infrastructure
 - Parking.WebAPI
 
-No business entities or feature endpoints exist yet. Persistence contains only the service-owned Outbox, Inbox, and three EF migrations.
+## Implemented business slices
+
+### US-SEARCH-001 — Parking Catalog
+
+- Public `GET /api/parking/lots` endpoint.
+- Returns only administrator-approved parking lots.
+- Parking Service owns `parking.parking_lots`.
+- Catalog response currently contains lot identity, name, address, coordinates and parking-lot type.
+- Search radius, vehicle-group filtering, availability, Parking Detail, Nominatim, OSRM and AI recommendation remain separate feature branches.
+

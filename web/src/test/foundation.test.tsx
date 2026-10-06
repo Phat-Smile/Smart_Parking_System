@@ -1,9 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Home from "@/app/page";
 import NotFound from "@/app/not-found";
 import { Providers } from "@/app/providers";
+import { redirect } from "next/navigation";
+
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
 function QueryProbe() {
     const queryClient = useQueryClient();
@@ -11,11 +14,9 @@ function QueryProbe() {
 }
 
 describe("application shell", () => {
-    it("shows only a technical home shell", () => {
-        render(<Home />);
-        expect(
-            screen.getByRole("heading", { name: "Web foundation" }),
-        ).toBeInTheDocument();
+    it("routes the home page to the existing Guest landing page", () => {
+        Home();
+        expect(redirect).toHaveBeenCalledWith("/guest");
     });
 
     it("shows a safe not-found page", () => {
