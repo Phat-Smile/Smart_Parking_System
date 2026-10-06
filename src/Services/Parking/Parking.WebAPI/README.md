@@ -5,6 +5,7 @@ ASP.NET Core composition root with OpenAPI/Swagger in Development and health end
 Feature routes:
 
 - `GET /api/parking/lots`: public Parking Catalog endpoint; returns approved parking lots only.
+- `GET /api/parking/lots/{parkingLotId}`: public Parking Detail endpoint; returns an approved parking lot or `404`.
 
 Foundation routes:
 

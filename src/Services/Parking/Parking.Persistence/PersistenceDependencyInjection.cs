@@ -35,6 +35,7 @@ public static class PersistenceDependencyInjection
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, ParkingInboxExecutionCoordinator>();
         services.AddScoped<IParkingLotCatalogReader, ParkingLotCatalogReader>();
+        services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
         return services;
     }
 }
