@@ -14,6 +14,9 @@ internal sealed class ParkingSessionRepository(ParkingDbContext dbContext) : IPa
                        && ParkingSession.OpenStatuses.Contains(session.Status),
             cancellationToken);
 
+    public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
+        dbContext.ParkingSessions.FirstOrDefaultAsync(session => session.Id == sessionId, cancellationToken);
+
     public void Add(ParkingSession session) => dbContext.ParkingSessions.Add(session);
 
     public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)

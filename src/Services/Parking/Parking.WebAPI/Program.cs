@@ -6,11 +6,13 @@ using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Infrastructure;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
+using ParkingSystem.Parking.WebAPI.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("parking-api");
+builder.Services.AddParkingAuthorization();
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);

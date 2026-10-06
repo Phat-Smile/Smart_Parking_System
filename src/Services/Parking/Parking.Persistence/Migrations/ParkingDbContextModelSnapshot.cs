@@ -76,13 +76,22 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cancel_reason");
 
-                    b.Property<DateTimeOffset>("EnteredAt")
+                    b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("entered_at");
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<Guid?>("CancelledBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelled_by");
+
+                    b.Property<DateTimeOffset>("EntryTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("entry_time");
 
                     b.Property<Guid>("LotId")
                         .HasColumnType("uuid")
@@ -99,6 +108,10 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("qr_token");
+
+                    b.Property<Guid?>("ReservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reservation_id");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -133,6 +146,63 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasFilter("status IN ('Active', 'Paid')");
 
                     b.ToTable("parking_sessions", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Persistence.Auditing.AuditLogEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("details");
+
+                    b.Property<Guid?>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("TargetId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("target_type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_audit_logs");
+
+                    b.HasIndex("LotId", "OccurredAt")
+                        .HasDatabaseName("ix_audit_logs_lot_occurred_at");
+
+                    b.HasIndex("TargetType", "TargetId")
+                        .HasDatabaseName("ix_audit_logs_target");
+
+                    b.ToTable("audit_logs", "parking");
                 });
 
             modelBuilder.Entity("ParkingSystem.Parking.Persistence.Inbox.InboxMessage", b =>

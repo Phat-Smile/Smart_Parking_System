@@ -17,10 +17,11 @@ public sealed record OpenedParkingSession(
     Guid LotId,
     string PlateNumber,
     string VehicleType,
+    string CustomerType,
     string Status,
-    DateTimeOffset EnteredAt,
+    DateTimeOffset EntryTime,
     bool IsAccountLinked,
-    Guid? BookingId,
+    Guid? ReservationId,
     string QrToken);
 
 public static class OpenParkingSessionErrors
@@ -47,6 +48,17 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
     }
 }
 
+/// <summary>
+/// One step of the gate-entry flow (MAIN FLOW MF-08, MF-09A, MF-09B), not the whole entry. Called by staff or the gate
+/// only after these steps are done elsewhere:
+/// <list type="bullet">
+/// <item>The plate is accepted: confidence at least 0.9 and a valid format, or confirmed by staff (BR-05.a).</item>
+/// <item>Car with a booking (MF-08): Booking has moved the booking to Used, and a slot is designated (US-PARK-004).</item>
+/// <item>Walk-in car (MF-09A): walk-in capacity is above 0 and a slot is designated atomically (US-PARK-007).</item>
+/// <item>Motorbike (MF-09B): the zone count has been increased atomically within capacity (US-PARK-008).</item>
+/// </list>
+/// Opening the session is the moment the system sends the barrier-open command, so EntryTime is taken from the clock here.
+/// </summary>
 public sealed class OpenParkingSessionCommandHandler(
     IParkingSessionRepository sessions,
     IPlateOwnerLookup plateOwners,
@@ -83,10 +95,11 @@ public sealed class OpenParkingSessionCommandHandler(
             session.LotId,
             session.PlateNumber,
             session.VehicleType.ToString(),
+            session.CustomerType.ToString(),
             session.Status.ToString(),
-            session.EnteredAt,
+            session.EntryTime,
             owner is not null,
-            session.BookingId,
+            session.ReservationId,
             session.QrToken));
     }
 

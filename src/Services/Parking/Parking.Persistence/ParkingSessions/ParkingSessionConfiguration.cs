@@ -38,8 +38,8 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
             .HasConversion<string>()
             .HasMaxLength(32)
             .IsRequired();
-        builder.Property(session => session.EnteredAt)
-            .HasColumnName("entered_at")
+        builder.Property(session => session.EntryTime)
+            .HasColumnName("entry_time")
             .IsRequired();
         builder.Property(session => session.QrToken)
             .HasColumnName("qr_token")
@@ -47,7 +47,13 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
             .IsRequired();
         builder.Property(session => session.UserId).HasColumnName("user_id");
         builder.Property(session => session.VehicleId).HasColumnName("vehicle_id");
-        builder.Property(session => session.BookingId).HasColumnName("booking_id");
+        builder.Property(session => session.ReservationId).HasColumnName("reservation_id");
+        builder.Property(session => session.CancelledAt).HasColumnName("cancelled_at");
+        builder.Property(session => session.CancelledBy).HasColumnName("cancelled_by");
+        builder.Property(session => session.CancelReason)
+            .HasColumnName("cancel_reason")
+            .HasMaxLength(ParkingSession.CancelReasonMaxLength);
+        builder.Ignore(session => session.CustomerType); // derived, not stored
 
         builder.HasIndex(session => session.QrToken)
             .IsUnique()

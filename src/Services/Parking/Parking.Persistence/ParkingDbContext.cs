@@ -3,6 +3,7 @@ using ParkingSystem.Parking.Persistence.Outbox;
 using ParkingSystem.Parking.Persistence.Inbox;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Domain.ParkingLots;
+using ParkingSystem.Parking.Persistence.Auditing;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -17,6 +18,8 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
     public DbSet<ParkingSession> ParkingSessions => Set<ParkingSession>();
 
     public DbSet<ParkingLot> ParkingLots => Set<ParkingLot>();
+
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
