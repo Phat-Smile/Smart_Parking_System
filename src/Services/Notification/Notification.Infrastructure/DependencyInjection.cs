@@ -44,7 +44,17 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
-        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        var smtpHost = configuration["SMTP_HOST"] ?? configuration["Smtp:Host"];
+        var isConsoleOnly = string.IsNullOrWhiteSpace(smtpHost) || smtpHost.Equals("console", StringComparison.OrdinalIgnoreCase);
+
+        if (isConsoleOnly)
+        {
+            services.AddScoped<IEmailSender, LoggingEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
         services.AddIdempotentConsumer<UserVerificationOtpIssuedConsumer>("notification.user-verification-otp-issued.v1");
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);

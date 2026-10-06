@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-
 namespace ParkingSystem.Identity.Domain.EmailVerifications;
 
 public sealed class EmailVerification
@@ -9,7 +6,7 @@ public sealed class EmailVerification
     public const int ExpirationMinutes = 5;
     public const int MaxAttempts = 3;
     public const int CooldownSeconds = 60;
-    public const int MaxHourlyResends = 5;
+    public const int MaxHourlyOtpIssued = 5;
 
     private EmailVerification()
     {
@@ -27,22 +24,11 @@ public sealed class EmailVerification
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public int RowVersion { get; private set; } = 1;
 
-    public static string HashOtp(string otpCode, Guid accountId)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(otpCode);
-        if (accountId == Guid.Empty)
-            throw new ArgumentException("AccountId must not be empty.", nameof(accountId));
-
-        var raw = $"{accountId:D}:{otpCode.Trim()}";
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
-        return Convert.ToHexString(bytes);
-    }
-
     public static EmailVerification Issue(
         Guid id,
         Guid accountId,
         string email,
-        string otpCode,
+        string otpHashedValue,
         DateTimeOffset createdAtUtc)
     {
         if (id == Guid.Empty)
@@ -50,14 +36,14 @@ public sealed class EmailVerification
         if (accountId == Guid.Empty)
             throw new ArgumentException("AccountId must not be empty.", nameof(accountId));
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
-        ArgumentException.ThrowIfNullOrWhiteSpace(otpCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(otpHashedValue);
 
         return new EmailVerification
         {
             Id = id,
             AccountId = accountId,
             Email = email.Trim().ToLowerInvariant(),
-            OtpHash = HashOtp(otpCode, accountId),
+            OtpHash = otpHashedValue.Trim(),
             ExpiresAtUtc = createdAtUtc.AddMinutes(ExpirationMinutes),
             AttemptCount = 0,
             IsUsed = false,
@@ -71,8 +57,10 @@ public sealed class EmailVerification
 
     public bool CanAttempt() => !IsUsed && !IsInvalidated && AttemptCount < MaxAttempts;
 
-    public bool RecordAttempt(string inputOtp, DateTimeOffset nowUtc)
+    public bool RecordAttempt(string inputOtp, IOtpHasher otpHasher, DateTimeOffset nowUtc)
     {
+        ArgumentNullException.ThrowIfNull(otpHasher);
+
         if (IsUsed || IsInvalidated || IsExpired(nowUtc) || AttemptCount >= MaxAttempts)
             return false;
 
@@ -82,11 +70,7 @@ public sealed class EmailVerification
         if (string.IsNullOrWhiteSpace(inputOtp))
             return false;
 
-        var inputHash = HashOtp(inputOtp, AccountId);
-        var expectedBytes = Encoding.UTF8.GetBytes(OtpHash);
-        var actualBytes = Encoding.UTF8.GetBytes(inputHash);
-
-        if (CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes))
+        if (otpHasher.VerifyOtp(inputOtp, AccountId, OtpHash))
         {
             IsUsed = true;
             return true;
@@ -104,4 +88,3 @@ public sealed class EmailVerification
         RowVersion++;
     }
 }
-

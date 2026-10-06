@@ -85,11 +85,13 @@ public sealed class RegisterAccountTests
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var otpGenerator = new FakeOtpGenerator("123456");
+        var otpHasher = new FakeOtpHasher();
         var handler = new RegisterAccountCommandHandler(
             repository,
             verificationRepository,
             new FakePasswordHasher(),
             otpGenerator,
+            otpHasher,
             outboxWriter,
             new FixedClock());
 
@@ -110,7 +112,7 @@ public sealed class RegisterAccountTests
         var verification = Assert.Single(verificationRepository.Saved);
         Assert.Equal(account.Id, verification.AccountId);
         Assert.Equal("user@example.com", verification.Email);
-        Assert.Equal(EmailVerification.HashOtp("123456", account.Id), verification.OtpHash);
+        Assert.Equal(otpHasher.HashOtp("123456", account.Id), verification.OtpHash);
 
         var enqueued = Assert.Single(outboxWriter.Enqueued);
         Assert.Equal("identity.user-verification-otp-issued.v1", enqueued.EventType);
@@ -125,11 +127,13 @@ public sealed class RegisterAccountTests
         var repository = new FakeAccountRepository { ExistingEmail = "user@example.com" };
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
+        var otpHasher = new FakeOtpHasher();
         var handler = new RegisterAccountCommandHandler(
             repository,
             verificationRepository,
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
+            otpHasher,
             outboxWriter,
             new FixedClock());
 
@@ -150,11 +154,13 @@ public sealed class RegisterAccountTests
         var repository = new FakeAccountRepository { FailSaveWithDuplicate = true };
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
+        var otpHasher = new FakeOtpHasher();
         var handler = new RegisterAccountCommandHandler(
             repository,
             verificationRepository,
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
+            otpHasher,
             outboxWriter,
             new FixedClock());
 
@@ -193,6 +199,9 @@ public sealed class RegisterAccountTests
         public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
             Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Email == normalizedEmail));
 
+        public Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            FindByEmailAsync(normalizedEmail, cancellationToken);
+
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Id == id));
 
@@ -206,6 +215,16 @@ public sealed class RegisterAccountTests
             pending.Clear();
             return Task.FromResult(true);
         }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken)
+        {
+            Saved.AddRange(pending);
+            pending.Clear();
+            return Task.CompletedTask;
+        }
+
+        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
+            action();
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher
@@ -213,6 +232,19 @@ public sealed class RegisterAccountTests
         public string Hash(string password) => "hashed:" + password;
 
         public bool Verify(string password, string passwordHash) => passwordHash == "hashed:" + password;
+    }
+
+    private sealed class FakeOtpHasher(string pepper = "test-otp-pepper-secret") : IOtpHasher
+    {
+        public string HashOtp(string otpCode, Guid accountId)
+        {
+            var rawBytes = System.Text.Encoding.UTF8.GetBytes($"{accountId:D}:{otpCode.Trim()}");
+            var hashBytes = System.Security.Cryptography.HMACSHA256.HashData(System.Text.Encoding.UTF8.GetBytes(pepper), rawBytes);
+            return Convert.ToHexString(hashBytes);
+        }
+
+        public bool VerifyOtp(string candidateOtp, Guid accountId, string expectedHash) =>
+            HashOtp(candidateOtp, accountId) == expectedHash;
     }
 
     private sealed class FakeOtpGenerator(string fixedOtp) : IOtpGenerator

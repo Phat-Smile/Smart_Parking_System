@@ -36,7 +36,7 @@ public sealed class Account
 
     public bool VerifyEmail()
     {
-        if (Status == AccountStatus.EmailVerified)
+        if (Status != AccountStatus.PendingEmailVerification)
             return false;
 
         Status = AccountStatus.EmailVerified;

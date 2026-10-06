@@ -1,3 +1,7 @@
+using System.Net.Mail;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using ParkingSystem.BuildingBlocks.Events;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
@@ -16,6 +20,7 @@ namespace ParkingSystem.Tests.Identity.UnitTests;
 public sealed class EmailOtpTests
 {
     private static readonly DateTimeOffset InitialTime = new(2026, 10, 5, 10, 0, 0, TimeSpan.Zero);
+    private readonly FakeOtpHasher _otpHasher = new();
 
     [Theory]
     [InlineData("user@example.com", "123456", true)]
@@ -51,13 +56,13 @@ public sealed class EmailOtpTests
     {
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
-        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, "654321", clock.UtcNow);
+        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("654321", account.Id), clock.UtcNow);
 
         var accountRepo = new FakeAccountRepository([account]);
         var verificationRepo = new FakeEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("  User@Example.COM ", "654321"),
             TestContext.Current.CancellationToken);
@@ -85,7 +90,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new FakeEmailVerificationRepository([]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("nonexistent@example.com", "123456"),
             TestContext.Current.CancellationToken);
@@ -105,7 +110,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new FakeEmailVerificationRepository([]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("user@example.com", "123456"),
             TestContext.Current.CancellationToken);
@@ -119,7 +124,7 @@ public sealed class EmailOtpTests
     {
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
-        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, "123456", clock.UtcNow);
+        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
 
         // Advance past 5 minutes
         clock.UtcNow = InitialTime.AddMinutes(5).AddSeconds(1);
@@ -128,7 +133,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new FakeEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("user@example.com", "123456"),
             TestContext.Current.CancellationToken);
@@ -143,13 +148,13 @@ public sealed class EmailOtpTests
     {
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
-        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, "123456", clock.UtcNow);
+        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
 
         var accountRepo = new FakeAccountRepository([account]);
         var verificationRepo = new FakeEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
 
         // Attempt 1: wrong code
         var firstResult = await handler.Handle(
@@ -195,7 +200,7 @@ public sealed class EmailOtpTests
     {
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
-        var oldVerification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, "111111", clock.UtcNow);
+        var oldVerification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("111111", account.Id), clock.UtcNow);
 
         // Advance 61 seconds so cooldown has elapsed
         clock.UtcNow = InitialTime.AddSeconds(61);
@@ -205,7 +210,7 @@ public sealed class EmailOtpTests
         var outboxWriter = new FakeOutboxWriter();
         var otpGenerator = new FakeOtpGenerator("987654");
 
-        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, outboxWriter, clock);
+        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new ResendOtpCommand("  user@example.com "),
             TestContext.Current.CancellationToken);
@@ -215,10 +220,10 @@ public sealed class EmailOtpTests
         Assert.Equal(300, result.Value.ExpiresInSeconds);
         Assert.Equal(60, result.Value.CooldownSeconds);
 
-        Assert.True(oldVerification.IsInvalidated); // Old one invalidated
+        Assert.True(oldVerification.IsInvalidated);
         Assert.Equal(clock.UtcNow, oldVerification.InvalidatedAtUtc);
         var newVerification = Assert.Single(verificationRepo.Saved, v => v.Id != oldVerification.Id);
-        Assert.Equal(EmailVerification.HashOtp("987654", account.Id), newVerification.OtpHash);
+        Assert.Equal(_otpHasher.HashOtp("987654", account.Id), newVerification.OtpHash);
 
         var enqueued = Assert.Single(outboxWriter.Enqueued);
         Assert.Equal("identity.user-verification-otp-issued.v1", enqueued.EventType);
@@ -232,7 +237,7 @@ public sealed class EmailOtpTests
     {
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
-        var recentVerification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, "111111", clock.UtcNow);
+        var recentVerification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("111111", account.Id), clock.UtcNow);
 
         // Only 30 seconds elapsed (< 60s cooldown)
         clock.UtcNow = InitialTime.AddSeconds(30);
@@ -242,7 +247,7 @@ public sealed class EmailOtpTests
         var outboxWriter = new FakeOutboxWriter();
         var otpGenerator = new FakeOtpGenerator("987654");
 
-        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, outboxWriter, clock);
+        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new ResendOtpCommand("user@example.com"),
             TestContext.Current.CancellationToken);
@@ -260,17 +265,17 @@ public sealed class EmailOtpTests
 
         // 5 verifications in past hour, with last one 70s ago
         var verifications = Enumerable.Range(1, 5)
-            .Select(i => EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, $"00000{i}", InitialTime.AddMinutes(i * 10)))
+            .Select(i => EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp($"00000{i}", account.Id), InitialTime.AddMinutes(i * 10)))
             .ToList();
 
-        clock.UtcNow = InitialTime.AddMinutes(55); // 55 mins into hour
+        clock.UtcNow = InitialTime.AddMinutes(55);
 
         var accountRepo = new FakeAccountRepository([account]);
         var verificationRepo = new FakeEmailVerificationRepository(verifications);
         var outboxWriter = new FakeOutboxWriter();
         var otpGenerator = new FakeOtpGenerator("987654");
 
-        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, outboxWriter, clock);
+        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new ResendOtpCommand("user@example.com"),
             TestContext.Current.CancellationToken);
@@ -289,75 +294,70 @@ public sealed class EmailOtpTests
         var outboxWriter = new FakeOutboxWriter();
         var otpGenerator = new FakeOtpGenerator("987654");
 
-        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, outboxWriter, clock);
+        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new ResendOtpCommand("unknown@example.com"),
             TestContext.Current.CancellationToken);
 
-        // Silent success to prevent account enumeration
         Assert.True(result.IsSuccess);
         Assert.Empty(outboxWriter.Enqueued);
         Assert.Empty(verificationRepo.Saved);
     }
 
     [Fact]
-    public void EmailVerification_hashes_otp_and_does_not_expose_plaintext()
+    public void HmacSha256OtpHasher_generates_different_hashes_for_different_peppers()
     {
+        var options1 = Options.Create(new OtpSecurityOptions { Pepper = "pepper-one-123456" });
+        var options2 = Options.Create(new OtpSecurityOptions { Pepper = "pepper-two-654321" });
+
+        var hasher1 = new HmacSha256OtpHasher(options1);
+        var hasher2 = new HmacSha256OtpHasher(options2);
+
         var accountId = Guid.NewGuid();
-        var verification = EmailVerification.Issue(Guid.NewGuid(), accountId, "user@example.com", "123456", InitialTime);
+        var hash1 = hasher1.HashOtp("123456", accountId);
+        var hash2 = hasher2.HashOtp("123456", accountId);
 
-        Assert.Equal(64, verification.OtpHash.Length);
-        Assert.Equal(EmailVerification.HashOtp("123456", accountId), verification.OtpHash);
-        Assert.False(verification.IsUsed);
-        Assert.False(verification.IsInvalidated);
-        Assert.Null(verification.InvalidatedAtUtc);
-        Assert.Equal(1, verification.RowVersion);
-
-        // Verification succeeds with matching OTP
-        Assert.True(verification.RecordAttempt("123456", InitialTime));
-        Assert.True(verification.IsUsed);
-        Assert.Equal(2, verification.RowVersion);
+        Assert.NotEqual(hash1, hash2);
+        Assert.True(hasher1.VerifyOtp("123456", accountId, hash1));
+        Assert.False(hasher2.VerifyOtp("123456", accountId, hash1));
     }
 
     [Fact]
-    public void EmailVerification_invalidated_cannot_be_attempted()
+    public void HmacSha256OtpHasher_throws_when_pepper_is_empty()
     {
-        var accountId = Guid.NewGuid();
-        var verification = EmailVerification.Issue(Guid.NewGuid(), accountId, "user@example.com", "123456", InitialTime);
-
-        var invalidateTime = InitialTime.AddMinutes(1);
-        verification.Invalidate(invalidateTime);
-
-        Assert.True(verification.IsInvalidated);
-        Assert.Equal(invalidateTime, verification.InvalidatedAtUtc);
-        Assert.False(verification.CanAttempt());
-        Assert.False(verification.RecordAttempt("123456", InitialTime));
-        Assert.Equal(2, verification.RowVersion);
+        var emptyOptions = Options.Create(new OtpSecurityOptions { Pepper = "   " });
+        Assert.Throws<InvalidOperationException>(() => new HmacSha256OtpHasher(emptyOptions));
     }
 
     [Fact]
-    public void EmailVerification_record_attempt_increments_row_version_on_failure()
+    public void Account_VerifyEmail_rejects_transition_from_non_pending_status()
     {
-        var accountId = Guid.NewGuid();
-        var verification = EmailVerification.Issue(Guid.NewGuid(), accountId, "user@example.com", "123456", InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, InitialTime);
+        Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
 
-        Assert.False(verification.RecordAttempt("000000", InitialTime));
-        Assert.Equal(1, verification.AttemptCount);
-        Assert.Equal(2, verification.RowVersion);
+        // First transition succeeds
+        Assert.True(account.VerifyEmail());
+        Assert.Equal(AccountStatus.EmailVerified, account.Status);
+
+        // Second transition is rejected (idempotent guard)
+        Assert.False(account.VerifyEmail());
     }
 
     [Fact]
-    public void SecureOtpGenerator_generates_cryptographic_6_digit_otp()
+    public void SecureOtpGenerator_generates_cryptographic_6_digit_otp_and_rejects_other_lengths()
     {
         var generator = new SecureOtpGenerator();
 
         var first = generator.GenerateNumericOtp(6);
-        var second = generator.GenerateNumericOtp(6);
+        var second = generator.GenerateNumericOtp();
 
         Assert.Equal(6, first.Length);
         Assert.Equal(6, second.Length);
         Assert.True(int.TryParse(first, out _));
         Assert.True(int.TryParse(second, out _));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => generator.GenerateNumericOtp(4));
+        Assert.Throws<ArgumentOutOfRangeException>(() => generator.GenerateNumericOtp(10));
     }
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock
@@ -370,6 +370,19 @@ public sealed class EmailOtpTests
         public string GenerateNumericOtp(int length = 6) => fixedOtp;
     }
 
+    private sealed class FakeOtpHasher(string pepper = "test-otp-pepper-secret") : IOtpHasher
+    {
+        public string HashOtp(string otpCode, Guid accountId)
+        {
+            var rawBytes = System.Text.Encoding.UTF8.GetBytes($"{accountId:D}:{otpCode.Trim()}");
+            var hashBytes = System.Security.Cryptography.HMACSHA256.HashData(System.Text.Encoding.UTF8.GetBytes(pepper), rawBytes);
+            return Convert.ToHexString(hashBytes);
+        }
+
+        public bool VerifyOtp(string candidateOtp, Guid accountId, string expectedHash) =>
+            HashOtp(candidateOtp, accountId) == expectedHash;
+    }
+
     private sealed class FakeAccountRepository(IEnumerable<Account> initial) : IAccountRepository
     {
         private readonly List<Account> accounts = [..initial];
@@ -380,12 +393,20 @@ public sealed class EmailOtpTests
         public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
             Task.FromResult(accounts.FirstOrDefault(a => a.Email == normalizedEmail));
 
+        public Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            FindByEmailAsync(normalizedEmail, cancellationToken);
+
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(accounts.FirstOrDefault(a => a.Id == id));
 
         public void Add(Account account) => accounts.Add(account);
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
+            action();
     }
 
     private sealed class FakeEmailVerificationRepository(IEnumerable<EmailVerification> initial) : IEmailVerificationRepository

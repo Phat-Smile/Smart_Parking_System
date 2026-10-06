@@ -51,6 +51,7 @@ public sealed class RegisterAccountCommandHandler(
     IEmailVerificationRepository emailVerifications,
     IPasswordHasher passwordHasher,
     IOtpGenerator otpGenerator,
+    IOtpHasher otpHasher,
     IOutboxWriter outboxWriter,
     IClock clock) : IRequestHandler<RegisterAccountCommand, Result<RegisteredAccount>>
 {
@@ -71,7 +72,8 @@ public sealed class RegisterAccountCommandHandler(
 
         // US-AUTH-001 & US-AUTH-003: Issue initial email OTP verification and outbox message in same transaction
         var otpCode = otpGenerator.GenerateNumericOtp(EmailVerification.OtpLength);
-        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, email, otpCode, now);
+        var otpHash = otpHasher.HashOtp(otpCode, account.Id);
+        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, email, otpHash, now);
         emailVerifications.Add(verification);
 
         outboxWriter.Enqueue(

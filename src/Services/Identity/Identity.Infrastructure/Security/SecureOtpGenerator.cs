@@ -5,13 +5,20 @@ namespace ParkingSystem.Identity.Infrastructure.Security;
 
 public sealed class SecureOtpGenerator : IOtpGenerator
 {
-    public string GenerateNumericOtp(int length = 6)
-    {
-        if (length <= 0 || length > 10)
-            throw new ArgumentOutOfRangeException(nameof(length), "OTP length must be between 1 and 10.");
+    public const int DefaultOtpLength = 6;
 
-        var maxExclusive = (int)Math.Pow(10, length);
-        var number = RandomNumberGenerator.GetInt32(0, maxExclusive);
-        return number.ToString($"D{length}");
+    public string GenerateNumericOtp(int length = DefaultOtpLength)
+    {
+        if (length != DefaultOtpLength)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(length),
+                $"Email verification only supports {DefaultOtpLength}-digit OTP codes.");
+        }
+
+        // Generates cryptographically secure integer between 0 and 999,999 inclusive.
+        // D6 format guarantees leading zero preservation (e.g. 000042).
+        var number = RandomNumberGenerator.GetInt32(0, 1_000_000);
+        return number.ToString("D6");
     }
 }
