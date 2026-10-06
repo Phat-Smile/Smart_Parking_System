@@ -42,6 +42,9 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+        services.Configure<JwtIssuerOptions>(configuration.GetSection(JwtIssuerOptions.SectionName));
+        services.AddSingleton<IJwtTokenIssuer, JwtTokenIssuer>();
+        services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
         services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
         services.AddOptions<OtpSecurityOptions>()
             .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))

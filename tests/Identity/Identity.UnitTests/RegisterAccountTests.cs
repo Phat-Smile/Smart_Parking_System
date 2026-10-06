@@ -232,6 +232,8 @@ public sealed class RegisterAccountTests
         public string Hash(string password) => "hashed:" + password;
 
         public bool Verify(string password, string passwordHash) => passwordHash == "hashed:" + password;
+
+        public void VerifyDummy(string password) { }
     }
 
     private sealed class FakeOtpHasher(string pepper = "test-otp-pepper-secret") : IOtpHasher
