@@ -17,8 +17,8 @@ describe("Login UI before Identity integration", () => {
             screen.getByRole("heading", { name: /Sign in to your account/i }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("navigation", { name: "Main navigation" }),
-        ).toBeInTheDocument();
+            screen.getByRole("link", { name: "Smart Parking System" }),
+        ).toHaveAttribute("href", "/");
         expect(
             screen.getByRole("button", { name: /Continue with Google/i }),
         ).toBeInTheDocument();

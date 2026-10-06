@@ -1,19 +1,7 @@
 import type { SVGProps } from "react";
 
 type Glyph =
-    | "parking"
-    | "sun"
-    | "moon"
-    | "person"
-    | "mail"
-    | "lock"
-    | "eye"
-    | "eyeOff"
-    | "arrow"
-    | "car"
-    | "shield"
-    | "pin"
-    | "sensor";
+    "parking" | "sun" | "moon" | "mail" | "lock" | "eye" | "eyeOff" | "arrow";
 
 const artwork: Record<Glyph, React.ReactNode> = {
     parking: <path d="M7 21V3h7a5 5 0 0 1 0 10H7m0-5h7" />,
@@ -24,12 +12,6 @@ const artwork: Record<Glyph, React.ReactNode> = {
         </>
     ),
     moon: <path d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z" />,
-    person: (
-        <>
-            <circle cx="12" cy="8" r="3.3" />
-            <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
-        </>
-    ),
     mail: (
         <>
             <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -55,30 +37,6 @@ const artwork: Record<Glyph, React.ReactNode> = {
         </>
     ),
     arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
-    car: (
-        <>
-            <path d="m5 11 1.4-5h11.2l1.4 5M4 17v2m16-2v2M4 11h16v6H4z" />
-            <path d="M7 14h2m6 0h2" />
-        </>
-    ),
-    shield: (
-        <>
-            <path d="m12 2 8 4v5c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V6l8-4Z" />
-            <path d="m9 12 2 2 4-4" />
-        </>
-    ),
-    pin: (
-        <>
-            <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
-            <circle cx="12" cy="10" r="2.5" />
-        </>
-    ),
-    sensor: (
-        <>
-            <circle cx="12" cy="12" r="2" />
-            <path d="M7 7a7 7 0 0 0 0 10m10-10a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16m16-16a11 11 0 0 0 0 16" />
-        </>
-    ),
 };
 
 export function AuthGlyph({

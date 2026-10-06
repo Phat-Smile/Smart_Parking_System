@@ -55,7 +55,7 @@ export function LoginForm() {
     });
 
     return (
-        <div className="relative z-10 flex w-full flex-col justify-between rounded-2xl border border-[var(--login-border)] bg-[var(--login-panel)] p-[26px] shadow-xl backdrop-blur-2xl lg:col-span-5 lg:ml-auto lg:h-full lg:min-h-[553px] lg:max-w-[450px]">
+        <div className="relative z-10 flex w-full flex-col justify-center rounded-2xl border border-[var(--login-border)] bg-[var(--login-panel)] p-[26px] shadow-xl backdrop-blur-2xl lg:col-span-5 lg:h-full">
             <div>
                 <Link
                     href="/"
@@ -72,10 +72,6 @@ export function LoginForm() {
                         account
                     </span>
                 </h1>
-                <p className="mt-2 text-[13px] leading-snug text-[var(--login-muted)]">
-                    Access your dashboard to find, compare, and reserve parking
-                    in seconds.
-                </p>
             </div>
 
             <form
@@ -85,12 +81,12 @@ export function LoginForm() {
                         "Sign-in is not available yet. The Identity login service has not been connected.",
                     ),
                 )}
-                className="my-4 flex flex-col gap-2.5 lg:my-auto"
+                className="my-8 flex flex-col gap-4"
             >
                 <div className="flex flex-col gap-1.5">
                     <label
                         htmlFor="login-email"
-                        className="font-mono text-[11px] leading-none font-semibold tracking-wider text-[var(--login-muted)] uppercase"
+                        className="text-xs leading-none font-semibold tracking-wide text-[var(--login-label)] uppercase"
                     >
                         Email Address
                     </label>
@@ -108,7 +104,7 @@ export function LoginForm() {
                             aria-describedby={
                                 errors.email ? "login-email-error" : undefined
                             }
-                            className="h-11 w-full rounded-xl border border-transparent bg-[var(--login-input)] pr-3 pl-10 text-[13.5px] text-[var(--login-text)] placeholder:text-[var(--login-muted)] focus:border-[var(--login-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--login-accent)]/20"
+                            className="h-12 w-full rounded-xl border border-transparent bg-[var(--login-input)] pr-3 pl-10 text-sm text-[var(--login-text)] placeholder:text-[var(--login-placeholder)] focus:border-[var(--login-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--login-accent)]/20"
                             {...register("email")}
                         />
                     </div>
@@ -126,7 +122,7 @@ export function LoginForm() {
                 <div className="flex flex-col gap-1.5">
                     <label
                         htmlFor="login-password"
-                        className="font-mono text-[11px] leading-none font-semibold tracking-wider text-[var(--login-muted)] uppercase"
+                        className="text-xs leading-none font-semibold tracking-wide text-[var(--login-label)] uppercase"
                     >
                         Password
                     </label>
@@ -146,7 +142,7 @@ export function LoginForm() {
                                     ? "login-password-error"
                                     : undefined
                             }
-                            className="h-11 w-full rounded-xl border border-transparent bg-[var(--login-input)] pr-10 pl-10 text-[13.5px] text-[var(--login-text)] placeholder:text-[var(--login-muted)] focus:border-[var(--login-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--login-accent)]/20"
+                            className="h-12 w-full rounded-xl border border-transparent bg-[var(--login-input)] pr-10 pl-10 text-sm text-[var(--login-text)] placeholder:text-[var(--login-placeholder)] focus:border-[var(--login-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--login-accent)]/20"
                             {...register("password")}
                         />
                         <button
@@ -180,7 +176,7 @@ export function LoginForm() {
                 </div>
 
                 <div className="flex items-center justify-between gap-2 py-0.5">
-                    <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-[var(--login-text)]">
+                    <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--login-text)]">
                         <input
                             type="checkbox"
                             className="h-3.5 w-3.5 accent-[var(--login-accent)]"
@@ -193,7 +189,7 @@ export function LoginForm() {
                         onClick={() =>
                             setNotice("Password reset is not available yet.")
                         }
-                        className="font-mono text-xs text-[var(--login-accent)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--login-accent)]"
+                        className="text-[13px] font-medium text-[var(--login-back-text)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--login-accent)]"
                     >
                         Forgot password?
                     </button>
@@ -201,7 +197,7 @@ export function LoginForm() {
 
                 <button
                     type="submit"
-                    className="flex h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#937AFF] to-[#4D36D0] font-heading text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-accent)]"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#937AFF] to-[#4D36D0] font-heading text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-accent)]"
                 >
                     Log In{" "}
                     <AuthGlyph name="arrow" className="h-[18px] w-[18px]" />
@@ -209,7 +205,7 @@ export function LoginForm() {
 
                 <div className="flex items-center py-0.5" aria-hidden="true">
                     <span className="h-px flex-1 bg-[var(--login-divider)]" />
-                    <span className="mx-3 font-mono text-[10px] tracking-wider text-[var(--login-muted)] uppercase">
+                    <span className="mx-3 text-[11px] font-medium tracking-wider text-[var(--login-label)] uppercase">
                         or continue with
                     </span>
                     <span className="h-px flex-1 bg-[var(--login-divider)]" />
@@ -220,13 +216,13 @@ export function LoginForm() {
                     onClick={() =>
                         setNotice("Google sign-in is not available yet.")
                     }
-                    className="flex h-[42px] w-full items-center justify-center gap-2.5 rounded-xl border border-[var(--login-border)] bg-[var(--login-control)] font-heading text-[13px] font-medium text-[var(--login-text)] hover:bg-[var(--login-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--login-accent)]"
+                    className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-[var(--login-border)] bg-[var(--login-control)] font-heading text-[13px] font-medium text-[var(--login-text)] hover:bg-[var(--login-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--login-accent)]"
                 >
                     <GoogleMark /> Continue with Google
                 </button>
             </form>
 
-            <div className="border-t border-[var(--login-border)] pt-2 text-center text-[13px] text-[var(--login-muted)]">
+            <div className="border-t border-[var(--login-border)] pt-4 text-center text-[13px] text-[var(--login-muted)]">
                 Don&apos;t have an account?{" "}
                 <button
                     type="button"

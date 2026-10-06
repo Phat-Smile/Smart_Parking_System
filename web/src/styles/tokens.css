@@ -41,24 +41,20 @@
     --login-panel: #ffffff;
     --login-text: #111322;
     --login-muted: #4b5565;
+    --login-label: #374151;
+    --login-placeholder: #455064;
     --login-accent: #7657ff;
     --login-heading-accent: #7657ff;
-    --login-accent-contrast: #ffffff;
     --login-border: rgb(17 19 34 / 8%);
     --login-control: #eef1f7;
     --login-control-hover: #e5e8f1;
     --login-input: #f7f8fb;
     --login-divider: #d8dbe5;
-    --login-back-bg: rgb(118 87 255 / 8%);
-    --login-back-border: rgb(118 87 255 / 20%);
-    --login-back-text: #7657ff;
-    --login-back-hover: #e7e0ff;
+    --login-back-bg: #f0ebff;
+    --login-back-border: rgb(77 54 208 / 30%);
+    --login-back-text: #4d36d0;
+    --login-back-hover: #e4dcff;
     --login-visual: #eaeff7;
-    --login-badge-bg: rgb(255 255 255 / 90%);
-    --login-badge-border: rgb(17 19 34 / 8%);
-    --login-benefit: #ffffff;
-    --login-benefit-icon-bg: #f1edff;
-    --login-live: #10b981;
     --login-vignette: linear-gradient(
         to top,
         rgb(0 0 0 / 20%),
@@ -99,9 +95,10 @@ html.dark {
     --login-panel: rgb(13 12 29 / 90%);
     --login-text: #e7def8;
     --login-muted: #cac4d6;
+    --login-label: #d6d0e2;
+    --login-placeholder: #d1cadf;
     --login-accent: #cabeff;
     --login-heading-accent: #937aff;
-    --login-accent-contrast: #320099;
     --login-border: rgb(255 255 255 / 5%);
     --login-control: #211d2f;
     --login-control-hover: #2c273a;
@@ -112,11 +109,6 @@ html.dark {
     --login-back-text: #b8a4ff;
     --login-back-hover: rgb(147 122 255 / 20%);
     --login-visual: #1d192b;
-    --login-badge-bg: rgb(13 12 29 / 85%);
-    --login-badge-border: rgb(202 190 255 / 20%);
-    --login-benefit: rgb(33 29 47 / 40%);
-    --login-benefit-icon-bg: #373246;
-    --login-live: #9cf0ff;
     --login-vignette: linear-gradient(
         to top,
         rgb(16 11 29 / 80%),

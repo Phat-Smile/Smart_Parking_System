@@ -45,14 +45,9 @@ for (const width of [390, 768, 1280]) {
         ).toBeVisible();
         await expect(page.getByLabel("Email Address")).toBeVisible();
         await expect(page.locator("#login-password")).toBeVisible();
-        if (width === 390) {
-            await page
-                .getByRole("button", { name: "Toggle navigation menu" })
-                .click();
-            await expect(
-                page.getByRole("navigation", { name: "Mobile navigation" }),
-            ).toBeVisible();
-        }
+        await expect(
+            page.getByRole("button", { name: "Switch to light mode" }),
+        ).toBeVisible();
         expect(
             await page.evaluate(
                 () => document.documentElement.scrollWidth <= innerWidth,
@@ -113,17 +108,15 @@ for (const osTheme of ["light", "dark"] as const) {
     }
 }
 
-test("Login navigation reaches the Guest information and contact sections", async ({
-    page,
-}) => {
+test("Login header keeps the home link and theme control", async ({ page }) => {
     await page.goto("/login");
     await expect(
-        page.getByRole("link", { name: "How It Works" }),
-    ).toHaveAttribute("href", "/guest#how-it-works");
-    await expect(page.getByRole("link", { name: "Support" })).toHaveAttribute(
-        "href",
-        "/guest#pageFooter",
+        page.getByRole("button", { name: "Switch to light mode" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "How It Works" })).toHaveCount(
+        0,
     );
+    await expect(page.getByRole("link", { name: "Support" })).toHaveCount(0);
     await page.keyboard.press("Tab");
     await expect(
         page.getByRole("link", { name: "Smart Parking System" }),
