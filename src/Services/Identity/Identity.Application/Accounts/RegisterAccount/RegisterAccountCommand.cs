@@ -1,19 +1,28 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using MediatR;
+using ParkingSystem.BuildingBlocks.Events;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.BuildingBlocks.Events;
+using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
+using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.EmailVerifications;
+using ParkingSystem.Identity.Domain.Profiles;
 
 namespace ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 
-public sealed record RegisterAccountCommand(string Email, string Password, string? PhoneNumber)
-    : IRequest<Result<RegisteredAccount>>;
+public sealed record RegisterAccountCommand(
+    string FullName,
+    string Email,
+    DateOnly DateOfBirth,
+    string Password,
+    string? PhoneNumber,
+    bool AcceptTerms) : IRequest<Result<RegisteredAccount>>;
 
-public sealed record RegisteredAccount(Guid AccountId, string Email, string Status);
+public sealed record RegisteredAccount(Guid AccountId, string Email, string FullName, string Status);
 
 public static class RegisterAccountErrors
 {
@@ -21,15 +30,37 @@ public static class RegisterAccountErrors
         new("identity.email_already_registered", "The email address is already registered.");
 }
 
-public sealed class RegisterAccountCommandValidator : AbstractValidator<RegisterAccountCommand>
+public sealed partial class RegisterAccountCommandValidator : AbstractValidator<RegisterAccountCommand>
 {
+    private const int MinimumAgeYears = 16;
+    private const int MaximumAgeYears = 100;
+
     public RegisterAccountCommandValidator()
     {
-        RuleFor(command => command.Email).NotEmpty().MaximumLength(254).EmailAddress();
+        RuleFor(command => command.FullName)
+            .Cascade(CascadeMode.Stop)
+            .NotEmpty().WithMessage("FullName is required.")
+            .Must(name => name.Trim().Length >= 2).WithMessage("FullName must be at least 2 characters.")
+            .Must(name => name.Trim().Length <= Profile.MaxFullNameLength).WithMessage($"FullName must not exceed {Profile.MaxFullNameLength} characters.")
+            .Must(name => FullNameRegex().IsMatch(name.Trim())).WithMessage("FullName must only contain letters, spaces, hyphens, or apostrophes.");
+
+        RuleFor(command => command.Email)
+            .NotEmpty().WithMessage("Email is required.")
+            .MaximumLength(254)
+            .EmailAddress().WithMessage("Email must be a valid email address.");
+
+        RuleFor(command => command.DateOfBirth)
+            .Cascade(CascadeMode.Stop)
+            .Must(dob => dob <= DateOnly.FromDateTime(DateTime.UtcNow))
+            .WithMessage("DateOfBirth cannot be in the future.")
+            .Must(dob => CalculateAge(dob, DateOnly.FromDateTime(DateTime.UtcNow)) >= MinimumAgeYears)
+            .WithMessage($"User must be at least {MinimumAgeYears} years old to register.")
+            .Must(dob => CalculateAge(dob, DateOnly.FromDateTime(DateTime.UtcNow)) <= MaximumAgeYears)
+            .WithMessage($"DateOfBirth is invalid (age cannot exceed {MaximumAgeYears} years).");
 
         // Context 6.1: at least 8 characters with upper case, lower case, digit and special character.
         RuleFor(command => command.Password)
-            .NotEmpty()
+            .NotEmpty().WithMessage("Password is required.")
             .MinimumLength(8)
             .MaximumLength(72) // bcrypt only uses the first 72 bytes.
             .Matches("[A-Z]").WithMessage("Password must contain an upper-case letter.")
@@ -43,11 +74,27 @@ public sealed class RegisterAccountCommandValidator : AbstractValidator<Register
             .Matches(@"^\s*(0|\+84)[35789][0-9]{8}\s*$")
             .WithMessage("Phone number must be a Vietnamese mobile number: 0 or +84 followed by 9 digits starting with 3, 5, 7, 8 or 9.")
             .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
+
+        RuleFor(command => command.AcceptTerms)
+            .Equal(true)
+            .WithMessage("You must accept the terms of service and privacy policy to register.");
     }
+
+    private static int CalculateAge(DateOnly dateOfBirth, DateOnly today)
+    {
+        var age = today.Year - dateOfBirth.Year;
+        if (dateOfBirth > today.AddYears(-age))
+            age--;
+        return age;
+    }
+
+    [GeneratedRegex(@"^[\p{L}]+(?:[ '-][\p{L}]+)*$")]
+    private static partial Regex FullNameRegex();
 }
 
 public sealed class RegisterAccountCommandHandler(
     IAccountRepository accounts,
+    IProfileRepository profiles,
     IEmailVerificationRepository emailVerifications,
     IPasswordHasher passwordHasher,
     IOtpGenerator otpGenerator,
@@ -58,8 +105,23 @@ public sealed class RegisterAccountCommandHandler(
     public async Task<Result<RegisteredAccount>> Handle(RegisterAccountCommand request, CancellationToken cancellationToken)
     {
         var email = Account.NormalizeEmail(request.Email);
-        if (await accounts.EmailExistsAsync(email, cancellationToken))
+        var existingAccount = await accounts.FindByEmailAsync(email, cancellationToken);
+        if (existingAccount is not null)
+        {
+            // Edge-case UX recovery: If account was registered previously but remains in PendingEmailVerification,
+            // return success with the pending account information so the client can proceed to OTP verification/resend.
+            if (existingAccount.Status == AccountStatus.PendingEmailVerification)
+            {
+                var existingProfile = await profiles.FindByAccountIdAsync(existingAccount.Id, cancellationToken);
+                return Result<RegisteredAccount>.Success(new RegisteredAccount(
+                    existingAccount.Id,
+                    existingAccount.Email,
+                    existingProfile?.FullName ?? request.FullName.Trim(),
+                    existingAccount.Status.ToString()));
+            }
+
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
+        }
 
         var now = clock.UtcNow;
         var account = Account.Register(
@@ -69,6 +131,13 @@ public sealed class RegisterAccountCommandHandler(
             request.PhoneNumber,
             now);
         accounts.Add(account);
+
+        var profile = Profile.Create(
+            account.Id,
+            request.FullName,
+            request.DateOfBirth,
+            now);
+        profiles.Add(profile);
 
         // US-AUTH-001 & US-AUTH-003: Issue initial email OTP verification and outbox message in same transaction
         var otpCode = otpGenerator.GenerateNumericOtp(EmailVerification.OtpLength);
@@ -85,6 +154,6 @@ public sealed class RegisterAccountCommandHandler(
         if (!await accounts.TrySaveChangesAsync(cancellationToken))
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
 
-        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, account.Status.ToString()));
+        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile.FullName, account.Status.ToString()));
     }
 }

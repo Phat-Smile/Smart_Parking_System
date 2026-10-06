@@ -3,21 +3,118 @@ using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
+using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.EmailVerifications;
+using ParkingSystem.Identity.Domain.Profiles;
+using ParkingSystem.Identity.Infrastructure.Security;
 using Xunit;
 
 namespace ParkingSystem.Tests.Identity.UnitTests;
 
 public sealed class RegisterAccountTests
 {
+    private const string ValidFullName = "Nguyễn Văn An";
+    private static readonly DateOnly ValidDateOfBirth = new(1995, 5, 20);
     private const string ValidPassword = "Secret#123";
     private readonly RegisterAccountCommandValidator validator = new();
 
+    private static RegisterAccountCommand CreateValidCommand(
+        string? fullName = null,
+        string? email = null,
+        DateOnly? dateOfBirth = null,
+        string? password = null,
+        string? phoneNumber = null,
+        bool acceptTerms = true) =>
+        new(
+            fullName ?? ValidFullName,
+            email ?? "user@example.com",
+            dateOfBirth ?? ValidDateOfBirth,
+            password ?? ValidPassword,
+            phoneNumber,
+            acceptTerms);
+
     [Fact]
-    public void Validator_accepts_email_and_password_without_phone_number()
+    public void Validator_accepts_valid_full_registration()
     {
-        Assert.True(validator.Validate(new RegisterAccountCommand("user@example.com", ValidPassword, null)).IsValid);
+        Assert.True(validator.Validate(CreateValidCommand()).IsValid);
+    }
+
+    [Theory]
+    [InlineData("A")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("John123")]
+    [InlineData("John @Doe")]
+    [InlineData("John  Doe")]
+    public void Validator_rejects_invalid_full_name(string invalidName)
+    {
+        var result = validator.Validate(CreateValidCommand(fullName: invalidName));
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.FullName));
+    }
+
+    [Theory]
+    [InlineData("Trần Thị Bích Ngọc")]
+    [InlineData("Nguyễn Văn An")]
+    [InlineData("Le Van Ba")]
+    [InlineData("John Doe")]
+    [InlineData("Anne-Marie")]
+    [InlineData("Jean-Luc")]
+    [InlineData("O'Connor")]
+    [InlineData("Nguyen-An")]
+    public void Validator_accepts_valid_unicode_vietnamese_names(string validName)
+    {
+        var result = validator.Validate(CreateValidCommand(fullName: validName));
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData("Anne--Marie")]
+    [InlineData("O''Connor")]
+    [InlineData("-Anne")]
+    [InlineData("Marie-")]
+    [InlineData("Anne'")]
+    [InlineData("'Anne")]
+    public void Validator_rejects_malformed_punctuated_names(string invalidName)
+    {
+        var result = validator.Validate(CreateValidCommand(fullName: invalidName));
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.FullName));
+    }
+
+    [Fact]
+    public void Validator_rejects_future_date_of_birth()
+    {
+        var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
+        var result = validator.Validate(CreateValidCommand(dateOfBirth: tomorrow));
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.DateOfBirth));
+    }
+
+    [Fact]
+    public void Validator_rejects_under_16_years_old()
+    {
+        var fifteenYearsAgo = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-15));
+        var result = validator.Validate(CreateValidCommand(dateOfBirth: fifteenYearsAgo));
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.DateOfBirth));
+    }
+
+    [Fact]
+    public void Validator_accepts_exactly_16_years_old()
+    {
+        var sixteenYearsAgo = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-16));
+        var result = validator.Validate(CreateValidCommand(dateOfBirth: sixteenYearsAgo));
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validator_rejects_terms_not_accepted()
+    {
+        var result = validator.Validate(CreateValidCommand(acceptTerms: false));
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.AcceptTerms));
     }
 
     [Theory]
@@ -28,8 +125,7 @@ public sealed class RegisterAccountTests
     [InlineData("Secret1234")]     // no special character
     public void Validator_rejects_passwords_outside_the_policy(string password)
     {
-        var result = validator.Validate(new RegisterAccountCommand("user@example.com", password, null));
-
+        var result = validator.Validate(CreateValidCommand(password: password));
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.Password));
     }
 
@@ -38,8 +134,7 @@ public sealed class RegisterAccountTests
     [InlineData("")]
     public void Validator_rejects_invalid_email(string email)
     {
-        var result = validator.Validate(new RegisterAccountCommand(email, ValidPassword, null));
-
+        var result = validator.Validate(CreateValidCommand(email: email));
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.Email));
     }
 
@@ -48,22 +143,21 @@ public sealed class RegisterAccountTests
     [InlineData("+84901234567", true)]
     [InlineData("090-123", false)]
     [InlineData("abc", false)]
-    [InlineData("1234567890", false)]   // does not start with 0 or +84
-    [InlineData("090123456", false)]     // 9 digits (too short)
-    [InlineData("09012345678", false)]   // 11 digits (too long)
-    [InlineData("+8490123456", false)]   // +84 followed by 8 digits (too short)
-    [InlineData("+849012345678", false)] // +84 followed by 10 digits (too long)
+    [InlineData("1234567890", false)]
+    [InlineData("090123456", false)]
+    [InlineData("09012345678", false)]
+    [InlineData("+8490123456", false)]
+    [InlineData("+849012345678", false)]
     [InlineData("0312345678", true)]
-    [InlineData(" 0901234567 ", true)]   // surrounding spaces are trimmed when stored
-    [InlineData("+84012345678", false)]  // +84 must not be followed by 0
-    [InlineData("0123456789", false)]    // 1 is not a mobile prefix
-    [InlineData("0212345678", false)]    // landline prefix
+    [InlineData(" 0901234567 ", true)]
+    [InlineData("+84012345678", false)]
+    [InlineData("0123456789", false)]
+    [InlineData("0212345678", false)]
     [InlineData("0000000000", false)]
-    [InlineData("84901234567", false)]   // country code without '+'
+    [InlineData("84901234567", false)]
     public void Validator_checks_phone_number_only_when_supplied(string phoneNumber, bool expectedValid)
     {
-        var result = validator.Validate(new RegisterAccountCommand("user@example.com", ValidPassword, phoneNumber));
-
+        var result = validator.Validate(CreateValidCommand(phoneNumber: phoneNumber));
         Assert.Equal(expectedValid, result.IsValid);
     }
 
@@ -79,15 +173,17 @@ public sealed class RegisterAccountTests
     }
 
     [Fact]
-    public async Task Handler_registers_pending_account_with_normalized_email_and_hashed_password()
+    public async Task Handler_registers_pending_account_and_profile_and_issues_otp()
     {
-        var repository = new FakeAccountRepository();
+        var accountRepository = new FakeAccountRepository();
+        var profileRepository = new FakeProfileRepository();
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var otpGenerator = new FakeOtpGenerator("123456");
         var otpHasher = new FakeOtpHasher();
         var handler = new RegisterAccountCommandHandler(
-            repository,
+            accountRepository,
+            profileRepository,
             verificationRepository,
             new FakePasswordHasher(),
             otpGenerator,
@@ -95,18 +191,28 @@ public sealed class RegisterAccountTests
             outboxWriter,
             new FixedClock());
 
-        var result = await handler.Handle(
-            new RegisterAccountCommand("  User@Example.COM ", ValidPassword, "0901234567"),
-            TestContext.Current.CancellationToken);
+        var command = CreateValidCommand(
+            fullName: "Nguyễn Văn An",
+            email: "  User@Example.COM ",
+            phoneNumber: "0901234567");
+
+        var result = await handler.Handle(command, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        var account = Assert.Single(repository.Saved);
+        var account = Assert.Single(accountRepository.Saved);
         Assert.Equal("user@example.com", account.Email);
         Assert.Equal("hashed:" + ValidPassword, account.PasswordHash);
         Assert.Equal("+84901234567", account.PhoneNumber);
         Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
         Assert.Equal(FixedClock.Now, account.CreatedAtUtc);
-        Assert.Equal(new RegisteredAccount(account.Id, "user@example.com", "PendingEmailVerification"), result.Value);
+
+        var profile = Assert.Single(profileRepository.Saved);
+        Assert.Equal(account.Id, profile.AccountId);
+        Assert.Equal("Nguyễn Văn An", profile.FullName);
+        Assert.Equal(ValidDateOfBirth, profile.DateOfBirth);
+        Assert.Equal(FixedClock.Now, profile.CreatedAtUtc);
+
+        Assert.Equal(new RegisteredAccount(account.Id, "user@example.com", "Nguyễn Văn An", "PendingEmailVerification"), result.Value);
 
         // US-AUTH-001 & US-AUTH-003: verify initial OTP issuance and outbox enqueue
         var verification = Assert.Single(verificationRepository.Saved);
@@ -124,58 +230,89 @@ public sealed class RegisterAccountTests
     [Fact]
     public async Task Handler_rejects_an_email_that_is_already_registered()
     {
-        var repository = new FakeAccountRepository { ExistingEmail = "user@example.com" };
+        var accountRepository = new FakeAccountRepository { ExistingEmail = "user@example.com" };
+        var profileRepository = new FakeProfileRepository();
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
-        var otpHasher = new FakeOtpHasher();
         var handler = new RegisterAccountCommandHandler(
-            repository,
+            accountRepository,
+            profileRepository,
             verificationRepository,
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
-            otpHasher,
+            new FakeOtpHasher(),
             outboxWriter,
             new FixedClock());
 
-        var result = await handler.Handle(
-            new RegisterAccountCommand("USER@example.com", ValidPassword, null),
-            TestContext.Current.CancellationToken);
+        var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
+        Assert.False(result.IsSuccess);
         Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
-        Assert.Empty(repository.Saved);
+        Assert.Empty(accountRepository.Saved);
+        Assert.Empty(profileRepository.Saved);
         Assert.Empty(verificationRepository.Saved);
         Assert.Empty(outboxWriter.Enqueued);
     }
 
     [Fact]
-    public async Task Handler_reports_conflict_when_a_concurrent_registration_wins_the_unique_index()
+    public async Task Handler_reports_a_duplicate_when_concurrent_save_fails_on_unique_index()
     {
-        var repository = new FakeAccountRepository { FailSaveWithDuplicate = true };
+        var accountRepository = new FakeAccountRepository { FailSaveWithDuplicate = true };
+        var profileRepository = new FakeProfileRepository();
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
-        var otpHasher = new FakeOtpHasher();
         var handler = new RegisterAccountCommandHandler(
-            repository,
+            accountRepository,
+            profileRepository,
             verificationRepository,
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
-            otpHasher,
+            new FakeOtpHasher(),
             outboxWriter,
             new FixedClock());
 
-        var result = await handler.Handle(
-            new RegisterAccountCommand("user@example.com", ValidPassword, null),
-            TestContext.Current.CancellationToken);
+        var result = await handler.Handle(CreateValidCommand(), TestContext.Current.CancellationToken);
 
+        Assert.False(result.IsSuccess);
         Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
     }
 
     [Fact]
-    public void Bcrypt_hasher_produces_a_verifiable_salted_hash()
+    public async Task Handler_recovers_pending_dormant_account_without_conflict()
     {
-        var hasher = new ParkingSystem.Identity.Infrastructure.Security.BCryptPasswordHasher();
+        var existing = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
+        var existingProfile = Profile.Create(existing.Id, "Old Name", new DateOnly(1990, 1, 1), FixedClock.Now);
+        var accountRepository = new FakeAccountRepository();
+        accountRepository.Saved.Add(existing);
+        var profileRepository = new FakeProfileRepository();
+        profileRepository.Saved.Add(existingProfile);
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
 
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            profileRepository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            outboxWriter,
+            new FixedClock());
+
+        var result = await handler.Handle(CreateValidCommand(email: "user@example.com", fullName: "New Name"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(existing.Id, result.Value.AccountId);
+        Assert.Equal("user@example.com", result.Value.Email);
+        Assert.Equal("Old Name", result.Value.FullName);
+        Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
+    }
+
+    [Fact]
+    public void BCrypt_hashes_and_verifies_passwords_correctly()
+    {
+        var hasher = new BCryptPasswordHasher();
         var first = hasher.Hash(ValidPassword);
         var second = hasher.Hash(ValidPassword);
 
@@ -196,8 +333,17 @@ public sealed class RegisterAccountTests
         public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
             Task.FromResult(normalizedEmail == ExistingEmail);
 
-        public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Email == normalizedEmail));
+        public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken)
+        {
+            if (ExistingEmail is not null && normalizedEmail == ExistingEmail)
+            {
+                var existing = Account.Register(Guid.NewGuid(), ExistingEmail, "hash", null, FixedClock.Now);
+                existing.VerifyEmail();
+                return Task.FromResult<Account?>(existing);
+            }
+
+            return Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Email == normalizedEmail));
+        }
 
         public Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken) =>
             FindByEmailAsync(normalizedEmail, cancellationToken);
@@ -225,6 +371,16 @@ public sealed class RegisterAccountTests
 
         public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
             action();
+    }
+
+    private sealed class FakeProfileRepository : IProfileRepository
+    {
+        public List<Profile> Saved { get; } = [];
+
+        public void Add(Profile profile) => Saved.Add(profile);
+
+        public Task<Profile?> FindByAccountIdAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.FirstOrDefault(p => p.AccountId == accountId));
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher
@@ -290,9 +446,8 @@ public sealed class RegisterAccountTests
 
     private sealed class FixedClock : IClock
     {
-        public static readonly DateTimeOffset Now = new(2026, 10, 3, 12, 0, 0, TimeSpan.Zero);
+        public static readonly DateTimeOffset Now = new(2026, 10, 6, 12, 0, 0, TimeSpan.Zero);
 
         public DateTimeOffset UtcNow => Now;
     }
 }
-

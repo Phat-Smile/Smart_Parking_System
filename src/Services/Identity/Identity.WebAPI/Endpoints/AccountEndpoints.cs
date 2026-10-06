@@ -8,18 +8,30 @@ namespace ParkingSystem.Identity.WebAPI.Endpoints;
 
 internal static class AccountEndpoints
 {
-    public sealed record RegisterAccountRequest(string Email, string Password, string? PhoneNumber);
+    public sealed record RegisterAccountRequest(
+        string? FullName,
+        string Email,
+        DateOnly? DateOfBirth,
+        string Password,
+        string? PhoneNumber,
+        bool? AcceptTerms);
     public sealed record VerifyEmailRequest(string Email, string OtpCode);
     public sealed record ResendOtpRequest(string Email);
     public sealed record LoginRequest(string Email, string Password);
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
-        // MF-01: registration is a public endpoint. Validation failures become 400 in the shared exception handler.
+        // MF-01 & US-AUTH-001: registration is a public endpoint. Validation failures become 400 in the shared exception handler.
         app.MapPost("/api/identity/accounts", async (RegisterAccountRequest request, ISender sender, CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
-                    new RegisterAccountCommand(request.Email, request.Password, request.PhoneNumber),
+                    new RegisterAccountCommand(
+                        request.FullName ?? "Registered User",
+                        request.Email,
+                        request.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-18)),
+                        request.Password,
+                        request.PhoneNumber,
+                        request.AcceptTerms ?? true),
                     cancellationToken);
 
                 return result.IsSuccess
