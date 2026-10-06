@@ -6,6 +6,9 @@ using Microsoft.Extensions.Options;
 using ParkingSystem.Notification.Infrastructure.Messaging;
 using ParkingSystem.Notification.Infrastructure.Messaging.Outbox;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Notification.Application.Common.Email;
+using ParkingSystem.Notification.Infrastructure.Consumers;
+using ParkingSystem.Notification.Infrastructure.Email;
 
 namespace ParkingSystem.Notification.Infrastructure;
 
@@ -41,10 +44,23 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
+        var smtpHost = configuration["SMTP_HOST"] ?? configuration["Smtp:Host"];
+        var isConsoleOnly = string.IsNullOrWhiteSpace(smtpHost) || smtpHost.Equals("console", StringComparison.OrdinalIgnoreCase);
+
+        if (isConsoleOnly)
+        {
+            services.AddScoped<IEmailSender, LoggingEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
+        services.AddIdempotentConsumer<UserVerificationOtpIssuedConsumer>("notification.user-verification-otp-issued.v1");
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>
         {
+            bus.AddConsumer<UserVerificationOtpIssuedConsumer>();
             configureConsumers?.Invoke(bus);
             bus.UsingRabbitMq((context, rabbit) =>
             {

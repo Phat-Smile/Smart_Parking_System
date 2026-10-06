@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using ParkingSystem.Identity.Application.Common.Security;
+using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Identity.Infrastructure.Security;
@@ -41,7 +42,17 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+        services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
+        services.AddOptions<OtpSecurityOptions>()
+            .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Pepper), "Security:Otp:Pepper must be configured for secure HMAC OTP hashing.")
+            .ValidateOnStart();
+        services.AddSingleton<IOtpHasher, HmacSha256OtpHasher>();
         services.AddIntegrationEventRegistry();
+        services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.AccountEmailVerifiedIntegrationEvent>(
+            "identity.account-email-verified.v1", 1);
+        services.AddIntegrationEvent<ParkingSystem.BuildingBlocks.Events.UserVerificationOtpIssuedIntegrationEvent>(
+            "identity.user-verification-otp-issued.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()

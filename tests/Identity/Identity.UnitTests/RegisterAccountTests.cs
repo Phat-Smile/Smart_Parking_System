@@ -1,8 +1,10 @@
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
+using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
+using ParkingSystem.Identity.Domain.EmailVerifications;
 using Xunit;
 
 namespace ParkingSystem.Tests.Identity.UnitTests;
@@ -80,7 +82,18 @@ public sealed class RegisterAccountTests
     public async Task Handler_registers_pending_account_with_normalized_email_and_hashed_password()
     {
         var repository = new FakeAccountRepository();
-        var handler = new RegisterAccountCommandHandler(repository, new FakePasswordHasher(), new FixedClock());
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
+        var otpGenerator = new FakeOtpGenerator("123456");
+        var otpHasher = new FakeOtpHasher();
+        var handler = new RegisterAccountCommandHandler(
+            repository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            otpGenerator,
+            otpHasher,
+            outboxWriter,
+            new FixedClock());
 
         var result = await handler.Handle(
             new RegisterAccountCommand("  User@Example.COM ", ValidPassword, "0901234567"),
@@ -94,13 +107,35 @@ public sealed class RegisterAccountTests
         Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
         Assert.Equal(FixedClock.Now, account.CreatedAtUtc);
         Assert.Equal(new RegisteredAccount(account.Id, "user@example.com", "PendingEmailVerification"), result.Value);
+
+        // US-AUTH-001 & US-AUTH-003: verify initial OTP issuance and outbox enqueue
+        var verification = Assert.Single(verificationRepository.Saved);
+        Assert.Equal(account.Id, verification.AccountId);
+        Assert.Equal("user@example.com", verification.Email);
+        Assert.Equal(otpHasher.HashOtp("123456", account.Id), verification.OtpHash);
+
+        var enqueued = Assert.Single(outboxWriter.Enqueued);
+        Assert.Equal("identity.user-verification-otp-issued.v1", enqueued.EventType);
+        var payload = Assert.IsType<ParkingSystem.BuildingBlocks.Events.UserVerificationOtpIssuedIntegrationEvent>(enqueued.Payload);
+        Assert.Equal(account.Id, payload.AccountId);
+        Assert.Equal("123456", payload.OtpCode);
     }
 
     [Fact]
     public async Task Handler_rejects_an_email_that_is_already_registered()
     {
         var repository = new FakeAccountRepository { ExistingEmail = "user@example.com" };
-        var handler = new RegisterAccountCommandHandler(repository, new FakePasswordHasher(), new FixedClock());
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
+        var otpHasher = new FakeOtpHasher();
+        var handler = new RegisterAccountCommandHandler(
+            repository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            otpHasher,
+            outboxWriter,
+            new FixedClock());
 
         var result = await handler.Handle(
             new RegisterAccountCommand("USER@example.com", ValidPassword, null),
@@ -109,13 +144,25 @@ public sealed class RegisterAccountTests
         Assert.True(result.IsFailure);
         Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
         Assert.Empty(repository.Saved);
+        Assert.Empty(verificationRepository.Saved);
+        Assert.Empty(outboxWriter.Enqueued);
     }
 
     [Fact]
     public async Task Handler_reports_conflict_when_a_concurrent_registration_wins_the_unique_index()
     {
         var repository = new FakeAccountRepository { FailSaveWithDuplicate = true };
-        var handler = new RegisterAccountCommandHandler(repository, new FakePasswordHasher(), new FixedClock());
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
+        var otpHasher = new FakeOtpHasher();
+        var handler = new RegisterAccountCommandHandler(
+            repository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            otpHasher,
+            outboxWriter,
+            new FixedClock());
 
         var result = await handler.Handle(
             new RegisterAccountCommand("user@example.com", ValidPassword, null),
@@ -149,6 +196,15 @@ public sealed class RegisterAccountTests
         public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
             Task.FromResult(normalizedEmail == ExistingEmail);
 
+        public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Email == normalizedEmail));
+
+        public Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            FindByEmailAsync(normalizedEmail, cancellationToken);
+
+        public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Id == id));
+
         public void Add(Account account) => pending.Add(account);
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
@@ -159,6 +215,16 @@ public sealed class RegisterAccountTests
             pending.Clear();
             return Task.FromResult(true);
         }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken)
+        {
+            Saved.AddRange(pending);
+            pending.Clear();
+            return Task.CompletedTask;
+        }
+
+        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
+            action();
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher
@@ -168,6 +234,58 @@ public sealed class RegisterAccountTests
         public bool Verify(string password, string passwordHash) => passwordHash == "hashed:" + password;
     }
 
+    private sealed class FakeOtpHasher(string pepper = "test-otp-pepper-secret") : IOtpHasher
+    {
+        public string HashOtp(string otpCode, Guid accountId)
+        {
+            var rawBytes = System.Text.Encoding.UTF8.GetBytes($"{accountId:D}:{otpCode.Trim()}");
+            var hashBytes = System.Security.Cryptography.HMACSHA256.HashData(System.Text.Encoding.UTF8.GetBytes(pepper), rawBytes);
+            return Convert.ToHexString(hashBytes);
+        }
+
+        public bool VerifyOtp(string candidateOtp, Guid accountId, string expectedHash) =>
+            HashOtp(candidateOtp, accountId) == expectedHash;
+    }
+
+    private sealed class FakeOtpGenerator(string fixedOtp) : IOtpGenerator
+    {
+        public string GenerateNumericOtp(int length = 6) => fixedOtp;
+    }
+
+    private sealed class FakeEmailVerificationRepository : IEmailVerificationRepository
+    {
+        public List<EmailVerification> Saved { get; } = [];
+
+        public Task<EmailVerification?> GetLatestActiveForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved
+                .Where(v => v.AccountId == accountId && !v.IsUsed && v.InvalidatedAtUtc == null)
+                .OrderByDescending(v => v.CreatedAtUtc)
+                .FirstOrDefault());
+
+        public Task<int> CountRecentResendsInPastHourAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.Count(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc));
+
+        public Task<EmailVerification?> GetLatestResendInCooldownAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved
+                .Where(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc)
+                .OrderByDescending(v => v.CreatedAtUtc)
+                .FirstOrDefault());
+
+        public void Add(EmailVerification emailVerification) => Saved.Add(emailVerification);
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakeOutboxWriter : IOutboxWriter
+    {
+        public List<(object Payload, string EventType, int Version)> Enqueued { get; } = [];
+
+        public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion, Guid? correlationId = null, Guid? causationId = null) where TEvent : class
+        {
+            Enqueued.Add((integrationEvent, eventType, eventVersion));
+        }
+    }
+
     private sealed class FixedClock : IClock
     {
         public static readonly DateTimeOffset Now = new(2026, 10, 3, 12, 0, 0, TimeSpan.Zero);
@@ -175,3 +293,4 @@ public sealed class RegisterAccountTests
         public DateTimeOffset UtcNow => Now;
     }
 }
+

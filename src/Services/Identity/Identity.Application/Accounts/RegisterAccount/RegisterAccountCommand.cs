@@ -2,8 +2,11 @@ using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.BuildingBlocks.Events;
+using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
+using ParkingSystem.Identity.Domain.EmailVerifications;
 
 namespace ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 
@@ -45,7 +48,11 @@ public sealed class RegisterAccountCommandValidator : AbstractValidator<Register
 
 public sealed class RegisterAccountCommandHandler(
     IAccountRepository accounts,
+    IEmailVerificationRepository emailVerifications,
     IPasswordHasher passwordHasher,
+    IOtpGenerator otpGenerator,
+    IOtpHasher otpHasher,
+    IOutboxWriter outboxWriter,
     IClock clock) : IRequestHandler<RegisterAccountCommand, Result<RegisteredAccount>>
 {
     public async Task<Result<RegisteredAccount>> Handle(RegisterAccountCommand request, CancellationToken cancellationToken)
@@ -54,13 +61,25 @@ public sealed class RegisterAccountCommandHandler(
         if (await accounts.EmailExistsAsync(email, cancellationToken))
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
 
+        var now = clock.UtcNow;
         var account = Account.Register(
             Guid.NewGuid(),
             email,
             passwordHasher.Hash(request.Password),
             request.PhoneNumber,
-            clock.UtcNow);
+            now);
         accounts.Add(account);
+
+        // US-AUTH-001 & US-AUTH-003: Issue initial email OTP verification and outbox message in same transaction
+        var otpCode = otpGenerator.GenerateNumericOtp(EmailVerification.OtpLength);
+        var otpHash = otpHasher.HashOtp(otpCode, account.Id);
+        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, email, otpHash, now);
+        emailVerifications.Add(verification);
+
+        outboxWriter.Enqueue(
+            new UserVerificationOtpIssuedIntegrationEvent(account.Id, email, otpCode, verification.ExpiresAtUtc),
+            "identity.user-verification-otp-issued.v1",
+            1);
 
         // A concurrent registration with the same email loses the race on the unique index.
         if (!await accounts.TrySaveChangesAsync(cancellationToken))

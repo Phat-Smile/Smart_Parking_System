@@ -66,6 +66,72 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.ToTable("accounts", "identity");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.EmailVerifications.EmailVerification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<DateTimeOffset?>("InvalidatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invalidated_at_utc");
+
+                    b.Property<bool>("IsUsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_used");
+
+                    b.Property<string>("OtpHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("otp_hash");
+
+                    b.Property<int>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("row_version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_verifications");
+
+                    b.HasIndex("AccountId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_email_verifications_account_id_created_at_utc");
+
+                    b.HasIndex("Email", "CreatedAtUtc")
+                        .HasDatabaseName("ix_email_verifications_email_created_at_utc");
+
+                    b.ToTable("email_verifications", "identity");
+                });
+
             modelBuilder.Entity("ParkingSystem.Identity.Persistence.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")

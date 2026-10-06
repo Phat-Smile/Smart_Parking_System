@@ -34,6 +34,15 @@ public sealed class Account
     // Email uniqueness is case-insensitive, so the stored form is trimmed lower case.
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
+    public bool VerifyEmail()
+    {
+        if (Status != AccountStatus.PendingEmailVerification)
+            return false;
+
+        Status = AccountStatus.EmailVerified;
+        return true;
+    }
+
     // 0901234567 and +84901234567 are the same number, so both are stored as +84901234567.
     public static string? NormalizePhoneNumber(string? phoneNumber)
     {
