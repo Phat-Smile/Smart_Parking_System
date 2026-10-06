@@ -11,10 +11,8 @@ internal static class AccountEndpoints
     public sealed record RegisterAccountRequest(
         string? FullName,
         string Email,
-        DateOnly? DateOfBirth,
         string Password,
-        string? PhoneNumber,
-        bool? AcceptTerms);
+        string? PhoneNumber);
     public sealed record VerifyEmailRequest(string Email, string OtpCode);
     public sealed record ResendOtpRequest(string Email);
     public sealed record LoginRequest(string Email, string Password);
@@ -28,10 +26,8 @@ internal static class AccountEndpoints
                     new RegisterAccountCommand(
                         request.FullName ?? "Registered User",
                         request.Email,
-                        request.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-18)),
                         request.Password,
-                        request.PhoneNumber,
-                        request.AcceptTerms ?? true),
+                        request.PhoneNumber),
                     cancellationToken);
 
                 return result.IsSuccess

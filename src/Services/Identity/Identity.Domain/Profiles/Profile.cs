@@ -10,7 +10,7 @@ public sealed class Profile
 
     public Guid AccountId { get; private set; }
     public string FullName { get; private set; } = null!;
-    public DateOnly DateOfBirth { get; private set; }
+    public DateOnly? DateOfBirth { get; private set; }
     public string? CitizenIdNumber { get; private set; }
     public string? DriverLicenseNumber { get; private set; }
     public string? AvatarUrl { get; private set; }
@@ -20,8 +20,8 @@ public sealed class Profile
     public static Profile Create(
         Guid accountId,
         string fullName,
-        DateOnly dateOfBirth,
         DateTimeOffset createdAtUtc,
+        DateOnly? dateOfBirth = null,
         string? citizenIdNumber = null,
         string? driverLicenseNumber = null,
         string? avatarUrl = null)

@@ -22,7 +22,7 @@ internal sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
         builder.Property(profile => profile.DateOfBirth)
             .HasColumnName("date_of_birth")
             .HasColumnType("date")
-            .IsRequired();
+            .IsRequired(false);
 
         builder.Property(profile => profile.CitizenIdNumber)
             .HasColumnName("citizen_id_number")

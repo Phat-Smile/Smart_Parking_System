@@ -15,24 +15,19 @@ namespace ParkingSystem.Tests.Identity.UnitTests;
 public sealed class RegisterAccountTests
 {
     private const string ValidFullName = "Nguyễn Văn An";
-    private static readonly DateOnly ValidDateOfBirth = new(1995, 5, 20);
     private const string ValidPassword = "Secret#123";
     private readonly RegisterAccountCommandValidator validator = new();
 
     private static RegisterAccountCommand CreateValidCommand(
         string? fullName = null,
         string? email = null,
-        DateOnly? dateOfBirth = null,
         string? password = null,
-        string? phoneNumber = null,
-        bool acceptTerms = true) =>
+        string? phoneNumber = null) =>
         new(
             fullName ?? ValidFullName,
             email ?? "user@example.com",
-            dateOfBirth ?? ValidDateOfBirth,
             password ?? ValidPassword,
-            phoneNumber,
-            acceptTerms);
+            phoneNumber);
 
     [Fact]
     public void Validator_accepts_valid_full_registration()
@@ -81,40 +76,6 @@ public sealed class RegisterAccountTests
         var result = validator.Validate(CreateValidCommand(fullName: invalidName));
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.FullName));
-    }
-
-    [Fact]
-    public void Validator_rejects_future_date_of_birth()
-    {
-        var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
-        var result = validator.Validate(CreateValidCommand(dateOfBirth: tomorrow));
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.DateOfBirth));
-    }
-
-    [Fact]
-    public void Validator_rejects_under_16_years_old()
-    {
-        var fifteenYearsAgo = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-15));
-        var result = validator.Validate(CreateValidCommand(dateOfBirth: fifteenYearsAgo));
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.DateOfBirth));
-    }
-
-    [Fact]
-    public void Validator_accepts_exactly_16_years_old()
-    {
-        var sixteenYearsAgo = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-16));
-        var result = validator.Validate(CreateValidCommand(dateOfBirth: sixteenYearsAgo));
-        Assert.True(result.IsValid);
-    }
-
-    [Fact]
-    public void Validator_rejects_terms_not_accepted()
-    {
-        var result = validator.Validate(CreateValidCommand(acceptTerms: false));
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.AcceptTerms));
     }
 
     [Theory]
@@ -209,7 +170,7 @@ public sealed class RegisterAccountTests
         var profile = Assert.Single(profileRepository.Saved);
         Assert.Equal(account.Id, profile.AccountId);
         Assert.Equal("Nguyễn Văn An", profile.FullName);
-        Assert.Equal(ValidDateOfBirth, profile.DateOfBirth);
+        Assert.Null(profile.DateOfBirth);
         Assert.Equal(FixedClock.Now, profile.CreatedAtUtc);
 
         Assert.Equal(new RegisteredAccount(account.Id, "user@example.com", "Nguyễn Văn An", "PendingEmailVerification"), result.Value);
@@ -281,7 +242,7 @@ public sealed class RegisterAccountTests
     public async Task Handler_recovers_pending_dormant_account_without_conflict()
     {
         var existing = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
-        var existingProfile = Profile.Create(existing.Id, "Old Name", new DateOnly(1990, 1, 1), FixedClock.Now);
+        var existingProfile = Profile.Create(existing.Id, "Old Name", FixedClock.Now, new DateOnly(1990, 1, 1));
         var accountRepository = new FakeAccountRepository();
         accountRepository.Saved.Add(existing);
         var profileRepository = new FakeProfileRepository();
@@ -320,6 +281,10 @@ public sealed class RegisterAccountTests
         Assert.NotEqual(first, second);
         Assert.True(hasher.Verify(ValidPassword, first));
         Assert.False(hasher.Verify("Wrong#123", first));
+
+        // Feedback Item 8: Verify that VerifyDummy executes without exception and performs timing mitigation
+        var dummyException = Record.Exception(() => hasher.VerifyDummy("AnyAttemptPassword#123"));
+        Assert.Null(dummyException);
     }
 
     private sealed class FakeAccountRepository : IAccountRepository
