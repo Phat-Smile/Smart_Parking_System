@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using ParkingSystem.Parking.Infrastructure.Messaging;
 using ParkingSystem.Parking.Infrastructure.Messaging.Outbox;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Infrastructure.Identity;
 
 namespace ParkingSystem.Parking.Infrastructure;
 
@@ -40,6 +42,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddIntegrationEventRegistry();
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
+        services.AddScoped<IPlateOwnerLookup, StubPlateOwnerLookup>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
