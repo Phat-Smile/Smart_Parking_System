@@ -67,6 +67,7 @@ public sealed class LoginTests
         Assert.Equal(account.Id, result.Value.Account.Id);
         Assert.Equal("user@example.com", result.Value.Account.Email);
         Assert.Equal("EmailVerified", result.Value.Account.Status);
+        Assert.Equal("Customer", result.Value.Account.Role);
 
         var savedRefreshToken = Assert.Single(refreshTokenRepo.Saved);
         Assert.Equal(account.Id, savedRefreshToken.AccountId);
@@ -140,15 +141,13 @@ public sealed class LoginTests
     }
 
     [Fact]
-    public async Task Scenario5_Login_fails_attempt_5_locks_account_for_15_minutes()
+    public async Task Scenario5_Login_fails_attempt_3_locks_account_for_15_minutes()
     {
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
         account.VerifyEmail();
         account.RecordFailedLogin(clock.UtcNow); // attempt 1
         account.RecordFailedLogin(clock.UtcNow); // attempt 2
-        account.RecordFailedLogin(clock.UtcNow); // attempt 3
-        account.RecordFailedLogin(clock.UtcNow); // attempt 4
 
         var accountRepo = new FakeAccountRepository([account]);
         var refreshTokenRepo = new FakeRefreshTokenRepository();
@@ -161,7 +160,7 @@ public sealed class LoginTests
 
         Assert.True(result.IsFailure);
         Assert.Equal(LoginErrors.AccountTemporarilyLocked, result.Error);
-        Assert.Equal(5, account.FailedLoginAttempts);
+        Assert.Equal(3, account.FailedLoginAttempts);
         Assert.NotNull(account.LockoutEndUtc);
         Assert.Equal(clock.UtcNow.AddMinutes(15), account.LockoutEndUtc);
         Assert.True(account.IsLockedOut(clock.UtcNow));
@@ -173,7 +172,7 @@ public sealed class LoginTests
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
         account.VerifyEmail();
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 3; i++)
         {
             account.RecordFailedLogin(clock.UtcNow);
         }
@@ -202,7 +201,7 @@ public sealed class LoginTests
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
         account.VerifyEmail();
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 3; i++)
         {
             account.RecordFailedLogin(clock.UtcNow);
         }
@@ -231,7 +230,7 @@ public sealed class LoginTests
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
         account.VerifyEmail();
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 3; i++)
         {
             account.RecordFailedLogin(clock.UtcNow);
         }
@@ -283,6 +282,50 @@ public sealed class LoginTests
     }
 
     [Fact]
+    public async Task Scenario9b_Correct_password_on_suspended_account_returns_suspended_error()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+        account.Suspend();
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var refreshTokenRepo = new FakeRefreshTokenRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
+        var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
+
+        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(LoginErrors.AccountSuspended, result.Error);
+        Assert.Empty(refreshTokenRepo.Saved);
+    }
+
+    [Fact]
+    public async Task Scenario9c_Correct_password_on_disabled_account_returns_disabled_error()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+        account.Disable();
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var refreshTokenRepo = new FakeRefreshTokenRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
+        var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
+
+        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(LoginErrors.AccountDisabled, result.Error);
+        Assert.Empty(refreshTokenRepo.Saved);
+    }
+
+    [Fact]
     public void Scenario10_JwtTokenIssuer_generates_valid_rs256_token_with_required_claims()
     {
         using var rsa = RSA.Create(2048);
@@ -321,6 +364,7 @@ public sealed class LoginTests
             var root = payloadDoc.RootElement;
             Assert.Equal(account.Id.ToString(), root.GetProperty("sub").GetString());
             Assert.Equal("test@smartparking.io", root.GetProperty("email").GetString());
+            Assert.Equal("Customer", root.GetProperty("role").GetString());
             Assert.Equal("ParkingSystem.Identity", root.GetProperty("iss").GetString());
             Assert.Equal("ParkingSystem", root.GetProperty("aud").GetString());
             Assert.Equal(InitialTime.ToUnixTimeSeconds(), root.GetProperty("iat").GetInt64());
@@ -353,6 +397,42 @@ public sealed class LoginTests
         Assert.Equal(computedHash, tokenHash);
     }
 
+    [Fact]
+    public async Task Scenario12_Concurrent_failed_logins_serialize_and_lock_account_at_attempt_3()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var refreshTokenRepo = new FakeRefreshTokenRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
+        var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
+
+        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+
+        // Run 5 concurrent failed login requests simultaneously
+        var tasks = Enumerable.Range(0, 5)
+            .Select(_ => handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken))
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+
+        // All 5 requests must fail
+        Assert.All(results, r => Assert.True(r.IsFailure));
+
+        // Exactly 2 requests fail with InvalidCredentials (attempt 1 and 2),
+        // and remaining 3 requests fail with AccountTemporarilyLocked (attempt 3 onwards)
+        var invalidCredResults = results.Where(r => r.Error == LoginErrors.InvalidCredentials).ToList();
+        var lockedResults = results.Where(r => r.Error == LoginErrors.AccountTemporarilyLocked).ToList();
+
+        Assert.Equal(2, invalidCredResults.Count);
+        Assert.Equal(3, lockedResults.Count);
+        Assert.True(account.IsLockedOut(clock.UtcNow));
+        Assert.Equal(3, account.FailedLoginAttempts);
+    }
+
     private static byte[] Base64UrlDecode(string input)
     {
         var output = input.Replace('-', '+').Replace('_', '/');
@@ -372,6 +452,7 @@ public sealed class LoginTests
     private sealed class FakeAccountRepository(IEnumerable<Account> initial) : IAccountRepository
     {
         private readonly List<Account> accounts = [..initial];
+        private readonly SemaphoreSlim transactionLock = new(1, 1);
 
         public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
             Task.FromResult(accounts.Any(a => a.Email == normalizedEmail));
@@ -391,8 +472,18 @@ public sealed class LoginTests
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
-            action();
+        public async Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken)
+        {
+            await transactionLock.WaitAsync(cancellationToken);
+            try
+            {
+                return await action();
+            }
+            finally
+            {
+                transactionLock.Release();
+            }
+        }
     }
 
     private sealed class FakeRefreshTokenRepository : IRefreshTokenRepository

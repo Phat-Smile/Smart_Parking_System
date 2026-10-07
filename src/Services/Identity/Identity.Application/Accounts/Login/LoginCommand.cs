@@ -20,7 +20,8 @@ public sealed record AccountDto(
     Guid Id,
     string Email,
     string? PhoneNumber,
-    string Status);
+    string Status,
+    string Role);
 
 public static class LoginErrors
 {
@@ -32,6 +33,12 @@ public static class LoginErrors
 
     public static readonly Error AccountTemporarilyLocked =
         new("identity.account_temporarily_locked", "Account is temporarily locked due to multiple failed login attempts. Please try again later.");
+
+    public static readonly Error AccountSuspended =
+        new("identity.account_suspended", "Account has been suspended. Please contact support.");
+
+    public static readonly Error AccountDisabled =
+        new("identity.account_disabled", "Account has been disabled.");
 }
 
 public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
@@ -61,64 +68,80 @@ public sealed class LoginCommandHandler(
     {
         var email = Account.NormalizeEmail(request.Email);
         var now = clock.UtcNow;
-        var account = await accounts.FindByEmailAsync(email, cancellationToken);
 
-        if (account is null)
+        return await accounts.ExecuteInTransactionAsync(async () =>
         {
-            passwordHasher.VerifyDummy(request.Password);
-            return Result<LoginResponse>.Failure(LoginErrors.InvalidCredentials);
-        }
+            var account = await accounts.FindByEmailForUpdateAsync(email, cancellationToken);
 
-        if (account.IsLockedOut(now))
-        {
-            return Result<LoginResponse>.Failure(LoginErrors.AccountTemporarilyLocked);
-        }
+            if (account is null)
+            {
+                passwordHasher.VerifyDummy(request.Password);
+                return Result<LoginResponse>.Failure(LoginErrors.InvalidCredentials);
+            }
 
-        account.ClearExpiredLockout(now);
+            if (account.IsLockedOut(now))
+            {
+                return Result<LoginResponse>.Failure(LoginErrors.AccountTemporarilyLocked);
+            }
 
-        var passwordMatched = passwordHasher.Verify(request.Password, account.PasswordHash);
-        if (!passwordMatched)
-        {
-            account.RecordFailedLogin(now);
+            account.ClearExpiredLockout(now);
+
+            var passwordMatched = passwordHasher.Verify(request.Password, account.PasswordHash);
+            if (!passwordMatched)
+            {
+                account.RecordFailedLogin(now);
+                await accounts.SaveChangesAsync(cancellationToken);
+
+                return account.IsLockedOut(now)
+                    ? Result<LoginResponse>.Failure(LoginErrors.AccountTemporarilyLocked)
+                    : Result<LoginResponse>.Failure(LoginErrors.InvalidCredentials);
+            }
+
+            // Correct password breaks consecutive failed attempts streak
+            account.RecordCorrectCredential();
+
+            if (account.Status == AccountStatus.Suspended)
+            {
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<LoginResponse>.Failure(LoginErrors.AccountSuspended);
+            }
+
+            if (account.Status == AccountStatus.Disabled)
+            {
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<LoginResponse>.Failure(LoginErrors.AccountDisabled);
+            }
+
+            if (account.Status != AccountStatus.EmailVerified)
+            {
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<LoginResponse>.Failure(LoginErrors.EmailNotVerified);
+            }
+
+            // Issue Refresh Token
+            var (rawRefreshToken, refreshTokenHash) = refreshTokenGenerator.GenerateToken();
+            var refreshToken = RefreshToken.Issue(
+                Guid.NewGuid(),
+                account.Id,
+                refreshTokenHash,
+                now,
+                now.AddDays(RefreshToken.DefaultExpirationDays));
+            refreshTokens.Add(refreshToken);
+
+            // Atomic commit: updates Account state and inserts RefreshToken in a single unit of work
             await accounts.SaveChangesAsync(cancellationToken);
 
-            return account.IsLockedOut(now)
-                ? Result<LoginResponse>.Failure(LoginErrors.AccountTemporarilyLocked)
-                : Result<LoginResponse>.Failure(LoginErrors.InvalidCredentials);
-        }
+            // Issue RS256 JWT Access Token
+            var accessToken = jwtTokenIssuer.IssueAccessToken(account, now);
 
-        // Correct password breaks consecutive failed attempts streak
-        account.RecordCorrectCredential();
+            var response = new LoginResponse(
+                accessToken,
+                "Bearer",
+                jwtTokenIssuer.AccessTokenExpirationSeconds,
+                rawRefreshToken,
+                new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString(), account.Role.ToString()));
 
-        if (account.Status != AccountStatus.EmailVerified)
-        {
-            await accounts.SaveChangesAsync(cancellationToken);
-            return Result<LoginResponse>.Failure(LoginErrors.EmailNotVerified);
-        }
-
-        // Issue Refresh Token
-        var (rawRefreshToken, refreshTokenHash) = refreshTokenGenerator.GenerateToken();
-        var refreshToken = RefreshToken.Issue(
-            Guid.NewGuid(),
-            account.Id,
-            refreshTokenHash,
-            now,
-            now.AddDays(RefreshToken.DefaultExpirationDays));
-        refreshTokens.Add(refreshToken);
-
-        // Atomic commit: updates Account state and inserts RefreshToken in a single unit of work
-        await accounts.SaveChangesAsync(cancellationToken);
-
-        // Issue RS256 JWT Access Token
-        var accessToken = jwtTokenIssuer.IssueAccessToken(account, now);
-
-        var response = new LoginResponse(
-            accessToken,
-            "Bearer",
-            jwtTokenIssuer.AccessTokenExpirationSeconds,
-            rawRefreshToken,
-            new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString()));
-
-        return Result<LoginResponse>.Success(response);
+            return Result<LoginResponse>.Success(response);
+        }, cancellationToken);
     }
 }

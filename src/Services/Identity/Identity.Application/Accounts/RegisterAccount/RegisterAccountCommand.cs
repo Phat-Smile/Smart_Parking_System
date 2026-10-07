@@ -17,10 +17,8 @@ namespace ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 public sealed record RegisterAccountCommand(
     string FullName,
     string Email,
-    DateOnly DateOfBirth,
     string Password,
-    string? PhoneNumber,
-    bool AcceptTerms) : IRequest<Result<RegisteredAccount>>;
+    string? PhoneNumber) : IRequest<Result<RegisteredAccount>>;
 
 public sealed record RegisteredAccount(Guid AccountId, string Email, string FullName, string Status);
 
@@ -32,9 +30,6 @@ public static class RegisterAccountErrors
 
 public sealed partial class RegisterAccountCommandValidator : AbstractValidator<RegisterAccountCommand>
 {
-    private const int MinimumAgeYears = 16;
-    private const int MaximumAgeYears = 100;
-
     public RegisterAccountCommandValidator()
     {
         RuleFor(command => command.FullName)
@@ -48,15 +43,6 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
             .NotEmpty().WithMessage("Email is required.")
             .MaximumLength(254)
             .EmailAddress().WithMessage("Email must be a valid email address.");
-
-        RuleFor(command => command.DateOfBirth)
-            .Cascade(CascadeMode.Stop)
-            .Must(dob => dob <= DateOnly.FromDateTime(DateTime.UtcNow))
-            .WithMessage("DateOfBirth cannot be in the future.")
-            .Must(dob => CalculateAge(dob, DateOnly.FromDateTime(DateTime.UtcNow)) >= MinimumAgeYears)
-            .WithMessage($"User must be at least {MinimumAgeYears} years old to register.")
-            .Must(dob => CalculateAge(dob, DateOnly.FromDateTime(DateTime.UtcNow)) <= MaximumAgeYears)
-            .WithMessage($"DateOfBirth is invalid (age cannot exceed {MaximumAgeYears} years).");
 
         // Context 6.1: at least 8 characters with upper case, lower case, digit and special character.
         RuleFor(command => command.Password)
@@ -74,18 +60,6 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
             .Matches(@"^\s*(0|\+84)[35789][0-9]{8}\s*$")
             .WithMessage("Phone number must be a Vietnamese mobile number: 0 or +84 followed by 9 digits starting with 3, 5, 7, 8 or 9.")
             .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
-
-        RuleFor(command => command.AcceptTerms)
-            .Equal(true)
-            .WithMessage("You must accept the terms of service and privacy policy to register.");
-    }
-
-    private static int CalculateAge(DateOnly dateOfBirth, DateOnly today)
-    {
-        var age = today.Year - dateOfBirth.Year;
-        if (dateOfBirth > today.AddYears(-age))
-            age--;
-        return age;
     }
 
     [GeneratedRegex(@"^[\p{L}]+(?:[ '-][\p{L}]+)*$")]
@@ -135,7 +109,6 @@ public sealed class RegisterAccountCommandHandler(
         var profile = Profile.Create(
             account.Id,
             request.FullName,
-            request.DateOfBirth,
             now);
         profiles.Add(profile);
 

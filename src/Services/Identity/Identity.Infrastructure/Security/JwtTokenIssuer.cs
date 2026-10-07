@@ -40,6 +40,7 @@ public sealed class JwtTokenIssuer : IJwtTokenIssuer, IDisposable
         {
             ["sub"] = account.Id.ToString(),
             ["email"] = account.Email,
+            ["role"] = account.Role.ToString(),
             ["iss"] = issuer,
             ["aud"] = audience,
             ["jti"] = Guid.NewGuid().ToString(),

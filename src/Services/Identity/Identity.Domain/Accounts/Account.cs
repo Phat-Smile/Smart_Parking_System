@@ -2,7 +2,7 @@ namespace ParkingSystem.Identity.Domain.Accounts;
 
 public sealed class Account
 {
-    public const int MaxFailedAttemptsBeforeLockout = 5;
+    public const int MaxFailedAttemptsBeforeLockout = 3;
     public const int LockoutDurationMinutes = 15;
 
     private Account()
@@ -13,6 +13,7 @@ public sealed class Account
     public string Email { get; private set; } = null!;
     public string PasswordHash { get; private set; } = null!;
     public string? PhoneNumber { get; private set; }
+    public AccountRole Role { get; private set; } = AccountRole.Customer;
     public AccountStatus Status { get; private set; }
     public int FailedLoginAttempts { get; private set; }
     public DateTimeOffset? LockoutEndUtc { get; private set; }
@@ -32,12 +33,19 @@ public sealed class Account
             Email = NormalizeEmail(email),
             PasswordHash = passwordHash,
             PhoneNumber = NormalizePhoneNumber(phoneNumber),
+            Role = AccountRole.Customer,
             Status = AccountStatus.PendingEmailVerification,
             FailedLoginAttempts = 0,
             LockoutEndUtc = null,
             CreatedAtUtc = createdAtUtc,
             RowVersion = 1
         };
+    }
+
+    public void AssignRole(AccountRole role)
+    {
+        Role = role;
+        RowVersion++;
     }
 
     // Email uniqueness is case-insensitive, so the stored form is trimmed lower case.
@@ -51,6 +59,24 @@ public sealed class Account
         Status = AccountStatus.EmailVerified;
         RowVersion++;
         return true;
+    }
+
+    public void Suspend()
+    {
+        Status = AccountStatus.Suspended;
+        RowVersion++;
+    }
+
+    public void Disable()
+    {
+        Status = AccountStatus.Disabled;
+        RowVersion++;
+    }
+
+    public void Activate()
+    {
+        Status = AccountStatus.EmailVerified;
+        RowVersion++;
     }
 
     public bool IsLockedOut(DateTimeOffset nowUtc) =>

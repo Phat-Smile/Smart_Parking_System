@@ -3,5 +3,7 @@ namespace ParkingSystem.Identity.Domain.Accounts;
 public enum AccountStatus
 {
     PendingEmailVerification,
-    EmailVerified
+    EmailVerified,
+    Suspended,
+    Disabled
 }
