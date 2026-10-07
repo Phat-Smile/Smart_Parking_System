@@ -37,6 +37,9 @@ public sealed class LogoutCommandHandler(
         {
             await accounts.ExecuteInTransactionAsync(async () =>
             {
+                // Global Lock Ordering: Account FOR UPDATE -> AuthSession FOR UPDATE to eliminate lock inversion
+                await accounts.FindByIdForUpdateAsync(token.AccountId, cancellationToken);
+
                 var session = await authSessions.FindByIdForUpdateAsync(token.SessionId, cancellationToken);
                 if (session is not null && !session.IsRevoked)
                 {

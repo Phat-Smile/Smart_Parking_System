@@ -515,7 +515,13 @@ public sealed class EmailOtpTests
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(accounts.FirstOrDefault(a => a.Id == id));
 
+        public Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+            FindByIdAsync(id, cancellationToken);
+
         public void Add(Account account) => accounts.Add(account);
+
+        public Task<SaveAccountResult> SaveNewAccountAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(SaveAccountResult.Success);
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
 

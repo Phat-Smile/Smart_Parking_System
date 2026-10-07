@@ -431,18 +431,27 @@ public sealed class RegisterAccountTests
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Id == id));
 
+        public Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+            FindByIdAsync(id, cancellationToken);
+
         public void Add(Account account) => pending.Add(account);
 
-        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        public Task<SaveAccountResult> SaveNewAccountAsync(CancellationToken cancellationToken)
         {
             if (FailSaveWithDuplicate || pending.Any(p => Saved.Any(s => s.Email == p.Email)))
             {
                 pending.Clear();
-                return Task.FromResult(false);
+                return Task.FromResult(SaveAccountResult.DuplicateEmailConflict);
             }
             Saved.AddRange(pending);
             pending.Clear();
-            return Task.FromResult(true);
+            return Task.FromResult(SaveAccountResult.Success);
+        }
+
+        public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        {
+            var res = await SaveNewAccountAsync(cancellationToken);
+            return res == SaveAccountResult.Success;
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)
@@ -556,21 +565,30 @@ public sealed class RegisterAccountTests
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Account?>(null);
 
+        public Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult<Account?>(null);
+
         public void Add(Account account)
         {
             // Staged in memory
         }
 
-        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        public Task<SaveAccountResult> SaveNewAccountAsync(CancellationToken cancellationToken)
         {
             lock (_lock)
             {
                 if (Saved.Count > 0)
-                    return Task.FromResult(false); // Unique constraint violation
+                    return Task.FromResult(SaveAccountResult.DuplicateEmailConflict); // Unique constraint violation
 
                 Saved.Add(Account.Register(Guid.NewGuid(), "concurrent@example.com", "hash", null, FixedClock.Now));
-                return Task.FromResult(true);
+                return Task.FromResult(SaveAccountResult.Success);
             }
+        }
+
+        public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        {
+            var res = await SaveNewAccountAsync(cancellationToken);
+            return res == SaveAccountResult.Success;
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;

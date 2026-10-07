@@ -130,7 +130,8 @@ public sealed class RegisterAccountCommandHandler(
             1);
 
         // A concurrent registration with the same email loses the race on the unique index.
-        if (!await accounts.TrySaveChangesAsync(cancellationToken))
+        var saveResult = await accounts.SaveNewAccountAsync(cancellationToken);
+        if (saveResult == SaveAccountResult.DuplicateEmailConflict)
         {
             // Re-query to determine authoritative business state (Dormant Recovery vs Email Already Registered)
             var concurrentAccount = await accounts.FindByEmailAsync(email, cancellationToken);

@@ -78,7 +78,13 @@ public sealed class RefreshTokenCommandHandler(
                 return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
             }
 
-            // Row-level lock on AuthSession to eliminate race conditions
+            // Global Lock Ordering: Account FOR UPDATE -> AuthSession FOR UPDATE to eliminate lock inversion
+            var account = await accounts.FindByIdForUpdateAsync(token.AccountId, cancellationToken);
+            if (account is null)
+            {
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
+            }
+
             var session = await authSessions.FindByIdForUpdateAsync(token.SessionId, cancellationToken);
             if (session is null)
             {
@@ -114,12 +120,6 @@ public sealed class RefreshTokenCommandHandler(
             if (token.IsExpired(now))
             {
                 return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.RefreshTokenExpired);
-            }
-
-            var account = await accounts.FindByIdAsync(session.AccountId, cancellationToken);
-            if (account is null)
-            {
-                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
             }
 
             if (account.Status == AccountStatus.Suspended)

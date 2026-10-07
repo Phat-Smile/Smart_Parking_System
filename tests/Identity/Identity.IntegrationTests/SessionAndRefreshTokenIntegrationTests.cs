@@ -245,4 +245,41 @@ public sealed class SessionAndRefreshTokenIntegrationTests(PostgreSqlContainerFi
             });
         }
     }
+
+    [Fact]
+    public async Task AccountRepository_FindByIdForUpdateAsync_successfully_reads_and_locks_account_row()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var services = new ServiceCollection();
+        services.AddPersistence(PostgreSqlTestConfiguration.Create(postgres.ConnectionString));
+        await using var serviceProvider = services.BuildServiceProvider(validateScopes: true);
+
+        await using (var migrationScope = serviceProvider.CreateAsyncScope())
+        {
+            var db = migrationScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            await db.Database.MigrateAsync(cancellationToken);
+        }
+
+        var accountId = Guid.NewGuid();
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var accounts = scope.ServiceProvider.GetRequiredService<IAccountRepository>();
+            var account = Account.Register(accountId, "account-lock-test@example.com", "hash", null, InitialTime);
+            accounts.Add(account);
+            await accounts.SaveChangesAsync(cancellationToken);
+        }
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var accounts = scope.ServiceProvider.GetRequiredService<IAccountRepository>();
+            await accounts.ExecuteInTransactionAsync(async () =>
+            {
+                var locked = await accounts.FindByIdForUpdateAsync(accountId, cancellationToken);
+                Assert.NotNull(locked);
+                Assert.Equal(accountId, locked.Id);
+                return true;
+            }, cancellationToken);
+        }
+    }
 }
