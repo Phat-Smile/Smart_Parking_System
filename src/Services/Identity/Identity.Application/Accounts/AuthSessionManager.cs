@@ -24,5 +24,6 @@ public sealed class AuthSessionManager(
     {
         var now = clock.UtcNow;
         await authSessions.RevokeAllForAccountAsync(accountId, now, reason, cancellationToken);
+        await refreshTokens.RevokeAllForAccountAsync(accountId, now, reason, cancellationToken);
     }
 }

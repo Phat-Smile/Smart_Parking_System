@@ -613,6 +613,15 @@ public sealed class LoginTests
             }
             return Task.CompletedTask;
         }
+
+        public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
+        {
+            foreach (var rt in Saved.Where(rt => rt.AccountId == accountId && !rt.IsRevoked))
+            {
+                rt.Revoke(nowUtc, reason);
+            }
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher

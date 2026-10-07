@@ -165,7 +165,7 @@ public sealed class RefreshTokenAndLogoutTests
     }
 
     [Fact]
-    public async Task Refresh_tolerates_concurrent_requests_within_grace_window()
+    public async Task Refresh_detects_token_reuse_when_rotated_token_is_presented_again()
     {
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
@@ -186,12 +186,15 @@ public sealed class RefreshTokenAndLogoutTests
 
         var handler = new RefreshTokenCommandHandler(accountRepo, sessionRepo, tokenRepo, jwtIssuer, tokenGen, clock);
 
-        // Tab 2 sends token A within grace window
+        // Strict Single-Use Rotation: presenting token A again triggers TokenReuseDetected
         var result = await handler.Handle(new RefreshTokenCommand("token-A"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("recovered-jwt", result.Value!.AccessToken);
-        Assert.False(session.IsRevoked); // Session must NOT be revoked
+        Assert.True(result.IsFailure);
+        Assert.Equal(RefreshTokenErrors.TokenReuseDetected, result.Error);
+        Assert.True(session.IsRevoked);
+        Assert.Equal("ReuseDetected", session.RevokedReason);
+        Assert.True(tokenB.IsRevoked);
+        Assert.Equal("FamilyCompromised", tokenB.RevokedReason);
     }
 
     [Fact]
@@ -246,6 +249,64 @@ public sealed class RefreshTokenAndLogoutTests
 
         Assert.True(result.IsFailure);
         Assert.Equal(RefreshTokenErrors.AccountSuspended, result.Error);
+        Assert.True(session.IsRevoked);
+        Assert.Equal("AccountSuspended", session.RevokedReason);
+        Assert.True(token.IsRevoked);
+        Assert.Equal("AccountSuspended", token.RevokedReason);
+    }
+
+    [Fact]
+    public async Task Refresh_fails_when_account_is_disabled()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+        account.VerifyEmail();
+        account.Disable();
+
+        var session = AuthSession.Create(Guid.NewGuid(), account.Id, null, null, clock.UtcNow, clock.UtcNow.AddDays(30));
+        var token = RefreshToken.Issue(Guid.NewGuid(), session.Id, account.Id, "hash:token-1", clock.UtcNow, clock.UtcNow.AddDays(7));
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var sessionRepo = new FakeAuthSessionRepository([session]);
+        var tokenRepo = new FakeRefreshTokenRepository([token]);
+        var tokenGen = new FakeTokenGenerator("token-2", "hash:token-2");
+        var jwtIssuer = new FakeJwtTokenIssuer("jwt", 900);
+
+        var handler = new RefreshTokenCommandHandler(accountRepo, sessionRepo, tokenRepo, jwtIssuer, tokenGen, clock);
+        var result = await handler.Handle(new RefreshTokenCommand("token-1"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(RefreshTokenErrors.AccountDisabled, result.Error);
+        Assert.True(session.IsRevoked);
+        Assert.Equal("AccountDisabled", session.RevokedReason);
+        Assert.True(token.IsRevoked);
+        Assert.Equal("AccountDisabled", token.RevokedReason);
+    }
+
+    [Fact]
+    public async Task Refresh_fails_when_account_is_not_email_verified()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+
+        var session = AuthSession.Create(Guid.NewGuid(), account.Id, null, null, clock.UtcNow, clock.UtcNow.AddDays(30));
+        var token = RefreshToken.Issue(Guid.NewGuid(), session.Id, account.Id, "hash:token-1", clock.UtcNow, clock.UtcNow.AddDays(7));
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var sessionRepo = new FakeAuthSessionRepository([session]);
+        var tokenRepo = new FakeRefreshTokenRepository([token]);
+        var tokenGen = new FakeTokenGenerator("token-2", "hash:token-2");
+        var jwtIssuer = new FakeJwtTokenIssuer("jwt", 900);
+
+        var handler = new RefreshTokenCommandHandler(accountRepo, sessionRepo, tokenRepo, jwtIssuer, tokenGen, clock);
+        var result = await handler.Handle(new RefreshTokenCommand("token-1"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(RefreshTokenErrors.EmailNotVerified, result.Error);
+        Assert.True(session.IsRevoked);
+        Assert.Equal("EmailNotVerified", session.RevokedReason);
+        Assert.True(token.IsRevoked);
+        Assert.Equal("EmailNotVerified", token.RevokedReason);
     }
 
     [Fact]
@@ -278,10 +339,15 @@ public sealed class RefreshTokenAndLogoutTests
     public async Task LogoutAll_revokes_all_sessions_for_account()
     {
         var accountId = Guid.NewGuid();
-        var sessionRepo = new FakeAuthSessionRepository();
-        var tokenRepo = new FakeRefreshTokenRepository();
-        var accountRepo = new FakeAccountRepository([]);
         var clock = new MutableClock(InitialTime);
+        var session1 = AuthSession.Create(Guid.NewGuid(), accountId, "Laptop", null, clock.UtcNow, clock.UtcNow.AddDays(30));
+        var session2 = AuthSession.Create(Guid.NewGuid(), accountId, "Mobile", null, clock.UtcNow, clock.UtcNow.AddDays(30));
+        var token1 = RefreshToken.Issue(Guid.NewGuid(), session1.Id, accountId, "hash:token-1", clock.UtcNow, clock.UtcNow.AddDays(7));
+        var token2 = RefreshToken.Issue(Guid.NewGuid(), session2.Id, accountId, "hash:token-2", clock.UtcNow, clock.UtcNow.AddDays(7));
+
+        var sessionRepo = new FakeAuthSessionRepository([session1, session2]);
+        var tokenRepo = new FakeRefreshTokenRepository([token1, token2]);
+        var accountRepo = new FakeAccountRepository([]);
 
         var sessionManager = new AuthSessionManager(sessionRepo, tokenRepo, accountRepo, clock);
         var handler = new LogoutAllCommandHandler(sessionManager);
@@ -290,6 +356,14 @@ public sealed class RefreshTokenAndLogoutTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal("All active sessions have been logged out successfully.", result.Value!.Message);
+        Assert.True(session1.IsRevoked);
+        Assert.Equal("LogoutAll", session1.RevokedReason);
+        Assert.True(session2.IsRevoked);
+        Assert.Equal("LogoutAll", session2.RevokedReason);
+        Assert.True(token1.IsRevoked);
+        Assert.Equal("LogoutAll", token1.RevokedReason);
+        Assert.True(token2.IsRevoked);
+        Assert.Equal("LogoutAll", token2.RevokedReason);
     }
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock
@@ -374,6 +448,15 @@ public sealed class RefreshTokenAndLogoutTests
         public Task RevokeActiveTokensBySessionIdAsync(Guid sessionId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
         {
             foreach (var rt in Saved.Where(rt => rt.SessionId == sessionId && !rt.IsRevoked))
+            {
+                rt.Revoke(nowUtc, reason);
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
+        {
+            foreach (var rt in Saved.Where(rt => rt.AccountId == accountId && !rt.IsRevoked))
             {
                 rt.Revoke(nowUtc, reason);
             }

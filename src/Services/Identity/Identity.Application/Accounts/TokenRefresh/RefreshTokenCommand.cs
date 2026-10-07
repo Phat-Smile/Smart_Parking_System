@@ -11,7 +11,14 @@ namespace ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 public sealed record RefreshTokenCommand(
     string RefreshToken,
     string? DeviceInfo = null,
-    string? IpAddress = null) : IRequest<Result<LoginResponse>>;
+    string? IpAddress = null) : IRequest<Result<RefreshTokenResponse>>;
+
+public sealed record RefreshTokenResponse(
+    string AccessToken,
+    string TokenType,
+    int ExpiresIn,
+    string RefreshToken,
+    AccountDto Account);
 
 public static class RefreshTokenErrors
 {
@@ -35,6 +42,9 @@ public static class RefreshTokenErrors
 
     public static readonly Error AccountDisabled =
         new("identity.account_disabled", "Account is disabled.");
+
+    public static readonly Error EmailNotVerified =
+        new("identity.email_not_verified", "Email is not verified.");
 }
 
 public sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenCommand>
@@ -52,9 +62,9 @@ public sealed class RefreshTokenCommandHandler(
     IRefreshTokenRepository refreshTokens,
     IJwtTokenIssuer jwtTokenIssuer,
     IRefreshTokenGenerator refreshTokenGenerator,
-    IClock clock) : IRequestHandler<RefreshTokenCommand, Result<LoginResponse>>
+    IClock clock) : IRequestHandler<RefreshTokenCommand, Result<RefreshTokenResponse>>
 {
-    public async Task<Result<LoginResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
+    public async Task<Result<RefreshTokenResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
         var tokenHash = refreshTokenGenerator.HashToken(request.RefreshToken);
@@ -64,53 +74,29 @@ public sealed class RefreshTokenCommandHandler(
             var token = await refreshTokens.FindByHashAsync(tokenHash, cancellationToken);
             if (token is null)
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
             }
 
             // Row-level lock on AuthSession to eliminate race conditions
             var session = await authSessions.FindByIdForUpdateAsync(token.SessionId, cancellationToken);
             if (session is null)
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
             }
 
             if (session.IsRevoked)
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.SessionRevoked);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.SessionRevoked);
             }
 
             if (session.IsExpired(now))
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.SessionExpired);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.SessionExpired);
             }
 
-            // Check if token was already revoked
+            // Strict Single-Use Rotation Check: any presentation of an already revoked token is a reuse attack
             if (token.IsRevoked)
             {
-                // Grace window check (<= 10 seconds after rotation) to tolerate concurrent multi-tab requests
-                if (token.RevokedAtUtc.HasValue &&
-                    now - token.RevokedAtUtc.Value <= TimeSpan.FromSeconds(10) &&
-                    token.ReplacedByTokenId.HasValue)
-                {
-                    var latestToken = await refreshTokens.FindLatestBySessionIdAsync(session.Id, cancellationToken);
-                    if (latestToken is not null && latestToken.IsActive(now))
-                    {
-                        var accountForGrace = await accounts.FindByIdAsync(session.AccountId, cancellationToken);
-                        if (accountForGrace is not null &&
-                            accountForGrace.Status != AccountStatus.Suspended &&
-                            accountForGrace.Status != AccountStatus.Disabled)
-                        {
-                            var graceAccessToken = jwtTokenIssuer.IssueAccessToken(accountForGrace, now);
-                            return Result<LoginResponse>.Success(new LoginResponse(
-                                graceAccessToken,
-                                "Bearer",
-                                jwtTokenIssuer.AccessTokenExpirationSeconds,
-                                string.Empty,
-                                new AccountDto(accountForGrace.Id, accountForGrace.Email, accountForGrace.PhoneNumber, accountForGrace.Status.ToString(), accountForGrace.Role.ToString())));
-                        }
-                    }
-                }
-
                 // TOKEN REUSE DETECTED: Scoped revocation to this compromised session only
                 session.Revoke(now, "ReuseDetected");
                 await refreshTokens.RevokeActiveTokensBySessionIdAsync(session.Id, now, "FamilyCompromised", cancellationToken);
@@ -118,28 +104,42 @@ public sealed class RefreshTokenCommandHandler(
                 // Commit side-effect to database before returning 401
                 await accounts.SaveChangesAsync(cancellationToken);
 
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.TokenReuseDetected);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.TokenReuseDetected);
             }
 
             if (token.IsExpired(now))
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.RefreshTokenExpired);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.RefreshTokenExpired);
             }
 
             var account = await accounts.FindByIdAsync(session.AccountId, cancellationToken);
             if (account is null)
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
             }
 
             if (account.Status == AccountStatus.Suspended)
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.AccountSuspended);
+                session.Revoke(now, "AccountSuspended");
+                await refreshTokens.RevokeActiveTokensBySessionIdAsync(session.Id, now, "AccountSuspended", cancellationToken);
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.AccountSuspended);
             }
 
             if (account.Status == AccountStatus.Disabled)
             {
-                return Result<LoginResponse>.Failure(RefreshTokenErrors.AccountDisabled);
+                session.Revoke(now, "AccountDisabled");
+                await refreshTokens.RevokeActiveTokensBySessionIdAsync(session.Id, now, "AccountDisabled", cancellationToken);
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.AccountDisabled);
+            }
+
+            if (account.Status != AccountStatus.EmailVerified)
+            {
+                session.Revoke(now, "EmailNotVerified");
+                await refreshTokens.RevokeActiveTokensBySessionIdAsync(session.Id, now, "EmailNotVerified", cancellationToken);
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.EmailNotVerified);
             }
 
             // NOTE: Temporary password lockout (3 failed password attempts) does NOT block active sessions
@@ -161,14 +161,14 @@ public sealed class RefreshTokenCommandHandler(
             await accounts.SaveChangesAsync(cancellationToken);
 
             var accessToken = jwtTokenIssuer.IssueAccessToken(account, now);
-            var response = new LoginResponse(
+            var response = new RefreshTokenResponse(
                 accessToken,
                 "Bearer",
                 jwtTokenIssuer.AccessTokenExpirationSeconds,
                 newRawRefreshToken,
                 new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString(), account.Role.ToString()));
 
-            return Result<LoginResponse>.Success(response);
+            return Result<RefreshTokenResponse>.Success(response);
         }, cancellationToken);
     }
 }

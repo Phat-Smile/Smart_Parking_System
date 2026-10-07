@@ -67,17 +67,14 @@ public sealed class RefreshToken
 
     public bool IsActive(DateTimeOffset nowUtc) => !IsRevoked && !IsExpired(nowUtc);
 
-    public void Revoke(DateTimeOffset nowUtc, string reason, Guid? replacedByTokenId = null, string? replacedByTokenHash = null)
+    public void Revoke(DateTimeOffset nowUtc, string reason = "Revoked", Guid? replacedByTokenId = null, string? replacedByTokenHash = null)
     {
         if (IsRevoked)
             return;
 
         RevokedAtUtc = nowUtc;
-        RevokedReason = reason.Trim();
+        RevokedReason = string.IsNullOrWhiteSpace(reason) ? "Revoked" : reason.Trim();
         ReplacedByTokenId = replacedByTokenId;
         ReplacedByTokenHash = replacedByTokenHash?.Trim();
     }
-
-    public void Revoke(DateTimeOffset nowUtc, string? replacedByTokenHash = null) =>
-        Revoke(nowUtc, "Revoked", null, replacedByTokenHash);
 }

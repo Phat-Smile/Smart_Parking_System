@@ -26,4 +26,13 @@ internal sealed class RefreshTokenRepository(IdentityDbContext dbContext) : IRef
             WHERE "session_id" = {sessionId} AND "revoked_at_utc" IS NULL
             """, cancellationToken);
     }
+
+    public async Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
+    {
+        await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "identity"."refresh_tokens"
+            SET "revoked_at_utc" = {nowUtc}, "revoked_reason" = {reason}
+            WHERE "account_id" = {accountId} AND "revoked_at_utc" IS NULL
+            """, cancellationToken);
+    }
 }

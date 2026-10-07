@@ -161,6 +161,7 @@ internal static class AccountEndpoints
                     "identity.refresh_token_reused" => StatusCodes.Status401Unauthorized,
                     "identity.account_suspended" => StatusCodes.Status403Forbidden,
                     "identity.account_disabled" => StatusCodes.Status403Forbidden,
+                    "identity.email_not_verified" => StatusCodes.Status403Forbidden,
                     _ => StatusCodes.Status400BadRequest
                 };
 
@@ -173,7 +174,7 @@ internal static class AccountEndpoints
             .AllowAnonymous()
             .WithName("RefreshToken")
             .WithSummary("Refresh Access Token and rotate Refresh Token")
-            .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .Produces<RefreshTokenResponse>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);

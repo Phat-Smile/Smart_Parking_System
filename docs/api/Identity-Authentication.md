@@ -197,12 +197,28 @@ Content-Type: application/json
 }
 ```
 
-### Response sample (200 OK)
-Trả về cấu trúc tương tự Login (`accessToken`, `tokenType`, `expiresIn`, `refreshToken` mới, `account`).
+### Response sample (200 OK - RefreshTokenResponse)
+```json
+{
+  "accessToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "tokenType": "Bearer",
+  "expiresIn": 900,
+  "refreshToken": "9f8e7d6c5b4a3a2b1c0d9e8f7a6b5c4d...",
+  "account": {
+    "id": "7b92df78-c09a-4122-87f5-9610f4439c27",
+    "email": "customer@smartparking.io",
+    "phoneNumber": "+84901234567",
+    "status": "EmailVerified",
+    "role": "Customer"
+  }
+}
+```
 
-### Quy tắc xử lý
-- Khóa dòng bi quan trên `AuthSession` (`SELECT ... FOR UPDATE`).
-- Phát hiện tái sử dụng Token (Token Reuse Detection): Nếu token cũ đã bị thu hồi ngoài khoảng Grace Period (10s) được gửi lại, hệ thống lập tức thu hồi toàn bộ phiên làm việc `AuthSession` và tất cả refresh token thuộc phiên đó.
+### Quy tắc xử lý & Bảo mật
+- **Khóa dòng bi quan**: `SELECT * FROM "identity"."auth_sessions" WHERE "id" = @sessionId FOR UPDATE` tuần tự hóa các yêu cầu cạnh tranh.
+- **Strict Single-Use Rotation (Bỏ Grace Window cho OJT)**: Mỗi refresh token chỉ được sử dụng thành công 1 lần. Khi token đã rotate/thu hồi được gửi lại, hệ thống lập tức kích hoạt Token Reuse Detection $\rightarrow$ thu hồi ngay lập tức chính `AuthSession` bị xâm phạm (`ReuseDetected`) và các token con $\rightarrow$ commit DB $\rightarrow$ trả về `401 Unauthorized` (`identity.refresh_token_reused`).
+- **Frontend Single-Flight**: Client bắt buộc triển khai mutex/single-flight refresh để không gửi đồng thời nhiều refresh request.
+- **Account Status Validation**: Kiểm tra trạng thái tài khoản. Nếu `Suspended` $\rightarrow$ 403 `identity.account_suspended`; nếu `Disabled` $\rightarrow$ 403 `identity.account_disabled`; nếu chưa xác thực email $\rightarrow$ 403 `identity.email_not_verified`. Tất cả trường hợp này đều thu hồi session và active tokens trong DB trước khi trả lỗi.
 
 ---
 
@@ -217,14 +233,15 @@ Content-Type: application/json
   "refreshToken": "4a7b9c1d2e3f4a5b6c7d8e9f0a1b2c3d..."
 }
 ```
-- Thu hồi phiên làm việc `AuthSession` của thiết bị hiện tại và đánh dấu revoke toàn bộ token thuộc session.
-- Phản hồi: `200 OK` (`{"message": "Logged out successfully."}`). Có tính chất Idempotent.
+- **Generic 200 OK & Idempotent**: Luôn trả về `200 OK` (`{"message": "Logged out successfully."}`) cho mọi trường hợp (token active hợp lệ, token đã thu hồi trước đó, token không tồn tại hoặc hết hạn) nhằm đảm bảo tính lũy kế và chống rò rỉ trạng thái token (Anti-Enumeration).
+- **Phạm vi thu hồi**: Khóa dòng `AuthSession`, thu hồi `AuthSession` của thiết bị hiện tại (`session.Revoke("Logout")`) và toàn bộ refresh token active thuộc session.
+- **Ngữ nghĩa Access Token sau Logout**: JWT Access Token là self-contained (stateless). Việc Logout ngăn chặn cấp token mới; Access Token hiện tại đã cấp vẫn có hiệu lực cục bộ cho đến khi hết hạn TTL (15 phút). Phạm vi OJT không dùng JWT blacklist phân tán, kiểm soát rủi ro thông qua thời hạn token ngắn (15 phút / 900 giây).
 
 ### POST /api/identity/accounts/logout-all
 ```http
 POST /api/identity/accounts/logout-all
 Authorization: Bearer <accessToken>
 ```
-- Yêu cầu xác thực Bearer JWT.
-- Thu hồi đồng loạt toàn bộ các phiên `AuthSession` đang hoạt động của người dùng trên mọi thiết bị.
-- Phản hồi: `200 OK` (`{"message": "All active sessions have been logged out successfully."}`).
+- **Xác thực & Chống IDOR**: Yêu cầu Bearer JWT hợp lệ. Định danh `AccountId` được trích xuất trực tiếp từ claim `JWT.sub` (`currentUser.SubjectId`), tuyệt đối không nhận từ body hay query.
+- **Thu hồi đồng loạt**: Chấm dứt toàn bộ các phiên `AuthSession` và toàn bộ các `RefreshToken` đang hoạt động của người dùng trên mọi thiết bị (`RevokeAllSessionsAsync` với lý do `"LogoutAll"`).
+- **Phản hồi**: `200 OK` (`{"message": "All active sessions have been logged out successfully."}`).
