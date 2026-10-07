@@ -131,7 +131,22 @@ public sealed class RegisterAccountCommandHandler(
 
         // A concurrent registration with the same email loses the race on the unique index.
         if (!await accounts.TrySaveChangesAsync(cancellationToken))
+        {
+            // Re-query to determine authoritative business state (Dormant Recovery vs Email Already Registered)
+            var concurrentAccount = await accounts.FindByEmailAsync(email, cancellationToken);
+            if (concurrentAccount is not null && concurrentAccount.Status == AccountStatus.PendingEmailVerification)
+            {
+                var concurrentProfile = await profiles.FindByAccountIdAsync(concurrentAccount.Id, cancellationToken);
+                return Result<RegisteredAccount>.Success(new RegisteredAccount(
+                    concurrentAccount.Id,
+                    concurrentAccount.Email,
+                    concurrentProfile?.FullName ?? request.FullName.Trim(),
+                    concurrentAccount.Status.ToString(),
+                    IsNewAccount: false));
+            }
+
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
+        }
 
         return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile.FullName, account.Status.ToString()));
     }

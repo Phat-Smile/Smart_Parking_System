@@ -81,7 +81,7 @@ Content-Type: application/json
 - `400 Bad Request`: Lỗi dữ liệu đầu vào (RFC 7807 ValidationProblem).
 - `409 Conflict`: Email đã tồn tại và đã kích hoạt (`identity.email_already_registered`).
 
-> **Bảo vệ Concurrency & Xử lý 23505**: Chỉ mục duy nhất `ux_accounts_email` trên bảng `identity.accounts` đảm bảo khi 2 yêu cầu đăng ký cùng email gửi đồng thời, chỉ duy nhất 1 yêu cầu tạo thành công Account (TC-01). Yêu cầu thứ hai vi phạm khóa duy nhất (PostgreSQL `23505`) được phương thức `TrySaveChangesAsync` bắt và map thành `409 Conflict`, đảm bảo không bao giờ rơi thành HTTP 500.
+> **Bảo vệ Concurrency & Xử lý 23505 (R-01 Invariant)**: Chỉ mục duy nhất `ux_accounts_email` trên bảng `identity.accounts` đảm bảo khi 2 yêu cầu đăng ký cùng email gửi đồng thời, chỉ duy nhất 1 yêu cầu thực sự INSERT Account (TC-01). Yêu cầu thứ hai vi phạm khóa duy nhất (PostgreSQL `23505`) được `TrySaveChangesAsync` bắt và tiến hành re-query trạng thái thực tế của email. Nếu tài khoản vừa tạo đang ở trạng thái `PendingEmailVerification`, hệ thống trả về `200 OK` (Dormant Recovery, `isNewAccount: false`). Nếu tài khoản đã được xác thực, hệ thống trả về `409 Conflict`. Điều này đảm bảo tính nhất quán ngữ nghĩa kinh doanh: trạng thái dữ liệu quyết định phản hồi, không phụ thuộc vào độ lệch timing vài mili-giây của hai luồng đồng thời, và tuyệt đối không bao giờ rơi thành HTTP 500.
 
 ---
 
@@ -147,7 +147,7 @@ Content-Type: application/json
 - **Hạn mức**: Tối đa **5 mã OTP / giờ** (`MaxOtpIssuedPerHour = 5`), tính cả mã lúc Đăng ký.
 - **Cooldown 60s [PROPOSED]**: Bắt buộc cách nhau tối thiểu 60 giây (`CooldownSeconds = 60`).
 - **Vô hiệu hóa OTP cũ**: Khi Resend thành công, mọi OTP active trước đó của tài khoản đều được đánh dấu `InvalidatedAtUtc = Now`. Chỉ duy nhất mã OTP mới nhất có hiệu lực.
-- **Chống Anti-Enumeration**: Cả 3 trường hợp (Unknown email, Already verified, Pending verification) đều trả về `200 OK` generic với response body hoàn toàn giống nhau từ phía Client. Chỉ Pending mới thực sự sinh mã OTP, vô hiệu OTP cũ và ghi Outbox (TC-07).
+- **Anti-Enumeration & Đánh đổi UX (R-02 Option B)**: Cả 3 trường hợp (Unknown email, Already verified, Pending verification) đều trả về `200 OK` generic mặc định để chống dò quét tài khoản; chỉ Pending mới thực sự sinh mã OTP, vô hiệu OTP cũ và ghi Outbox (TC-07). Tuy nhiên, đối với tài khoản `Pending` đang trong thời gian Cooldown 60s hoặc vượt quá 5 OTP/giờ, hệ thống trả về `429 Too Many Requests` để cung cấp phản hồi chính xác và đếm ngược thời gian chờ cho Frontend; đây là đánh đổi có chủ đích giữa UX và strict indistinguishability.
 - `200 OK`: Gửi lại thành công (hoặc generic success chống dò quét).
 - `429 Too Many Requests`: `identity.resend_cooldown_active`, `identity.resend_rate_limit_exceeded`.
 
@@ -192,10 +192,10 @@ Content-Type: application/json
   - Sai lần 3: Tự động khóa tài khoản 15 phút (`LockoutEndUtc = Now + 15m`), lưu DB và lập tức trả về `423 Locked` (`identity.account_temporarily_locked`) (TC-05).
   - Đang trong thời gian khóa 15m: `423 Locked`.
   - Hết 15m: Tự động xóa khóa, cho phép thử lại.
-  - Đăng nhập đúng: Reset `FailedLoginAttempts = 0`, xóa `LockoutEndUtc`.
+  - **Chuỗi đếm sai mật khẩu liên tiếp (R-05)**: Nhập đúng mật khẩu lập tức phá vỡ chuỗi sai và reset `FailedLoginAttempts = 0`, xóa `LockoutEndUtc`. Nếu tài khoản đang ở trạng thái `PendingEmailVerification`, lệnh reset này được commit vào DB trước khi trả về `403 Forbidden`.
 - **Phòng thủ Timing Attack**: Chạy dummy BCrypt verify khi email không tồn tại.
 - **Concurrency Row Lock**: Thực thi `SELECT Account FOR UPDATE` kết hợp `BCrypt.Verify()` bên trong transaction bảo vệ an toàn `FailedLoginAttempts`.
-- **Anti-Enumeration đối với Trạng thái**: Xác thực mật khẩu qua BCrypt trước; chỉ khi mật khẩu đúng nhưng tài khoản chưa kích hoạt mới trả về `403 Forbidden (identity.email_not_verified)`.
+- **Anti-Enumeration đối với Trạng thái (R-04 & R-05)**: Xác thực mật khẩu qua BCrypt trước; chỉ khi mật khẩu đúng nhưng tài khoản chưa kích hoạt mới trả về `403 Forbidden (identity.email_not_verified)`. Việc tiết lộ trạng thái tạm khóa qua `423 Locked` là đánh đổi an ninh có chủ đích (Security Assumption) để đáp ứng UX thông báo người dùng theo FR-USER-008.
 - `200 OK`: Đăng nhập thành công, khởi tạo `AuthSession` và cấp token.
 - `401 Unauthorized`: Sai email hoặc mật khẩu (lần 1, 2) (`identity.invalid_credentials`).
 - `403 Forbidden`: `identity.email_not_verified`, `identity.account_suspended` [PROPOSED], `identity.account_disabled` [PROPOSED].
