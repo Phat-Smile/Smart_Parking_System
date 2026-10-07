@@ -622,6 +622,9 @@ public sealed class LoginTests
             }
             return Task.CompletedTask;
         }
+
+        public Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher

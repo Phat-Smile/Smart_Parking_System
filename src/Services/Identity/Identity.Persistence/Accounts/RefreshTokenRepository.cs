@@ -35,4 +35,7 @@ internal sealed class RefreshTokenRepository(IdentityDbContext dbContext) : IRef
             WHERE "account_id" = {accountId} AND "revoked_at_utc" IS NULL
             """, cancellationToken);
     }
+
+    public Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken) =>
+        dbContext.Entry(refreshToken).ReloadAsync(cancellationToken);
 }

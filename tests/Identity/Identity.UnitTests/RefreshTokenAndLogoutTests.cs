@@ -366,6 +366,108 @@ public sealed class RefreshTokenAndLogoutTests
         Assert.Equal("LogoutAll", token2.RevokedReason);
     }
 
+    [Fact]
+    public async Task RefreshTokenCommandValidator_fails_when_empty_or_exceeds_512_characters()
+    {
+        var validator = new RefreshTokenCommandValidator();
+
+        var emptyResult = await validator.ValidateAsync(new RefreshTokenCommand(""), TestContext.Current.CancellationToken);
+        Assert.False(emptyResult.IsValid);
+        Assert.Contains(emptyResult.Errors, e => e.PropertyName == "RefreshToken");
+
+        var tooLongToken = new string('a', 513);
+        var tooLongResult = await validator.ValidateAsync(new RefreshTokenCommand(tooLongToken), TestContext.Current.CancellationToken);
+        Assert.False(tooLongResult.IsValid);
+        Assert.Contains(tooLongResult.Errors, e => e.PropertyName == "RefreshToken" && e.ErrorMessage.Contains("512"));
+
+        var validResult = await validator.ValidateAsync(new RefreshTokenCommand(new string('a', 64)), TestContext.Current.CancellationToken);
+        Assert.True(validResult.IsValid);
+    }
+
+    [Fact]
+    public async Task LogoutCommandValidator_fails_when_empty_or_exceeds_512_characters()
+    {
+        var validator = new LogoutCommandValidator();
+
+        var emptyResult = await validator.ValidateAsync(new LogoutCommand(""), TestContext.Current.CancellationToken);
+        Assert.False(emptyResult.IsValid);
+        Assert.Contains(emptyResult.Errors, e => e.PropertyName == "RefreshToken");
+
+        var tooLongToken = new string('a', 513);
+        var tooLongResult = await validator.ValidateAsync(new LogoutCommand(tooLongToken), TestContext.Current.CancellationToken);
+        Assert.False(tooLongResult.IsValid);
+        Assert.Contains(tooLongResult.Errors, e => e.PropertyName == "RefreshToken" && e.ErrorMessage.Contains("512"));
+
+        var validResult = await validator.ValidateAsync(new LogoutCommand(new string('a', 64)), TestContext.Current.CancellationToken);
+        Assert.True(validResult.IsValid);
+    }
+
+    [Fact]
+    public async Task Refresh_detects_token_reuse_when_token_is_revoked_concurrently_during_session_lock()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+        account.VerifyEmail();
+
+        var session = AuthSession.Create(Guid.NewGuid(), account.Id, "Laptop", null, clock.UtcNow, clock.UtcNow.AddDays(30));
+        var token = RefreshToken.Issue(Guid.NewGuid(), session.Id, account.Id, "hash:token-concurrent", clock.UtcNow, clock.UtcNow.AddDays(7));
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var sessionRepo = new FakeAuthSessionRepository([session]);
+
+        // Custom repository that simulates a concurrent rotation committing during ReloadAsync
+        var tokenRepo = new ConcurrentSimulatingRefreshTokenRepository([token]);
+        var tokenGen = new FakeTokenGenerator("token-new", "hash:token-new");
+        var jwtIssuer = new FakeJwtTokenIssuer("jwt", 900);
+
+        var handler = new RefreshTokenCommandHandler(accountRepo, sessionRepo, tokenRepo, jwtIssuer, tokenGen, clock);
+
+        var result = await handler.Handle(new RefreshTokenCommand("token-concurrent"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(RefreshTokenErrors.TokenReuseDetected, result.Error);
+        Assert.True(session.IsRevoked);
+        Assert.Equal("ReuseDetected", session.RevokedReason);
+    }
+
+    private sealed class ConcurrentSimulatingRefreshTokenRepository(IEnumerable<RefreshToken> initial) : IRefreshTokenRepository
+    {
+        private readonly List<RefreshToken> tokens = [.. initial];
+
+        public void Add(RefreshToken refreshToken) => tokens.Add(refreshToken);
+
+        public Task<RefreshToken?> FindByHashAsync(string tokenHash, CancellationToken cancellationToken) =>
+            Task.FromResult(tokens.FirstOrDefault(rt => rt.TokenHash == tokenHash));
+
+        public Task<RefreshToken?> FindLatestBySessionIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult(tokens.FirstOrDefault(rt => rt.SessionId == sessionId && !rt.IsRevoked));
+
+        public Task RevokeActiveTokensBySessionIdAsync(Guid sessionId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
+        {
+            foreach (var rt in tokens.Where(rt => rt.SessionId == sessionId && !rt.IsRevoked))
+            {
+                rt.Revoke(nowUtc, reason);
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
+        {
+            foreach (var rt in tokens.Where(rt => rt.AccountId == accountId && !rt.IsRevoked))
+            {
+                rt.Revoke(nowUtc, reason);
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken)
+        {
+            // Simulate that while R2 was waiting on session lock, R1 already rotated this token!
+            refreshToken.Revoke(DateTimeOffset.UtcNow, "Rotated", Guid.NewGuid(), "hash:token-replaced");
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = utcNow;
@@ -462,5 +564,8 @@ public sealed class RefreshTokenAndLogoutTests
             }
             return Task.CompletedTask;
         }
+
+        public Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

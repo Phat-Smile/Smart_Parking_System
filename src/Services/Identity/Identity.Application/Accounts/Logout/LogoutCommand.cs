@@ -15,7 +15,8 @@ public sealed class LogoutCommandValidator : AbstractValidator<LogoutCommand>
     public LogoutCommandValidator()
     {
         RuleFor(command => command.RefreshToken)
-            .NotEmpty().WithMessage("RefreshToken is required.");
+            .NotEmpty().WithMessage("RefreshToken is required.")
+            .MaximumLength(512).WithMessage("RefreshToken must not exceed 512 characters.");
     }
 }
 

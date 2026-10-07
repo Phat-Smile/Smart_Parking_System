@@ -13,4 +13,6 @@ public interface IRefreshTokenRepository
     Task RevokeActiveTokensBySessionIdAsync(Guid sessionId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken);
 
     Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken);
+
+    Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken);
 }

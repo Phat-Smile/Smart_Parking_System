@@ -52,7 +52,8 @@ public sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshToke
     public RefreshTokenCommandValidator()
     {
         RuleFor(command => command.RefreshToken)
-            .NotEmpty().WithMessage("RefreshToken is required.");
+            .NotEmpty().WithMessage("RefreshToken is required.")
+            .MaximumLength(512).WithMessage("RefreshToken must not exceed 512 characters.");
     }
 }
 
@@ -83,6 +84,9 @@ public sealed class RefreshTokenCommandHandler(
             {
                 return Result<RefreshTokenResponse>.Failure(RefreshTokenErrors.InvalidRefreshToken);
             }
+
+            // Re-read/reload token state in case a concurrent request rotated/revoked it while we were waiting for the lock
+            await refreshTokens.ReloadAsync(token, cancellationToken);
 
             if (session.IsRevoked)
             {
