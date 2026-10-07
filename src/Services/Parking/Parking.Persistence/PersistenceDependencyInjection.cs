@@ -7,8 +7,12 @@ using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Parking.Application.Common.Messaging.Inbox;
 using ParkingSystem.Parking.Persistence.Outbox;
 using ParkingSystem.Parking.Persistence.Inbox;
+using ParkingSystem.Parking.Application.ParkingSessions;
+using ParkingSystem.Parking.Persistence.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Persistence.ParkingLots;
+using ParkingSystem.Parking.Application.Common.Auditing;
+using ParkingSystem.Parking.Persistence.Auditing;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -34,6 +38,8 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, ParkingInboxExecutionCoordinator>();
+        services.AddScoped<IParkingSessionRepository, ParkingSessionRepository>();
+        services.AddScoped<IAuditLog, AuditLog>();
         services.AddScoped<IParkingLotCatalogReader, ParkingLotCatalogReader>();
         return services;
     }
