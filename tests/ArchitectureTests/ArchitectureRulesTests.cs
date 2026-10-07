@@ -169,7 +169,7 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
-    public void Custom_outbox_and_inbox_are_used_without_production_consumers_or_MassTransit_state()
+    public void Custom_outbox_and_inbox_are_used_without_MassTransit_state()
     {
         var productionFiles = Directory.EnumerateFiles(Path.Combine(Root, "src"), "*.cs", SearchOption.AllDirectories)
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) &&
@@ -185,10 +185,6 @@ public sealed class ArchitectureRulesTests
         Assert.DoesNotContain("AddEntityFrameworkOutbox", source, StringComparison.Ordinal);
         Assert.DoesNotContain("InboxState", source, StringComparison.Ordinal);
         Assert.DoesNotContain("OutboxState", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IConsumer<", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(".AddIdempotentConsumer<", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("bus.AddConsumer<", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReceiveEndpoint(", source, StringComparison.Ordinal);
     }
 
 

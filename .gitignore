@@ -24,6 +24,8 @@ __pycache__/
 venv/
 *.py[cod]
 
+/net-commander
+
 # Frontend artifacts and local configuration
 web/node_modules/
 web/.next/

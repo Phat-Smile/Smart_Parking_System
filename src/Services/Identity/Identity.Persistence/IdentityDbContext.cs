@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Identity.Domain.Accounts;
-using ParkingSystem.Identity.Persistence.Outbox;
+using ParkingSystem.Identity.Domain.EmailVerifications;
+using ParkingSystem.Identity.Domain.Profiles;
 using ParkingSystem.Identity.Persistence.Inbox;
+using ParkingSystem.Identity.Persistence.Outbox;
 
 namespace ParkingSystem.Identity.Persistence;
 
@@ -10,6 +12,12 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     internal const string DefaultSchema = "identity";
 
     public DbSet<Account> Accounts => Set<Account>();
+
+    public DbSet<Profile> Profiles => Set<Profile>();
+
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<EmailVerification> EmailVerifications => Set<EmailVerification>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

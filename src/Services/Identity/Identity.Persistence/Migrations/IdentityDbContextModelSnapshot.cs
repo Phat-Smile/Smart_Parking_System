@@ -39,6 +39,16 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("failed_login_attempts");
+
+                    b.Property<DateTimeOffset?>("LockoutEndUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lockout_end_utc");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -49,6 +59,21 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("phone_number");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Customer")
+                        .HasColumnName("role");
+
+                    b.Property<int>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("row_version");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -63,7 +88,169 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_accounts_email");
 
+                    b.HasIndex("PhoneNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_accounts_phone_number")
+                        .HasFilter("phone_number IS NOT NULL");
+
                     b.ToTable("accounts", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<string>("ReplacedByTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("replaced_by_token_hash");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at_utc");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_refresh_tokens");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_refresh_tokens_account_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_refresh_tokens_token_hash");
+
+                    b.ToTable("refresh_tokens", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.EmailVerifications.EmailVerification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<DateTimeOffset?>("InvalidatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invalidated_at_utc");
+
+                    b.Property<bool>("IsUsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_used");
+
+                    b.Property<string>("OtpHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("otp_hash");
+
+                    b.Property<int>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("row_version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_verifications");
+
+                    b.HasIndex("AccountId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_email_verifications_account_id_created_at_utc");
+
+                    b.HasIndex("Email", "CreatedAtUtc")
+                        .HasDatabaseName("ix_email_verifications_email_created_at_utc");
+
+                    b.ToTable("email_verifications", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Profiles.Profile", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("avatar_url");
+
+                    b.Property<string>("CitizenIdNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("citizen_id_number");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date")
+                        .HasColumnName("date_of_birth");
+
+                    b.Property<string>("DriverLicenseNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("driver_license_number");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("full_name");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_profiles");
+
+                    b.ToTable("profiles", "identity");
                 });
 
             modelBuilder.Entity("ParkingSystem.Identity.Persistence.Inbox.InboxMessage", b =>
@@ -159,6 +346,26 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasFilter("processed_at_utc IS NULL");
 
                     b.ToTable("outbox_messages", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.RefreshToken", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_refresh_tokens_accounts_account_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Profiles.Profile", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithOne()
+                        .HasForeignKey("ParkingSystem.Identity.Domain.Profiles.Profile", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_profiles_accounts_account_id");
                 });
 #pragma warning restore 612, 618
         }

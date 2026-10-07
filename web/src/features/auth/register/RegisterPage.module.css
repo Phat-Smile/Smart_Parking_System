@@ -1,0 +1,28 @@
+.page {
+    --reg-bg: #080611;
+    --reg-panel: #12101e;
+    --reg-input: #191625;
+    --reg-border: rgb(255 255 255 / 8%);
+    --reg-input-border: rgb(255 255 255 / 12%);
+    --reg-text: #f1edf9;
+    --reg-muted: #9590a8;
+    --reg-accent: #937aff;
+    --reg-badge: rgb(255 255 255 / 5%);
+    --reg-trust: rgb(255 255 255 / 3%);
+    min-height: 100vh;
+    background: var(--reg-bg);
+    color: var(--reg-text);
+}
+
+:global(html[data-theme="light"]) .page {
+    --reg-bg: #f8f9fc;
+    --reg-panel: #ffffff;
+    --reg-input: #f7f8fb;
+    --reg-border: rgb(0 0 0 / 8%);
+    --reg-input-border: rgb(0 0 0 / 12%);
+    --reg-text: #14121f;
+    --reg-muted: #645f77;
+    --reg-accent: #7657ff;
+    --reg-badge: rgb(0 0 0 / 4%);
+    --reg-trust: rgb(0 0 0 / 3%);
+}

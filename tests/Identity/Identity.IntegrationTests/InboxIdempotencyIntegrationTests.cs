@@ -58,7 +58,10 @@ public sealed class InboxIdempotencyIntegrationTests(
                 dbContext,
                 "identity",
                 cancellationToken,
-                "accounts");
+                "accounts",
+                "email_verifications",
+                "refresh_tokens",
+                "profiles");
         }
 
         var bus = provider.GetRequiredService<IBusControl>();
