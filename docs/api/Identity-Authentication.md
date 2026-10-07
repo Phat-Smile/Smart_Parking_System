@@ -47,19 +47,31 @@ Content-Type: application/json
 | Field | Description | Data Type | Nullable | Validation Rules |
 | :--- | :--- | :---: | :---: | :--- |
 | `fullName` | Họ và tên người dùng | string | NOT NULL | Bắt buộc, 2–100 ký tự, regex `^[\p{L}]+(?:[ '-][\p{L}]+)*$` |
-| `email` | Địa chỉ email đăng ký | string | NOT NULL | Bắt buộc, chuẩn RFC 5322, tối đa 254 ký tự, tự động lower |
+| `email` | Địa chỉ email đăng ký | string | NOT NULL | Bắt buộc, chuẩn RFC 5322, tối đa 254 ký tự, tự động normalize chữ thường |
 | `password` | Mật khẩu tài khoản | string | NOT NULL | Bắt buộc, 8–72 ký tự, 1 hoa, 1 thường, 1 số, 1 ký tự đặc biệt |
-| `phoneNumber` | Số điện thoại di động | string | NULL | Tùy chọn, đúng chuẩn di động Việt Nam |
+| `phoneNumber` | Số điện thoại di động | string | NULL | Tùy chọn, đúng chuẩn di động Việt Nam (0xxxxxxxxx hoặc +84xxxxxxxxx) |
 
 > **Lưu ý**: Database EF Core quy định trường `date_of_birth` trong bảng `profiles` là **NULLABLE**, không yêu cầu nhập khi đăng ký.
 
-### Response sample (201 Created)
+### Response sample (201 Created — Đăng ký mới)
 ```json
 {
   "accountId": "7b92df78-c09a-4122-87f5-9610f4439c27",
   "email": "customer@smartparking.io",
   "fullName": "Nguyễn Văn An",
-  "status": "PendingEmailVerification"
+  "status": "PendingEmailVerification",
+  "isNewAccount": true
+}
+```
+
+### Response sample (200 OK — Phục hồi tài khoản chờ kích hoạt / Dormant Recovery)
+```json
+{
+  "accountId": "7b92df78-c09a-4122-87f5-9610f4439c27",
+  "email": "customer@smartparking.io",
+  "fullName": "Nguyễn Văn An",
+  "status": "PendingEmailVerification",
+  "isNewAccount": false
 }
 ```
 
@@ -69,7 +81,7 @@ Content-Type: application/json
 - `400 Bad Request`: Lỗi dữ liệu đầu vào (RFC 7807 ValidationProblem).
 - `409 Conflict`: Email đã tồn tại và đã kích hoạt (`identity.email_already_registered`).
 
-> **Bảo vệ Concurrency**: Chỉ mục duy nhất `ux_accounts_email` trên bảng `identity.accounts` đảm bảo khi 2 yêu cầu đăng ký cùng email gửi đồng thời, chỉ duy nhất 1 yêu cầu tạo thành công Account (TC-01), yêu cầu còn lại được bắt lỗi tại tầng ORM/DB và trả về `409 Conflict`.
+> **Bảo vệ Concurrency & Xử lý 23505**: Chỉ mục duy nhất `ux_accounts_email` trên bảng `identity.accounts` đảm bảo khi 2 yêu cầu đăng ký cùng email gửi đồng thời, chỉ duy nhất 1 yêu cầu tạo thành công Account (TC-01). Yêu cầu thứ hai vi phạm khóa duy nhất (PostgreSQL `23505`) được phương thức `TrySaveChangesAsync` bắt và map thành `409 Conflict`, đảm bảo không bao giờ rơi thành HTTP 500.
 
 ---
 
@@ -98,9 +110,13 @@ Content-Type: application/json
 
 ### Quy tắc & Mã phản hồi
 - Áp dụng khóa dòng PostgreSQL `SELECT ... FOR UPDATE` trên bảng `accounts`.
-- Tối đa **3 lần thử** sai. Lần sai thứ 3 sẽ vô hiệu hóa OTP lập tức.
-- Chống Anti-Enumeration: Email không tồn tại/đã kích hoạt trả về `400 identity.otp_expired`.
-- `200 OK`: Xác thực thành công.
+- Tối đa **3 lần thử** sai (`AttemptCount < 3`).
+- **Cam kết Lưu vết (Persistence Commitment)**:
+  - Khi nhập sai lần 1 hoặc 2: `AttemptCount++` được **commit vào DB** trước khi trả `400 Bad Request` (`identity.invalid_otp_code`).
+  - Khi nhập sai lần 3: `AttemptCount=3` và mã OTP bị vô hiệu hóa (`InvalidatedAtUtc = Now`) được **commit vào DB** trước khi trả `400 Bad Request` (`identity.otp_max_attempts_exceeded`).
+  - Mã lỗi 400 tuyệt đối không làm rollback số lần thử trong database.
+- Chống Anti-Enumeration: Email không tồn tại hoặc đã kích hoạt trả về generic `400 identity.otp_expired`.
+- `200 OK`: Xác thực thành công, cập nhật trạng thái `EmailVerified`, ghi sự kiện Outbox.
 - `400 Bad Request`: `identity.invalid_otp_code`, `identity.otp_expired`, `identity.otp_max_attempts_exceeded`.
 
 ---
@@ -117,7 +133,7 @@ Content-Type: application/json
 }
 ```
 
-### Response sample (200 OK)
+### Response sample (200 OK — Generic Contract)
 ```json
 {
   "email": "customer@smartparking.io",
@@ -129,8 +145,9 @@ Content-Type: application/json
 
 ### Quy tắc & Mã phản hồi
 - **Hạn mức**: Tối đa **5 mã OTP / giờ** (`MaxOtpIssuedPerHour = 5`), tính cả mã lúc Đăng ký.
-- **Cooldown**: Bắt buộc cách nhau tối thiểu 60 giây (`CooldownSeconds = 60`).
-- **Chống Anti-Enumeration**: Cả 3 trường hợp (Unknown email, Already verified, Pending verification) đều trả về `200 OK` generic với response giống nhau từ phía Client. Chỉ Pending mới thực sự sinh mã OTP và ghi Outbox (TC-07).
+- **Cooldown 60s [PROPOSED]**: Bắt buộc cách nhau tối thiểu 60 giây (`CooldownSeconds = 60`).
+- **Vô hiệu hóa OTP cũ**: Khi Resend thành công, mọi OTP active trước đó của tài khoản đều được đánh dấu `InvalidatedAtUtc = Now`. Chỉ duy nhất mã OTP mới nhất có hiệu lực.
+- **Chống Anti-Enumeration**: Cả 3 trường hợp (Unknown email, Already verified, Pending verification) đều trả về `200 OK` generic với response body hoàn toàn giống nhau từ phía Client. Chỉ Pending mới thực sự sinh mã OTP, vô hiệu OTP cũ và ghi Outbox (TC-07).
 - `200 OK`: Gửi lại thành công (hoặc generic success chống dò quét).
 - `429 Too Many Requests`: `identity.resend_cooldown_active`, `identity.resend_rate_limit_exceeded`.
 
@@ -168,19 +185,20 @@ Content-Type: application/json
 
 ### Quy tắc & Mã phản hồi
 - **JWT Contract**: Ký số RS256, claims bắt buộc: `sub`, `email`, `role`, `jti`, `exp`, `iss`, `aud`.
-- **TTL Access Token**: Cấu hình qua `Security:Jwt:ExpirationMinutes` (mặc định 15 phút, `[OPEN DECISION]` 15m vs 24h).
+- **TTL Access Token**: Cấu hình qua `Security:Jwt:ExpirationMinutes` (mặc định 15 phút = 900s, `[CURRENT DEFAULT / OPEN DECISION 15m vs 24h]`), đồng bộ với US-AUTH-005.
 - **Quy chuẩn Khóa tài khoản & Xử lý sai mật khẩu (FR-USER-008 & AUTH-02)**:
   - Sai lần 1: `401 Unauthorized` (`identity.invalid_credentials`).
   - Sai lần 2: `401 Unauthorized` (`identity.invalid_credentials`).
-  - Sai lần 3: Tự động khóa tài khoản 15 phút (`LockoutEndUtc = Now + 15m`) và lập tức trả về `423 Locked` (`identity.account_temporarily_locked`) (TC-05).
+  - Sai lần 3: Tự động khóa tài khoản 15 phút (`LockoutEndUtc = Now + 15m`), lưu DB và lập tức trả về `423 Locked` (`identity.account_temporarily_locked`) (TC-05).
   - Đang trong thời gian khóa 15m: `423 Locked`.
   - Hết 15m: Tự động xóa khóa, cho phép thử lại.
   - Đăng nhập đúng: Reset `FailedLoginAttempts = 0`, xóa `LockoutEndUtc`.
 - **Phòng thủ Timing Attack**: Chạy dummy BCrypt verify khi email không tồn tại.
-- **[DESIGN RECOMMENDATION] Concurrency Row Lock**: Sử dụng `SELECT Account FOR UPDATE` kết hợp `BCrypt.Verify()` bên trong transaction bảo vệ an toàn `FailedLoginAttempts`.
+- **Concurrency Row Lock**: Thực thi `SELECT Account FOR UPDATE` kết hợp `BCrypt.Verify()` bên trong transaction bảo vệ an toàn `FailedLoginAttempts`.
+- **Anti-Enumeration đối với Trạng thái**: Xác thực mật khẩu qua BCrypt trước; chỉ khi mật khẩu đúng nhưng tài khoản chưa kích hoạt mới trả về `403 Forbidden (identity.email_not_verified)`.
 - `200 OK`: Đăng nhập thành công, khởi tạo `AuthSession` và cấp token.
 - `401 Unauthorized`: Sai email hoặc mật khẩu (lần 1, 2) (`identity.invalid_credentials`).
-- `403 Forbidden`: `identity.email_not_verified`, `identity.account_suspended`, `identity.account_disabled`.
+- `403 Forbidden`: `identity.email_not_verified`, `identity.account_suspended` [PROPOSED], `identity.account_disabled` [PROPOSED].
 - `423 Locked`: Tài khoản bị tạm khóa 15 phút (kích hoạt từ lần sai thứ 3).
 
 ---
