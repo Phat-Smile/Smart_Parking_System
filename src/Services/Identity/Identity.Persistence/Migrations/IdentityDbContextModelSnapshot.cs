@@ -96,6 +96,59 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.ToTable("accounts", "identity");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.AuthSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AbsoluteExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("absolute_expires_at_utc");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("DeviceInfo")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("device_info");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<DateTimeOffset>("LastActivityAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_activity_at_utc");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at_utc");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("revoked_reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_auth_sessions");
+
+                    b.HasIndex("AbsoluteExpiresAtUtc")
+                        .HasDatabaseName("ix_auth_sessions_absolute_expires_at_utc");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_auth_sessions_account_id");
+
+                    b.ToTable("auth_sessions", "identity");
+                });
+
             modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -119,9 +172,22 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("replaced_by_token_hash");
 
+                    b.Property<Guid?>("ReplacedByTokenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaced_by_token_id");
+
                     b.Property<DateTimeOffset?>("RevokedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at_utc");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("revoked_reason");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
@@ -134,6 +200,9 @@ namespace ParkingSystem.Identity.Persistence.Migrations
 
                     b.HasIndex("AccountId")
                         .HasDatabaseName("ix_refresh_tokens_account_id");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("ix_refresh_tokens_session_id");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
@@ -348,6 +417,16 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.ToTable("outbox_messages", "identity");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.AuthSession", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_auth_sessions_accounts_account_id");
+                });
+
             modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.RefreshToken", b =>
                 {
                     b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
@@ -356,6 +435,13 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_accounts_account_id");
+
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.AuthSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_refresh_tokens_auth_sessions_session_id");
                 });
 
             modelBuilder.Entity("ParkingSystem.Identity.Domain.Profiles.Profile", b =>

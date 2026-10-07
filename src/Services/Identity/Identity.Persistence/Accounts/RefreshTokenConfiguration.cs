@@ -7,6 +7,7 @@ namespace ParkingSystem.Identity.Persistence.Accounts;
 internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 {
     internal const string AccountIndexName = "ix_refresh_tokens_account_id";
+    internal const string SessionIndexName = "ix_refresh_tokens_session_id";
     internal const string TokenHashIndexName = "ux_refresh_tokens_token_hash";
 
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
@@ -15,6 +16,8 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
 
         builder.HasKey(rt => rt.Id).HasName("pk_refresh_tokens");
         builder.Property(rt => rt.Id).HasColumnName("id").ValueGeneratedNever();
+
+        builder.Property(rt => rt.SessionId).HasColumnName("session_id").IsRequired();
 
         builder.Property(rt => rt.AccountId).HasColumnName("account_id").IsRequired();
 
@@ -26,13 +29,25 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
 
         builder.Property(rt => rt.RevokedAtUtc).HasColumnName("revoked_at_utc");
 
+        builder.Property(rt => rt.RevokedReason).HasColumnName("revoked_reason").HasMaxLength(128);
+
+        builder.Property(rt => rt.ReplacedByTokenId).HasColumnName("replaced_by_token_id");
+
         builder.Property(rt => rt.ReplacedByTokenHash).HasColumnName("replaced_by_token_hash").HasMaxLength(64);
+
+        builder.HasOne<AuthSession>()
+            .WithMany()
+            .HasForeignKey(rt => rt.SessionId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_refresh_tokens_auth_sessions_session_id");
 
         builder.HasOne<Account>()
             .WithMany()
             .HasForeignKey(rt => rt.AccountId)
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_refresh_tokens_accounts_account_id");
+
+        builder.HasIndex(rt => rt.SessionId).HasDatabaseName(SessionIndexName);
 
         builder.HasIndex(rt => rt.AccountId).HasDatabaseName(AccountIndexName);
 

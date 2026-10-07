@@ -56,7 +56,8 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("signed-jwt-token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw-refresh-token", "hash-refresh-token");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var authSessionRepo = new FakeAuthSessionRepository();
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock, authSessionRepo);
         var result = await handler.Handle(new LoginCommand("  User@Example.COM ", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
@@ -73,6 +74,10 @@ public sealed class LoginTests
         Assert.Equal(account.Id, savedRefreshToken.AccountId);
         Assert.Equal("hash-refresh-token", savedRefreshToken.TokenHash);
         Assert.Equal(clock.UtcNow.AddDays(7), savedRefreshToken.ExpiresAtUtc);
+
+        var savedSession = Assert.Single(authSessionRepo.Saved);
+        Assert.Equal(account.Id, savedSession.AccountId);
+        Assert.Equal(savedSession.Id, savedRefreshToken.SessionId);
     }
 
     [Fact]
@@ -85,7 +90,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
         var result = await handler.Handle(new LoginCommand("unknown@example.com", "any-password"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -107,7 +112,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
         var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -131,7 +136,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
         var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -155,7 +160,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
         var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -183,7 +188,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
 
         // Advance 5 minutes (still in lockout)
         clock.UtcNow = InitialTime.AddMinutes(5);
@@ -212,7 +217,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
 
         // Advance past 15 minutes
         clock.UtcNow = InitialTime.AddMinutes(15).AddSeconds(1);
@@ -241,7 +246,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
 
         // Advance past 15 minutes
         clock.UtcNow = InitialTime.AddMinutes(15).AddSeconds(1);
@@ -270,7 +275,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
         var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -295,7 +300,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
         var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -317,7 +322,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
         var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -410,7 +415,7 @@ public sealed class LoginTests
         var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
         var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
 
-        var handler = new LoginCommandHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
 
         // Run 5 concurrent failed login requests simultaneously
         var tasks = Enumerable.Range(0, 5)
@@ -486,6 +491,38 @@ public sealed class LoginTests
         }
     }
 
+    private static LoginCommandHandler CreateHandler(
+        IAccountRepository accounts,
+        IRefreshTokenRepository refreshTokens,
+        IPasswordHasher passwordHasher,
+        IJwtTokenIssuer jwtTokenIssuer,
+        IRefreshTokenGenerator refreshTokenGenerator,
+        IClock clock,
+        IAuthSessionRepository? authSessions = null) =>
+        new(accounts, authSessions ?? new FakeAuthSessionRepository(), refreshTokens, passwordHasher, jwtTokenIssuer, refreshTokenGenerator, clock);
+
+    private sealed class FakeAuthSessionRepository : IAuthSessionRepository
+    {
+        public List<AuthSession> Saved { get; } = [];
+
+        public void Add(AuthSession session) => Saved.Add(session);
+
+        public Task<AuthSession?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.FirstOrDefault(s => s.Id == id));
+
+        public Task<AuthSession?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+            FindByIdAsync(id, cancellationToken);
+
+        public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
+        {
+            foreach (var s in Saved.Where(s => s.AccountId == accountId && !s.IsRevoked))
+            {
+                s.Revoke(nowUtc, reason);
+            }
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
     {
         public List<RefreshToken> Saved { get; } = [];
@@ -494,6 +531,18 @@ public sealed class LoginTests
 
         public Task<RefreshToken?> FindByHashAsync(string tokenHash, CancellationToken cancellationToken) =>
             Task.FromResult(Saved.FirstOrDefault(rt => rt.TokenHash == tokenHash));
+
+        public Task<RefreshToken?> FindLatestBySessionIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.Where(rt => rt.SessionId == sessionId).OrderByDescending(rt => rt.CreatedAtUtc).FirstOrDefault());
+
+        public Task RevokeActiveTokensBySessionIdAsync(Guid sessionId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
+        {
+            foreach (var rt in Saved.Where(rt => rt.SessionId == sessionId && !rt.IsRevoked))
+            {
+                rt.Revoke(nowUtc, reason);
+            }
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher
@@ -525,5 +574,7 @@ public sealed class LoginTests
     private sealed class FakeRefreshTokenGenerator(string rawToken, string tokenHash) : IRefreshTokenGenerator
     {
         public (string RawToken, string TokenHash) GenerateToken() => (rawToken, tokenHash);
+
+        public string HashToken(string rawToken) => tokenHash;
     }
 }

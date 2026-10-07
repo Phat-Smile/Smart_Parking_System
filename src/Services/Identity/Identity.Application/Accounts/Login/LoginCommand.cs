@@ -7,7 +7,7 @@ using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.Login;
 
-public sealed record LoginCommand(string Email, string Password) : IRequest<Result<LoginResponse>>;
+public sealed record LoginCommand(string Email, string Password, string? DeviceInfo = null, string? IpAddress = null) : IRequest<Result<LoginResponse>>;
 
 public sealed record LoginResponse(
     string AccessToken,
@@ -58,6 +58,7 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
 
 public sealed class LoginCommandHandler(
     IAccountRepository accounts,
+    IAuthSessionRepository authSessions,
     IRefreshTokenRepository refreshTokens,
     IPasswordHasher passwordHasher,
     IJwtTokenIssuer jwtTokenIssuer,
@@ -118,17 +119,28 @@ public sealed class LoginCommandHandler(
                 return Result<LoginResponse>.Failure(LoginErrors.EmailNotVerified);
             }
 
+            // Create AuthSession (Token Family)
+            var session = AuthSession.Create(
+                Guid.NewGuid(),
+                account.Id,
+                request.DeviceInfo,
+                request.IpAddress,
+                now,
+                now.AddDays(AuthSession.DefaultAbsoluteLifetimeDays));
+            authSessions.Add(session);
+
             // Issue Refresh Token
             var (rawRefreshToken, refreshTokenHash) = refreshTokenGenerator.GenerateToken();
             var refreshToken = RefreshToken.Issue(
                 Guid.NewGuid(),
+                session.Id,
                 account.Id,
                 refreshTokenHash,
                 now,
-                now.AddDays(RefreshToken.DefaultExpirationDays));
+                session.CalculateNextTokenExpiration(now));
             refreshTokens.Add(refreshToken);
 
-            // Atomic commit: updates Account state and inserts RefreshToken in a single unit of work
+            // Atomic commit: updates Account state, inserts AuthSession and inserts RefreshToken in a single unit of work
             await accounts.SaveChangesAsync(cancellationToken);
 
             // Issue RS256 JWT Access Token
