@@ -59,6 +59,7 @@ public sealed class InboxIdempotencyIntegrationTests(
                 "identity",
                 cancellationToken,
                 "accounts",
+                "auth_sessions",
                 "email_verifications",
                 "refresh_tokens",
                 "profiles");
