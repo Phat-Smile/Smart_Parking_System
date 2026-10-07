@@ -331,6 +331,76 @@ public sealed class LoginTests
     }
 
     [Fact]
+    public async Task TC04_LoginConcurrentFailure_GivenFailedLoginAttemptsIsOne_WhenTwoConcurrentFailedLogins_ThenAccountLockedAfterExactlyThreeFailures()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+        account.RecordFailedLogin(clock.UtcNow); // Given: FailedLoginAttempts = 1
+        Assert.Equal(1, account.FailedLoginAttempts);
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var refreshTokenRepo = new FakeRefreshTokenRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
+        var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
+
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+
+        // When: 2 failed logins run concurrently (serialized via row-lock in transaction)
+        var loginTask1 = handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
+        var loginTask2 = handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
+
+        var results = await Task.WhenAll(loginTask1, loginTask2);
+
+        // Then: Account must be locked exactly after reaching 3 consecutive failures
+        Assert.Equal(3, account.FailedLoginAttempts);
+        Assert.NotNull(account.LockoutEndUtc);
+        Assert.Equal(clock.UtcNow.AddMinutes(15), account.LockoutEndUtc);
+        Assert.True(account.IsLockedOut(clock.UtcNow));
+
+        // One request receives 401 (attempt 2), while the third attempt triggers lockout and receives 423
+        var unauthCount = results.Count(r => !r.IsSuccess && r.Error == LoginErrors.InvalidCredentials);
+        var lockedCount = results.Count(r => !r.IsSuccess && r.Error == LoginErrors.AccountTemporarilyLocked);
+
+        Assert.Equal(1, unauthCount);
+        Assert.Equal(1, lockedCount);
+    }
+
+    [Fact]
+    public async Task TC05_ThirdWrongPassword_GivenFailedAttemptsIsTwo_WhenThirdIncorrectAttempt_ThenLockoutEndUtcIs15MinutesAndReturnsTemporarilyLocked()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+        account.RecordFailedLogin(clock.UtcNow); // Attempt 1
+        account.RecordFailedLogin(clock.UtcNow); // Attempt 2
+        Assert.Equal(2, account.FailedLoginAttempts);
+        Assert.Null(account.LockoutEndUtc);
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var refreshTokenRepo = new FakeRefreshTokenRepository();
+        var passwordHasher = new FakePasswordHasher();
+        var jwtIssuer = new FakeJwtTokenIssuer("token", 900);
+        var tokenGen = new FakeRefreshTokenGenerator("raw", "hash");
+
+        var handler = CreateHandler(accountRepo, refreshTokenRepo, passwordHasher, jwtIssuer, tokenGen, clock);
+
+        // When: 3rd incorrect password is entered
+        var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
+
+        // Then: Return Error AccountTemporarilyLocked (mapped to HTTP 423 Locked)
+        Assert.True(result.IsFailure);
+        Assert.Equal(LoginErrors.AccountTemporarilyLocked, result.Error);
+
+        // And: LockoutEndUtc = now + 15m
+        Assert.Equal(3, account.FailedLoginAttempts);
+        Assert.NotNull(account.LockoutEndUtc);
+        Assert.Equal(clock.UtcNow.AddMinutes(15), account.LockoutEndUtc);
+        Assert.True(account.IsLockedOut(clock.UtcNow));
+    }
+
+    [Fact]
     public void Scenario10_JwtTokenIssuer_generates_valid_rs256_token_with_required_claims()
     {
         using var rsa = RSA.Create(2048);

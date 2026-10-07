@@ -20,7 +20,12 @@ public sealed record RegisterAccountCommand(
     string Password,
     string? PhoneNumber) : IRequest<Result<RegisteredAccount>>;
 
-public sealed record RegisteredAccount(Guid AccountId, string Email, string FullName, string Status);
+public sealed record RegisteredAccount(
+    Guid AccountId,
+    string Email,
+    string FullName,
+    string Status,
+    bool IsNewAccount = true);
 
 public static class RegisterAccountErrors
 {
@@ -91,7 +96,8 @@ public sealed class RegisterAccountCommandHandler(
                     existingAccount.Id,
                     existingAccount.Email,
                     existingProfile?.FullName ?? request.FullName.Trim(),
-                    existingAccount.Status.ToString()));
+                    existingAccount.Status.ToString(),
+                    IsNewAccount: false));
             }
 
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);

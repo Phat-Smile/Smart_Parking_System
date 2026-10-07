@@ -36,16 +36,22 @@ internal static class AccountEndpoints
                         request.PhoneNumber),
                     cancellationToken);
 
-                return result.IsSuccess
-                    ? Results.Created((string?)null, result.Value)
-                    : Results.Problem(
+                if (!result.IsSuccess)
+                {
+                    return Results.Problem(
                         statusCode: StatusCodes.Status409Conflict,
                         title: "The email address is already registered.",
                         detail: result.Error!.Message,
                         extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return result.Value.IsNewAccount
+                    ? Results.Created((string?)null, result.Value)
+                    : Results.Ok(result.Value);
             })
             .WithName("RegisterAccount")
             .Produces<RegisteredAccount>(StatusCodes.Status201Created)
+            .Produces<RegisteredAccount>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict);
 

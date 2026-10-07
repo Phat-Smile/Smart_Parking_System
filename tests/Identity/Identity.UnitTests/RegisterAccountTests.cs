@@ -269,6 +269,88 @@ public sealed class RegisterAccountTests
         Assert.Equal("user@example.com", result.Value.Email);
         Assert.Equal("Old Name", result.Value.FullName);
         Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
+        Assert.False(result.Value.IsNewAccount);
+    }
+
+    [Fact]
+    public async Task TC01_ConcurrentRegistration_GivenUnregisteredEmail_WhenTwoConcurrentRegistrations_ThenOnlyOneAccountCreated()
+    {
+        var accountRepository = new ConcurrentRaceFakeAccountRepository();
+        var profileRepository = new FakeProfileRepository();
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            profileRepository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            outboxWriter,
+            new FixedClock());
+
+        var command1 = CreateValidCommand(email: "concurrent@example.com", fullName: "User One");
+        var command2 = CreateValidCommand(email: "concurrent@example.com", fullName: "User Two");
+
+        // When: Two concurrent registrations pass initial email lookup simultaneously
+        var task1 = handler.Handle(command1, TestContext.Current.CancellationToken);
+        var task2 = handler.Handle(command2, TestContext.Current.CancellationToken);
+        var results = await Task.WhenAll(task1, task2);
+
+        // Exactly one registration must succeed with 201 Created semantics, the other must fail with unique constraint conflict
+        var successCount = results.Count(r => r.IsSuccess);
+        var conflictCount = results.Count(r => !r.IsSuccess && r.Error == RegisterAccountErrors.EmailAlreadyRegistered);
+
+        Assert.Equal(1, successCount);
+        Assert.Equal(1, conflictCount);
+        Assert.Single(accountRepository.Saved);
+        Assert.Equal("concurrent@example.com", accountRepository.Saved[0].Email);
+    }
+
+    [Fact]
+    public async Task TC06_PendingRegistrationRetry_GivenPendingAccountAndExpiredOtp_WhenRegisterCalledAgain_ThenReturnsExistingAccountWithIsNewAccountFalseAndDoesNotReissueOtp()
+    {
+        var clock = new FixedClock();
+        var existingAccount = Account.Register(Guid.NewGuid(), "pending@example.com", "hash", null, FixedClock.Now.AddHours(-1));
+        var existingProfile = Profile.Create(existingAccount.Id, "Original Name", FixedClock.Now.AddHours(-1));
+        var expiredVerification = EmailVerification.Issue(
+            Guid.NewGuid(),
+            existingAccount.Id,
+            existingAccount.Email,
+            "expired-hash",
+            FixedClock.Now.AddHours(-1)); // expired long ago
+
+        var accountRepository = new FakeAccountRepository();
+        accountRepository.Saved.Add(existingAccount);
+        var profileRepository = new FakeProfileRepository();
+        profileRepository.Saved.Add(existingProfile);
+        var verificationRepository = new FakeEmailVerificationRepository();
+        verificationRepository.Saved.Add(expiredVerification);
+        var outboxWriter = new FakeOutboxWriter();
+
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            profileRepository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("654321"),
+            new FakeOtpHasher(),
+            outboxWriter,
+            clock);
+
+        var retryCommand = CreateValidCommand(email: "pending@example.com", fullName: "Original Name");
+        var result = await handler.Handle(retryCommand, TestContext.Current.CancellationToken);
+
+        // Must succeed with 200 OK semantics (IsNewAccount = false)
+        Assert.True(result.IsSuccess);
+        Assert.Equal(existingAccount.Id, result.Value!.AccountId);
+        Assert.Equal("pending@example.com", result.Value.Email);
+        Assert.False(result.Value.IsNewAccount);
+        Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
+
+        // MUST NOT re-issue OTP or enqueue outbox event on registration retry (client must call POST /resend-otp)
+        Assert.Single(verificationRepository.Saved); // Only the old expired verification
+        Assert.Empty(outboxWriter.Enqueued);
     }
 
     [Fact]
@@ -321,7 +403,7 @@ public sealed class RegisterAccountTests
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
         {
-            if (FailSaveWithDuplicate)
+            if (FailSaveWithDuplicate || pending.Any(p => Saved.Any(s => s.Email == p.Email)))
                 return Task.FromResult(false);
             Saved.AddRange(pending);
             pending.Clear();
@@ -415,5 +497,45 @@ public sealed class RegisterAccountTests
         public static readonly DateTimeOffset Now = new(2026, 10, 6, 12, 0, 0, TimeSpan.Zero);
 
         public DateTimeOffset UtcNow => Now;
+    }
+
+    private sealed class ConcurrentRaceFakeAccountRepository : IAccountRepository
+    {
+        private readonly object _lock = new();
+        public List<Account> Saved { get; } = [];
+
+        public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            Task.FromResult<Account?>(null);
+
+        public Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            Task.FromResult<Account?>(null);
+
+        public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult<Account?>(null);
+
+        public void Add(Account account)
+        {
+            // Staged in memory
+        }
+
+        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        {
+            lock (_lock)
+            {
+                if (Saved.Count > 0)
+                    return Task.FromResult(false); // Unique constraint violation
+
+                Saved.Add(Account.Register(Guid.NewGuid(), "concurrent@example.com", "hash", null, FixedClock.Now));
+                return Task.FromResult(true);
+            }
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
+            action();
     }
 }

@@ -305,6 +305,122 @@ public sealed class EmailOtpTests
     }
 
     [Fact]
+    public async Task TC02_OtpConcurrentVerify_GivenValidOtp_WhenTwoConcurrentVerifyRequests_ThenAccountTransitionsEmailVerifiedOnlyOnce()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "concurrent@example.com", "hash", null, clock.UtcNow);
+        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var verificationRepo = new FakeEmailVerificationRepository([verification]);
+        var outboxWriter = new FakeOutboxWriter();
+
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
+
+        // When 2 verify requests are sent concurrently (serialized in transaction via row-lock)
+        var verifyTask1 = handler.Handle(new VerifyEmailOtpCommand("concurrent@example.com", "123456"), TestContext.Current.CancellationToken);
+        var verifyTask2 = handler.Handle(new VerifyEmailOtpCommand("concurrent@example.com", "123456"), TestContext.Current.CancellationToken);
+
+        var results = await Task.WhenAll(verifyTask1, verifyTask2);
+
+        // Exactly one transitions to EmailVerified and succeeds; the second receives generic 400 OtpExpired
+        var successCount = results.Count(r => r.IsSuccess);
+        var expiredCount = results.Count(r => !r.IsSuccess && r.Error == VerifyEmailOtpErrors.OtpExpired);
+
+        Assert.Equal(1, successCount);
+        Assert.Equal(1, expiredCount);
+        Assert.Equal(AccountStatus.EmailVerified, account.Status);
+        Assert.True(verification.IsUsed);
+
+        // Crucial: exactly 1 domain/integration event is published, avoiding duplicate activation events
+        var enqueued = Assert.Single(outboxWriter.Enqueued);
+        Assert.Equal("identity.account-email-verified.v1", enqueued.EventType);
+    }
+
+    [Fact]
+    public async Task TC03_OtpThirdFailure_GivenTwoPreviousFailures_WhenThirdIncorrectOtpAttempt_ThenOtpInvalidated()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
+
+        // Given: 2 previous failed attempts already recorded
+        verification.RecordAttempt("111111", _otpHasher, clock.UtcNow);
+        verification.RecordAttempt("222222", _otpHasher, clock.UtcNow);
+        Assert.Equal(2, verification.AttemptCount);
+        Assert.True(verification.CanAttempt());
+
+        var accountRepo = new FakeAccountRepository([account]);
+        var verificationRepo = new FakeEmailVerificationRepository([verification]);
+        var outboxWriter = new FakeOutboxWriter();
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
+
+        // When: 3rd incorrect attempt is submitted
+        var result = await handler.Handle(
+            new VerifyEmailOtpCommand("user@example.com", "333333"),
+            TestContext.Current.CancellationToken);
+
+        // Then: OTP is permanently locked / invalidated for further attempts
+        Assert.True(result.IsFailure);
+        Assert.Equal(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded, result.Error);
+        Assert.Equal(3, verification.AttemptCount);
+        Assert.False(verification.CanAttempt());
+        Assert.False(verification.IsUsed);
+        Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
+
+        // Subsequent attempt with the CORRECT code is also rejected
+        var subsequentResult = await handler.Handle(
+            new VerifyEmailOtpCommand("user@example.com", "123456"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(subsequentResult.IsFailure);
+        Assert.Equal(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded, subsequentResult.Error);
+    }
+
+    [Fact]
+    public async Task TC07_ResendEnumeration_GivenUnknownOrVerifiedOrPendingEmail_WhenResendCalled_ThenPublicResponsesAreIdentical()
+    {
+        var clock = new MutableClock(InitialTime);
+        var pendingAccount = Account.Register(Guid.NewGuid(), "pending@example.com", "hash", null, clock.UtcNow);
+        var verifiedAccount = Account.Register(Guid.NewGuid(), "verified@example.com", "hash", null, clock.UtcNow);
+        verifiedAccount.VerifyEmail();
+
+        var accountRepo = new FakeAccountRepository([pendingAccount, verifiedAccount]);
+        var verificationRepo = new FakeEmailVerificationRepository([]);
+        var outboxWriter = new FakeOutboxWriter();
+        var otpGenerator = new FakeOtpGenerator("654321");
+        var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, _otpHasher, outboxWriter, clock);
+
+        // 1. Unknown email
+        var unknownResult = await handler.Handle(new ResendOtpCommand("unknown@example.com"), TestContext.Current.CancellationToken);
+
+        // 2. Already verified email
+        var verifiedResult = await handler.Handle(new ResendOtpCommand("verified@example.com"), TestContext.Current.CancellationToken);
+
+        // 3. Pending email
+        var pendingResult = await handler.Handle(new ResendOtpCommand("pending@example.com"), TestContext.Current.CancellationToken);
+
+        // Public responses MUST be completely identical to prevent account enumeration
+        Assert.True(unknownResult.IsSuccess);
+        Assert.True(verifiedResult.IsSuccess);
+        Assert.True(pendingResult.IsSuccess);
+
+        Assert.Equal(unknownResult.Value!.ExpiresInSeconds, verifiedResult.Value!.ExpiresInSeconds);
+        Assert.Equal(verifiedResult.Value!.ExpiresInSeconds, pendingResult.Value!.ExpiresInSeconds);
+
+        Assert.Equal(unknownResult.Value!.CooldownSeconds, verifiedResult.Value!.CooldownSeconds);
+        Assert.Equal(verifiedResult.Value!.CooldownSeconds, pendingResult.Value!.CooldownSeconds);
+
+        Assert.Equal(unknownResult.Value!.Message, verifiedResult.Value!.Message);
+        Assert.Equal(verifiedResult.Value!.Message, pendingResult.Value!.Message);
+
+        // Internal behavior distinction: only pending actually issues an OTP and writes to outbox
+        var singleOutboxEvent = Assert.Single(outboxWriter.Enqueued);
+        Assert.Equal("identity.user-verification-otp-issued.v1", singleOutboxEvent.EventType);
+        Assert.Single(verificationRepo.Saved); // Only 1 OTP saved (for pending account)
+    }
+
+    [Fact]
     public void HmacSha256OtpHasher_generates_different_hashes_for_different_peppers()
     {
         var options1 = Options.Create(new OtpSecurityOptions { Pepper = "pepper-one-123456" });
