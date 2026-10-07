@@ -41,6 +41,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IParkingSessionRepository, ParkingSessionRepository>();
         services.AddScoped<IAuditLog, AuditLog>();
         services.AddScoped<IParkingLotCatalogReader, ParkingLotCatalogReader>();
+        services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
         return services;
     }
 }
