@@ -129,16 +129,59 @@ public sealed class Reservation
     }
 
     /// <summary>
+    /// Validates and applies a reservation status transition (TECH-04).
+    /// Allowed transitions based on current business rules:
+    /// - TemporaryHold -> Confirmed, Cancelled, Expired
+    /// - Confirmed -> Used, Cancelled, Expired
+    /// - Used, Cancelled, Expired are terminal states.
+    /// 
+    /// TODO: Status transition matrix is marked as OPEN DECISION (item 33) in the ERD.
+    /// This matrix must be confirmed by the team when closing the open decision.
+    /// </summary>
+    public void ChangeStatus(ReservationStatus newStatus)
+    {
+        if (Status == newStatus)
+            return;
+
+        if (!CanTransitionTo(newStatus))
+        {
+            throw new InvalidReservationStatusTransitionException(Status, newStatus);
+        }
+
+        Status = newStatus;
+        RowVersion++;
+    }
+
+    /// <summary>
+    /// Checks whether the transition from current status to target status is valid.
+    /// </summary>
+    public bool CanTransitionTo(ReservationStatus targetStatus)
+    {
+        // Terminal states cannot transition to any new status
+        if (Status is ReservationStatus.Used or ReservationStatus.Cancelled or ReservationStatus.Expired)
+            return false;
+
+        return (Status, targetStatus) switch
+        {
+            (ReservationStatus.TemporaryHold, ReservationStatus.Confirmed) => true,
+            (ReservationStatus.TemporaryHold, ReservationStatus.Cancelled) => true,
+            (ReservationStatus.TemporaryHold, ReservationStatus.Expired) => true,
+
+            (ReservationStatus.Confirmed, ReservationStatus.Used) => true,
+            (ReservationStatus.Confirmed, ReservationStatus.Cancelled) => true,
+            (ReservationStatus.Confirmed, ReservationStatus.Expired) => true,
+
+            _ => false
+        };
+    }
+
+    /// <summary>
     /// Transitions reservation to Confirmed state (BR-01.c).
     /// </summary>
     public void Confirm(DateTimeOffset confirmedAt)
     {
-        if (Status != ReservationStatus.TemporaryHold)
-            throw new InvalidOperationException($"Cannot confirm reservation in status '{Status}'.");
-
-        Status = ReservationStatus.Confirmed;
+        ChangeStatus(ReservationStatus.Confirmed);
         ConfirmedAt = confirmedAt;
-        RowVersion++;
     }
 
     /// <summary>
@@ -146,13 +189,9 @@ public sealed class Reservation
     /// </summary>
     public void MarkUsed(Guid sessionId, DateTimeOffset usedAt)
     {
-        if (Status != ReservationStatus.Confirmed)
-            throw new InvalidOperationException($"Cannot mark reservation as used from status '{Status}'. Must be Confirmed.");
-
-        Status = ReservationStatus.Used;
+        ChangeStatus(ReservationStatus.Used);
         SessionId = sessionId;
         UsedAt = usedAt;
-        RowVersion++;
     }
 
     /// <summary>
@@ -160,12 +199,10 @@ public sealed class Reservation
     /// </summary>
     public void Cancel(CancelReason reason, DateTimeOffset cancelledAt, PrepaidOutcome? outcome = null)
     {
-        if (Status == ReservationStatus.Used)
-            throw new InvalidOperationException("Cannot cancel a reservation that has already been used (BR-03.c).");
         if (Status == ReservationStatus.Cancelled)
             return;
 
-        Status = ReservationStatus.Cancelled;
+        ChangeStatus(ReservationStatus.Cancelled);
         CancelledAt = cancelledAt;
         CancelReason = reason;
         PrepaidOutcome = outcome;
@@ -173,7 +210,6 @@ public sealed class Reservation
         {
             IsNoShow = true;
         }
-        RowVersion++;
     }
 
     /// <summary>
@@ -181,12 +217,11 @@ public sealed class Reservation
     /// </summary>
     public void Expire(DateTimeOffset expiredAt)
     {
-        if (Status != ReservationStatus.TemporaryHold)
+        if (Status == ReservationStatus.Expired)
             return;
 
-        Status = ReservationStatus.Expired;
+        ChangeStatus(ReservationStatus.Expired);
         CancelledAt = expiredAt;
-        RowVersion++;
     }
 
     public static string NormalizePlateNumber(string plate)
