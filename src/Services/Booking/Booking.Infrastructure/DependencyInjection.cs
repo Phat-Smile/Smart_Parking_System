@@ -58,6 +58,9 @@ public static class DependencyInjection
             });
         });
 
+        // TECH-05: Register Parking integration stub
+        services.AddScoped<ParkingSystem.Booking.Application.Reservations.IParkingReservationPort, ParkingSystem.Booking.Infrastructure.Integration.StubParkingReservationPort>();
+
         return services;
     }
 }

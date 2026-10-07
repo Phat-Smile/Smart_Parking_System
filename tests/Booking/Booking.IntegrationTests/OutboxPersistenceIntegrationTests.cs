@@ -42,7 +42,7 @@ public sealed class OutboxPersistenceIntegrationTests(PostgreSqlContainerFixture
         var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
 
         await dbContext.Database.MigrateAsync(cancellationToken);
-        await PostgreSqlOutboxAssertions.AssertServiceIsolationAndOutboxMetadataAsync(dbContext, "booking", cancellationToken);
+        await PostgreSqlOutboxAssertions.AssertServiceIsolationAndOutboxMetadataAsync(dbContext, "booking", cancellationToken, "reservation_capacity", "reservations");
         var probeMessageId = Guid.NewGuid();
         var inboxProbeBus = serviceProvider.GetRequiredService<IBusControl>();
         await inboxProbeBus.StartAsync(cancellationToken);

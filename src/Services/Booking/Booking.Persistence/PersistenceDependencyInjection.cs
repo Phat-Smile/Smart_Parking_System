@@ -21,17 +21,13 @@ public static class PersistenceDependencyInjection
                 "Booking persistence requires ConnectionStrings:DefaultConnection (or ConnectionStrings__DefaultConnection). Configure it before starting the Booking API.");
         }
 
-        services.AddDbContext<BookingDbContext>(options =>
-        {
-            options.UseNpgsql(
-                connectionString,
-                npgsql =>
-                {
-                    npgsql.MigrationsAssembly(typeof(BookingDbContext).Assembly.GetName().Name!);
-                    npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.DefaultSchema);
-                });
-            options.ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
-        });
+        services.AddDbContext<BookingDbContext>(options => options.UseNpgsql(
+            connectionString,
+            npgsql =>
+            {
+                npgsql.MigrationsAssembly(typeof(BookingDbContext).Assembly.GetName().Name!);
+                npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.DefaultSchema);
+            }));
         services.AddScoped<IOutboxStore, OutboxStore>();
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
