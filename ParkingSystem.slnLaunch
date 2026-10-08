@@ -1,0 +1,142 @@
+[
+  {
+    "Name": "Identity (debug Identity)",
+    "Projects": [
+      {
+        "Path": "src\\Gateway\\ParkingSystem.Gateway.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Identity.WebAPI\\Identity.WebAPI.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      }
+    ]
+  },
+  {
+    "Name": "Auth flow (debug Identity)",
+    "Projects": [
+      {
+        "Path": "src\\Gateway\\ParkingSystem.Gateway.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Identity.WebAPI\\Identity.WebAPI.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Notification\\Notification.WebAPI\\Notification.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      }
+    ]
+  },
+  {
+    "Name": "Parking (debug Parking)",
+    "Projects": [
+      {
+        "Path": "src\\Gateway\\ParkingSystem.Gateway.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Identity.WebAPI\\Identity.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Parking\\Parking.WebAPI\\Parking.WebAPI.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      }
+    ]
+  },
+  {
+    "Name": "Booking (debug Booking)",
+    "Projects": [
+      {
+        "Path": "src\\Gateway\\ParkingSystem.Gateway.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Identity.WebAPI\\Identity.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Parking\\Parking.WebAPI\\Parking.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Booking\\Booking.WebAPI\\Booking.WebAPI.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Payment\\Payment.WebAPI\\Payment.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      }
+    ]
+  },
+  {
+    "Name": "Payment (debug Payment)",
+    "Projects": [
+      {
+        "Path": "src\\Gateway\\ParkingSystem.Gateway.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Identity.WebAPI\\Identity.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Payment\\Payment.WebAPI\\Payment.WebAPI.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      }
+    ]
+  },
+  {
+    "Name": "All services (no debugger)",
+    "Projects": [
+      {
+        "Path": "src\\Gateway\\ParkingSystem.Gateway.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Identity\\Identity.WebAPI\\Identity.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Parking\\Parking.WebAPI\\Parking.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Booking\\Booking.WebAPI\\Booking.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Payment\\Payment.WebAPI\\Payment.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "src\\Services\\Notification\\Notification.WebAPI\\Notification.WebAPI.csproj",
+        "Action": "StartWithoutDebugging",
+        "DebugTarget": "http"
+      }
+    ]
+  }
+]
