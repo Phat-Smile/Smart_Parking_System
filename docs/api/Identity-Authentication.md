@@ -34,7 +34,7 @@ Tài liệu này đóng vai trò là **Chỉ mục Kiến trúc (Index & Overvie
 
 ### 3.1. Phân Tầng Chuẩn Mực (Clean Architecture Boundary)
 - **Tầng Application (`Identity.Application`)**: Hoàn toàn trung lập với hệ quản trị cơ sở dữ liệu và ORM. Không phụ thuộc vào `Microsoft.EntityFrameworkCore`, `ChangeTracker`, hay `Npgsql.PostgresException`.
-- **Tầng Persistence (`Identity.Persistence`)**: Đóng gói toàn bộ logic xử lý hạ tầng dữ liệu. Khi gặp lỗi vi phạm khóa duy nhất email (`SqlState == "23505"` và `ConstraintName == AccountConfiguration.EmailIndexName`), Persistence tự động rollback transaction lỗi (nếu có), dọn dẹp `ChangeTracker` và trả về kết quả ngữ nghĩa `SaveAccountResult.DuplicateEmailConflict`. Tầng Application thực hiện re-query trên clean context để xác định chính xác phản hồi nghiệp vụ (`200 OK` Dormant Recovery hoặc `409 Conflict`).
+- **Tầng Persistence (`Identity.Persistence`)**: Đóng gói toàn bộ logic xử lý hạ tầng dữ liệu. Khi gặp lỗi vi phạm khóa duy nhất email (`SqlState == "23505"` và `ConstraintName` là `AccountConfiguration.EmailIndexName` hoặc `PhoneNumberIndexName`; email → `DuplicateEmailConflict`, số điện thoại → `DuplicatePhoneConflict`), Persistence tự động rollback transaction lỗi (nếu có), dọn dẹp `ChangeTracker` và trả về kết quả ngữ nghĩa `SaveAccountResult.DuplicateEmailConflict`. Tầng Application thực hiện re-query trên clean context để xác định chính xác phản hồi nghiệp vụ (`200 OK` Dormant Recovery hoặc `409 Conflict`).
 
 ### 3.2. Thứ Tự Khóa Toàn Cục (Global Lock Ordering Invariant)
 Để bảo vệ toàn vẹn dữ liệu trong các tình huống tranh chấp tài nguyên cao độ giữa nhiều thiết bị:
@@ -70,7 +70,7 @@ $$\mathbf{Account \ (FOR \ UPDATE)} \longrightarrow \mathbf{AuthSession \ (FOR \
 Tất cả các API khi gặp lỗi đều tuân thủ chuẩn công nghiệp **RFC 7807 ProblemDetails**:
 ```json
 {
-  "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
   "title": "Bad Request",
   "status": 400,
   "detail": "Descriptive business error explanation.",
@@ -82,10 +82,11 @@ Tất cả các API khi gặp lỗi đều tuân thủ chuẩn công nghiệp **
 Bảng tổng hợp các mã lỗi chuẩn của hệ thống:
 | HTTP Status | Mã lỗi (`errorCode`) | Thuộc API | Ý nghĩa nghiệp vụ |
 | :---: | :--- | :--- | :--- |
-| **400** | `validation_error` | Tất cả | Lỗi định dạng dữ liệu đầu vào (FluentValidation) |
+| **400** | `request.validation_failed` | Tất cả | Lỗi định dạng dữ liệu đầu vào (FluentValidation); chi tiết từng trường trong `errors` |
+| **400** | `request.malformed` | Tất cả | Body không phải JSON hợp lệ hoặc sai kiểu dữ liệu |
 | **400** | `identity.invalid_otp_code` | `/verify-email` | Mã OTP nhập không chính xác (AttemptCount được commit lưu vết) |
-| **400** | `identity.otp_expired` | `/verify-email` | Mã OTP đã quá hạn 5 phút hoặc không tồn tại |
-| **400** | `identity.otp_max_attempts_exceeded` | `/verify-email` | Nhập sai OTP quá 3 lần, mã bị vô hiệu hóa |
+| **400** | `identity.otp_expired` | `/verify-email` | Mã OTP đã quá hạn 5 phút, đã bị thay bằng mã mới, không tồn tại, hoặc tài khoản không còn chờ xác thực (chống dò email) |
+| **400** | `identity.otp_max_attempts_exceeded` | `/verify-email` | Lần sai thứ 3 làm mã bị vô hiệu hóa; mọi lần nhập sau đó với mã này (kể cả đúng) tiếp tục trả mã lỗi này cho tới khi gửi lại OTP |
 | **401** | `identity.invalid_credentials` | `/login` | Sai email hoặc mật khẩu (có dummy BCrypt chống timing attack) |
 | **401** | `identity.invalid_refresh_token` | `/refresh` | Chuỗi Refresh Token không tồn tại |
 | **401** | `identity.refresh_token_expired` | `/refresh` | Refresh Token đã quá hạn 7 ngày không hoạt động |
@@ -96,6 +97,7 @@ Bảng tổng hợp các mã lỗi chuẩn của hệ thống:
 | **403** | `identity.account_suspended` | `/login`, `/refresh` | Tài khoản bị tạm đình chỉ [PROPOSED] |
 | **403** | `identity.account_disabled` | `/login`, `/refresh` | Tài khoản bị vô hiệu hóa [PROPOSED] |
 | **409** | `identity.email_already_registered` | `/accounts` | Email đã được đăng ký và kích hoạt |
+| **409** | `identity.phone_already_registered` | `/accounts` | Số điện thoại đã thuộc một tài khoản khác (unique index `ux_accounts_phone_number`) |
 | **423** | `identity.account_temporarily_locked` | `/login` | Tài khoản bị tạm khóa 15 phút do sai mật khẩu 3 lần (FR-USER-008) |
 | **429** | `identity.resend_cooldown_active` | `/resend-otp` | Chưa hết thời gian giãn cách Cooldown 60s [PROPOSED] |
 | **429** | `identity.resend_rate_limit_exceeded` | `/resend-otp` | Vượt quá giới hạn 5 mã OTP / giờ |
