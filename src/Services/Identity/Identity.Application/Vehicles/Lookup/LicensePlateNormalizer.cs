@@ -4,8 +4,8 @@ namespace ParkingSystem.Identity.Application.Vehicles.Lookup;
 
 public sealed partial class LicensePlateNormalizer : ILicensePlateNormalizer
 {
-    // Basic Vietnamese license plate syntax: 2 digits + 1-2 alphanumeric + 4-5 digits
-    [GeneratedRegex("^[0-9]{2}[A-Z0-9]{1,2}[0-9]{4,5}$")]
+    // Basic Vietnamese license plate syntax: 2 digits + 1 letter + optional 1 letter/digit + 4-5 digits
+    [GeneratedRegex("^[0-9]{2}[A-Z][A-Z0-9]?[0-9]{4,5}$")]
     private static partial Regex BasicPlateRegex();
 
     public string Normalize(string? rawPlate)
