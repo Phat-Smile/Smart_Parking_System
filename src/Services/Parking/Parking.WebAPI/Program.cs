@@ -26,7 +26,6 @@ builder.Services.AddGrpc();
 var enableGrpcReflection = builder.Environment.IsDevelopment();
 if (enableGrpcReflection)
     builder.Services.AddGrpcReflection();
-builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddParkingSwagger();
 
@@ -35,7 +34,6 @@ app.UseParkingSystemWebFoundation();
 app.UseParkingSystemAuthentication();
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
 }

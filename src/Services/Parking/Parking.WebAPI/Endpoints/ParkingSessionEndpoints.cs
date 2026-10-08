@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using MediatR;
+using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
@@ -26,18 +27,20 @@ internal static class ParkingSessionEndpoints
     {
         // US-PARK-003. Staff or gate only; 401 without a token and 403 for a token without the Staff role.
         // Validation failures become 400 in the shared exception handler.
-        app.MapPost(Route, async (OpenParkingSessionRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost(Route, async (
+                OpenParkingSessionRequest request,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
                     new OpenParkingSessionCommand(request.LotId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty),
                     cancellationToken);
 
+                // Location points to GET /{id}, which is not built yet (lead decision 2026-10-08, DOC-006).
                 return result.IsSuccess
                     ? Results.Created($"{Route}/{result.Value!.SessionId}", result.Value)
-                    : Results.Problem(
-                        statusCode: StatusCodes.Status409Conflict,
-                        title: result.Error!.Message,
-                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                    : BusinessProblem.Create(httpContext, StatusCodes.Status409Conflict, result.Error!);
             })
             .RequireAuthorization(ParkingAuthorization.StaffPolicy)
             .WithName("OpenParkingSession")
@@ -54,6 +57,7 @@ internal static class ParkingSessionEndpoints
                 Guid sessionId,
                 CancelParkingSessionRequest request,
                 ICurrentUser currentUser,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
@@ -71,10 +75,7 @@ internal static class ParkingSessionEndpoints
                 var statusCode = result.Error == CancelParkingSessionErrors.SessionNotFound
                     ? StatusCodes.Status404NotFound
                     : StatusCodes.Status409Conflict;
-                return Results.Problem(
-                    statusCode: statusCode,
-                    title: result.Error!.Message,
-                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
             })
             .RequireAuthorization(ParkingAuthorization.StaffPolicy)
             .WithName("CancelParkingSession")
