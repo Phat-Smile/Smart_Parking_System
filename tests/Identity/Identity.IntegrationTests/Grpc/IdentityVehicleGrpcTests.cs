@@ -121,6 +121,35 @@ public sealed class IdentityVehicleGrpcTests
         Assert.True(await reader.ObservedCancellation.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task Registered_vehicle_of_an_inactive_account_stays_registered()
+    {
+        await using var host = await GrpcHost.StartAsync(services => services.AddSingleton<IVehicleLookupReader>(
+            new FixedReader(new VehicleLookupResult(true, Guid.NewGuid(), Guid.NewGuid(), "Lê Văn C", ParkingSystem.Identity.Application.Vehicles.Lookup.VehicleType.Car, IsAccountActive: false))));
+
+        var response = await host.Client.LookupVehicleAsync(
+            new LookupVehicleRequest { LicensePlate = "51A12345" },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        // is_account_active=false must never be read as "not registered".
+        Assert.True(response.IsRegistered);
+        Assert.False(response.IsAccountActive);
+        AssertCanonicalUuid(response.AccountId);
+    }
+
+    [Fact]
+    public async Task Registered_result_without_identifiers_returns_internal_instead_of_a_half_filled_answer()
+    {
+        await using var host = await GrpcHost.StartAsync(services => services.AddSingleton<IVehicleLookupReader>(
+            new FixedReader(new VehicleLookupResult(true, null, null, null, null, IsAccountActive: true))));
+
+        var exception = await Assert.ThrowsAsync<RpcException>(() => host.Client.LookupVehicleAsync(
+            new LookupVehicleRequest { LicensePlate = "51A12345" },
+            cancellationToken: TestContext.Current.CancellationToken).ResponseAsync);
+
+        Assert.Equal(StatusCode.Internal, exception.StatusCode);
+    }
+
     private static void AssertCanonicalUuid(string value)
     {
         Assert.Equal(36, value.Length);
@@ -169,6 +198,12 @@ public sealed class IdentityVehicleGrpcTests
             _channel.Dispose();
             await _app.DisposeAsync();
         }
+    }
+
+    private sealed class FixedReader(VehicleLookupResult result) : IVehicleLookupReader
+    {
+        public Task<VehicleLookupResult> FindByPlateAsync(string normalizedLicensePlate, CancellationToken cancellationToken) =>
+            Task.FromResult(result);
     }
 
     private sealed class ThrowingReader : IVehicleLookupReader

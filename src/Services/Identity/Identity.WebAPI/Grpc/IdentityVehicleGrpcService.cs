@@ -17,12 +17,16 @@ public sealed class IdentityVehicleGrpcService(
         ServerCallContext context)
     {
         Result<VehicleLookupResult> result;
+        LookupVehicleResponse? response = null;
         try
         {
             result = await sender.Send(new LookupVehicleByPlateQuery(request.LicensePlate), context.CancellationToken);
+            if (result.IsSuccess)
+                response = ToResponse(result.Value!);
         }
         catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
         {
+            // A caller whose deadline passed already sees DEADLINE_EXCEEDED from its own client-side timer.
             throw new RpcException(new Status(StatusCode.Cancelled, "Request was cancelled."));
         }
         catch (Exception exception)
@@ -39,7 +43,7 @@ public sealed class IdentityVehicleGrpcService(
             throw new RpcException(new Status(MapStatus(error), error.Message));
         }
 
-        return ToResponse(result.Value!);
+        return response!;
     }
 
     private static StatusCode MapStatus(Error error) =>
@@ -52,12 +56,18 @@ public sealed class IdentityVehicleGrpcService(
         if (!vehicle.IsRegistered)
             return new LookupVehicleResponse { VehicleType = ProtoVehicleType.Unspecified };
 
+        // A registered answer must always carry both ids and a known type; never send a half-filled "registered".
+        if (vehicle.AccountId is not { } accountId || accountId == Guid.Empty
+            || vehicle.VehicleId is not { } vehicleId || vehicleId == Guid.Empty
+            || vehicle.VehicleType is null)
+            throw new InvalidOperationException("Registered vehicle lookup result is missing its identifiers or type.");
+
         return new LookupVehicleResponse
         {
             IsRegistered = true,
             // Guid "D" format is already lowercase, 36 chars.
-            AccountId = vehicle.AccountId?.ToString("D") ?? string.Empty,
-            VehicleId = vehicle.VehicleId?.ToString("D") ?? string.Empty,
+            AccountId = accountId.ToString("D"),
+            VehicleId = vehicleId.ToString("D"),
             OwnerFullName = vehicle.OwnerFullName ?? string.Empty,
             VehicleType = MapVehicleType(vehicle.VehicleType),
             IsAccountActive = vehicle.IsAccountActive
