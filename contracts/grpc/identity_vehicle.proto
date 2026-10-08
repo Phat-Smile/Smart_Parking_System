@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package smartparking.identity.vehicle.v1;
+
+option csharp_namespace = "SmartParking.Contracts.Identity.Vehicle.V1";
+
+service IdentityVehicleContract {
+  rpc LookupVehicle(LookupVehicleRequest)
+      returns (LookupVehicleResponse);
+}
+
+message LookupVehicleRequest {
+  string license_plate = 1;
+}
+
+message LookupVehicleResponse {
+  bool is_registered = 1;
+
+  // Canonical lowercase UUID "D" format (36 chars) when registered.
+  // Empty string ("") when is_registered == false.
+  string account_id = 2;
+
+  // Canonical lowercase UUID "D" format (36 chars) when registered.
+  // Empty string ("") when is_registered == false.
+  string vehicle_id = 3;
+
+  // Full name of registered owner. Empty string if unprovided.
+  string owner_full_name = 4;
+
+  VehicleType vehicle_type = 5;
+
+  // Status of the owner's account (Active vs Suspended/Disabled).
+  bool is_account_active = 6;
+}
+
+enum VehicleType {
+  VEHICLE_TYPE_UNSPECIFIED = 0;
+  VEHICLE_TYPE_CAR = 1;
+  VEHICLE_TYPE_MOTORBIKE = 2;
+}
