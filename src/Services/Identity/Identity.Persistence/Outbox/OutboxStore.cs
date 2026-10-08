@@ -43,8 +43,23 @@ internal sealed class OutboxStore(IdentityDbContext dbContext) : IOutboxStore
             message.RetryCount, message.CorrelationId, message.CausationId, lockId)).ToArray();
     }
 
-    public async Task<bool> MarkProcessedAsync(Guid id, Guid lockId, DateTimeOffset processedAtUtc, CancellationToken cancellationToken)
+    public async Task<bool> MarkProcessedAsync(
+        Guid id, Guid lockId, DateTimeOffset processedAtUtc, CancellationToken cancellationToken,
+        IReadOnlyCollection<string>? redactedPayloadKeys = null)
     {
+        if (redactedPayloadKeys is { Count: > 0 })
+        {
+            // EF cannot express jsonb "-" (remove keys), so the redacting variant is plain SQL.
+            var keys = redactedPayloadKeys.ToArray();
+            var redacted = await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE "identity"."outbox_messages"
+                SET "processed_at_utc" = {processedAtUtc}, "lock_id" = NULL, "locked_until_utc" = NULL,
+                    "next_attempt_at_utc" = NULL, "error" = NULL, "payload" = "payload" - {keys}
+                WHERE "id" = {id} AND "lock_id" = {lockId} AND "processed_at_utc" IS NULL
+                """, cancellationToken);
+            return redacted == 1;
+        }
+
         var updated = await dbContext.OutboxMessages
             .Where(message => message.Id == id && message.LockId == lockId && message.ProcessedAtUtc == null)
             .ExecuteUpdateAsync(setters => setters
