@@ -145,7 +145,7 @@ All six gRPC hosts expose standard `grpc.health.v1.Health`; its empty service na
 After starting the stack, run the gRPC network smoke test from PowerShell:
 
 ```powershell
-./tests/GrpcHealthSmoke.ps1
+./scripts/dev/GrpcHealthSmoke.ps1
 ```
 
 ## Health endpoint semantics

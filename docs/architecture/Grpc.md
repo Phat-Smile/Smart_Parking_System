@@ -20,7 +20,7 @@ Server reflection is registered only when a host is in Development. In Productio
 Run the container-network check after starting the stack:
 
 ```powershell
-./tests/GrpcHealthSmoke.ps1
+./scripts/dev/GrpcHealthSmoke.ps1
 ```
 
 It checks Health/Check returns `SERVING` and reflection lists only standard health/reflection services on the five .NET APIs and AI service.
