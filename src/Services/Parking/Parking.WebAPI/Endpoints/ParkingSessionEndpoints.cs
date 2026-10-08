@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using MediatR;
 using ParkingSystem.AspNetCore;
@@ -18,7 +19,9 @@ internal static class ParkingSessionEndpoints
     public sealed record OpenParkingSessionRequest(
         [property: Required] Guid LotId,
         [property: Required, StringLength(ParkingSession.PlateNumberMaxLength, MinimumLength = 1)] string? PlateNumber,
-        [property: Required, AllowedValues(nameof(VehicleType.Car), nameof(VehicleType.Motorbike))] string? VehicleType);
+        [property: Required, AllowedValues(nameof(VehicleType.Car), nameof(VehicleType.Motorbike))]
+        [property: Description("Car or Motorbike, case-insensitive (car and MOTORBIKE are accepted).")]
+        string? VehicleType);
 
     public sealed record CancelParkingSessionRequest(
         [property: Required, StringLength(ParkingSession.CancelReasonMaxLength, MinimumLength = 1)] string? Reason);
@@ -38,9 +41,13 @@ internal static class ParkingSessionEndpoints
                     cancellationToken);
 
                 // Location points to GET /{id}, which is not built yet (lead decision 2026-10-08, DOC-006).
-                return result.IsSuccess
-                    ? Results.Created($"{Route}/{result.Value!.SessionId}", result.Value)
-                    : BusinessProblem.Create(httpContext, StatusCodes.Status409Conflict, result.Error!);
+                if (result.IsSuccess)
+                    return Results.Created($"{Route}/{result.Value!.SessionId}", result.Value);
+
+                var statusCode = result.Error == OpenParkingSessionErrors.LotNotFound
+                    ? StatusCodes.Status404NotFound
+                    : StatusCodes.Status409Conflict;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
             })
             .RequireAuthorization(ParkingAuthorization.StaffPolicy)
             .WithName("OpenParkingSession")
@@ -49,6 +56,7 @@ internal static class ParkingSessionEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
