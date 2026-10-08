@@ -2,11 +2,15 @@ import { render, screen } from "@testing-library/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import Home from "@/app/page";
+import GuestRoute from "@/app/guest/page";
 import NotFound from "@/app/not-found";
 import { Providers } from "@/app/providers";
 import { redirect } from "next/navigation";
 
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/font/google", () => ({
+    Manrope: () => ({ className: "manrope" }),
+}));
 
 function QueryProbe() {
     const queryClient = useQueryClient();
@@ -14,9 +18,14 @@ function QueryProbe() {
 }
 
 describe("application shell", () => {
-    it("routes the home page to the existing Guest landing page", () => {
-        Home();
-        expect(redirect).toHaveBeenCalledWith("/guest");
+    it("renders the ParkWise landing directly at the home route", () => {
+        const page = Home();
+        expect(page.type).toHaveProperty("name", "ParkWiseLanding");
+    });
+
+    it("redirects the legacy guest route to the new landing", () => {
+        GuestRoute();
+        expect(redirect).toHaveBeenCalledWith("/");
     });
 
     it("shows a safe not-found page", () => {
