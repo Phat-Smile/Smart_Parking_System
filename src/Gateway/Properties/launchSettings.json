@@ -8,6 +8,7 @@
       "applicationUrl": "http://localhost:5000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
+        "Logging__Console__FormatterName": "simple",
         "Security__Jwt__PublicKeyPath": "../../.local/security/jwt/public.pem"
       }
     }

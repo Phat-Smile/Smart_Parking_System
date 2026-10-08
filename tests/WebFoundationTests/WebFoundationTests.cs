@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
@@ -24,6 +25,34 @@ namespace ParkingSystem.Tests.WebFoundation;
 
 public sealed class WebFoundationTests
 {
+    [Fact]
+    public void Console_logging_defaults_to_json_without_scopes()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        builder.AddParkingSystemWebFoundation();
+        using var app = builder.Build();
+
+        Assert.Equal(ConsoleFormatterNames.Json, app.Services.GetRequiredService<IOptions<ConsoleLoggerOptions>>().Value.FormatterName);
+        Assert.False(app.Services.GetRequiredService<IOptionsMonitor<JsonConsoleFormatterOptions>>()
+            .Get(ConsoleFormatterNames.Json).IncludeScopes);
+    }
+
+    [Fact]
+    public void Launch_profiles_can_switch_console_logging_to_simple_without_scopes()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [ParkingSystemWebFoundationExtensions.ConsoleFormatterNameKey] = "simple"
+        });
+        builder.AddParkingSystemWebFoundation();
+        using var app = builder.Build();
+
+        Assert.Equal(ConsoleFormatterNames.Simple, app.Services.GetRequiredService<IOptions<ConsoleLoggerOptions>>().Value.FormatterName);
+        Assert.False(app.Services.GetRequiredService<IOptionsMonitor<SimpleConsoleFormatterOptions>>()
+            .Get(ConsoleFormatterNames.Simple).IncludeScopes);
+    }
+
     [Fact]
     public async Task Valid_correlation_id_is_preserved_in_response_and_problem_details()
     {
