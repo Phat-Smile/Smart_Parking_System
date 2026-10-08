@@ -19,6 +19,27 @@ test("Guest navigation opens the Login screen and Home returns to the landing", 
 test("Login validates locally and never sends credentials in the URL", async ({
     page,
 }) => {
+    let loginBody: Record<string, unknown> | undefined;
+    await page.route("**/api/identity/accounts/login", async (route) => {
+        loginBody = route.request().postDataJSON();
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+                accessToken: "test-access-token",
+                tokenType: "Bearer",
+                expiresIn: 900,
+                refreshToken: "test-refresh-token",
+                account: {
+                    id: "account-id",
+                    email: "driver@example.com",
+                    phoneNumber: null,
+                    status: "EmailVerified",
+                    role: "Customer",
+                },
+            }),
+        });
+    });
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/login");
@@ -33,11 +54,60 @@ test("Login validates locally and never sends credentials in the URL", async ({
         .getByLabel("Password", { exact: true })
         .fill("ValidPassword123!");
     await page.getByRole("button", { name: "Log in", exact: true }).click();
-    await expect(page.getByText(/Log in is not connected/)).toBeVisible();
+    await expect(
+        page.getByText(/Identity accepted driver@example.com/),
+    ).toBeVisible();
+    expect(loginBody).toEqual({
+        email: "driver@example.com",
+        password: "ValidPassword123!",
+    });
+    await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
     await expect(page).toHaveURL(/\/login$/);
     expect(page.url()).not.toContain("driver@example.com");
     expect(page.url()).not.toContain("ValidPassword123");
+    expect(
+        await page.evaluate(() =>
+            Object.keys(sessionStorage)
+                .map((key) => sessionStorage.getItem(key))
+                .join(" "),
+        ),
+    ).not.toContain("test-refresh-token");
+    expect(
+        await page.evaluate(() =>
+            Object.keys(localStorage)
+                .map((key) => localStorage.getItem(key))
+                .join(" "),
+        ),
+    ).not.toContain("test-access-token");
     expect(pageErrors).toEqual([]);
+});
+
+test("Login displays Identity credential errors without creating a session", async ({
+    page,
+}) => {
+    await page.route("**/api/identity/accounts/login", (route) =>
+        route.fulfill({
+            status: 401,
+            contentType: "application/problem+json",
+            body: JSON.stringify({
+                status: 401,
+                title: "Unauthorized",
+                errorCode: "identity.invalid_credentials",
+            }),
+        }),
+    );
+    await page.goto("/login");
+    await page
+        .getByRole("textbox", { name: "Email" })
+        .fill("driver@example.com");
+    await page
+        .getByLabel("Password", { exact: true })
+        .fill("WrongPassword123!");
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await expect(
+        page.getByText("Email or password is incorrect."),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
 });
 
 test("Google control reports pending integration and mobile form fits", async ({
