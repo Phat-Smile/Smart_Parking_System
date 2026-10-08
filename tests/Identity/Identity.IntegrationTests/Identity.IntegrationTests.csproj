@@ -5,11 +5,24 @@
     <RootNamespace>ParkingSystem.Tests.Identity.IntegrationTests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Compiled as a client the same way Parking does, so the gRPC tests double as a contract test. -->
+    <Protobuf Include="..\..\..\contracts\grpc\identity_vehicle.proto" GrpcServices="Client" Link="Protos\identity_vehicle.proto" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Services\Identity\Identity.Persistence\Identity.Persistence.csproj" />
     <ProjectReference Include="..\..\..\src\Services\Identity\Identity.Infrastructure\Identity.Infrastructure.csproj" />
+    <!-- Aliased so the server's generated proto types do not clash with the client types above. -->
+    <ProjectReference Include="..\..\..\src\Services\Identity\Identity.WebAPI\Identity.WebAPI.csproj" Aliases="IdentityWebApi" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
   </ItemGroup>
 </Project>
