@@ -5,7 +5,8 @@ namespace ParkingSystem.Identity.Application.Accounts;
 public enum SaveAccountResult
 {
     Success,
-    DuplicateEmailConflict
+    DuplicateEmailConflict,
+    DuplicatePhoneConflict
 }
 
 public interface IAccountRepository

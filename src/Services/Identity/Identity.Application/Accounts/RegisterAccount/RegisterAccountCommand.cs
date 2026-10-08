@@ -31,6 +31,9 @@ public static class RegisterAccountErrors
 {
     public static readonly Error EmailAlreadyRegistered =
         new("identity.email_already_registered", "The email address is already registered.");
+
+    public static readonly Error PhoneAlreadyRegistered =
+        new("identity.phone_already_registered", "The phone number is already registered to another account.");
 }
 
 public sealed partial class RegisterAccountCommandValidator : AbstractValidator<RegisterAccountCommand>
@@ -123,6 +126,9 @@ public sealed class RegisterAccountCommandHandler(
 
         // A concurrent registration with the same email loses the race on the unique index.
         var saveResult = await accounts.SaveNewAccountAsync(cancellationToken);
+        if (saveResult == SaveAccountResult.DuplicatePhoneConflict)
+            return Result<RegisteredAccount>.Failure(RegisterAccountErrors.PhoneAlreadyRegistered);
+
         if (saveResult == SaveAccountResult.DuplicateEmailConflict)
         {
             // Re-query to determine authoritative business state (Dormant Recovery vs Email Already Registered)

@@ -42,7 +42,7 @@ internal static class AccountEndpoints
             {
                 var result = await sender.Send(
                     new RegisterAccountCommand(
-                        request.FullName ?? "Registered User",
+                        request.FullName ?? string.Empty,
                         request.Email,
                         request.Password,
                         request.PhoneNumber),
@@ -52,8 +52,8 @@ internal static class AccountEndpoints
                 {
                     return Results.Problem(
                         statusCode: StatusCodes.Status409Conflict,
-                        title: "The email address is already registered.",
-                        detail: result.Error!.Message,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
                         extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
                 }
 

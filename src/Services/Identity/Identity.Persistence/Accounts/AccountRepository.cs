@@ -34,7 +34,7 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException pg
             && pg.SqlState == PostgresErrorCodes.UniqueViolation
-            && pg.ConstraintName == AccountConfiguration.EmailIndexName)
+            && pg.ConstraintName is AccountConfiguration.EmailIndexName or AccountConfiguration.PhoneNumberIndexName)
         {
             if (dbContext.Database.CurrentTransaction is not null)
             {
@@ -42,7 +42,9 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
             }
 
             dbContext.ChangeTracker.Clear();
-            return SaveAccountResult.DuplicateEmailConflict;
+            return pg.ConstraintName == AccountConfiguration.PhoneNumberIndexName
+                ? SaveAccountResult.DuplicatePhoneConflict
+                : SaveAccountResult.DuplicateEmailConflict;
         }
     }
 

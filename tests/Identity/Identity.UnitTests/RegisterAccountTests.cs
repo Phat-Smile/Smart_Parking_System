@@ -217,6 +217,27 @@ public sealed class RegisterAccountTests
     }
 
     [Fact]
+    public async Task Handler_reports_phone_conflict_when_the_phone_belongs_to_another_account()
+    {
+        var accountRepository = new FakeAccountRepository { FailSaveWithDuplicatePhone = true };
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            new FakeProfileRepository(),
+            new FakeEmailVerificationRepository(),
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            new FakeOutboxWriter(),
+            new FixedClock());
+
+        var result = await handler.Handle(CreateValidCommand(email: "new@example.com"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RegisterAccountErrors.PhoneAlreadyRegistered, result.Error);
+        Assert.Empty(accountRepository.Saved);
+    }
+
+    [Fact]
     public async Task Handler_reports_a_duplicate_when_concurrent_save_fails_on_unique_index_and_account_already_verified()
     {
         var existingVerified = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
@@ -409,6 +430,7 @@ public sealed class RegisterAccountTests
 
         public string? ExistingEmail { get; init; }
         public bool FailSaveWithDuplicate { get; init; }
+        public bool FailSaveWithDuplicatePhone { get; init; }
         public List<Account> Saved { get; } = [];
 
         public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
@@ -439,6 +461,12 @@ public sealed class RegisterAccountTests
 
         public Task<SaveAccountResult> SaveNewAccountAsync(CancellationToken cancellationToken)
         {
+            if (FailSaveWithDuplicatePhone)
+            {
+                pending.Clear();
+                return Task.FromResult(SaveAccountResult.DuplicatePhoneConflict);
+            }
+
             if (FailSaveWithDuplicate || pending.Any(p => Saved.Any(s => s.Email == p.Email)))
             {
                 pending.Clear();
