@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using FluentValidation;
 using MediatR;
-using ParkingSystem.BuildingBlocks.Events;
+using ParkingSystem.Contracts.Events.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;

@@ -9,6 +9,7 @@ using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Identity.Infrastructure.Security;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Identity;
 
 namespace ParkingSystem.Identity.Infrastructure;
 
@@ -58,9 +59,9 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IOtpHasher, HmacSha256OtpHasher>();
         services.AddIntegrationEventRegistry();
-        services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.AccountEmailVerifiedIntegrationEvent>(
+        services.AddIntegrationEvent<AccountEmailVerifiedIntegrationEvent>(
             "identity.account-email-verified.v1", 1);
-        services.AddIntegrationEvent<ParkingSystem.BuildingBlocks.Events.UserVerificationOtpIssuedIntegrationEvent>(
+        services.AddIntegrationEvent<UserVerificationOtpIssuedIntegrationEvent>(
             "identity.user-verification-otp-issued.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();

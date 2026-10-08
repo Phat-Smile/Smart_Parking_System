@@ -6,6 +6,7 @@ namespace ParkingSystem.Tests.Architecture;
 public sealed class ArchitectureRulesTests
 {
     private static readonly string[] Services = ["Identity", "Parking", "Booking", "Payment", "Notification"];
+    private const string EventContractsProject = "ParkingSystem.Contracts.Events";
     private static string Root => FindRepositoryRoot();
 
     [Fact]
@@ -53,11 +54,20 @@ public sealed class ArchitectureRulesTests
         foreach (var service in Services)
         {
             AssertProjectReferences(service, $"{service}.Domain");
-            AssertProjectReferences(service, $"{service}.Application", $"{service}.Domain", "ParkingSystem.BuildingBlocks");
+            AssertProjectReferences(service, $"{service}.Application", allowEventContracts: true, $"{service}.Domain", "ParkingSystem.BuildingBlocks");
             AssertProjectReferences(service, $"{service}.Persistence", $"{service}.Domain", $"{service}.Application");
-            AssertProjectReferences(service, $"{service}.Infrastructure", $"{service}.Application", "ParkingSystem.BuildingBlocks");
+            AssertProjectReferences(service, $"{service}.Infrastructure", allowEventContracts: true, $"{service}.Application", "ParkingSystem.BuildingBlocks");
             AssertProjectReferences(service, $"{service}.WebAPI", $"{service}.Application", $"{service}.Persistence", $"{service}.Infrastructure", "ParkingSystem.BuildingBlocks", "ParkingSystem.AspNetCore");
         }
+    }
+
+    [Fact]
+    public void Integration_event_contracts_are_plain_records_without_dependencies()
+    {
+        var contracts = Path.Combine(Root, "contracts", "events", EventContractsProject, $"{EventContractsProject}.csproj");
+        Assert.True(File.Exists(contracts));
+        Assert.Empty(ReadReferences(contracts));
+        Assert.Empty(ReadPackageReferences(contracts));
     }
 
     [Theory]
@@ -345,12 +355,17 @@ public sealed class ArchitectureRulesTests
             .ToArray();
     }
 
-    private static void AssertProjectReferences(string service, string projectName, params string[] expectedNames)
+    private static void AssertProjectReferences(string service, string projectName, params string[] expectedNames) =>
+        AssertProjectReferences(service, projectName, allowEventContracts: false, expectedNames);
+
+    // Application (publishers) and Infrastructure (consumers) may use the shared integration-event contracts.
+    private static void AssertProjectReferences(string service, string projectName, bool allowEventContracts, params string[] expectedNames)
     {
         var project = ProjectPath(service, projectName);
         var actualNames = ReadReferences(project)
             .Select(reference => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(project)!, reference)))
             .Select(Path.GetFileNameWithoutExtension)
+            .Where(name => !allowEventContracts || name != EventContractsProject)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
         var expected = expectedNames.OrderBy(name => name, StringComparer.Ordinal).ToArray();
