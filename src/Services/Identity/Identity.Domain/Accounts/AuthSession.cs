@@ -3,6 +3,8 @@ namespace ParkingSystem.Identity.Domain.Accounts;
 public sealed class AuthSession
 {
     public const int DefaultAbsoluteLifetimeDays = 30;
+    public const int MaxDeviceInfoLength = 512;
+    public const int MaxIpAddressLength = 64;
 
     private AuthSession()
     {
@@ -37,14 +39,24 @@ public sealed class AuthSession
         {
             Id = id,
             AccountId = accountId,
-            DeviceInfo = deviceInfo?.Trim(),
-            IpAddress = ipAddress?.Trim(),
+            DeviceInfo = Truncate(deviceInfo, MaxDeviceInfoLength),
+            IpAddress = Truncate(ipAddress, MaxIpAddressLength),
             CreatedAtUtc = createdAtUtc,
             LastActivityAtUtc = createdAtUtc,
             AbsoluteExpiresAtUtc = absoluteExpiresAtUtc,
             RevokedAtUtc = null,
             RevokedReason = null
         };
+    }
+
+    // Client-supplied (User-Agent, remote IP): cut to the column length instead of failing the login.
+    private static string? Truncate(string? value, int maxLength)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return null;
+
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     public bool IsRevoked => RevokedAtUtc.HasValue;

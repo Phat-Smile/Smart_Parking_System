@@ -53,14 +53,6 @@ public sealed class RefreshToken
         };
     }
 
-    public static RefreshToken Issue(
-        Guid id,
-        Guid accountId,
-        string tokenHash,
-        DateTimeOffset createdAtUtc,
-        DateTimeOffset expiresAtUtc) =>
-        Issue(id, Guid.NewGuid(), accountId, tokenHash, createdAtUtc, expiresAtUtc);
-
     public bool IsExpired(DateTimeOffset nowUtc) => nowUtc >= ExpiresAtUtc;
 
     public bool IsRevoked => RevokedAtUtc.HasValue;

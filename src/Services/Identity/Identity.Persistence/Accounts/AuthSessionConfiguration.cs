@@ -18,9 +18,9 @@ internal sealed class AuthSessionConfiguration : IEntityTypeConfiguration<AuthSe
 
         builder.Property(s => s.AccountId).HasColumnName("account_id").IsRequired();
 
-        builder.Property(s => s.DeviceInfo).HasColumnName("device_info").HasMaxLength(512);
+        builder.Property(s => s.DeviceInfo).HasColumnName("device_info").HasMaxLength(AuthSession.MaxDeviceInfoLength);
 
-        builder.Property(s => s.IpAddress).HasColumnName("ip_address").HasMaxLength(64);
+        builder.Property(s => s.IpAddress).HasColumnName("ip_address").HasMaxLength(AuthSession.MaxIpAddressLength);
 
         builder.Property(s => s.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
 

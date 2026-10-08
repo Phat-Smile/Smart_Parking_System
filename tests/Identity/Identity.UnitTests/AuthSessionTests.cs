@@ -35,6 +35,39 @@ public sealed class AuthSessionTests
     }
 
     [Fact]
+    public void Create_truncates_oversized_device_info_and_ip_to_column_length()
+    {
+        var session = AuthSession.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new string('u', 1000),
+            new string('9', 200),
+            Now,
+            Now.AddDays(AuthSession.DefaultAbsoluteLifetimeDays));
+
+        Assert.Equal(AuthSession.MaxDeviceInfoLength, session.DeviceInfo!.Length);
+        Assert.Equal(AuthSession.MaxIpAddressLength, session.IpAddress!.Length);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Create_stores_null_for_missing_device_info_and_ip(string? value)
+    {
+        var session = AuthSession.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            value,
+            value,
+            Now,
+            Now.AddDays(AuthSession.DefaultAbsoluteLifetimeDays));
+
+        Assert.Null(session.DeviceInfo);
+        Assert.Null(session.IpAddress);
+    }
+
+    [Fact]
     public void RecordActivity_updates_last_activity_time()
     {
         var session = AuthSession.Create(
