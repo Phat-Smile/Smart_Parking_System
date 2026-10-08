@@ -57,7 +57,7 @@ internal static class AccountEndpoints
                         extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
                 }
 
-                return result.Value.IsNewAccount
+                return result.Value!.IsNewAccount
                     ? Results.Created((string?)null, result.Value)
                     : Results.Ok(result.Value);
             })

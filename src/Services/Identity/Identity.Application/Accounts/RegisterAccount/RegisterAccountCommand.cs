@@ -90,15 +90,7 @@ public sealed class RegisterAccountCommandHandler(
             // Edge-case UX recovery: If account was registered previously but remains in PendingEmailVerification,
             // return success with the pending account information so the client can proceed to OTP verification/resend.
             if (existingAccount.Status == AccountStatus.PendingEmailVerification)
-            {
-                var existingProfile = await profiles.FindByAccountIdAsync(existingAccount.Id, cancellationToken);
-                return Result<RegisteredAccount>.Success(new RegisteredAccount(
-                    existingAccount.Id,
-                    existingAccount.Email,
-                    existingProfile?.FullName ?? request.FullName.Trim(),
-                    existingAccount.Status.ToString(),
-                    IsNewAccount: false));
-            }
+                return PendingAccountRecovered(existingAccount, request);
 
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
         }
@@ -136,19 +128,21 @@ public sealed class RegisterAccountCommandHandler(
             // Re-query to determine authoritative business state (Dormant Recovery vs Email Already Registered)
             var concurrentAccount = await accounts.FindByEmailAsync(email, cancellationToken);
             if (concurrentAccount is not null && concurrentAccount.Status == AccountStatus.PendingEmailVerification)
-            {
-                var concurrentProfile = await profiles.FindByAccountIdAsync(concurrentAccount.Id, cancellationToken);
-                return Result<RegisteredAccount>.Success(new RegisteredAccount(
-                    concurrentAccount.Id,
-                    concurrentAccount.Email,
-                    concurrentProfile?.FullName ?? request.FullName.Trim(),
-                    concurrentAccount.Status.ToString(),
-                    IsNewAccount: false));
-            }
+                return PendingAccountRecovered(concurrentAccount, request);
 
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
         }
 
         return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile.FullName, account.Status.ToString()));
     }
+
+    // No password check happens here, so echo the caller's own name: knowing an email
+    // must not reveal the name stored by whoever registered it first.
+    private static Result<RegisteredAccount> PendingAccountRecovered(Account pendingAccount, RegisterAccountCommand request) =>
+        Result<RegisteredAccount>.Success(new RegisteredAccount(
+            pendingAccount.Id,
+            pendingAccount.Email,
+            request.FullName.Trim(),
+            pendingAccount.Status.ToString(),
+            IsNewAccount: false));
 }

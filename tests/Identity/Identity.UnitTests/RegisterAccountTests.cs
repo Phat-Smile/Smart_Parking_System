@@ -297,7 +297,8 @@ public sealed class RegisterAccountTests
         Assert.NotNull(result.Value);
         Assert.Equal(existing.Id, result.Value.AccountId);
         Assert.Equal("user@example.com", result.Value.Email);
-        Assert.Equal("Old Name", result.Value.FullName);
+        // The stored owner name must not leak to whoever re-submits the email.
+        Assert.Equal("New Name", result.Value.FullName);
         Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
         Assert.False(result.Value.IsNewAccount);
     }
