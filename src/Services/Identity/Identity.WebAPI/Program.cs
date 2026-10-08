@@ -118,6 +118,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 app.MapAccountEndpoints();
+app.MapGrpcService<ParkingSystem.Identity.WebAPI.Grpc.IdentityVehicleGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
