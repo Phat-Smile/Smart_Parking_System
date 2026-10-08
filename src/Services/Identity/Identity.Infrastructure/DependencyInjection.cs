@@ -81,6 +81,8 @@ public static class DependencyInjection
             });
         });
 
+        services.AddSingleton<ParkingSystem.Identity.Application.Vehicles.Lookup.IVehicleLookupReader, ParkingSystem.Identity.Infrastructure.VehicleLookup.StubVehicleLookupReader>();
+
         return services;
     }
 }
