@@ -11,6 +11,8 @@ namespace ParkingSystem.AspNetCore;
 
 public static class ParkingSystemWebFoundationExtensions
 {
+    public const string ConsoleFormatterNameKey = "Logging:Console:FormatterName";
+
     public static WebApplicationBuilder AddParkingSystemWebFoundation(this WebApplicationBuilder builder)
     {
         builder.Services.AddHttpContextAccessor();
@@ -27,7 +29,20 @@ public static class ParkingSystemWebFoundationExtensions
         builder.Logging.ClearProviders();
         // ASP.NET Core's ambient scope includes the raw RequestPath. The request
         // event writes correlation and trace fields explicitly without that scope.
-        builder.Logging.AddJsonConsole(options => options.IncludeScopes = false);
+        // JSON stays the default (containers, tests); launch profiles opt into the
+        // readable "simple" formatter for local F5 / dotnet run.
+        if (string.Equals(builder.Configuration[ConsoleFormatterNameKey], ConsoleFormatterNames.Simple, StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Logging.AddSimpleConsole(options =>
+            {
+                options.IncludeScopes = false;
+                options.TimestampFormat = "HH:mm:ss ";
+            });
+        }
+        else
+        {
+            builder.Logging.AddJsonConsole(options => options.IncludeScopes = false);
+        }
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogLevel.Warning);
         // The Outbox dispatcher polls every second; executed-SQL logs at Information drown out real errors.
