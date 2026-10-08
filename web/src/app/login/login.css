@@ -1,0 +1,516 @@
+/* Port of ParkWise Front Office src/Pages/Login.jsx classes, scoped to /login. */
+.parkwise-login-page {
+    color-scheme: light;
+    background: #f9fafb;
+}
+.parkwise-login-main {
+    padding-top: var(--parkwise-nav-height);
+}
+.parkwise-page .parkwise-login-section {
+    min-height: calc(100vh - var(--parkwise-nav-height));
+    padding: 16px 0 !important;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(to bottom right, #f9fafb, #f3f4f6);
+}
+.parkwise-login-container {
+    width: calc(100% - 48px);
+    max-width: 1152px;
+    margin: auto;
+}
+.parkwise-login-card {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 10px 25px rgb(0 0 0 / 12%);
+}
+.parkwise-login-aside {
+    min-width: 0;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    background: #171717;
+    color: #fff;
+}
+.parkwise-welcome {
+    margin-bottom: 24px;
+}
+.parkwise-welcome h1 {
+    margin-bottom: 24px;
+    text-align: center;
+    font-size: 36px;
+    line-height: 1.15;
+    font-weight: 700;
+}
+.parkwise-aside-box {
+    padding: 24px;
+    border-radius: 12px;
+    background: rgb(255 255 255 / 5%);
+    backdrop-filter: blur(4px);
+}
+.parkwise-welcome .parkwise-aside-box p {
+    color: #d1d5db;
+    text-align: center;
+    font-size: 18px;
+}
+.parkwise-support {
+    margin-bottom: 24px;
+}
+.parkwise-support > p {
+    color: #d1d5db;
+    margin-bottom: 8px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.parkwise-support > div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.parkwise-support svg {
+    flex: 0 0 24px;
+    color: #d1d5db;
+}
+.parkwise-support h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 20px;
+    font-weight: 700;
+}
+.parkwise-auth-options {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.parkwise-auth-options button {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 16px;
+    background: #fff;
+    color: #171717;
+    font-weight: 500;
+    transition:
+        background-color 0.2s,
+        box-shadow 0.2s;
+}
+.parkwise-auth-options button:hover {
+    background: #f9fafb;
+    box-shadow: 0 4px 10px rgb(0 0 0 / 12%);
+}
+.parkwise-auth-options img,
+.parkwise-auth-options svg {
+    flex: 0 0 24px;
+}
+.parkwise-login-social {
+    margin-top: auto;
+}
+.parkwise-login-social > p {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #d1d5db;
+    font-weight: 500;
+    margin-bottom: 16px;
+    text-align: center;
+}
+.parkwise-login-social > p svg {
+    flex: 0 0 20px;
+}
+.parkwise-login-social > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    background: rgb(255 255 255 / 10%);
+}
+.parkwise-login-social > div span {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+    border-radius: 8px;
+    background: #fff;
+}
+.parkwise-login-social > div img {
+    width: 24px;
+    height: 24px;
+}
+.parkwise-login-form-panel {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+}
+.parkwise-login-form-panel form {
+    width: 100%;
+    max-width: 448px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.parkwise-login-form-panel h2 {
+    color: #1f2937;
+    text-align: center;
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 700;
+    margin-bottom: 0;
+}
+.parkwise-login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.parkwise-login-field label {
+    color: #4b5563;
+    font-weight: 500;
+}
+.parkwise-login-field input {
+    display: block;
+    width: 100%;
+    height: 48px;
+    padding: 12px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    color: #171717;
+    outline: 0;
+    transition:
+        border-color 0.3s,
+        box-shadow 0.3s;
+}
+.parkwise-login-field input::placeholder {
+    color: #9ca3af;
+}
+.parkwise-login-field input:focus {
+    border-color: #171717;
+    box-shadow: 0 0 0 3px rgb(23 23 23 / 20%);
+}
+.parkwise-login-field input[aria-invalid="true"] {
+    border-color: #dc2626;
+}
+.parkwise-password-control {
+    position: relative;
+}
+.parkwise-password-control input {
+    padding-right: 46px !important;
+}
+.parkwise-password-control button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    border: 0;
+    background: transparent;
+    color: #4b5563;
+}
+.parkwise-password-control button:hover {
+    color: #171717;
+}
+.parkwise-password-control button:focus-visible {
+    outline: 2px solid #171717;
+    outline-offset: -3px;
+    border-radius: 8px;
+}
+.parkwise-password-control svg {
+    width: 20px;
+    height: 20px;
+}
+.parkwise-login-field > p,
+.parkwise-login-error {
+    color: #b91c1c;
+    font-size: 14px;
+}
+.parkwise-login-links {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.parkwise-login-links button,
+.parkwise-login-links a {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #171717;
+    font-size: 16px;
+    text-align: left;
+}
+.parkwise-login-links > :last-child {
+    color: #4b5563;
+    text-align: right;
+}
+.parkwise-login-links button:hover,
+.parkwise-login-links a:hover {
+    color: #000;
+    text-decoration: underline;
+}
+.parkwise-login-submit {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 24px;
+    border: 0;
+    border-radius: 12px;
+    background: #171717;
+    color: #fff;
+    font-weight: 500;
+    transition:
+        background-color 0.3s,
+        opacity 0.3s;
+}
+.parkwise-login-submit:hover {
+    background: #090909;
+}
+.parkwise-login-submit:disabled {
+    cursor: wait;
+    opacity: 0.5;
+}
+.parkwise-login-error,
+.parkwise-login-notice {
+    padding: 12px 14px;
+    border-radius: 8px;
+    line-height: 1.4;
+}
+.parkwise-login-error {
+    background: #fef2f2;
+}
+.parkwise-login-notice {
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 14px;
+}
+
+/* The two-column Login screen; other auth routes keep the shared auth styles above. */
+.parkwise-login-redesign .parkwise-login-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: 510px;
+}
+.parkwise-login-redesign .parkwise-login-aside {
+    justify-content: center;
+    gap: 12px;
+    padding: 28px clamp(32px, 4vw, 56px);
+}
+.parkwise-login-redesign .parkwise-welcome {
+    max-width: 420px;
+    margin: 0;
+}
+.parkwise-login-redesign .parkwise-welcome h1 {
+    margin-bottom: 12px;
+    text-align: left;
+    font-size: clamp(36px, 3.4vw, 48px);
+}
+.parkwise-login-lead {
+    color: #fff;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.parkwise-login-description {
+    margin-top: 8px !important;
+    color: #d1d5db;
+    font-size: 17px;
+    line-height: 1.65;
+}
+.parkwise-login-illustration {
+    width: 100%;
+    max-height: 250px;
+    object-fit: contain;
+}
+.parkwise-login-redesign .parkwise-login-form-panel {
+    padding: 28px clamp(32px, 4vw, 56px);
+}
+.parkwise-login-redesign .parkwise-login-form-panel form {
+    max-width: 420px;
+    gap: 13px;
+}
+.parkwise-login-redesign .parkwise-login-form-panel h2 {
+    margin: 0 0 5px;
+    color: #171717;
+    text-align: left;
+    font-size: clamp(28px, 2.5vw, 36px);
+}
+.parkwise-login-forgot:hover,
+.parkwise-login-signup a:hover {
+    text-decoration: underline;
+}
+.parkwise-login-forgot {
+    align-self: flex-end;
+    margin-top: -4px;
+    color: #171717 !important;
+    font-size: 14px;
+    font-weight: 600;
+}
+.parkwise-login-redesign .parkwise-login-submit {
+    min-height: 44px;
+    padding: 9px 24px;
+}
+.parkwise-login-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #6b7280;
+    font-size: 14px;
+}
+.parkwise-login-divider::before,
+.parkwise-login-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #d1d5db;
+}
+.parkwise-login-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 50px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    background: #fff;
+    color: #171717;
+    font-weight: 600;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+.parkwise-login-google:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+.parkwise-login-google img {
+    flex: 0 0 22px;
+}
+.parkwise-login-signup {
+    margin-top: 0 !important;
+    color: #4b5563;
+    text-align: center;
+    font-size: 14px;
+}
+.parkwise-login-signup a {
+    color: #171717;
+    font-weight: 700;
+}
+
+@media (max-height: 760px) and (min-width: 768px) {
+    .parkwise-login-aside,
+    .parkwise-login-form-panel {
+        padding: 20px 24px;
+    }
+    .parkwise-welcome,
+    .parkwise-support,
+    .parkwise-auth-options {
+        margin-bottom: 14px;
+    }
+    .parkwise-welcome h1 {
+        font-size: 32px;
+        margin-bottom: 14px;
+    }
+    .parkwise-aside-box {
+        padding: 14px 18px;
+    }
+    .parkwise-welcome .parkwise-aside-box p {
+        font-size: 16px;
+    }
+    .parkwise-auth-options {
+        gap: 10px;
+    }
+    .parkwise-login-social > p {
+        margin-bottom: 8px;
+    }
+    .parkwise-login-social > div {
+        padding: 10px;
+        gap: 10px;
+    }
+    .parkwise-login-form-panel form {
+        gap: 18px;
+    }
+}
+@media (max-width: 1023px) {
+    .parkwise-login-container {
+        width: 92%;
+    }
+    .parkwise-login-aside,
+    .parkwise-login-form-panel {
+        padding: 24px;
+    }
+    .parkwise-support h2 {
+        font-size: 17px;
+    }
+    .parkwise-login-social > div {
+        gap: 8px;
+    }
+}
+@media (max-width: 767px) {
+    .parkwise-login-container {
+        width: calc(100% - 32px);
+    }
+    .parkwise-login-card {
+        grid-template-columns: 1fr;
+    }
+    .parkwise-login-aside,
+    .parkwise-login-form-panel {
+        padding: 24px;
+    }
+    .parkwise-login-form-panel form {
+        max-width: none;
+    }
+    .parkwise-login-social {
+        margin-top: 0;
+    }
+    .parkwise-login-redesign .parkwise-login-card {
+        grid-template-columns: 1fr;
+        min-height: 0;
+    }
+    .parkwise-login-redesign .parkwise-login-form-panel {
+        order: 0;
+        padding: 32px 24px;
+    }
+    .parkwise-login-redesign .parkwise-login-aside {
+        order: 1;
+        padding: 32px 24px;
+    }
+    .parkwise-login-redesign .parkwise-welcome h1 {
+        font-size: 34px;
+    }
+}
+@media (max-width: 430px) {
+    .parkwise-login-aside,
+    .parkwise-login-form-panel {
+        padding: 20px;
+    }
+    .parkwise-aside-box {
+        padding: 16px;
+    }
+    .parkwise-welcome h1 {
+        font-size: 32px;
+        margin-bottom: 16px;
+    }
+    .parkwise-welcome .parkwise-aside-box p {
+        font-size: 16px;
+    }
+    .parkwise-login-social > div {
+        gap: 8px;
+    }
+    .parkwise-login-links {
+        flex-wrap: wrap;
+    }
+}
