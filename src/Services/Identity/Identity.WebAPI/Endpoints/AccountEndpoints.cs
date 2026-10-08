@@ -23,6 +23,18 @@ internal static class AccountEndpoints
     public sealed record RefreshTokenRequest(string RefreshToken);
     public sealed record LogoutRequest(string RefreshToken);
 
+    private static readonly Dictionary<string, int> RefreshErrorStatusCodes = new()
+    {
+        [RefreshTokenErrors.InvalidRefreshToken.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.RefreshTokenExpired.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.SessionExpired.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.SessionRevoked.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.TokenReuseDetected.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.AccountSuspended.Code] = StatusCodes.Status403Forbidden,
+        [RefreshTokenErrors.AccountDisabled.Code] = StatusCodes.Status403Forbidden,
+        [RefreshTokenErrors.EmailNotVerified.Code] = StatusCodes.Status403Forbidden
+    };
+
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         // MF-01 & US-AUTH-001: registration is a public endpoint. Validation failures become 400 in the shared exception handler.
@@ -138,32 +150,15 @@ internal static class AccountEndpoints
         // US-AUTH-005: refresh access token and rotate refresh token (public endpoint).
         app.MapPost("/api/identity/accounts/refresh", async (
                 RefreshTokenRequest request,
-                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var deviceInfo = httpContext.Request.Headers.UserAgent.ToString();
-                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
-
-                var result = await sender.Send(
-                    new RefreshTokenCommand(request.RefreshToken, deviceInfo, ipAddress),
-                    cancellationToken);
+                var result = await sender.Send(new RefreshTokenCommand(request.RefreshToken), cancellationToken);
 
                 if (result.IsSuccess)
                     return Results.Ok(result.Value);
 
-                var statusCode = result.Error!.Code switch
-                {
-                    "identity.invalid_refresh_token" => StatusCodes.Status401Unauthorized,
-                    "identity.refresh_token_expired" => StatusCodes.Status401Unauthorized,
-                    "identity.session_expired" => StatusCodes.Status401Unauthorized,
-                    "identity.session_revoked" => StatusCodes.Status401Unauthorized,
-                    "identity.refresh_token_reused" => StatusCodes.Status401Unauthorized,
-                    "identity.account_suspended" => StatusCodes.Status403Forbidden,
-                    "identity.account_disabled" => StatusCodes.Status403Forbidden,
-                    "identity.email_not_verified" => StatusCodes.Status403Forbidden,
-                    _ => StatusCodes.Status400BadRequest
-                };
+                var statusCode = RefreshErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest);
 
                 return Results.Problem(
                     statusCode: statusCode,

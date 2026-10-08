@@ -8,10 +8,7 @@ using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 
-public sealed record RefreshTokenCommand(
-    string RefreshToken,
-    string? DeviceInfo = null,
-    string? IpAddress = null) : IRequest<Result<RefreshTokenResponse>>;
+public sealed record RefreshTokenCommand(string RefreshToken) : IRequest<Result<RefreshTokenResponse>>;
 
 public sealed record RefreshTokenResponse(
     string AccessToken,
