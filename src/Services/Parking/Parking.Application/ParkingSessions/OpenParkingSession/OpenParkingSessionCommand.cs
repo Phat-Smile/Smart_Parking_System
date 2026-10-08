@@ -5,6 +5,7 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
@@ -29,6 +30,10 @@ public static class OpenParkingSessionErrors
     // ASSUMPTION: one open (Active or Paid) session per plate per lot; not written in Context yet.
     public static readonly Error SessionAlreadyOpen =
         new("parking.session.already_open", "This plate already has an open session in this lot.");
+
+    // Unknown and not-approved lots share one error, like the public lot detail API (PR #31 review).
+    public static readonly Error LotNotFound =
+        new("parking.lot.not_found", "The parking lot does not exist or is not approved.");
 }
 
 public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenParkingSessionCommand>
@@ -61,11 +66,16 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
 /// </summary>
 public sealed class OpenParkingSessionCommandHandler(
     IParkingSessionRepository sessions,
+    IParkingLotDetailReader parkingLots,
     IPlateOwnerLookup plateOwners,
     IClock clock) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
     public async Task<Result<OpenedParkingSession>> Handle(OpenParkingSessionCommand request, CancellationToken cancellationToken)
     {
+        // Only an existing, approved lot can receive vehicles.
+        if (await parkingLots.GetApprovedByIdAsync(request.LotId, cancellationToken) is null)
+            return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.LotNotFound);
+
         var plate = ParkingSession.NormalizePlate(request.PlateNumber);
         var vehicleType = Enum.Parse<VehicleType>(request.VehicleType, ignoreCase: true);
 

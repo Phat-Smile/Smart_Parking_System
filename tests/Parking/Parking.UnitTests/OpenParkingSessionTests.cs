@@ -1,5 +1,6 @@
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -64,7 +65,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_opens_active_unlinked_session_when_plate_has_no_owner()
     {
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakePlateOwnerLookup(null), new FixedClock());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakePlateOwnerLookup(null), new FixedClock());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, " 51a-123.45 ", "car"),
@@ -90,7 +91,7 @@ public sealed class OpenParkingSessionTests
     {
         var owner = new PlateOwner(Guid.NewGuid(), Guid.NewGuid());
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakePlateOwnerLookup(owner), new FixedClock());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakePlateOwnerLookup(owner), new FixedClock());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Motorbike"),
@@ -107,7 +108,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_rejects_plate_that_already_has_an_open_session()
     {
         var repository = new FakeParkingSessionRepository { HasOpenSession = true };
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakePlateOwnerLookup(null), new FixedClock());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakePlateOwnerLookup(null), new FixedClock());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Car"),
@@ -122,7 +123,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_reports_already_open_when_concurrent_request_wins_the_unique_index()
     {
         var repository = new FakeParkingSessionRepository { SaveSucceeds = false };
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakePlateOwnerLookup(null), new FixedClock());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakePlateOwnerLookup(null), new FixedClock());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Car"),
@@ -133,10 +134,25 @@ public sealed class OpenParkingSessionTests
     }
 
     [Fact]
+    public async Task Handler_rejects_lot_that_does_not_exist_or_is_not_approved()
+    {
+        var repository = new FakeParkingSessionRepository();
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: false), new FakePlateOwnerLookup(null), new FixedClock());
+
+        var result = await handler.Handle(
+            new OpenParkingSessionCommand(LotId, "51A-123.45", "Car"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(OpenParkingSessionErrors.LotNotFound, result.Error);
+        Assert.Empty(repository.Added);
+    }
+
+    [Fact]
     public async Task Handler_issues_a_different_qr_token_without_plate_for_each_session()
     {
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakePlateOwnerLookup(null), new FixedClock());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakePlateOwnerLookup(null), new FixedClock());
 
         var first = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-111.11", "Car"), TestContext.Current.CancellationToken);
         var second = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-222.22", "Car"), TestContext.Current.CancellationToken);
@@ -166,6 +182,13 @@ public sealed class OpenParkingSessionTests
                 Saved.AddRange(Added.Except(Saved));
             return Task.FromResult(SaveSucceeds);
         }
+    }
+
+    // The real reader returns only approved lots, so "not found" covers unknown and not-approved lots.
+    private sealed class FakeParkingLotReader(bool approved) : IParkingLotDetailReader
+    {
+        public Task<ParkingLotDetail?> GetApprovedByIdAsync(Guid parkingLotId, CancellationToken cancellationToken) =>
+            Task.FromResult(approved ? new ParkingLotDetail(parkingLotId, "Lot A", "1 Test Street", 10.77m, 106.70m, "Flat") : null);
     }
 
     private sealed class FakePlateOwnerLookup(PlateOwner? owner) : IPlateOwnerLookup

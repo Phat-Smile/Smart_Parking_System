@@ -299,6 +299,16 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
                     b.ToTable("outbox_messages", "parking");
                 });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingSessions.ParkingSession", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_parking_sessions_parking_lots_lot_id");
+                });
 #pragma warning restore 612, 618
         }
     }
