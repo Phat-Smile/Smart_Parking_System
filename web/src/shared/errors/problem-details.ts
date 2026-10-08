@@ -6,6 +6,7 @@ export interface ProblemDetails {
     instance?: string;
     traceId?: string;
     correlationId?: string;
+    errorCode?: string;
 }
 
 export function parseProblemDetails(
@@ -22,6 +23,7 @@ export function parseProblemDetails(
         "instance",
         "traceId",
         "correlationId",
+        "errorCode",
     ] as const) {
         if (typeof record[key] === "string") result[key] = record[key];
     }
