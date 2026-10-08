@@ -36,7 +36,6 @@ public sealed class IdentityVehicleGrpcTests
         AssertCanonicalUuid(response.AccountId);
         AssertCanonicalUuid(response.VehicleId);
         Assert.Equal(ProtoVehicleType.Car, response.VehicleType);
-        Assert.Equal("Nguyễn Văn An", response.OwnerFullName);
         Assert.True(response.IsAccountActive);
     }
 
@@ -66,7 +65,6 @@ public sealed class IdentityVehicleGrpcTests
         Assert.False(response.IsRegistered);
         Assert.Equal(string.Empty, response.AccountId);
         Assert.Equal(string.Empty, response.VehicleId);
-        Assert.Equal(string.Empty, response.OwnerFullName);
         Assert.Equal(ProtoVehicleType.Unspecified, response.VehicleType);
         Assert.False(response.IsAccountActive);
     }
@@ -122,10 +120,21 @@ public sealed class IdentityVehicleGrpcTests
     }
 
     [Fact]
+    public void Owner_name_is_not_part_of_the_contract()
+    {
+        // Field 4 (owner_full_name) is reserved: Parking only receives ids, personal data stays in Identity.
+        var descriptor = LookupVehicleResponse.Descriptor;
+
+        Assert.Null(descriptor.FindFieldByNumber(4));
+        Assert.Null(descriptor.FindFieldByName("owner_full_name"));
+        Assert.Equal([1, 2, 3, 5, 6], descriptor.Fields.InFieldNumberOrder().Select(field => field.FieldNumber));
+    }
+
+    [Fact]
     public async Task Registered_vehicle_of_an_inactive_account_stays_registered()
     {
         await using var host = await GrpcHost.StartAsync(services => services.AddSingleton<IVehicleLookupReader>(
-            new FixedReader(new VehicleLookupResult(true, Guid.NewGuid(), Guid.NewGuid(), "Lê Văn C", ParkingSystem.Identity.Application.Vehicles.Lookup.VehicleType.Car, IsAccountActive: false))));
+            new FixedReader(new VehicleLookupResult(true, Guid.NewGuid(), Guid.NewGuid(), ParkingSystem.Identity.Application.Vehicles.Lookup.VehicleType.Car, IsAccountActive: false))));
 
         var response = await host.Client.LookupVehicleAsync(
             new LookupVehicleRequest { LicensePlate = "51A12345" },
@@ -141,7 +150,7 @@ public sealed class IdentityVehicleGrpcTests
     public async Task Registered_result_without_identifiers_returns_internal_instead_of_a_half_filled_answer()
     {
         await using var host = await GrpcHost.StartAsync(services => services.AddSingleton<IVehicleLookupReader>(
-            new FixedReader(new VehicleLookupResult(true, null, null, null, null, IsAccountActive: true))));
+            new FixedReader(new VehicleLookupResult(true, null, null, null, IsAccountActive: true))));
 
         var exception = await Assert.ThrowsAsync<RpcException>(() => host.Client.LookupVehicleAsync(
             new LookupVehicleRequest { LicensePlate = "51A12345" },

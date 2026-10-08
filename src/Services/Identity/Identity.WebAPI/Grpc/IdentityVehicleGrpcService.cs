@@ -68,7 +68,6 @@ public sealed class IdentityVehicleGrpcService(
             // Guid "D" format is already lowercase, 36 chars.
             AccountId = accountId.ToString("D"),
             VehicleId = vehicleId.ToString("D"),
-            OwnerFullName = vehicle.OwnerFullName ?? string.Empty,
             VehicleType = MapVehicleType(vehicle.VehicleType),
             IsAccountActive = vehicle.IsAccountActive
         };
