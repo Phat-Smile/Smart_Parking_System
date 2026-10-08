@@ -4,6 +4,7 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Identity.Application;
 using ParkingSystem.Identity.Infrastructure;
+using ParkingSystem.Identity.Infrastructure.VehicleLookup;
 using ParkingSystem.Identity.Persistence;
 using ParkingSystem.Identity.WebAPI.Endpoints;
 using ParkingSystem.Identity.WebAPI.Grpc;
@@ -82,6 +83,7 @@ builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("identity-api");
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
+VehicleLookupRegistration.EnsureProviderConfigured(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<IdentityDbContext>(name: "postgresql", tags: ["ready"]);
@@ -97,6 +99,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+if (!app.Environment.IsDevelopment() && VehicleLookupRegistration.IsStubConfigured(builder.Configuration))
+    app.Logger.LogWarning("VehicleLookup uses the Stub provider outside Development: vehicle lookups return demo data.");
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemAuthentication();
 if (app.Environment.IsDevelopment())
