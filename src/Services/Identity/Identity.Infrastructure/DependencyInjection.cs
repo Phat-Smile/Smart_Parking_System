@@ -8,6 +8,7 @@ using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Identity.Infrastructure.Security;
+using ParkingSystem.Identity.Infrastructure.VehicleLookup;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Identity;
 
@@ -81,6 +82,8 @@ public static class DependencyInjection
                 rabbit.ConfigureEndpoints(context);
             });
         });
+
+        services.AddVehicleLookupReader(configuration);
 
         return services;
     }

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package smartparking.identity.vehicle.v1;
+
+option csharp_namespace = "SmartParking.Contracts.Identity.Vehicle.V1";
+
+service IdentityVehicleContract {
+  rpc LookupVehicle(LookupVehicleRequest)
+      returns (LookupVehicleResponse);
+}
+
+message LookupVehicleRequest {
+  // Raw plate as read at the gate; Identity normalizes it (trim, uppercase,
+  // remove whitespace, '-' and '.'). Empty or malformed -> INVALID_ARGUMENT.
+  string license_plate = 1;
+}
+
+// Unknown but well-formed plate -> OK with is_registered = false (never NOT_FOUND).
+message LookupVehicleResponse {
+  bool is_registered = 1;
+
+  // Canonical lowercase UUID "D" format (36 chars) when registered.
+  // Empty string ("") when is_registered == false.
+  string account_id = 2;
+
+  // Canonical lowercase UUID "D" format (36 chars) when registered.
+  // Empty string ("") when is_registered == false.
+  string vehicle_id = 3;
+
+  // [OPEN DECISION - BE-4 confirm] Owner full name for staff display.
+  // Empty string when is_registered == false or the name is unknown.
+  string owner_full_name = 4;
+
+  VehicleType vehicle_type = 5;
+
+  // [OPEN DECISION - BE-4 confirm] true when the owner account is Active;
+  // false when Suspended/Disabled or is_registered == false.
+  // Identity only reports the state; Parking decides what to do with it.
+  bool is_account_active = 6;
+}
+
+enum VehicleType {
+  VEHICLE_TYPE_UNSPECIFIED = 0;
+  VEHICLE_TYPE_CAR = 1;
+  VEHICLE_TYPE_MOTORBIKE = 2;
+}
