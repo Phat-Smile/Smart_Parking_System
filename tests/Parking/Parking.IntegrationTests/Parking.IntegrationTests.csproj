@@ -5,9 +5,11 @@
     <RootNamespace>ParkingSystem.Tests.Parking.IntegrationTests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Services\Parking\Parking.WebAPI\Parking.WebAPI.csproj" />
     <ProjectReference Include="..\..\..\src\Services\Parking\Parking.Persistence\Parking.Persistence.csproj" />
     <ProjectReference Include="..\..\..\src\Services\Parking\Parking.Infrastructure\Parking.Infrastructure.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
