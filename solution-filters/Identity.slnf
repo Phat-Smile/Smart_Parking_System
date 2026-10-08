@@ -1,0 +1,20 @@
+{
+  "solution": {
+    "path": "..\\ParkingSystem.slnx",
+    "projects": [
+      "src\\BuildingBlocks\\ParkingSystem.AspNetCore\\ParkingSystem.AspNetCore.csproj",
+      "src\\BuildingBlocks\\ParkingSystem.BuildingBlocks.csproj",
+      "src\\Gateway\\ParkingSystem.Gateway.csproj",
+      "src\\Services\\Identity\\Identity.Application\\Identity.Application.csproj",
+      "src\\Services\\Identity\\Identity.Domain\\Identity.Domain.csproj",
+      "src\\Services\\Identity\\Identity.Infrastructure\\Identity.Infrastructure.csproj",
+      "src\\Services\\Identity\\Identity.Persistence\\Identity.Persistence.csproj",
+      "src\\Services\\Identity\\Identity.WebAPI\\Identity.WebAPI.csproj",
+      "tests\\ArchitectureTests\\ArchitectureTests.csproj",
+      "tests\\BuildingBlocks\\ParkingSystem.Testing\\ParkingSystem.Testing.csproj",
+      "tests\\Identity\\Identity.IntegrationTests\\Identity.IntegrationTests.csproj",
+      "tests\\Identity\\Identity.UnitTests\\Identity.UnitTests.csproj",
+      "tests\\WebFoundationTests\\WebFoundationTests.csproj"
+    ]
+  }
+}
