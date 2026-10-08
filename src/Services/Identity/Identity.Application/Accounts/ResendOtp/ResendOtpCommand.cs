@@ -2,7 +2,7 @@ using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.BuildingBlocks.Events;
+using ParkingSystem.Contracts.Events.Identity;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;

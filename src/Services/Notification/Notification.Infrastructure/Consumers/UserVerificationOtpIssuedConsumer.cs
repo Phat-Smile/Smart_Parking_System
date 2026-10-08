@@ -1,6 +1,6 @@
 using MassTransit;
 using Microsoft.Extensions.Logging;
-using ParkingSystem.BuildingBlocks.Events;
+using ParkingSystem.Contracts.Events.Identity;
 using ParkingSystem.Notification.Application.Common.Email;
 
 namespace ParkingSystem.Notification.Infrastructure.Consumers;

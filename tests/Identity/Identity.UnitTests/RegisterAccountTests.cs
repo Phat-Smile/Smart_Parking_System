@@ -1,4 +1,5 @@
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Identity;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
@@ -183,7 +184,7 @@ public sealed class RegisterAccountTests
 
         var enqueued = Assert.Single(outboxWriter.Enqueued);
         Assert.Equal("identity.user-verification-otp-issued.v1", enqueued.EventType);
-        var payload = Assert.IsType<ParkingSystem.BuildingBlocks.Events.UserVerificationOtpIssuedIntegrationEvent>(enqueued.Payload);
+        var payload = Assert.IsType<UserVerificationOtpIssuedIntegrationEvent>(enqueued.Payload);
         Assert.Equal(account.Id, payload.AccountId);
         Assert.Equal("123456", payload.OtpCode);
     }

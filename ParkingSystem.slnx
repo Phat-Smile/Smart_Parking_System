@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Contracts/">
+    <Project Path="contracts/events/ParkingSystem.Contracts.Events/ParkingSystem.Contracts.Events.csproj" />
+  </Folder>
   <Folder Name="/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/ParkingSystem.AspNetCore/ParkingSystem.AspNetCore.csproj" />
     <Project Path="src/BuildingBlocks/ParkingSystem.BuildingBlocks.csproj" Id="bfcb2654-e9e8-4585-9b9d-6387b60360b1" />
