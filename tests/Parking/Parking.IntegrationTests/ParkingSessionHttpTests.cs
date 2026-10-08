@@ -31,13 +31,14 @@ public sealed class ParkingSessionHttpTests
     private const string CancelRoute = SessionsRoute + "/2b684220-8663-48a3-aed6-a1ef40748c3a/cancel";
 
     [Theory]
-    [InlineData(SessionsRoute, "{\"lotId\":")]
-    [InlineData(SessionsRoute, "{\"lotId\":123,\"plateNumber\":\"51A-123.45\",\"vehicleType\":\"Car\"}")]
-    [InlineData(SessionsRoute, "")]
-    [InlineData(CancelRoute, "{\"reason\":")]
-    public async Task Unreadable_json_body_returns_400_request_malformed(string route, string body)
+    [InlineData("Development", SessionsRoute, "{\"lotId\":")]
+    [InlineData("Production", SessionsRoute, "{\"lotId\":")]
+    [InlineData("Production", SessionsRoute, "{\"lotId\":123,\"plateNumber\":\"51A-123.45\",\"vehicleType\":\"Car\"}")]
+    [InlineData("Production", SessionsRoute, "")]
+    [InlineData("Production", CancelRoute, "{\"reason\":")]
+    public async Task Unreadable_json_body_returns_400_request_malformed_in_every_environment(string environment, string route, string body)
     {
-        await using var app = await CreateAppAsync();
+        await using var app = await CreateAppAsync(environment);
 
         using var response = await app.GetTestClient().PostAsync(
             route, new StringContent(body, Encoding.UTF8, "application/json"), TestContext.Current.CancellationToken);
@@ -63,10 +64,10 @@ public sealed class ParkingSessionHttpTests
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
 
-    private static async Task<WebApplication> CreateAppAsync()
+    private static async Task<WebApplication> CreateAppAsync(string environment = "Production")
     {
-        // Development, as the tester ran it: minimal APIs then throw BadHttpRequestException, which the foundation maps to request.malformed.
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        // The tester ran Development; production must give the same errorCode (PR #31 review).
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment });
         // The repositories are not registered because these requests never reach a handler.
         builder.Host.UseDefaultServiceProvider(options => options.ValidateOnBuild = false);
         builder.WebHost.UseTestServer();
