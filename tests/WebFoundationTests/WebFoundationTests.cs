@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Correlation;
+using ParkingSystem.BuildingBlocks.Results;
 using Xunit;
 using Yarp.ReverseProxy.Configuration;
 
@@ -44,6 +45,29 @@ public sealed class WebFoundationTests
             Assert.Equal("internal.unexpected", problem.GetProperty("errorCode").GetString());
             Assert.False(problem.TryGetProperty("stackTrace", out _));
             Assert.DoesNotContain("private-password-value", problem.ToString(), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task Business_problem_has_the_same_request_extensions_as_foundation_errors()
+    {
+        var app = await CreateApp(app => app.MapGet("/conflict", (HttpContext context) =>
+            BusinessProblem.Create(context, StatusCodes.Status409Conflict, new Error("sample.conflict", "Sample conflict."))));
+        await using (app)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/conflict");
+            request.Headers.Add("X-Correlation-ID", "6F1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D");
+
+            using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("Sample conflict.", problem.GetProperty("title").GetString());
+            Assert.Equal("/conflict", problem.GetProperty("instance").GetString());
+            Assert.Equal("sample.conflict", problem.GetProperty("errorCode").GetString());
+            Assert.Equal("6F1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D", problem.GetProperty("correlationId").GetString(), ignoreCase: true);
+            Assert.False(string.IsNullOrEmpty(problem.GetProperty("traceId").GetString()));
         }
     }
 
