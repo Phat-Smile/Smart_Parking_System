@@ -16,6 +16,7 @@ public sealed class LicensePlateNormalizerTests
     [InlineData("59-X1 123.45", "59X112345")]
     [InlineData("29-a 999.99", "29A99999")]
     [InlineData(" 43B1-9999 ", "43B19999")]
+    [InlineData("\t51A\u00A0123.45\n", "51A12345")]
     public void Normalize_removes_delimiters_and_uppercases(string? raw, string expected)
     {
         var result = _normalizer.Normalize(raw);

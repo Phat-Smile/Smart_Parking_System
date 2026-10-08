@@ -6,6 +6,7 @@ using ParkingSystem.Identity.Application;
 using ParkingSystem.Identity.Infrastructure;
 using ParkingSystem.Identity.Persistence;
 using ParkingSystem.Identity.WebAPI.Endpoints;
+using ParkingSystem.Identity.WebAPI.Grpc;
 
 LoadRootEnvFile();
 
@@ -118,7 +119,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 app.MapAccountEndpoints();
-app.MapGrpcService<ParkingSystem.Identity.WebAPI.Grpc.IdentityVehicleGrpcService>();
+app.MapGrpcService<IdentityVehicleGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();

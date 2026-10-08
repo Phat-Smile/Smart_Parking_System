@@ -8,6 +8,7 @@ using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Identity.Infrastructure.Security;
+using ParkingSystem.Identity.Infrastructure.VehicleLookup;
 using ParkingSystem.BuildingBlocks.Time;
 
 namespace ParkingSystem.Identity.Infrastructure;
@@ -81,7 +82,7 @@ public static class DependencyInjection
             });
         });
 
-        services.AddSingleton<ParkingSystem.Identity.Application.Vehicles.Lookup.IVehicleLookupReader, ParkingSystem.Identity.Infrastructure.VehicleLookup.StubVehicleLookupReader>();
+        services.AddVehicleLookupReader(configuration);
 
         return services;
     }

@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.Identity.Application.Behaviors;
+using ParkingSystem.Identity.Application.Vehicles.Lookup;
 
 namespace ParkingSystem.Identity.Application;
 
@@ -12,7 +13,7 @@ public static class ApplicationDependencyInjection
         services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(typeof(ApplicationDependencyInjection).Assembly));
         services.AddValidatorsFromAssembly(typeof(ApplicationDependencyInjection).Assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        services.AddSingleton<ParkingSystem.Identity.Application.Vehicles.Lookup.ILicensePlateNormalizer, ParkingSystem.Identity.Application.Vehicles.Lookup.LicensePlateNormalizer>();
+        services.AddSingleton<ILicensePlateNormalizer, LicensePlateNormalizer>();
         return services;
     }
 }
