@@ -1,7 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
+using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.WebAPI.Security;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
@@ -10,9 +12,15 @@ internal static class ParkingSessionEndpoints
 {
     private const string Route = "/api/parking/sessions";
 
-    public sealed record OpenParkingSessionRequest(Guid LotId, string? PlateNumber, string? VehicleType);
+    // Fields stay nullable so a missing field reaches the validator and returns 400 with a clear message.
+    // The attributes only describe the contract in Swagger (DOC-002); the FluentValidation validators enforce it.
+    public sealed record OpenParkingSessionRequest(
+        [property: Required] Guid LotId,
+        [property: Required, StringLength(ParkingSession.PlateNumberMaxLength, MinimumLength = 1)] string? PlateNumber,
+        [property: Required, AllowedValues(nameof(VehicleType.Car), nameof(VehicleType.Motorbike))] string? VehicleType);
 
-    public sealed record CancelParkingSessionRequest(string? Reason);
+    public sealed record CancelParkingSessionRequest(
+        [property: Required, StringLength(ParkingSession.CancelReasonMaxLength, MinimumLength = 1)] string? Reason);
 
     public static IEndpointRouteBuilder MapParkingSessionEndpoints(this IEndpointRouteBuilder app)
     {
@@ -38,7 +46,8 @@ internal static class ParkingSessionEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
         // Staff undo a session when the barrier was opened but the vehicle did not enter (lead decision 2026-10-06).
         app.MapPost($"{Route}/{{sessionId:guid}}/cancel", async (
@@ -75,7 +84,8 @@ internal static class ParkingSessionEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
         return app;
     }

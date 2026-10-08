@@ -6,6 +6,7 @@ using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Infrastructure;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
+using ParkingSystem.Parking.WebAPI.OpenApi;
 using ParkingSystem.Parking.WebAPI.Security;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,7 +28,7 @@ if (enableGrpcReflection)
     builder.Services.AddGrpcReflection();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddParkingSwagger();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
