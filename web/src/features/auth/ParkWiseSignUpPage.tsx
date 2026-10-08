@@ -3,11 +3,15 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
 import { passwordSchema } from "./passwordSchema";
+import { registerParkWiseAccount } from "./registerParkWiseAccount";
+import { rememberPendingVerification } from "./pendingVerification";
+import { ApiError } from "@/shared/errors/api-error";
 
 const signUpSchema = z
     .object({
@@ -67,12 +71,12 @@ function EyeIcon({ visible }: { visible: boolean }) {
     );
 }
 
-/** ParkWise Sign Up UI. API integration is deliberately deferred. */
 export function ParkWiseSignUpPage({
     fontClassName,
 }: {
     fontClassName: string;
 }) {
+    const router = useRouter();
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
     const [submitError, setSubmitError] = useState("");
@@ -93,11 +97,36 @@ export function ParkWiseSignUpPage({
         },
     });
 
-    function onSubmit() {
+    async function onSubmit(values: SignUpValues) {
         setNotice("");
-        setSubmitError(
-            "Sign up is not connected in this frontend yet. Please try again later.",
-        );
+        setSubmitError("");
+        try {
+            const account = await registerParkWiseAccount({
+                fullName: `${values.firstName.trim()} ${values.lastName.trim()}`,
+                email: values.email.trim(),
+                password: values.password,
+                phoneNumber: values.phone.trim(),
+            });
+            if (!rememberPendingVerification(account.email)) {
+                setSubmitError(
+                    "Registration was accepted, but this browser could not open email verification. Please enable session storage and try again.",
+                );
+                return;
+            }
+            router.push("/verify-otp");
+        } catch (error) {
+            const message =
+                error instanceof ApiError && error.status === 409
+                    ? "This email address is already registered."
+                    : error instanceof ApiError && error.status === 400
+                      ? "Check your details and try again."
+                      : "We couldn't create your account. Check your connection and try again.";
+            setSubmitError(
+                error instanceof ApiError && error.correlationId
+                    ? `${message} Support ID: ${error.correlationId}`
+                    : message,
+            );
+        }
     }
 
     function onGoogleSignUp() {

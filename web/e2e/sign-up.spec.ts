@@ -19,9 +19,23 @@ test("Landing Sign Up opens the form and Log in returns to Login", async ({
     await expect(page).toHaveURL(/\/login$/);
 });
 
-test("Sign Up validates fields and does not fake account creation", async ({
+test("Sign Up validates fields and posts the documented registration contract", async ({
     page,
 }) => {
+    let registrationBody: Record<string, unknown> | undefined;
+    await page.route("**/api/identity/accounts", async (route) => {
+        registrationBody = route.request().postDataJSON();
+        await route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({
+                accountId: "7b92df78-c09a-4122-87f5-9610f4439c27",
+                email: "jane@example.com",
+                fullName: "Jane Doe",
+                status: "PendingEmailVerification",
+            }),
+        });
+    });
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/sign-up");
@@ -44,10 +58,50 @@ test("Sign Up validates fields and does not fake account creation", async ({
         .locator("#parkwise-signup-confirm-password")
         .fill("ValidPassword123!");
     await page.getByRole("button", { name: "Create Account" }).click();
-    await expect(page.getByText(/Sign up is not connected/)).toBeVisible();
-    await expect(page).toHaveURL(/\/sign-up$/);
+    await expect(page).toHaveURL(/\/verify-otp$/);
+    expect(registrationBody).toEqual({
+        fullName: "Jane Doe",
+        email: "jane@example.com",
+        password: "ValidPassword123!",
+        phoneNumber: "0912345678",
+    });
+    expect(
+        await page.evaluate(() =>
+            sessionStorage.getItem("parkwise.pending-verification-email"),
+        ),
+    ).toBe("jane@example.com");
     expect(page.url()).not.toContain("ValidPassword123");
     expect(pageErrors).toEqual([]);
+});
+
+test("Sign Up keeps the form on a registered-email conflict", async ({
+    page,
+}) => {
+    await page.route("**/api/identity/accounts", (route) =>
+        route.fulfill({
+            status: 409,
+            contentType: "application/problem+json",
+            body: JSON.stringify({
+                title: "Conflict",
+                status: 409,
+                errorCode: "identity.email_already_registered",
+            }),
+        }),
+    );
+    await page.goto("/sign-up");
+    await page.locator("#parkwise-signup-first-name").fill("Jane");
+    await page.locator("#parkwise-signup-last-name").fill("Doe");
+    await page.locator("#parkwise-signup-email").fill("jane@example.com");
+    await page.locator("#parkwise-signup-phone").fill("0912345678");
+    await page.locator("#parkwise-signup-password").fill("ValidPassword123!");
+    await page
+        .locator("#parkwise-signup-confirm-password")
+        .fill("ValidPassword123!");
+    await page.getByRole("button", { name: "Create Account" }).click();
+    await expect(
+        page.getByText("This email address is already registered."),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/sign-up$/);
 });
 
 test("Sign Up password visibility and mobile layout remain usable", async ({

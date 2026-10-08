@@ -7,14 +7,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
+import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import { rememberPendingVerification } from "./pendingVerification";
+import { ApiError } from "@/shared/errors/api-error";
 
 const loginSchema = z.object({
     email: z
         .string()
         .trim()
         .min(1, "Email is required")
-        .email("Enter a valid email address"),
-    password: z.string().min(1, "Password is required"),
+        .email("Enter a valid email address")
+        .max(254, "Email is too long"),
+    password: z
+        .string()
+        .min(1, "Password is required")
+        .max(72, "Password is too long"),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -26,20 +33,61 @@ export function ParkWiseLoginPage({
 }) {
     const [notice, setNotice] = useState("");
     const [submitError, setSubmitError] = useState("");
+    const [authenticatedEmail, setAuthenticatedEmail] = useState("");
+    const [canVerifyEmail, setCanVerifyEmail] = useState(false);
     const {
         register,
         handleSubmit,
+        resetField,
         formState: { errors, isSubmitting },
     } = useForm<LoginValues>({
         resolver: zodResolver(loginSchema),
         defaultValues: { email: "", password: "" },
     });
 
-    function onSubmit() {
+    async function onSubmit(values: LoginValues) {
         setNotice("");
-        setSubmitError(
-            "Log in is not connected in this frontend yet. Please try again later.",
-        );
+        setSubmitError("");
+        setAuthenticatedEmail("");
+        setCanVerifyEmail(false);
+        try {
+            const account = await loginParkWiseAccount(
+                values.email.trim(),
+                values.password,
+            );
+            resetField("password");
+            setAuthenticatedEmail(account.email);
+        } catch (error) {
+            if (error instanceof ApiError) {
+                const code = error.problem?.errorCode;
+                const message =
+                    code === "identity.invalid_credentials" ||
+                    error.status === 401
+                        ? "Email or password is incorrect."
+                        : code === "identity.email_not_verified"
+                          ? "Your email is not verified yet. Enter the code sent to your email."
+                          : code === "identity.account_temporarily_locked" ||
+                              error.status === 423
+                            ? "Too many attempts. Please try again later."
+                            : error.status === 400
+                              ? "Check your email and password and try again."
+                              : "We couldn't log you in. Please try again later.";
+                if (code === "identity.email_not_verified") {
+                    setCanVerifyEmail(
+                        rememberPendingVerification(values.email.trim()),
+                    );
+                }
+                setSubmitError(
+                    error.correlationId
+                        ? `${message} Support ID: ${error.correlationId}`
+                        : message,
+                );
+            } else {
+                setSubmitError(
+                    "We couldn't connect. Check your connection and try again.",
+                );
+            }
+        }
     }
 
     function onGoogleSignIn() {
@@ -139,6 +187,21 @@ export function ParkWiseLoginPage({
                     {submitError && (
                         <p className="parkwise-login-error" role="alert">
                             {submitError}
+                        </p>
+                    )}
+                    {canVerifyEmail && (
+                        <Link
+                            href="/verify-otp"
+                            className="parkwise-login-forgot"
+                        >
+                            Verify your email
+                        </Link>
+                    )}
+                    {authenticatedEmail && (
+                        <p className="parkwise-login-notice" role="status">
+                            Identity accepted {authenticatedEmail}. Persistent
+                            sign-in is not available until session management is
+                            connected.
                         </p>
                     )}
 

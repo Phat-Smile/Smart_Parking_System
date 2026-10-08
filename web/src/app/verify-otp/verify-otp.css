@@ -99,10 +99,33 @@
     text-align: center;
     font-size: 14px;
 }
-.parkwise-otp-help a {
+.parkwise-otp-help a,
+.parkwise-otp-help button {
     color: #171717;
     font-weight: 600;
     text-decoration: underline;
+}
+.parkwise-otp-help button {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+.parkwise-otp-help button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+.parkwise-otp-verified {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 448px;
+    text-align: center;
+}
+.parkwise-otp-verified .parkwise-login-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 @media (max-width: 767px) {
