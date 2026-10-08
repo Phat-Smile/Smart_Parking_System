@@ -2,69 +2,58 @@ import { expect, test } from "@playwright/test";
 
 for (const osTheme of ["light", "dark"] as const) {
     for (const selectedTheme of ["light", "dark"] as const) {
-        test(`Guest ${selectedTheme} theme renders on ${osTheme} OS`, async ({
+        test(`stored ${selectedTheme} theme wins on ${osTheme} OS`, async ({
             page,
-        }, testInfo) => {
-            const initialTheme = selectedTheme === "light" ? "dark" : "light";
+        }) => {
             await page.emulateMedia({ colorScheme: osTheme });
-            await page.addInitScript((theme) => {
-                localStorage.setItem("smart-parking-theme", theme);
-            }, initialTheme);
-
-            await page.goto("/guest");
-            const toggle = page
-                .getByRole("button", { name: "Switch theme" })
-                .first();
-            await expect(toggle).toHaveAttribute(
-                "title",
-                initialTheme === "light"
-                    ? "Switch to Dark Mode"
-                    : "Switch to Light Mode",
+            await page.addInitScript(
+                (theme) => localStorage.setItem("smart-parking-theme", theme),
+                selectedTheme,
             );
-            await toggle.click();
-
+            await page.goto("/");
             await expect(page.locator("html")).toHaveAttribute(
                 "data-theme",
                 selectedTheme,
             );
-            await expect(page.locator("#pageBody")).toHaveCSS(
-                "background-color",
-                selectedTheme === "dark"
-                    ? "rgb(3, 1, 14)"
-                    : "rgb(248, 249, 252)",
+            await expect(page.locator("html")).toHaveClass(
+                selectedTheme === "dark" ? /dark/ : /^(?!.*dark).*$/,
             );
-            await expect(page.locator("#heroHeading")).toHaveCSS(
-                "color",
-                selectedTheme === "dark"
-                    ? "rgb(255, 255, 255)"
-                    : "rgb(17, 19, 34)",
-            );
-            await page.screenshot({
-                path: testInfo.outputPath(
-                    `guest-${osTheme}-${selectedTheme}.png`,
-                ),
-                fullPage: true,
-                animations: "disabled",
-            });
+            await expect(
+                page.getByRole("heading", {
+                    name: /Find the Right Parking Spot/i,
+                }),
+            ).toBeVisible();
         });
     }
 }
 
-test("stored dark theme is applied before hydration", async ({ page }) => {
+test("stored theme is applied before landing hydration", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
-    await page.addInitScript(() => {
-        localStorage.setItem("smart-parking-theme", "dark");
-    });
+    await page.addInitScript(() =>
+        localStorage.setItem("smart-parking-theme", "dark"),
+    );
     await page.route("**/_next/static/chunks/*.js", async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         await route.continue();
     });
-
-    await page.goto("/guest", { waitUntil: "commit" });
-    await expect(page.locator("#pageBody")).toBeVisible();
+    await page.goto("/", { waitUntil: "commit" });
     await expect(page.locator("html")).toHaveClass(/dark/);
-    await expect(page.locator("#pageBody")).toHaveCSS(
-        "background-color",
-        "rgb(3, 1, 14)",
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+});
+
+test("mobile navigation remains usable without horizontal overflow", async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(
+        page.getByRole("navigation", { name: "Mobile navigation" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "How It Works" }).first().click();
+    await expect(page).toHaveURL(/#how-it-works$/);
+    const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth,
     );
+    expect(overflow).toBe(false);
 });
