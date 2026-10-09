@@ -242,7 +242,7 @@ The .NET Gateway and APIs validate RS256 tokens with a public key. Before starti
 ./scripts/security/New-DevelopmentJwtKey.ps1
 ```
 
-The script creates `.local/security/jwt/private.pem` and `public.pem` and refuses to overwrite an existing file. Validators mount only `public.pem`, read-only. The private key is ignored by Git and excluded from Docker build contexts; it is not needed by any application in this phase. Never paste either key into tracked files, logs, or documentation. Do not generate keys on application startup.
+The script creates `.local/security/jwt/private.pem` and `public.pem` and refuses to overwrite an existing file. Validators mount only `public.pem`, read-only. `identity-api` also mounts `private.pem`, read-only, because it signs access tokens. The private key is ignored by Git and excluded from Docker build contexts and images. Never paste either key into tracked files, logs, or documentation. Do not generate keys on application startup.
 
 Gateway browser origins are configured in `.env` with comma-separated explicit origins:
 

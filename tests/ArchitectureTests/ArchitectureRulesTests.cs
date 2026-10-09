@@ -173,7 +173,11 @@ public sealed class ArchitectureRulesTests
         Assert.Contains(".local/", dockerIgnore, StringComparison.Ordinal);
         Assert.Contains("*.pem", dockerIgnore, StringComparison.Ordinal);
         Assert.Contains("public.pem:/run/parking-system/security/jwt/public.pem:ro", compose, StringComparison.Ordinal);
-        Assert.DoesNotContain("private.pem", compose, StringComparison.OrdinalIgnoreCase);
+
+        // Identity signs access tokens and is the only service mounting the private key, read-only.
+        var identityService = ComposeServiceBlock(compose, "identity-api");
+        Assert.Contains("private.pem:/run/parking-system/security/jwt/private.pem:ro", identityService, StringComparison.Ordinal);
+        Assert.DoesNotContain("private.pem", compose.Replace(identityService, string.Empty, StringComparison.Ordinal), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("JWT_PRIVATE_KEY", envExample, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("BEGIN PRIVATE KEY", envExample, StringComparison.OrdinalIgnoreCase);
     }
@@ -323,6 +327,17 @@ public sealed class ArchitectureRulesTests
             start += value.Length;
         }
         return count;
+    }
+
+    // From "  <service>:" up to the next top-level service key (two-space indent) or the networks section.
+    private static string ComposeServiceBlock(string compose, string service)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            compose,
+            $@"^  {System.Text.RegularExpressions.Regex.Escape(service)}:\r?\n(?:(?:    .*|\s*)\r?\n)*",
+            System.Text.RegularExpressions.RegexOptions.Multiline);
+        Assert.True(match.Success, $"Service '{service}' was not found in docker-compose.yml.");
+        return match.Value;
     }
 
     private static string ProjectPath(string service, string projectName) =>

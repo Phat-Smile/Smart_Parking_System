@@ -16,7 +16,7 @@ Future Identity authentication endpoints (register, login, email OTP verificatio
 
 ## Key ownership
 
-Identity will own the private signing key when token issuance is implemented in its authentication vertical slice. The current Gateway and APIs receive only the public verification key. The local development generator creates `.local/security/jwt/private.pem` and `public.pem`; it refuses to overwrite either file. `.local/` is ignored by Git and Docker build contexts. Compose mounts only `public.pem` read-only at `/run/parking-system/security/jwt/public.pem`. Private key content must never be pasted into source, configuration examples, container images, logs, or telemetry.
+Identity owns the private signing key and is the only service that receives it. The Gateway and the other APIs receive only the public verification key. The local development generator creates `.local/security/jwt/private.pem` and `public.pem`; it refuses to overwrite either file. `.local/` is ignored by Git and Docker build contexts. Compose mounts `public.pem` read-only at `/run/parking-system/security/jwt/public.pem` for every API, and `private.pem` read-only at `/run/parking-system/security/jwt/private.pem` for `identity-api` only (`Security__Jwt__PrivateKeyPath`). Private key content must never be pasted into source, configuration examples, container images, logs, or telemetry.
 
 Key rotation and JWKS/KID distribution are future work. No revocation or refresh-token lifecycle exists yet.
 
