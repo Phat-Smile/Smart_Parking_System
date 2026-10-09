@@ -181,35 +181,58 @@ $email1 = "e2e.test.$rand@smartparking.local"
 $email2 = "e2e.noname.$rand@smartparking.local"
 $pwd = "SecurePassword123!"
 
-# 1.1 Register with FullName via new standardized route /api/identity/accounts/register
-$r1 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/register" -Body @{
+# 1.1 Register with FullName
+$r1 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{
     email    = $email1
     password = $pwd
     fullName = "Nguyen Van Test"
 }
-Assert-Step "REG-01" "Register with full name via /register succeeds" 201 $r1.StatusCode
+Assert-Step "REG-01" "Register with full name succeeds" 201 $r1.StatusCode
 
-# 1.2 Register without FullName via backward-compatibility alias /api/identity/accounts
+# 1.2 Register without FullName
 $r2 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{
     email    = $email2
     password = $pwd
 }
-Assert-Step "REG-02" "Register via backward-compatible alias /accounts succeeds" 201 $r2.StatusCode
+Assert-Step "REG-02" "Register without full name succeeds" 201 $r2.StatusCode
 
 # 1.3 Duplicate email
-$r3 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/register" -Body @{
+$r3 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{
     email    = $email1
     password = $pwd
 }
 Assert-Step "REG-03" "Duplicate email returns 409 Conflict with Vietnamese message" 409 $r3.StatusCode "identity.email_already_registered" $r3.Body
 
 # 1.4 Validation check: Invalid fields return specific Vietnamese messages
-$r4 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/register" -Body @{
+$r4 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{
     email       = "not-an-email"
     password    = "123"
     phoneNumber = "0123"
 }
 Assert-Step "REG-04" "Reject invalid fields with specific Vietnamese messages" 400 $r4.StatusCode "request.validation_failed" $r4.Body
+
+# 1.5 Password policy check: Password missing special character
+$r5 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{
+    email    = "policy.check.$rand@smartparking.local"
+    password = "NoSpecialChar123"
+}
+Assert-Step "REG-05" "Reject password missing special character" 400 $r5.StatusCode "Mật khẩu phải chứa ít nhất một ký tự đặc biệt" $r5.Body
+
+# 1.6 Phone number format check: Invalid Vietnam mobile prefix
+$r6 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{
+    email       = "phone.check.$rand@smartparking.local"
+    password    = $pwd
+    phoneNumber = "0123456789"
+}
+Assert-Step "REG-06" "Reject invalid Vietnam mobile prefix" 400 $r6.StatusCode "Số điện thoại phải là số di động Việt Nam" $r6.Body
+
+# 1.7 FullName format check: Contains numbers or invalid symbols
+$r7 = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{
+    email    = "name.check.$rand@smartparking.local"
+    password = $pwd
+    fullName = "Tester123"
+}
+Assert-Step "REG-07" "Reject full name containing numbers" 400 $r7.StatusCode "Họ và tên chỉ được chứa chữ cái" $r7.Body
 
 Write-Host ""
 Write-Host "--- TEST GROUP 2: EMAIL OTP VERIFICATION (US-AUTH-003) ---" -ForegroundColor Yellow
@@ -239,13 +262,25 @@ if ($rResend1.StatusCode -eq 429) {
 $rResendGeneric = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/resend-otp" -Body @{ email = "nonexistent.$rand@smartparking.local" }
 Assert-Step "OTP-06" "Resend OTP for non-existent email returns 200 with clear Vietnamese guide" 200 $rResendGeneric.StatusCode "Email này chưa được đăng ký" $rResendGeneric.Body $rResendGeneric.RawContent
 
+# 2.4 Verify OTP format validation: OTP not 6 digits
+$rOtpFormat = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/verify-email" -Body @{ email = $email1; otpCode = "12345" }
+Assert-Step "OTP-07" "Reject OTP code with invalid format (not 6 digits)" 400 $rOtpFormat.StatusCode "Mã OTP phải là một dãy số gồm đúng 6 chữ số" $rOtpFormat.Body
+
 Write-Host ""
 Write-Host "--- TEST GROUP 3: LOGIN AND ACCOUNT LOCKOUT (US-AUTH-004, US-AUTH-008) ---" -ForegroundColor Yellow
+
+# 3.1 Unverified account login rejected with 403 Forbidden
+$rUnverifiedLogin = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/login" -Body @{ email = $email1; password = $pwd }
+Assert-Step "LOGIN-02" "Login with unverified email returns 403 Forbidden" 403 $rUnverifiedLogin.StatusCode "identity.email_not_verified" $rUnverifiedLogin.Body $rUnverifiedLogin.RawContent
+
+# 3.2 Non-existent email login returns generic 401 Unauthorized (anti-enumeration)
+$rNonExistLogin = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/login" -Body @{ email = "fake.unknown.$rand@smartparking.local"; password = $pwd }
+Assert-Step "LOGIN-03" "Login with non-existent email returns 401 Unauthorized" 401 $rNonExistLogin.StatusCode "identity.invalid_credentials" $rNonExistLogin.Body $rNonExistLogin.RawContent
 
 $lockoutEmail = "lockout.test.$rand@smartparking.local"
 $null = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts" -Body @{ email = $lockoutEmail; password = $pwd }
 
-# 3.1 Wrong password attempts
+# 3.3 Wrong password attempts
 $rWrongLogin = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/login" -Body @{ email = $lockoutEmail; password = "WrongPassword1" }
 Assert-Step "LOGIN-01" "Wrong password returns 401 with Vietnamese message" 401 $rWrongLogin.StatusCode "identity.invalid_credentials" $rWrongLogin.Body $rWrongLogin.RawContent
 
@@ -290,20 +325,56 @@ if ($rGoogleFake.StatusCode -eq 503) {
     Assert-Step "GGL-02" "Invalid Google token rejected with 401 with Vietnamese message" 401 $rGoogleFake.StatusCode "identity.invalid_google_token" $rGoogleFake.Body $rGoogleFake.RawContent
 }
 
+# US-AUTH-003: Resend OTP for already-verified email informs user to log in
+$rResendVerified = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/resend-otp" -Body @{ email = $email2 }
+Assert-Step "OTP-08" "Resend OTP for already-verified email directs user to log in" 200 $rResendVerified.StatusCode "Tài khoản này đã được xác thực trước đó" $rResendVerified.Body $rResendVerified.RawContent
+
+# US-AUTH-004: Successful login for verified user
+$rLoginSuccess = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/login" -Body @{ email = $email2; password = $pwd }
+Assert-Step "LOGIN-04" "Verified user logs in successfully (200 OK with tokens)" 200 $rLoginSuccess.StatusCode
+$token1 = $rLoginSuccess.Body.accessToken
+$refresh1 = $rLoginSuccess.Body.refreshToken
+
 Write-Host ""
-Write-Host "--- TEST GROUP 6: REFRESH TOKEN & LOGOUT ---" -ForegroundColor Yellow
+Write-Host "--- TEST GROUP 6: REFRESH TOKEN, SESSIONS & LOGOUT ---" -ForegroundColor Yellow
 
 # 6.1 Invalid refresh token returns 401 with Vietnamese message
 $rInvalidRefresh = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/refresh" -Body @{ refreshToken = "invalid_token_sample" }
 Assert-Step "REF-01" "Invalid refresh token returns 401 with Vietnamese message" 401 $rInvalidRefresh.StatusCode "identity.invalid_refresh_token" $rInvalidRefresh.Body $rInvalidRefresh.RawContent
 
-# 6.2 Logout with dummy token returns 200 with Vietnamese message
+# 6.2 Empty refresh token validation
+$rEmptyRefresh = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/refresh" -Body @{ refreshToken = "" }
+Assert-Step "REF-02" "Empty refresh token rejected with 400 with Vietnamese message" 400 $rEmptyRefresh.StatusCode "request.validation_failed" $rEmptyRefresh.Body $rEmptyRefresh.RawContent
+
+# 6.3 Valid Refresh Token rotation succeeds (200 OK)
+$rRotate = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/refresh" -Body @{ refreshToken = $refresh1 }
+Assert-Step "REF-03" "Token rotation succeeds with valid refresh token (200 OK)" 200 $rRotate.StatusCode
+$token2 = $rRotate.Body.accessToken
+$refresh2 = $rRotate.Body.refreshToken
+
+# 6.4 Token Reuse Attack Detection: Replay old refresh token triggers 401 and revokes session
+$rReplay = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/refresh" -Body @{ refreshToken = $refresh1 }
+Assert-Step "REF-04" "Reusing rotated refresh token triggers security detection (401)" 401 $rReplay.StatusCode "identity.refresh_token_reused" $rReplay.Body $rReplay.RawContent
+
+# 6.5 Logout with dummy token returns 200 with Vietnamese message
 $rLogout = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/logout" -Body @{ refreshToken = "sample_refresh_token" }
 Assert-Step "LGO-01" "Logout returns 200 with Vietnamese success message" 200 $rLogout.StatusCode "Đăng xuất thành công" $rLogout.Body $rLogout.RawContent
 
-# 6.3 Empty refresh token validation
-$rEmptyRefresh = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/refresh" -Body @{ refreshToken = "" }
-Assert-Step "REF-02" "Empty refresh token rejected with 400 with Vietnamese message" 400 $rEmptyRefresh.StatusCode "request.validation_failed" $rEmptyRefresh.Body $rEmptyRefresh.RawContent
+# 6.6 Logout-all without Bearer token returns 401
+$rLogoutAllNoAuth = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/logout-all"
+Assert-Step "LGO-02" "Logout-all without Bearer token rejected with 401 Unauthorized" 401 $rLogoutAllNoAuth.StatusCode
+
+# 6.7 Logout-all with valid Bearer token revokes all devices (200 OK)
+$rLoginFresh = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/login" -Body @{ email = $email2; password = $pwd }
+$tokenFresh = $rLoginFresh.Body.accessToken
+$refreshFresh = $rLoginFresh.Body.refreshToken
+
+$rLogoutAllAuth = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/logout-all" -Token $tokenFresh
+Assert-Step "LGO-03" "Logout-all with valid Bearer token succeeds (200 OK)" 200 $rLogoutAllAuth.StatusCode "Đã đăng xuất thành công" $rLogoutAllAuth.Body $rLogoutAllAuth.RawContent
+
+# 6.8 Refresh after Logout-all is rejected with 401 (session revoked)
+$rRevokedRefresh = Invoke-Api -Method "POST" -Endpoint "/api/identity/accounts/refresh" -Body @{ refreshToken = $refreshFresh }
+Assert-Step "REF-05" "Refresh token after logout-all rejected with 401 (session revoked)" 401 $rRevokedRefresh.StatusCode "identity.session_revoked" $rRevokedRefresh.Body $rRevokedRefresh.RawContent
 
 Write-Host ""
 Write-Host "==========================================================================" -ForegroundColor Cyan
