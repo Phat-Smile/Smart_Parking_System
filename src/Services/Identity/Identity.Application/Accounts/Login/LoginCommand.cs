@@ -87,7 +87,17 @@ public sealed class LoginCommandHandler(
 
             account.ClearExpiredLockout(now);
 
-            var passwordMatched = passwordHasher.Verify(request.Password, account.PasswordHash);
+            // G3: an account created with Google has no password yet; answer exactly like a wrong password.
+            bool passwordMatched;
+            if (account.PasswordHash is { } passwordHash)
+            {
+                passwordMatched = passwordHasher.Verify(request.Password, passwordHash);
+            }
+            else
+            {
+                passwordHasher.VerifyDummy(request.Password);
+                passwordMatched = false;
+            }
             if (!passwordMatched)
             {
                 account.RecordFailedLogin(now);
@@ -119,39 +129,9 @@ public sealed class LoginCommandHandler(
                 return Result<LoginResponse>.Failure(LoginErrors.EmailNotVerified);
             }
 
-            // Create AuthSession (Token Family)
-            var session = AuthSession.Create(
-                Guid.NewGuid(),
-                account.Id,
-                request.DeviceInfo,
-                request.IpAddress,
-                now,
-                now.AddDays(AuthSession.DefaultAbsoluteLifetimeDays));
-            authSessions.Add(session);
-
-            // Issue Refresh Token
-            var (rawRefreshToken, refreshTokenHash) = refreshTokenGenerator.GenerateToken();
-            var refreshToken = RefreshToken.Issue(
-                Guid.NewGuid(),
-                session.Id,
-                account.Id,
-                refreshTokenHash,
-                now,
-                session.CalculateNextTokenExpiration(now));
-            refreshTokens.Add(refreshToken);
-
-            // Atomic commit: updates Account state, inserts AuthSession and inserts RefreshToken in a single unit of work
-            await accounts.SaveChangesAsync(cancellationToken);
-
-            // Issue RS256 JWT Access Token
-            var accessToken = jwtTokenIssuer.IssueAccessToken(account, now);
-
-            var response = new LoginResponse(
-                accessToken,
-                "Bearer",
-                jwtTokenIssuer.AccessTokenExpirationSeconds,
-                rawRefreshToken,
-                new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString(), account.Role.ToString()));
+            var response = await LoginSession.StartAsync(
+                account, request.DeviceInfo, request.IpAddress, now,
+                accounts, authSessions, refreshTokens, refreshTokenGenerator, jwtTokenIssuer, cancellationToken);
 
             return Result<LoginResponse>.Success(response);
         }, cancellationToken);

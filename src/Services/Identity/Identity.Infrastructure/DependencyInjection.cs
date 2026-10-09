@@ -53,6 +53,13 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IJwtTokenIssuer, JwtTokenIssuer>();
         services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
+        // Authentication:Google:ClientId, or GOOGLE_CLIENT_ID from .env (.env.example already lists it).
+        services.AddOptions<GoogleAuthOptions>()
+            .Bind(configuration.GetSection(GoogleAuthOptions.SectionName))
+            .PostConfigure(options => options.ClientId ??= configuration["GOOGLE_CLIENT_ID"]);
+        services.AddSingleton<IGoogleIdTokenValidator>(provider => new GoogleIdTokenValidator(
+            provider.GetRequiredService<IOptions<GoogleAuthOptions>>(),
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GoogleIdTokenValidator>>()));
         services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
         services.AddOptions<OtpSecurityOptions>()
             .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))

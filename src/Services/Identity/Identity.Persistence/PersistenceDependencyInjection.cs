@@ -37,7 +37,9 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, IdentityInboxExecutionCoordinator>();
-        services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<AccountRepository>();
+        services.AddScoped<IAccountRepository>(provider => provider.GetRequiredService<AccountRepository>());
+        services.AddScoped<IGoogleAccountRepository>(provider => provider.GetRequiredService<AccountRepository>());
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();

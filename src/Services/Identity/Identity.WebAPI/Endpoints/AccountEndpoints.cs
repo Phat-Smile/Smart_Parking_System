@@ -2,6 +2,7 @@ using System.Globalization;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
+using ParkingSystem.Identity.Application.Accounts.GoogleLogin;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
 using ParkingSystem.Identity.Application.Accounts.LogoutAll;
@@ -26,6 +27,7 @@ internal static class AccountEndpoints
     public sealed record RefreshTokenRequest(string RefreshToken);
     public sealed record LogoutRequest(string RefreshToken);
     public sealed record ForgotPasswordRequest(string Email);
+    public sealed record GoogleLoginRequest(string IdToken);
     public sealed record ResetPasswordRequest(string Email, string OtpCode, string NewPassword);
 
     private static readonly Dictionary<string, int> RefreshErrorStatusCodes = new()
@@ -46,7 +48,9 @@ internal static class AccountEndpoints
         [LoginErrors.EmailNotVerified.Code] = StatusCodes.Status403Forbidden,
         [LoginErrors.AccountSuspended.Code] = StatusCodes.Status403Forbidden,
         [LoginErrors.AccountDisabled.Code] = StatusCodes.Status403Forbidden,
-        [LoginErrors.AccountTemporarilyLocked.Code] = StatusCodes.Status423Locked
+        [LoginErrors.AccountTemporarilyLocked.Code] = StatusCodes.Status423Locked,
+        [GoogleLoginErrors.InvalidGoogleToken.Code] = StatusCodes.Status401Unauthorized,
+        [GoogleLoginErrors.GoogleLoginUnavailable.Code] = StatusCodes.Status503ServiceUnavailable
     };
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
@@ -193,6 +197,37 @@ internal static class AccountEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status423Locked);
+
+        // US-AUTH-002: sign in or sign up with a Google ID token obtained by the frontend (public endpoint).
+        app.MapPost("/api/identity/accounts/google", async (
+                GoogleLoginRequest request,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(
+                    new GoogleLoginCommand(
+                        request.IdToken,
+                        httpContext.Request.Headers.UserAgent.ToString(),
+                        httpContext.Connection.RemoteIpAddress?.ToString()),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                return Results.Problem(
+                    statusCode: LoginErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest),
+                    title: result.Error.Code,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .WithName("GoogleLogin")
+            .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status423Locked)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         // US-AUTH-005: refresh access token and rotate refresh token (public endpoint).
         app.MapPost("/api/identity/accounts/refresh", async (

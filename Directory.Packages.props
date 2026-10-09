@@ -10,6 +10,8 @@
     <PackageVersion Include="MediatR" Version="14.1.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.6" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+    <!-- Same version JwtBearer brings in; Identity.Infrastructure validates Google ID tokens with it. -->
+    <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.7" />
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
