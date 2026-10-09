@@ -120,6 +120,38 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
     }
 
     [Fact]
+    public async Task Qr_and_user_queries_return_only_open_sessions()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var userId = Guid.NewGuid();
+        var lotId = await CreateApprovedLotAsync(serviceProvider, cancellationToken);
+        var open = ParkingSession.Open(Guid.NewGuid(), lotId, "29A-111.11", VehicleType.Car, DateTimeOffset.UtcNow, "qr-open-" + Guid.NewGuid().ToString("N")[..8], userId, Guid.NewGuid());
+        var closed = ParkingSession.Open(Guid.NewGuid(), lotId, "29A-222.22", VehicleType.Car, DateTimeOffset.UtcNow.AddMinutes(-5), "qr-closed-" + Guid.NewGuid().ToString("N")[..8], userId, Guid.NewGuid());
+        closed.Cancel(StaffId, "Vehicle did not enter", DateTimeOffset.UtcNow);
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+            sessions.Add(open);
+            sessions.Add(closed);
+            Assert.True(await sessions.TrySaveChangesAsync(cancellationToken));
+        }
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+
+            var mine = await sessions.ListOpenByUserAsync(userId, cancellationToken);
+            Assert.Equal(open.Id, Assert.Single(mine).Id);
+
+            Assert.Equal(open.Id, (await sessions.FindOpenByQrTokenAsync(open.QrToken, cancellationToken))!.Id);
+            // BR-11.e: the QR of a closed session is no longer valid.
+            Assert.Null(await sessions.FindOpenByQrTokenAsync(closed.QrToken, cancellationToken));
+        }
+    }
+
+    [Fact]
     public async Task Foreign_key_rejects_a_session_for_a_lot_that_does_not_exist()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

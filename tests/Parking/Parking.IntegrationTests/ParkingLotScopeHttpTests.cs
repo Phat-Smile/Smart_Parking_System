@@ -65,6 +65,20 @@ public sealed class ParkingLotScopeHttpTests
         Assert.Equal(ParkingLotAccessErrors.AccessDenied.Code, problem.GetProperty("errorCode").GetString());
     }
 
+    [Theory]
+    [InlineData("Staff")]
+    [InlineData("ParkingLotOwner")]
+    public async Task Scanning_a_session_qr_of_a_lot_the_caller_is_not_assigned_to_returns_403(string role)
+    {
+        await using var app = await CreateAppAsync();
+
+        using var response = await SendAsync(app.GetTestClient(), HttpMethod.Get, "/api/parking/sessions/by-qr/qr-of-another-lot", role, body: null);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(ParkingLotAccessErrors.AccessDenied.Code, problem.GetProperty("errorCode").GetString());
+    }
+
     private static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string route, string? role, object? body)
     {
         using var request = new HttpRequestMessage(method, route);
@@ -146,11 +160,14 @@ public sealed class ParkingLotScopeHttpTests
         public Task<PlateOwner?> FindByPlateAsync(string normalizedPlate, CancellationToken cancellationToken) => Task.FromResult<PlateOwner?>(null);
     }
 
-    // Không được gọi tới: request bị chặn ở bước kiểm quyền theo bãi.
+    // Các thao tác ghi không được gọi tới: request bị chặn ở bước kiểm quyền theo bãi. Tra QR thì trả về một phiên của bãi khác.
     private sealed class UnusedSessionRepository : IParkingSessionRepository
     {
         public Task<bool> HasOpenSessionAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
+            Task.FromResult<ParkingSession?>(ParkingSession.Open(Guid.NewGuid(), Guid.NewGuid(), "51A-123.45", VehicleType.Car, DateTimeOffset.UtcNow, qrToken, null, null));
         public void Add(ParkingSession session) => throw new InvalidOperationException();
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }
