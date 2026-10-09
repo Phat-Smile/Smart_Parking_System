@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Identity.Application.Accounts.Login;
@@ -94,11 +95,14 @@ internal static class AccountEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
         // US-AUTH-003: resend verification OTP (public endpoint).
-        app.MapPost("/api/identity/accounts/resend-otp", async (ResendOtpRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/api/identity/accounts/resend-otp", async (ResendOtpRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
                     new ResendOtpCommand(request.Email),
                     cancellationToken);
+
+                if (result.Error?.RetryAfterSeconds is int retryAfter)
+                    httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
 
                 return result.IsSuccess
                     ? Results.Ok(result.Value)

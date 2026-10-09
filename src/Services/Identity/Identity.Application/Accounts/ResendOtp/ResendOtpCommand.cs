@@ -16,11 +16,24 @@ public sealed record ResentOtpResult(string Email, int ExpiresInSeconds, int Coo
 
 public static class ResendOtpErrors
 {
-    public static readonly Error CooldownActive =
-        new("identity.resend_cooldown_active", "Please wait at least 60 seconds before requesting another verification code.");
+    public const string CooldownActiveCode = "identity.resend_cooldown_active";
+    public const string RateLimitExceededCode = "identity.resend_rate_limit_exceeded";
 
-    public static readonly Error RateLimitExceeded =
-        new("identity.resend_rate_limit_exceeded", "Maximum resend limit of 5 OTPs per hour reached for this email.");
+    public static Error CooldownActive(int retryAfterSeconds) =>
+        new(CooldownActiveCode, $"Please wait {retryAfterSeconds} seconds before requesting another verification code.")
+        {
+            RetryAfterSeconds = retryAfterSeconds
+        };
+
+    public static Error RateLimitExceeded(int retryAfterSeconds) =>
+        new(RateLimitExceededCode, "Maximum resend limit of 5 OTPs per hour reached for this email.")
+        {
+            RetryAfterSeconds = retryAfterSeconds
+        };
+
+    // Whole seconds still to wait, never below 1 so a client never retries immediately.
+    public static int SecondsUntil(DateTimeOffset readyAtUtc, DateTimeOffset nowUtc) =>
+        Math.Max(1, (int)Math.Ceiling((readyAtUtc - nowUtc).TotalSeconds));
 }
 
 public sealed class ResendOtpCommandValidator : AbstractValidator<ResendOtpCommand>
@@ -68,13 +81,18 @@ public sealed class ResendOtpCommandHandler(
             var cooldownThreshold = now.AddSeconds(-EmailVerification.CooldownSeconds);
             var inCooldown = await emailVerifications.GetLatestResendInCooldownAsync(email, cooldownThreshold, cancellationToken);
             if (inCooldown is not null)
-                return Result<ResentOtpResult>.Failure(ResendOtpErrors.CooldownActive);
+                return Result<ResentOtpResult>.Failure(ResendOtpErrors.CooldownActive(
+                    ResendOtpErrors.SecondsUntil(inCooldown.CreatedAtUtc.AddSeconds(EmailVerification.CooldownSeconds), now)));
 
             // Check hourly rate limit (max 5 OTPs issued per hour)
             var hourlyThreshold = now.AddHours(-1);
             var hourlyCount = await emailVerifications.CountRecentResendsInPastHourAsync(email, hourlyThreshold, cancellationToken);
             if (hourlyCount >= EmailVerification.MaxHourlyOtpIssued)
-                return Result<ResentOtpResult>.Failure(ResendOtpErrors.RateLimitExceeded);
+            {
+                var oldest = await emailVerifications.GetOldestIssuedSinceAsync(email, hourlyThreshold, cancellationToken);
+                return Result<ResentOtpResult>.Failure(ResendOtpErrors.RateLimitExceeded(
+                    ResendOtpErrors.SecondsUntil((oldest ?? now).AddHours(1), now)));
+            }
 
             // Invalidate current active OTP
             var previousActive = await emailVerifications.GetLatestActiveForAccountAsync(account.Id, cancellationToken);

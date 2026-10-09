@@ -30,6 +30,7 @@ public sealed class EmailOtpTests
     [InlineData("user@example.com", "1234567", false)]
     [InlineData("user@example.com", "abcdef", false)]
     [InlineData("user@example.com", "", false)]
+    [InlineData("user@example.com", "١٢٣٤٥٦", false)] // Arabic-Indic digits match \d but are not an OTP
     public void VerifyEmailOtpCommandValidator_validates_email_and_otp_format(string email, string otpCode, bool expectedValid)
     {
         var validator = new VerifyEmailOtpCommandValidator();
@@ -184,6 +185,8 @@ public sealed class EmailOtpTests
         Assert.True(thirdResult.IsFailure);
         Assert.Equal(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded, thirdResult.Error);
         Assert.Equal(3, verification.AttemptCount);
+        Assert.True(verification.IsInvalidated);
+        Assert.Equal(clock.UtcNow, verification.InvalidatedAtUtc);
 
         // Attempt 4: even with correct code, now locked
         var fourthResult = await handler.Handle(
@@ -193,6 +196,42 @@ public sealed class EmailOtpTests
         Assert.True(fourthResult.IsFailure);
         Assert.Equal(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded, fourthResult.Error);
         Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
+    }
+
+    [Fact]
+    public async Task VerifyEmailOtp_accepts_the_new_code_after_resend_following_three_wrong_attempts()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+        var first = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
+        var accountRepo = new FakeAccountRepository([account]);
+        var verificationRepo = new FakeEmailVerificationRepository([first]);
+        var outboxWriter = new FakeOutboxWriter();
+        var verify = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
+
+        foreach (var wrong in new[] { "111111", "222222", "333333" })
+            await verify.Handle(new VerifyEmailOtpCommand("user@example.com", wrong), TestContext.Current.CancellationToken);
+        Assert.True(first.IsInvalidated);
+
+        clock.UtcNow = InitialTime.AddSeconds(61);
+        var resend = new ResendOtpCommandHandler(accountRepo, verificationRepo, new FakeOtpGenerator("654321"), _otpHasher, outboxWriter, clock);
+        var resent = await resend.Handle(new ResendOtpCommand("user@example.com"), TestContext.Current.CancellationToken);
+        Assert.True(resent.IsSuccess);
+
+        var result = await verify.Handle(new VerifyEmailOtpCommand("user@example.com", "654321"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AccountStatus.EmailVerified, account.Status);
+    }
+
+    [Fact]
+    public void ResendOtpErrors_round_the_remaining_time_up_and_never_below_one_second()
+    {
+        var now = InitialTime;
+
+        Assert.Equal(1, ResendOtpErrors.SecondsUntil(now.AddMilliseconds(200), now));
+        Assert.Equal(2, ResendOtpErrors.SecondsUntil(now.AddSeconds(1.2), now));
+        Assert.Equal(1, ResendOtpErrors.SecondsUntil(now.AddSeconds(-5), now));
     }
 
     [Fact]
@@ -253,7 +292,9 @@ public sealed class EmailOtpTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ResendOtpErrors.CooldownActive, result.Error);
+        Assert.Equal(ResendOtpErrors.CooldownActiveCode, result.Error!.Code);
+        Assert.Equal(30, result.Error.RetryAfterSeconds); // 60 s cooldown, 30 s already elapsed
+        Assert.Contains("30 seconds", result.Error.Message);
         Assert.Empty(outboxWriter.Enqueued);
     }
 
@@ -281,7 +322,8 @@ public sealed class EmailOtpTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ResendOtpErrors.RateLimitExceeded, result.Error);
+        Assert.Equal(ResendOtpErrors.RateLimitExceededCode, result.Error!.Code);
+        Assert.Equal(15 * 60, result.Error.RetryAfterSeconds); // oldest code at +10 min leaves the window at +70 min
         Assert.Empty(outboxWriter.Enqueued);
     }
 
@@ -366,6 +408,7 @@ public sealed class EmailOtpTests
         Assert.Equal(3, verification.AttemptCount);
         Assert.False(verification.CanAttempt());
         Assert.False(verification.IsUsed);
+        Assert.True(verification.IsInvalidated);
         Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
 
         // Subsequent attempt with the CORRECT code is also rejected
@@ -548,6 +591,19 @@ public sealed class EmailOtpTests
             Task.FromResult(Saved
                 .Where(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc)
                 .OrderByDescending(v => v.CreatedAtUtc)
+                .FirstOrDefault());
+
+        public Task<EmailVerification?> GetLatestUnusedForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved
+                .Where(v => v.AccountId == accountId && !v.IsUsed)
+                .OrderByDescending(v => v.CreatedAtUtc)
+                .FirstOrDefault());
+
+        public Task<DateTimeOffset?> GetOldestIssuedSinceAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved
+                .Where(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc)
+                .OrderBy(v => v.CreatedAtUtc)
+                .Select(v => (DateTimeOffset?)v.CreatedAtUtc)
                 .FirstOrDefault());
 
         public void Add(EmailVerification emailVerification) => Saved.Add(emailVerification);

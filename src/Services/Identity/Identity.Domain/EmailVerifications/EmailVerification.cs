@@ -57,6 +57,8 @@ public sealed class EmailVerification
 
     public bool CanAttempt() => !IsUsed && !IsInvalidated && AttemptCount < MaxAttempts;
 
+    public bool IsExhausted => AttemptCount >= MaxAttempts;
+
     public bool RecordAttempt(string inputOtp, IOtpHasher otpHasher, DateTimeOffset nowUtc)
     {
         ArgumentNullException.ThrowIfNull(otpHasher);
@@ -67,14 +69,15 @@ public sealed class EmailVerification
         AttemptCount++;
         RowVersion++;
 
-        if (string.IsNullOrWhiteSpace(inputOtp))
-            return false;
-
-        if (otpHasher.VerifyOtp(inputOtp, AccountId, OtpHash))
+        if (!string.IsNullOrWhiteSpace(inputOtp) && otpHasher.VerifyOtp(inputOtp, AccountId, OtpHash))
         {
             IsUsed = true;
             return true;
         }
+
+        // NFR-13: the third wrong attempt invalidates the code; it is persisted together with the attempt count.
+        if (IsExhausted)
+            InvalidatedAtUtc = nowUtc;
 
         return false;
     }
