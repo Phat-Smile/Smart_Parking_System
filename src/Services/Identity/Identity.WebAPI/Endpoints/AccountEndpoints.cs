@@ -162,12 +162,31 @@ internal static class AccountEndpoints
         [UnlockAccountErrors.AccountNotFound.Code] = StatusCodes.Status404NotFound
     };
 
-    private static IResult AccountProblem(ParkingSystem.BuildingBlocks.Results.Error error) =>
-        Results.Problem(
+    // 423 and 429 errors carry the seconds to wait; clients read them from the standard header.
+    private static void SetRetryAfter(HttpContext httpContext, ParkingSystem.BuildingBlocks.Results.Error? error)
+    {
+        if (error?.RetryAfterSeconds is int retryAfter)
+            httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
+    }
+
+    // Responses that carry tokens must not be stored by browsers or proxies.
+    private static RouteHandlerBuilder WithNoStore(this RouteHandlerBuilder builder) =>
+        builder.AddEndpointFilter(async (context, next) =>
+        {
+            context.HttpContext.Response.Headers.CacheControl = "no-store";
+            context.HttpContext.Response.Headers.Pragma = "no-cache";
+            return await next(context);
+        });
+
+    private static IResult AccountProblem(HttpContext httpContext, ParkingSystem.BuildingBlocks.Results.Error error)
+    {
+        SetRetryAfter(httpContext, error);
+        return Results.Problem(
             statusCode: LoginErrorStatusCodes.GetValueOrDefault(error.Code, StatusCodes.Status400BadRequest),
             title: error.Message,
             detail: error.Message,
             extensions: new Dictionary<string, object?> { ["errorCode"] = error.Code });
+    }
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -230,8 +249,7 @@ internal static class AccountEndpoints
                     new ResendOtpCommand(request.Email),
                     cancellationToken);
 
-                if (result.Error?.RetryAfterSeconds is int retryAfter)
-                    httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
+                SetRetryAfter(httpContext, result.Error);
 
                 return result.IsSuccess
                     ? Results.Ok(result.Value)
@@ -254,8 +272,7 @@ internal static class AccountEndpoints
             {
                 var result = await sender.Send(new ForgotPasswordCommand(request.Email), cancellationToken);
 
-                if (result.Error?.RetryAfterSeconds is int retryAfter)
-                    httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
+                SetRetryAfter(httpContext, result.Error);
 
                 return result.IsSuccess
                     ? Results.Ok(result.Value)
@@ -309,17 +326,9 @@ internal static class AccountEndpoints
                     new LoginCommand(request.Email, request.Password, deviceInfo, ipAddress),
                     cancellationToken);
 
-                if (result.IsSuccess)
-                    return Results.Ok(result.Value);
-
-                var statusCode = LoginErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest);
-
-                return Results.Problem(
-                    statusCode: statusCode,
-                    title: result.Error.Message,
-                    detail: result.Error.Message,
-                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
             })
+            .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("Login")
             .WithSummary("Đăng nhập tài khoản")
@@ -344,15 +353,9 @@ internal static class AccountEndpoints
                         httpContext.Connection.RemoteIpAddress?.ToString()),
                     cancellationToken);
 
-                if (result.IsSuccess)
-                    return Results.Ok(result.Value);
-
-                return Results.Problem(
-                    statusCode: LoginErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest),
-                    title: result.Error.Message,
-                    detail: result.Error.Message,
-                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
             })
+            .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("GoogleLogin")
             .WithSummary("Đăng nhập bằng Google")
@@ -384,6 +387,7 @@ internal static class AccountEndpoints
                     extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
             })
             .AllowAnonymous()
+            .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("RefreshToken")
             .WithSummary("Làm mới token truy cập")
@@ -435,6 +439,7 @@ internal static class AccountEndpoints
         // US-AUTH-009: change the password of the signed-in account (taken from the token, never from the body).
         app.MapPost("/api/identity/accounts/change-password", async (
                 ChangePasswordRequest request,
+                HttpContext httpContext,
                 ICurrentUser currentUser,
                 ISender sender,
                 CancellationToken cancellationToken) =>
@@ -446,7 +451,7 @@ internal static class AccountEndpoints
                     new ChangePasswordCommand(accountId, request.CurrentPassword, request.NewPassword),
                     cancellationToken);
 
-                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(result.Error!);
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
             })
             .RequireAuthorization()
             .WithTags("3. Quản lý mật khẩu (Password Management)")
@@ -462,11 +467,12 @@ internal static class AccountEndpoints
         // US-AUTH-008: an administrator clears the login lockout of an account.
         app.MapPost("/api/identity/admin/accounts/{accountId:guid}/unlock", async (
                 Guid accountId,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(new UnlockAccountCommand(accountId), cancellationToken);
-                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(result.Error!);
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
             })
             .RequireAuthorization(IdentityAuthorization.AdminPolicy)
             .WithTags("4. Quản trị hệ thống (Administration)")
