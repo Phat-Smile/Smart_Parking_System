@@ -25,6 +25,10 @@ public sealed class SmtpEmailSenderTests
         var sender = new SmtpEmailSender(configuration, NullLogger<SmtpEmailSender>.Instance);
 
         await Assert.ThrowsAnyAsync<Exception>(() =>
-            sender.SendVerificationOtpEmailAsync("user@example.com", "123456", InitialTime.AddMinutes(5)));
+            sender.SendVerificationOtpEmailAsync(
+                "user@example.com",
+                "123456",
+                InitialTime.AddMinutes(5),
+                TestContext.Current.CancellationToken));
     }
 }
