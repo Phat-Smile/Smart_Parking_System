@@ -52,15 +52,7 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
             .MaximumLength(254)
             .EmailAddress().WithMessage("Email must be a valid email address.");
 
-        // Context 6.1: at least 8 characters with upper case, lower case, digit and special character.
-        RuleFor(command => command.Password)
-            .NotEmpty().WithMessage("Password is required.")
-            .MinimumLength(8)
-            .Must(PasswordPolicy.FitsBcrypt).WithMessage(PasswordPolicy.TooLongMessage)
-            .Matches("[A-Z]").WithMessage("Password must contain an upper-case letter.")
-            .Matches("[a-z]").WithMessage("Password must contain a lower-case letter.")
-            .Matches("[0-9]").WithMessage("Password must contain a digit.")
-            .Matches("[^A-Za-z0-9]").WithMessage("Password must contain a special character.");
+        RuleFor(command => command.Password).MeetsPasswordPolicy();
 
         // Phone number is optional and only validated when supplied. Vietnamese mobile numbers
         // start with 3, 5, 7, 8 or 9 after the '0' or '+84' prefix; the account stores the +84 form.

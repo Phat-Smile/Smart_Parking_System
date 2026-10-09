@@ -1,11 +1,13 @@
 using System.Globalization;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
 using ParkingSystem.Identity.Application.Accounts.LogoutAll;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
+using ParkingSystem.Identity.Application.Accounts.ResetPassword;
 using ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 
@@ -23,6 +25,8 @@ internal static class AccountEndpoints
     public sealed record LoginRequest(string Email, string Password);
     public sealed record RefreshTokenRequest(string RefreshToken);
     public sealed record LogoutRequest(string RefreshToken);
+    public sealed record ForgotPasswordRequest(string Email);
+    public sealed record ResetPasswordRequest(string Email, string OtpCode, string NewPassword);
 
     private static readonly Dictionary<string, int> RefreshErrorStatusCodes = new()
     {
@@ -116,6 +120,47 @@ internal static class AccountEndpoints
             .Produces<ResentOtpResult>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        // US-AUTH-006: request a password reset code (public; same 200 for every well-formed email).
+        app.MapPost("/api/identity/accounts/forgot-password", async (ForgotPasswordRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new ForgotPasswordCommand(request.Email), cancellationToken);
+
+                if (result.Error?.RetryAfterSeconds is int retryAfter)
+                    httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : Results.Problem(
+                        statusCode: StatusCodes.Status429TooManyRequests,
+                        title: "Too Many Requests",
+                        detail: result.Error!.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .WithName("ForgotPassword")
+            .Produces<ForgotPasswordResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        // US-AUTH-006: set a new password with the emailed code (public endpoint).
+        app.MapPost("/api/identity/accounts/reset-password", async (ResetPasswordRequest request, ISender sender, CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(
+                    new ResetPasswordCommand(request.Email, request.OtpCode, request.NewPassword),
+                    cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : Results.Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        title: "Bad Request",
+                        detail: result.Error!.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .WithName("ResetPassword")
+            .Produces<PasswordResetResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         // US-AUTH-004: user login (public endpoint).
         app.MapPost("/api/identity/accounts/login", async (

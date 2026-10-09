@@ -60,6 +60,12 @@ internal sealed class EmailVerificationConfiguration : IEntityTypeConfiguration<
             .HasColumnName("created_at_utc")
             .IsRequired();
 
+        builder.Property(verification => verification.Purpose)
+            .HasColumnName("purpose")
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
         builder.HasIndex(verification => new { verification.AccountId, verification.CreatedAtUtc })
             .HasDatabaseName(AccountIndexName);
 

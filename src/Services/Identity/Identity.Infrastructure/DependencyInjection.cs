@@ -62,6 +62,8 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<AccountEmailVerifiedIntegrationEvent>(
             "identity.account-email-verified.v1", 1);
+        services.AddIntegrationEvent<PasswordResetOtpIssuedIntegrationEvent>(
+            "identity.password-reset-otp-issued.v1", 1);
         services.AddIntegrationEvent<UserVerificationOtpIssuedIntegrationEvent>(
             "identity.user-verification-otp-issued.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
