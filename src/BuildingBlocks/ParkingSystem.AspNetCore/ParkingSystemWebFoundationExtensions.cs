@@ -15,6 +15,7 @@ public static class ParkingSystemWebFoundationExtensions
 
     public static WebApplicationBuilder AddParkingSystemWebFoundation(this WebApplicationBuilder builder)
     {
+        DevelopmentEnvFile.AddTo(builder);
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped(provider =>
         {
