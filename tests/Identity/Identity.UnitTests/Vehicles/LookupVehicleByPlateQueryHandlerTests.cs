@@ -55,7 +55,6 @@ public sealed class LookupVehicleByPlateQueryHandlerTests
         Assert.NotNull(result.Value);
         Assert.True(result.Value.IsRegistered);
         Assert.Equal(VehicleType.Car, result.Value.VehicleType);
-        Assert.Equal("Nguyễn Văn An", result.Value.OwnerFullName);
         Assert.Equal(Guid.Parse("10000000-0000-0000-0000-000000000001"), result.Value.AccountId);
         Assert.Equal(Guid.Parse("20000000-0000-0000-0000-000000000001"), result.Value.VehicleId);
         Assert.True(result.Value.IsAccountActive);
@@ -75,7 +74,6 @@ public sealed class LookupVehicleByPlateQueryHandlerTests
         Assert.NotNull(result.Value);
         Assert.True(result.Value.IsRegistered);
         Assert.Equal(VehicleType.Motorbike, result.Value.VehicleType);
-        Assert.Equal("Trần Thị Bình", result.Value.OwnerFullName);
     }
 
     [Fact]
@@ -91,7 +89,6 @@ public sealed class LookupVehicleByPlateQueryHandlerTests
         Assert.False(result.Value.IsRegistered);
         Assert.Null(result.Value.AccountId);
         Assert.Null(result.Value.VehicleId);
-        Assert.Null(result.Value.OwnerFullName);
         Assert.Null(result.Value.VehicleType);
         Assert.False(result.Value.IsAccountActive);
     }

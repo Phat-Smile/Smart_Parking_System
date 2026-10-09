@@ -27,14 +27,14 @@ message LookupVehicleResponse {
   // Empty string ("") when is_registered == false.
   string vehicle_id = 3;
 
-  // [OPEN DECISION - BE-4 confirm] Owner full name for staff display.
-  // Empty string when is_registered == false or the name is unknown.
-  string owner_full_name = 4;
+  // Field 4 was owner_full_name; dropped (Parking only needs ids, personal data stays in Identity).
+  reserved 4;
+  reserved "owner_full_name";
 
   VehicleType vehicle_type = 5;
 
-  // [OPEN DECISION - BE-4 confirm] true when the owner account is Active;
-  // false when Suspended/Disabled or is_registered == false.
+  // true only when the owner account status is EmailVerified; false when the
+  // account is PendingEmailVerification, Suspended, Disabled or is_registered == false.
   // Identity only reports the state; Parking decides what to do with it.
   bool is_account_active = 6;
 }

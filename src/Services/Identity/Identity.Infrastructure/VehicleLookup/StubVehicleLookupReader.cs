@@ -10,7 +10,6 @@ public sealed class StubVehicleLookupReader : IVehicleLookupReader
             IsRegistered: true,
             AccountId: Guid.Parse("10000000-0000-0000-0000-000000000001"),
             VehicleId: Guid.Parse("20000000-0000-0000-0000-000000000001"),
-            OwnerFullName: "Nguyễn Văn An",
             VehicleType: VehicleType.Car,
             IsAccountActive: true),
 
@@ -18,7 +17,6 @@ public sealed class StubVehicleLookupReader : IVehicleLookupReader
             IsRegistered: true,
             AccountId: Guid.Parse("10000000-0000-0000-0000-000000000002"),
             VehicleId: Guid.Parse("20000000-0000-0000-0000-000000000002"),
-            OwnerFullName: "Trần Thị Bình",
             VehicleType: VehicleType.Motorbike,
             IsAccountActive: true)
     };
@@ -38,7 +36,6 @@ public sealed class StubVehicleLookupReader : IVehicleLookupReader
             IsRegistered: false,
             AccountId: null,
             VehicleId: null,
-            OwnerFullName: null,
             VehicleType: null,
             IsAccountActive: false));
     }

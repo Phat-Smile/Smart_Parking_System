@@ -33,6 +33,25 @@ public sealed class VehicleLookupRegistrationTests
         Assert.Contains(VehicleLookupRegistration.ProviderKey, exception.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Host_startup_rejects_a_missing_provider(string? provider)
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            VehicleLookupRegistration.EnsureProviderConfigured(BuildConfiguration(provider)));
+
+        Assert.Contains(VehicleLookupRegistration.ProviderKey, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Host_startup_accepts_an_explicit_provider()
+    {
+        VehicleLookupRegistration.EnsureProviderConfigured(BuildConfiguration("Stub"));
+        Assert.True(VehicleLookupRegistration.IsStubConfigured(BuildConfiguration("stub")));
+    }
+
     private static IConfiguration BuildConfiguration(string? provider) =>
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { [VehicleLookupRegistration.ProviderKey] = provider })

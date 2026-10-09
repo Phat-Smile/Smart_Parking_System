@@ -16,7 +16,6 @@ public sealed class StubVehicleLookupReaderTests
         Assert.True(result.IsRegistered);
         Assert.Equal(Guid.Parse("10000000-0000-0000-0000-000000000001"), result.AccountId);
         Assert.Equal(Guid.Parse("20000000-0000-0000-0000-000000000001"), result.VehicleId);
-        Assert.Equal("Nguyễn Văn An", result.OwnerFullName);
         Assert.Equal(VehicleType.Car, result.VehicleType);
         Assert.True(result.IsAccountActive);
     }
@@ -29,7 +28,6 @@ public sealed class StubVehicleLookupReaderTests
         Assert.True(result.IsRegistered);
         Assert.Equal(Guid.Parse("10000000-0000-0000-0000-000000000002"), result.AccountId);
         Assert.Equal(Guid.Parse("20000000-0000-0000-0000-000000000002"), result.VehicleId);
-        Assert.Equal("Trần Thị Bình", result.OwnerFullName);
         Assert.Equal(VehicleType.Motorbike, result.VehicleType);
         Assert.True(result.IsAccountActive);
     }
@@ -57,7 +55,6 @@ public sealed class StubVehicleLookupReaderTests
         Assert.False(result.IsRegistered);
         Assert.Null(result.AccountId);
         Assert.Null(result.VehicleId);
-        Assert.Null(result.OwnerFullName);
         Assert.Null(result.VehicleType);
         Assert.False(result.IsAccountActive);
     }

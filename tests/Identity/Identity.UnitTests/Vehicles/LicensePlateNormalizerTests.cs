@@ -40,6 +40,10 @@ public sealed class LicensePlateNormalizerTests
     [InlineData("51A123", false)]
     [InlineData("51A1234567", false)]
     [InlineData("51AAAA123", false)]
+    // Heuristic only, not a legal plate model: two-letter series match, plates that start with letters do not.
+    [InlineData("80NG12345", true)]
+    [InlineData("80LD12345", true)]
+    [InlineData("TM12345", false)]
     [InlineData("INVALID", false)]
     public void IsValidFormat_validates_standard_vietnamese_plate_syntax(string? plate, bool expectedValid)
     {
