@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -6,12 +7,14 @@ namespace ParkingSystem.AspNetCore.Security;
 
 internal static class JwtPublicKeyLoader
 {
-    public static RSA LoadRsa(string path)
+    // searchParentFolders is true only in Development (see the callers): a relative path is then also looked up
+    // in the parent folders, because `dotnet run` starts in the project folder while .local/ sits at the repository root.
+    public static RSA LoadRsa(string path, bool searchParentFolders = false)
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new InvalidOperationException("Security:Jwt:PublicKeyPath must be configured.");
 
-        var fullPath = ResolvePath(path);
+        var fullPath = ResolvePath(path, searchParentFolders);
         if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
             throw new InvalidOperationException(
                 $"The configured JWT public key file does not exist at '{path}'. " +
@@ -54,60 +57,33 @@ internal static class JwtPublicKeyLoader
         return count;
     }
 
-    private static string ResolvePath(string path)
+    private static string ResolvePath(string path, bool searchParentFolders)
     {
-        if (Path.IsPathRooted(path) && File.Exists(path))
-            return path;
-
         var direct = Path.GetFullPath(path);
-        if (File.Exists(direct))
+        if (!searchParentFolders || Path.IsPathRooted(path) || File.Exists(direct))
             return direct;
 
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null)
+        var relative = path.Replace('\\', '/');
+        var localIndex = relative.IndexOf(".local/", StringComparison.OrdinalIgnoreCase);
+        string[] candidates = localIndex > 0 ? [relative, relative[localIndex..]] : [relative];
+        foreach (var start in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
         {
-            var candidate = Path.Combine(current.FullName, path);
-            if (File.Exists(candidate))
-                return candidate;
-
-            var normalized = path.Replace('\\', '/');
-            var localIdx = normalized.IndexOf(".local/", StringComparison.OrdinalIgnoreCase);
-            if (localIdx >= 0)
+            for (var folder = new DirectoryInfo(start); folder is not null; folder = folder.Parent)
             {
-                var relFromLocal = normalized[localIdx..].Replace('/', Path.DirectorySeparatorChar);
-                var candidateLocal = Path.Combine(current.FullName, relFromLocal);
-                if (File.Exists(candidateLocal))
-                    return candidateLocal;
+                foreach (var candidate in candidates)
+                {
+                    var fullPath = Path.Combine(folder.FullName, candidate.Replace('/', Path.DirectorySeparatorChar));
+                    if (File.Exists(fullPath))
+                        return fullPath;
+                }
             }
-
-            current = current.Parent;
-        }
-
-        current = new DirectoryInfo(Directory.GetCurrentDirectory());
-        while (current is not null)
-        {
-            var candidate = Path.Combine(current.FullName, path);
-            if (File.Exists(candidate))
-                return candidate;
-
-            var normalized = path.Replace('\\', '/');
-            var localIdx = normalized.IndexOf(".local/", StringComparison.OrdinalIgnoreCase);
-            if (localIdx >= 0)
-            {
-                var relFromLocal = normalized[localIdx..].Replace('/', Path.DirectorySeparatorChar);
-                var candidateLocal = Path.Combine(current.FullName, relFromLocal);
-                if (File.Exists(candidateLocal))
-                    return candidateLocal;
-            }
-
-            current = current.Parent;
         }
 
         return direct;
     }
 }
 
-internal sealed class JwtSecurityOptionsValidator : IValidateOptions<JwtSecurityOptions>
+internal sealed class JwtSecurityOptionsValidator(IHostEnvironment environment) : IValidateOptions<JwtSecurityOptions>
 {
     public ValidateOptionsResult Validate(string? name, JwtSecurityOptions options)
     {
@@ -122,7 +98,7 @@ internal sealed class JwtSecurityOptionsValidator : IValidateOptions<JwtSecurity
 
         try
         {
-            using var rsa = JwtPublicKeyLoader.LoadRsa(options.PublicKeyPath);
+            using var rsa = JwtPublicKeyLoader.LoadRsa(options.PublicKeyPath, environment.IsDevelopment());
             return ValidateOptionsResult.Success;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or CryptographicException)
@@ -136,9 +112,9 @@ internal sealed class JwtValidationKey : IDisposable
 {
     private readonly RSA rsa;
 
-    public JwtValidationKey(IOptions<JwtSecurityOptions> options)
+    public JwtValidationKey(IOptions<JwtSecurityOptions> options, IHostEnvironment environment)
     {
-        rsa = JwtPublicKeyLoader.LoadRsa(options.Value.PublicKeyPath);
+        rsa = JwtPublicKeyLoader.LoadRsa(options.Value.PublicKeyPath, environment.IsDevelopment());
         SecurityKey = new RsaSecurityKey(rsa);
     }
 
