@@ -53,6 +53,9 @@ public sealed class OpenParkingSessionTests
     [Theory]
     [InlineData("Truck")]
     [InlineData("5")]
+    [InlineData("1")]
+    [InlineData("2")]
+    [InlineData(" Car ")]
     [InlineData("")]
     public void Validator_rejects_unknown_vehicle_type(string vehicleType)
     {
