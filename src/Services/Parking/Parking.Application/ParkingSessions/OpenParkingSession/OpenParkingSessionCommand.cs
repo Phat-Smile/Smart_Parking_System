@@ -2,6 +2,7 @@ using System.Buffers.Text;
 using System.Security.Cryptography;
 using FluentValidation;
 using MediatR;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Identity;
@@ -10,7 +11,7 @@ using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 
-public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType)
+public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType, Guid ActorUserId)
     : IRequest<Result<OpenedParkingSession>>;
 
 public sealed record OpenedParkingSession(
@@ -41,6 +42,7 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
     public OpenParkingSessionCommandValidator()
     {
         RuleFor(command => command.LotId).NotEmpty();
+        RuleFor(command => command.ActorUserId).NotEmpty();
 
         RuleFor(command => command.PlateNumber)
             .Must(plate => !string.IsNullOrWhiteSpace(plate))
@@ -67,6 +69,7 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
 public sealed class OpenParkingSessionCommandHandler(
     IParkingSessionRepository sessions,
     IParkingLotDetailReader parkingLots,
+    IParkingLotAccess lotAccess,
     IPlateOwnerLookup plateOwners,
     IClock clock) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
@@ -75,6 +78,10 @@ public sealed class OpenParkingSessionCommandHandler(
         // Only an existing, approved lot can receive vehicles.
         if (await parkingLots.GetApprovedByIdAsync(request.LotId, cancellationToken) is null)
             return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.LotNotFound);
+
+        // TECH-12: chỉ Staff/Owner được gắn với bãi này mới mở phiên được.
+        if (!await lotAccess.CanOperateAsync(request.ActorUserId, request.LotId, cancellationToken))
+            return Result<OpenedParkingSession>.Failure(ParkingLotAccessErrors.AccessDenied);
 
         var plate = ParkingSession.NormalizePlate(request.PlateNumber);
         var vehicleType = Enum.Parse<VehicleType>(request.VehicleType, ignoreCase: true);

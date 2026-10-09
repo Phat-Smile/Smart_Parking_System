@@ -1,8 +1,10 @@
 using FluentValidation;
 using MediatR;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Auditing;
+using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
@@ -37,6 +39,7 @@ public sealed class CancelParkingSessionCommandValidator : AbstractValidator<Can
 
 public sealed class CancelParkingSessionCommandHandler(
     IParkingSessionRepository sessions,
+    IParkingLotAccess lotAccess,
     IAuditLog auditLog,
     IClock clock) : IRequestHandler<CancelParkingSessionCommand, Result<CancelledParkingSession>>
 {
@@ -45,6 +48,10 @@ public sealed class CancelParkingSessionCommandHandler(
         var session = await sessions.FindByIdAsync(request.SessionId, cancellationToken);
         if (session is null)
             return Result<CancelledParkingSession>.Failure(CancelParkingSessionErrors.SessionNotFound);
+
+        // TECH-12: bãi lấy từ phiên, không tin bãi do client gửi.
+        if (!await lotAccess.CanOperateAsync(request.ActorUserId, session.LotId, cancellationToken))
+            return Result<CancelledParkingSession>.Failure(ParkingLotAccessErrors.AccessDenied);
 
         var previousStatus = session.Status;
         var now = clock.UtcNow;
