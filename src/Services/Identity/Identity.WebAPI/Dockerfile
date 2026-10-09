@@ -14,6 +14,7 @@ RUN dotnet restore src/Services/Identity/Identity.WebAPI/Identity.WebAPI.csproj
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY contracts/events/ contracts/events/
+COPY contracts/grpc/ contracts/grpc/
 COPY src/Services/Identity/ src/Services/Identity/
 RUN dotnet publish src/Services/Identity/Identity.WebAPI/Identity.WebAPI.csproj \
     --configuration Release \
