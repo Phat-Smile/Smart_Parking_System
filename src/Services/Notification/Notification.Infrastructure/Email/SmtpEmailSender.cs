@@ -95,13 +95,21 @@ public sealed class SmtpEmailSender(
 
             mailMessage.To.Add(email.Trim());
             await client.SendMailAsync(mailMessage, cancellationToken);
-            logger.LogInformation("Successfully sent OTP email to {Email} via SMTP ({Host}:{Port})", email, host, port);
+            logger.LogInformation("Successfully sent OTP email to {MaskedEmail} via SMTP ({Host}:{Port})", MaskEmail(email), host, port);
         }
         catch (Exception ex)
         {
             // Security: Never log raw OTP codes in production error logs
-            logger.LogError(ex, "Failed to send OTP verification email to {Email} via SMTP ({Host}:{Port}). Re-throwing for consumer retry.", email, host, port);
+            logger.LogError(ex, "Failed to send OTP verification email to {MaskedEmail} via SMTP ({Host}:{Port}). Re-throwing for consumer retry.", MaskEmail(email), host, port);
             throw;
         }
+    }
+
+    // The recipient address is personal data: keep the first character and the domain only, e.g. "a***@example.com".
+    public static string MaskEmail(string email)
+    {
+        var trimmed = email.Trim();
+        var at = trimmed.IndexOf('@');
+        return at <= 0 ? "***" : $"{trimmed[0]}***{trimmed[at..]}";
     }
 }
