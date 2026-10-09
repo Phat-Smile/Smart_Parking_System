@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
 using ParkingSystem.Identity.Application.Accounts.LogoutAll;
@@ -207,6 +208,37 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         Assert.Equal(target, Assert.IsType<UnlockAccountCommand>(Assert.Single(_sender.Requests)).AccountId);
     }
 
+    [Theory]
+    [InlineData(AccountRole.Customer)]
+    [InlineData(AccountRole.Staff)]
+    [InlineData(AccountRole.ParkingLotOwner)]
+    public async Task Only_a_system_admin_can_change_a_role(AccountRole role)
+    {
+        var caller = VerifiedAccount("caller@example.test");
+        caller.AssignRole(role);
+
+        using var response = await SendAsync(HttpMethod.Put, $"/api/identity/admin/accounts/{Guid.NewGuid()}/role", new { role = "SystemAdmin" }, IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(_sender.Requests);
+    }
+
+    [Fact]
+    public async Task Role_change_takes_the_admin_from_the_token_and_maps_self_change_to_403()
+    {
+        var admin = VerifiedAccount("admin@example.test");
+        admin.AssignRole(AccountRole.SystemAdmin);
+        _sender.Respond(Result<ChangedAccountRole>.Failure(ChangeAccountRoleErrors.CannotChangeOwnRole));
+
+        using var response = await SendAsync(HttpMethod.Put, $"/api/identity/admin/accounts/{admin.Id}/role", new { role = "Customer" }, IssueToken(admin));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(ChangeAccountRoleErrors.CannotChangeOwnRole.Code, await ErrorCodeAsync(response));
+        var command = Assert.IsType<ChangeAccountRoleCommand>(Assert.Single(_sender.Requests));
+        Assert.Equal(admin.Id, command.AdminId);
+        Assert.Equal("Customer", command.Role);
+    }
+
     private static Account VerifiedAccount(string email)
     {
         var account = Account.Register(Guid.NewGuid(), email, "hash", null, Now);
@@ -226,9 +258,12 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         return jwtIssuer.IssueAccessToken(account, DateTimeOffset.UtcNow);
     }
 
-    private async Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken = null)
+    private Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken = null) =>
+        SendAsync(HttpMethod.Post, path, body, accessToken);
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object body, string? accessToken = null)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         if (accessToken is not null)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return await _client.SendAsync(request, TestContext.Current.CancellationToken);

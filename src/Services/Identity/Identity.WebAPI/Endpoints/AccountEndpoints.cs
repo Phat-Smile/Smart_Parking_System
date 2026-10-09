@@ -1,6 +1,7 @@
 using System.Globalization;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
 using ParkingSystem.Identity.Application.Accounts.GoogleLogin;
@@ -136,6 +137,14 @@ internal static class AccountEndpoints
         /// <example>NewSecurePassword123!</example>
         string NewPassword);
 
+    /// <summary>
+    /// Dữ liệu yêu cầu đổi vai trò tài khoản.
+    /// </summary>
+    public sealed record ChangeAccountRoleRequest(
+        /// <summary>Vai trò mới: Customer, Staff, ParkingLotOwner hoặc SystemAdmin (không phân biệt hoa thường).</summary>
+        /// <example>Staff</example>
+        string? Role);
+
     private static readonly Dictionary<string, int> RefreshErrorStatusCodes = new()
     {
         [RefreshTokenErrors.InvalidRefreshToken.Code] = StatusCodes.Status401Unauthorized,
@@ -159,7 +168,8 @@ internal static class AccountEndpoints
         [GoogleLoginErrors.InvalidGoogleToken.Code] = StatusCodes.Status401Unauthorized,
         [GoogleLoginErrors.GoogleLoginUnavailable.Code] = StatusCodes.Status503ServiceUnavailable,
         [ChangePasswordErrors.InvalidCurrentPassword.Code] = StatusCodes.Status400BadRequest,
-        [UnlockAccountErrors.AccountNotFound.Code] = StatusCodes.Status404NotFound
+        [UnlockAccountErrors.AccountNotFound.Code] = StatusCodes.Status404NotFound,
+        [ChangeAccountRoleErrors.CannotChangeOwnRole.Code] = StatusCodes.Status403Forbidden
     };
 
     // 423 and 429 errors carry the seconds to wait; clients read them from the standard header.
@@ -480,6 +490,32 @@ internal static class AccountEndpoints
             .WithSummary("Mở khóa đăng nhập tài khoản (Admin)")
             .WithDescription("Dành cho Quản trị viên để gỡ bỏ trạng thái khóa sau 3 lần đăng nhập sai.")
             .Produces<UnlockedAccount>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // Admin đổi vai trò tài khoản; AdminId lấy từ token để chặn tự đổi vai trò của chính mình.
+        app.MapPut("/api/identity/admin/accounts/{accountId:guid}/role", async (
+                Guid accountId,
+                ChangeAccountRoleRequest request,
+                HttpContext httpContext,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new ChangeAccountRoleCommand(adminId, accountId, request.Role ?? string.Empty), cancellationToken);
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("4. Quản trị hệ thống (Administration)")
+            .WithName("ChangeAccountRole")
+            .WithSummary("Đổi vai trò tài khoản (Admin)")
+            .WithDescription("Đổi vai trò Customer / Staff / ParkingLotOwner / SystemAdmin. Không tự đổi vai trò của mình; đổi xong người dùng bị đăng xuất khỏi mọi thiết bị.")
+            .Produces<ChangedAccountRole>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
