@@ -11,9 +11,11 @@ internal static class JwtPublicKeyLoader
         if (string.IsNullOrWhiteSpace(path))
             throw new InvalidOperationException("Security:Jwt:PublicKeyPath must be configured.");
 
-        var fullPath = Path.GetFullPath(path);
-        if (!File.Exists(fullPath))
-            throw new InvalidOperationException("The configured JWT public key file does not exist.");
+        var fullPath = ResolvePath(path);
+        if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
+            throw new InvalidOperationException(
+                $"The configured JWT public key file does not exist at '{path}'. " +
+                "If running locally, please run 'scripts/security/New-DevelopmentJwtKey.ps1' or 'dotnet run --project scripts/security/New-DevelopmentJwtKey.cs' to generate development keys.");
 
         var pem = File.ReadAllText(fullPath).Trim();
         if (!pem.StartsWith("-----BEGIN PUBLIC KEY-----", StringComparison.Ordinal) ||
@@ -50,6 +52,58 @@ internal static class JwtPublicKeyLoader
             offset += search.Length;
         }
         return count;
+    }
+
+    private static string ResolvePath(string path)
+    {
+        if (Path.IsPathRooted(path) && File.Exists(path))
+            return path;
+
+        var direct = Path.GetFullPath(path);
+        if (File.Exists(direct))
+            return direct;
+
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            var candidate = Path.Combine(current.FullName, path);
+            if (File.Exists(candidate))
+                return candidate;
+
+            var normalized = path.Replace('\\', '/');
+            var localIdx = normalized.IndexOf(".local/", StringComparison.OrdinalIgnoreCase);
+            if (localIdx >= 0)
+            {
+                var relFromLocal = normalized[localIdx..].Replace('/', Path.DirectorySeparatorChar);
+                var candidateLocal = Path.Combine(current.FullName, relFromLocal);
+                if (File.Exists(candidateLocal))
+                    return candidateLocal;
+            }
+
+            current = current.Parent;
+        }
+
+        current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (current is not null)
+        {
+            var candidate = Path.Combine(current.FullName, path);
+            if (File.Exists(candidate))
+                return candidate;
+
+            var normalized = path.Replace('\\', '/');
+            var localIdx = normalized.IndexOf(".local/", StringComparison.OrdinalIgnoreCase);
+            if (localIdx >= 0)
+            {
+                var relFromLocal = normalized[localIdx..].Replace('/', Path.DirectorySeparatorChar);
+                var candidateLocal = Path.Combine(current.FullName, relFromLocal);
+                if (File.Exists(candidateLocal))
+                    return candidateLocal;
+            }
+
+            current = current.Parent;
+        }
+
+        return direct;
     }
 }
 
