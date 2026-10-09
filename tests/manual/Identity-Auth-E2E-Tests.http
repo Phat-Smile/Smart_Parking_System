@@ -33,42 +33,42 @@
 
 ### V01 Mật khẩu rỗng
 ### Kỳ vọng: 400 request.validation_failed | errors.Password = ["Mật khẩu là bắt buộc, không được để trống."] (chỉ 1 câu)
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "v01@example.com", "password": "" }
 
 ### V02 Email 1 ký tự + mật khẩu ngắn (input ngắn không được làm mất message)
 ### Kỳ vọng: 400 | detail = "Email không đúng định dạng hợp lệ. Mật khẩu phải có ít nhất 8 ký tự."
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "a", "password": "abc" }
 
 ### V03 Mật khẩu thiếu chữ hoa (chỉ báo luật đầu tiên bị vi phạm)
 ### Kỳ vọng: 400 | errors.Password = ["Mật khẩu phải chứa ít nhất một chữ cái viết hoa."]
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "v03@example.com", "password": "abcdefgh" }
 
 ### V04 Mật khẩu quá dài (80 ký tự)
 ### Kỳ vọng: 400 | errors.Password = ["Mật khẩu quá dài: tối đa 72 ký tự không dấu (ký tự có dấu chiếm nhiều chỗ hơn)."]
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "v04@example.com", "password": "Aa1@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
 
 ### V05 Số điện thoại sai
 ### Kỳ vọng: 400 | errors.PhoneNumber = ["Số điện thoại phải là số di động Việt Nam: 0xxxxxxxxx (10 chữ số) hoặc +84xxxxxxxxx, chữ số sau 0/+84 là 3, 5, 7, 8 hoặc 9."]
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "v05@example.com", "password": "Password123!", "phoneNumber": "+8412" }
 
 ### V06 Họ tên 1 ký tự
 ### Kỳ vọng: 400 | errors.FullName = ["Họ và tên phải có ít nhất 2 ký tự."]
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "v06@example.com", "password": "Password123!", "fullName": "A" }
@@ -116,7 +116,7 @@ Content-Type: application/json
 ### Kỳ vọng: 201 | status = "PendingEmailVerification"
 ###          message = "Đăng ký thành công. Mã OTP đã được gửi đến <emailA>, có hiệu lực 5 phút."
 ### => Mở email, chép mã OTP vào @otpA (đầu file).
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "{{emailA}}", "password": "{{password}}", "fullName": "Nguyễn Văn Test", "phoneNumber": "09{{$randomInt 10000000 99999999}}" }
@@ -124,7 +124,7 @@ Content-Type: application/json
 ### R02 Đăng ký lại email đang chờ xác thực
 ### Kỳ vọng: 409 identity.email_already_registered
 ###          "Email này đã được đăng ký nhưng chưa xác thực. Vui lòng nhập mã OTP đã gửi đến email, hoặc chọn \"Gửi lại mã\"."
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "{{emailA}}", "password": "{{password}}" }
@@ -186,7 +186,7 @@ Content-Type: application/json
 ### R10 Đăng ký lại email đã xác thực
 ### Kỳ vọng: 409 identity.email_already_registered
 ###          "Email này đã được đăng ký. Vui lòng đăng nhập, hoặc dùng \"Quên mật khẩu\" nếu không nhớ mật khẩu."
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "{{emailA}}", "password": "{{password}}" }
@@ -196,7 +196,7 @@ Content-Type: application/json
 ### =====================================================================================
 
 ### O01 Đăng ký @emailB -> Kỳ vọng: 201. Chép mã vào @otpB.
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "{{emailB}}", "password": "{{password}}" }
@@ -508,7 +508,7 @@ Content-Type: application/json
 ### =====================================================================================
 
 ### U00a Đăng ký tài khoản admin -> 201. Chép mã vào @otpAdmin.
-POST {{baseUrl}}/accounts/register
+POST {{baseUrl}}/accounts
 Content-Type: application/json
 
 { "email": "{{emailAdmin}}", "password": "{{password}}" }

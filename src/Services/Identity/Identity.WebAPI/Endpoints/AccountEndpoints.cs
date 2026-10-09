@@ -172,33 +172,27 @@ internal static class AccountEndpoints
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         // MF-01 & US-AUTH-001: Đăng ký tài khoản người dùng mới (Public Endpoint).
-        var handleRegistration = async (RegisterAccountRequest request, ISender sender, CancellationToken cancellationToken) =>
-        {
-            var fullName = string.Equals(request.FullName?.Trim(), "string", StringComparison.OrdinalIgnoreCase) ? null : request.FullName?.Trim();
-            var phoneNumber = string.Equals(request.PhoneNumber?.Trim(), "string", StringComparison.OrdinalIgnoreCase) ? null : request.PhoneNumber?.Trim();
-
-            var result = await sender.Send(
-                new RegisterAccountCommand(
-                    string.IsNullOrWhiteSpace(fullName) ? null : fullName,
-                    request.Email,
-                    request.Password,
-                    string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber),
-                cancellationToken);
-
-            if (!result.IsSuccess)
+        app.MapPost("/api/identity/accounts", async (RegisterAccountRequest request, ISender sender, CancellationToken cancellationToken) =>
             {
-                return Results.Problem(
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: result.Error!.Message,
-                    detail: result.Error.Message,
-                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
-            }
+                var result = await sender.Send(
+                    new RegisterAccountCommand(
+                        request.FullName,
+                        request.Email,
+                        request.Password,
+                        request.PhoneNumber),
+                    cancellationToken);
 
-            return Results.Created((string?)null, result.Value);
-        };
+                if (!result.IsSuccess)
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status409Conflict,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
 
-        // Route chuẩn hóa theo Action-based REST: /api/identity/accounts/register
-        app.MapPost("/api/identity/accounts/register", handleRegistration)
+                return Results.Created((string?)null, result.Value);
+            })
             .WithTags("1. Đăng ký & Kích hoạt (Registration)")
             .WithName("RegisterAccount")
             .WithSummary("Đăng ký tài khoản")
@@ -206,10 +200,6 @@ internal static class AccountEndpoints
             .Produces<RegisteredAccount>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict);
-
-        // Alias tương thích ngược 100% với các client và test script cũ đang gọi /api/identity/accounts
-        app.MapPost("/api/identity/accounts", handleRegistration)
-            .ExcludeFromDescription();
 
         // US-AUTH-003: verify email OTP (public endpoint).
         app.MapPost("/api/identity/accounts/verify-email", async (VerifyEmailRequest request, ISender sender, CancellationToken cancellationToken) =>

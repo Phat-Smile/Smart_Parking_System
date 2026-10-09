@@ -57,7 +57,7 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
             .Must(name => name.Trim().Length >= 2).WithMessage("Họ và tên phải có ít nhất 2 ký tự.")
             .Must(name => name.Trim().Length <= Profile.MaxFullNameLength).WithMessage($"Họ và tên không được vượt quá {Profile.MaxFullNameLength} ký tự.")
             .Must(name => FullNameRegex().IsMatch(name.Trim())).WithMessage("Họ và tên chỉ được chứa chữ cái, khoảng trắng, dấu gạch nối hoặc dấu nháy đơn.")
-            .When(command => !string.IsNullOrWhiteSpace(command.FullName) && !string.Equals(command.FullName.Trim(), "string", StringComparison.OrdinalIgnoreCase));
+            .When(command => !string.IsNullOrWhiteSpace(command.FullName));
 
         RuleFor(command => command.Email)
             .NotEmpty().WithMessage("Email là bắt buộc, không được để trống.")
@@ -70,7 +70,7 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
         RuleFor(command => command.PhoneNumber)
             .Matches(@"^\s*(0|\+84)[35789][0-9]{8}\s*$")
             .WithMessage("Số điện thoại phải là số di động Việt Nam: 0xxxxxxxxx (10 chữ số) hoặc +84xxxxxxxxx, chữ số sau 0/+84 là 3, 5, 7, 8 hoặc 9.")
-            .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber) && !string.Equals(command.PhoneNumber.Trim(), "string", StringComparison.OrdinalIgnoreCase));
+            .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
     }
 
     [GeneratedRegex(@"^[\p{L}]+(?:[ '-][\p{L}]+)*$")]
@@ -98,27 +98,20 @@ public sealed class RegisterAccountCommandHandler(
                 ? RegisterAccountErrors.EmailPendingVerification
                 : RegisterAccountErrors.EmailAlreadyRegistered);
 
-        var phoneNumber = string.Equals(request.PhoneNumber?.Trim(), "string", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(request.PhoneNumber)
-            ? null
-            : request.PhoneNumber.Trim();
-        var fullName = string.Equals(request.FullName?.Trim(), "string", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(request.FullName)
-            ? null
-            : request.FullName.Trim();
-
         var now = clock.UtcNow;
         var account = Account.Register(
             Guid.NewGuid(),
             email,
             passwordHasher.Hash(request.Password),
-            phoneNumber,
+            request.PhoneNumber,
             now);
         accounts.Add(account);
 
         // Without a name the profile is created later on the profile screen; never store a placeholder name.
         Profile? profile = null;
-        if (!string.IsNullOrWhiteSpace(fullName))
+        if (!string.IsNullOrWhiteSpace(request.FullName))
         {
-            profile = Profile.Create(account.Id, fullName, now);
+            profile = Profile.Create(account.Id, request.FullName, now);
             profiles.Add(profile);
         }
 
