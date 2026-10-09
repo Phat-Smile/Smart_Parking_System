@@ -19,6 +19,10 @@
     <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The HTTP endpoint tests map the internal account endpoints on a TestServer. -->
+    <InternalsVisibleTo Include="Identity.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
     <Protobuf Include="..\..\..\..\contracts\grpc\identity_vehicle.proto" GrpcServices="Server" Link="Protos\identity_vehicle.proto" />
   </ItemGroup>
   <ItemGroup>
