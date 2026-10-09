@@ -52,7 +52,7 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
 
         RuleFor(command => command.Password)
             .NotEmpty()
-            .MaximumLength(72);
+            .Must(PasswordPolicy.FitsBcrypt).WithMessage(PasswordPolicy.TooLongMessage);
     }
 }
 

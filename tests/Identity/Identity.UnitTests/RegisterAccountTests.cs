@@ -38,8 +38,6 @@ public sealed class RegisterAccountTests
 
     [Theory]
     [InlineData("A")]
-    [InlineData("")]
-    [InlineData("   ")]
     [InlineData("John123")]
     [InlineData("John @Doe")]
     [InlineData("John  Doe")]
@@ -85,6 +83,7 @@ public sealed class RegisterAccountTests
     [InlineData("SECRET#123")]     // no lower case
     [InlineData("Secret#abc")]     // no digit
     [InlineData("Secret1234")]     // no special character
+    [InlineData("Aa1@ầầầầầầầầầầầầầầầầầầầầầầầầ")] // 29 characters but 79 bytes in UTF-8
     public void Validator_rejects_passwords_outside_the_policy(string password)
     {
         var result = validator.Validate(CreateValidCommand(password: password));
@@ -132,6 +131,56 @@ public sealed class RegisterAccountTests
     public void Account_stores_phone_number_in_plus84_form(string? phoneNumber, string? expected)
     {
         Assert.Equal(expected, Account.NormalizePhoneNumber(phoneNumber));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Validator_accepts_registration_without_a_full_name(string? fullName)
+    {
+        var result = validator.Validate(new RegisterAccountCommand(fullName, "user@example.com", ValidPassword, null));
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validator_accepts_a_password_of_exactly_72_utf8_bytes()
+    {
+        var password = "Aa1@" + new string('ầ', 22) + "xx"; // 4 + 22 * 3 + 2 = 72 bytes
+        Assert.Equal(72, System.Text.Encoding.UTF8.GetByteCount(password));
+
+        var result = validator.Validate(CreateValidCommand(password: password));
+
+        Assert.DoesNotContain(result.Errors, error => error.PropertyName == nameof(RegisterAccountCommand.Password));
+    }
+
+    [Fact]
+    public async Task Handler_registers_without_a_profile_when_no_name_is_given()
+    {
+        var accountRepository = new FakeAccountRepository();
+        var profileRepository = new FakeProfileRepository();
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            profileRepository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            outboxWriter,
+            new FixedClock());
+
+        var result = await handler.Handle(
+            new RegisterAccountCommand(null, "noname@example.com", ValidPassword, null),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value!.FullName);
+        Assert.Single(accountRepository.Saved);
+        Assert.Empty(profileRepository.Saved);
+        Assert.Single(verificationRepository.Saved);
+        Assert.Single(outboxWriter.Enqueued);
     }
 
     [Fact]
@@ -264,47 +313,38 @@ public sealed class RegisterAccountTests
     }
 
     [Fact]
-    public async Task Handler_recovers_as_dormant_when_concurrent_save_fails_on_unique_index_and_account_is_pending()
+    public async Task Handler_rejects_when_concurrent_save_fails_on_unique_index_and_account_is_pending()
     {
         var existingPending = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
         var accountRepository = new FakeAccountRepository { FailSaveWithDuplicate = true };
         accountRepository.Saved.Add(existingPending);
-        var profileRepository = new FakeProfileRepository();
-        var verificationRepository = new FakeEmailVerificationRepository();
-        var outboxWriter = new FakeOutboxWriter();
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
-            profileRepository,
-            verificationRepository,
+            new FakeProfileRepository(),
+            new FakeEmailVerificationRepository(),
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
             new FakeOtpHasher(),
-            outboxWriter,
+            new FakeOutboxWriter(),
             new FixedClock());
 
         var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(existingPending.Id, result.Value!.AccountId);
-        Assert.False(result.Value.IsNewAccount);
-        Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
     }
 
     [Fact]
-    public async Task Handler_recovers_pending_dormant_account_without_conflict()
+    public async Task Handler_rejects_an_email_that_is_waiting_for_verification()
     {
         var existing = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
-        var existingProfile = Profile.Create(existing.Id, "Old Name", FixedClock.Now, new DateOnly(1990, 1, 1));
         var accountRepository = new FakeAccountRepository();
         accountRepository.Saved.Add(existing);
-        var profileRepository = new FakeProfileRepository();
-        profileRepository.Saved.Add(existingProfile);
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
-
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
-            profileRepository,
+            new FakeProfileRepository(),
             verificationRepository,
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
@@ -314,14 +354,11 @@ public sealed class RegisterAccountTests
 
         var result = await handler.Handle(CreateValidCommand(email: "user@example.com", fullName: "New Name"), TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Value);
-        Assert.Equal(existing.Id, result.Value.AccountId);
-        Assert.Equal("user@example.com", result.Value.Email);
-        // The stored owner name must not leak to whoever re-submits the email.
-        Assert.Equal("New Name", result.Value.FullName);
-        Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
-        Assert.False(result.Value.IsNewAccount);
+        // US-AUTH-001 (decided 2026-10-08): pending emails are rejected too; no new OTP, nothing leaks.
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+        Assert.Empty(verificationRepository.Saved);
+        Assert.Empty(outboxWriter.Enqueued);
     }
 
     [Fact]
@@ -349,61 +386,45 @@ public sealed class RegisterAccountTests
         var task2 = handler.Handle(command2, TestContext.Current.CancellationToken);
         var results = await Task.WhenAll(task1, task2);
 
-        // Both requests succeed: winning request returns 201 Created (IsNewAccount: true);
-        // losing request catches unique constraint, re-queries, finds Pending account, and returns 200 OK Dormant Recovery (IsNewAccount: false)
-        Assert.All(results, r => Assert.True(r.IsSuccess));
-        var createdCount = results.Count(r => r.Value!.IsNewAccount);
-        var dormantCount = results.Count(r => !r.Value!.IsNewAccount);
-
-        Assert.Equal(1, createdCount);
-        Assert.Equal(1, dormantCount);
+        // The winner is created; the loser hits the unique index and gets email_already_registered.
+        Assert.Equal(1, results.Count(r => r.IsSuccess));
+        Assert.Single(results, r => r.Error == RegisterAccountErrors.EmailAlreadyRegistered);
         Assert.Single(accountRepository.Saved);
         Assert.Equal("concurrent@example.com", accountRepository.Saved[0].Email);
     }
 
     [Fact]
-    public async Task TC06_PendingRegistrationRetry_GivenPendingAccountAndExpiredOtp_WhenRegisterCalledAgain_ThenReturnsExistingAccountWithIsNewAccountFalseAndDoesNotReissueOtp()
+    public async Task TC06_PendingRegistrationRetry_GivenPendingAccountAndExpiredOtp_WhenRegisterCalledAgain_ThenRejectsAndDoesNotReissueOtp()
     {
-        var clock = new FixedClock();
         var existingAccount = Account.Register(Guid.NewGuid(), "pending@example.com", "hash", null, FixedClock.Now.AddHours(-1));
-        var existingProfile = Profile.Create(existingAccount.Id, "Original Name", FixedClock.Now.AddHours(-1));
         var expiredVerification = EmailVerification.Issue(
             Guid.NewGuid(),
             existingAccount.Id,
             existingAccount.Email,
             "expired-hash",
-            FixedClock.Now.AddHours(-1)); // expired long ago
+            FixedClock.Now.AddHours(-1));
 
         var accountRepository = new FakeAccountRepository();
         accountRepository.Saved.Add(existingAccount);
-        var profileRepository = new FakeProfileRepository();
-        profileRepository.Saved.Add(existingProfile);
         var verificationRepository = new FakeEmailVerificationRepository();
         verificationRepository.Saved.Add(expiredVerification);
         var outboxWriter = new FakeOutboxWriter();
-
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
-            profileRepository,
+            new FakeProfileRepository(),
             verificationRepository,
             new FakePasswordHasher(),
             new FakeOtpGenerator("654321"),
             new FakeOtpHasher(),
             outboxWriter,
-            clock);
+            new FixedClock());
 
-        var retryCommand = CreateValidCommand(email: "pending@example.com", fullName: "Original Name");
-        var result = await handler.Handle(retryCommand, TestContext.Current.CancellationToken);
+        var result = await handler.Handle(CreateValidCommand(email: "pending@example.com"), TestContext.Current.CancellationToken);
 
-        // Must succeed with 200 OK semantics (IsNewAccount = false)
-        Assert.True(result.IsSuccess);
-        Assert.Equal(existingAccount.Id, result.Value!.AccountId);
-        Assert.Equal("pending@example.com", result.Value.Email);
-        Assert.False(result.Value.IsNewAccount);
-        Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
-
-        // MUST NOT re-issue OTP or enqueue outbox event on registration retry (client must call POST /resend-otp)
-        Assert.Single(verificationRepository.Saved); // Only the old expired verification
+        // 409: the client sends the user to POST /resend-otp, which is the only way to get a new code.
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+        Assert.Single(verificationRepository.Saved);
         Assert.Empty(outboxWriter.Enqueued);
     }
 
@@ -548,6 +569,19 @@ public sealed class RegisterAccountTests
             Task.FromResult(Saved
                 .Where(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc)
                 .OrderByDescending(v => v.CreatedAtUtc)
+                .FirstOrDefault());
+
+        public Task<EmailVerification?> GetLatestUnusedForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved
+                .Where(v => v.AccountId == accountId && !v.IsUsed)
+                .OrderByDescending(v => v.CreatedAtUtc)
+                .FirstOrDefault());
+
+        public Task<DateTimeOffset?> GetOldestIssuedSinceAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved
+                .Where(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc)
+                .OrderBy(v => v.CreatedAtUtc)
+                .Select(v => (DateTimeOffset?)v.CreatedAtUtc)
                 .FirstOrDefault());
 
         public void Add(EmailVerification emailVerification) => Saved.Add(emailVerification);

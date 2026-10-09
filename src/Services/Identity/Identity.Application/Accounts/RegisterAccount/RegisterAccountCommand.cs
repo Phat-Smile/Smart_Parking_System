@@ -15,7 +15,7 @@ using ParkingSystem.Identity.Domain.Profiles;
 namespace ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 
 public sealed record RegisterAccountCommand(
-    string FullName,
+    string? FullName,
     string Email,
     string Password,
     string? PhoneNumber) : IRequest<Result<RegisteredAccount>>;
@@ -23,9 +23,8 @@ public sealed record RegisterAccountCommand(
 public sealed record RegisteredAccount(
     Guid AccountId,
     string Email,
-    string FullName,
-    string Status,
-    bool IsNewAccount = true);
+    string? FullName,
+    string Status);
 
 public static class RegisterAccountErrors
 {
@@ -40,12 +39,13 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
 {
     public RegisterAccountCommandValidator()
     {
-        RuleFor(command => command.FullName)
+        // US-AUTH-001: the name is optional at registration and completed on the profile screen (US-PROFILE-001).
+        RuleFor(command => command.FullName!)
             .Cascade(CascadeMode.Stop)
-            .NotEmpty().WithMessage("FullName is required.")
             .Must(name => name.Trim().Length >= 2).WithMessage("FullName must be at least 2 characters.")
             .Must(name => name.Trim().Length <= Profile.MaxFullNameLength).WithMessage($"FullName must not exceed {Profile.MaxFullNameLength} characters.")
-            .Must(name => FullNameRegex().IsMatch(name.Trim())).WithMessage("FullName must only contain letters, spaces, hyphens, or apostrophes.");
+            .Must(name => FullNameRegex().IsMatch(name.Trim())).WithMessage("FullName must only contain letters, spaces, hyphens, or apostrophes.")
+            .When(command => !string.IsNullOrWhiteSpace(command.FullName));
 
         RuleFor(command => command.Email)
             .NotEmpty().WithMessage("Email is required.")
@@ -56,7 +56,7 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
         RuleFor(command => command.Password)
             .NotEmpty().WithMessage("Password is required.")
             .MinimumLength(8)
-            .MaximumLength(72) // bcrypt only uses the first 72 bytes.
+            .Must(PasswordPolicy.FitsBcrypt).WithMessage(PasswordPolicy.TooLongMessage)
             .Matches("[A-Z]").WithMessage("Password must contain an upper-case letter.")
             .Matches("[a-z]").WithMessage("Password must contain a lower-case letter.")
             .Matches("[0-9]").WithMessage("Password must contain a digit.")
@@ -88,15 +88,10 @@ public sealed class RegisterAccountCommandHandler(
     {
         var email = Account.NormalizeEmail(request.Email);
         var existingAccount = await accounts.FindByEmailAsync(email, cancellationToken);
+        // US-AUTH-001 (decided 2026-10-08): an existing email is rejected even while it waits for verification;
+        // the client sends the user to enter or resend the OTP. No new OTP is issued here.
         if (existingAccount is not null)
-        {
-            // Edge-case UX recovery: If account was registered previously but remains in PendingEmailVerification,
-            // return success with the pending account information so the client can proceed to OTP verification/resend.
-            if (existingAccount.Status == AccountStatus.PendingEmailVerification)
-                return PendingAccountRecovered(existingAccount, request);
-
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
-        }
 
         var now = clock.UtcNow;
         var account = Account.Register(
@@ -107,11 +102,13 @@ public sealed class RegisterAccountCommandHandler(
             now);
         accounts.Add(account);
 
-        var profile = Profile.Create(
-            account.Id,
-            request.FullName,
-            now);
-        profiles.Add(profile);
+        // Without a name the profile is created later on the profile screen; never store a placeholder name.
+        Profile? profile = null;
+        if (!string.IsNullOrWhiteSpace(request.FullName))
+        {
+            profile = Profile.Create(account.Id, request.FullName, now);
+            profiles.Add(profile);
+        }
 
         // US-AUTH-001 & US-AUTH-003: Issue initial email OTP verification and outbox message in same transaction
         var otpCode = otpGenerator.GenerateNumericOtp(EmailVerification.OtpLength);
@@ -130,25 +127,8 @@ public sealed class RegisterAccountCommandHandler(
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.PhoneAlreadyRegistered);
 
         if (saveResult == SaveAccountResult.DuplicateEmailConflict)
-        {
-            // Re-query to determine authoritative business state (Dormant Recovery vs Email Already Registered)
-            var concurrentAccount = await accounts.FindByEmailAsync(email, cancellationToken);
-            if (concurrentAccount is not null && concurrentAccount.Status == AccountStatus.PendingEmailVerification)
-                return PendingAccountRecovered(concurrentAccount, request);
-
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
-        }
 
-        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile.FullName, account.Status.ToString()));
+        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile?.FullName, account.Status.ToString()));
     }
-
-    // No password check happens here, so echo the caller's own name: knowing an email
-    // must not reveal the name stored by whoever registered it first.
-    private static Result<RegisteredAccount> PendingAccountRecovered(Account pendingAccount, RegisterAccountCommand request) =>
-        Result<RegisteredAccount>.Success(new RegisteredAccount(
-            pendingAccount.Id,
-            pendingAccount.Email,
-            request.FullName.Trim(),
-            pendingAccount.Status.ToString(),
-            IsNewAccount: false));
 }
