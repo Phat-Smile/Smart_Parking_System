@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Identity.Application.Accounts.Login;
@@ -35,6 +36,15 @@ internal static class AccountEndpoints
         [RefreshTokenErrors.EmailNotVerified.Code] = StatusCodes.Status403Forbidden
     };
 
+    private static readonly Dictionary<string, int> LoginErrorStatusCodes = new()
+    {
+        [LoginErrors.InvalidCredentials.Code] = StatusCodes.Status401Unauthorized,
+        [LoginErrors.EmailNotVerified.Code] = StatusCodes.Status403Forbidden,
+        [LoginErrors.AccountSuspended.Code] = StatusCodes.Status403Forbidden,
+        [LoginErrors.AccountDisabled.Code] = StatusCodes.Status403Forbidden,
+        [LoginErrors.AccountTemporarilyLocked.Code] = StatusCodes.Status423Locked
+    };
+
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         // MF-01 & US-AUTH-001: registration is a public endpoint. Validation failures become 400 in the shared exception handler.
@@ -42,7 +52,7 @@ internal static class AccountEndpoints
             {
                 var result = await sender.Send(
                     new RegisterAccountCommand(
-                        request.FullName ?? string.Empty,
+                        request.FullName,
                         request.Email,
                         request.Password,
                         request.PhoneNumber),
@@ -57,13 +67,10 @@ internal static class AccountEndpoints
                         extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
                 }
 
-                return result.Value!.IsNewAccount
-                    ? Results.Created((string?)null, result.Value)
-                    : Results.Ok(result.Value);
+                return Results.Created((string?)null, result.Value);
             })
             .WithName("RegisterAccount")
             .Produces<RegisteredAccount>(StatusCodes.Status201Created)
-            .Produces<RegisteredAccount>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict);
 
@@ -88,11 +95,14 @@ internal static class AccountEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
         // US-AUTH-003: resend verification OTP (public endpoint).
-        app.MapPost("/api/identity/accounts/resend-otp", async (ResendOtpRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/api/identity/accounts/resend-otp", async (ResendOtpRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
                     new ResendOtpCommand(request.Email),
                     cancellationToken);
+
+                if (result.Error?.RetryAfterSeconds is int retryAfter)
+                    httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
 
                 return result.IsSuccess
                     ? Results.Ok(result.Value)
@@ -124,15 +134,7 @@ internal static class AccountEndpoints
                 if (result.IsSuccess)
                     return Results.Ok(result.Value);
 
-                var statusCode = result.Error!.Code switch
-                {
-                    "identity.invalid_credentials" => StatusCodes.Status401Unauthorized,
-                    "identity.email_not_verified" => StatusCodes.Status403Forbidden,
-                    "identity.account_suspended" => StatusCodes.Status403Forbidden,
-                    "identity.account_disabled" => StatusCodes.Status403Forbidden,
-                    "identity.account_temporarily_locked" => StatusCodes.Status423Locked,
-                    _ => StatusCodes.Status400BadRequest
-                };
+                var statusCode = LoginErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest);
 
                 return Results.Problem(
                     statusCode: statusCode,

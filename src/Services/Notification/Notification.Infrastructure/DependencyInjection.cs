@@ -14,6 +14,14 @@ namespace ParkingSystem.Notification.Infrastructure;
 
 public static class DependencyInjection
 {
+    // Without an SMTP host the console sender is used; it writes the whole email, OTP code included, to the logs.
+    public static bool UsesConsoleEmailSender(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        var smtpHost = configuration["SMTP_HOST"] ?? configuration["Smtp:Host"];
+        return string.IsNullOrWhiteSpace(smtpHost) || smtpHost.Equals("console", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -44,10 +52,7 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
-        var smtpHost = configuration["SMTP_HOST"] ?? configuration["Smtp:Host"];
-        var isConsoleOnly = string.IsNullOrWhiteSpace(smtpHost) || smtpHost.Equals("console", StringComparison.OrdinalIgnoreCase);
-
-        if (isConsoleOnly)
+        if (UsesConsoleEmailSender(configuration))
         {
             services.AddScoped<IEmailSender, LoggingEmailSender>();
         }

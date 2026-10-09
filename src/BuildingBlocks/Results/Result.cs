@@ -1,6 +1,10 @@
 namespace ParkingSystem.BuildingBlocks.Results;
 
-public sealed record Error(string Code, string Message);
+public sealed record Error(string Code, string Message)
+{
+    // Set on throttling errors so the HTTP layer can send a Retry-After header with the real remaining time.
+    public int? RetryAfterSeconds { get; init; }
+}
 
 public sealed class Result<T>
 {

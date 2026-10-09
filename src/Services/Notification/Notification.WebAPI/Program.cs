@@ -74,6 +74,12 @@ builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("notification-api");
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
+if (!builder.Environment.IsDevelopment() && ParkingSystem.Notification.Infrastructure.DependencyInjection.UsesConsoleEmailSender(builder.Configuration))
+{
+    // The console sender logs OTP codes; it is a local-development convenience only.
+    throw new InvalidOperationException("SMTP_HOST is required outside Development: the console email sender would write OTP codes to the logs.");
+}
+
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<NotificationDbContext>(name: "postgresql", tags: ["ready"]);

@@ -27,4 +27,14 @@ public sealed class SmtpEmailSenderTests
         await Assert.ThrowsAnyAsync<Exception>(() =>
             sender.SendVerificationOtpEmailAsync("user@example.com", "123456", InitialTime.AddMinutes(5)));
     }
+
+    [Theory]
+    [InlineData("an.nguyen@example.com", "a***@example.com")]
+    [InlineData("  B@x.vn ", "B***@x.vn")]
+    [InlineData("no-at-sign", "***")]
+    [InlineData("@example.com", "***")]
+    public void Recipient_email_is_masked_in_logs(string email, string expected)
+    {
+        Assert.Equal(expected, SmtpEmailSender.MaskEmail(email));
+    }
 }

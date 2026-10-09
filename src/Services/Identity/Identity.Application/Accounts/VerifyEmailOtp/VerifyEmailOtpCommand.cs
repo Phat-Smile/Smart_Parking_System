@@ -38,7 +38,7 @@ public sealed class VerifyEmailOtpCommandValidator : AbstractValidator<VerifyEma
 
         RuleFor(command => command.OtpCode)
             .NotEmpty()
-            .Matches(@"^\d{6}$")
+            .Matches("^[0-9]{6}$") // ASCII digits only: \d also matches other Unicode digits.
             .WithMessage("otpCode must be a 6-digit number.");
     }
 }
@@ -65,13 +65,17 @@ public sealed class VerifyEmailOtpCommandHandler(
                 return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpExpired);
 
             var now = clock.UtcNow;
-            var verification = await emailVerifications.GetLatestActiveForAccountAsync(account.Id, cancellationToken);
-
-            if (verification is null || verification.IsExpired(now))
+            // Read the latest unused code even when wrong attempts invalidated it: until a new code is requested,
+            // every later try keeps answering otp_max_attempts_exceeded (US-AUTH-003 spec).
+            var verification = await emailVerifications.GetLatestUnusedForAccountAsync(account.Id, cancellationToken);
+            if (verification is null)
                 return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpExpired);
 
-            if (!verification.CanAttempt())
+            if (verification.IsExhausted)
                 return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded);
+
+            if (verification.IsInvalidated || verification.IsExpired(now))
+                return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpExpired);
 
             var matched = verification.RecordAttempt(request.OtpCode, otpHasher, now);
 
@@ -79,7 +83,7 @@ public sealed class VerifyEmailOtpCommandHandler(
             {
                 await emailVerifications.SaveChangesAsync(cancellationToken);
 
-                return !verification.CanAttempt()
+                return verification.IsExhausted
                     ? Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded)
                     : Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.InvalidOtpCode);
             }
