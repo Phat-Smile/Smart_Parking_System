@@ -45,12 +45,16 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("failed_login_attempts");
 
+                    b.Property<string>("GoogleSubject")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("google_subject");
+
                     b.Property<DateTimeOffset?>("LockoutEndUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("lockout_end_utc");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("password_hash");
@@ -87,6 +91,11 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.HasIndex("Email")
                         .IsUnique()
                         .HasDatabaseName("ux_accounts_email");
+
+                    b.HasIndex("GoogleSubject")
+                        .IsUnique()
+                        .HasDatabaseName("ux_accounts_google_subject")
+                        .HasFilter("google_subject IS NOT NULL");
 
                     b.HasIndex("PhoneNumber")
                         .IsUnique()

@@ -5,8 +5,18 @@ using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Persistence.Accounts;
 
-internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountRepository
+internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountRepository, IGoogleAccountRepository
 {
+    public async Task<Account?> FindByGoogleSubjectForUpdateAsync(string googleSubject, CancellationToken cancellationToken)
+    {
+        return await dbContext.Accounts
+            .FromSqlInterpolated($"SELECT * FROM identity.accounts WHERE google_subject = {googleSubject} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<Account?> FindByGoogleSubjectAsync(string googleSubject, CancellationToken cancellationToken) =>
+        dbContext.Accounts.SingleOrDefaultAsync(account => account.GoogleSubject == googleSubject, cancellationToken);
+
     public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         dbContext.Accounts.AsNoTracking().AnyAsync(account => account.Email == normalizedEmail, cancellationToken);
 

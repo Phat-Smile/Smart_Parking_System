@@ -133,6 +133,8 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      # US-AUTH-002: Google OAuth web client ID; empty switches Google sign-in off (503).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
 
   parking-api:
     build:
