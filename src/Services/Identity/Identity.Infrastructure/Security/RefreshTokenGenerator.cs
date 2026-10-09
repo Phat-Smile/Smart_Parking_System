@@ -12,10 +12,15 @@ public sealed class RefreshTokenGenerator : IRefreshTokenGenerator
     {
         var bytes = RandomNumberGenerator.GetBytes(TokenByteLength);
         var rawToken = Convert.ToHexString(bytes).ToLowerInvariant();
-
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawToken));
-        var tokenHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+        var tokenHash = HashToken(rawToken);
 
         return (rawToken, tokenHash);
+    }
+
+    public string HashToken(string rawToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(rawToken);
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawToken.Trim()));
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 }

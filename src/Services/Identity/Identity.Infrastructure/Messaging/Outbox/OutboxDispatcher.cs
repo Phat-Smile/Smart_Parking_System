@@ -81,7 +81,7 @@ public sealed class OutboxDispatcher(
                 ?? throw new JsonException("The Outbox payload deserialized to null.");
             await publisher.PublishAsync(message, eventClrType, record, cancellationToken);
 
-            if (await store.MarkProcessedAsync(record.Id, record.LockId, clock.UtcNow, cancellationToken))
+            if (await store.MarkProcessedAsync(record.Id, record.LockId, clock.UtcNow, cancellationToken, _options.RedactedPayloadKeys))
             {
                 logger.LogDebug(
                     "Published Outbox message {OutboxMessageId} ({EventType} v{EventVersion}) with retry count {RetryCount}.",

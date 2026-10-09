@@ -39,6 +39,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IInboxExecutionCoordinator, IdentityInboxExecutionCoordinator>();
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
+        services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();
         return services;

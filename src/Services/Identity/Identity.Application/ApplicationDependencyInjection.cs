@@ -14,6 +14,7 @@ public static class ApplicationDependencyInjection
         services.AddValidatorsFromAssembly(typeof(ApplicationDependencyInjection).Assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddSingleton<ILicensePlateNormalizer, LicensePlateNormalizer>();
+        services.AddScoped<Accounts.IAuthSessionManager, Accounts.AuthSessionManager>();
         return services;
     }
 }

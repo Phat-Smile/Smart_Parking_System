@@ -217,9 +217,33 @@ public sealed class RegisterAccountTests
     }
 
     [Fact]
-    public async Task Handler_reports_a_duplicate_when_concurrent_save_fails_on_unique_index()
+    public async Task Handler_reports_phone_conflict_when_the_phone_belongs_to_another_account()
     {
+        var accountRepository = new FakeAccountRepository { FailSaveWithDuplicatePhone = true };
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            new FakeProfileRepository(),
+            new FakeEmailVerificationRepository(),
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            new FakeOutboxWriter(),
+            new FixedClock());
+
+        var result = await handler.Handle(CreateValidCommand(email: "new@example.com"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RegisterAccountErrors.PhoneAlreadyRegistered, result.Error);
+        Assert.Empty(accountRepository.Saved);
+    }
+
+    [Fact]
+    public async Task Handler_reports_a_duplicate_when_concurrent_save_fails_on_unique_index_and_account_already_verified()
+    {
+        var existingVerified = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
+        existingVerified.VerifyEmail();
         var accountRepository = new FakeAccountRepository { FailSaveWithDuplicate = true };
+        accountRepository.Saved.Add(existingVerified);
         var profileRepository = new FakeProfileRepository();
         var verificationRepository = new FakeEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
@@ -233,10 +257,37 @@ public sealed class RegisterAccountTests
             outboxWriter,
             new FixedClock());
 
-        var result = await handler.Handle(CreateValidCommand(), TestContext.Current.CancellationToken);
+        var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+    }
+
+    [Fact]
+    public async Task Handler_recovers_as_dormant_when_concurrent_save_fails_on_unique_index_and_account_is_pending()
+    {
+        var existingPending = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
+        var accountRepository = new FakeAccountRepository { FailSaveWithDuplicate = true };
+        accountRepository.Saved.Add(existingPending);
+        var profileRepository = new FakeProfileRepository();
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            profileRepository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            outboxWriter,
+            new FixedClock());
+
+        var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(existingPending.Id, result.Value!.AccountId);
+        Assert.False(result.Value.IsNewAccount);
+        Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
     }
 
     [Fact]
@@ -267,8 +318,93 @@ public sealed class RegisterAccountTests
         Assert.NotNull(result.Value);
         Assert.Equal(existing.Id, result.Value.AccountId);
         Assert.Equal("user@example.com", result.Value.Email);
-        Assert.Equal("Old Name", result.Value.FullName);
+        // The stored owner name must not leak to whoever re-submits the email.
+        Assert.Equal("New Name", result.Value.FullName);
         Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
+        Assert.False(result.Value.IsNewAccount);
+    }
+
+    [Fact]
+    public async Task TC01_ConcurrentRegistration_GivenUnregisteredEmail_WhenTwoConcurrentRegistrations_ThenOnlyOneAccountCreatedAndBothGetConsistentBusinessState()
+    {
+        var accountRepository = new ConcurrentRaceFakeAccountRepository();
+        var profileRepository = new FakeProfileRepository();
+        var verificationRepository = new FakeEmailVerificationRepository();
+        var outboxWriter = new FakeOutboxWriter();
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            profileRepository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            outboxWriter,
+            new FixedClock());
+
+        var command1 = CreateValidCommand(email: "concurrent@example.com", fullName: "User One");
+        var command2 = CreateValidCommand(email: "concurrent@example.com", fullName: "User Two");
+
+        // When: Two concurrent registrations pass initial email lookup simultaneously
+        var task1 = handler.Handle(command1, TestContext.Current.CancellationToken);
+        var task2 = handler.Handle(command2, TestContext.Current.CancellationToken);
+        var results = await Task.WhenAll(task1, task2);
+
+        // Both requests succeed: winning request returns 201 Created (IsNewAccount: true);
+        // losing request catches unique constraint, re-queries, finds Pending account, and returns 200 OK Dormant Recovery (IsNewAccount: false)
+        Assert.All(results, r => Assert.True(r.IsSuccess));
+        var createdCount = results.Count(r => r.Value!.IsNewAccount);
+        var dormantCount = results.Count(r => !r.Value!.IsNewAccount);
+
+        Assert.Equal(1, createdCount);
+        Assert.Equal(1, dormantCount);
+        Assert.Single(accountRepository.Saved);
+        Assert.Equal("concurrent@example.com", accountRepository.Saved[0].Email);
+    }
+
+    [Fact]
+    public async Task TC06_PendingRegistrationRetry_GivenPendingAccountAndExpiredOtp_WhenRegisterCalledAgain_ThenReturnsExistingAccountWithIsNewAccountFalseAndDoesNotReissueOtp()
+    {
+        var clock = new FixedClock();
+        var existingAccount = Account.Register(Guid.NewGuid(), "pending@example.com", "hash", null, FixedClock.Now.AddHours(-1));
+        var existingProfile = Profile.Create(existingAccount.Id, "Original Name", FixedClock.Now.AddHours(-1));
+        var expiredVerification = EmailVerification.Issue(
+            Guid.NewGuid(),
+            existingAccount.Id,
+            existingAccount.Email,
+            "expired-hash",
+            FixedClock.Now.AddHours(-1)); // expired long ago
+
+        var accountRepository = new FakeAccountRepository();
+        accountRepository.Saved.Add(existingAccount);
+        var profileRepository = new FakeProfileRepository();
+        profileRepository.Saved.Add(existingProfile);
+        var verificationRepository = new FakeEmailVerificationRepository();
+        verificationRepository.Saved.Add(expiredVerification);
+        var outboxWriter = new FakeOutboxWriter();
+
+        var handler = new RegisterAccountCommandHandler(
+            accountRepository,
+            profileRepository,
+            verificationRepository,
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("654321"),
+            new FakeOtpHasher(),
+            outboxWriter,
+            clock);
+
+        var retryCommand = CreateValidCommand(email: "pending@example.com", fullName: "Original Name");
+        var result = await handler.Handle(retryCommand, TestContext.Current.CancellationToken);
+
+        // Must succeed with 200 OK semantics (IsNewAccount = false)
+        Assert.True(result.IsSuccess);
+        Assert.Equal(existingAccount.Id, result.Value!.AccountId);
+        Assert.Equal("pending@example.com", result.Value.Email);
+        Assert.False(result.Value.IsNewAccount);
+        Assert.Equal(AccountStatus.PendingEmailVerification.ToString(), result.Value.Status);
+
+        // MUST NOT re-issue OTP or enqueue outbox event on registration retry (client must call POST /resend-otp)
+        Assert.Single(verificationRepository.Saved); // Only the old expired verification
+        Assert.Empty(outboxWriter.Enqueued);
     }
 
     [Fact]
@@ -294,6 +430,7 @@ public sealed class RegisterAccountTests
 
         public string? ExistingEmail { get; init; }
         public bool FailSaveWithDuplicate { get; init; }
+        public bool FailSaveWithDuplicatePhone { get; init; }
         public List<Account> Saved { get; } = [];
 
         public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
@@ -308,7 +445,7 @@ public sealed class RegisterAccountTests
                 return Task.FromResult<Account?>(existing);
             }
 
-            return Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Email == normalizedEmail));
+            return Task.FromResult(Saved.FirstOrDefault(account => account.Email == normalizedEmail));
         }
 
         public Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken) =>
@@ -317,15 +454,33 @@ public sealed class RegisterAccountTests
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(Saved.Concat(pending).FirstOrDefault(account => account.Id == id));
 
+        public Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+            FindByIdAsync(id, cancellationToken);
+
         public void Add(Account account) => pending.Add(account);
 
-        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        public Task<SaveAccountResult> SaveNewAccountAsync(CancellationToken cancellationToken)
         {
-            if (FailSaveWithDuplicate)
-                return Task.FromResult(false);
+            if (FailSaveWithDuplicatePhone)
+            {
+                pending.Clear();
+                return Task.FromResult(SaveAccountResult.DuplicatePhoneConflict);
+            }
+
+            if (FailSaveWithDuplicate || pending.Any(p => Saved.Any(s => s.Email == p.Email)))
+            {
+                pending.Clear();
+                return Task.FromResult(SaveAccountResult.DuplicateEmailConflict);
+            }
             Saved.AddRange(pending);
             pending.Clear();
-            return Task.FromResult(true);
+            return Task.FromResult(SaveAccountResult.Success);
+        }
+
+        public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        {
+            var res = await SaveNewAccountAsync(cancellationToken);
+            return res == SaveAccountResult.Success;
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)
@@ -415,5 +570,59 @@ public sealed class RegisterAccountTests
         public static readonly DateTimeOffset Now = new(2026, 10, 6, 12, 0, 0, TimeSpan.Zero);
 
         public DateTimeOffset UtcNow => Now;
+    }
+
+    private sealed class ConcurrentRaceFakeAccountRepository : IAccountRepository
+    {
+        private readonly object _lock = new();
+        public List<Account> Saved { get; } = [];
+
+        public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken)
+        {
+            lock (_lock)
+            {
+                return Task.FromResult(Saved.FirstOrDefault(a => a.Email == normalizedEmail));
+            }
+        }
+
+        public Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+            FindByEmailAsync(normalizedEmail, cancellationToken);
+
+        public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult<Account?>(null);
+
+        public Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult<Account?>(null);
+
+        public void Add(Account account)
+        {
+            // Staged in memory
+        }
+
+        public Task<SaveAccountResult> SaveNewAccountAsync(CancellationToken cancellationToken)
+        {
+            lock (_lock)
+            {
+                if (Saved.Count > 0)
+                    return Task.FromResult(SaveAccountResult.DuplicateEmailConflict); // Unique constraint violation
+
+                Saved.Add(Account.Register(Guid.NewGuid(), "concurrent@example.com", "hash", null, FixedClock.Now));
+                return Task.FromResult(SaveAccountResult.Success);
+            }
+        }
+
+        public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+        {
+            var res = await SaveNewAccountAsync(cancellationToken);
+            return res == SaveAccountResult.Success;
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> action, CancellationToken cancellationToken) =>
+            action();
     }
 }

@@ -10,6 +10,7 @@ export interface RegisteredAccount {
     accountId: string;
     email: string;
     status: string;
+    isNewAccount?: boolean;
 }
 
 export function registerAccount(request: RegisterAccountRequest) {

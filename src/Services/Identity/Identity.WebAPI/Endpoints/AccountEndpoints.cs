@@ -1,7 +1,11 @@
 using MediatR;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Identity.Application.Accounts.Login;
+using ParkingSystem.Identity.Application.Accounts.Logout;
+using ParkingSystem.Identity.Application.Accounts.LogoutAll;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
+using ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 
 namespace ParkingSystem.Identity.WebAPI.Endpoints;
@@ -16,6 +20,20 @@ internal static class AccountEndpoints
     public sealed record VerifyEmailRequest(string Email, string OtpCode);
     public sealed record ResendOtpRequest(string Email);
     public sealed record LoginRequest(string Email, string Password);
+    public sealed record RefreshTokenRequest(string RefreshToken);
+    public sealed record LogoutRequest(string RefreshToken);
+
+    private static readonly Dictionary<string, int> RefreshErrorStatusCodes = new()
+    {
+        [RefreshTokenErrors.InvalidRefreshToken.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.RefreshTokenExpired.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.SessionExpired.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.SessionRevoked.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.TokenReuseDetected.Code] = StatusCodes.Status401Unauthorized,
+        [RefreshTokenErrors.AccountSuspended.Code] = StatusCodes.Status403Forbidden,
+        [RefreshTokenErrors.AccountDisabled.Code] = StatusCodes.Status403Forbidden,
+        [RefreshTokenErrors.EmailNotVerified.Code] = StatusCodes.Status403Forbidden
+    };
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -24,22 +42,28 @@ internal static class AccountEndpoints
             {
                 var result = await sender.Send(
                     new RegisterAccountCommand(
-                        request.FullName ?? "Registered User",
+                        request.FullName ?? string.Empty,
                         request.Email,
                         request.Password,
                         request.PhoneNumber),
                     cancellationToken);
 
-                return result.IsSuccess
-                    ? Results.Created((string?)null, result.Value)
-                    : Results.Problem(
+                if (!result.IsSuccess)
+                {
+                    return Results.Problem(
                         statusCode: StatusCodes.Status409Conflict,
-                        title: "The email address is already registered.",
-                        detail: result.Error!.Message,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
                         extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return result.Value!.IsNewAccount
+                    ? Results.Created((string?)null, result.Value)
+                    : Results.Ok(result.Value);
             })
             .WithName("RegisterAccount")
             .Produces<RegisteredAccount>(StatusCodes.Status201Created)
+            .Produces<RegisteredAccount>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict);
 
@@ -84,10 +108,17 @@ internal static class AccountEndpoints
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         // US-AUTH-004: user login (public endpoint).
-        app.MapPost("/api/identity/accounts/login", async (LoginRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/api/identity/accounts/login", async (
+                LoginRequest request,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
             {
+                var deviceInfo = httpContext.Request.Headers.UserAgent.ToString();
+                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+
                 var result = await sender.Send(
-                    new LoginCommand(request.Email, request.Password),
+                    new LoginCommand(request.Email, request.Password, deviceInfo, ipAddress),
                     cancellationToken);
 
                 if (result.IsSuccess)
@@ -115,6 +146,68 @@ internal static class AccountEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status423Locked);
+
+        // US-AUTH-005: refresh access token and rotate refresh token (public endpoint).
+        app.MapPost("/api/identity/accounts/refresh", async (
+                RefreshTokenRequest request,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new RefreshTokenCommand(request.RefreshToken), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = RefreshErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest);
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: result.Error.Code,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .AllowAnonymous()
+            .WithName("RefreshToken")
+            .WithSummary("Refresh Access Token and rotate Refresh Token")
+            .Produces<RefreshTokenResponse>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // US-AUTH-005: logout current session (public endpoint, authenticated via Refresh Token).
+        app.MapPost("/api/identity/accounts/logout", async (
+                LogoutRequest request,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new LogoutCommand(request.RefreshToken), cancellationToken);
+
+                return Results.Ok(result.Value);
+            })
+            .AllowAnonymous()
+            .WithName("Logout")
+            .WithSummary("Logout current session")
+            .Produces<LogoutResponse>(StatusCodes.Status200OK)
+            .ProducesValidationProblem();
+
+        // US-AUTH-005: logout all active sessions on all devices (authenticated endpoint).
+        app.MapPost("/api/identity/accounts/logout-all", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new LogoutAllCommand(accountId), cancellationToken);
+
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization()
+            .WithName("LogoutAll")
+            .WithSummary("Logout all active sessions on all devices")
+            .Produces<LogoutResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         return app;
     }

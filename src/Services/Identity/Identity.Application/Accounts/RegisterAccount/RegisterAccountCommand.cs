@@ -20,12 +20,20 @@ public sealed record RegisterAccountCommand(
     string Password,
     string? PhoneNumber) : IRequest<Result<RegisteredAccount>>;
 
-public sealed record RegisteredAccount(Guid AccountId, string Email, string FullName, string Status);
+public sealed record RegisteredAccount(
+    Guid AccountId,
+    string Email,
+    string FullName,
+    string Status,
+    bool IsNewAccount = true);
 
 public static class RegisterAccountErrors
 {
     public static readonly Error EmailAlreadyRegistered =
         new("identity.email_already_registered", "The email address is already registered.");
+
+    public static readonly Error PhoneAlreadyRegistered =
+        new("identity.phone_already_registered", "The phone number is already registered to another account.");
 }
 
 public sealed partial class RegisterAccountCommandValidator : AbstractValidator<RegisterAccountCommand>
@@ -85,14 +93,7 @@ public sealed class RegisterAccountCommandHandler(
             // Edge-case UX recovery: If account was registered previously but remains in PendingEmailVerification,
             // return success with the pending account information so the client can proceed to OTP verification/resend.
             if (existingAccount.Status == AccountStatus.PendingEmailVerification)
-            {
-                var existingProfile = await profiles.FindByAccountIdAsync(existingAccount.Id, cancellationToken);
-                return Result<RegisteredAccount>.Success(new RegisteredAccount(
-                    existingAccount.Id,
-                    existingAccount.Email,
-                    existingProfile?.FullName ?? request.FullName.Trim(),
-                    existingAccount.Status.ToString()));
-            }
+                return PendingAccountRecovered(existingAccount, request);
 
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
         }
@@ -124,9 +125,30 @@ public sealed class RegisterAccountCommandHandler(
             1);
 
         // A concurrent registration with the same email loses the race on the unique index.
-        if (!await accounts.TrySaveChangesAsync(cancellationToken))
+        var saveResult = await accounts.SaveNewAccountAsync(cancellationToken);
+        if (saveResult == SaveAccountResult.DuplicatePhoneConflict)
+            return Result<RegisteredAccount>.Failure(RegisterAccountErrors.PhoneAlreadyRegistered);
+
+        if (saveResult == SaveAccountResult.DuplicateEmailConflict)
+        {
+            // Re-query to determine authoritative business state (Dormant Recovery vs Email Already Registered)
+            var concurrentAccount = await accounts.FindByEmailAsync(email, cancellationToken);
+            if (concurrentAccount is not null && concurrentAccount.Status == AccountStatus.PendingEmailVerification)
+                return PendingAccountRecovered(concurrentAccount, request);
+
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
+        }
 
         return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile.FullName, account.Status.ToString()));
     }
+
+    // No password check happens here, so echo the caller's own name: knowing an email
+    // must not reveal the name stored by whoever registered it first.
+    private static Result<RegisteredAccount> PendingAccountRecovered(Account pendingAccount, RegisterAccountCommand request) =>
+        Result<RegisteredAccount>.Success(new RegisteredAccount(
+            pendingAccount.Id,
+            pendingAccount.Email,
+            request.FullName.Trim(),
+            pendingAccount.Status.ToString(),
+            IsNewAccount: false));
 }
