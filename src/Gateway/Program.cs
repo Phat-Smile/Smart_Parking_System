@@ -4,6 +4,7 @@ using ParkingSystem.AspNetCore.Security;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemGatewaySecurity();
+builder.AddParkingSystemAuthRateLimiting();
 builder.AddParkingSystemTelemetry("parking-gateway");
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 builder.Services.AddHealthChecks();
@@ -12,6 +13,8 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemGatewaySecurity();
+// Sau auth, trước proxy: request Auth vượt ngưỡng bị chặn ngay tại Gateway, không tới Identity.
+app.UseRateLimiter();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 app.MapHealthChecks("/health/live");
