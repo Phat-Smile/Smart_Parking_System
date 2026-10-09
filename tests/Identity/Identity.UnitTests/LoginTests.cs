@@ -94,7 +94,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("unknown@example.com", "any-password"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.InvalidCredentials, result.Error);
+        Assert.Equal(LoginErrors.InvalidCredentials.Code, result.Error!.Code);
         Assert.True(passwordHasher.DummyVerificationInvoked);
         Assert.Empty(refreshTokenRepo.Saved);
     }
@@ -116,7 +116,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.InvalidCredentials, result.Error);
+        Assert.Equal(LoginErrors.InvalidCredentials.Code, result.Error!.Code);
         Assert.Equal(1, account.FailedLoginAttempts);
         Assert.Null(account.LockoutEndUtc);
         Assert.False(account.IsLockedOut(clock.UtcNow));
@@ -140,7 +140,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.InvalidCredentials, result.Error);
+        Assert.Equal(LoginErrors.InvalidCredentials.Code, result.Error!.Code);
         Assert.Equal(2, account.FailedLoginAttempts);
         Assert.Null(account.LockoutEndUtc);
     }
@@ -164,7 +164,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.AccountTemporarilyLocked, result.Error);
+        Assert.Equal(LoginErrors.AccountTemporarilyLocked.Code, result.Error!.Code);
         Assert.Equal(3, account.FailedLoginAttempts);
         Assert.NotNull(account.LockoutEndUtc);
         Assert.Equal(clock.UtcNow.AddMinutes(15), account.LockoutEndUtc);
@@ -196,7 +196,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.AccountTemporarilyLocked, result.Error);
+        Assert.Equal(LoginErrors.AccountTemporarilyLocked.Code, result.Error!.Code);
         Assert.False(passwordHasher.VerificationInvoked);
     }
 
@@ -254,7 +254,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.InvalidCredentials, result.Error);
+        Assert.Equal(LoginErrors.InvalidCredentials.Code, result.Error!.Code);
         Assert.Equal(1, account.FailedLoginAttempts);
         Assert.Null(account.LockoutEndUtc);
     }
@@ -279,7 +279,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.EmailNotVerified, result.Error);
+        Assert.Equal(LoginErrors.EmailNotVerified.Code, result.Error!.Code);
         // Consecutive streak MUST be reset
         Assert.Equal(0, account.FailedLoginAttempts);
         Assert.Null(account.LockoutEndUtc);
@@ -304,7 +304,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.AccountSuspended, result.Error);
+        Assert.Equal(LoginErrors.AccountSuspended.Code, result.Error!.Code);
         Assert.Empty(refreshTokenRepo.Saved);
     }
 
@@ -326,7 +326,7 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.AccountDisabled, result.Error);
+        Assert.Equal(LoginErrors.AccountDisabled.Code, result.Error!.Code);
         Assert.Empty(refreshTokenRepo.Saved);
     }
 
@@ -360,8 +360,8 @@ public sealed class LoginTests
         Assert.True(account.IsLockedOut(clock.UtcNow));
 
         // One request receives 401 (attempt 2), while the third attempt triggers lockout and receives 423
-        var unauthCount = results.Count(r => !r.IsSuccess && r.Error == LoginErrors.InvalidCredentials);
-        var lockedCount = results.Count(r => !r.IsSuccess && r.Error == LoginErrors.AccountTemporarilyLocked);
+        var unauthCount = results.Count(r => !r.IsSuccess && r.Error?.Code == LoginErrors.InvalidCredentials.Code);
+        var lockedCount = results.Count(r => !r.IsSuccess && r.Error?.Code == LoginErrors.AccountTemporarilyLocked.Code);
 
         Assert.Equal(1, unauthCount);
         Assert.Equal(1, lockedCount);
@@ -391,7 +391,7 @@ public sealed class LoginTests
 
         // Then: Return Error AccountTemporarilyLocked (mapped to HTTP 423 Locked)
         Assert.True(result.IsFailure);
-        Assert.Equal(LoginErrors.AccountTemporarilyLocked, result.Error);
+        Assert.Equal(LoginErrors.AccountTemporarilyLocked.Code, result.Error!.Code);
 
         // And: LockoutEndUtc = now + 15m
         Assert.Equal(3, account.FailedLoginAttempts);
@@ -499,13 +499,77 @@ public sealed class LoginTests
 
         // Exactly 2 requests fail with InvalidCredentials (attempt 1 and 2),
         // and remaining 3 requests fail with AccountTemporarilyLocked (attempt 3 onwards)
-        var invalidCredResults = results.Where(r => r.Error == LoginErrors.InvalidCredentials).ToList();
-        var lockedResults = results.Where(r => r.Error == LoginErrors.AccountTemporarilyLocked).ToList();
+        var invalidCredResults = results.Where(r => r.Error?.Code == LoginErrors.InvalidCredentials.Code).ToList();
+        var lockedResults = results.Where(r => r.Error?.Code == LoginErrors.AccountTemporarilyLocked.Code).ToList();
 
         Assert.Equal(2, invalidCredResults.Count);
         Assert.Equal(3, lockedResults.Count);
         Assert.True(account.IsLockedOut(clock.UtcNow));
         Assert.Equal(3, account.FailedLoginAttempts);
+    }
+
+    [Fact]
+    public async Task Wrong_passwords_tell_how_many_tries_are_left_then_how_long_the_lock_lasts()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        account.VerifyEmail();
+        var handler = CreateHandler(new FakeAccountRepository([account]), new FakeRefreshTokenRepository(), new FakePasswordHasher(),
+            new FakeJwtTokenIssuer("token", 900), new FakeRefreshTokenGenerator("raw", "hash"), clock);
+
+        var first = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
+        var second = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
+        var third = await handler.Handle(new LoginCommand("user@example.com", WrongPassword), TestContext.Current.CancellationToken);
+        clock.UtcNow = InitialTime.AddMinutes(10).AddSeconds(30);
+        var whileLocked = await handler.Handle(new LoginCommand("user@example.com", CorrectPassword), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Email hoặc mật khẩu không chính xác. Bạn còn 2 lần thử trước khi tài khoản bị tạm khóa 15 phút.", first.Error!.Message);
+        Assert.Equal("Email hoặc mật khẩu không chính xác. Bạn còn 1 lần thử trước khi tài khoản bị tạm khóa 15 phút.", second.Error!.Message);
+        Assert.Equal(LoginErrors.AccountTemporarilyLocked.Code, third.Error!.Code);
+        Assert.Equal("Tài khoản đang tạm khóa do nhập sai mật khẩu 3 lần liên tiếp. Vui lòng thử lại sau 15 phút, hoặc dùng \"Quên mật khẩu\" để mở khóa ngay.", third.Error.Message);
+        Assert.Equal(15 * 60, third.Error.RetryAfterSeconds);
+        Assert.Equal("Tài khoản đang tạm khóa do nhập sai mật khẩu 3 lần liên tiếp. Vui lòng thử lại sau 5 phút, hoặc dùng \"Quên mật khẩu\" để mở khóa ngay.", whileLocked.Error!.Message);
+        Assert.Equal(4 * 60 + 30, whileLocked.Error.RetryAfterSeconds);
+    }
+
+    [Fact]
+    public async Task Unknown_email_gets_the_plain_invalid_credentials_message_without_a_try_count()
+    {
+        var handler = CreateHandler(new FakeAccountRepository([]), new FakeRefreshTokenRepository(), new FakePasswordHasher(),
+            new FakeJwtTokenIssuer("token", 900), new FakeRefreshTokenGenerator("raw", "hash"), new MutableClock(InitialTime));
+
+        var result = await handler.Handle(new LoginCommand("nobody@example.com", WrongPassword), TestContext.Current.CancellationToken);
+
+        Assert.Equal(LoginErrors.InvalidCredentials, result.Error);
+    }
+
+    [Fact]
+    public async Task Password_login_on_a_google_account_suggests_google_sign_in()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.RegisterWithGoogle(Guid.NewGuid(), "google@example.com", "google-sub", clock.UtcNow);
+        var handler = CreateHandler(new FakeAccountRepository([account]), new FakeRefreshTokenRepository(), new FakePasswordHasher(),
+            new FakeJwtTokenIssuer("token", 900), new FakeRefreshTokenGenerator("raw", "hash"), clock);
+
+        var result = await handler.Handle(new LoginCommand("google@example.com", WrongPassword), TestContext.Current.CancellationToken);
+
+        Assert.Equal(LoginErrors.PasswordNotSet, result.Error);
+        Assert.Contains("Tiếp tục với Google", result.Error!.Message);
+        Assert.Equal(1, account.FailedLoginAttempts); // still counts towards the lockout, like any wrong password
+    }
+
+    [Fact]
+    public async Task Unverified_email_message_tells_how_to_get_the_code()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "pending@example.com", CorrectPasswordHash, null, clock.UtcNow);
+        var handler = CreateHandler(new FakeAccountRepository([account]), new FakeRefreshTokenRepository(), new FakePasswordHasher(),
+            new FakeJwtTokenIssuer("token", 900), new FakeRefreshTokenGenerator("raw", "hash"), clock);
+
+        var result = await handler.Handle(new LoginCommand("pending@example.com", CorrectPassword), TestContext.Current.CancellationToken);
+
+        Assert.Equal(LoginErrors.EmailNotVerified, result.Error);
+        Assert.Contains("Gửi lại mã", result.Error!.Message);
     }
 
     private static byte[] Base64UrlDecode(string input)

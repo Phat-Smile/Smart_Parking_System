@@ -15,18 +15,22 @@ public sealed record PasswordChangedResult(string Message);
 public static class ChangePasswordErrors
 {
     public static readonly Error InvalidCurrentPassword =
-        new("identity.invalid_current_password", "The current password is incorrect.");
+        new("identity.invalid_current_password", "Mật khẩu hiện tại không chính xác.");
 }
 
 public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCommand>
 {
     public ChangePasswordCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.CurrentPassword)
-            .NotEmpty()
+            .NotEmpty().WithMessage("Mật khẩu hiện tại là bắt buộc, không được để trống.")
             .Must(PasswordPolicy.FitsBcrypt).WithMessage(PasswordPolicy.TooLongMessage);
 
-        RuleFor(command => command.NewPassword).MeetsPasswordPolicy();
+        RuleFor(command => command.NewPassword)
+            .MeetsPasswordPolicy()
+            .NotEqual(command => command.CurrentPassword, StringComparer.Ordinal).WithMessage(PasswordPolicy.SameAsCurrentMessage);
     }
 }
 
@@ -58,7 +62,7 @@ public sealed class ChangePasswordCommandHandler(
                 return Result<PasswordChangedResult>.Failure(LoginErrors.AccountDisabled);
 
             if (account.IsLockedOut(now))
-                return Result<PasswordChangedResult>.Failure(LoginErrors.AccountTemporarilyLocked);
+                return Result<PasswordChangedResult>.Failure(AccountMessages.Locked(account, now));
 
             account.ClearExpiredLockout(now);
 
@@ -73,9 +77,14 @@ public sealed class ChangePasswordCommandHandler(
             {
                 account.RecordFailedLogin(now);
                 await accounts.SaveChangesAsync(cancellationToken);
-                return account.IsLockedOut(now)
-                    ? Result<PasswordChangedResult>.Failure(LoginErrors.AccountTemporarilyLocked)
-                    : Result<PasswordChangedResult>.Failure(ChangePasswordErrors.InvalidCurrentPassword);
+                if (account.IsLockedOut(now))
+                    return Result<PasswordChangedResult>.Failure(AccountMessages.Locked(account, now));
+
+                // Wrong current passwords count towards the same login lockout, so the user is warned before it happens.
+                return Result<PasswordChangedResult>.Failure(ChangePasswordErrors.InvalidCurrentPassword with
+                {
+                    Message = $"Mật khẩu hiện tại không chính xác. Bạn còn {Math.Max(0, Account.MaxFailedAttemptsBeforeLockout - account.FailedLoginAttempts)} lần thử trước khi đăng nhập bị tạm khóa {Account.LockoutDurationMinutes} phút trên mọi thiết bị."
+                });
             }
 
             account.ResetPassword(passwordHasher.Hash(request.NewPassword));
@@ -83,7 +92,7 @@ public sealed class ChangePasswordCommandHandler(
             await refreshTokens.RevokeAllForAccountAsync(account.Id, now, RevokedReason, cancellationToken);
             await accounts.SaveChangesAsync(cancellationToken);
 
-            return Result<PasswordChangedResult>.Success(new PasswordChangedResult("Password has been changed. Please log in again."));
+            return Result<PasswordChangedResult>.Success(new PasswordChangedResult("Đổi mật khẩu thành công. Bạn đã được đăng xuất khỏi tất cả thiết bị, vui lòng đăng nhập lại bằng mật khẩu mới."));
         }, cancellationToken);
     }
 }

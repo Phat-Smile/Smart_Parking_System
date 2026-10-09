@@ -101,6 +101,8 @@ public sealed class ChangePasswordAndUnlockIntegrationTests(PostgreSqlContainerF
         var unknown = await UnlockAsync(provider, Guid.NewGuid(), ct);
 
         Assert.True(unlocked.IsSuccess && again.IsSuccess);
+        Assert.Equal("Đã mở khóa đăng nhập. Người dùng có thể đăng nhập lại ngay.", unlocked.Value!.Message);
+        Assert.Equal("Tài khoản không bị khóa đăng nhập; số lần nhập sai đã được đặt lại.", again.Value!.Message);
         Assert.Equal(UnlockAccountErrors.AccountNotFound.Code, unknown.Error!.Code);
         await using var scope = provider.CreateAsyncScope();
         var s = scope.ServiceProvider;
@@ -166,7 +168,7 @@ public sealed class ChangePasswordAndUnlockIntegrationTests(PostgreSqlContainerF
     private static async Task<Result<UnlockedAccount>> UnlockAsync(ServiceProvider provider, Guid accountId, CancellationToken cancellationToken)
     {
         await using var scope = provider.CreateAsyncScope();
-        return await new UnlockAccountCommandHandler(scope.ServiceProvider.GetRequiredService<IAccountRepository>())
+        return await new UnlockAccountCommandHandler(scope.ServiceProvider.GetRequiredService<IAccountRepository>(), new FixedClock())
             .Handle(new UnlockAccountCommand(accountId), cancellationToken);
     }
 

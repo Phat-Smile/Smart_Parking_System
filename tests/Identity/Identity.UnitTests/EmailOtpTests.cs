@@ -97,7 +97,7 @@ public sealed class EmailOtpTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(VerifyEmailOtpErrors.OtpExpired, result.Error);
+        Assert.Equal(VerifyEmailOtpErrors.OtpExpired.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class EmailOtpTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(VerifyEmailOtpErrors.OtpExpired, result.Error);
+        Assert.Equal(VerifyEmailOtpErrors.OtpExpired.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -140,7 +140,7 @@ public sealed class EmailOtpTests
             TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(VerifyEmailOtpErrors.OtpExpired, result.Error);
+        Assert.Equal(VerifyEmailOtpErrors.OtpExpired.Code, result.Error!.Code);
         Assert.Equal(AccountStatus.PendingEmailVerification, account.Status);
     }
 
@@ -163,7 +163,8 @@ public sealed class EmailOtpTests
             TestContext.Current.CancellationToken);
 
         Assert.True(firstResult.IsFailure);
-        Assert.Equal(VerifyEmailOtpErrors.InvalidOtpCode, firstResult.Error);
+        Assert.Equal(VerifyEmailOtpErrors.InvalidOtpCode.Code, firstResult.Error!.Code);
+        Assert.Equal("Mã OTP không đúng. Bạn còn 2 lần thử.", firstResult.Error.Message);
         Assert.Equal(1, verification.AttemptCount);
         Assert.False(verification.IsUsed);
 
@@ -173,7 +174,8 @@ public sealed class EmailOtpTests
             TestContext.Current.CancellationToken);
 
         Assert.True(secondResult.IsFailure);
-        Assert.Equal(VerifyEmailOtpErrors.InvalidOtpCode, secondResult.Error);
+        Assert.Equal(VerifyEmailOtpErrors.InvalidOtpCode.Code, secondResult.Error!.Code);
+        Assert.Equal("Mã OTP không đúng. Bạn còn 1 lần thử.", secondResult.Error.Message);
         Assert.Equal(2, verification.AttemptCount);
         Assert.False(verification.IsUsed);
 
@@ -294,7 +296,7 @@ public sealed class EmailOtpTests
         Assert.True(result.IsFailure);
         Assert.Equal(ResendOtpErrors.CooldownActiveCode, result.Error!.Code);
         Assert.Equal(30, result.Error.RetryAfterSeconds); // 60 s cooldown, 30 s already elapsed
-        Assert.Contains("30 seconds", result.Error.Message);
+        Assert.Equal("Vui lòng đợi 30 giây trước khi yêu cầu mã mới. Mã đã gửi trước đó vẫn dùng được nếu chưa hết hạn.", result.Error.Message);
         Assert.Empty(outboxWriter.Enqueued);
     }
 
@@ -324,7 +326,52 @@ public sealed class EmailOtpTests
         Assert.True(result.IsFailure);
         Assert.Equal(ResendOtpErrors.RateLimitExceededCode, result.Error!.Code);
         Assert.Equal(15 * 60, result.Error.RetryAfterSeconds); // oldest code at +10 min leaves the window at +70 min
+        Assert.Equal("Email này đã nhận tối đa 5 mã OTP trong 1 giờ (tính cả mã gửi khi đăng ký). Vui lòng thử lại sau 15 phút.", result.Error.Message);
         Assert.Empty(outboxWriter.Enqueued);
+    }
+
+    [Fact]
+    public async Task VerifyEmailOtp_reports_success_message()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+        var code = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
+        var handler = new VerifyEmailOtpCommandHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([code]), _otpHasher, new FakeOutboxWriter(), clock);
+
+        var result = await handler.Handle(new VerifyEmailOtpCommand("user@example.com", "123456"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Xác thực email thành công. Bạn có thể đăng nhập ngay.", result.Value!.Message);
+    }
+
+    [Fact]
+    public async Task VerifyEmailOtp_tells_the_user_an_older_code_was_replaced()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+        var replaced = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("111111", account.Id), clock.UtcNow);
+        replaced.Invalidate(clock.UtcNow);
+        var handler = new VerifyEmailOtpCommandHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([replaced]), _otpHasher, new FakeOutboxWriter(), clock);
+
+        var result = await handler.Handle(new VerifyEmailOtpCommand("user@example.com", "111111"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(VerifyEmailOtpErrors.OtpExpired.Code, result.Error!.Code);
+        Assert.Equal("Mã OTP này đã được thay bằng mã mới hơn. Vui lòng dùng mã trong email gần nhất.", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task VerifyEmailOtp_reports_an_expired_code_separately_from_a_replaced_one()
+    {
+        var clock = new MutableClock(InitialTime);
+        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
+        var code = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
+        clock.UtcNow = InitialTime.AddMinutes(EmailVerification.ExpirationMinutes + 1);
+        var handler = new VerifyEmailOtpCommandHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([code]), _otpHasher, new FakeOutboxWriter(), clock);
+
+        var result = await handler.Handle(new VerifyEmailOtpCommand("user@example.com", "123456"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(VerifyEmailOtpErrors.OtpExpired, result.Error);
+        Assert.Equal("Mã OTP đã hết hạn hoặc không còn hiệu lực. Vui lòng yêu cầu mã OTP mới.", result.Error!.Message);
     }
 
     [Fact]
@@ -367,7 +414,7 @@ public sealed class EmailOtpTests
 
         // Exactly one transitions to EmailVerified and succeeds; the second receives generic 400 OtpExpired
         var successCount = results.Count(r => r.IsSuccess);
-        var expiredCount = results.Count(r => !r.IsSuccess && r.Error == VerifyEmailOtpErrors.OtpExpired);
+        var expiredCount = results.Count(r => !r.IsSuccess && r.Error?.Code == VerifyEmailOtpErrors.OtpExpired.Code);
 
         Assert.Equal(1, successCount);
         Assert.Equal(1, expiredCount);
@@ -404,7 +451,7 @@ public sealed class EmailOtpTests
 
         // Then: OTP is permanently locked / invalidated for further attempts
         Assert.True(result.IsFailure);
-        Assert.Equal(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded, result.Error);
+        Assert.Equal(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded.Code, result.Error!.Code);
         Assert.Equal(3, verification.AttemptCount);
         Assert.False(verification.CanAttempt());
         Assert.False(verification.IsUsed);
@@ -421,7 +468,7 @@ public sealed class EmailOtpTests
     }
 
     [Fact]
-    public async Task TC07_ResendEnumeration_GivenUnknownOrVerifiedOrPendingEmail_WhenResendCalled_ThenPublicResponsesAreIdentical()
+    public async Task TC07_Resend_GivenUnknownOrVerifiedOrPendingEmail_WhenResendCalled_ThenEachGetsItsOwnClearMessage()
     {
         var clock = new MutableClock(InitialTime);
         var pendingAccount = Account.Register(Guid.NewGuid(), "pending@example.com", "hash", null, clock.UtcNow);
@@ -434,28 +481,19 @@ public sealed class EmailOtpTests
         var otpGenerator = new FakeOtpGenerator("654321");
         var handler = new ResendOtpCommandHandler(accountRepo, verificationRepo, otpGenerator, _otpHasher, outboxWriter, clock);
 
-        // 1. Unknown email
         var unknownResult = await handler.Handle(new ResendOtpCommand("unknown@example.com"), TestContext.Current.CancellationToken);
-
-        // 2. Already verified email
         var verifiedResult = await handler.Handle(new ResendOtpCommand("verified@example.com"), TestContext.Current.CancellationToken);
-
-        // 3. Pending email
         var pendingResult = await handler.Handle(new ResendOtpCommand("pending@example.com"), TestContext.Current.CancellationToken);
 
-        // Public responses MUST be completely identical to prevent account enumeration
+        // Decided 2026-10-09: every case answers 200, but the message says what really happened.
         Assert.True(unknownResult.IsSuccess);
         Assert.True(verifiedResult.IsSuccess);
         Assert.True(pendingResult.IsSuccess);
 
-        Assert.Equal(unknownResult.Value!.ExpiresInSeconds, verifiedResult.Value!.ExpiresInSeconds);
-        Assert.Equal(verifiedResult.Value!.ExpiresInSeconds, pendingResult.Value!.ExpiresInSeconds);
-
-        Assert.Equal(unknownResult.Value!.CooldownSeconds, verifiedResult.Value!.CooldownSeconds);
-        Assert.Equal(verifiedResult.Value!.CooldownSeconds, pendingResult.Value!.CooldownSeconds);
-
-        Assert.Equal(unknownResult.Value!.Message, verifiedResult.Value!.Message);
-        Assert.Equal(verifiedResult.Value!.Message, pendingResult.Value!.Message);
+        Assert.Equal(new ResentOtpResult("unknown@example.com", 0, 0, ResendOtpErrors.EmailNotRegisteredMessage, false), unknownResult.Value);
+        Assert.Equal(new ResentOtpResult("verified@example.com", 0, 0, ResendOtpErrors.AlreadyVerifiedMessage, false), verifiedResult.Value);
+        Assert.Equal(new ResentOtpResult("pending@example.com", 300, 60, ResendOtpErrors.SentMessage("pending@example.com"), true), pendingResult.Value);
+        Assert.Equal("Đã gửi mã OTP mới đến pending@example.com. Mã có hiệu lực 5 phút; bạn có thể yêu cầu gửi lại sau 60 giây.", pendingResult.Value!.Message);
 
         // Internal behavior distinction: only pending actually issues an OTP and writes to outbox
         var singleOutboxEvent = Assert.Single(outboxWriter.Enqueued);

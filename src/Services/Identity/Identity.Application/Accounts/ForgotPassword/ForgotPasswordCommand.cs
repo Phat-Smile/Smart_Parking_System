@@ -17,17 +17,20 @@ public sealed record ForgotPasswordResult(string Email, int ExpiresInSeconds, in
 
 public static class ForgotPasswordErrors
 {
+    public const string DefaultSuccessMessage =
+        "Nếu email tồn tại trong hệ thống và đã được kích hoạt, mã xác thực đặt lại mật khẩu đã được gửi đến email của bạn.";
+
     public const string CooldownActiveCode = "identity.reset_cooldown_active";
     public const string RateLimitExceededCode = "identity.reset_rate_limit_exceeded";
 
     public static Error CooldownActive(int retryAfterSeconds) =>
-        new(CooldownActiveCode, $"Please wait {retryAfterSeconds} seconds before requesting another code.")
+        new(CooldownActiveCode, $"Vui lòng đợi {retryAfterSeconds} giây trước khi yêu cầu mã mới. Mã đã gửi trước đó vẫn dùng được nếu chưa hết hạn.")
         {
             RetryAfterSeconds = retryAfterSeconds
         };
 
     public static Error RateLimitExceeded(int retryAfterSeconds) =>
-        new(RateLimitExceededCode, "Maximum of 5 password reset codes per hour reached for this email.")
+        new(RateLimitExceededCode, $"Email này đã nhận tối đa {EmailVerification.MaxHourlyOtpIssued} mã đặt lại mật khẩu trong 1 giờ. Vui lòng thử lại sau {(retryAfterSeconds + 59) / 60} phút.")
         {
             RetryAfterSeconds = retryAfterSeconds
         };
@@ -37,10 +40,12 @@ public sealed class ForgotPasswordCommandValidator : AbstractValidator<ForgotPas
 {
     public ForgotPasswordCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.Email)
-            .NotEmpty()
-            .MaximumLength(254)
-            .EmailAddress();
+            .NotEmpty().WithMessage("Email là bắt buộc, không được để trống.")
+            .MaximumLength(254).WithMessage("Email không được vượt quá 254 ký tự.")
+            .EmailAddress().WithMessage("Email không đúng định dạng hợp lệ.");
     }
 }
 
@@ -62,7 +67,7 @@ public sealed class ForgotPasswordCommandHandler(
             email,
             EmailVerification.ExpirationMinutes * 60,
             EmailVerification.CooldownSeconds,
-            "If the email belongs to an account, a password reset code has been sent.");
+            ForgotPasswordErrors.DefaultSuccessMessage);
 
         return await accounts.ExecuteInTransactionAsync(async () =>
         {

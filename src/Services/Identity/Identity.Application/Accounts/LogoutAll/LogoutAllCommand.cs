@@ -13,6 +13,6 @@ public sealed class LogoutAllCommandHandler(IAuthSessionManager authSessionManag
     {
         await authSessionManager.RevokeAllSessionsAsync(request.AccountId, "LogoutAll", cancellationToken);
 
-        return Result<LogoutResponse>.Success(new LogoutResponse("All active sessions have been logged out successfully."));
+        return Result<LogoutResponse>.Success(new LogoutResponse("Đã đăng xuất thành công khỏi tất cả các thiết bị."));
     }
 }

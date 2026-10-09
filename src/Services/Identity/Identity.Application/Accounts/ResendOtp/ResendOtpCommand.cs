@@ -12,21 +12,30 @@ namespace ParkingSystem.Identity.Application.Accounts.ResendOtp;
 
 public sealed record ResendOtpCommand(string Email) : IRequest<Result<ResentOtpResult>>;
 
-public sealed record ResentOtpResult(string Email, int ExpiresInSeconds, int CooldownSeconds, string Message);
+// OtpSent is false when no code was issued (unknown email or account already verified); the timers are then 0.
+public sealed record ResentOtpResult(string Email, int ExpiresInSeconds, int CooldownSeconds, string Message, bool OtpSent);
 
 public static class ResendOtpErrors
 {
+    // Decided 2026-10-09: registration already answers 409 for a known email, so resend tells the user plainly
+    // what happened instead of a hedged "if the account exists" message.
+    public const string EmailNotRegisteredMessage = "Email này chưa được đăng ký. Vui lòng đăng ký tài khoản.";
+    public const string AlreadyVerifiedMessage = "Tài khoản này đã được xác thực trước đó. Vui lòng đăng nhập.";
+
+    public static string SentMessage(string email) =>
+        $"Đã gửi mã OTP mới đến {email}. Mã có hiệu lực {EmailVerification.ExpirationMinutes} phút; bạn có thể yêu cầu gửi lại sau {EmailVerification.CooldownSeconds} giây.";
+
     public const string CooldownActiveCode = "identity.resend_cooldown_active";
     public const string RateLimitExceededCode = "identity.resend_rate_limit_exceeded";
 
     public static Error CooldownActive(int retryAfterSeconds) =>
-        new(CooldownActiveCode, $"Please wait {retryAfterSeconds} seconds before requesting another verification code.")
+        new(CooldownActiveCode, $"Vui lòng đợi {retryAfterSeconds} giây trước khi yêu cầu mã mới. Mã đã gửi trước đó vẫn dùng được nếu chưa hết hạn.")
         {
             RetryAfterSeconds = retryAfterSeconds
         };
 
     public static Error RateLimitExceeded(int retryAfterSeconds) =>
-        new(RateLimitExceededCode, "Maximum resend limit of 5 OTPs per hour reached for this email.")
+        new(RateLimitExceededCode, $"Email này đã nhận tối đa {EmailVerification.MaxHourlyOtpIssued} mã OTP trong 1 giờ (tính cả mã gửi khi đăng ký). Vui lòng thử lại sau {(retryAfterSeconds + 59) / 60} phút.")
         {
             RetryAfterSeconds = retryAfterSeconds
         };
@@ -40,10 +49,12 @@ public sealed class ResendOtpCommandValidator : AbstractValidator<ResendOtpComma
 {
     public ResendOtpCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.Email)
-            .NotEmpty()
-            .MaximumLength(254)
-            .EmailAddress();
+            .NotEmpty().WithMessage("Email là bắt buộc, không được để trống.")
+            .MaximumLength(254).WithMessage("Email không được vượt quá 254 ký tự.")
+            .EmailAddress().WithMessage("Email không đúng định dạng hợp lệ.");
     }
 }
 
@@ -64,16 +75,12 @@ public sealed class ResendOtpCommandHandler(
             // Lock the account row with SELECT ... FOR UPDATE to serialize all concurrent Resend and Verify operations
             var account = await accounts.FindByEmailForUpdateAsync(email, cancellationToken);
 
-            // Security: Avoid account enumeration. If account does not exist or is not in PendingEmailVerification,
-            // return generic success response without issuing an OTP.
-            if (account is null || account.Status != AccountStatus.PendingEmailVerification)
-            {
-                return Result<ResentOtpResult>.Success(new ResentOtpResult(
-                    email,
-                    EmailVerification.ExpirationMinutes * 60,
-                    EmailVerification.CooldownSeconds,
-                    "Verification code has been resent to your email."));
-            }
+            // No code is issued for an unknown email or an account that no longer waits for verification.
+            if (account is null)
+                return Result<ResentOtpResult>.Success(new ResentOtpResult(email, 0, 0, ResendOtpErrors.EmailNotRegisteredMessage, false));
+
+            if (account.Status != AccountStatus.PendingEmailVerification)
+                return Result<ResentOtpResult>.Success(new ResentOtpResult(email, 0, 0, ResendOtpErrors.AlreadyVerifiedMessage, false));
 
             var now = clock.UtcNow;
 
@@ -115,7 +122,8 @@ public sealed class ResendOtpCommandHandler(
                 email,
                 EmailVerification.ExpirationMinutes * 60,
                 EmailVerification.CooldownSeconds,
-                "Verification code has been resent to your email."));
+                ResendOtpErrors.SentMessage(email),
+                true));
         }, cancellationToken);
     }
 }

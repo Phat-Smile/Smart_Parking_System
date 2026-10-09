@@ -13,33 +13,42 @@ namespace ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 public sealed record VerifyEmailOtpCommand(string Email, string OtpCode)
     : IRequest<Result<VerifiedEmailAccount>>;
 
-public sealed record VerifiedEmailAccount(Guid AccountId, string Email, string Status, bool IsVerified = true);
+public sealed record VerifiedEmailAccount(Guid AccountId, string Email, string Status, bool IsVerified = true, string Message = VerifyEmailOtpErrors.SuccessMessage);
 
 public static class VerifyEmailOtpErrors
 {
+    public const string SuccessMessage = "Xác thực email thành công. Bạn có thể đăng nhập ngay.";
+
     public static readonly Error InvalidOtpCode =
-        new("identity.invalid_otp_code", "Incorrect OTP code. Please check and try again.");
+        new("identity.invalid_otp_code", "Mã OTP không chính xác. Vui lòng kiểm tra lại.");
 
     public static readonly Error OtpExpired =
-        new("identity.otp_expired", "OTP code is invalid or has expired. Please request a new code.");
+        new("identity.otp_expired", "Mã OTP đã hết hạn hoặc không còn hiệu lực. Vui lòng yêu cầu mã OTP mới.");
+
+    // The account does not exist or no longer waits for verification (already activated): same code, but the user
+    // who activated earlier is pointed to the login.
+    public static readonly Error AccountNotPending =
+        new("identity.otp_expired", "Mã OTP không hợp lệ hoặc đã hết hạn. Nếu bạn đã kích hoạt tài khoản trước đó, vui lòng tiến hành đăng nhập.");
 
     public static readonly Error OtpMaxAttemptsExceeded =
-        new("identity.otp_max_attempts_exceeded", "Maximum OTP verification attempts exceeded. Please request a new OTP code.");
+        new("identity.otp_max_attempts_exceeded", $"Bạn đã nhập sai mã OTP {EmailVerification.MaxAttempts} lần nên mã này không còn dùng được. Vui lòng yêu cầu mã mới.");
 }
 
 public sealed class VerifyEmailOtpCommandValidator : AbstractValidator<VerifyEmailOtpCommand>
 {
     public VerifyEmailOtpCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.Email)
-            .NotEmpty()
-            .MaximumLength(254)
-            .EmailAddress();
+            .NotEmpty().WithMessage("Email là bắt buộc, không được để trống.")
+            .MaximumLength(254).WithMessage("Email không được vượt quá 254 ký tự.")
+            .EmailAddress().WithMessage("Email không đúng định dạng hợp lệ.");
 
         RuleFor(command => command.OtpCode)
-            .NotEmpty()
+            .NotEmpty().WithMessage("Mã OTP là bắt buộc, không được để trống.")
             .Matches("^[0-9]{6}$") // ASCII digits only: \d also matches other Unicode digits.
-            .WithMessage("otpCode must be a 6-digit number.");
+            .WithMessage("Mã OTP phải là một dãy số gồm đúng 6 chữ số.");
     }
 }
 
@@ -62,7 +71,7 @@ public sealed class VerifyEmailOtpCommandHandler(
             // Security: Avoid account enumeration. If account does not exist or is not in PendingEmailVerification,
             // return generic expired error.
             if (account is null || account.Status != AccountStatus.PendingEmailVerification)
-                return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpExpired);
+                return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.AccountNotPending);
 
             var now = clock.UtcNow;
             // Read the latest unused code even when wrong attempts invalidated it: until a new code is requested,
@@ -74,7 +83,10 @@ public sealed class VerifyEmailOtpCommandHandler(
             if (verification.IsExhausted)
                 return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded);
 
-            if (verification.IsInvalidated || verification.IsExpired(now))
+            if (verification.IsInvalidated)
+                return Result<VerifiedEmailAccount>.Failure(AccountMessages.OtpReplaced);
+
+            if (verification.IsExpired(now))
                 return Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpExpired);
 
             var matched = verification.RecordAttempt(request.OtpCode, otpHasher, now);
@@ -85,7 +97,7 @@ public sealed class VerifyEmailOtpCommandHandler(
 
                 return verification.IsExhausted
                     ? Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.OtpMaxAttemptsExceeded)
-                    : Result<VerifiedEmailAccount>.Failure(VerifyEmailOtpErrors.InvalidOtpCode);
+                    : Result<VerifiedEmailAccount>.Failure(AccountMessages.InvalidOtp(verification));
             }
 
             var transitioned = account.VerifyEmail();

@@ -26,32 +26,38 @@ public sealed record AccountDto(
 public static class LoginErrors
 {
     public static readonly Error InvalidCredentials =
-        new("identity.invalid_credentials", "Invalid email or password.");
+        new("identity.invalid_credentials", "Email hoặc mật khẩu không chính xác.");
 
     public static readonly Error EmailNotVerified =
-        new("identity.email_not_verified", "Email address has not been verified. Please verify your email before logging in.");
+        new("identity.email_not_verified", "Email chưa được xác thực. Vui lòng nhập mã OTP đã gửi đến email, hoặc chọn \"Gửi lại mã\" nếu không nhận được.");
+
+    // The account was created with Google and has never set a password.
+    public static readonly Error PasswordNotSet =
+        new("identity.password_not_set", "Tài khoản này đăng ký bằng Google và chưa có mật khẩu. Vui lòng chọn \"Tiếp tục với Google\", hoặc dùng \"Quên mật khẩu\" để tạo mật khẩu.");
 
     public static readonly Error AccountTemporarilyLocked =
-        new("identity.account_temporarily_locked", "Account is temporarily locked due to multiple failed login attempts. Please try again later.");
+        new("identity.account_temporarily_locked", "Tài khoản đang tạm khóa do nhập sai mật khẩu nhiều lần. Vui lòng thử lại sau, hoặc dùng \"Quên mật khẩu\" để mở khóa ngay.");
 
     public static readonly Error AccountSuspended =
-        new("identity.account_suspended", "Account has been suspended. Please contact support.");
+        new("identity.account_suspended", "Tài khoản đã bị đình chỉ hoạt động. " + AccountMessages.ContactAdmin);
 
     public static readonly Error AccountDisabled =
-        new("identity.account_disabled", "Account has been disabled.");
+        new("identity.account_disabled", "Tài khoản đã bị vô hiệu hóa. " + AccountMessages.ContactAdmin);
 }
 
 public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
 {
     public LoginCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.Email)
-            .NotEmpty()
-            .MaximumLength(254)
-            .EmailAddress();
+            .NotEmpty().WithMessage("Email là bắt buộc, không được để trống.")
+            .MaximumLength(254).WithMessage("Email không được vượt quá 254 ký tự.")
+            .EmailAddress().WithMessage("Email không đúng định dạng hợp lệ.");
 
         RuleFor(command => command.Password)
-            .NotEmpty()
+            .NotEmpty().WithMessage("Mật khẩu là bắt buộc, không được để trống.")
             .Must(PasswordPolicy.FitsBcrypt).WithMessage(PasswordPolicy.TooLongMessage);
     }
 }
@@ -82,12 +88,13 @@ public sealed class LoginCommandHandler(
 
             if (account.IsLockedOut(now))
             {
-                return Result<LoginResponse>.Failure(LoginErrors.AccountTemporarilyLocked);
+                return Result<LoginResponse>.Failure(AccountMessages.Locked(account, now));
             }
 
             account.ClearExpiredLockout(now);
 
-            // G3: an account created with Google has no password yet; answer exactly like a wrong password.
+            // G3 (changed 2026-10-09): an account created with Google has no password yet. The attempt still counts
+            // towards the lockout, but the user is told to sign in with Google (identity.password_not_set).
             bool passwordMatched;
             if (account.PasswordHash is { } passwordHash)
             {
@@ -103,9 +110,12 @@ public sealed class LoginCommandHandler(
                 account.RecordFailedLogin(now);
                 await accounts.SaveChangesAsync(cancellationToken);
 
-                return account.IsLockedOut(now)
-                    ? Result<LoginResponse>.Failure(LoginErrors.AccountTemporarilyLocked)
-                    : Result<LoginResponse>.Failure(LoginErrors.InvalidCredentials);
+                if (account.IsLockedOut(now))
+                    return Result<LoginResponse>.Failure(AccountMessages.Locked(account, now));
+
+                return Result<LoginResponse>.Failure(account.HasPassword
+                    ? AccountMessages.InvalidCredentials(account)
+                    : LoginErrors.PasswordNotSet);
             }
 
             // Correct password breaks consecutive failed attempts streak
