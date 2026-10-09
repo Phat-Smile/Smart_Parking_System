@@ -73,6 +73,8 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: http://localhost:5000
+        # US-AUTH-002: same OAuth client ID as identity-api; empty keeps the Google button off.
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     ports:
       - "127.0.0.1:3000:3000"
     networks:
