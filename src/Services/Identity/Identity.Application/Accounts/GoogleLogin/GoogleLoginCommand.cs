@@ -15,19 +15,21 @@ public sealed record GoogleLoginCommand(string IdToken, string? DeviceInfo = nul
 public static class GoogleLoginErrors
 {
     public static readonly Error InvalidGoogleToken =
-        new("identity.invalid_google_token", "The Google sign-in could not be verified. Please try again.");
+        new("identity.invalid_google_token", "Không thể xác thực mã đăng nhập Google. Vui lòng thử lại.");
 
     public static readonly Error GoogleLoginUnavailable =
-        new("identity.google_login_unavailable", "Google sign-in is not available.");
+        new("identity.google_login_unavailable", "Đăng nhập bằng Google tạm thời không khả dụng. Vui lòng đăng nhập bằng email và mật khẩu.");
 }
 
 public sealed class GoogleLoginCommandValidator : AbstractValidator<GoogleLoginCommand>
 {
     public GoogleLoginCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.IdToken)
-            .NotEmpty()
-            .MaximumLength(4096);
+            .NotEmpty().WithMessage("Mã xác thực Google (IdToken) là bắt buộc, không được để trống.")
+            .MaximumLength(4096).WithMessage("Mã xác thực Google (IdToken) không được vượt quá 4096 ký tự.");
     }
 }
 
@@ -86,7 +88,7 @@ public sealed class GoogleLoginCommandHandler(
 
             // Context 6.1: three wrong passwords lock the login for 15 minutes, whatever the sign-in method.
             if (account.IsLockedOut(now))
-                return Result<LoginResponse>.Failure(LoginErrors.AccountTemporarilyLocked);
+                return Result<LoginResponse>.Failure(AccountMessages.Locked(account, now));
 
             if (account.GoogleSubject is null || account.Status == AccountStatus.PendingEmailVerification)
                 account.LinkGoogle(google.Subject);

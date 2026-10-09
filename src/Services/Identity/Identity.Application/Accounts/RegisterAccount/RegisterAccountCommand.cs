@@ -24,41 +24,52 @@ public sealed record RegisteredAccount(
     Guid AccountId,
     string Email,
     string? FullName,
-    string Status);
+    string Status,
+    string Message);
 
 public static class RegisterAccountErrors
 {
     public static readonly Error EmailAlreadyRegistered =
-        new("identity.email_already_registered", "The email address is already registered.");
+        new("identity.email_already_registered", "Email này đã được đăng ký. Vui lòng đăng nhập, hoặc dùng \"Quên mật khẩu\" nếu không nhớ mật khẩu.");
+
+    // Same code as EmailAlreadyRegistered: only the guidance differs, the client branches on the code.
+    public static readonly Error EmailPendingVerification = EmailAlreadyRegistered with
+    {
+        Message = "Email này đã được đăng ký nhưng chưa xác thực. Vui lòng nhập mã OTP đã gửi đến email, hoặc chọn \"Gửi lại mã\"."
+    };
+
+    public static string SuccessMessage(string email) =>
+        $"Đăng ký thành công. Mã OTP đã được gửi đến {email}, có hiệu lực {EmailVerification.ExpirationMinutes} phút.";
 
     public static readonly Error PhoneAlreadyRegistered =
-        new("identity.phone_already_registered", "The phone number is already registered to another account.");
+        new("identity.phone_already_registered", "Số điện thoại này đã được đăng ký cho một tài khoản khác.");
 }
 
 public sealed partial class RegisterAccountCommandValidator : AbstractValidator<RegisterAccountCommand>
 {
     public RegisterAccountCommandValidator()
     {
-        // US-AUTH-001: the name is optional at registration and completed on the profile screen (US-PROFILE-001).
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
+        // US-AUTH-001: Họ tên là trường tùy chọn khi đăng ký và có thể cập nhật sau trên màn hình Profile.
         RuleFor(command => command.FullName!)
             .Cascade(CascadeMode.Stop)
-            .Must(name => name.Trim().Length >= 2).WithMessage("FullName must be at least 2 characters.")
-            .Must(name => name.Trim().Length <= Profile.MaxFullNameLength).WithMessage($"FullName must not exceed {Profile.MaxFullNameLength} characters.")
-            .Must(name => FullNameRegex().IsMatch(name.Trim())).WithMessage("FullName must only contain letters, spaces, hyphens, or apostrophes.")
+            .Must(name => name.Trim().Length >= 2).WithMessage("Họ và tên phải có ít nhất 2 ký tự.")
+            .Must(name => name.Trim().Length <= Profile.MaxFullNameLength).WithMessage($"Họ và tên không được vượt quá {Profile.MaxFullNameLength} ký tự.")
+            .Must(name => FullNameRegex().IsMatch(name.Trim())).WithMessage("Họ và tên chỉ được chứa chữ cái, khoảng trắng, dấu gạch nối hoặc dấu nháy đơn.")
             .When(command => !string.IsNullOrWhiteSpace(command.FullName));
 
         RuleFor(command => command.Email)
-            .NotEmpty().WithMessage("Email is required.")
-            .MaximumLength(254)
-            .EmailAddress().WithMessage("Email must be a valid email address.");
+            .NotEmpty().WithMessage("Email là bắt buộc, không được để trống.")
+            .MaximumLength(254).WithMessage("Email không được vượt quá 254 ký tự.")
+            .EmailAddress().WithMessage("Email không đúng định dạng hợp lệ.");
 
         RuleFor(command => command.Password).MeetsPasswordPolicy();
 
-        // Phone number is optional and only validated when supplied. Vietnamese mobile numbers
-        // start with 3, 5, 7, 8 or 9 after the '0' or '+84' prefix; the account stores the +84 form.
+        // Số điện thoại là trường tùy chọn và chỉ kiểm tra khi người dùng nhập vào.
         RuleFor(command => command.PhoneNumber)
             .Matches(@"^\s*(0|\+84)[35789][0-9]{8}\s*$")
-            .WithMessage("Phone number must be a Vietnamese mobile number: 0 or +84 followed by 9 digits starting with 3, 5, 7, 8 or 9.")
+            .WithMessage("Số điện thoại phải là số di động Việt Nam: 0xxxxxxxxx (10 chữ số) hoặc +84xxxxxxxxx, chữ số sau 0/+84 là 3, 5, 7, 8 hoặc 9.")
             .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
     }
 
@@ -83,7 +94,9 @@ public sealed class RegisterAccountCommandHandler(
         // US-AUTH-001 (decided 2026-10-08): an existing email is rejected even while it waits for verification;
         // the client sends the user to enter or resend the OTP. No new OTP is issued here.
         if (existingAccount is not null)
-            return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
+            return Result<RegisteredAccount>.Failure(existingAccount.Status == AccountStatus.PendingEmailVerification
+                ? RegisterAccountErrors.EmailPendingVerification
+                : RegisterAccountErrors.EmailAlreadyRegistered);
 
         var now = clock.UtcNow;
         var account = Account.Register(
@@ -121,6 +134,6 @@ public sealed class RegisterAccountCommandHandler(
         if (saveResult == SaveAccountResult.DuplicateEmailConflict)
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
 
-        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile?.FullName, account.Status.ToString()));
+        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile?.FullName, account.Status.ToString(), RegisterAccountErrors.SuccessMessage(account.Email)));
     }
 }

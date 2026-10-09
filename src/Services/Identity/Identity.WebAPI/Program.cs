@@ -97,8 +97,21 @@ var enableGrpcReflection = builder.Environment.IsDevelopment();
 if (enableGrpcReflection)
     builder.Services.AddGrpcReflection();
 builder.Services.AddOpenApi();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+
+    var appXmlPath = Path.Combine(AppContext.BaseDirectory, "Identity.Application.xml");
+    if (File.Exists(appXmlPath))
+    {
+        options.IncludeXmlComments(appXmlPath);
+    }
+});
 
 var app = builder.Build();
 if (!app.Environment.IsDevelopment() && VehicleLookupRegistration.IsStubConfigured(builder.Configuration))

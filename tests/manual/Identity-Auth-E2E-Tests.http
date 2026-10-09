@@ -1,0 +1,567 @@
+### =====================================================================================
+### BỘ TEST CASE THỦ CÔNG - IDENTITY API (đối chiếu message, mã trạng thái, errorCode)
+### Công cụ: VS Code REST Client hoặc file .http của Rider/Visual Studio. Chạy LẦN LƯỢT từ trên xuống:
+### các bước sau dùng trạng thái tài khoản do các bước trước tạo ra.
+###
+### CHUẨN BỊ
+### 1. Identity chạy ở http://localhost:5001 (Swagger: http://localhost:5001/swagger).
+### 2. SMTP trong .env phải gửi được thư thật: mã OTP được gửi về email -> dùng email THẬT của bạn.
+###    Gmail cho phép thêm "+nhãn" để tạo nhiều địa chỉ cùng về một hộp thư: ten+tc1@gmail.com, ten+tc2@gmail.com...
+###    Mỗi lần chạy lại cả bộ, đổi nhãn (tc1 -> tc1b) để có tài khoản mới.
+### 3. Dán mã OTP nhận được vào các biến @otp... trước khi chạy bước dùng nó.
+###
+### CÁCH ĐỌC KẾT QUẢ
+### - Lỗi trả về dạng ProblemDetails: kiểm tra status, errorCode và title/detail đúng như dòng "Kỳ vọng".
+### - Lỗi dữ liệu (400 request.validation_failed): title luôn là "Dữ liệu không hợp lệ.", errors có đúng 1 câu cho mỗi trường.
+### =====================================================================================
+
+@baseUrl = http://localhost:5001/api/identity
+@emailA = ten+tc1@gmail.com
+@emailB = ten+tc2@gmail.com
+@emailAdmin = ten+admin1@gmail.com
+@password = Password123!
+@newPassword = NewPassword456!
+@otpA =
+@otpB =
+@otpReset =
+@otpAdmin =
+@googleIdToken =
+
+### =====================================================================================
+### PHẦN V - KIỂM TRA DỮ LIỆU ĐẦU VÀO (không tạo dữ liệu, chạy lúc nào cũng được)
+### =====================================================================================
+
+### V01 Mật khẩu rỗng
+### Kỳ vọng: 400 request.validation_failed | errors.Password = ["Mật khẩu là bắt buộc, không được để trống."] (chỉ 1 câu)
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "v01@example.com", "password": "" }
+
+### V02 Email 1 ký tự + mật khẩu ngắn (input ngắn không được làm mất message)
+### Kỳ vọng: 400 | detail = "Email không đúng định dạng hợp lệ. Mật khẩu phải có ít nhất 8 ký tự."
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "a", "password": "abc" }
+
+### V03 Mật khẩu thiếu chữ hoa (chỉ báo luật đầu tiên bị vi phạm)
+### Kỳ vọng: 400 | errors.Password = ["Mật khẩu phải chứa ít nhất một chữ cái viết hoa."]
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "v03@example.com", "password": "abcdefgh" }
+
+### V04 Mật khẩu quá dài (80 ký tự)
+### Kỳ vọng: 400 | errors.Password = ["Mật khẩu quá dài: tối đa 72 ký tự không dấu (ký tự có dấu chiếm nhiều chỗ hơn)."]
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "v04@example.com", "password": "Aa1@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+
+### V05 Số điện thoại sai
+### Kỳ vọng: 400 | errors.PhoneNumber = ["Số điện thoại phải là số di động Việt Nam: 0xxxxxxxxx (10 chữ số) hoặc +84xxxxxxxxx, chữ số sau 0/+84 là 3, 5, 7, 8 hoặc 9."]
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "v05@example.com", "password": "Password123!", "phoneNumber": "+8412" }
+
+### V06 Họ tên 1 ký tự
+### Kỳ vọng: 400 | errors.FullName = ["Họ và tên phải có ít nhất 2 ký tự."]
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "v06@example.com", "password": "Password123!", "fullName": "A" }
+
+### V07 OTP 5 chữ số
+### Kỳ vọng: 400 | errors.OtpCode = ["Mã OTP phải là một dãy số gồm đúng 6 chữ số."]
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "v07@example.com", "otpCode": "12345" }
+
+### V08 OTP chữ số Unicode (full-width)
+### Kỳ vọng: 400 | errors.OtpCode = ["Mã OTP phải là một dãy số gồm đúng 6 chữ số."]
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "v08@example.com", "otpCode": "１２３４５６" }
+
+### V09 JSON hỏng
+### Kỳ vọng: 400 request.malformed | title = "Dữ liệu yêu cầu không hợp lệ."
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email":
+
+### V10 Đăng nhập email rỗng
+### Kỳ vọng: 400 | errors.Email = ["Email là bắt buộc, không được để trống."] (không kèm câu "sai định dạng")
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "", "password": "x" }
+
+### V11 Đổi mật khẩu không có token
+### Kỳ vọng: 401 auth.unauthorized | title = "Chưa đăng nhập." | detail = "Vui lòng đăng nhập để tiếp tục."
+POST {{baseUrl}}/accounts/change-password
+Content-Type: application/json
+
+{ "currentPassword": "Password123!", "newPassword": "Password456!" }
+
+### =====================================================================================
+### PHẦN R - ĐĂNG KÝ, GỬI LẠI MÃ, XÁC THỰC EMAIL (dùng @emailA)
+### =====================================================================================
+
+### R01 Đăng ký thành công (số điện thoại ngẫu nhiên vì số đã dùng ở lần chạy trước sẽ trả 409 phone_already_registered)
+### Kỳ vọng: 201 | status = "PendingEmailVerification"
+###          message = "Đăng ký thành công. Mã OTP đã được gửi đến <emailA>, có hiệu lực 5 phút."
+### => Mở email, chép mã OTP vào @otpA (đầu file).
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{password}}", "fullName": "Nguyễn Văn Test", "phoneNumber": "09{{$randomInt 10000000 99999999}}" }
+
+### R02 Đăng ký lại email đang chờ xác thực
+### Kỳ vọng: 409 identity.email_already_registered
+###          "Email này đã được đăng ký nhưng chưa xác thực. Vui lòng nhập mã OTP đã gửi đến email, hoặc chọn \"Gửi lại mã\"."
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{password}}" }
+
+### R03 Gửi lại mã ngay (trong 60 giây sau R01)
+### Kỳ vọng: 429 identity.resend_cooldown_active + header Retry-After
+###          "Vui lòng đợi N giây trước khi yêu cầu mã mới. Mã đã gửi trước đó vẫn dùng được nếu chưa hết hạn."
+POST {{baseUrl}}/accounts/resend-otp
+Content-Type: application/json
+
+{ "email": "{{emailA}}" }
+
+### R04 Gửi lại mã cho email chưa đăng ký
+### Kỳ vọng: 200 | otpSent = false | expiresInSeconds = 0 | cooldownSeconds = 0
+###          message = "Email này chưa được đăng ký. Vui lòng đăng ký tài khoản."
+POST {{baseUrl}}/accounts/resend-otp
+Content-Type: application/json
+
+{ "email": "chua-dang-ky-{{$timestamp}}@example.com" }
+
+### R05 Đăng nhập trước khi xác thực (đúng mật khẩu)
+### Kỳ vọng: 403 identity.email_not_verified
+###          "Email chưa được xác thực. Vui lòng nhập mã OTP đã gửi đến email, hoặc chọn \"Gửi lại mã\" nếu không nhận được."
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{password}}" }
+
+### R06 Xác thực sai mã (lần 1)  -- nếu mã thật trùng 000000 thì đổi sang số khác
+### Kỳ vọng: 400 identity.invalid_otp_code | "Mã OTP không đúng. Bạn còn 2 lần thử."
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "otpCode": "000000" }
+
+### R07 Xác thực đúng mã
+### Kỳ vọng: 200 | isVerified = true | status = "EmailVerified"
+###          message = "Xác thực email thành công. Bạn có thể đăng nhập ngay."
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "otpCode": "{{otpA}}" }
+
+### R08 Gửi lại mã sau khi đã xác thực
+### Kỳ vọng: 200 | otpSent = false | message = "Tài khoản này đã được xác thực trước đó. Vui lòng đăng nhập."
+POST {{baseUrl}}/accounts/resend-otp
+Content-Type: application/json
+
+{ "email": "{{emailA}}" }
+
+### R09 Xác thực lại tài khoản đã xác thực
+### Kỳ vọng: 400 identity.otp_expired
+###          "Mã OTP không hợp lệ hoặc đã hết hạn. Nếu bạn đã kích hoạt tài khoản trước đó, vui lòng tiến hành đăng nhập."
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "otpCode": "{{otpA}}" }
+
+### R10 Đăng ký lại email đã xác thực
+### Kỳ vọng: 409 identity.email_already_registered
+###          "Email này đã được đăng ký. Vui lòng đăng nhập, hoặc dùng \"Quên mật khẩu\" nếu không nhớ mật khẩu."
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{password}}" }
+
+### =====================================================================================
+### PHẦN O - HẾT LƯỢT NHẬP OTP (dùng @emailB)
+### =====================================================================================
+
+### O01 Đăng ký @emailB -> Kỳ vọng: 201. Chép mã vào @otpB.
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "password": "{{password}}" }
+
+### O02 Sai mã lần 1 -> Kỳ vọng: 400 "Mã OTP không đúng. Bạn còn 2 lần thử."
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "otpCode": "000001" }
+
+### O03 Sai mã lần 2 -> Kỳ vọng: 400 "Mã OTP không đúng. Bạn còn 1 lần thử."
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "otpCode": "000002" }
+
+### O04 Sai mã lần 3
+### Kỳ vọng: 400 identity.otp_max_attempts_exceeded
+###          "Bạn đã nhập sai mã OTP 3 lần nên mã này không còn dùng được. Vui lòng yêu cầu mã mới."
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "otpCode": "000003" }
+
+### O05 Nhập ĐÚNG mã sau khi hết lượt -> Kỳ vọng: vẫn 400 identity.otp_max_attempts_exceeded (mã đã khóa)
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "otpCode": "{{otpB}}" }
+
+### O06 (đợi đủ 60 giây sau O01) Gửi lại mã
+### Kỳ vọng: 200 | otpSent = true
+###          message = "Đã gửi mã OTP mới đến <emailB>. Mã có hiệu lực 5 phút; bạn có thể yêu cầu gửi lại sau 60 giây."
+### => Chép mã MỚI vào @otpB rồi chạy O07.
+POST {{baseUrl}}/accounts/resend-otp
+Content-Type: application/json
+
+{ "email": "{{emailB}}" }
+
+### O07 Xác thực bằng mã mới -> Kỳ vọng: 200 "Xác thực email thành công. Bạn có thể đăng nhập ngay."
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "otpCode": "{{otpB}}" }
+
+### =====================================================================================
+### PHẦN L - ĐĂNG NHẬP, ĐẾM SỐ LẦN SAI, KHÓA 15 PHÚT (dùng @emailA đã xác thực)
+### =====================================================================================
+
+### L01 Email không tồn tại -> Kỳ vọng: 401 identity.invalid_credentials | "Email hoặc mật khẩu không chính xác." (không kèm số lần)
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "khong-ton-tai@example.com", "password": "Sai@12345" }
+
+### L02 Sai mật khẩu lần 1
+### Kỳ vọng: 401 | "Email hoặc mật khẩu không chính xác. Bạn còn 2 lần thử trước khi tài khoản bị tạm khóa 15 phút."
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "Sai@12345" }
+
+### L03 Sai mật khẩu lần 2 -> Kỳ vọng: 401 | "...Bạn còn 1 lần thử trước khi tài khoản bị tạm khóa 15 phút."
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "Sai@12345" }
+
+### L04 Sai mật khẩu lần 3
+### Kỳ vọng: 423 identity.account_temporarily_locked
+###          "Tài khoản đang tạm khóa do nhập sai mật khẩu 3 lần liên tiếp. Vui lòng thử lại sau 15 phút, hoặc dùng \"Quên mật khẩu\" để mở khóa ngay."
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "Sai@12345" }
+
+### L05 Nhập ĐÚNG mật khẩu khi đang khóa -> Kỳ vọng: 423 | số phút trong câu giảm dần theo thời gian thực
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{password}}" }
+
+### =====================================================================================
+### PHẦN F - QUÊN / ĐẶT LẠI MẬT KHẨU (mở khóa ngay tài khoản @emailA đang bị khóa)
+### =====================================================================================
+
+### F01 Quên mật khẩu -> Kỳ vọng: 200 | message chung "Nếu email tồn tại trong hệ thống và đã được kích hoạt, ..."
+### => Chép mã đặt lại mật khẩu vào @otpReset.
+POST {{baseUrl}}/accounts/forgot-password
+Content-Type: application/json
+
+{ "email": "{{emailA}}" }
+
+### F02 Quên mật khẩu lần nữa ngay -> Kỳ vọng: 429 identity.reset_cooldown_active + Retry-After
+###          "Vui lòng đợi N giây trước khi yêu cầu mã mới. Mã đã gửi trước đó vẫn dùng được nếu chưa hết hạn."
+POST {{baseUrl}}/accounts/forgot-password
+Content-Type: application/json
+
+{ "email": "{{emailA}}" }
+
+### F03 Quên mật khẩu với email lạ -> Kỳ vọng: 200, cùng message chung như F01 (luồng này vẫn giữ chống dò tài khoản)
+POST {{baseUrl}}/accounts/forgot-password
+Content-Type: application/json
+
+{ "email": "khong-ton-tai@example.com" }
+
+### F04 Đặt lại với mã sai -> Kỳ vọng: 400 identity.invalid_otp_code | "Mã OTP đặt lại mật khẩu không đúng. Bạn còn 2 lần thử."
+POST {{baseUrl}}/accounts/reset-password
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "otpCode": "000000", "newPassword": "{{newPassword}}" }
+
+### F05 Đặt lại với mã đúng nhưng mật khẩu mới TRÙNG mật khẩu cũ
+### Kỳ vọng: 400 identity.password_same_as_current | "Mật khẩu mới phải khác mật khẩu hiện tại."
+###          Mã OTP KHÔNG bị dùng mất: chạy F06 ngay với cùng mã.
+POST {{baseUrl}}/accounts/reset-password
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "otpCode": "{{otpReset}}", "newPassword": "{{password}}" }
+
+### F06 Đặt lại thành công
+### Kỳ vọng: 200 | "Đặt lại mật khẩu thành công. Bạn đã được đăng xuất khỏi tất cả thiết bị, vui lòng đăng nhập bằng mật khẩu mới."
+POST {{baseUrl}}/accounts/reset-password
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "otpCode": "{{otpReset}}", "newPassword": "{{newPassword}}" }
+
+### F07 Dùng lại mã vừa dùng -> Kỳ vọng: 400 identity.otp_expired
+POST {{baseUrl}}/accounts/reset-password
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "otpCode": "{{otpReset}}", "newPassword": "Another789!" }
+
+### =====================================================================================
+### PHẦN S - PHIÊN ĐĂNG NHẬP: LÀM MỚI TOKEN, ĐĂNG XUẤT
+### =====================================================================================
+
+### S01 Đăng nhập bằng mật khẩu mới (khóa đã được gỡ bởi F06) -> Kỳ vọng: 200, có accessToken + refreshToken
+# @name loginS
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{newPassword}}" }
+
+###
+@refreshS1 = {{loginS.response.body.$.refreshToken}}
+
+### S02 Làm mới token -> Kỳ vọng: 200, refreshToken mới khác refreshToken cũ
+# @name refreshS
+POST {{baseUrl}}/accounts/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshS1}}" }
+
+###
+@refreshS2 = {{refreshS.response.body.$.refreshToken}}
+
+### S03 Dùng lại refresh token CŨ (đã xoay vòng)
+### Kỳ vọng: 401 identity.refresh_token_reused
+###          "Phát hiện phiên đăng nhập bị dùng lại bất thường nên phiên này đã bị hủy để bảo vệ tài khoản. Vui lòng đăng nhập lại và cân nhắc đổi mật khẩu."
+POST {{baseUrl}}/accounts/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshS1}}" }
+
+### S04 Token mới cũng bị hủy theo phiên -> Kỳ vọng: 401 identity.session_revoked | "Phiên làm việc đã bị thu hồi. Vui lòng đăng nhập lại."
+POST {{baseUrl}}/accounts/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshS2}}" }
+
+### S05 Refresh token không tồn tại -> Kỳ vọng: 401 identity.invalid_refresh_token | "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại."
+POST {{baseUrl}}/accounts/refresh
+Content-Type: application/json
+
+{ "refreshToken": "khong-ton-tai" }
+
+### S06 Đăng nhập lại để thử đăng xuất -> Kỳ vọng: 200
+# @name loginS2
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{newPassword}}" }
+
+###
+@refreshS3 = {{loginS2.response.body.$.refreshToken}}
+
+### S07 Đăng xuất -> Kỳ vọng: 200 | message = "Đăng xuất thành công."
+POST {{baseUrl}}/accounts/logout
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshS3}}" }
+
+### S08 Đăng xuất lần nữa (idempotent) -> Kỳ vọng: 200 "Đăng xuất thành công."
+POST {{baseUrl}}/accounts/logout
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshS3}}" }
+
+### S09 Làm mới bằng token đã đăng xuất -> Kỳ vọng: 401 identity.session_revoked
+POST {{baseUrl}}/accounts/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshS3}}" }
+
+### =====================================================================================
+### PHẦN C - ĐỔI MẬT KHẨU, ĐĂNG XUẤT MỌI THIẾT BỊ (cần access token)
+### =====================================================================================
+
+### C01 Đăng nhập lấy access token -> Kỳ vọng: 200
+# @name loginC
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "{{newPassword}}" }
+
+###
+@accessC = {{loginC.response.body.$.accessToken}}
+@refreshC = {{loginC.response.body.$.refreshToken}}
+
+### C02 Mật khẩu mới trùng mật khẩu hiện tại
+### Kỳ vọng: 400 request.validation_failed | errors.NewPassword = ["Mật khẩu mới phải khác mật khẩu hiện tại."]
+POST {{baseUrl}}/accounts/change-password
+Authorization: Bearer {{accessC}}
+Content-Type: application/json
+
+{ "currentPassword": "{{newPassword}}", "newPassword": "{{newPassword}}" }
+
+### C03 Sai mật khẩu hiện tại
+### Kỳ vọng: 400 identity.invalid_current_password
+###          "Mật khẩu hiện tại không chính xác. Bạn còn 2 lần thử trước khi đăng nhập bị tạm khóa 15 phút trên mọi thiết bị."
+POST {{baseUrl}}/accounts/change-password
+Authorization: Bearer {{accessC}}
+Content-Type: application/json
+
+{ "currentPassword": "Sai@12345", "newPassword": "Changed789!" }
+
+### C04 Đổi mật khẩu thành công
+### Kỳ vọng: 200 | "Đổi mật khẩu thành công. Bạn đã được đăng xuất khỏi tất cả thiết bị, vui lòng đăng nhập lại bằng mật khẩu mới."
+POST {{baseUrl}}/accounts/change-password
+Authorization: Bearer {{accessC}}
+Content-Type: application/json
+
+{ "currentPassword": "{{newPassword}}", "newPassword": "Changed789!" }
+
+### C05 Refresh token của phiên trước khi đổi -> Kỳ vọng: 401 identity.session_revoked
+POST {{baseUrl}}/accounts/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshC}}" }
+
+### C06 Đăng nhập bằng mật khẩu mới để thử đăng xuất mọi thiết bị -> Kỳ vọng: 200
+# @name loginC2
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailA}}", "password": "Changed789!" }
+
+###
+@accessC2 = {{loginC2.response.body.$.accessToken}}
+@refreshC2 = {{loginC2.response.body.$.refreshToken}}
+
+### C07 Đăng xuất mọi thiết bị -> Kỳ vọng: 200 | "Đã đăng xuất thành công khỏi tất cả các thiết bị."
+POST {{baseUrl}}/accounts/logout-all
+Authorization: Bearer {{accessC2}}
+
+### C08 Refresh sau khi đăng xuất mọi thiết bị -> Kỳ vọng: 401 identity.session_revoked
+POST {{baseUrl}}/accounts/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshC2}}" }
+
+### =====================================================================================
+### PHẦN G - ĐĂNG NHẬP GOOGLE
+### =====================================================================================
+
+### G01 Token rỗng -> Kỳ vọng: 400 | errors.IdToken = ["Mã xác thực Google (IdToken) là bắt buộc, không được để trống."]
+POST {{baseUrl}}/accounts/google
+Content-Type: application/json
+
+{ "idToken": "" }
+
+### G02 Token giả -> Kỳ vọng: 401 identity.invalid_google_token (nếu 503 google_login_unavailable: GOOGLE_CLIENT_ID chưa nạp)
+POST {{baseUrl}}/accounts/google
+Content-Type: application/json
+
+{ "idToken": "abc" }
+
+### G03 Token thật (lấy từ OAuth Playground hoặc trang /login, gmail CHƯA đăng ký ParkWise)
+### Kỳ vọng: 200, account.status = "EmailVerified", role = "Customer" -> tài khoản mới tạo không có mật khẩu
+POST {{baseUrl}}/accounts/google
+Content-Type: application/json
+
+{ "idToken": "{{googleIdToken}}" }
+
+### G04 Đăng nhập bằng mật khẩu với gmail vừa tạo ở G03 (sửa email cho đúng)
+### Kỳ vọng: 401 identity.password_not_set
+###          "Tài khoản này đăng ký bằng Google và chưa có mật khẩu. Vui lòng chọn \"Tiếp tục với Google\", hoặc dùng \"Quên mật khẩu\" để tạo mật khẩu."
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "gmail-cua-ban@gmail.com", "password": "Bat@Ky123" }
+
+### =====================================================================================
+### PHẦN U - ADMIN MỞ KHÓA (cần 1 tài khoản SystemAdmin)
+### Chuẩn bị: U00a đăng ký @emailAdmin -> xác thực bằng U00b -> chạy SQL sau trong Postgres (cổng 5433):
+###   UPDATE identity.accounts SET role = 'SystemAdmin' WHERE email = 'ten+admin1@gmail.com';
+### rồi mới đăng nhập U00c (quyền nằm trong token lúc đăng nhập).
+### =====================================================================================
+
+### U00a Đăng ký tài khoản admin -> 201. Chép mã vào @otpAdmin.
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{ "email": "{{emailAdmin}}", "password": "{{password}}" }
+
+### U00b Xác thực tài khoản admin -> 200
+POST {{baseUrl}}/accounts/verify-email
+Content-Type: application/json
+
+{ "email": "{{emailAdmin}}", "otpCode": "{{otpAdmin}}" }
+
+### U00c (SAU khi chạy SQL) Đăng nhập admin -> 200, account.role = "SystemAdmin"
+# @name loginAdmin
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailAdmin}}", "password": "{{password}}" }
+
+###
+@adminToken = {{loginAdmin.response.body.$.accessToken}}
+
+### U01 Khóa lại @emailB bằng 3 lần sai mật khẩu (chạy 3 lần) -> lần 3 trả 423
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "password": "Sai@12345" }
+
+### U02 Lấy accountId của @emailB: chạy SQL
+###   SELECT id FROM identity.accounts WHERE email = 'ten+tc2@gmail.com';
+### rồi dán vào @lockedId.
+@lockedId = 00000000-0000-0000-0000-000000000000
+
+### U03 Mở khóa không có token -> Kỳ vọng: 401 auth.unauthorized "Chưa đăng nhập."
+POST {{baseUrl}}/admin/accounts/{{lockedId}}/unlock
+
+### U04 Mở khóa bằng token khách hàng (access token của C06 vẫn còn hạn dù đã đăng xuất mọi thiết bị)
+### Kỳ vọng: 403 auth.forbidden "Không có quyền truy cập."
+POST {{baseUrl}}/admin/accounts/{{lockedId}}/unlock
+Authorization: Bearer {{accessC2}}
+
+### U05 Admin mở khóa -> Kỳ vọng: 200 | "Đã mở khóa đăng nhập. Người dùng có thể đăng nhập lại ngay."
+POST {{baseUrl}}/admin/accounts/{{lockedId}}/unlock
+Authorization: Bearer {{adminToken}}
+
+### U06 Mở khóa lần nữa -> Kỳ vọng: 200 | "Tài khoản không bị khóa đăng nhập; số lần nhập sai đã được đặt lại."
+POST {{baseUrl}}/admin/accounts/{{lockedId}}/unlock
+Authorization: Bearer {{adminToken}}
+
+### U07 Mở khóa tài khoản không tồn tại -> Kỳ vọng: 404 identity.account_not_found "Tài khoản không tồn tại trong hệ thống."
+POST {{baseUrl}}/admin/accounts/11111111-1111-1111-1111-111111111111/unlock
+Authorization: Bearer {{adminToken}}
+
+### U08 @emailB đăng nhập lại ngay sau khi mở khóa -> Kỳ vọng: 200
+POST {{baseUrl}}/accounts/login
+Content-Type: application/json
+
+{ "email": "{{emailB}}", "password": "{{password}}" }

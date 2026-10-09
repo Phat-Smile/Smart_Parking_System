@@ -223,7 +223,7 @@ public sealed class RegisterAccountTests
         Assert.Null(profile.DateOfBirth);
         Assert.Equal(FixedClock.Now, profile.CreatedAtUtc);
 
-        Assert.Equal(new RegisteredAccount(account.Id, "user@example.com", "Nguyễn Văn An", "PendingEmailVerification"), result.Value);
+        Assert.Equal(new RegisteredAccount(account.Id, "user@example.com", "Nguyễn Văn An", "PendingEmailVerification", RegisterAccountErrors.SuccessMessage("user@example.com")), result.Value);
 
         // US-AUTH-001 & US-AUTH-003: verify initial OTP issuance and outbox enqueue
         var verification = Assert.Single(verificationRepository.Saved);
@@ -258,11 +258,32 @@ public sealed class RegisterAccountTests
         var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered.Code, result.Error!.Code);
         Assert.Empty(accountRepository.Saved);
         Assert.Empty(profileRepository.Saved);
         Assert.Empty(verificationRepository.Saved);
         Assert.Empty(outboxWriter.Enqueued);
+    }
+
+    [Theory]
+    [InlineData(false, "Email này đã được đăng ký. Vui lòng đăng nhập, hoặc dùng \"Quên mật khẩu\" nếu không nhớ mật khẩu.")]
+    [InlineData(true, "Email này đã được đăng ký nhưng chưa xác thực. Vui lòng nhập mã OTP đã gửi đến email, hoặc chọn \"Gửi lại mã\".")]
+    public async Task Handler_guides_a_duplicate_email_by_whether_it_was_verified(bool pending, string expectedMessage)
+    {
+        var handler = new RegisterAccountCommandHandler(
+            new FakeAccountRepository { ExistingEmail = "user@example.com", ExistingIsPending = pending },
+            new FakeProfileRepository(),
+            new InMemoryEmailVerificationRepository(),
+            new FakePasswordHasher(),
+            new FakeOtpGenerator("123456"),
+            new FakeOtpHasher(),
+            new FakeOutboxWriter(),
+            new FixedClock());
+
+        var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("identity.email_already_registered", result.Error!.Code);
+        Assert.Equal(expectedMessage, result.Error.Message);
     }
 
     [Fact]
@@ -282,7 +303,7 @@ public sealed class RegisterAccountTests
         var result = await handler.Handle(CreateValidCommand(email: "new@example.com"), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(RegisterAccountErrors.PhoneAlreadyRegistered, result.Error);
+        Assert.Equal(RegisterAccountErrors.PhoneAlreadyRegistered.Code, result.Error!.Code);
         Assert.Empty(accountRepository.Saved);
     }
 
@@ -309,7 +330,7 @@ public sealed class RegisterAccountTests
         var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -331,7 +352,7 @@ public sealed class RegisterAccountTests
         var result = await handler.Handle(CreateValidCommand(email: "user@example.com"), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -356,7 +377,7 @@ public sealed class RegisterAccountTests
 
         // US-AUTH-001 (decided 2026-10-08): pending emails are rejected too; no new OTP, nothing leaks.
         Assert.False(result.IsSuccess);
-        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered.Code, result.Error!.Code);
         Assert.Empty(verificationRepository.Saved);
         Assert.Empty(outboxWriter.Enqueued);
     }
@@ -388,7 +409,7 @@ public sealed class RegisterAccountTests
 
         // The winner is created; the loser hits the unique index and gets email_already_registered.
         Assert.Equal(1, results.Count(r => r.IsSuccess));
-        Assert.Single(results, r => r.Error == RegisterAccountErrors.EmailAlreadyRegistered);
+        Assert.Single(results, r => r.Error?.Code == RegisterAccountErrors.EmailAlreadyRegistered.Code);
         Assert.Single(accountRepository.Saved);
         Assert.Equal("concurrent@example.com", accountRepository.Saved[0].Email);
     }
@@ -423,7 +444,7 @@ public sealed class RegisterAccountTests
 
         // 409: the client sends the user to POST /resend-otp, which is the only way to get a new code.
         Assert.False(result.IsSuccess);
-        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered, result.Error);
+        Assert.Equal(RegisterAccountErrors.EmailAlreadyRegistered.Code, result.Error!.Code);
         Assert.Single(verificationRepository.Saved);
         Assert.Empty(outboxWriter.Enqueued);
     }
@@ -450,6 +471,7 @@ public sealed class RegisterAccountTests
         private readonly List<Account> pending = [];
 
         public string? ExistingEmail { get; init; }
+        public bool ExistingIsPending { get; init; }
         public bool FailSaveWithDuplicate { get; init; }
         public bool FailSaveWithDuplicatePhone { get; init; }
         public List<Account> Saved { get; } = [];
@@ -462,7 +484,8 @@ public sealed class RegisterAccountTests
             if (ExistingEmail is not null && normalizedEmail == ExistingEmail)
             {
                 var existing = Account.Register(Guid.NewGuid(), ExistingEmail, "hash", null, FixedClock.Now);
-                existing.VerifyEmail();
+                if (!ExistingIsPending)
+                    existing.VerifyEmail();
                 return Task.FromResult<Account?>(existing);
             }
 

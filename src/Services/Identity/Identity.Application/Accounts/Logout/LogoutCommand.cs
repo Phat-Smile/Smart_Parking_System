@@ -8,15 +8,17 @@ namespace ParkingSystem.Identity.Application.Accounts.Logout;
 
 public sealed record LogoutCommand(string RefreshToken) : IRequest<Result<LogoutResponse>>;
 
-public sealed record LogoutResponse(string Message = "Logged out successfully.");
+public sealed record LogoutResponse(string Message = "Đăng xuất thành công.");
 
 public sealed class LogoutCommandValidator : AbstractValidator<LogoutCommand>
 {
     public LogoutCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.RefreshToken)
-            .NotEmpty().WithMessage("RefreshToken is required.")
-            .MaximumLength(512).WithMessage("RefreshToken must not exceed 512 characters.");
+            .NotEmpty().WithMessage("RefreshToken là bắt buộc, không được để trống.")
+            .MaximumLength(512).WithMessage("RefreshToken không hợp lệ (tối đa 512 ký tự).");
     }
 }
 
@@ -53,6 +55,6 @@ public sealed class LogoutCommandHandler(
             }, cancellationToken);
         }
 
-        return Result<LogoutResponse>.Success(new LogoutResponse("Logged out successfully."));
+        return Result<LogoutResponse>.Success(new LogoutResponse("Đăng xuất thành công."));
     }
 }

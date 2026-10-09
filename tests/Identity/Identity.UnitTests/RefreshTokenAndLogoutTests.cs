@@ -69,7 +69,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("unknown-token"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.InvalidRefreshToken, result.Error);
+        Assert.Equal(RefreshTokenErrors.InvalidRefreshToken.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-1"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.RefreshTokenExpired, result.Error);
+        Assert.Equal(RefreshTokenErrors.RefreshTokenExpired.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-1"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.SessionExpired, result.Error);
+        Assert.Equal(RefreshTokenErrors.SessionExpired.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-A"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.TokenReuseDetected, result.Error);
+        Assert.Equal(RefreshTokenErrors.TokenReuseDetected.Code, result.Error!.Code);
 
         // Session 1 MUST be revoked for security
         Assert.True(session1.IsRevoked);
@@ -190,7 +190,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-A"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.TokenReuseDetected, result.Error);
+        Assert.Equal(RefreshTokenErrors.TokenReuseDetected.Code, result.Error!.Code);
         Assert.True(session.IsRevoked);
         Assert.Equal("ReuseDetected", session.RevokedReason);
         Assert.True(tokenB.IsRevoked);
@@ -248,7 +248,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-1"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.AccountSuspended, result.Error);
+        Assert.Equal(RefreshTokenErrors.AccountSuspended.Code, result.Error!.Code);
         Assert.True(session.IsRevoked);
         Assert.Equal("AccountSuspended", session.RevokedReason);
         Assert.True(token.IsRevoked);
@@ -276,7 +276,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-1"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.AccountDisabled, result.Error);
+        Assert.Equal(RefreshTokenErrors.AccountDisabled.Code, result.Error!.Code);
         Assert.True(session.IsRevoked);
         Assert.Equal("AccountDisabled", session.RevokedReason);
         Assert.True(token.IsRevoked);
@@ -302,7 +302,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-1"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.EmailNotVerified, result.Error);
+        Assert.Equal(RefreshTokenErrors.EmailNotVerified.Code, result.Error!.Code);
         Assert.True(session.IsRevoked);
         Assert.Equal("EmailNotVerified", session.RevokedReason);
         Assert.True(token.IsRevoked);
@@ -325,7 +325,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new LogoutCommand("token-1"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Logged out successfully.", result.Value!.Message);
+        Assert.Equal("Đăng xuất thành công.", result.Value!.Message);
         Assert.True(session.IsRevoked);
         Assert.Equal("Logout", session.RevokedReason);
         Assert.True(token.IsRevoked);
@@ -355,7 +355,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new LogoutAllCommand(accountId), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("All active sessions have been logged out successfully.", result.Value!.Message);
+        Assert.Equal("Đã đăng xuất thành công khỏi tất cả các thiết bị.", result.Value!.Message);
         Assert.True(session1.IsRevoked);
         Assert.Equal("LogoutAll", session1.RevokedReason);
         Assert.True(session2.IsRevoked);
@@ -425,7 +425,7 @@ public sealed class RefreshTokenAndLogoutTests
         var result = await handler.Handle(new RefreshTokenCommand("token-concurrent"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RefreshTokenErrors.TokenReuseDetected, result.Error);
+        Assert.Equal(RefreshTokenErrors.TokenReuseDetected.Code, result.Error!.Code);
         Assert.True(session.IsRevoked);
         Assert.Equal("ReuseDetected", session.RevokedReason);
     }

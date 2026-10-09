@@ -68,7 +68,7 @@ public sealed class WebFoundationTests
             Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
             Assert.Equal("A2B4D30E-6990-4261-BD7F-9F0A8D5B0E16", response.Headers.GetValues("X-Correlation-ID").Single());
-            Assert.Equal("An unexpected error occurred.", problem.GetProperty("title").GetString());
+            Assert.Equal("Đã xảy ra lỗi hệ thống.", problem.GetProperty("title").GetString());
             Assert.Equal("A2B4D30E-6990-4261-BD7F-9F0A8D5B0E16", problem.GetProperty("correlationId").GetString(), ignoreCase: true);
             Assert.Equal("internal.unexpected", problem.GetProperty("errorCode").GetString());
             Assert.False(problem.TryGetProperty("stackTrace", out _));
@@ -117,6 +117,25 @@ public sealed class WebFoundationTests
             Assert.Contains("request.validation_failed", body, StringComparison.Ordinal);
             Assert.True(body.Contains("password", StringComparison.OrdinalIgnoreCase), $"Validation response: {body}");
             Assert.DoesNotContain("private-password-value", body, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task Validation_problem_has_a_fixed_title_and_one_message_per_field()
+    {
+        var app = await CreateApp(application => application.MapGet("/invalid-fields", ThrowFieldValidation));
+        await using (app)
+        {
+            using var response = await app.GetTestClient().GetAsync("/invalid-fields", TestContext.Current.CancellationToken);
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            var root = json.RootElement;
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("Dữ liệu không hợp lệ.", root.GetProperty("title").GetString());
+            Assert.Equal("Email không đúng định dạng hợp lệ. Mật khẩu phải có ít nhất 8 ký tự.", root.GetProperty("detail").GetString());
+            // A one-letter input ("a") must not hide a message that happens to contain that letter.
+            Assert.Equal("Email không đúng định dạng hợp lệ.", root.GetProperty("errors").GetProperty("Email").EnumerateArray().Single().GetString());
+            Assert.Equal("Mật khẩu phải có ít nhất 8 ký tự.", root.GetProperty("errors").GetProperty("Password").EnumerateArray().Single().GetString());
         }
     }
 
@@ -405,6 +424,13 @@ public sealed class WebFoundationTests
     }
 
     private static Task<IResult> ThrowUnexpected() => throw new InvalidOperationException("private-password-value");
+
+    private static Task<IResult> ThrowFieldValidation() => throw new ValidationException(
+    [
+        new ValidationFailure("Email", "Email không đúng định dạng hợp lệ.") { AttemptedValue = "a" },
+        new ValidationFailure("Password", "Mật khẩu phải có ít nhất 8 ký tự.") { AttemptedValue = "8" },
+        new ValidationFailure("Password", "Mật khẩu phải chứa ít nhất một chữ cái viết hoa.") { AttemptedValue = "8" }
+    ]);
 
     private static Task<IResult> ThrowValidation() => throw new ValidationException(
     [new ValidationFailure("Password", "private-password-value") { AttemptedValue = "private-password-value" }]);

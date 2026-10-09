@@ -135,6 +135,58 @@ public sealed class PasswordResetIntegrationTests(PostgreSqlContainerFixture pos
     }
 
     [Fact]
+    public async Task Reusing_the_current_password_is_refused_and_the_code_stays_usable()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var account = await SeedAccountAsync(provider, "reset-same@example.com", verified: true, ct);
+        await ForgotAsync(provider, account.Email, Now, ct);
+
+        var same = await ResetAsync(provider, account.Email, ResetCode, Now.AddMinutes(1), ct, newPassword: "Old@12345");
+        var retry = await ResetAsync(provider, account.Email, ResetCode, Now.AddMinutes(1), ct);
+
+        Assert.Equal(ResetPasswordErrors.SameAsCurrentPassword, same.Error);
+        Assert.True(retry.IsSuccess);
+        await using var scope = provider.CreateAsyncScope();
+        var stored = await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Accounts.AsNoTracking().SingleAsync(a => a.Id == account.Id, ct);
+        Assert.Equal(PlainPasswordHasher.Hash(NewPassword), stored.PasswordHash);
+    }
+
+    [Fact]
+    public async Task Wrong_reset_codes_tell_how_many_tries_are_left()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var account = await SeedAccountAsync(provider, "reset-left@example.com", verified: true, ct);
+        await ForgotAsync(provider, account.Email, Now, ct);
+
+        var first = await ResetAsync(provider, account.Email, "900001", Now.AddMinutes(1), ct);
+        var second = await ResetAsync(provider, account.Email, "900002", Now.AddMinutes(1), ct);
+
+        Assert.Equal("Mã OTP đặt lại mật khẩu không đúng. Bạn còn 2 lần thử.", first.Error!.Message);
+        Assert.Equal("Mã OTP đặt lại mật khẩu không đúng. Bạn còn 1 lần thử.", second.Error!.Message);
+    }
+
+    [Fact]
+    public async Task Replaying_a_used_code_reports_expired_even_when_an_older_code_was_exhausted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var account = await SeedAccountAsync(provider, "reset-replay@example.com", verified: true, ct);
+        await ForgotAsync(provider, account.Email, Now, ct);
+        foreach (var wrong in new[] { "900001", "900002", "900003" })
+            await ResetAsync(provider, account.Email, wrong, Now.AddMinutes(1), ct);
+
+        await ForgotAsync(provider, account.Email, Now.AddMinutes(2), ct);
+        var reset = await ResetAsync(provider, account.Email, ResetCode, Now.AddMinutes(3), ct);
+        var replay = await ResetAsync(provider, account.Email, ResetCode, Now.AddMinutes(4), ct, newPassword: "Another789!");
+
+        Assert.True(reset.IsSuccess);
+        // The exhausted first code must not answer otp_max_attempts_exceeded once the newer code was used.
+        Assert.Equal(ResetPasswordErrors.OtpExpired, replay.Error);
+    }
+
+    [Fact]
     public async Task An_email_verification_code_cannot_reset_the_password()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -204,7 +256,7 @@ public sealed class PasswordResetIntegrationTests(PostgreSqlContainerFixture pos
     }
 
     private static async Task<Result<PasswordResetResult>> ResetAsync(
-        ServiceProvider provider, string email, string code, DateTimeOffset at, CancellationToken cancellationToken)
+        ServiceProvider provider, string email, string code, DateTimeOffset at, CancellationToken cancellationToken, string newPassword = NewPassword)
     {
         await using var scope = provider.CreateAsyncScope();
         var s = scope.ServiceProvider;
@@ -216,7 +268,7 @@ public sealed class PasswordResetIntegrationTests(PostgreSqlContainerFixture pos
             new PlainPasswordHasher(),
             new PlainOtpHasher(),
             new FixedClock(at));
-        return await handler.Handle(new ResetPasswordCommand(email, code, NewPassword), cancellationToken);
+        return await handler.Handle(new ResetPasswordCommand(email, code, newPassword), cancellationToken);
     }
 
     private sealed class PlainOtpHasher : IOtpHasher

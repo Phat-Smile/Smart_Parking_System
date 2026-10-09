@@ -125,7 +125,7 @@ public sealed class GoogleLoginIntegrationTests(PostgreSqlContainerFixture postg
     }
 
     [Fact]
-    public async Task Password_login_on_a_google_only_account_answers_like_a_wrong_password()
+    public async Task Password_login_on_a_google_only_account_suggests_google_sign_in()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var provider = await CreateProviderAsync(ct);
@@ -143,7 +143,7 @@ public sealed class GoogleLoginIntegrationTests(PostgreSqlContainerFixture postg
             new FixedClock());
         var result = await login.Handle(new LoginCommand("nopass@gmail.com", "Any@12345"), ct);
 
-        Assert.Equal(LoginErrors.InvalidCredentials.Code, result.Error!.Code);
+        Assert.Equal(LoginErrors.PasswordNotSet.Code, result.Error!.Code);
     }
 
     private async Task<ServiceProvider> CreateProviderAsync(CancellationToken cancellationToken)

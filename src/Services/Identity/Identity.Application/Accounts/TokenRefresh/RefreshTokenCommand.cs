@@ -20,37 +20,39 @@ public sealed record RefreshTokenResponse(
 public static class RefreshTokenErrors
 {
     public static readonly Error InvalidRefreshToken =
-        new("identity.invalid_refresh_token", "The provided refresh token is invalid.");
+        new("identity.invalid_refresh_token", "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
 
     public static readonly Error RefreshTokenExpired =
-        new("identity.refresh_token_expired", "The refresh token has expired. Please login again.");
+        new("identity.refresh_token_expired", "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
 
     public static readonly Error SessionExpired =
-        new("identity.session_expired", "The session has reached its maximum absolute lifetime. Please login again.");
+        new("identity.session_expired", "Phiên làm việc đã hết thời hạn tối đa. Vui lòng đăng nhập lại.");
 
     public static readonly Error SessionRevoked =
-        new("identity.session_revoked", "The session has been revoked. Please login again.");
+        new("identity.session_revoked", "Phiên làm việc đã bị thu hồi. Vui lòng đăng nhập lại.");
 
     public static readonly Error TokenReuseDetected =
-        new("identity.refresh_token_reused", "Token reuse detected. The current session has been terminated for security.");
+        new("identity.refresh_token_reused", "Phát hiện phiên đăng nhập bị dùng lại bất thường nên phiên này đã bị hủy để bảo vệ tài khoản. Vui lòng đăng nhập lại và cân nhắc đổi mật khẩu.");
 
     public static readonly Error AccountSuspended =
-        new("identity.account_suspended", "Account is suspended. Please contact support.");
+        new("identity.account_suspended", "Tài khoản đã bị đình chỉ hoạt động. " + AccountMessages.ContactAdmin);
 
     public static readonly Error AccountDisabled =
-        new("identity.account_disabled", "Account is disabled.");
+        new("identity.account_disabled", "Tài khoản đã bị vô hiệu hóa. " + AccountMessages.ContactAdmin);
 
     public static readonly Error EmailNotVerified =
-        new("identity.email_not_verified", "Email is not verified.");
+        new("identity.email_not_verified", "Email chưa được xác thực. Vui lòng xác thực email rồi đăng nhập lại.");
 }
 
 public sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenCommand>
 {
     public RefreshTokenCommandValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(command => command.RefreshToken)
-            .NotEmpty().WithMessage("RefreshToken is required.")
-            .MaximumLength(512).WithMessage("RefreshToken must not exceed 512 characters.");
+            .NotEmpty().WithMessage("RefreshToken là bắt buộc, không được để trống.")
+            .MaximumLength(512).WithMessage("RefreshToken không hợp lệ (tối đa 512 ký tự).");
     }
 }
 

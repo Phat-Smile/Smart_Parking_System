@@ -16,9 +16,9 @@ internal sealed class InMemoryEmailVerificationRepository(IEnumerable<EmailVerif
 
     public Task<EmailVerification?> GetLatestUnusedForAccountAsync(Guid accountId, CancellationToken cancellationToken, OtpPurpose purpose = OtpPurpose.EmailVerification) =>
         Task.FromResult(Saved
-            .Where(v => v.AccountId == accountId && v.Purpose == purpose && !v.IsUsed)
+            .Where(v => v.AccountId == accountId && v.Purpose == purpose)
             .OrderByDescending(v => v.CreatedAtUtc)
-            .FirstOrDefault());
+            .FirstOrDefault() is { IsUsed: false } latest ? latest : null);
 
     public Task<DateTimeOffset?> GetOldestIssuedSinceAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken, OtpPurpose purpose = OtpPurpose.EmailVerification) =>
         Task.FromResult(Saved
