@@ -113,6 +113,10 @@ services:
     expose:
       - "8081"
     <<: *dotnet-service
+    # Identity signs access tokens, so it is the only service that also receives the private key.
+    volumes:
+      - ./.local/security/jwt/public.pem:/run/parking-system/security/jwt/public.pem:ro
+      - ./.local/security/jwt/private.pem:/run/parking-system/security/jwt/private.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,6 +124,7 @@ services:
         condition: service_healthy
     environment:
       <<: *jwt-environment
+      Security__Jwt__PrivateKeyPath: /run/parking-system/security/jwt/private.pem
       ASPNETCORE_ENVIRONMENT: Development
       Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
       OTEL_SERVICE_NAME: identity-api
