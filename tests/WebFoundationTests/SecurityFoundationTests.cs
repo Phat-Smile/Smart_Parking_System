@@ -103,7 +103,7 @@ public sealed class SecurityFoundationTests
                 var body = await forbiddenResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
                 Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
                 Assert.Equal(403, body.GetProperty("status").GetInt32());
-                Assert.Equal("Forbidden", body.GetProperty("title").GetString());
+                Assert.Equal("Không có quyền truy cập.", body.GetProperty("title").GetString());
                 Assert.Equal("auth.forbidden", body.GetProperty("errorCode").GetString());
                 Assert.True(body.TryGetProperty("traceId", out _));
                 Assert.True(body.TryGetProperty("correlationId", out _));
@@ -338,7 +338,7 @@ public sealed class SecurityFoundationTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal(401, body.RootElement.GetProperty("status").GetInt32());
-        Assert.Equal("Unauthorized", body.RootElement.GetProperty("title").GetString());
+        Assert.Equal("Chưa đăng nhập.", body.RootElement.GetProperty("title").GetString());
         Assert.Equal("auth.unauthorized", body.RootElement.GetProperty("errorCode").GetString());
         Assert.True(body.RootElement.TryGetProperty("traceId", out _));
         Assert.True(body.RootElement.TryGetProperty("correlationId", out _));

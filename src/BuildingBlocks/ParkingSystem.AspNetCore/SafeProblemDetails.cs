@@ -19,19 +19,19 @@ internal static class SafeProblemDetails
             Type = "about:blank",
             Status = statusCode,
             Title = isUnauthorized
-                ? "Unauthorized"
+                ? "Chưa đăng nhập."
                 : isForbidden
-                    ? "Forbidden"
+                    ? "Không có quyền truy cập."
                     : isServerError
-                        ? "An unexpected error occurred."
-                        : "The request could not be completed.",
+                        ? "Đã xảy ra lỗi hệ thống."
+                        : "Không thể xử lý yêu cầu.",
             Detail = isUnauthorized
-                ? "Authentication is required to access this resource."
+                ? "Vui lòng đăng nhập để tiếp tục."
                 : isForbidden
-                    ? "The authenticated user is not allowed to access this resource."
+                    ? "Tài khoản của bạn không có quyền thực hiện thao tác này."
                     : isServerError
-                        ? "An unexpected error occurred. Please try again later."
-                        : "The request could not be processed.",
+                        ? "Đã xảy ra sự cố trên máy chủ. Vui lòng thử lại sau."
+                        : "Không thể xử lý yêu cầu. Vui lòng kiểm tra lại và thử lại.",
             Instance = context.Request.Path.Value
         };
         AddRequestExtensions(context, problem, isUnauthorized
