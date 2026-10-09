@@ -14,11 +14,39 @@ public sealed class SmtpEmailSender(
     IConfiguration configuration,
     ILogger<SmtpEmailSender> logger) : IEmailSender
 {
-    public async Task SendVerificationOtpEmailAsync(
+    public Task SendVerificationOtpEmailAsync(
         string email,
         string otpCode,
         DateTimeOffset expiresAtUtc,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        SendOtpEmailAsync(
+            email,
+            otpCode,
+            expiresAtUtc,
+            "[Smart Parking] Mã xác thực tài khoản của bạn",
+            "Cảm ơn bạn đã đăng ký tài khoản tại <strong>Smart Parking System</strong>. Dưới đây là mã xác thực OTP (One-Time Password) để hoàn tất kích hoạt tài khoản của bạn:",
+            cancellationToken);
+
+    public Task SendPasswordResetOtpEmailAsync(
+        string email,
+        string otpCode,
+        DateTimeOffset expiresAtUtc,
+        CancellationToken cancellationToken = default) =>
+        SendOtpEmailAsync(
+            email,
+            otpCode,
+            expiresAtUtc,
+            "[Smart Parking] Mã đặt lại mật khẩu",
+            "Bạn vừa yêu cầu đặt lại mật khẩu tại <strong>Smart Parking System</strong>. Nhập mã dưới đây cùng mật khẩu mới; sau khi đặt lại, mọi thiết bị đang đăng nhập sẽ bị đăng xuất:",
+            cancellationToken);
+
+    private async Task SendOtpEmailAsync(
+        string email,
+        string otpCode,
+        DateTimeOffset expiresAtUtc,
+        string subject,
+        string introHtml,
+        CancellationToken cancellationToken)
     {
         var host = configuration["SMTP_HOST"] ?? configuration["Smtp:Host"];
         if (string.IsNullOrWhiteSpace(host))
@@ -60,7 +88,7 @@ public sealed class SmtpEmailSender(
             var mailMessage = new MailMessage
             {
                 From = new MailAddress(fromAddress!.Trim(), "Smart Parking System"),
-                Subject = "[Smart Parking] Mã xác thực tài khoản của bạn",
+                Subject = subject,
                 Body = $"""
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
                     <div style="text-align: center; margin-bottom: 24px;">
@@ -70,7 +98,7 @@ public sealed class SmtpEmailSender(
                     <div style="padding: 20px; background-color: #f8fafc; border-radius: 8px; margin-bottom: 24px;">
                         <p style="color: #334155; font-size: 16px; margin: 0 0 12px 0;">Xin chào,</p>
                         <p style="color: #475569; font-size: 14px; margin: 0 0 20px 0;">
-                            Cảm ơn bạn đã đăng ký tài khoản tại <strong>Smart Parking System</strong>. Dưới đây là mã xác thực OTP (One-Time Password) để hoàn tất kích hoạt tài khoản của bạn:
+                            {introHtml}
                         </p>
                         <div style="text-align: center; margin: 24px 0;">
                             <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1e293b; background: #ffffff; padding: 12px 28px; border-radius: 8px; border: 2px dashed #3b82f6; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -100,7 +128,7 @@ public sealed class SmtpEmailSender(
         catch (Exception ex)
         {
             // Security: Never log raw OTP codes in production error logs
-            logger.LogError(ex, "Failed to send OTP verification email to {MaskedEmail} via SMTP ({Host}:{Port}). Re-throwing for consumer retry.", MaskEmail(email), host, port);
+            logger.LogError(ex, "Failed to send OTP email to {MaskedEmail} via SMTP ({Host}:{Port}). Re-throwing for consumer retry.", MaskEmail(email), host, port);
             throw;
         }
     }
