@@ -1,6 +1,7 @@
 using System.Globalization;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
 using ParkingSystem.Identity.Application.Accounts.GoogleLogin;
 using ParkingSystem.Identity.Application.Accounts.Login;
@@ -10,7 +11,9 @@ using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
 using ParkingSystem.Identity.Application.Accounts.ResetPassword;
 using ParkingSystem.Identity.Application.Accounts.TokenRefresh;
+using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
+using ParkingSystem.Identity.WebAPI.Security;
 
 namespace ParkingSystem.Identity.WebAPI.Endpoints;
 
@@ -28,6 +31,7 @@ internal static class AccountEndpoints
     public sealed record LogoutRequest(string RefreshToken);
     public sealed record ForgotPasswordRequest(string Email);
     public sealed record GoogleLoginRequest(string IdToken);
+    public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
     public sealed record ResetPasswordRequest(string Email, string OtpCode, string NewPassword);
 
     private static readonly Dictionary<string, int> RefreshErrorStatusCodes = new()
@@ -50,8 +54,17 @@ internal static class AccountEndpoints
         [LoginErrors.AccountDisabled.Code] = StatusCodes.Status403Forbidden,
         [LoginErrors.AccountTemporarilyLocked.Code] = StatusCodes.Status423Locked,
         [GoogleLoginErrors.InvalidGoogleToken.Code] = StatusCodes.Status401Unauthorized,
-        [GoogleLoginErrors.GoogleLoginUnavailable.Code] = StatusCodes.Status503ServiceUnavailable
+        [GoogleLoginErrors.GoogleLoginUnavailable.Code] = StatusCodes.Status503ServiceUnavailable,
+        [ChangePasswordErrors.InvalidCurrentPassword.Code] = StatusCodes.Status400BadRequest,
+        [UnlockAccountErrors.AccountNotFound.Code] = StatusCodes.Status404NotFound
     };
+
+    private static IResult AccountProblem(ParkingSystem.BuildingBlocks.Results.Error error) =>
+        Results.Problem(
+            statusCode: LoginErrorStatusCodes.GetValueOrDefault(error.Code, StatusCodes.Status400BadRequest),
+            title: error.Code,
+            detail: error.Message,
+            extensions: new Dictionary<string, object?> { ["errorCode"] = error.Code });
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -290,6 +303,46 @@ internal static class AccountEndpoints
             .WithSummary("Logout all active sessions on all devices")
             .Produces<LogoutResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        // US-AUTH-009: change the password of the signed-in account (taken from the token, never from the body).
+        app.MapPost("/api/identity/accounts/change-password", async (
+                ChangePasswordRequest request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(
+                    new ChangePasswordCommand(accountId, request.CurrentPassword, request.NewPassword),
+                    cancellationToken);
+
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(result.Error!);
+            })
+            .RequireAuthorization()
+            .WithName("ChangePassword")
+            .Produces<PasswordChangedResult>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status423Locked);
+
+        // US-AUTH-008: an administrator clears the login lockout of an account.
+        app.MapPost("/api/identity/admin/accounts/{accountId:guid}/unlock", async (
+                Guid accountId,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new UnlockAccountCommand(accountId), cancellationToken);
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(result.Error!);
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithName("UnlockAccount")
+            .Produces<UnlockedAccount>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }
