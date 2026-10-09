@@ -46,9 +46,9 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
             .Must(plate => !string.IsNullOrWhiteSpace(plate))
             .MaximumLength(ParkingSession.PlateNumberMaxLength);
 
-        // Enum.IsDefined is needed because Enum.TryParse also accepts numeric strings such as "5".
+        // Match names only: Enum.TryParse also accepts numeric strings ("1") and padded values (" Car ").
         RuleFor(command => command.VehicleType)
-            .Must(value => Enum.TryParse<VehicleType>(value, ignoreCase: true, out var type) && Enum.IsDefined(type))
+            .Must(value => Enum.GetNames<VehicleType>().Contains(value, StringComparer.OrdinalIgnoreCase))
             .WithMessage($"vehicleType must be one of: {string.Join(", ", Enum.GetNames<VehicleType>())}.");
     }
 }
