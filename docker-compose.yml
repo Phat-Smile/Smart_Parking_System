@@ -135,6 +135,8 @@ services:
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
       # US-AUTH-002: Google OAuth web client ID; empty switches Google sign-in off (503).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # HMAC pepper for OTP codes; required, Identity refuses to start without it.
+      Security__Otp__Pepper: ${SECURITY_OTP_PEPPER:-}
 
   parking-api:
     build:
