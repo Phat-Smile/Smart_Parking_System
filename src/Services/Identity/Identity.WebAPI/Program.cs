@@ -8,6 +8,7 @@ using ParkingSystem.Identity.Infrastructure.VehicleLookup;
 using ParkingSystem.Identity.Persistence;
 using ParkingSystem.Identity.WebAPI.Endpoints;
 using ParkingSystem.Identity.WebAPI.Grpc;
+using ParkingSystem.Identity.WebAPI.Security;
 
 LoadRootEnvFile();
 
@@ -80,6 +81,7 @@ static void LoadRootEnvFile()
 }
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
+builder.Services.AddIdentityAuthorization();
 builder.AddParkingSystemTelemetry("identity-api");
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
