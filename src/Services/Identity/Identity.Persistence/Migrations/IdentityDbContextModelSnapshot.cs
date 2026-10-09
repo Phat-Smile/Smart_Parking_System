@@ -258,6 +258,12 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("otp_hash");
 
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("purpose");
+
                     b.Property<int>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()

@@ -159,7 +159,7 @@ public sealed class RegisterAccountTests
     {
         var accountRepository = new FakeAccountRepository();
         var profileRepository = new FakeProfileRepository();
-        var verificationRepository = new FakeEmailVerificationRepository();
+        var verificationRepository = new InMemoryEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
@@ -188,7 +188,7 @@ public sealed class RegisterAccountTests
     {
         var accountRepository = new FakeAccountRepository();
         var profileRepository = new FakeProfileRepository();
-        var verificationRepository = new FakeEmailVerificationRepository();
+        var verificationRepository = new InMemoryEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var otpGenerator = new FakeOtpGenerator("123456");
         var otpHasher = new FakeOtpHasher();
@@ -243,7 +243,7 @@ public sealed class RegisterAccountTests
     {
         var accountRepository = new FakeAccountRepository { ExistingEmail = "user@example.com" };
         var profileRepository = new FakeProfileRepository();
-        var verificationRepository = new FakeEmailVerificationRepository();
+        var verificationRepository = new InMemoryEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
@@ -272,7 +272,7 @@ public sealed class RegisterAccountTests
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
             new FakeProfileRepository(),
-            new FakeEmailVerificationRepository(),
+            new InMemoryEmailVerificationRepository(),
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
             new FakeOtpHasher(),
@@ -294,7 +294,7 @@ public sealed class RegisterAccountTests
         var accountRepository = new FakeAccountRepository { FailSaveWithDuplicate = true };
         accountRepository.Saved.Add(existingVerified);
         var profileRepository = new FakeProfileRepository();
-        var verificationRepository = new FakeEmailVerificationRepository();
+        var verificationRepository = new InMemoryEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
@@ -321,7 +321,7 @@ public sealed class RegisterAccountTests
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
             new FakeProfileRepository(),
-            new FakeEmailVerificationRepository(),
+            new InMemoryEmailVerificationRepository(),
             new FakePasswordHasher(),
             new FakeOtpGenerator("123456"),
             new FakeOtpHasher(),
@@ -340,7 +340,7 @@ public sealed class RegisterAccountTests
         var existing = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, FixedClock.Now);
         var accountRepository = new FakeAccountRepository();
         accountRepository.Saved.Add(existing);
-        var verificationRepository = new FakeEmailVerificationRepository();
+        var verificationRepository = new InMemoryEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
@@ -366,7 +366,7 @@ public sealed class RegisterAccountTests
     {
         var accountRepository = new ConcurrentRaceFakeAccountRepository();
         var profileRepository = new FakeProfileRepository();
-        var verificationRepository = new FakeEmailVerificationRepository();
+        var verificationRepository = new InMemoryEmailVerificationRepository();
         var outboxWriter = new FakeOutboxWriter();
         var handler = new RegisterAccountCommandHandler(
             accountRepository,
@@ -406,7 +406,7 @@ public sealed class RegisterAccountTests
 
         var accountRepository = new FakeAccountRepository();
         accountRepository.Saved.Add(existingAccount);
-        var verificationRepository = new FakeEmailVerificationRepository();
+        var verificationRepository = new InMemoryEmailVerificationRepository();
         verificationRepository.Saved.Add(expiredVerification);
         var outboxWriter = new FakeOutboxWriter();
         var handler = new RegisterAccountCommandHandler(
@@ -550,43 +550,6 @@ public sealed class RegisterAccountTests
     private sealed class FakeOtpGenerator(string fixedOtp) : IOtpGenerator
     {
         public string GenerateNumericOtp(int length = 6) => fixedOtp;
-    }
-
-    private sealed class FakeEmailVerificationRepository : IEmailVerificationRepository
-    {
-        public List<EmailVerification> Saved { get; } = [];
-
-        public Task<EmailVerification?> GetLatestActiveForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved
-                .Where(v => v.AccountId == accountId && !v.IsUsed && v.InvalidatedAtUtc == null)
-                .OrderByDescending(v => v.CreatedAtUtc)
-                .FirstOrDefault());
-
-        public Task<int> CountRecentResendsInPastHourAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved.Count(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc));
-
-        public Task<EmailVerification?> GetLatestResendInCooldownAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved
-                .Where(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc)
-                .OrderByDescending(v => v.CreatedAtUtc)
-                .FirstOrDefault());
-
-        public Task<EmailVerification?> GetLatestUnusedForAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved
-                .Where(v => v.AccountId == accountId && !v.IsUsed)
-                .OrderByDescending(v => v.CreatedAtUtc)
-                .FirstOrDefault());
-
-        public Task<DateTimeOffset?> GetOldestIssuedSinceAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved
-                .Where(v => v.Email == normalizedEmail && v.CreatedAtUtc >= sinceUtc)
-                .OrderBy(v => v.CreatedAtUtc)
-                .Select(v => (DateTimeOffset?)v.CreatedAtUtc)
-                .FirstOrDefault());
-
-        public void Add(EmailVerification emailVerification) => Saved.Add(emailVerification);
-
-        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakeOutboxWriter : IOutboxWriter

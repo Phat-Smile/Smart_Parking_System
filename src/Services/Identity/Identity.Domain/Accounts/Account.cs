@@ -104,6 +104,16 @@ public sealed class Account
         }
     }
 
+    // US-AUTH-006: the user proved they own the email, so the lockout and the failed-attempt streak are cleared.
+    public void ResetPassword(string newPasswordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newPasswordHash);
+        PasswordHash = newPasswordHash;
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
+        RowVersion++;
+    }
+
     public void RecordCorrectCredential()
     {
         if (FailedLoginAttempts > 0 || LockoutEndUtc.HasValue)

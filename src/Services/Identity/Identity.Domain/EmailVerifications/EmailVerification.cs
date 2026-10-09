@@ -22,6 +22,7 @@ public sealed class EmailVerification
     public DateTimeOffset? InvalidatedAtUtc { get; private set; }
     public bool IsInvalidated => InvalidatedAtUtc.HasValue;
     public DateTimeOffset CreatedAtUtc { get; private set; }
+    public OtpPurpose Purpose { get; private set; } = OtpPurpose.EmailVerification;
     public int RowVersion { get; private set; } = 1;
 
     public static EmailVerification Issue(
@@ -29,7 +30,8 @@ public sealed class EmailVerification
         Guid accountId,
         string email,
         string otpHashedValue,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc,
+        OtpPurpose purpose = OtpPurpose.EmailVerification)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Id must not be empty.", nameof(id));
@@ -49,6 +51,7 @@ public sealed class EmailVerification
             IsUsed = false,
             InvalidatedAtUtc = null,
             CreatedAtUtc = createdAtUtc,
+            Purpose = purpose,
             RowVersion = 1
         };
     }

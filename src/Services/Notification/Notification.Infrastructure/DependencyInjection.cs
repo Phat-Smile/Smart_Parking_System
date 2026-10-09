@@ -61,11 +61,13 @@ public static class DependencyInjection
             services.AddScoped<IEmailSender, SmtpEmailSender>();
         }
         services.AddIdempotentConsumer<UserVerificationOtpIssuedConsumer>("notification.user-verification-otp-issued.v1");
+        services.AddIdempotentConsumer<PasswordResetOtpIssuedConsumer>("notification.password-reset-otp-issued.v1");
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>
         {
             bus.AddConsumer<UserVerificationOtpIssuedConsumer>();
+            bus.AddConsumer<PasswordResetOtpIssuedConsumer>();
             configureConsumers?.Invoke(bus);
             bus.UsingRabbitMq((context, rabbit) =>
             {
