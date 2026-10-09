@@ -3,9 +3,30 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ParkWiseLoginPage } from "./ParkWiseLoginPage";
 import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import { googleLoginParkWiseAccount } from "./googleSignIn";
+import { ApiError } from "@/shared/errors/api-error";
 
 vi.mock("./loginParkWiseAccount", () => ({ loginParkWiseAccount: vi.fn() }));
 const loginMock = vi.mocked(loginParkWiseAccount);
+
+vi.mock("./googleSignIn", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("./googleSignIn")>()),
+    googleLoginParkWiseAccount: vi.fn(),
+}));
+const googleLoginMock = vi.mocked(googleLoginParkWiseAccount);
+
+// Stands in for Google's popup: clicking hands back an ID token.
+vi.mock("./GoogleSignInButton", () => ({
+    GoogleSignInButton: ({
+        onCredential,
+    }: {
+        onCredential: (token: string) => void;
+    }) => (
+        <button type="button" onClick={() => onCredential("google-id-token")}>
+            Google
+        </button>
+    ),
+}));
 
 vi.mock("./ParkWiseAuthLayout", () => ({
     ParkWiseAuthLayout: ({ children }: { children: ReactNode }) => (
@@ -47,5 +68,64 @@ describe("ParkWise Login form", () => {
             "ValidPassword123!",
         );
         expect(screen.getByLabelText("Password")).toHaveValue("");
+    });
+
+    it("signs in with the Google ID token", async () => {
+        googleLoginMock.mockResolvedValue({
+            id: "account-id",
+            email: "driver@gmail.com",
+            phoneNumber: null,
+            status: "EmailVerified",
+            role: "Customer",
+        });
+        render(<ParkWiseLoginPage fontClassName="test-font" />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Google" }));
+
+        await waitFor(() =>
+            expect(screen.getByRole("status")).toHaveTextContent(
+                "Identity accepted driver@gmail.com",
+            ),
+        );
+        expect(googleLoginMock).toHaveBeenCalledWith("google-id-token");
+    });
+
+    it("shows why Google sign-in failed", async () => {
+        googleLoginMock.mockRejectedValue(
+            new ApiError(
+                401,
+                { errorCode: "identity.invalid_google_token" } as never,
+                undefined,
+            ),
+        );
+        render(<ParkWiseLoginPage fontClassName="test-font" />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Google" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+            "Google sign-in could not be verified. Please try again.",
+        );
+    });
+
+    it("points a Google-only account to Google sign-in", async () => {
+        loginMock.mockRejectedValue(
+            new ApiError(
+                401,
+                { errorCode: "identity.password_not_set" } as never,
+                undefined,
+            ),
+        );
+        render(<ParkWiseLoginPage fontClassName="test-font" />);
+        fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+            target: { value: "driver@gmail.com" },
+        });
+        fireEvent.change(screen.getByLabelText("Password"), {
+            target: { value: "AnyPassword1!" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+            'This account was created with Google and has no password yet. Use "Continue with Google"',
+        );
     });
 });

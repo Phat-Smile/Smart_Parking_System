@@ -8,6 +8,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
+import { GoogleSignInButton } from "./GoogleSignInButton";
+import {
+    describeGoogleSignInError,
+    googleLoginParkWiseAccount,
+} from "./googleSignIn";
 import { passwordSchema } from "./passwordSchema";
 import { registerParkWiseAccount } from "./registerParkWiseAccount";
 import { rememberPendingVerification } from "./pendingVerification";
@@ -129,7 +134,21 @@ export function ParkWiseSignUpPage({
         }
     }
 
-    function onGoogleSignUp() {
+    // A Google account is verified by Google, so there is no OTP step.
+    async function onGoogleCredential(idToken: string) {
+        setNotice("");
+        setSubmitError("");
+        try {
+            const account = await googleLoginParkWiseAccount(idToken);
+            setNotice(
+                `Signed in with Google as ${account.email}. Persistent sign-in is not available until session management is connected.`,
+            );
+        } catch (error) {
+            setSubmitError(describeGoogleSignInError(error));
+        }
+    }
+
+    function onGoogleUnavailable() {
         setSubmitError("");
         setNotice("Google sign-up is not available yet.");
     }
@@ -383,19 +402,11 @@ export function ParkWiseSignUpPage({
                     <div className="parkwise-login-divider" aria-hidden="true">
                         <span>or</span>
                     </div>
-                    <button
-                        className="parkwise-login-google"
-                        type="button"
-                        onClick={onGoogleSignUp}
-                    >
-                        <Image
-                            src="/images/parkwise/google.png"
-                            alt=""
-                            width={22}
-                            height={22}
-                        />
-                        <span>Continue with Google</span>
-                    </button>
+                    <GoogleSignInButton
+                        text="signup_with"
+                        onCredential={onGoogleCredential}
+                        onUnavailable={onGoogleUnavailable}
+                    />
                     {notice && (
                         <p
                             className="parkwise-login-notice"
