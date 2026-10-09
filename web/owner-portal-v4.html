@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><title>Smart Parking AI – Chủ bãi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<style>
+:root{color-scheme:light;--bg:#f3f6fb;--card:#fff;--ink:#0f1b3d;--mut:#6a7491;--line:#e3e8f2;--pri:#2457e6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Be Vietnam Pro",system-ui,sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:20px;padding:10px clamp(16px,3vw,40px);overflow-x:auto}
+header h1{font-size:16px;margin:0;white-space:nowrap;font-weight:800}header h1 i{font-style:normal;color:var(--pri)}
+nav{display:flex;gap:4px}nav button{border:0;background:none;color:var(--mut);padding:8px 14px;border-radius:99px;font:inherit;font-weight:500;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--pri);color:#fff}nav button:focus-visible,.btn:focus-visible,.cell:focus-visible,input:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+main{max-width:1380px;margin:0 auto;padding:24px clamp(16px,3vw,40px) 48px}
+h2{font-size:28px;margin:0;font-weight:800}h3{margin:0 0 4px}.mut{color:var(--mut)}.head{margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(15,27,61,.04)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:14px}
+.kp span{color:var(--mut);font-size:12px}.kp b{display:block;font-size:30px;line-height:1.2;font-weight:800}
+.g8{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:14px;margin-bottom:14px}.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.col{display:grid;gap:14px;align-content:start}.rowb{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.segs{display:flex;background:var(--bg);border-radius:99px;padding:3px}.segs button{border:0;background:none;padding:5px 12px;border-radius:99px;font:inherit;font-size:12px;cursor:pointer;color:var(--mut)}.segs button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+#v3{height:500px;border-radius:12px;background:linear-gradient(180deg,#e4e9e0,#f6f8f4);position:relative;overflow:hidden;cursor:grab}#v3 canvas{display:block;touch-action:none}
+.hint{position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--mut);pointer-events:none}
+.lgd{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:10px}.lgd i,.lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.infobar{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}.infobar p{margin:2px 0}
+.tag{color:var(--c);background:color-mix(in srgb,var(--c) 12%,#fff);padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.chip,.btn{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font:inherit;font-size:12px;cursor:pointer;color:var(--ink)}.btn{border-radius:10px;padding:8px 14px;font-size:14px}.btn.p{background:var(--pri);color:#fff;border-color:var(--pri)}
+.dnw{display:flex;gap:18px;align-items:center;margin-top:10px;flex-wrap:wrap}.dn{width:132px;height:132px;border-radius:50%;display:grid;place-items:center;flex:none}.dn>div{width:88px;height:88px;border-radius:50%;background:#fff;display:grid;place-content:center;text-align:center}.dn b{font-size:22px;line-height:1}.dn span{font-size:11px;color:var(--mut)}
+.lg{list-style:none;margin:0;padding:0;flex:1;min-width:130px}.lg li{display:flex;align-items:center;font-size:13px;padding:2px 0}.lg b{margin-left:auto}
+.fb{display:grid;grid-template-columns:60px 1fr 70px;gap:10px;align-items:center;margin:12px 0}.seg{display:flex;height:12px;border-radius:9px;overflow:hidden;background:var(--line)}.seg i{display:block}.fb b{font-size:12px;text-align:right}
+.act{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.act:last-child{border:0}.act time{color:var(--mut);font-size:12px;margin-left:auto;white-space:nowrap}
+.pf{margin-bottom:18px}.pf h4{margin:0 0 8px}.pr{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px}.ln{text-align:center;color:var(--mut);font-size:11px;padding:7px 0;margin:6px 0;background:repeating-linear-gradient(90deg,#e3e8f2 0 14px,transparent 14px 28px) bottom/100% 2px no-repeat}
+.cell{aspect-ratio:1/1.3;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 14%,#fff);border-radius:8px;cursor:pointer;display:grid;place-items:center;padding:2px;font-size:15px;line-height:1}.cell small{font-size:10px;font-weight:600;color:var(--ink)}.cell.sel{outline:3px solid var(--ink);outline-offset:1px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--mut);font-weight:500;font-size:12px}
+.lots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}.lot .top{height:90px;border-radius:12px;margin-bottom:12px;background:repeating-linear-gradient(90deg,#dfe8fb 0 3px,transparent 3px 36px),linear-gradient(#eef3fd,#dbe6fb);display:flex;align-items:flex-end;padding:10px}
+.bar{height:8px;background:var(--line);border-radius:9px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:var(--pri)}
+.rk{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:14px}.rk .card{cursor:pointer}.rk .on{border-color:var(--pri);box-shadow:0 0 0 3px #2457e61f}.rk b{display:block;font-size:26px;font-weight:800}
+.dl{font-size:12px;font-weight:600}.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a36a;margin-right:6px;animation:p 1.6s infinite}@keyframes p{50%{opacity:.3}}
+.bd{margin:12px 0}.bd .seg{height:10px;margin-top:6px}
+input[type=date]{border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;background:#fff;color:var(--ink)}
+@media(prefers-reduced-motion:reduce){.live{animation:none}}
+@media(max-width:980px){.g8,.split{grid-template-columns:1fr}#v3{height:360px}}
+</style></head><body>
+<header><h1>Smart Parking <i>AI</i> · Chủ bãi</h1><nav id="nav"></nav></header>
+<main id="m"></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),p2=n=>String(n).padStart(2,'0');
+const ST={available:['Trống','#16a36a'],reserved:['Đã đặt trước','#2f80ed'],occupied:['Có xe','#e5484d'],maintenance:['Bảo trì','#f2a007'],verify:['Cần xác minh','#8a5cf6']},K=Object.keys(ST),FL=['T1','T2','T3'];
+const plate=i=>['51A','59X','30H','51F','72A','50Z'][i%6]+'-'+(100+i*37%900)+'.'+p2(10+i*13%90);
+const pat=['available','occupied','occupied','reserved','available','occupied','maintenance','occupied','reserved','available','occupied','verify'];
+let spots=[],sel=null,fl='all',view='dash',V3=null,CH={},rp={mode:'day',date:'2025-10-20'};
+FL.forEach((f,fi)=>['A','B'].forEach((r,ri)=>{for(let n=0;n<10;n++){const i=fi*20+ri*10+n;spots.push({id:f+'-'+r+(n+1),f,r,n,i,s:pat[(i*5+fi)%12],p:plate(i)})}}));
+const vnd=n=>Math.round(n).toLocaleString('vi-VN')+' đ',short=n=>n>=1e9?(n/1e9).toFixed(2).replace('.',',')+' tỷ':(n/1e6).toFixed(1).replace('.',',')+' tr';
+const cnt=()=>{const c={};K.forEach(k=>c[k]=0);spots.forEach(s=>c[s.s]++);return c};
+const tg=s=>`<span class="tag" style="--c:${ST[s][1]}">${ST[s][0]}</span>`,chip=(t,c)=>`<span class="tag" style="--c:${c}">${t}</span>`;
+/* doanh thu giả lập, cố định theo ngày */
+const hs=s=>{let x=7;for(const c of s)x=(x*33+c.charCodeAt(0))%10007;return x/10007},pd=s=>s.split('-').map(Number),dim=(y,m)=>new Date(y,m,0).getDate();
+const dayRev=(y,m,d)=>{const w=new Date(y,m-1,d).getDay();return(3.2e6+hs(y+'-'+m+'-'+d)*2.4e6)*(w==0||w==6?1.3:1)*(1+(y-2025)*.1)};
+const monRev=(y,m)=>{let t=0;for(let d=1;d<=dim(y,m);d++)t+=dayRev(y,m,d);return t},yrRev=y=>{let t=0;for(let m=1;m<=12;m++)t+=monRev(y,m);return t};
+const HW=[1,1,1,1,1,2,4,7,9,8,7,8,9,8,7,7,8,10,9,7,5,3,2,1],hourly=(y,m,d)=>{const t=dayRev(y,m,d),s=HW.reduce((a,b)=>a+b);return HW.map(w=>t*w/s)};
+/* biểu đồ đường */
+function chart(id,vals,labels){const W=760,H=250,p=44,mx=Math.max(...vals)*1.1,x=i=>p+i*(W-p-10)/(vals.length-1),y=v=>H-24-v/mx*(H-44);CH[id]={vals,labels,x,y,W};
+const ln=vals.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(''),st=Math.ceil(vals.length/12);
+const grid=[0,.25,.5,.75,1].map(t=>`<line x1="${p}" x2="${W-10}" y1="${y(mx*t)}" y2="${y(mx*t)}" stroke="#e8edf6"/><text x="${p-6}" y="${y(mx*t)+4}" text-anchor="end" font-size="10" fill="#6a7491">${short(mx*t)}</text>`).join('');
+const xl=labels.map((l,i)=>i%st?'':`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="10" fill="#6a7491">${l}</text>`).join('');
+return `<svg id="${id}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;touch-action:pan-y"><defs><linearGradient id="g${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2457e6" stop-opacity=".28"/><stop offset="1" stop-color="#2457e6" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${ln}L${x(vals.length-1)} ${H-24}L${p} ${H-24}Z" fill="url(#g${id})"/><path d="${ln}" fill="none" stroke="#2457e6" stroke-width="2.5" stroke-linejoin="round"/>${xl}<g id="${id}h"></g></svg>`}
+function hover(id){const s=$('#'+id),c=CH[id];if(!s)return;s.onpointermove=e=>{const r=s.getBoundingClientRect(),px=(e.clientX-r.left)/r.width*c.W;let i=Math.round((px-44)/((c.W-54)/(c.vals.length-1)));i=Math.max(0,Math.min(c.vals.length-1,i));const cx=c.x(i);
+$('#'+id+'h').innerHTML=`<line x1="${cx}" x2="${cx}" y1="22" y2="226" stroke="#2457e6" stroke-dasharray="3"/><circle cx="${cx}" cy="${c.y(c.vals[i])}" r="5" fill="#fff" stroke="#2457e6" stroke-width="2.5"/><text x="${Math.min(Math.max(cx,70),c.W-130)}" y="14" text-anchor="middle" font-size="12" font-weight="700" fill="#0f1b3d">${c.labels[i]}: ${vnd(c.vals[i])}</text>`};s.onpointerleave=()=>$('#'+id+'h').innerHTML=''}
+/* mô hình 3D v4: bãi xe nhiều tầng tỉ lệ thật (mét), xe 3 kiểu, vật liệu PBR */
+function mk3D(el,onPick){
+const FH=3.2,B0=.3,BX=2.5,CX=6,PI=Math.PI;
+const R=new THREE.WebGLRenderer({antialias:true,alpha:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.outputEncoding=THREE.sRGBEncoding;R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1;
+R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;R.shadowMap.autoUpdate=false;el.appendChild(R.domElement);
+const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(36,1,.5,400),tg=new THREE.Vector3(CX,4.2,0),rc=new THREE.Raycaster();
+const tx=(w,h,fn)=>{const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t};
+/* môi trường studio: bầu trời + softbox để sơn xe có phản chiếu */
+const et=tx(1024,512,(g,w,h)=>{const q=g.createLinearGradient(0,0,0,h);q.addColorStop(0,'#7fa9e0');q.addColorStop(.45,'#f4f1ea');q.addColorStop(.55,'#d9d4c8');q.addColorStop(1,'#8d8f88');g.fillStyle=q;g.fillRect(0,0,w,h);g.fillStyle='#fff';[[60,60,260,60],[460,40,200,90],[760,70,230,50]].forEach(r=>g.fillRect(r[0],r[1],r[2],r[3]))});
+et.mapping=THREE.EquirectangularReflectionMapping;const pm=new THREE.PMREMGenerator(R);sc.environment=pm.fromEquirectangular(et).texture;pm.dispose();
+sc.add(new THREE.HemisphereLight(0xeaf1ff,0x8a8576,.5));
+const dl=new THREE.DirectionalLight(0xfff4e6,1);dl.position.set(-20,40,26);dl.target.position.set(CX,2,0);sc.add(dl,dl.target);dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);
+Object.assign(dl.shadow.camera,{left:-40,right:40,top:34,bottom:-34,near:5,far:130});dl.shadow.bias=-.0004;dl.shadow.normalBias=.04;
+/* vật liệu */
+const conc=tx(256,256,g=>{g.fillStyle='#d9d4c8';g.fillRect(0,0,256,256);for(let i=0;i<2200;i++){g.fillStyle=`rgba(${90+Math.random()*90|0},${90+Math.random()*90|0},${80+Math.random()*80|0},.16)`;g.fillRect(Math.random()*256,Math.random()*256,2,2)}});
+conc.wrapS=conc.wrapT=THREE.RepeatWrapping;conc.repeat.set(8,4);
+const S=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.8,metalness:0},o||{}));
+const bx=(w,h,d)=>new THREE.BoxGeometry(w,h,d),mk=(geo,mat,x,y,z,g,sh)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=sh!==false;m.receiveShadow=true;g.add(m);return m};
+const cm=S(0xffffff,{map:conc,roughness:.92}),pm2=S(0xf3efe5,{map:conc,roughness:.9}),steel=S(0x9aa3ad,{metalness:.9,roughness:.35}),asph=S(0x2c2f34,{roughness:.96}),lawn=S(0x7fae4f,{roughness:1}),lineM=S(0xffffff,{roughness:.7}),
+glassB=new THREE.MeshPhysicalMaterial({color:0xa9c7d6,metalness:.2,roughness:.05,transparent:true,opacity:.3}),glass=S(0x131a25,{metalness:.9,roughness:.05}),tire=S(0x121418,{roughness:.95}),dark=S(0x1a1d22,{roughness:.7}),
+rimT=tx(128,128,g=>{g.fillStyle='#16181d';g.fillRect(0,0,128,128);g.fillStyle='#cfd5df';g.beginPath();g.arc(64,64,62,0,7);g.fill();g.fillStyle='#16181d';for(let i=0;i<5;i++){const a=i*PI*2/5+.3;g.beginPath();g.moveTo(64,64);g.arc(64,64,52,a,a+.75);g.closePath();g.fill()}g.fillStyle='#e8ecf2';g.beginPath();g.arc(64,64,14,0,7);g.fill()}),
+shT=tx(64,64,g=>{const q=g.createRadialGradient(32,32,4,32,32,32);q.addColorStop(0,'rgba(0,0,0,.55)');q.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=q;g.fillRect(0,0,64,64)}),
+hzT=tx(128,32,g=>{g.fillStyle='#f2b705';g.fillRect(0,0,128,32);g.fillStyle='#111';for(let i=-1;i<8;i++){g.beginPath();g.moveTo(i*20,32);g.lineTo(i*20+10,32);g.lineTo(i*20+26,0);g.lineTo(i*20+16,0);g.fill()}}),
+rdT=tx(128,128,g=>{g.fillStyle='#2f80ed';g.fillRect(8,8,112,112);g.fillStyle='#fff';g.font='700 84px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('R',64,68)});
+const rimM=S(0xffffff,{map:rimT,metalness:.6,roughness:.35}),shM=new THREE.MeshBasicMaterial({map:shT,transparent:true,depthWrite:false}),hzM=S(0xffffff,{map:hzT}),rdM=new THREE.MeshBasicMaterial({map:rdT}),coneM=S(0xff7a1a,{roughness:.5}),stopM=S(0xbdb7aa);
+const padM={},ledM={};K.forEach(q=>{const c=ST[q][1];padM[q]=S(c,{transparent:true,opacity:q==='occupied'?.12:.22,roughness:.6,depthWrite:false});ledM[q]=S(c,{emissive:c,emissiveIntensity:1.6})});
+const bm={},body=c=>bm[c]||(bm[c]=new THREE.MeshPhysicalMaterial({color:c,metalness:.5,roughness:.28,clearcoat:1,clearcoatRoughness:.08}));
+/* 3 kiểu xe, kích thước thật: biên dạng bên hông được đùn và bo cạnh */
+const shp=a=>{const s=new THREE.Shape();a.forEach((p,i)=>p.length==2?(i?s.lineTo(p[0],p[1]):s.moveTo(p[0],p[1])):s.quadraticCurveTo(p[0],p[1],p[2],p[3]));s.closePath();return s};
+const TY={
+sedan:{L:4.7,W:1.85,wr:.34,ax:[.95,3.7],bt:.9,ct:1.43,hy:.62,rl:1.4,rz:.05,pz:-.15,b:[[.25,.3],[.05,.38],[0,.62],[.06,.8,.6,.86],[3.9,.9],[4.55,.88,4.68,.68],[4.7,.42],[4.5,.3]],c:[[1.05,.86],[1.55,1.4,2,1.43],[3,1.42],[3.55,1.36,3.95,.9]]},
+suv:{L:4.75,W:1.95,wr:.38,ax:[.95,3.75],bt:1.08,ct:1.74,hy:.85,rl:2.2,rz:-.62,pz:-.42,b:[[.3,.38],[.1,.45],[0,.75],[.08,.98,.7,1.05],[4.1,1.08],[4.65,1.05,4.74,.85],[4.75,.5],[4.55,.38]],c:[[1.1,1.05],[1.45,1.72,1.9,1.74],[4.1,1.74],[4.55,1.7,4.6,1.05]]},
+ev:{L:4.65,W:1.9,wr:.36,ax:[.85,3.8],bt:.9,ct:1.52,hy:.66,rl:1.5,rz:-.17,pz:-.37,b:[[.3,.3],[.1,.36],[0,.58],[.05,.78,.7,.84],[3.9,.9],[4.5,.88,4.63,.7],[4.65,.42],[4.45,.3]],c:[[1,.84],[1.7,1.52,2.4,1.52],[3.4,1.47,4.35,.82]]}};
+const ex=(sh,w,b,L)=>{const g=new THREE.ExtrudeGeometry(sh,{depth:w,bevelEnabled:true,bevelThickness:b,bevelSize:b,bevelSegments:3,curveSegments:10});g.translate(-L/2,0,-w/2);g.rotateY(PI/2);return g};
+const CC=[0xf4f6fa,0x1c2438,0xb9c2d3,0x2c5fd0,0xc23030,0x4a5568,0x0f7a5a,0xe8b13a];
+function car(t,c,g,x,y,z,ry){const T=TY[t],q=new THREE.Group(),hw=T.W/2,L2=T.L/2,B=body(c);
+if(!T.GB){T.GB=ex(shp(T.b),T.W-.14,.07,T.L);T.GC=ex(shp(T.c),T.W-.5,.06,T.L);T.GT=new THREE.CylinderGeometry(T.wr,T.wr,.26,24).rotateZ(PI/2);T.GR=new THREE.CircleGeometry(T.wr*.72,28).rotateY(PI/2);T.GA=new THREE.CylinderGeometry(T.wr+.07,T.wr+.07,.02,24).rotateZ(PI/2)}
+q.position.set(x,y,z);q.rotation.y=ry;g.add(q);
+mk(T.GB,B,0,0,0,q);mk(T.GC,glass,0,0,0,q);mk(bx(T.W-.44,.05,T.rl),B,0,T.ct+.045,T.rz,q);mk(bx(T.W-.4,(T.ct-T.bt)*.85,.09),B,0,T.bt+(T.ct-T.bt)*.5,T.pz,q);
+[1,-1].forEach(s=>T.ax.forEach(a=>{const wz=L2-a,wx=s*(hw-.07);mk(T.GT,tire,wx,T.wr,wz,q);mk(T.GA,dark,s*(hw+.005),T.wr,wz,q,false);const r=mk(T.GR,rimM,s*(hw+.066),T.wr,wz,q,false);if(s<0)r.rotation.y=PI}));
+[-1,1].forEach(s=>{mk(bx(.34,.1,.06),S(0xffffff,{emissive:0xfff2c8,emissiveIntensity:1.4}),s*(hw-.45),T.hy,L2+.06,q,false);if(t!=='ev')mk(bx(.34,.1,.05),S(0xff2a2a,{emissive:0xff1010,emissiveIntensity:1}),s*(hw-.4),T.bt-.25,-L2-.06,q,false);mk(bx(.12,.1,.2),B,s*(hw+.06),T.bt+.08,L2-1.15,q,false);
+if(t==='suv')mk(bx(.05,.05,T.rl+.4),dark,s*(hw-.3),T.ct+.09,T.rz,q,false)});
+if(t==='ev')mk(bx(T.W-.5,.06,.05),S(0xff2a2a,{emissive:0xff1010,emissiveIntensity:1.2}),0,T.bt-.1,-L2-.06,q,false);
+mk(bx(T.W*.35,.12,.05),dark,0,T.hy-.2,L2+.06,q,false);mk(bx(.5,.12,.03),lineM,0,.5,-L2-.07,q,false);
+const sd=new THREE.Mesh(new THREE.PlaneGeometry(T.W+.7,T.L+.7).rotateX(-PI/2),shM);sd.position.y=.012;q.add(sd)}
+/* công trình */
+const fg=[],dg=[],hits=[];
+mk(bx(64,.3,48),asph,CX,-.15,0,sc,false);[-1,1].forEach(o=>mk(bx(40,.05,9),lawn,CX,.02,o*19,sc,false));
+const P=s=>{const fi=FL.indexOf(s.f),o=s.r==='A'?-1:1;return{x:(s.n-4.5)*BX,z:o*5.75,y:B0+fi*FH,o,fi}};
+FL.forEach((f,i)=>{const g=new THREE.Group(),d=new THREE.Group(),y=B0+i*FH,sh=i?.25:.3;g.add(d);fg.push(g);dg.push(d);sc.add(g);
+mk(bx(25.4,sh,16.8),cm,0,y-sh/2,0,g);
+[-1,1].forEach(o=>{mk(bx(25.4,.5,.3),cm,0,y-.25,o*8.3,g);mk(bx(25.4,.65,.2),pm2,0,y+.325,o*8.3,g);mk(bx(25.4,.05,.1),steel,0,y+1.1,o*8.3,g);for(let k=0;k<=10;k++)mk(bx(.06,.45,.06),steel,-12.5+k*2.5,y+.875,o*8.3,g)});
+for(let k=0;k<6;k++){const x=-12.5+k*5;if(i)mk(bx(.35,.5,16.5),cm,x,y-.5,0,g);if(i<2)[-1,1].forEach(o=>mk(bx(.5,FH-.25,.5),cm,x,y+(FH-.25)/2,o*8.1,g))}
+const ch=i===2?FH+3:FH;mk(bx(4.4,.25,6.6),cm,-14.9,y-.125,0,g);mk(bx(4.2,ch,6.4),glassB,-14.9,y+ch/2,0,g,false);mk(bx(1.8,ch,1.8),cm,-15.6,y+ch/2,0,g);
+[-1,1].forEach(a=>[-1,0,1].forEach(b=>mk(bx(.1,ch,.1),steel,-14.9+a*2.1,y+ch/2,b*3.2,g,false)));if(i===2)mk(bx(4.4,.25,6.6),cm,-14.9,y+ch,0,g);
+if(i===2)[-1,1].forEach(o=>{for(let k=0;k<25;k++)mk(bx(.4,.05,6),dark,-12+k,y+3.62,o*5.75,g);[3.3,8.2].forEach(zz=>mk(bx(25.4,.15,.2),steel,0,y+3.5,o*zz,g));[-12.5,0,12.5].forEach(x=>mk(bx(.2,3.6,.2),steel,x,y+1.8,o*8.3,g))})});
+/* đường dốc xoắn ốc */
+const da=PI*2/40,rm=5.5,CXR=20.95,pit=Math.atan(FH/(2*PI*rm)),len=rm*da*1.04;
+for(let j=0;j<80;j++){const a=PI+(j+.5)*da,yT=B0+(a-PI)/(2*PI)*FH,s=new THREE.Group();s.position.set(CXR+rm*Math.cos(a),yT,rm*Math.sin(a));s.rotation.set(0,-a-PI/2,pit);
+mk(bx(len,.3,5.5),cm,0,-.15,0,s);mk(bx(len,1.1,.22),pm2,0,.55,-2.64,s);mk(bx(len,.9,.2),pm2,0,.45,2.64,s);fg[j<40?0:1].add(s)}
+[0,1].forEach(k=>mk(new THREE.CylinderGeometry(2.5,2.5,FH,28),cm,CXR,B0+k*FH+FH/2,0,fg[k]));
+spots.forEach(s=>{const p=P(s),g=fg[p.fi];mk(bx(.07,.014,4.9),lineM,p.x-1.25,p.y+.008,p.z,g,false);if(s.n===9)mk(bx(.07,.014,4.9),lineM,p.x+1.25,p.y+.008,p.z,g,false);mk(bx(2.5,.014,.07),lineM,p.x,p.y+.008,p.z+p.o*2.45,g,false);
+if(s.r==='A'&&s.n%2===0)mk(bx(1.2,.014,.1),lineM,p.x,p.y+.008,0,g,false);
+const h=new THREE.Mesh(bx(2.4,2.2,4.9),new THREE.MeshBasicMaterial({visible:false}));h.position.set(p.x,p.y+1.1,p.z);h.userData={id:s.id,fi:p.fi,x:p.x,y:p.y,z:p.z};g.add(h);hits.push(h)});
+const PG=bx(2.3,.012,4.8),CO=new THREE.ConeGeometry(.2,.5,14),CB=new THREE.CylinderGeometry(.14,.14,.6,14),QG=new THREE.PlaneGeometry(2.4,4.9).rotateX(-PI/2);
+const qm=o=>new THREE.MeshBasicMaterial({color:0xb8f34a,transparent:true,opacity:o,depthWrite:false}),sq=new THREE.Mesh(QG,qm(.5)),hq=new THREE.Mesh(QG,qm(.28));sq.visible=hq.visible=false;sc.add(sq,hq);
+const hl=new THREE.Mesh(new THREE.ConeGeometry(.4,.9,18).rotateX(PI),S(0x19301d,{emissive:0x6fcf2e,emissiveIntensity:.7}));hl.visible=false;sc.add(hl);
+const TL=['sedan','suv','ev','sedan','ev','suv','sedan','ev','suv'];
+const api={rebuild(){sq.visible=hl.visible=false;dg.forEach(d=>d.clear());spots.forEach(s=>{const p=P(s),d=dg[p.fi],{x,z,y,o}=p;
+mk(PG,padM[s.s],x,y+.012,z,d,false);mk(bx(1.6,.13,.2),stopM,x,y+.065,z+o*2.32,d);mk(bx(1.3,.03,.1),ledM[s.s],x,y+.145,z+o*2.32,d,false);
+if(s.s==='occupied')car(TL[s.i%9],CC[(s.i*3)%CC.length],d,x+((s.i*13)%5-2)*.05,y,z-o*.2,(s.r==='A'?PI:0)+((s.i*37)%7-3)*.011);
+if(s.s==='reserved'){const r=mk(new THREE.PlaneGeometry(1.1,1.1).rotateX(-PI/2),rdM,x,y+.02,z-o*.6,d,false)}
+if(s.s==='maintenance'){[-.8,.8].forEach(c=>mk(CO,coneM,x+c,y+.25,z-o*2.2,d));mk(bx(1.6,.14,.02),hzM,x,y+.43,z-o*2.2,d)}
+if(s.s==='verify')mk(CB,S(0x8a5cf6,{emissive:0x8a5cf6,emissiveIntensity:.8}),x,y+.3,z,d);
+if(s.id===sel&&fg[p.fi].visible){sq.position.set(x,y+.03,z);sq.visible=true;hl.position.set(x,y+2.6,z);hl.userData.by=y+2.6;hl.visible=true}});R.shadowMap.needsUpdate=true},
+setFloor(f){fg.forEach((g,i)=>g.visible=f==='all'||FL[i]===f);tg.set(CX,f==='all'?4.2:B0+FL.indexOf(f)*FH+1,0);rad=f==='all'?62:38;api.rebuild()},
+dispose(){dead=true;ro.disconnect();R.dispose()}};
+let th=.75,ph=1,rad=62,auto=true,dead=false,mv=0,t=0;
+const pos=()=>{cam.position.set(tg.x+rad*Math.sin(ph)*Math.sin(th),tg.y+rad*Math.cos(ph),tg.z+rad*Math.sin(ph)*Math.cos(th));cam.lookAt(tg)};
+const cv=R.domElement;let lx,ly,dn=false;
+const pick=e=>{const r=cv.getBoundingClientRect();rc.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1),cam);const h=rc.intersectObjects(hits.filter(m=>fg[m.userData.fi].visible),false)[0];return h?h.object.userData:null};
+cv.onpointerdown=e=>{dn=true;lx=e.clientX;ly=e.clientY;mv=0;auto=false;hq.visible=false;cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(!dn){const u=pick(e);hq.visible=!!u;cv.style.cursor=u?'pointer':'grab';if(u)hq.position.set(u.x,u.y+.03,u.z);return}const dx=e.clientX-lx,dy=e.clientY-ly;mv+=Math.abs(dx)+Math.abs(dy);th-=dx*.008;ph=Math.max(.25,Math.min(1.45,ph-dy*.006));lx=e.clientX;ly=e.clientY};
+cv.onpointerup=e=>{dn=false;if(mv<6){const u=pick(e);if(u)onPick(u.id)}};
+cv.onwheel=e=>{e.preventDefault();rad=Math.max(18,Math.min(100,rad+e.deltaY*.05))};
+const ro=new ResizeObserver(()=>{R.setSize(el.clientWidth,el.clientHeight);cam.aspect=el.clientWidth/el.clientHeight;cam.updateProjectionMatrix()});ro.observe(el);
+const hint=document.createElement('div');hint.className='hint';hint.textContent='Kéo để xoay · cuộn để phóng to · bấm vào ô để xem chi tiết';el.appendChild(hint);
+(function loop(){if(dead)return;t+=.04;if(auto)th+=.0016;if(hl.visible)hl.position.y=hl.userData.by+Math.sin(t)*.15;pos();R.render(sc,cam);requestAnimationFrame(loop)})();return api}
+/* vùng cập nhật trực tiếp */
+const lgd=()=>K.map(k=>`<span><i style="background:${ST[k][1]}"></i>${ST[k][0]}</span>`).join('');
+const LIVE={
+kpi(){const c=cnt(),t=new Date(),r=dayRev(t.getFullYear(),t.getMonth()+1,t.getDate());return[['Tổng số ô',spots.length,'#0f1b3d'],['Còn trống',c.available,ST.available[1]],['Đã đặt trước',c.reserved,ST.reserved[1]],['Có xe',c.occupied,ST.occupied[1]],['Doanh thu hôm nay',short(r),'#2457e6']].map(([l,v,col])=>`<div class="card kp"><span>${l}</span><b style="color:${col}">${v}</b></div>`).join('')},
+donut(){const c=cnt(),t=spots.length;let a=0;const g=K.map(k=>{const s=a;a+=c[k]/t*100;return`${ST[k][1]} ${s}% ${a}%`}).join(',');return`<div class="dn" style="background:conic-gradient(${g})"><div><b>${Math.round((c.occupied+c.reserved)/t*100)}%</b><span>lấp đầy</span></div></div><ul class="lg">${K.map(k=>`<li><i style="background:${ST[k][1]}"></i>${ST[k][0]}<b>${c[k]}</b></li>`).join('')}</ul>`},
+flbars(){return FL.map(f=>{const a=spots.filter(s=>s.f===f);return`<div class="fb"><span>Tầng ${f[1]}</span><div class="seg">${K.map(k=>{const w=a.filter(s=>s.s===k).length/a.length*100;return w?`<i style="width:${w}%;background:${ST[k][1]}"></i>`:''}).join('')}</div><b>${a.filter(s=>s.s==='available').length} trống</b></div>`}).join('')},
+ftabs(){return['all',...FL].map(f=>`<button class="${fl===f?'on':''}" data-fl="${f}">${f==='all'?'Tất cả tầng':'Tầng '+f[1]}</button>`).join('')},
+lgd,
+act(){return[['🚗','51A-123.45 vào ô T1-A3','2 phút'],['🔖','59X-678.90 đặt trước ô T2-B5','8 phút'],['💳','Thanh toán 45.000 đ (T1-B2)','15 phút'],['🔧','Ô T3-A7 chuyển sang bảo trì','32 phút'],['❓','Ô T2-A4 cần xác minh biển số','1 giờ']].map(a=>`<div class="act"><span>${a[0]}</span>${a[1]}<time>${a[2]}</time></div>`).join('')},
+plan(){return(fl==='all'?FL:[fl]).map(f=>{const row=r=>spots.filter(s=>s.f===f&&s.r===r).map(s=>`<button class="cell ${sel===s.id?'sel':''}" style="--c:${ST[s.s][1]}" data-id="${s.id}" title="${s.id} · ${ST[s.s][0]}"><small>${s.r}${s.n+1}</small>${{occupied:'🚗',reserved:'🔖',maintenance:'🔧',verify:'❓'}[s.s]||''}</button>`).join('');return`<div class="pf"><h4>Tầng ${f[1]}</h4><div class="pr">${row('A')}</div><div class="ln">Lối xe chạy</div><div class="pr">${row('B')}</div></div>`}).join('')},
+info(){const s=spots.find(x=>x.id===sel);if(!s)return`<p class="mut">Bấm vào một ô trên sơ đồ 2D hoặc 3D để xem ô đó đang trống, có xe hay đã đặt trước.</p>`;
+return`<h3>Ô ${s.id}</h3><p class="mut">Tầng ${s.f[1]} · Dãy ${s.r} · Vị trí ${s.n+1}</p><p>${tg(s.s)}</p>${s.s==='occupied'||s.s==='reserved'?`<p>Biển số <b>${s.p}</b><br><span class="mut">${s.s==='occupied'?'Vào lúc 09:'+p2(10+s.n*4):'Giữ chỗ đến 15:'+p2(10+s.n*3)}</span></p>`:''}<div class="chips">${K.map(k=>`<button class="chip" data-set="${k}">${ST[k][0]}</button>`).join('')}</div>`}};
+function refresh(){for(const k in LIVE){const e=$('#'+k);if(e)e.innerHTML=LIVE[k]()}if(V3)V3.rebuild()}
+const delta=(a,b)=>{const d=(a-b)/b*100;return`<span class="dl" style="color:${d>=0?'#16a36a':'#e5484d'}">${d>=0?'▲':'▼'} ${Math.abs(d).toFixed(1).replace('.',',')}% so với kỳ trước</span>`};
+const tbl=(h,r)=>`<div class="tw"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${r.map(x=>`<tr>${x.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`;
+const hero=()=>`<div class="card"><div class="rowb"><b>Mô hình 3D bãi xe · 3 tầng</b><div id="ftabs" class="segs"></div></div><div id="v3"></div><div id="lgd" class="lgd"></div><div id="info" class="infobar"></div></div>`;
+const VW={
+dash(){const t=new Date(),v=[],l=[];for(let i=6;i>=0;i--){const d=new Date(t.getFullYear(),t.getMonth(),t.getDate()-i);v.push(dayRev(d.getFullYear(),d.getMonth()+1,d.getDate()));l.push(p2(d.getDate())+'/'+p2(d.getMonth()+1))}
+return`<div class="head"><h2>Tổng quan</h2><p class="mut" style="margin:0"><span class="live"></span>Bãi Vincom Đồng Khởi · cập nhật trực tiếp</p></div><div class="kpis" id="kpi"></div>
+<div class="g8">${hero()}<div class="col"><div class="card"><b>Tình trạng ô đỗ</b><div id="donut" class="dnw"></div></div><div class="card"><b>Doanh thu 7 ngày gần nhất</b>${chart('c7',v,l)}<button class="btn" style="margin-top:8px" data-go="rep">Xem báo cáo chi tiết</button></div></div></div>
+<div class="g2"><div class="card"><b>Theo từng tầng</b><div id="flbars"></div></div><div class="card"><b>Hoạt động gần đây</b><div id="act"></div></div></div>`},
+lots(){const c=cnt(),pc=Math.round((c.occupied+c.reserved)/spots.length*100);const L=[['Bãi đỗ xe Vincom Đồng Khởi','72 Lê Thánh Tôn, Q.1',3,60,'ok'],['Bãi xe Nguyễn Huệ','25 Nguyễn Huệ, Q.1',2,40,'pe'],['Bãi xe Pasteur','12 Pasteur, Q.3',4,96,'rj']],A={ok:['Đã duyệt','#16a36a'],pe:['Chờ duyệt','#f2a007'],rj:['Bị từ chối','#e5484d']};
+return`<div class="head rowb"><div><h2>Bãi của tôi</h2><p class="mut" style="margin:0">Quản lý nhiều bãi, mỗi bãi nhiều tầng</p></div><button class="btn p">Thêm bãi mới</button></div><div class="lots">${L.map(l=>`<div class="card lot"><div class="top">${chip(A[l[4]][0],A[l[4]][1])}</div><h3>${l[0]}</h3><p class="mut" style="margin:0">${l[1]}</p><p style="margin:8px 0 0">${l[2]} tầng · ${l[3]} ô</p><div class="bar"><i style="width:${l[4]==='ok'?pc:0}%"></i></div><p class="mut" style="margin:0 0 12px">${l[4]==='ok'?pc+'% đang sử dụng':l[4]==='rj'?'Lý do: ảnh sơ đồ chưa khớp địa chỉ, cần cập nhật GPS.':'Đang chờ quản trị viên xét duyệt'}</p><button class="btn" data-go="map">Xem sơ đồ</button> <button class="btn">Chỉnh sửa</button></div>`).join('')}</div>`},
+map(){return`<div class="head"><h2>Sơ đồ 2D / 3D</h2><p class="mut" style="margin:0"><span class="live"></span>Hai sơ đồ dùng chung dữ liệu, đổi một nơi là cả hai cùng đổi</p></div><div class="kpis" id="kpi"></div>
+<div class="g8">${hero()}<div class="card"><div class="rowb"><b>Sơ đồ 2D</b></div><div id="plan"></div></div></div>`},
+rsv(){const R=[['R-1042','51A-123.45','T1-A3','14:00 – 16:00','Đặt trước','Đã xác nhận','#16a36a',1],['R-1043','59X1-678.90','T2-B5','14:30 – 15:00','Giữ chỗ','Đang giữ','#2f80ed',0],['R-1044','30H-555.12','T1-B2','17:00 – 19:00','Đặt trước','Đã xác nhận','#16a36a',1],['R-1045','51F-222.33','T3-A8','18:00 – 20:00','Đặt trước','Chờ thanh toán','#f2a007',0],['R-1039','72A-111.22','T2-A1','09:00 – 10:00','Giữ chỗ','Hết hạn','#6a7491',0]];
+return`<div class="head"><h2>Đặt chỗ</h2><p class="mut" style="margin:0">Giữ chỗ và đặt trước tại bãi của bạn</p></div><div class="card">${tbl(['Mã','Xe','Ô','Thời gian','Loại','Trạng thái','Thanh toán'],R.map(r=>[r[0],r[1],r[2],r[3],r[4],chip(r[5],r[6]),chip(r[7]?'Đã thanh toán':'Chưa thanh toán',r[7]?'#16a36a':'#f2a007')]))}</div>`},
+ses(){return`<div class="head"><h2>Phiên đỗ xe</h2><p class="mut" style="margin:0">Các xe đang đỗ trong bãi</p></div><div class="card">${tbl(['Xe','Giờ vào','Ô được gán','Trạng thái'],spots.filter(s=>s.s==='occupied').slice(0,9).map(s=>[s.p,'0'+(7+s.n%3)+':'+p2(10+s.n*5),s.id,tg('occupied')]))}</div>`},
+rep(){const[y,m,d]=pd(rp.date),D=`${p2(d)}/${p2(m)}/${y}`,S=rp.mode==='day'?{v:hourly(y,m,d),l:HW.map((_,i)=>i+'h'),t:'theo giờ, ngày '+D}:rp.mode==='month'?{v:[...Array(dim(y,m))].map((_,i)=>dayRev(y,m,i+1)),l:[...Array(dim(y,m))].map((_,i)=>i+1),t:`theo ngày, tháng ${p2(m)}/${y}`}:{v:[...Array(12)].map((_,i)=>monRev(y,i+1)),l:[...Array(12)].map((_,i)=>'T'+(i+1)),t:'theo tháng, năm '+y};
+const pv=new Date(y,m-1,d-1),pm=new Date(y,m-2,1),a=dayRev(y,m,d),b=monRev(y,m),c=yrRev(y),T=rp.mode==='day'?a:rp.mode==='month'?b:c,car=.6+hs(rp.date)*.15,rs=.35+hs(rp.date+'r')*.2;
+const K3=[['day','Ngày '+D,a,delta(a,dayRev(pv.getFullYear(),pv.getMonth()+1,pv.getDate()))],['month',`Tháng ${p2(m)}/${y}`,b,delta(b,monRev(pm.getFullYear(),pm.getMonth()+1))],['year','Năm '+y,c,delta(c,yrRev(y-1))]];
+const bd=(l,x,col)=>`<div class="bd"><div class="rowb" style="margin:0"><span>${l}</span><b>${vnd(T*x)}</b></div><div class="seg"><i style="width:${x*100}%;background:${col}"></i></div></div>`;
+return`<div class="head rowb"><div><h2>Báo cáo doanh thu</h2><p class="mut" style="margin:0">Chọn ngày để xem doanh thu ngày, tháng và năm tương ứng</p></div><label>Ngày xem <input type="date" id="dt" value="${rp.date}"></label></div>
+<div class="rk">${K3.map(k=>`<div class="card ${rp.mode===k[0]?'on':''}" data-mode="${k[0]}"><span class="mut">${k[1]}</span><b>${vnd(k[2])}</b>${k[3]}</div>`).join('')}</div>
+<div class="g8"><div class="card"><div class="rowb"><b>Doanh thu ${S.t}</b><div class="segs">${[['day','Ngày'],['month','Tháng'],['year','Năm']].map(x=>`<button class="${rp.mode===x[0]?'on':''}" data-mode="${x[0]}">${x[1]}</button>`).join('')}</div></div>${chart('cr',S.v,S.l)}</div>
+<div class="card"><b>Cơ cấu doanh thu</b><p class="mut" style="margin:2px 0 10px">Tổng ${vnd(T)}</p>${bd('Ô tô',car,'#2457e6')}${bd('Xe máy',1-car,'#7aa2f7')}${bd('Đặt trước',rs,'#16a36a')}${bd('Vãng lai',1-rs,'#9adfbd')}</div></div>`}};
+const NAV=[['dash','Tổng quan'],['lots','Bãi của tôi'],['map','Sơ đồ 2D / 3D'],['rsv','Đặt chỗ'],['ses','Phiên đỗ xe'],['rep','Báo cáo doanh thu']];
+function render(){if(V3){V3.dispose();V3=null}CH={};$('#nav').innerHTML=NAV.map(n=>`<button class="${n[0]===view?'on':''}" data-go="${n[0]}">${n[1]}</button>`).join('');$('#m').innerHTML=VW[view]();
+if($('#v3')){V3=mk3D($('#v3'),id=>{sel=id;refresh()});V3.setFloor(fl)}refresh();Object.keys(CH).forEach(hover);scrollTo(0,0)}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-go],[data-fl],[data-id],[data-set],[data-mode]');if(!t)return;const D=t.dataset;
+if(D.go){view=D.go;render()}else if(D.fl){fl=D.fl;if(V3)V3.setFloor(fl);refresh()}else if(D.id){sel=D.id;refresh()}
+else if(D.set){const s=spots.find(x=>x.id===sel);if(s){s.s=D.set;refresh()}}else if(D.mode){rp.mode=D.mode;render()}});
+document.addEventListener('change',e=>{if(e.target.id==='dt'&&e.target.value){rp.date=e.target.value;render()}});
+setInterval(()=>{if(!V3)return;const s=spots[Math.floor(Math.random()*spots.length)];if(['available','reserved','occupied'].includes(s.s)){s.s=['available','reserved','occupied'][Math.floor(Math.random()*3)];refresh()}},5000);
+render();
+</script></body></html>
