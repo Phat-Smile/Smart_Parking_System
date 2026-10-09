@@ -12,11 +12,16 @@ internal sealed class EmailVerificationRepository(IdentityDbContext dbContext) :
             .OrderByDescending(verification => verification.CreatedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
 
-    public Task<EmailVerification?> GetLatestUnusedForAccountAsync(Guid accountId, CancellationToken cancellationToken, OtpPurpose purpose = OtpPurpose.EmailVerification) =>
-        dbContext.EmailVerifications
-            .Where(verification => verification.AccountId == accountId && verification.Purpose == purpose && !verification.IsUsed)
+    // Only the newest code counts: once it is used, an older code (for example one exhausted by wrong attempts)
+    // must not answer again, so the caller gets null and reports the code as expired.
+    public async Task<EmailVerification?> GetLatestUnusedForAccountAsync(Guid accountId, CancellationToken cancellationToken, OtpPurpose purpose = OtpPurpose.EmailVerification)
+    {
+        var latest = await dbContext.EmailVerifications
+            .Where(verification => verification.AccountId == accountId && verification.Purpose == purpose)
             .OrderByDescending(verification => verification.CreatedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
+        return latest is { IsUsed: false } ? latest : null;
+    }
 
     public Task<DateTimeOffset?> GetOldestIssuedSinceAsync(string normalizedEmail, DateTimeOffset sinceUtc, CancellationToken cancellationToken, OtpPurpose purpose = OtpPurpose.EmailVerification) =>
         dbContext.EmailVerifications

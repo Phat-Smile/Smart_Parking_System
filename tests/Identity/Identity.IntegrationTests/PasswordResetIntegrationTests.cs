@@ -168,6 +168,25 @@ public sealed class PasswordResetIntegrationTests(PostgreSqlContainerFixture pos
     }
 
     [Fact]
+    public async Task Replaying_a_used_code_reports_expired_even_when_an_older_code_was_exhausted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var account = await SeedAccountAsync(provider, "reset-replay@example.com", verified: true, ct);
+        await ForgotAsync(provider, account.Email, Now, ct);
+        foreach (var wrong in new[] { "900001", "900002", "900003" })
+            await ResetAsync(provider, account.Email, wrong, Now.AddMinutes(1), ct);
+
+        await ForgotAsync(provider, account.Email, Now.AddMinutes(2), ct);
+        var reset = await ResetAsync(provider, account.Email, ResetCode, Now.AddMinutes(3), ct);
+        var replay = await ResetAsync(provider, account.Email, ResetCode, Now.AddMinutes(4), ct, newPassword: "Another789!");
+
+        Assert.True(reset.IsSuccess);
+        // The exhausted first code must not answer otp_max_attempts_exceeded once the newer code was used.
+        Assert.Equal(ResetPasswordErrors.OtpExpired, replay.Error);
+    }
+
+    [Fact]
     public async Task An_email_verification_code_cannot_reset_the_password()
     {
         var ct = TestContext.Current.CancellationToken;
