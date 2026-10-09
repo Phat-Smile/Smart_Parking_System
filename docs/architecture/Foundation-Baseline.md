@@ -100,7 +100,7 @@ Jaeger UI defaults to host 16686; Prometheus to 9090; Collector receivers to 431
 
 Gateway and all five APIs independently validate JWTs: **RS256 only**, issuer `ParkingSystem.Identity`, audience `ParkingSystem`, required signature/expiration, issuer/audience/lifetime validation and 30-second clock skew. No `alg=none`, HS256 fallback, token issuance, refresh flow or business authorization policy. Future protected endpoints must opt into the existing authenticated policy; future public Identity auth endpoints explicitly allow anonymous access.
 
-Validators receive only the public key. `.local/security/jwt/private.pem` remains ignored, untracked, outside build contexts, images and validator mounts. Local development defaults are public local-only credentials; production secrets must never enter tracked files.
+Validators receive only the public key. `.local/security/jwt/private.pem` remains ignored, untracked and outside build contexts and images; only `identity-api` mounts it, read-only, to sign tokens. Local development defaults are public local-only credentials; production secrets must never enter tracked files.
 
 Gateway CORS uses configured explicit origins; the current empty list allows no browser origin. Authorization, Content-Type and X-Correlation-ID are permitted request headers; X-Correlation-ID is exposed. Credentials are not enabled. Gateway emits nosniff, no-referrer and DENY headers once. See [Security](Security.md).
 
