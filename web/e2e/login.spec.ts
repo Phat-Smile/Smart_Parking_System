@@ -110,13 +110,14 @@ test("Login displays Identity credential errors without creating a session", asy
     await expect(page).toHaveURL(/\/login$/);
 });
 
-test("Google control reports pending integration and mobile form fits", async ({
-    page,
-}) => {
+test("Google control is shown and mobile form fits", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/login");
-    await page.getByRole("button", { name: "Continue with Google" }).click();
-    await expect(page.getByRole("status")).toContainText("not available yet");
+    // Google's own button when NEXT_PUBLIC_GOOGLE_CLIENT_ID is set, otherwise the ParkWise fallback.
+    const google = page
+        .getByTestId("google-sign-in")
+        .or(page.getByRole("button", { name: "Continue with Google" }));
+    await expect(google).toBeVisible();
     expect(
         await page.evaluate(
             () => document.documentElement.scrollWidth > window.innerWidth,

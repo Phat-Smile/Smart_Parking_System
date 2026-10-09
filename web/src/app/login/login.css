@@ -399,6 +399,12 @@
 .parkwise-login-google img {
     flex: 0 0 22px;
 }
+.parkwise-google-gis {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+}
 .parkwise-login-signup {
     margin-top: 0 !important;
     color: #4b5563;

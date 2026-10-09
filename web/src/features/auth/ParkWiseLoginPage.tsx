@@ -8,6 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
 import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import { GoogleSignInButton } from "./GoogleSignInButton";
+import {
+    describeGoogleSignInError,
+    googleLoginParkWiseAccount,
+} from "./googleSignIn";
 import { rememberPendingVerification } from "./pendingVerification";
 import { ApiError } from "@/shared/errors/api-error";
 
@@ -61,17 +66,19 @@ export function ParkWiseLoginPage({
             if (error instanceof ApiError) {
                 const code = error.problem?.errorCode;
                 const message =
-                    code === "identity.invalid_credentials" ||
-                    error.status === 401
-                        ? "Email or password is incorrect."
-                        : code === "identity.email_not_verified"
-                          ? "Your email is not verified yet. Enter the code sent to your email."
-                          : code === "identity.account_temporarily_locked" ||
-                              error.status === 423
-                            ? "Too many attempts. Please try again later."
-                            : error.status === 400
-                              ? "Check your email and password and try again."
-                              : "We couldn't log you in. Please try again later.";
+                    code === "identity.password_not_set"
+                        ? 'This account was created with Google and has no password yet. Use "Continue with Google", or set one with "Forgot password?".'
+                        : code === "identity.invalid_credentials" ||
+                            error.status === 401
+                          ? "Email or password is incorrect."
+                          : code === "identity.email_not_verified"
+                            ? "Your email is not verified yet. Enter the code sent to your email."
+                            : code === "identity.account_temporarily_locked" ||
+                                error.status === 423
+                              ? "Too many attempts. Please try again later."
+                              : error.status === 400
+                                ? "Check your email and password and try again."
+                                : "We couldn't log you in. Please try again later.";
                 if (code === "identity.email_not_verified") {
                     setCanVerifyEmail(
                         rememberPendingVerification(values.email.trim()),
@@ -90,7 +97,20 @@ export function ParkWiseLoginPage({
         }
     }
 
-    function onGoogleSignIn() {
+    async function onGoogleCredential(idToken: string) {
+        setNotice("");
+        setSubmitError("");
+        setAuthenticatedEmail("");
+        setCanVerifyEmail(false);
+        try {
+            const account = await googleLoginParkWiseAccount(idToken);
+            setAuthenticatedEmail(account.email);
+        } catch (error) {
+            setSubmitError(describeGoogleSignInError(error));
+        }
+    }
+
+    function onGoogleUnavailable() {
         setSubmitError("");
         setNotice("Google sign-in is not available yet.");
     }
@@ -208,19 +228,11 @@ export function ParkWiseLoginPage({
                     <div className="parkwise-login-divider" aria-hidden="true">
                         <span>or</span>
                     </div>
-                    <button
-                        className="parkwise-login-google"
-                        type="button"
-                        onClick={onGoogleSignIn}
-                    >
-                        <Image
-                            src="/images/parkwise/google.png"
-                            alt=""
-                            width={22}
-                            height={22}
-                        />
-                        <span>Continue with Google</span>
-                    </button>
+                    <GoogleSignInButton
+                        text="continue_with"
+                        onCredential={onGoogleCredential}
+                        onUnavailable={onGoogleUnavailable}
+                    />
                     {notice && (
                         <p
                             className="parkwise-login-notice"
