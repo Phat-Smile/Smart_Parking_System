@@ -421,7 +421,8 @@ public sealed class LoginTests
             using var issuer = new JwtTokenIssuer(options);
             var account = Account.Register(Guid.NewGuid(), "test@smartparking.io", "hash", null, InitialTime);
 
-            var token = issuer.IssueAccessToken(account, InitialTime);
+            var sessionId = Guid.NewGuid();
+            var token = issuer.IssueAccessToken(account, sessionId, InitialTime);
             Assert.NotNull(token);
 
             var parts = token.Split('.');
@@ -440,6 +441,7 @@ public sealed class LoginTests
             Assert.Equal(account.Id.ToString(), root.GetProperty("sub").GetString());
             Assert.Equal("test@smartparking.io", root.GetProperty("email").GetString());
             Assert.Equal("Customer", root.GetProperty("role").GetString());
+            Assert.Equal(sessionId.ToString(), root.GetProperty("sid").GetString());
             Assert.Equal("ParkingSystem.Identity", root.GetProperty("iss").GetString());
             Assert.Equal("ParkingSystem", root.GetProperty("aud").GetString());
             Assert.Equal(InitialTime.ToUnixTimeSeconds(), root.GetProperty("iat").GetInt64());
@@ -653,6 +655,9 @@ public sealed class LoginTests
         public Task<AuthSession?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
             FindByIdAsync(id, cancellationToken);
 
+        public Task<IReadOnlyList<AuthSession>> ListActiveForAccountAsync(Guid accountId, DateTimeOffset nowUtc, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AuthSession>>(Saved.Where(s => s.AccountId == accountId && s.IsActive(nowUtc)).ToList());
+
         public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
         {
             foreach (var s in Saved.Where(s => s.AccountId == accountId && !s.IsRevoked))
@@ -720,7 +725,7 @@ public sealed class LoginTests
     {
         public int AccessTokenExpirationSeconds => expirationSeconds;
 
-        public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => token;
+        public string IssueAccessToken(Account account, Guid sessionId, DateTimeOffset nowUtc) => token;
     }
 
     private sealed class FakeRefreshTokenGenerator(string rawToken, string tokenHash) : IRefreshTokenGenerator
