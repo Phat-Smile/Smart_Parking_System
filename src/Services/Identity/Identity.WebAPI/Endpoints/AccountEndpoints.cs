@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
+using ParkingSystem.Identity.Application.Accounts.GetCurrentAccount;
 using ParkingSystem.Identity.Application.Accounts.GoogleLogin;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
@@ -84,17 +85,22 @@ internal static class AccountEndpoints
     /// Dữ liệu yêu cầu làm mới Access Token.
     /// </summary>
     public sealed record RefreshTokenRequest(
-        /// <summary>Mã làm mới (Refresh Token) hợp lệ đã nhận khi đăng nhập.</summary>
+        /// <summary>[Tùy chọn] Trình duyệt không cần gửi: refresh token nằm trong cookie HttpOnly. Chỉ dùng cho Postman / client không có cookie.</summary>
         /// <example>sample_refresh_token_string</example>
-        string RefreshToken);
+        string? RefreshToken);
+
+    /// <summary>
+    /// Token trả cho trình duyệt; refresh token không nằm trong body mà ở cookie HttpOnly sp_refresh.
+    /// </summary>
+    public sealed record AuthTokenResponse(string AccessToken, string TokenType, int ExpiresIn, AccountDto Account);
 
     /// <summary>
     /// Dữ liệu yêu cầu đăng xuất phiên hiện tại.
     /// </summary>
     public sealed record LogoutRequest(
-        /// <summary>Mã làm mới (Refresh Token) của phiên cần đăng xuất.</summary>
+        /// <summary>[Tùy chọn] Trình duyệt không cần gửi: lấy từ cookie HttpOnly. Chỉ dùng cho Postman / client không có cookie.</summary>
         /// <example>sample_refresh_token_string</example>
-        string RefreshToken);
+        string? RefreshToken);
 
     /// <summary>
     /// Dữ liệu yêu cầu mã đặt lại mật khẩu khi quên mật khẩu.
@@ -172,13 +178,6 @@ internal static class AccountEndpoints
         [ChangeAccountRoleErrors.CannotChangeOwnRole.Code] = StatusCodes.Status403Forbidden
     };
 
-    // 423 and 429 errors carry the seconds to wait; clients read them from the standard header.
-    private static void SetRetryAfter(HttpContext httpContext, ParkingSystem.BuildingBlocks.Results.Error? error)
-    {
-        if (error?.RetryAfterSeconds is int retryAfter)
-            httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
-    }
-
     // Responses that carry tokens must not be stored by browsers or proxies.
     private static RouteHandlerBuilder WithNoStore(this RouteHandlerBuilder builder) =>
         builder.AddEndpointFilter(async (context, next) =>
@@ -188,20 +187,38 @@ internal static class AccountEndpoints
             return await next(context);
         });
 
-    private static IResult AccountProblem(HttpContext httpContext, ParkingSystem.BuildingBlocks.Results.Error error)
+    // Mọi lỗi nghiệp vụ cùng một dạng; lỗi phải chờ (423, 429) có thêm retryAfterSeconds trong body và header Retry-After.
+    private static IResult Problem(HttpContext httpContext, int statusCode, ParkingSystem.BuildingBlocks.Results.Error error)
     {
-        SetRetryAfter(httpContext, error);
-        return Results.Problem(
-            statusCode: LoginErrorStatusCodes.GetValueOrDefault(error.Code, StatusCodes.Status400BadRequest),
-            title: error.Message,
-            detail: error.Message,
-            extensions: new Dictionary<string, object?> { ["errorCode"] = error.Code });
+        var extensions = new Dictionary<string, object?> { ["errorCode"] = error.Code };
+        if (error.RetryAfterSeconds is int retryAfter)
+        {
+            httpContext.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
+            extensions["retryAfterSeconds"] = retryAfter;
+        }
+
+        return Results.Problem(statusCode: statusCode, title: error.Message, detail: error.Message, extensions: extensions);
     }
+
+    private static IResult AccountProblem(HttpContext httpContext, ParkingSystem.BuildingBlocks.Results.Error error) =>
+        Problem(httpContext, LoginErrorStatusCodes.GetValueOrDefault(error.Code, StatusCodes.Status400BadRequest), error);
+
+    // Refresh token vào cookie HttpOnly, body chỉ còn access token.
+    private static IResult TokenResult(HttpContext httpContext, string accessToken, string tokenType, int expiresIn, string refreshToken,
+        DateTimeOffset refreshTokenExpiresAtUtc, AccountDto account)
+    {
+        RefreshTokenCookie.Set(httpContext, refreshToken, refreshTokenExpiresAtUtc);
+        return Results.Ok(new AuthTokenResponse(accessToken, tokenType, expiresIn, account));
+    }
+
+    private static IResult LoginResult(HttpContext httpContext, LoginResponse response) =>
+        TokenResult(httpContext, response.AccessToken, response.TokenType, response.ExpiresIn, response.RefreshToken,
+            response.RefreshTokenExpiresAtUtc, response.Account);
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         // MF-01 & US-AUTH-001: Đăng ký tài khoản người dùng mới (Public Endpoint).
-        app.MapPost("/api/identity/accounts", async (RegisterAccountRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/api/identity/accounts", async (RegisterAccountRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
                     new RegisterAccountCommand(
@@ -212,13 +229,7 @@ internal static class AccountEndpoints
                     cancellationToken);
 
                 if (!result.IsSuccess)
-                {
-                    return Results.Problem(
-                        statusCode: StatusCodes.Status409Conflict,
-                        title: result.Error!.Message,
-                        detail: result.Error.Message,
-                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
-                }
+                    return Problem(httpContext, StatusCodes.Status409Conflict, result.Error!);
 
                 return Results.Created((string?)null, result.Value);
             })
@@ -231,19 +242,13 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status409Conflict);
 
         // US-AUTH-003: verify email OTP (public endpoint).
-        app.MapPost("/api/identity/accounts/verify-email", async (VerifyEmailRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/api/identity/accounts/verify-email", async (VerifyEmailRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
                     new VerifyEmailOtpCommand(request.Email, request.OtpCode),
                     cancellationToken);
 
-                return result.IsSuccess
-                    ? Results.Ok(result.Value)
-                    : Results.Problem(
-                        statusCode: StatusCodes.Status400BadRequest,
-                        title: result.Error!.Message,
-                        detail: result.Error.Message,
-                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                return result.IsSuccess ? Results.Ok(result.Value) : Problem(httpContext, StatusCodes.Status400BadRequest, result.Error!);
             })
             .WithTags("1. Đăng ký & Kích hoạt (Registration)")
             .WithName("VerifyEmailOtp")
@@ -259,15 +264,7 @@ internal static class AccountEndpoints
                     new ResendOtpCommand(request.Email),
                     cancellationToken);
 
-                SetRetryAfter(httpContext, result.Error);
-
-                return result.IsSuccess
-                    ? Results.Ok(result.Value)
-                    : Results.Problem(
-                        statusCode: StatusCodes.Status429TooManyRequests,
-                        title: result.Error!.Message,
-                        detail: result.Error.Message,
-                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                return result.IsSuccess ? Results.Ok(result.Value) : Problem(httpContext, StatusCodes.Status429TooManyRequests, result.Error!);
             })
             .WithTags("1. Đăng ký & Kích hoạt (Registration)")
             .WithName("ResendEmailOtp")
@@ -282,15 +279,7 @@ internal static class AccountEndpoints
             {
                 var result = await sender.Send(new ForgotPasswordCommand(request.Email), cancellationToken);
 
-                SetRetryAfter(httpContext, result.Error);
-
-                return result.IsSuccess
-                    ? Results.Ok(result.Value)
-                    : Results.Problem(
-                        statusCode: StatusCodes.Status429TooManyRequests,
-                        title: result.Error!.Message,
-                        detail: result.Error.Message,
-                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                return result.IsSuccess ? Results.Ok(result.Value) : Problem(httpContext, StatusCodes.Status429TooManyRequests, result.Error!);
             })
             .WithTags("3. Quản lý mật khẩu (Password Management)")
             .WithName("ForgotPassword")
@@ -301,19 +290,13 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status429TooManyRequests);
 
         // US-AUTH-006: set a new password with the emailed code (public endpoint).
-        app.MapPost("/api/identity/accounts/reset-password", async (ResetPasswordRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/api/identity/accounts/reset-password", async (ResetPasswordRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
                     new ResetPasswordCommand(request.Email, request.OtpCode, request.NewPassword),
                     cancellationToken);
 
-                return result.IsSuccess
-                    ? Results.Ok(result.Value)
-                    : Results.Problem(
-                        statusCode: StatusCodes.Status400BadRequest,
-                        title: result.Error!.Message,
-                        detail: result.Error.Message,
-                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                return result.IsSuccess ? Results.Ok(result.Value) : Problem(httpContext, StatusCodes.Status400BadRequest, result.Error!);
             })
             .WithTags("3. Quản lý mật khẩu (Password Management)")
             .WithName("ResetPassword")
@@ -336,14 +319,14 @@ internal static class AccountEndpoints
                     new LoginCommand(request.Email, request.Password, deviceInfo, ipAddress),
                     cancellationToken);
 
-                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
+                return result.IsSuccess ? LoginResult(httpContext, result.Value!) : AccountProblem(httpContext, result.Error!);
             })
             .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("Login")
             .WithSummary("Đăng nhập tài khoản")
-            .WithDescription("Đăng nhập bằng email và mật khẩu để nhận Access Token và Refresh Token.")
-            .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .WithDescription("Đăng nhập bằng email và mật khẩu. Body trả Access Token; Refresh Token đặt vào cookie HttpOnly sp_refresh.")
+            .Produces<AuthTokenResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
@@ -363,14 +346,14 @@ internal static class AccountEndpoints
                         httpContext.Connection.RemoteIpAddress?.ToString()),
                     cancellationToken);
 
-                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
+                return result.IsSuccess ? LoginResult(httpContext, result.Value!) : AccountProblem(httpContext, result.Error!);
             })
             .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("GoogleLogin")
             .WithSummary("Đăng nhập bằng Google")
-            .WithDescription("Đăng nhập hoặc đăng ký tự động bằng Google ID Token.")
-            .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .WithDescription("Đăng nhập hoặc đăng ký tự động bằng Google ID Token. Refresh Token đặt vào cookie HttpOnly sp_refresh.")
+            .Produces<AuthTokenResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
@@ -379,55 +362,70 @@ internal static class AccountEndpoints
 
         // US-AUTH-005: refresh access token and rotate refresh token (public endpoint).
         app.MapPost("/api/identity/accounts/refresh", async (
-                RefreshTokenRequest request,
+                RefreshTokenRequest? request,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var result = await sender.Send(new RefreshTokenCommand(request.RefreshToken), cancellationToken);
+                var refreshToken = RefreshTokenCookie.Read(httpContext, request?.RefreshToken);
+                if (refreshToken is null)
+                {
+                    RefreshTokenCookie.Clear(httpContext);
+                    return Problem(httpContext, StatusCodes.Status401Unauthorized, RefreshTokenErrors.InvalidRefreshToken);
+                }
 
+                var result = await sender.Send(new RefreshTokenCommand(refreshToken), cancellationToken);
                 if (result.IsSuccess)
-                    return Results.Ok(result.Value);
+                {
+                    var value = result.Value!;
+                    return TokenResult(httpContext, value.AccessToken, value.TokenType, value.ExpiresIn, value.RefreshToken,
+                        value.RefreshTokenExpiresAtUtc, value.Account);
+                }
 
-                var statusCode = RefreshErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest);
-
-                return Results.Problem(
-                    statusCode: statusCode,
-                    title: result.Error.Message,
-                    detail: result.Error.Message,
-                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                // Phiên đã hỏng thì cookie cũ vô dụng; xoá để FE không gửi lại mãi.
+                RefreshTokenCookie.Clear(httpContext);
+                return Problem(httpContext, RefreshErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest), result.Error);
             })
             .AllowAnonymous()
             .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("RefreshToken")
             .WithSummary("Làm mới token truy cập")
-            .WithDescription("Sử dụng Refresh Token để cấp lại Access Token mới và xoay vòng Refresh Token.")
-            .Produces<RefreshTokenResponse>(StatusCodes.Status200OK)
+            .WithDescription("Lấy Refresh Token từ cookie sp_refresh (hoặc body nếu không có cookie), cấp Access Token mới và xoay vòng cookie. Trình duyệt gọi với credentials: include.")
+            .Produces<AuthTokenResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden);
 
         // US-AUTH-005: logout current session (public endpoint, authenticated via Refresh Token).
         app.MapPost("/api/identity/accounts/logout", async (
-                LogoutRequest request,
+                LogoutRequest? request,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var result = await sender.Send(new LogoutCommand(request.RefreshToken), cancellationToken);
+                var refreshToken = RefreshTokenCookie.Read(httpContext, request?.RefreshToken);
+                RefreshTokenCookie.Clear(httpContext);
 
+                // Không có token thì coi như đã đăng xuất (idempotent).
+                if (refreshToken is null)
+                    return Results.Ok(new LogoutResponse());
+
+                var result = await sender.Send(new LogoutCommand(refreshToken), cancellationToken);
                 return Results.Ok(result.Value);
             })
             .AllowAnonymous()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("Logout")
             .WithSummary("Đăng xuất phiên hiện tại")
-            .WithDescription("Thu hồi phiên làm việc gắn liền với Refresh Token.")
+            .WithDescription("Thu hồi phiên gắn với Refresh Token trong cookie sp_refresh (hoặc body) và xoá cookie.")
             .Produces<LogoutResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
 
         // US-AUTH-005: logout all active sessions on all devices (authenticated endpoint).
         app.MapPost("/api/identity/accounts/logout-all", async (
                 ICurrentUser currentUser,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
@@ -435,7 +433,7 @@ internal static class AccountEndpoints
                     return Results.Unauthorized();
 
                 var result = await sender.Send(new LogoutAllCommand(accountId), cancellationToken);
-
+                RefreshTokenCookie.Clear(httpContext);
                 return Results.Ok(result.Value);
             })
             .RequireAuthorization()
@@ -445,6 +443,29 @@ internal static class AccountEndpoints
             .WithDescription("Thu hồi toàn bộ phiên làm việc của tài khoản (yêu cầu Access Token).")
             .Produces<LogoutResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
+
+        // FE gọi sau khi tải lại trang (sau refresh) để lấy lại thông tin và role của người đang đăng nhập.
+        app.MapGet("/api/identity/accounts/me", async (
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new GetCurrentAccountQuery(accountId), cancellationToken);
+                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
+            })
+            .RequireAuthorization()
+            .WithNoStore()
+            .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
+            .WithName("GetCurrentAccount")
+            .WithSummary("Thông tin tài khoản đang đăng nhập")
+            .WithDescription("Trả email, họ tên, role, trạng thái của chủ access token (yêu cầu Access Token).")
+            .Produces<CurrentAccount>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
 
         // US-AUTH-009: change the password of the signed-in account (taken from the token, never from the body).
         app.MapPost("/api/identity/accounts/change-password", async (

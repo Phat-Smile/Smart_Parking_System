@@ -14,7 +14,8 @@ public sealed record LoginResponse(
     string TokenType,
     int ExpiresIn,
     string RefreshToken,
-    AccountDto Account);
+    AccountDto Account,
+    DateTimeOffset RefreshTokenExpiresAtUtc);
 
 public sealed record AccountDto(
     Guid Id,

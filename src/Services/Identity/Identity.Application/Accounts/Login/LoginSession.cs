@@ -28,13 +28,14 @@ internal static class LoginSession
         authSessions.Add(session);
 
         var (rawRefreshToken, refreshTokenHash) = refreshTokenGenerator.GenerateToken();
+        var refreshTokenExpiresAt = session.CalculateNextTokenExpiration(now);
         refreshTokens.Add(RefreshToken.Issue(
             Guid.NewGuid(),
             session.Id,
             account.Id,
             refreshTokenHash,
             now,
-            session.CalculateNextTokenExpiration(now)));
+            refreshTokenExpiresAt));
 
         // Account state, session and refresh token are committed together.
         await accounts.SaveChangesAsync(cancellationToken);
@@ -44,6 +45,7 @@ internal static class LoginSession
             "Bearer",
             jwtTokenIssuer.AccessTokenExpirationSeconds,
             rawRefreshToken,
-            new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString(), account.Role.ToString()));
+            new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString(), account.Role.ToString()),
+            refreshTokenExpiresAt);
     }
 }
