@@ -11,4 +11,7 @@ public interface IAuthSessionRepository
     Task<AuthSession?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken);
 
     Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken);
+
+    // Phiên chưa thu hồi và chưa hết hạn tuyệt đối, mới hoạt động gần nhất đứng trước.
+    Task<IReadOnlyList<AuthSession>> ListActiveForAccountAsync(Guid accountId, DateTimeOffset nowUtc, CancellationToken cancellationToken);
 }
