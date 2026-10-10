@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using MediatR;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -28,16 +29,21 @@ internal static class ParkingSessionEndpoints
 
     public static IEndpointRouteBuilder MapParkingSessionEndpoints(this IEndpointRouteBuilder app)
     {
-        // US-PARK-003. Staff or gate only; 401 without a token and 403 for a token without the Staff role.
+        // US-PARK-003. Staff or gate only; 401 without a token, 403 without the Staff role or for a lot the caller is not assigned to.
         // Validation failures become 400 in the shared exception handler.
         app.MapPost(Route, async (
                 OpenParkingSessionRequest request,
+                ICurrentUser currentUser,
                 HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
+                // Cần biết ai mở phiên để kiểm người đó có được gắn với bãi không (TECH-12).
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
                 var result = await sender.Send(
-                    new OpenParkingSessionCommand(request.LotId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty),
+                    new OpenParkingSessionCommand(request.LotId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty, actorUserId),
                     cancellationToken);
 
                 // Location points to GET /{id}, which is not built yet (lead decision 2026-10-08, DOC-006).
@@ -46,7 +52,9 @@ internal static class ParkingSessionEndpoints
 
                 var statusCode = result.Error == OpenParkingSessionErrors.LotNotFound
                     ? StatusCodes.Status404NotFound
-                    : StatusCodes.Status409Conflict;
+                    : result.Error == ParkingLotAccessErrors.AccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : StatusCodes.Status409Conflict;
                 return BusinessProblem.Create(httpContext, statusCode, result.Error!);
             })
             .RequireAuthorization(ParkingAuthorization.StaffPolicy)
@@ -82,7 +90,9 @@ internal static class ParkingSessionEndpoints
 
                 var statusCode = result.Error == CancelParkingSessionErrors.SessionNotFound
                     ? StatusCodes.Status404NotFound
-                    : StatusCodes.Status409Conflict;
+                    : result.Error == ParkingLotAccessErrors.AccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : StatusCodes.Status409Conflict;
                 return BusinessProblem.Create(httpContext, statusCode, result.Error!);
             })
             .RequireAuthorization(ParkingAuthorization.StaffPolicy)

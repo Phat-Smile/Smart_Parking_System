@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Auditing;
+using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
+using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Testing;
@@ -73,8 +76,11 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
             sessionId = await dbContext.ParkingSessions.Where(session => session.LotId == lotId).Select(session => session.Id).SingleAsync(cancellationToken);
+            // TECH-12: nhân viên phải được gắn với bãi mới huỷ được phiên.
+            await AssignStaffAsync(serviceProvider, lotId, cancellationToken);
             var handler = new CancelParkingSessionCommandHandler(
                 scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>(),
+                scope.ServiceProvider.GetRequiredService<IParkingLotAccess>(),
                 scope.ServiceProvider.GetRequiredService<IAuditLog>(),
                 scope.ServiceProvider.GetRequiredService<IClock>());
 
@@ -132,6 +138,14 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
             """,
             cancellationToken);
         return lotId;
+    }
+
+    private static async Task AssignStaffAsync(ServiceProvider serviceProvider, Guid lotId, CancellationToken cancellationToken)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var assignments = scope.ServiceProvider.GetRequiredService<IParkingLotAssignmentRepository>();
+        assignments.Add(ParkingLotAssignment.Create(lotId, StaffId, ParkingLotMemberRole.Staff, Guid.NewGuid(), DateTimeOffset.UtcNow));
+        await assignments.SaveChangesAsync(cancellationToken);
     }
 
     private static async Task<bool> SaveNewSessionAsync(ServiceProvider serviceProvider, Guid lotId, CancellationToken cancellationToken)

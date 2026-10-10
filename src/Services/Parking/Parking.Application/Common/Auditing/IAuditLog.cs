@@ -22,4 +22,6 @@ public sealed record AuditEntry(
 public static class AuditActions
 {
     public const string SessionCancelled = "session.cancelled";
+    public const string LotMemberAssigned = "lot.member_assigned";
+    public const string LotMemberRemoved = "lot.member_removed";
 }
