@@ -40,6 +40,8 @@ builder.Services.AddSwaggerGen(options =>
         options.IncludeXmlComments(xmlPath);
     }
 
+    options.SupportNonNullableReferenceTypes();
+
     var appXmlPath = Path.Combine(AppContext.BaseDirectory, "Identity.Application.xml");
     if (File.Exists(appXmlPath))
     {
