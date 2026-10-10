@@ -17,6 +17,7 @@ public sealed class ValidationMessageTests
     [InlineData("abcdefgh", "Mật khẩu phải chứa ít nhất một chữ cái viết hoa.")]
     [InlineData("Abcdefgh", "Mật khẩu phải chứa ít nhất một chữ số.")]
     [InlineData("Abcdefg1", "Mật khẩu phải chứa ít nhất một ký tự đặc biệt.")]
+    [InlineData("12345678", "Mật khẩu phải chứa ít nhất một chữ cái viết hoa.")]
     [InlineData("Aa1@ầầầầầầầầầầầầầầầầầầầầầầầầ", PasswordPolicy.TooLongMessage)]
     public void Register_password_reports_only_the_first_broken_rule(string password, string expected)
     {
