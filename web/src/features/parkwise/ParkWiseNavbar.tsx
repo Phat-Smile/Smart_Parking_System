@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -14,8 +14,10 @@ const navigation = [
 /** Guest-facing portion of ParkWise's src/Components/Nav/Navbar.jsx. */
 export function ParkWiseNavbar({
     variant = "home",
+    accountControl,
 }: {
     variant?: "home" | "login";
+    accountControl?: ReactNode;
 }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(variant === "home");
@@ -45,17 +47,10 @@ export function ParkWiseNavbar({
             >
                 <div className="parkwise-container">
                     <nav aria-label="Mobile navigation">
-                        {navigation.map(({ label, href }) => (
-                            <Link
-                                key={label}
-                                href={href}
-                                onClick={() => setMenuOpen(false)}
-                                tabIndex={menuOpen ? 0 : -1}
-                            >
-                                {label}
-                            </Link>
-                        ))}
-                        <div className="parkwise-mobile-auth">
+                        {navigation.map(({ label, href }) => href ? (
+                            <Link key={label} href={href} onClick={() => setMenuOpen(false)} tabIndex={menuOpen ? 0 : -1}>{label}</Link>
+                        ) : <span key={label} aria-disabled="true">{label}</span>)}
+                        {!accountControl && <div className="parkwise-mobile-auth">
                             <Link
                                 href="/login"
                                 className="parkwise-button parkwise-auth-login"
@@ -88,7 +83,7 @@ export function ParkWiseNavbar({
                                     Sign Up
                                 </span>
                             </Link>
-                        </div>
+                        </div>}
                     </nav>
                 </div>
             </div>
@@ -114,13 +109,11 @@ export function ParkWiseNavbar({
                         className="parkwise-desktop-nav"
                         aria-label="Main navigation"
                     >
-                        {navigation.map(({ label, href }) => (
-                            <Link key={label} href={href}>
-                                {label}
-                            </Link>
-                        ))}
+                        {navigation.map(({ label, href }) => href ? (
+                            <Link key={label} href={href}>{label}</Link>
+                        ) : <span key={label} aria-disabled="true">{label}</span>)}
                     </nav>
-                    <div className="parkwise-desktop-auth">
+                    {accountControl ? <div className="parkwise-navbar-account-slot">{accountControl}</div> : <div className="parkwise-desktop-auth">
                         <Link
                             href="/login"
                             className="parkwise-button parkwise-auth-login"
@@ -145,7 +138,7 @@ export function ParkWiseNavbar({
                                 Sign Up
                             </span>
                         </Link>
-                    </div>
+                    </div>}
                     <button
                         className={`parkwise-menu-button ${menuOpen ? "active" : ""}`}
                         type="button"

@@ -1,6 +1,7 @@
 import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
 import type { LoginResponse } from "./loginParkWiseAccount";
+import { setAuthSession } from "./authSession";
 
 /** US-AUTH-002: exchange the Google ID token for a ParkWise session. Signs up on the first Google sign-in. */
 export async function googleLoginParkWiseAccount(idToken: string) {
@@ -12,7 +13,7 @@ export async function googleLoginParkWiseAccount(idToken: string) {
             body: JSON.stringify({ idToken }),
         },
     );
-    // Tokens are not stored yet, same as the password login.
+    setAuthSession(response);
     return response.account;
 }
 

@@ -1,10 +1,11 @@
 import { gatewayFetch } from "@/shared/api/client";
+import { setAuthSession } from "./authSession";
 
 export interface LoginResponse {
     accessToken: string;
     tokenType: string;
     expiresIn: number;
-    refreshToken: string;
+    refreshToken?: string;
     account: {
         id: string;
         email: string;
@@ -14,7 +15,7 @@ export interface LoginResponse {
     };
 }
 
-/** Validate credentials with Identity. Session persistence awaits US-AUTH-005. */
+/** Authenticate and retain the short-lived access token for this browser tab. */
 export async function loginParkWiseAccount(email: string, password: string) {
     const response = await gatewayFetch<LoginResponse>(
         "/api/identity/accounts/login",
@@ -24,6 +25,6 @@ export async function loginParkWiseAccount(email: string, password: string) {
             body: JSON.stringify({ email, password }),
         },
     );
-    // Tokens are deliberately not stored or logged while refresh/logout is unavailable.
+    setAuthSession(response);
     return response.account;
 }

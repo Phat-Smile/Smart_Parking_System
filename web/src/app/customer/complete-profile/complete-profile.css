@@ -1,0 +1,453 @@
+.parkwise-profile-page {
+    --profile-ink: var(--pw-text-primary);
+    --profile-muted: var(--pw-text-secondary);
+    --profile-lime: var(--pw-accent);
+    min-height: 100vh;
+    background: #fafafa;
+    color: var(--profile-ink);
+    color-scheme: light;
+}
+.parkwise-profile-page section { padding: 0; }
+.parkwise-profile-topbar { position: sticky; top: 0; z-index: 20; height: 72px; border-bottom: 1px solid var(--pw-border-default); background: var(--pw-bg-surface); }
+.parkwise-profile-topbar-inner { display: flex; width: min(100% - 48px, 1440px); height: 100%; align-items: center; justify-content: space-between; margin: auto; }
+.parkwise-profile-brand { display: flex; width: 150px; height: 54px; align-items: center; overflow: hidden; }
+.parkwise-profile-brand img { width: 150px; height: 74px; object-fit: cover; }
+.parkwise-profile-account { display: flex; align-items: center; gap: 12px; }
+.parkwise-profile-account-avatar { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: #eff2f5; color: #586273; }
+.parkwise-profile-account-avatar svg { width: 21px; height: 21px; }
+.parkwise-profile-account-name { display: grid; gap: 2px; color: #202632; font-size: 12px; font-weight: 700; }
+.parkwise-profile-account-name small { color: #7c8796; font-size: 10px; font-weight: 500; }
+.parkwise-profile-account-chevron { margin-left: 4px; color: #626d7b; }
+.parkwise-profile-main { width: min(100% - 48px, 1440px); margin: 0 auto; padding: calc(var(--parkwise-nav-height) + 17px) 0 42px; }
+.parkwise-profile-heading { margin-bottom: 0; }
+.parkwise-profile-eyebrow { margin-bottom: 4px !important; color: #71803e; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.parkwise-profile-heading h1 { color: #131820; font-size: clamp(27px, 3vw, 34px); font-weight: 750; line-height: 1.15; letter-spacing: -.035em; }
+.parkwise-profile-heading > p:last-child { margin-top: 6px !important; color: #5c6675; font-size: 14px; }
+.parkwise-profile-grid { display: grid; grid-template-columns: minmax(0, 1.86fr) minmax(320px, 1fr); align-items: start; gap: 24px; }
+.parkwise-profile-primary { display: grid; gap: 16px; }
+.parkwise-profile-progress-card, .parkwise-profile-form-card, .parkwise-profile-status-card, .parkwise-profile-privacy-card, .parkwise-profile-support-card { border: 1px solid #e5e7eb; border-radius: var(--pw-radius-lg); background: var(--pw-bg-surface); box-shadow: 0 6px 18px rgb(0 0 0 / 5%); }
+.parkwise-profile-page section.parkwise-profile-progress-card { padding: 17px 22px; }
+.parkwise-profile-progress-top { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.parkwise-profile-progress-top strong { color: #222832; font-size: 14px; }
+.parkwise-profile-progress-top span { color: #707a89; font-size: 11px; text-align: right; }
+.parkwise-profile-progress-track { display: flex; align-items: center; gap: 16px; margin-top: 11px; }
+.parkwise-profile-progress-track strong { flex: 0 0 66px; color: #151a22; font-size: 32px; line-height: 1; }
+.parkwise-profile-progress-track i { display: block; flex: 1; height: 16px; overflow: hidden; border-radius: 99px; background: #edf0f3; }
+.parkwise-profile-progress-track i::before { display: block; width: var(--profile-progress); height: 100%; border-radius: inherit; background: linear-gradient(90deg, #dafa7a, #aeea3b); content: ""; }
+.parkwise-profile-form-card { display: grid; gap: var(--pw-space-4); padding: var(--pw-space-5) var(--pw-space-6); }
+.parkwise-profile-form-heading { display: flex; align-items: flex-start; gap: 13px; }
+.parkwise-profile-heading-icon { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: var(--pw-radius-full); background: #eaf2ff; color: #1e5bdb; }
+.parkwise-profile-heading-icon svg { width: 23px; height: 23px; }
+.parkwise-profile-form-heading h2 { color: #1b2029; font-size: 18px; font-weight: 750; }
+.parkwise-profile-form-heading p { margin-top: 3px !important; color: #6b7584; font-size: 12px; line-height: 1.5; }
+.parkwise-profile-photo-row { display: grid; grid-template-columns: minmax(300px, .86fr) minmax(280px, 1.14fr); align-items: start; gap: 18px; }
+.parkwise-profile-photo-field { display: grid; min-width: 0; gap: 9px; }
+.parkwise-profile-photo-field > label { color: #222; font-size: 14px; font-weight: 650; white-space: nowrap; }
+.parkwise-profile-photo-field > label em { color: #62676e; font-style: normal; font-weight: 500; }
+.parkwise-profile-photo-assets { display: grid; grid-template-columns: minmax(96px, 135px) minmax(145px, 1fr); align-items: center; gap: 12px; }
+.parkwise-profile-photo-field .parkwise-profile-avatar-wrap { justify-content: center; }
+.parkwise-profile-field { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+.parkwise-profile-field label { color: #272e39; font-size: 12px; font-weight: 650; }
+.parkwise-profile-field label > span { color: #dc3d3d; }
+.parkwise-profile-field label em { color: #778292; font-style: normal; font-weight: 500; }
+.parkwise-profile-field > input, .parkwise-profile-input-with-icon input, .parkwise-profile-email input { width: 100%; min-width: 0; height: 48px; border: 1px solid #e5e7eb; border-radius: var(--pw-radius-md); padding: 0 14px; outline: 0; background: var(--pw-bg-surface); color: var(--pw-text-primary); font: inherit; font-size: var(--pw-font-size-sm); transition: border-color var(--pw-transition-fast), box-shadow var(--pw-transition-fast); }
+.parkwise-profile-field input::placeholder { color: #8b95a3; }
+.parkwise-profile-field input:focus { border-color: var(--pw-color-black); box-shadow: 0 0 0 3px rgb(23 23 23 / 12%); }
+.parkwise-profile-field small { color: #7b8594; font-size: 10px; line-height: 1.45; }
+.parkwise-profile-avatar-wrap { display: flex; justify-content: center; }
+.parkwise-profile-avatar-large { position: relative; display: grid; width: 112px; height: 112px; place-items: center; overflow: visible; border: 0; border-radius: 50%; background: #eef2f5; color: #687587; cursor: pointer; }
+.parkwise-profile-avatar-large > svg { width: 48px; height: 48px; }
+.parkwise-profile-avatar-large > img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.parkwise-profile-avatar-large > span { position: absolute; right: -4px; bottom: -2px; display: grid; width: 34px; height: 34px; place-items: center; border: 2px solid #fff; border-radius: 50%; background: #fff; color: #222a36; box-shadow: 0 2px 8px rgb(0 0 0 / 13%); }
+.parkwise-profile-avatar-large > span svg { width: 19px; height: 19px; }
+.parkwise-profile-hidden-input { display: none; }
+.parkwise-profile-photo-drop { position: relative; display: flex; min-height: 120px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed #cad2dc; border-radius: 8px; color: #303949; cursor: pointer; text-align: center; }
+.parkwise-profile-photo-drop input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.parkwise-profile-upload-icon { font-size: 22px; line-height: 1; }
+.parkwise-profile-photo-drop strong { font-size: 12px; }
+.parkwise-profile-photo-drop small { color: #7b8594; font-size: 10px; }
+.parkwise-profile-photo-drop .parkwise-profile-file-remove { position: relative; z-index: 1; border: 0; background: transparent; color: #a3291f; font: inherit; font-size: 10px; cursor: pointer; }
+.parkwise-profile-name-field { padding-top: 27px; }
+.parkwise-profile-section-title h3 { color: #202733; font-size: 15px; font-weight: 750; }
+.parkwise-profile-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+.parkwise-profile-contact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.parkwise-profile-input-with-icon { position: relative; display: flex; align-items: center; }
+.parkwise-profile-input-with-icon > svg { position: absolute; left: 12px; width: 18px; height: 18px; color: #667386; pointer-events: none; }
+.parkwise-profile-input-with-icon input { padding-left: 40px; }
+.parkwise-profile-phone-icon, .parkwise-profile-location-icon { position: absolute; left: 14px; z-index: 1; color: #667386; font-size: 18px; pointer-events: none; }
+.parkwise-profile-email { position: relative; display: flex; align-items: center; }
+.parkwise-profile-email > span { position: absolute; left: 12px; color: #667386; }
+.parkwise-profile-email > svg { position: absolute; left: 12px; width: 17px; height: 17px; color: #667386; pointer-events: none; }
+.parkwise-profile-email input { padding: 0 96px 0 36px; background: #f2f4f6; color: #606b7b; }
+.parkwise-profile-email b { position: absolute; right: 6px; display: flex; align-items: center; gap: 4px; padding: 5px 7px; border-radius: 99px; background: #e5f7e7; color: #198b3b; font-size: 9px; }
+.parkwise-profile-email b svg { width: 12px; height: 12px; }
+.parkwise-profile-identity-toggle { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto minmax(145px, auto); align-items: center; gap: 12px; padding: 15px 0; border-top: 1px solid #e8ecf0; border-bottom: 1px solid #e8ecf0; }
+.parkwise-profile-identity-toggle > div:nth-child(2) { display: grid; gap: 3px; }
+.parkwise-profile-identity-toggle > div:nth-child(2) strong { color: #242b36; font-size: 13px; }
+.parkwise-profile-identity-toggle > div:nth-child(2) em { color: #758091; font-style: normal; font-weight: 500; }
+.parkwise-profile-identity-toggle > div:nth-child(2) small { color: #778292; font-size: 10px; }
+.parkwise-profile-switch { position: relative; display: block; width: 46px; height: 26px; }
+.parkwise-profile-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.parkwise-profile-switch > span { position: absolute; inset: 0; border-radius: 99px; background: #d4d9df; cursor: pointer; transition: background .18s; }
+.parkwise-profile-switch > span::before { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 18%); content: ""; transition: transform .18s; }
+.parkwise-profile-switch input:checked + span { background: #aee83f; }
+.parkwise-profile-switch input:checked + span::before { transform: translateX(20px); }
+.parkwise-profile-switch input:focus-visible + span { outline: 3px solid #87aa39; outline-offset: 2px; }
+.parkwise-profile-switch-copy { display: grid; gap: 3px; }
+.parkwise-profile-switch-copy strong { font-size: 11px; }
+.parkwise-profile-switch-copy small { color: #7c8694; font-size: 9px; }
+.parkwise-profile-document-panel { display: grid; gap: 12px; padding: 14px; border: 1px solid #e5ebda; border-radius: 10px; background: #fbfdf7; }
+.parkwise-profile-page section.parkwise-profile-document-panel { padding: 14px; }
+.parkwise-profile-document-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.parkwise-profile-document-title h3 { color: #252d39; font-size: 13px; font-weight: 750; }
+.parkwise-profile-document-title h3 em { color: #7f8996; font-size: 10px; font-style: normal; font-weight: 500; }
+.parkwise-profile-document-title p { margin-top: 3px !important; color: #788393; font-size: 10px; }
+.parkwise-profile-document-title > svg { width: 18px; height: 18px; color: #6e8f2d; }
+.parkwise-profile-id-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.parkwise-profile-id-toggle button { position: relative; display: grid; min-height: 47px; grid-template-columns: 27px 1fr 15px; align-content: center; align-items: center; column-gap: 7px; padding: 6px 10px; border: 1px solid #dce2e9; border-radius: 8px; background: #fff; color: #293243; cursor: pointer; text-align: left; }
+.parkwise-profile-id-toggle button.selected { border-color: #a9da36; background: #f8fdea; }
+.parkwise-profile-id-toggle button > span { grid-row: span 2; font-size: 18px; text-align: center; }
+.parkwise-profile-id-toggle button > strong { font-size: 10px; }
+.parkwise-profile-id-toggle button > small { color: #727d8c; font-size: 8px; }
+.parkwise-profile-id-toggle button > i { width: 13px; height: 13px; grid-column: 3; grid-row: 1 / span 2; border: 1px solid #c6ced8; border-radius: 50%; }
+.parkwise-profile-id-toggle button.selected > i { border: 4px solid #9bd92e; }
+.parkwise-profile-document-panel h4 { margin: 0; color: #3b4350; font-size: 10px; font-weight: 750; }
+.parkwise-profile-fields.document-fields { grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.parkwise-profile-fields.document-fields .parkwise-profile-field label { font-size: 9px; }
+.parkwise-profile-fields.document-fields .parkwise-profile-field input { height: 36px; padding-inline: 9px; font-size: 10px; }
+.parkwise-profile-document-uploads > small { margin-top: -3px; }
+.parkwise-profile-upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.parkwise-profile-doc-upload { position: relative; display: flex; min-height: 79px; align-items: center; justify-content: center; gap: 10px; overflow: hidden; border: 1px dashed #cbd4de; border-radius: 8px; background: #fff; text-align: center; }
+.parkwise-profile-doc-upload.has-file { border-style: solid; border-color: #b4d675; }
+.parkwise-profile-doc-upload > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .2; }
+.parkwise-profile-doc-placeholder { z-index: 1; color: #7c8796; font-size: 22px; }
+.parkwise-profile-doc-upload > label { z-index: 1; display: grid; gap: 4px; cursor: pointer; }
+.parkwise-profile-doc-upload > label strong { color: #303949; font-size: 10px; }
+.parkwise-profile-doc-upload > label small { max-width: 220px; overflow: hidden; color: #7b8594; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.parkwise-profile-doc-upload > input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.parkwise-profile-doc-upload > button { position: absolute; z-index: 2; top: 4px; right: 5px; display: grid; width: 21px; height: 21px; place-items: center; border: 0; border-radius: 50%; background: #fff; color: #a3291f; font-size: 17px; cursor: pointer; }
+.parkwise-profile-consent { display: flex; align-items: flex-start; gap: 10px; color: #4e5867; font-size: 10px; line-height: 1.55; }
+.parkwise-profile-consent input { width: 17px; height: 17px; flex: 0 0 17px; margin: 1px 0 0; accent-color: #171717; }
+.parkwise-profile-consent a { color: #145de0 !important; text-decoration: underline; }
+.parkwise-profile-feedback { margin: 0 !important; padding: 10px 12px; border-radius: 8px; font-size: 11px; line-height: 1.5; }
+.parkwise-profile-feedback.error { background: #fef2f2; color: var(--pw-color-error); }
+.parkwise-profile-feedback.success { background: #f0fdf4; color: var(--pw-color-success); }
+.parkwise-profile-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
+.parkwise-profile-draft, .parkwise-profile-submit { display: inline-flex; min-height: 43px; align-items: center; justify-content: center; gap: 9px; padding: 0 18px; border: 1px solid #d5dce4; border-radius: 8px; background: #fff; color: #252d39; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.parkwise-profile-draft span { font-size: 17px; }
+.parkwise-profile-submit { min-width: 190px; border-color: #151515; background: #171717; color: #fff; }
+.parkwise-profile-submit:hover { background: #343434; }
+.parkwise-profile-submit:disabled { cursor: wait; opacity: .65; }
+.parkwise-profile-submit span { color: var(--profile-lime); font-size: 17px; }
+.parkwise-profile-actions button:focus-visible, .parkwise-profile-avatar-large:focus-visible, .parkwise-profile-id-toggle button:focus-visible { outline: 3px solid #8fb63c; outline-offset: 3px; }
+.parkwise-profile-action-hints { display: flex; justify-content: space-between; gap: 14px; color: #798392; font-size: 9px; }
+
+.parkwise-profile-sidebar { display: grid; gap: 18px; padding-top: 29px; }
+.parkwise-profile-page section.parkwise-profile-status-card { padding: 19px 20px 12px; }
+.parkwise-profile-status-card h2, .parkwise-profile-privacy-card h2, .parkwise-profile-support-card h2 { display: flex; align-items: center; gap: 10px; margin: 0; color: #212833; font-size: 16px; font-weight: 750; }
+.parkwise-profile-status-card h2 > span { font-size: 18px; }
+.parkwise-profile-score { display: grid; grid-template-columns: 134px 1fr; align-items: center; gap: 17px; padding: 18px 0 18px; }
+.parkwise-profile-ring { display: grid; width: 128px; height: 128px; place-items: center; border-radius: 50%; background: conic-gradient(#bce943 0 var(--profile-progress), #edf0f3 var(--profile-progress) 100%); transform: rotate(-35deg); }
+.parkwise-profile-ring::before { width: 98px; height: 98px; grid-area: 1 / 1; border-radius: 50%; background: #fff; content: ""; }
+.parkwise-profile-ring > span { z-index: 1; grid-area: 1 / 1; color: #161b22; font-size: 21px; font-weight: 750; transform: rotate(35deg); }
+.parkwise-profile-score > p { display: grid; gap: 4px; color: #707a89; font-size: 12px; }
+.parkwise-profile-score > p strong { color: #202631; font-size: 16px; }
+.parkwise-profile-score > p em { color: #9ccd28; font-style: normal; }
+.parkwise-profile-score > p small { color: #6f7988; font-size: 11px; line-height: 1.5; }
+.parkwise-profile-status-list { border-top: 1px solid #e9edf1; }
+.parkwise-profile-status-list > div { display: grid; grid-template-columns: 32px minmax(0, 1fr) 78px; align-items: center; gap: 10px; min-height: 72px; border-bottom: 1px solid #e9edf1; }
+.parkwise-profile-status-list > div:last-child { border-bottom: 0; }
+.parkwise-profile-status-list > div > span { display: grid; width: 29px; height: 29px; place-items: center; border: 2px solid #cbd2db; border-radius: 50%; color: #fff; }
+.parkwise-profile-status-list > div.complete > span { border: 0; background: #179a42; }
+.parkwise-profile-status-list > div > span svg { width: 17px; height: 17px; }
+.parkwise-profile-status-list p { display: grid; gap: 3px; }
+.parkwise-profile-status-list p strong { color: #252c36; font-size: 11px; }
+.parkwise-profile-status-list p small { color: #748092; font-size: 10px; }
+.parkwise-profile-status-list > div > b { color: #d56b18; font-size: 10px; font-weight: 600; text-align: right; white-space: nowrap; }
+.parkwise-profile-status-list > div.complete > b { color: #168a3b; }
+.parkwise-profile-page section.parkwise-profile-privacy-card { padding: 17px 20px; border-color: #f2e7c7; background: #fffcf3; }
+.parkwise-profile-privacy-card h2 { font-size: 14px; }
+.parkwise-profile-privacy-card h2 > span { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; background: #ffedb8; color: #725313; font-size: 18px; }
+.parkwise-profile-privacy-card ul { display: grid; gap: 10px; margin: 15px 0 0; padding: 0; list-style: none; }
+.parkwise-profile-privacy-card li { display: flex; align-items: flex-start; gap: 10px; }
+.parkwise-profile-privacy-card li > span { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 50%; background: #fff0c9; color: #57451d; font-size: 14px; }
+.parkwise-profile-privacy-card li p { padding-top: 3px; color: #475161; font-size: 11px; line-height: 1.5; }
+.parkwise-profile-page section.parkwise-profile-support-card { display: flex; gap: 13px; padding: 19px 20px; border-color: #cfe0ff; background: #f4f8ff; }
+.parkwise-profile-support-icon { display: grid; width: 41px; height: 41px; flex: 0 0 41px; place-items: center; border-radius: 50%; background: #e0ebff; color: #145de0; font-size: 19px; font-weight: 700; }
+.parkwise-profile-support-card > div { flex: 1; }
+.parkwise-profile-support-card h2 { font-size: 15px; }
+.parkwise-profile-support-card p { margin-top: 5px !important; color: #687589; font-size: 11px; line-height: 1.5; }
+.parkwise-profile-support-card a { display: flex; min-height: 39px; align-items: center; justify-content: center; gap: 9px; margin-top: 13px; border: 1px solid #8eb3ff; border-radius: 8px; color: #145de0 !important; font-size: 11px; font-weight: 700; }
+
+/* Match the Vietnamese reference: stronger type hierarchy and readable neutral text. */
+.parkwise-profile-page { --profile-ink: var(--pw-text-primary); --profile-muted: var(--pw-text-secondary); --profile-lime: var(--pw-accent); color: var(--pw-text-primary); }
+.parkwise-profile-page .parkwise-profile-progress-track i::before { background: var(--pw-accent); }
+.parkwise-profile-page .parkwise-profile-switch input:checked + span { background: var(--pw-accent); }
+.parkwise-profile-page .parkwise-profile-id-toggle button.selected { border-color: #b7c96c; background: color-mix(in srgb, var(--pw-accent) 48%, white); }
+.parkwise-profile-page .parkwise-profile-id-toggle button.selected > i { border-color: #82922f; }
+.parkwise-profile-page .parkwise-profile-ring { background: conic-gradient(var(--pw-accent) 0 var(--profile-progress), var(--pw-gray-200) var(--profile-progress) 100%); }
+.parkwise-profile-page .parkwise-profile-submit { border-color: var(--pw-primary); background: var(--pw-primary); color: var(--pw-primary-text); border-radius: var(--pw-radius-sm); }
+.parkwise-profile-page .parkwise-profile-submit:hover { background: var(--pw-gray-800); }
+.parkwise-profile-page .parkwise-profile-consent a { color: var(--pw-color-blue) !important; }
+.parkwise-profile-page .parkwise-profile-consent a:hover { text-decoration-thickness: 2px; }
+.parkwise-profile-page .parkwise-profile-consent a:focus-visible { border-radius: 2px; outline: 2px solid var(--pw-color-blue); outline-offset: 2px; }
+.parkwise-profile-page .parkwise-profile-support-card a { color: var(--pw-color-blue) !important; border-color: #8eb3ff; }
+.parkwise-profile-page .parkwise-profile-support-card { border-color: #cfe0ff; background: #f4f8ff; }
+.parkwise-profile-page .parkwise-profile-support-icon { background: #e0ebff; color: var(--pw-color-blue); }
+.parkwise-profile-page .parkwise-profile-privacy-card { border-color: #f2e7c7; background: linear-gradient(135deg, #fffdf7, #fff8e7); }
+.parkwise-profile-page .parkwise-profile-privacy-card h2 > span,
+.parkwise-profile-page .parkwise-profile-privacy-card li > span { background: #ffedb8; color: #725313; }
+.parkwise-profile-page .parkwise-profile-heading h1 { color: var(--pw-text-primary); font-size: clamp(30px, 3vw, 36px); }
+.parkwise-profile-page .parkwise-profile-heading > p:last-child { color: #555b63; font-size: 15px; }
+.parkwise-profile-page .parkwise-profile-progress-top strong { color: #171717; font-size: 16px; }
+.parkwise-profile-page .parkwise-profile-progress-top span { color: #555b63; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-form-heading h2 { color: #171717; font-size: 20px; }
+.parkwise-profile-page .parkwise-profile-form-heading p { color: #555b63; font-size: 14px; }
+.parkwise-profile-page .parkwise-profile-section-title h3 { color: #171717; font-size: 17px; }
+.parkwise-profile-page .parkwise-profile-field label { color: #222; font-size: 14px; }
+.parkwise-profile-page .parkwise-profile-field label em { color: #62676e; }
+.parkwise-profile-page .parkwise-profile-field > input,
+.parkwise-profile-page .parkwise-profile-input-with-icon input,
+.parkwise-profile-page .parkwise-profile-email input { color: #292929; font-size: 14px; }
+.parkwise-profile-page .parkwise-profile-field input::placeholder { color: #717780; }
+.parkwise-profile-page .parkwise-profile-field small { color: #62676e; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-photo-drop { color: #222; }
+.parkwise-profile-page .parkwise-profile-photo-drop > svg { width: 22px; height: 22px; }
+.parkwise-profile-page .parkwise-profile-photo-drop strong { font-size: 14px; }
+.parkwise-profile-page .parkwise-profile-photo-drop small { color: #62676e; font-size: 11px; }
+.parkwise-profile-page .parkwise-profile-identity-toggle > div:nth-child(2) strong { color: #222; font-size: 15px; }
+.parkwise-profile-page .parkwise-profile-identity-toggle > div:nth-child(2) small,
+.parkwise-profile-page .parkwise-profile-switch-copy small { color: #62676e; font-size: 11px; }
+.parkwise-profile-page .parkwise-profile-switch-copy strong { color: #222; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-document-title h3 { color: #222; font-size: 15px; }
+.parkwise-profile-page .parkwise-profile-document-title h3 em { color: #62676e; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-document-title p { color: #5c6269; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-id-toggle button { color: #222; }
+.parkwise-profile-page .parkwise-profile-id-toggle button > svg { width: 21px; height: 21px; grid-row: span 2; }
+.parkwise-profile-page .parkwise-profile-id-toggle button > strong { font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-id-toggle button > small { color: #62676e; font-size: 10px; }
+.parkwise-profile-page .parkwise-profile-document-panel h4 { color: #303030; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-fields.document-fields .parkwise-profile-field label { font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-fields.document-fields .parkwise-profile-field input { color: #292929; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-doc-placeholder svg { width: 25px; height: 25px; }
+.parkwise-profile-page .parkwise-profile-doc-upload > label strong { color: #292929; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-doc-upload > label small { color: #62676e; font-size: 10px; }
+.parkwise-profile-page .parkwise-profile-consent { color: #42464b; font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-draft,
+.parkwise-profile-page .parkwise-profile-submit { font-size: 13px; }
+.parkwise-profile-page .parkwise-profile-draft > svg { width: 18px; height: 18px; }
+.parkwise-profile-page .parkwise-profile-action-hints { color: #62676e; font-size: 11px; }
+.parkwise-profile-page .parkwise-profile-status-card h2,
+.parkwise-profile-page .parkwise-profile-privacy-card h2,
+.parkwise-profile-page .parkwise-profile-support-card h2 { color: #171717; font-size: 20px; }
+.parkwise-profile-page .parkwise-profile-status-card h2 > svg { width: 20px; height: 20px; }
+.parkwise-profile-page .parkwise-profile-score > p { color: #555b63; font-size: 14px; }
+.parkwise-profile-page .parkwise-profile-score > p strong { color: #171717; font-size: 18px; }
+.parkwise-profile-page .parkwise-profile-score > p small { color: #555b63; font-size: 13px; }
+.parkwise-profile-page .parkwise-profile-status-list p strong { color: #222; font-size: 15px; }
+.parkwise-profile-page .parkwise-profile-status-list p small { color: #62676e; font-size: 13px; }
+.parkwise-profile-page .parkwise-profile-status-list > div > b { font-size: 12px; }
+.parkwise-profile-page .parkwise-profile-status-list > div:not(.complete) > b { color: var(--pw-color-warning); }
+.parkwise-profile-page .parkwise-profile-status-list > div { grid-template-columns: 32px minmax(0, 1fr) 78px; }
+.parkwise-profile-page .parkwise-profile-status-list p { min-width: 0; }
+.parkwise-profile-page .parkwise-profile-status-list p strong,
+.parkwise-profile-page .parkwise-profile-status-list p small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parkwise-profile-page .parkwise-profile-privacy-card h2 > span svg,
+.parkwise-profile-page .parkwise-profile-privacy-card li > span svg { width: 17px; height: 17px; }
+.parkwise-profile-page .parkwise-profile-privacy-card li p,
+.parkwise-profile-page .parkwise-profile-support-card p { color: #454a50; font-size: 14px; line-height: 1.5; }
+.parkwise-profile-page .parkwise-profile-support-icon svg { width: 24px; height: 24px; }
+.parkwise-profile-page .parkwise-profile-support-card a { font-size: 13px; }
+.parkwise-profile-page .parkwise-profile-photo-row { grid-template-columns: minmax(300px, .86fr) minmax(280px, 1.14fr); }
+.parkwise-profile-page .parkwise-profile-photo-drop { max-width: 208px; }
+.parkwise-profile-page .parkwise-profile-document-title p,
+.parkwise-profile-page .parkwise-profile-document-uploads > small { font-size: 13px; line-height: 1.5; }
+.parkwise-profile-page .parkwise-profile-action-hints { font-size: 12px; }
+.parkwise-profile-account-chevron { display: grid; place-items: center; }
+.parkwise-profile-account-chevron svg { width: 17px; height: 17px; }
+
+@media (max-width: 520px) {
+    .parkwise-profile-page .parkwise-profile-heading > p:last-child { font-size: 13px; }
+    .parkwise-profile-page .parkwise-profile-form-heading h2 { font-size: 17px; }
+    .parkwise-profile-page .parkwise-profile-form-heading p { font-size: 12px; }
+}
+
+@media (max-width: 1000px) {
+    .parkwise-profile-grid { grid-template-columns: minmax(0, 1.4fr) minmax(270px, .9fr); }
+    .parkwise-profile-photo-row { grid-template-columns: minmax(0, 1fr) minmax(180px, 1fr); gap: 12px; }
+    .parkwise-profile-photo-assets { grid-template-columns: 85px minmax(110px, 1fr); gap: 8px; }
+    .parkwise-profile-photo-field > label { white-space: normal; }
+    .parkwise-profile-page .parkwise-profile-status-list > div { grid-template-columns: 30px minmax(0, 1fr) 70px; gap: 7px; }
+    .parkwise-profile-avatar-large { width: 88px; height: 88px; }
+    .parkwise-profile-photo-drop { min-height: 90px; }
+    .parkwise-profile-form-card { padding: 18px; }
+}
+@media (max-width: 900px) {
+    .parkwise-profile-grid { grid-template-columns: 1fr; }
+    .parkwise-profile-sidebar { grid-template-columns: 1fr 1fr; padding-top: 0; }
+    .parkwise-profile-status-card { grid-column: 1 / -1; }
+    .parkwise-profile-page .parkwise-profile-photo-row { grid-template-columns: 1fr; }
+    .parkwise-profile-photo-assets { grid-template-columns: minmax(96px, 135px) minmax(145px, 1fr); gap: 12px; }
+    .parkwise-profile-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+    .parkwise-profile-name-field { padding-top: 0; }
+}
+@media (max-width: 760px) {
+    .parkwise-profile-topbar-inner, .parkwise-profile-main { width: calc(100% - 28px); }
+    .parkwise-profile-grid { grid-template-columns: 1fr; }
+    .parkwise-profile-sidebar { grid-template-columns: 1fr 1fr; }
+    .parkwise-profile-status-card { grid-column: 1 / -1; }
+    .parkwise-profile-page .parkwise-profile-photo-row { grid-template-columns: 1fr; }
+    .parkwise-profile-name-field { padding-top: 0; }
+    .parkwise-profile-photo-assets { grid-template-columns: minmax(96px, 135px) minmax(145px, 1fr); gap: 12px; }
+}
+@media (max-width: 520px) {
+    .parkwise-profile-topbar { height: 58px; }
+    .parkwise-profile-topbar-inner, .parkwise-profile-main { width: calc(100% - 22px); }
+    .parkwise-profile-brand { width: 126px; }
+    .parkwise-profile-brand img { width: 126px; }
+    .parkwise-profile-account-name { display: none; }
+    .parkwise-profile-main { padding-top: 18px; }
+    .parkwise-profile-heading h1 { font-size: 27px; }
+    .parkwise-profile-heading > p:last-child { font-size: 12px; line-height: 1.5; }
+    .parkwise-profile-progress-card { padding: 14px; }
+    .parkwise-profile-progress-top { align-items: flex-start; flex-direction: column; gap: 5px; }
+    .parkwise-profile-progress-top span { text-align: left; }
+    .parkwise-profile-form-card { gap: 15px; padding: 15px 13px; }
+    .parkwise-profile-form-heading { gap: 10px; }
+    .parkwise-profile-heading-icon { width: 36px; height: 36px; flex-basis: 36px; }
+    .parkwise-profile-form-heading h2 { font-size: 16px; }
+    .parkwise-profile-form-heading p { font-size: 10px; }
+    .parkwise-profile-photo-row { grid-template-columns: 1fr; gap: 12px; }
+    .parkwise-profile-photo-assets { grid-template-columns: 92px minmax(0, 1fr); }
+    .parkwise-profile-avatar-large { width: 74px; height: 74px; }
+    .parkwise-profile-avatar-large > svg { width: 37px; height: 37px; }
+    .parkwise-profile-photo-drop { min-height: 74px; }
+    .parkwise-profile-name-field { grid-column: 1 / -1; }
+    .parkwise-profile-name-field { padding-top: 0; }
+    .parkwise-profile-fields { grid-template-columns: 1fr; gap: 12px; }
+    .parkwise-profile-contact-grid { grid-template-columns: 1fr; gap: 12px; }
+    .parkwise-profile-identity-toggle { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 8px; }
+    .parkwise-profile-identity-toggle > .parkwise-profile-switch-copy { grid-column: 2 / -1; grid-row: 2; }
+    .parkwise-profile-id-toggle { gap: 5px; }
+    .parkwise-profile-id-toggle button { grid-template-columns: 20px 1fr 12px; column-gap: 4px; padding-inline: 6px; }
+    .parkwise-profile-fields.document-fields { grid-template-columns: 1fr 1fr; }
+    .parkwise-profile-fields.document-fields .parkwise-profile-field:last-child { grid-column: 1 / -1; }
+    .parkwise-profile-upload-grid { grid-template-columns: 1fr; }
+    .parkwise-profile-doc-upload { min-height: 66px; }
+    .parkwise-profile-sidebar { grid-template-columns: 1fr; }
+    .parkwise-profile-status-card { grid-column: auto; }
+    .parkwise-profile-action-hints { flex-direction: column; gap: 4px; }
+    .parkwise-profile-draft, .parkwise-profile-submit { padding-inline: 10px; }
+    .parkwise-profile-submit { min-width: 155px; }
+}
+@media (prefers-reduced-motion: reduce) { .parkwise-profile-page *, .parkwise-profile-page *::before, .parkwise-profile-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* Final English account header, compact photo upload, date controls and footer. */
+.parkwise-profile-main { width: min(100% - 48px, 1360px); }
+.parkwise-navbar-account-slot { margin-left: auto; }
+.parkwise-navbar-dark .parkwise-profile-account-name { color: #fff; }
+.parkwise-navbar-dark .parkwise-profile-account-name small,
+.parkwise-navbar-dark .parkwise-profile-account-chevron { color: #d4d4d4; }
+.parkwise-profile-main-nav { position: absolute; left: 50%; display: flex; align-items: center; gap: clamp(18px, 2.4vw, 38px); transform: translateX(-50%); }
+.parkwise-profile-main-nav a,
+.parkwise-profile-main-nav span[aria-disabled="true"],
+.parkwise-profile-mobile-nav a,
+.parkwise-profile-mobile-nav span[aria-disabled="true"] { color: var(--pw-text-secondary); font-size: 14px; font-weight: 600; text-decoration: none; }
+.parkwise-profile-main-nav span[aria-disabled="true"],
+.parkwise-profile-mobile-nav span[aria-disabled="true"] { cursor: not-allowed; }
+.parkwise-profile-main-nav a:hover,
+.parkwise-profile-mobile-nav a:hover { color: var(--pw-text-primary); }
+.parkwise-profile-account-menu { position: relative; }
+.parkwise-profile-account { border: 0; padding: 4px 0; background: transparent; cursor: pointer; text-align: left; }
+.parkwise-profile-account:focus-visible,
+.parkwise-profile-mobile-menu-button:focus-visible,
+.parkwise-profile-account-dropdown a:focus-visible,
+.parkwise-profile-account-dropdown button:focus-visible,
+.parkwise-profile-main-nav a:focus-visible,
+.parkwise-profile-mobile-nav a:focus-visible,
+.parkwise-profile-footer a:focus-visible { outline: 2px solid var(--pw-color-blue); outline-offset: 3px; border-radius: 4px; }
+.parkwise-profile-account-avatar { overflow: hidden; font-size: 13px; font-weight: 700; }
+.parkwise-profile-account-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.parkwise-profile-account-name { max-width: 230px; }
+.parkwise-profile-account-name small { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parkwise-profile-account-dropdown { position: absolute; top: calc(100% + 10px); right: 0; z-index: 45; display: grid; width: min(300px, calc(100vw - 24px)); padding: 8px; border: 1px solid var(--pw-border-default); border-radius: 12px; background: #fff; box-shadow: 0 12px 30px rgb(0 0 0 / 12%); }
+.parkwise-profile-dropdown-identity { display: grid; gap: 4px; padding: 12px; border-bottom: 1px solid var(--pw-border-default); }
+.parkwise-profile-dropdown-identity strong { overflow: hidden; color: var(--pw-text-primary); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.parkwise-profile-dropdown-identity small { overflow: hidden; color: var(--pw-text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.parkwise-profile-account-dropdown a,
+.parkwise-profile-account-dropdown button { min-height: 42px; display: flex; align-items: center; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--pw-text-primary); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
+.parkwise-profile-account-dropdown a:hover,
+.parkwise-profile-account-dropdown button:hover { background: var(--pw-gray-100); }
+.parkwise-profile-account-dropdown button:disabled { cursor: wait; opacity: .65; }
+.parkwise-profile-mobile-menu-button,
+.parkwise-profile-mobile-nav { display: none; }
+.parkwise-profile-photo-assets { grid-template-columns: 112px minmax(0, 1fr); justify-content: start; }
+.parkwise-profile-photo-controls { display: grid; justify-items: start; gap: 7px; }
+.parkwise-profile-upload-button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 9px; padding: 0 15px; border: 1px solid var(--pw-border-strong); border-radius: 8px; background: #fff; color: var(--pw-text-primary); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; transition: background var(--pw-transition-fast), border-color var(--pw-transition-fast); }
+.parkwise-profile-upload-button:hover { border-color: var(--pw-gray-400); background: var(--pw-gray-50); }
+.parkwise-profile-upload-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--pw-color-blue) 35%, transparent); outline-offset: 2px; }
+.parkwise-profile-upload-button svg { width: 17px; height: 17px; }
+.parkwise-profile-photo-controls small { color: var(--pw-text-secondary); font-size: 12px; }
+.parkwise-profile-field > select,
+.parkwise-profile-date-control input { width: 100%; min-width: 0; height: 48px; border: 1px solid var(--pw-border-default); border-radius: var(--pw-radius-md); padding: 0 14px; background: #fff; color: var(--pw-text-primary); font: inherit; font-size: 14px; }
+.parkwise-profile-field > select:focus,
+.parkwise-profile-date-control input:focus { border-color: var(--pw-primary); outline: 0; box-shadow: 0 0 0 3px rgb(23 23 23 / 12%); }
+.parkwise-profile-date-control { position: relative; }
+.parkwise-profile-date-control > input[type="text"] { padding: 0 48px 0 14px; }
+.parkwise-profile-date-control > button { position: absolute; top: 5px; right: 5px; z-index: 2; display: grid; width: 38px; height: 38px; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--pw-text-secondary); cursor: pointer; }
+.parkwise-profile-date-control > button:hover { background: var(--pw-gray-100); color: var(--pw-text-primary); }
+.parkwise-profile-date-control > button:focus-visible { outline: 2px solid var(--pw-color-blue); outline-offset: 1px; }
+.parkwise-profile-date-control > button svg { width: 18px; height: 18px; }
+.parkwise-profile-date-control input.parkwise-profile-native-date { position: absolute; top: 50%; right: 8px; z-index: -1; width: 1px; height: 1px; overflow: hidden; border: 0; padding: 0; opacity: 0; transform: translateY(-50%); }
+.parkwise-profile-email input { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parkwise-profile-inline-error { color: var(--pw-color-error) !important; }
+.parkwise-profile-consent .parkwise-profile-unavailable-link { color: var(--pw-text-secondary); text-decoration: underline dotted; text-underline-offset: 2px; }
+.parkwise-profile-feedback { position: fixed; right: 24px; bottom: 24px; z-index: 50; width: min(420px, calc(100vw - 32px)); box-shadow: var(--pw-shadow-md); }
+.parkwise-profile-footer { border-top: 1px solid var(--pw-border-default); background: var(--pw-bg-surface); }
+.parkwise-profile-footer-inner { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 20px; margin: 0 auto; padding: 18px 0; }
+.parkwise-profile-footer-inner > p { margin: 0; color: var(--pw-text-secondary); font-size: 12px; }
+.parkwise-profile-footer-inner nav { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; }
+.parkwise-profile-footer-inner nav a,
+.parkwise-profile-footer-inner nav span { color: var(--pw-text-secondary); font-size: 12px; text-decoration: none; }
+.parkwise-profile-footer-inner nav a:hover { color: var(--pw-text-primary); text-decoration: underline; }
+.parkwise-profile-footer-inner nav span[aria-disabled="true"] { cursor: not-allowed; }
+.parkwise-profile-page .parkwise-profile-fields.document-fields .parkwise-profile-field input { height: 48px; padding-inline: 12px; font-size: 14px; }
+
+@media (max-width: 900px) {
+    .parkwise-navbar-account-slot { margin-left: auto; }
+    .parkwise-profile-page .parkwise-menu-button { margin-left: 12px; }
+    .parkwise-profile-main-nav { display: none; }
+    .parkwise-profile-mobile-menu-button { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border: 1px solid var(--pw-border-default); border-radius: 9px; background: #fff; color: var(--pw-text-primary); cursor: pointer; }
+    .parkwise-profile-mobile-menu-button svg { width: 22px; height: 22px; }
+    .parkwise-profile-topbar-inner { gap: 12px; }
+    .parkwise-profile-mobile-nav { position: absolute; top: 100%; right: 0; left: 0; z-index: 42; display: grid; gap: 4px; padding: 12px 24px 16px; border-bottom: 1px solid var(--pw-border-default); background: #fff; box-shadow: 0 8px 18px rgb(0 0 0 / 7%); }
+    .parkwise-profile-mobile-nav a { min-height: 44px; display: flex; align-items: center; }
+}
+@media (min-width: 901px) and (max-width: 1100px) {
+    .parkwise-profile-grid { grid-template-columns: minmax(0, 1.86fr) minmax(300px, 1fr); }
+    .parkwise-profile-primary { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+    .parkwise-profile-form-card { min-width: 0; padding-inline: 18px; }
+    .parkwise-profile-page .parkwise-profile-photo-row { grid-template-columns: minmax(210px, .9fr) minmax(210px, 1.1fr); gap: 12px; }
+    .parkwise-profile-photo-assets { grid-template-columns: minmax(78px, 92px) minmax(0, 1fr); gap: 8px; }
+    .parkwise-profile-page .parkwise-profile-avatar-large { width: 80px; height: 80px; }
+    .parkwise-profile-upload-button { gap: 5px; padding-inline: 8px; font-size: 12px; white-space: nowrap; }
+    .parkwise-profile-photo-controls small { font-size: 10px; white-space: nowrap; }
+    .parkwise-profile-page .parkwise-profile-status-list p strong,
+    .parkwise-profile-page .parkwise-profile-status-list p small { overflow: visible; text-overflow: clip; white-space: normal; }
+}
+@media (max-width: 520px) {
+    .parkwise-profile-main { width: calc(100% - 22px); }
+    .parkwise-profile-topbar-inner { gap: 8px; }
+    .parkwise-profile-account { gap: 0; }
+    .parkwise-profile-account-name,
+    .parkwise-profile-account-chevron { display: none; }
+    .parkwise-profile-account-avatar { width: 36px; height: 36px; }
+    .parkwise-profile-mobile-menu-button { width: 38px; height: 38px; flex-basis: 38px; }
+    .parkwise-profile-account-dropdown { right: -45px; }
+    .parkwise-profile-photo-assets { grid-template-columns: 84px minmax(0, 1fr); gap: 12px; }
+    .parkwise-profile-avatar-large { width: 74px; height: 74px; }
+    .parkwise-profile-upload-button { min-height: 40px; padding-inline: 11px; }
+    .parkwise-profile-footer-inner { align-items: flex-start; flex-direction: column; gap: 12px; }
+    .parkwise-profile-footer-inner nav { gap: 12px 18px; }
+    .parkwise-profile-feedback { right: 11px; bottom: 11px; }
+}
