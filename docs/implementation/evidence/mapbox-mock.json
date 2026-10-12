@@ -1,0 +1,72 @@
+{
+  "task": "TECH-03",
+  "mode": "MOCK",
+  "environment": "demo_static_coordinates",
+  "runAtUtc": "2026-10-12T06:00:42.806276+00:00",
+  "note": "Mock PASS is NOT evidence of live provider availability or Vietnam geocoding quality. Search Box live skipped: Vietnam is outside advertised coverage.",
+  "cases": [
+    {
+      "id": "GEO-01",
+      "status": "PASS",
+      "result": {
+        "featureCount": 1,
+        "features": [
+          {
+            "longitude": 106.700981,
+            "latitude": 10.77653,
+            "featureType": "place"
+          }
+        ]
+      }
+    },
+    {
+      "id": "DIR-01",
+      "status": "PASS",
+      "result": {
+        "reachable": true,
+        "durationSeconds": 120.0,
+        "distanceMeters": 1000.0
+      }
+    },
+    {
+      "id": "MAT-01",
+      "status": "PASS",
+      "result": {
+        "profile": "driving",
+        "originCount": 1,
+        "destinationCount": 3,
+        "items": [
+          {
+            "index": 0,
+            "reachable": true,
+            "durationSeconds": 120.0,
+            "distanceMeters": 1000.0
+          },
+          {
+            "index": 1,
+            "reachable": true,
+            "durationSeconds": 240.0,
+            "distanceMeters": 2000.0
+          },
+          {
+            "index": 2,
+            "reachable": true,
+            "durationSeconds": 360.0,
+            "distanceMeters": 3000.0
+          }
+        ]
+      }
+    },
+    {
+      "id": "BOX-01",
+      "status": "PASS",
+      "result": {
+        "suggestionCount": 1,
+        "requiresRetrieve": true,
+        "note": "USA mock contract only; Search Box geography excludes Vietnam"
+      }
+    }
+  ],
+  "passed": 4,
+  "total": 4
+}
