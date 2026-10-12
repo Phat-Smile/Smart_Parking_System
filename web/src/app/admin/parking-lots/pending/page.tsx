@@ -126,7 +126,7 @@ export default function PendingParkingLotsPage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-5 text-right">
-                                        <Link href={`/admin/parking-lots/pending/${lot.id}`} className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-bold rounded-lg text-[#171717] bg-[#eafe89] hover:bg-[#d4f55a] transition-all focus:outline-none focus:ring-4 focus:ring-[#eafe89]/30">
+                                        <Link href={`/admin/parking-lots/${lot.id}`} className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-bold rounded-lg text-[#171717] bg-[#eafe89] hover:bg-[#d4f55a] transition-all focus:outline-none focus:ring-4 focus:ring-[#eafe89]/30">
                                             Review
                                             <svg className="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
