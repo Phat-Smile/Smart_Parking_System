@@ -1,6 +1,7 @@
 import { getGatewayBaseUrl } from "@/shared/config/env";
 import { ApiError } from "@/shared/errors/api-error";
 import { parseProblemDetails } from "@/shared/errors/problem-details";
+import { getAccessToken } from "./access-token";
 
 export async function gatewayFetch<T>(
     path: string,
@@ -17,6 +18,10 @@ export async function gatewayFetch<T>(
 
     const headers = new Headers(init?.headers);
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
+    const accessToken = getAccessToken();
+    if (accessToken && !headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${accessToken}`);
+    }
     const response = await fetch(url, { ...init, headers });
     const correlationHeader =
         response.headers.get("X-Correlation-ID") || undefined;

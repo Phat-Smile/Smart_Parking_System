@@ -15,6 +15,7 @@ import {
 } from "./googleSignIn";
 import { passwordSchema } from "./passwordSchema";
 import { registerParkWiseAccount } from "./registerParkWiseAccount";
+import { rememberRegisteredProfileName } from "./authSession";
 import { rememberPendingVerification } from "./pendingVerification";
 import { ApiError } from "@/shared/errors/api-error";
 
@@ -112,6 +113,7 @@ export function ParkWiseSignUpPage({
                 password: values.password,
                 phoneNumber: values.phone.trim(),
             });
+            rememberRegisteredProfileName(account.email, account.fullName);
             if (!rememberPendingVerification(account.email)) {
                 setSubmitError(
                     "Registration was accepted, but this browser could not open email verification. Please enable session storage and try again.",
