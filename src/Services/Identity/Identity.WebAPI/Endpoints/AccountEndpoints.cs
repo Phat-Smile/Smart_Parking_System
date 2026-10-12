@@ -231,10 +231,14 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status409Conflict);
 
         // US-AUTH-003: verify email OTP (public endpoint).
-        app.MapPost("/api/identity/accounts/verify-email", async (VerifyEmailRequest request, ISender sender, CancellationToken cancellationToken) =>
+        app.MapPost("/api/identity/accounts/verify-email", async (VerifyEmailRequest request, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
             {
                 var result = await sender.Send(
-                    new VerifyEmailOtpCommand(request.Email, request.OtpCode),
+                    new VerifyEmailOtpCommand(
+                        request.Email,
+                        request.OtpCode,
+                        httpContext.Request.Headers.UserAgent.ToString(),
+                        httpContext.Connection.RemoteIpAddress?.ToString()),
                     cancellationToken);
 
                 return result.IsSuccess
@@ -248,7 +252,7 @@ internal static class AccountEndpoints
             .WithTags("1. Đăng ký & Kích hoạt (Registration)")
             .WithName("VerifyEmailOtp")
             .WithSummary("Xác thực email bằng mã OTP")
-            .WithDescription("Bắt buộc: email, otpCode (6 chữ số).")
+            .WithDescription("Bắt buộc: email, otpCode (6 chữ số). Thành công thì đăng nhập luôn: `session` có cùng dạng với kết quả đăng nhập; `session` là null khi tài khoản đang bị tạm khóa đăng nhập.")
             .Produces<VerifiedEmailAccount>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
 
