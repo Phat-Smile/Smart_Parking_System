@@ -8,6 +8,7 @@ using ParkingSystem.Identity.Application.Accounts.ResetPassword;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
+using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Persistence;
@@ -267,6 +268,7 @@ public sealed class PasswordResetIntegrationTests(PostgreSqlContainerFixture pos
             s.GetRequiredService<IRefreshTokenRepository>(),
             new PlainPasswordHasher(),
             new PlainOtpHasher(),
+            s.GetRequiredService<IProfileRepository>(),
             new FixedClock(at));
         return await handler.Handle(new ResetPasswordCommand(email, code, newPassword), cancellationToken);
     }

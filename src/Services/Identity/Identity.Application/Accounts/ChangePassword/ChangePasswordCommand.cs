@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Common.Security;
+using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.ChangePassword;
@@ -41,6 +42,7 @@ public sealed class ChangePasswordCommandHandler(
     IAuthSessionRepository authSessions,
     IRefreshTokenRepository refreshTokens,
     IPasswordHasher passwordHasher,
+    IProfileRepository profiles,
     IClock clock) : IRequestHandler<ChangePasswordCommand, Result<PasswordChangedResult>>
 {
     public const string RevokedReason = "PasswordChanged";
@@ -86,6 +88,11 @@ public sealed class ChangePasswordCommandHandler(
                     Message = $"Mật khẩu hiện tại không chính xác. Bạn còn {Math.Max(0, Account.MaxFailedAttemptsBeforeLockout - account.FailedLoginAttempts)} lần thử trước khi đăng nhập bị tạm khóa {Account.LockoutDurationMinutes} phút trên mọi thiết bị."
                 });
             }
+
+            // Checked after the current password matched, so a rejected new password never counts as a failed login.
+            var profile = await profiles.FindByAccountIdAsync(account.Id, cancellationToken);
+            if (PasswordPolicy.ContainsPersonalInfo(request.NewPassword, account.Email, profile?.FullName))
+                return Result<PasswordChangedResult>.Failure(PasswordPolicy.PersonalInfoError);
 
             account.ResetPassword(passwordHasher.Hash(request.NewPassword));
             await authSessions.RevokeAllForAccountAsync(account.Id, now, RevokedReason, cancellationToken);
