@@ -3,15 +3,29 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RootNamespace>ParkingSystem.Tests.Parking.IntegrationTests</RootNamespace>
+    <!-- CS0436: the client proto types generated here intentionally shadow the server copies from Parking.WebAPI. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
-    <PackageReference Include="xunit.v3" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Services\Parking\Parking.WebAPI\Parking.WebAPI.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Compiled as a client the same way Booking will, so the gRPC tests double as a contract test. -->
+    <Protobuf Include="..\..\..\contracts\grpc\parking_availability.proto" GrpcServices="Client" Link="Protos\parking_availability.proto" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\..\src\Services\Parking\Parking.Persistence\Parking.Persistence.csproj" />
     <ProjectReference Include="..\..\..\src\Services\Parking\Parking.Infrastructure\Parking.Infrastructure.csproj" />
+    <!-- "global" keeps the HTTP tests working; the ParkingWebApi alias lets the gRPC tests reach the server types
+         without clashing with the client types generated above. -->
+    <ProjectReference Include="..\..\..\src\Services\Parking\Parking.WebAPI\Parking.WebAPI.csproj" Aliases="global,ParkingWebApi" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
   </ItemGroup>
 </Project>
