@@ -1,10 +1,10 @@
 :root{color-scheme:light;--bg:#f3f6fb;--card:#fff;--ink:#0f1b3d;--mut:#6a7491;--line:#e3e8f2;--pri:#2457e6;}
 .owner-portal *{box-sizing:border-box}
 .owner-portal{scroll-padding-top:env(safe-area-inset-top,0px);margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Be Vietnam Pro",system-ui,sans-serif}
-.owner-portal header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:20px;padding:10px clamp(16px,3vw,40px);overflow-x:auto}
+.owner-portal header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:10px clamp(16px,3vw,40px);overflow-x:auto}
 .owner-portal header h1{font-size:16px;margin:0;white-space:nowrap;font-weight:800}
 .owner-portal header h1 i{font-style:normal;color:var(--pri)}
-.owner-portal nav{display:flex;gap:4px}
+.owner-portal nav{display:flex;gap:4px;justify-content:center}
 .owner-portal nav button, .owner-portal nav a{border:0;background:none;color:var(--mut);padding:8px 14px;border-radius:99px;font:inherit;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
 .owner-portal nav button.on, .owner-portal nav a.on{background:var(--pri);color:#fff}
 .owner-portal nav button:focus-visible,.owner-portal .btn:focus-visible,.owner-portal .cell:focus-visible,.owner-portal input:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
