@@ -9,7 +9,8 @@ const manrope = Manrope({ subsets: ["latin", "vietnamese"], display: "swap" });
 
 export const metadata: Metadata = {
     title: "Complete Your Profile | ParkWise",
-    description: "Add the required information to complete your ParkWise profile.",
+    description:
+        "Add the required information to complete your ParkWise profile.",
     icons: { icon: "/images/parkwise/logo.png" },
 };
 

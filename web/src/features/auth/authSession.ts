@@ -43,7 +43,10 @@ export function clearAuthSession() {
     emitChange();
 }
 
-export function rememberRegisteredProfileName(email: string, fullName: string | null | undefined) {
+export function rememberRegisteredProfileName(
+    email: string,
+    fullName: string | null | undefined,
+) {
     if (!fullName?.trim()) return;
     try {
         window.sessionStorage.setItem(
@@ -57,9 +60,13 @@ export function rememberRegisteredProfileName(email: string, fullName: string | 
 
 export function readRegisteredProfileName(email: string) {
     try {
-        return window.sessionStorage.getItem(
-            `${REGISTERED_NAME_PREFIX}${email.trim().toLowerCase()}`,
-        )?.trim() ?? "";
+        return (
+            window.sessionStorage
+                .getItem(
+                    `${REGISTERED_NAME_PREFIX}${email.trim().toLowerCase()}`,
+                )
+                ?.trim() ?? ""
+        );
     } catch {
         return "";
     }
