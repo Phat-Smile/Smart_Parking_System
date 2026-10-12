@@ -635,6 +635,9 @@ public sealed class EmailOtpTests
 
         public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task<IReadOnlyList<AuthSession>> ListActiveForAccountAsync(Guid accountId, DateTimeOffset nowUtc, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AuthSession>>(Saved.Where(s => s.AccountId == accountId).ToList());
     }
 
     private sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
@@ -669,7 +672,7 @@ public sealed class EmailOtpTests
     {
         public int AccessTokenExpirationSeconds => 900;
 
-        public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => "access-token";
+        public string IssueAccessToken(Account account, Guid sessionId, DateTimeOffset nowUtc) => "access-token";
     }
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock

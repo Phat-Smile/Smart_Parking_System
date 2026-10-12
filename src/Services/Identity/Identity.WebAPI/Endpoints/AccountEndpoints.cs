@@ -97,6 +97,12 @@ internal static class AccountEndpoints
     public sealed record AuthTokenResponse(string AccessToken, string TokenType, int ExpiresIn, AccountDto Account);
 
     /// <summary>
+    /// Kết quả xác thực email. session giống body của đăng nhập (refresh token ở cookie HttpOnly sp_refresh);
+    /// null khi tài khoản đang bị tạm khóa đăng nhập, lúc đó người dùng đăng nhập lại sau.
+    /// </summary>
+    public sealed record VerifyEmailResponse(Guid AccountId, string Email, string Status, bool IsVerified, string Message, AuthTokenResponse? Session);
+
+    /// <summary>
     /// Dữ liệu yêu cầu đăng xuất phiên hiện tại.
     /// </summary>
     public sealed record LogoutRequest(
@@ -217,6 +223,12 @@ internal static class AccountEndpoints
         return Results.Ok(new AuthTokenResponse(accessToken, tokenType, expiresIn, account));
     }
 
+    private static AuthTokenResponse SessionTokens(HttpContext httpContext, LoginResponse response)
+    {
+        RefreshTokenCookie.Set(httpContext, response.RefreshToken, response.RefreshTokenExpiresAtUtc);
+        return new AuthTokenResponse(response.AccessToken, response.TokenType, response.ExpiresIn, response.Account);
+    }
+
     private static Guid? CurrentSessionId(HttpContext httpContext) =>
         Guid.TryParse(httpContext.User.FindFirst("sid")?.Value, out var sessionId) ? sessionId : null;
 
@@ -231,8 +243,7 @@ internal static class AccountEndpoints
     }
 
     private static IResult LoginResult(HttpContext httpContext, LoginResponse response) =>
-        TokenResult(httpContext, response.AccessToken, response.TokenType, response.ExpiresIn, response.RefreshToken,
-            response.RefreshTokenExpiresAtUtc, response.Account);
+        Results.Ok(SessionTokens(httpContext, response));
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -271,13 +282,18 @@ internal static class AccountEndpoints
                         httpContext.Connection.RemoteIpAddress?.ToString()),
                     cancellationToken);
 
-                return result.IsSuccess ? Results.Ok(result.Value) : Problem(httpContext, StatusCodes.Status400BadRequest, result.Error!);
+                if (!result.IsSuccess)
+                    return Problem(httpContext, StatusCodes.Status400BadRequest, result.Error!);
+
+                var verified = result.Value!;
+                return Results.Ok(new VerifyEmailResponse(verified.AccountId, verified.Email, verified.Status, verified.IsVerified, verified.Message,
+                    verified.Session is { } session ? SessionTokens(httpContext, session) : null));
             })
             .WithTags("1. Đăng ký & Kích hoạt (Registration)")
             .WithName("VerifyEmailOtp")
             .WithSummary("Xác thực email bằng mã OTP")
-            .WithDescription("Bắt buộc: email, otpCode (6 chữ số). Thành công thì đăng nhập luôn: `session` có cùng dạng với kết quả đăng nhập; `session` là null khi tài khoản đang bị tạm khóa đăng nhập.")
-            .Produces<VerifiedEmailAccount>(StatusCodes.Status200OK)
+            .WithDescription("Bắt buộc: email, otpCode (6 chữ số). Thành công thì đăng nhập luôn: `session` giống body của đăng nhập và Refresh Token đặt vào cookie HttpOnly sp_refresh; `session` là null (không có cookie) khi tài khoản đang bị tạm khóa đăng nhập.")
+            .Produces<VerifyEmailResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
 
         // US-AUTH-003: resend verification OTP (public endpoint).
