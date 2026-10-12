@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 using ParkingSystem.Identity.Application.Common.Security;
+using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.EmailVerifications;
 
@@ -57,6 +58,7 @@ public sealed class ResetPasswordCommandHandler(
     IRefreshTokenRepository refreshTokens,
     IPasswordHasher passwordHasher,
     IOtpHasher otpHasher,
+    IProfileRepository profiles,
     IClock clock) : IRequestHandler<ResetPasswordCommand, Result<PasswordResetResult>>
 {
     public const string RevokedReason = "PasswordReset";
@@ -99,6 +101,11 @@ public sealed class ResetPasswordCommandHandler(
             // saved here: the code stays usable and the user can retry at once with a different password.
             if (account.PasswordHash is { } currentHash && passwordHasher.Verify(request.NewPassword, currentHash))
                 return Result<PasswordResetResult>.Failure(ResetPasswordErrors.SameAsCurrentPassword);
+
+            // Same as above: only after the code matched, nothing saved, the code stays usable for a retry.
+            var profile = await profiles.FindByAccountIdAsync(account.Id, cancellationToken);
+            if (PasswordPolicy.ContainsPersonalInfo(request.NewPassword, account.Email, profile?.FullName))
+                return Result<PasswordResetResult>.Failure(PasswordPolicy.PersonalInfoError);
 
             account.ResetPassword(passwordHasher.Hash(request.NewPassword));
             await authSessions.RevokeAllForAccountAsync(account.Id, now, RevokedReason, cancellationToken);
