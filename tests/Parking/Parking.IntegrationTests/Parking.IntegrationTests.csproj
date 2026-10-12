@@ -12,4 +12,10 @@
     <ProjectReference Include="..\..\..\src\Services\Parking\Parking.Infrastructure\Parking.Infrastructure.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\scripts\database\Seed-ParkingCatalog.sql"
+          Link="Seed-ParkingCatalog.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\scripts\database\Validate-ParkingCatalogSeed.sql"
+          Link="Validate-ParkingCatalogSeed.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
