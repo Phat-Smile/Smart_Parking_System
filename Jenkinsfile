@@ -68,5 +68,21 @@ pipeline {
                 sh 'dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --no-build --no-restore'
             }
         }
+
+        stage('Integration Tests') {
+            environment {
+                TESTCONTAINERS_HOST_OVERRIDE = 'host.docker.internal'
+            }
+            steps {
+                sh '''
+                    set -e
+                    dotnet test tests/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj --no-build --no-restore --parallel none
+                    dotnet test tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj --no-build --no-restore --parallel none
+                    dotnet test tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj --no-build --no-restore --parallel none
+                    dotnet test tests/Payment/Payment.IntegrationTests/Payment.IntegrationTests.csproj --no-build --no-restore --parallel none
+                    dotnet test tests/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj --no-build --no-restore --parallel none
+                '''
+            }
+        }
     }
 }
