@@ -408,10 +408,10 @@ export default function ParkingLotApprovalDetailPage() {
                                 <div
                                     key={zone.name}
                                     className={`flex min-h-28 flex-col items-center justify-center rounded-xl border p-3 text-center ${index === 0
-                                            ? "border-blue-200 bg-blue-50"
-                                            : index === 1
-                                                ? "border-violet-200 bg-violet-50"
-                                                : "border-emerald-200 bg-emerald-50"
+                                        ? "border-blue-200 bg-blue-50"
+                                        : index === 1
+                                            ? "border-violet-200 bg-violet-50"
+                                            : "border-emerald-200 bg-emerald-50"
                                         }`}
                                 >
                                     <span className="text-sm font-bold">{zone.name}</span>
@@ -431,26 +431,42 @@ export default function ParkingLotApprovalDetailPage() {
                     </div>
                 </Section>
 
-                {/* Review actions are informational in this story */}
+
+                {/* Review actions */}
                 <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:p-6">
                     <div>
                         <p className="font-semibold text-slate-900">
                             Ready for review
                         </p>
                         <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                            Verify the submitted details before making a decision.
-                            Approval and rejection workflows should be implemented
-                            separately and confirmed by the backend.
+                            Review the submitted information and choose an action.
                         </p>
                     </div>
 
-                    <Link
-                        href="/admin/parking-lots/pending"
-                        className="inline-flex shrink-0 items-center justify-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700"
-                    >
-                        Back to applications
-                    </Link>
+                    <div className="flex flex-wrap gap-3">
+                        <Link
+                            href="/admin/parking-lots/pending"
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                            Back to applications
+                        </Link>
+
+                        <Link
+                            href={`/admin/parking-lots/${encodeURIComponent(parkingLot.id)}/reject`}
+                            className="inline-flex items-center justify-center rounded-lg bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700"
+                        >
+                            Reject
+                        </Link>
+
+                        <Link
+                            href={`/admin/parking-lots/${encodeURIComponent(parkingLot.id)}/approve`}
+                            className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                        >
+                            Approve
+                        </Link>
+                    </div>
                 </div>
+
             </div>
         </main>
     );
