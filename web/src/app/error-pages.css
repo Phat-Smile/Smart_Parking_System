@@ -1,0 +1,219 @@
+.parkwise-error-page {
+    background: #fafafa;
+}
+
+.parkwise-error-main {
+    display: flex;
+    align-items: center;
+    min-height: min(800px, 100svh);
+    padding: calc(var(--parkwise-nav-height) + 56px) 0 72px;
+}
+
+.parkwise-error-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr);
+    gap: clamp(32px, 6vw, 96px);
+    align-items: center;
+}
+
+.parkwise-error-copy {
+    max-width: 610px;
+}
+
+.parkwise-error-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px !important;
+    color: #525252;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+}
+
+.parkwise-error-eyebrow-line {
+    width: 26px;
+    height: 2px;
+    background: #171717;
+}
+
+.parkwise-error-copy h1 {
+    max-width: 12ch;
+    font-size: clamp(46px, 5vw, 76px);
+    font-weight: 800;
+    letter-spacing: -0.055em;
+    line-height: 1.08;
+    text-wrap: balance;
+}
+
+.parkwise-error-description {
+    max-width: 48ch;
+    margin-top: 28px !important;
+    color: #525252;
+    font-size: clamp(16px, 1.3vw, 18px);
+    line-height: 1.7;
+}
+
+.parkwise-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    margin-top: 36px;
+}
+
+.parkwise-error-primary,
+.parkwise-error-secondary {
+    display: inline-flex;
+    min-height: 50px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    border: 1px solid #171717;
+    border-radius: 999px;
+    padding: 11px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+    transition:
+        background-color 180ms ease,
+        color 180ms ease,
+        transform 180ms ease;
+}
+
+.parkwise-error-primary {
+    background: #eafe89;
+    color: #171717;
+}
+
+.parkwise-error-primary:hover {
+    background: #ddf66f;
+    transform: translateY(-2px);
+}
+
+.parkwise-error-primary span {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.parkwise-error-secondary {
+    background: transparent;
+    color: #171717;
+}
+
+.parkwise-error-secondary:hover {
+    background: #171717;
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.parkwise-error-visual {
+    position: relative;
+    display: flex;
+    min-height: clamp(360px, 42vw, 540px);
+    overflow: hidden;
+    align-items: center;
+    justify-content: center;
+    border-radius: 28px;
+    background: #171717;
+    isolation: isolate;
+}
+
+.parkwise-error-image {
+    object-fit: cover;
+    object-position: 58% center;
+    opacity: 0.78;
+}
+
+.parkwise-error-visual-shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgb(0 0 0 / 0.65),
+        rgb(0 0 0 / 0.12) 60%,
+        rgb(0 0 0 / 0.8)
+    );
+}
+
+.parkwise-error-visual-number {
+    position: relative;
+    color: #eafe89;
+    font-size: clamp(138px, 17vw, 260px);
+    font-weight: 800;
+    letter-spacing: -0.09em;
+    line-height: 1;
+    text-shadow: 0 12px 50px rgb(0 0 0 / 0.25);
+}
+
+.parkwise-error-visual-caption {
+    position: absolute;
+    right: 28px;
+    bottom: 26px;
+    left: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.parkwise-error-visual-marker {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #eafe89;
+}
+
+@media (max-width: 900px) {
+    .parkwise-error-layout {
+        gap: 36px;
+    }
+
+    .parkwise-error-copy h1 {
+        font-size: clamp(42px, 5vw, 60px);
+    }
+}
+
+@media (max-width: 767px) {
+    .parkwise-error-main {
+        min-height: auto;
+        padding: calc(var(--parkwise-nav-height) + 54px) 0 64px;
+    }
+
+    .parkwise-error-layout {
+        grid-template-columns: 1fr;
+        gap: 48px;
+    }
+
+    .parkwise-error-copy h1 {
+        font-size: clamp(42px, 11vw, 58px);
+    }
+
+    .parkwise-error-description {
+        margin-top: 22px !important;
+    }
+
+    .parkwise-error-visual {
+        min-height: 260px;
+        border-radius: 20px;
+    }
+
+    .parkwise-error-visual-number {
+        font-size: clamp(110px, 31vw, 180px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .parkwise-error-primary,
+    .parkwise-error-secondary {
+        transition: none;
+    }
+
+    .parkwise-error-primary:hover,
+    .parkwise-error-secondary:hover {
+        transform: none;
+    }
+}

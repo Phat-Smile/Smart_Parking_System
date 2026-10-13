@@ -37,6 +37,7 @@ const initializeTheme = `
 export const metadata: Metadata = {
     title: "ParkWise - Find parking before you arrive",
     description: "ParkWise web application",
+    icons: { icon: "/images/parkwise/logo.png" },
 };
 
 export default function RootLayout({
