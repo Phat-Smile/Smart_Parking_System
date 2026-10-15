@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { useParkingStore } from "../../store/useParkingStore";
 import { CarFactory } from "./CarFactory";
 import { Html } from "@react-three/drei";
-import { MeshStandardMaterial, Color } from "three";
+import { Color } from "three";
 
 const STATUS_COLORS: Record<string, string> = {
   available: "#6fcf2e",
@@ -65,7 +65,7 @@ const SlotMarkers = React.memo(() => {
             {/* Car Instance */}
             {slot.status === "occupied" && slot.vehicle && (
               <CarFactory 
-                type={slot.vehicle.type} 
+                type={slot.vehicle.type || "sedan"} 
                 position={[0, 0, 0]} 
                 rotation={[0, rotY, 0]} 
                 // Add a slight random color offset based on slot ID for variety
