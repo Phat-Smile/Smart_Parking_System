@@ -7,8 +7,6 @@ type SegmentedOtpInputProps = {
     value: string[];
     onChange: (value: string[]) => void;
     error?: string;
-    labelId?: string;
-    errorId?: string;
     disabled?: boolean;
     resetKey?: number;
     shaking?: boolean;
@@ -18,8 +16,6 @@ export function SegmentedOtpInput({
     value,
     onChange,
     error,
-    labelId = "parkwise-otp-label",
-    errorId = "parkwise-otp-error",
     disabled = false,
     resetKey = 0,
     shaking = false,
@@ -94,7 +90,7 @@ export function SegmentedOtpInput({
         <div
             className={`parkwise-otp-digits${shaking ? " parkwise-otp-shake" : ""}`}
             role="group"
-            aria-labelledby={labelId}
+            aria-labelledby="parkwise-otp-label"
         >
             {value.map((digit, index) => (
                 <input
@@ -113,7 +109,7 @@ export function SegmentedOtpInput({
                     disabled={disabled}
                     aria-label={`Digit ${index + 1} of ${length}`}
                     aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
+                    aria-describedby={error ? "parkwise-otp-error" : undefined}
                     onFocus={(event) => event.currentTarget.select()}
                     onChange={(event) => onDigitChange(event, index)}
                     onKeyDown={(event) => onDigitKeyDown(event, index)}

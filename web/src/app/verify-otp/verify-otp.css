@@ -1,106 +1,64 @@
-/* Restore the illustrated Customer Auth layout from Design_CustomerAuthApiIntegration. */
-.parkwise-otp-page .parkwise-login-section {
-    min-height: calc(100vh - var(--parkwise-nav-height));
-    padding: 32px 0 !important;
-}
-.parkwise-otp-page .parkwise-login-card {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    min-height: min(660px, calc(100vh - var(--parkwise-nav-height) - 48px));
-}
+/* OTP uses the ParkWise Login/Register Auth shell and form controls. */
 .parkwise-otp-page .parkwise-login-aside {
-    padding: 32px;
+    padding: 24px;
 }
 .parkwise-otp-page .parkwise-welcome {
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 }
 .parkwise-otp-page .parkwise-welcome h1 {
     margin-bottom: 16px;
-    text-align: left;
 }
-.parkwise-otp-aside .parkwise-login-description {
+.parkwise-otp-page .parkwise-aside-box {
+    padding: 16px;
+}
+.parkwise-otp-back-box {
+    margin-bottom: 16px;
+}
+.parkwise-otp-back-box p {
+    margin-bottom: 12px;
     color: #d1d5db;
-    font-size: 18px;
-    line-height: 1.65;
+    text-align: center;
 }
-.parkwise-otp-aside .parkwise-login-illustration {
+.parkwise-otp-back-link {
+    display: block;
     width: 100%;
-    max-height: 390px;
-    flex: 1 1 auto;
-    object-fit: contain;
+    border-radius: 12px;
+    padding: 11px 18px;
+    background: #fff;
+    color: #171717 !important;
+    font-weight: 500;
+    text-align: center;
+    transition: background-color 0.2s;
+}
+.parkwise-otp-back-link:hover {
+    background: #f3f4f6;
+}
+.parkwise-otp-page .parkwise-support {
+    margin-bottom: 16px;
 }
 .parkwise-otp-form-panel form {
     max-width: 448px;
-    gap: 16px;
+    gap: 20px;
 }
-.parkwise-otp-instruction {
+.parkwise-otp-session-note {
+    padding: 16px;
+    border-radius: 12px;
+    background: #f9fafb;
     color: #4b5563;
     text-align: center;
-    overflow-wrap: anywhere;
 }
-.parkwise-otp-expiry {
-    align-self: center;
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: #f3f4f6;
-    color: #374151;
-    text-align: center;
-    font-size: 14px;
+.parkwise-otp-session-note p + p {
+    margin-top: 4px;
 }
-.parkwise-otp-expiry.is-expired {
-    background: #fef2f2;
-    color: #b91c1c;
-}
-.parkwise-otp-locked {
-    padding: 12px 14px;
-    border-radius: 8px;
-    background: #fff7ed;
-    color: #9a3412;
-    line-height: 1.4;
-    text-align: center;
-}
-.parkwise-visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-.parkwise-otp-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    width: 100%;
-    max-width: 448px;
-    text-align: center;
-}
-.parkwise-otp-empty svg {
-    width: 32px;
-    height: 32px;
-    color: #6b7280;
-}
-.parkwise-otp-empty p,
-.parkwise-otp-verified p {
+.parkwise-otp-label {
     color: #4b5563;
-}
-.parkwise-otp-empty .parkwise-login-submit,
-.parkwise-otp-verified .parkwise-login-submit {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff !important;
+    font-weight: 500;
 }
 .parkwise-otp-digits {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 8px;
     width: 100%;
-    max-width: 360px;
-    margin: 0 auto;
 }
 .parkwise-otp-digits input {
     width: 100%;
@@ -171,20 +129,9 @@
 }
 
 @media (max-width: 767px) {
-    .parkwise-otp-page .parkwise-login-section {
-        min-height: 0;
-        padding: 24px 0 !important;
-    }
-    .parkwise-otp-page .parkwise-login-card {
-        grid-template-columns: 1fr;
-        min-height: 0;
-    }
     .parkwise-otp-page .parkwise-login-aside,
     .parkwise-otp-form-panel {
         padding: 24px;
-    }
-    .parkwise-otp-aside .parkwise-login-illustration {
-        max-height: 220px;
     }
 }
 @media (max-width: 430px) {

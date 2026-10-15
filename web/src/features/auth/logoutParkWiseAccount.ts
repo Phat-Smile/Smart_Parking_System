@@ -8,6 +8,7 @@ export async function logoutParkWiseAccount() {
             "/api/identity/accounts/logout",
             {
                 method: "POST",
+                credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 // Current Identity implementation still requires the body token.
                 body: JSON.stringify(

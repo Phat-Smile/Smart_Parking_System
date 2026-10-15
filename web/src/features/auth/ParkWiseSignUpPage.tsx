@@ -16,10 +16,7 @@ import {
 import { passwordSchema } from "./passwordSchema";
 import { registerParkWiseAccount } from "./registerParkWiseAccount";
 import { rememberRegisteredProfileName } from "./authSession";
-import {
-    rememberPendingVerification,
-    VERIFICATION_CODE_LIFETIME_SECONDS,
-} from "./pendingVerification";
+import { rememberPendingVerification } from "./pendingVerification";
 import { ApiError } from "@/shared/errors/api-error";
 
 const signUpSchema = z
@@ -123,8 +120,13 @@ export function ParkWiseSignUpPage({
         },
     });
     const password = useWatch({ control, name: "password" }) || "";
-    const passwordMeetsRequirements =
-        passwordSchema.safeParse(password).success;
+    const passwordChecks = [
+        [password.length >= 8, "At least 8 characters"],
+        [/[A-Z]/.test(password), "One uppercase letter"],
+        [/[a-z]/.test(password), "One lowercase letter"],
+        [/[0-9]/.test(password), "One number"],
+        [/[^A-Za-z0-9]/.test(password), "One special character"],
+    ] as const;
 
     async function onSubmit(values: SignUpValues) {
         setNotice("");
@@ -140,13 +142,7 @@ export function ParkWiseSignUpPage({
                 phoneNumber: values.phone.trim() || null,
             });
             rememberRegisteredProfileName(account.email, account.fullName);
-            if (
-                !rememberPendingVerification(
-                    account.email,
-                    60,
-                    VERIFICATION_CODE_LIFETIME_SECONDS,
-                )
-            ) {
+            if (!rememberPendingVerification(account.email, 60)) {
                 setSubmitError(
                     "Registration was accepted, but this browser could not open email verification. Please enable session storage and try again.",
                 );
@@ -187,11 +183,9 @@ export function ParkWiseSignUpPage({
         setSubmitError("");
         try {
             const account = await googleLoginParkWiseAccount(idToken);
-            if (account.role === "Customer") {
-                router.replace("/customer/complete-profile");
-            } else {
-                setNotice(`Signed in with Google as ${account.email}.`);
-            }
+            setNotice(
+                `Signed in with Google as ${account.email}. Persistent sign-in is not available until session management is connected.`,
+            );
         } catch (error) {
             if (
                 error instanceof ApiError &&
@@ -364,8 +358,8 @@ export function ParkWiseSignUpPage({
                                     aria-invalid={Boolean(errors.password)}
                                     aria-describedby={
                                         errors.password
-                                            ? "parkwise-signup-password-error parkwise-signup-password-help"
-                                            : "parkwise-signup-password-help"
+                                            ? "parkwise-signup-password-error"
+                                            : undefined
                                     }
                                     {...register("password")}
                                 />
@@ -391,6 +385,16 @@ export function ParkWiseSignUpPage({
                                     {errors.password.message}
                                 </p>
                             )}
+                            <ul
+                                className="parkwise-password-checklist"
+                                aria-label="Password requirements"
+                            >
+                                {passwordChecks.map(([met, label]) => (
+                                    <li key={label} data-met={met}>
+                                        {met ? "✓" : "○"} {label}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-signup-confirm-password">
@@ -443,17 +447,6 @@ export function ParkWiseSignUpPage({
                             )}
                         </div>
                     </div>
-
-                    <p
-                        id="parkwise-signup-password-help"
-                        className="parkwise-signup-password-help"
-                        data-met={passwordMeetsRequirements}
-                        aria-live="polite"
-                    >
-                        {passwordMeetsRequirements
-                            ? "Password meets the requirements."
-                            : "Use 8+ characters with uppercase, lowercase, a number, and a symbol."}
-                    </p>
 
                     <button
                         className="parkwise-login-submit"

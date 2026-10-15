@@ -81,6 +81,7 @@ registerAuthRefreshHandler(async () => {
         new URL("/api/identity/accounts/refresh", `${getGatewayBaseUrl()}/`),
         {
             method: "POST",
+            credentials: "include",
             headers: {
                 "Content-Type": "application/json",
                 Accept: "application/json",

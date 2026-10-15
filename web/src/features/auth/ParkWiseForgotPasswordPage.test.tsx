@@ -4,9 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ParkWiseForgotPasswordPage } from "./ParkWiseForgotPasswordPage";
 import { requestPasswordReset } from "./requestPasswordReset";
 
-const pushMock = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
-
 vi.mock("./ParkWiseAuthLayout", () => ({
     ParkWiseAuthLayout: ({ children }: { children: ReactNode }) => (
         <div>{children}</div>
@@ -20,11 +17,7 @@ vi.mock("./requestPasswordReset", () => ({ requestPasswordReset: vi.fn() }));
 const requestMock = vi.mocked(requestPasswordReset);
 
 describe("ParkWise Forgot Password", () => {
-    beforeEach(() => {
-        requestMock.mockReset();
-        pushMock.mockReset();
-        window.sessionStorage.clear();
-    });
+    beforeEach(() => requestMock.mockReset());
 
     it("requires a valid email without sending a request", async () => {
         render(<ParkWiseForgotPasswordPage fontClassName="test-font" />);
@@ -67,20 +60,8 @@ describe("ParkWise Forgot Password", () => {
         ).toBeInTheDocument();
         expect(requestMock).toHaveBeenCalledWith("driver@example.com");
         expect(
-            screen.getByRole("group", { name: "Six-digit code" }),
-        ).toBeInTheDocument();
-        for (const [index, digit] of [..."012345"].entries()) {
-            fireEvent.change(
-                screen.getByRole("textbox", {
-                    name: `Digit ${index + 1} of 6`,
-                }),
-                {
-                    target: { value: digit },
-                },
-            );
-        }
-        fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-        expect(pushMock).toHaveBeenCalledWith("/reset-password");
+            screen.getByRole("link", { name: "Enter Reset Code" }),
+        ).toHaveAttribute("href", "/reset-password?email=driver%40example.com");
         fireEvent.click(screen.getByRole("button", { name: "Resend code" }));
         await waitFor(() => expect(requestMock).toHaveBeenCalledTimes(2));
         expect(
