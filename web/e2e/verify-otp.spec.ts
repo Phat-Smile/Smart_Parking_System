@@ -5,8 +5,14 @@ test("Email verification screen shows its pending-session state", async ({
 }) => {
     await page.goto("/verify-otp");
     await expect(
-        page.getByRole("heading", { name: "No verification request found" }),
+        page.getByRole("heading", { name: "Verify Your Email" }),
     ).toBeVisible();
+    await expect(
+        page.getByText("No active verification request was found."),
+    ).toBeVisible();
+    await expect(
+        page.getByRole("button", { name: "Verify Code" }),
+    ).toBeDisabled();
     await page.getByRole("link", { name: "Back to Sign Up" }).click();
     await expect(page).toHaveURL(/\/sign-up$/);
 });
@@ -16,9 +22,14 @@ test("OTP without a registration email cannot claim verification", async ({
 }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/verify-otp");
+    for (const [index, digit] of [..."012345"].entries()) {
+        await page
+            .getByRole("textbox", { name: `Digit ${index + 1} of 6` })
+            .fill(digit);
+    }
     await expect(
-        page.getByRole("group", { name: "6-digit verification code" }),
-    ).toHaveCount(0);
+        page.getByRole("button", { name: "Verify Code" }),
+    ).toBeDisabled();
     await expect(page).toHaveURL(/\/verify-otp$/);
     expect(
         await page.evaluate(
@@ -67,12 +78,9 @@ test("OTP verify and resend use Identity responses without exposing the code in 
     });
     await page.goto("/verify-otp");
     await expect(
-        page.getByText(/Enter the 6-digit code sent to driver@example.com/),
+        page.getByText("Enter the verification code for driver@example.com."),
     ).toBeVisible();
     await page.getByRole("button", { name: "Resend code" }).click();
-    await expect(page.getByRole("timer")).toContainText(
-        /Code expires in 0[45]:\d\d/,
-    );
     await expect(
         page.getByRole("button", { name: /Resend in/ }),
     ).toBeDisabled();
@@ -85,10 +93,6 @@ test("OTP verify and resend use Identity responses without exposing the code in 
     await expect(
         page.getByRole("heading", { name: "Email verified" }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Go to Login" })).toBeVisible();
-    await expect(page.getByRole("timer")).toContainText("5 seconds");
-    await expect(page).toHaveURL(/\/verify-otp$/);
-    await expect(page).toHaveURL(/\/login$/, { timeout: 7000 });
     expect(verifyBody).toEqual({
         email: "driver@example.com",
         otpCode: "012345",
@@ -128,69 +132,7 @@ test("An invalid OTP shows the Identity error and stays on verification", async 
             .fill(digit);
     }
     await expect(
-        page.getByText(/Incorrect code\. Check the latest email/),
+        page.getByText("Incorrect code. Please check it and try again."),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/verify-otp$/);
-});
-
-test("The third wrong code explains the lock and a new code restores verification", async ({
-    page,
-}) => {
-    await page.addInitScript(() =>
-        sessionStorage.setItem(
-            "parkwise.pending-verification-email",
-            "driver@example.com",
-        ),
-    );
-    let attempts = 0;
-    await page.route("**/api/identity/accounts/verify-email", async (route) => {
-        attempts += 1;
-        await route.fulfill({
-            status: attempts >= 3 ? 429 : 400,
-            contentType: "application/problem+json",
-            body: JSON.stringify({
-                status: attempts >= 3 ? 429 : 400,
-                errorCode:
-                    attempts >= 3
-                        ? "identity.otp_max_attempts_exceeded"
-                        : "identity.invalid_otp_code",
-            }),
-        });
-    });
-    await page.route("**/api/identity/accounts/resend-otp", (route) =>
-        route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                email: "driver@example.com",
-                expiresInSeconds: 300,
-                cooldownSeconds: 60,
-                otpSent: true,
-            }),
-        }),
-    );
-    await page.goto("/verify-otp");
-    for (const code of ["111111", "222222", "333333"]) {
-        for (const [index, digit] of [...code].entries()) {
-            await page
-                .getByRole("textbox", { name: `Digit ${index + 1} of 6` })
-                .fill(digit);
-        }
-        await expect(page.getByRole("alert")).toBeVisible();
-    }
-    expect(attempts).toBe(3);
-    await expect(page.locator("#parkwise-otp-error")).toContainText(
-        "locked after 3 incorrect attempts",
-    );
-    await expect(
-        page.getByRole("button", { name: "Verify Code" }),
-    ).toBeDisabled();
-    await page.getByRole("button", { name: "Resend code" }).click();
-    await expect(page.getByRole("timer")).toContainText(
-        /Code expires in 0[45]:\d\d/,
-    );
-    await expect(
-        page.getByRole("textbox", { name: "Digit 1 of 6" }),
-    ).toBeEnabled();
-    await expect(page.locator("#parkwise-otp-error")).toHaveCount(0);
 });

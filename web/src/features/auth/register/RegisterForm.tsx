@@ -9,10 +9,7 @@ import { ApiError } from "@/shared/errors/api-error";
 import { RegisterIcon } from "./RegisterIcons";
 import { registerAccount } from "./registerApi";
 import { registerSchema, type RegisterValues } from "./registerSchema";
-import {
-    rememberPendingVerification,
-    VERIFICATION_CODE_LIFETIME_SECONDS,
-} from "../pendingVerification";
+import { rememberPendingVerification } from "../pendingVerification";
 import { rememberRegisteredProfileName } from "../authSession";
 
 function GoogleMark() {
@@ -79,13 +76,7 @@ export function RegisterForm() {
                 phoneNumber: values.phoneNumber || null,
             });
             rememberRegisteredProfileName(account.email, account.fullName);
-            if (
-                !rememberPendingVerification(
-                    account.email,
-                    60,
-                    VERIFICATION_CODE_LIFETIME_SECONDS,
-                )
-            ) {
+            if (!rememberPendingVerification(account.email, 60)) {
                 setNotice(
                     "Account created. Open email verification in this browser to enter your code.",
                 );
