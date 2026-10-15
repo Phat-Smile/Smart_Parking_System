@@ -10,10 +10,13 @@ interface GoogleStyleMapProps {
   filteredLots: ReturnType<typeof useAllLots>;
 }
 
-// Subdomains for load-balancing Carto tiles
-const TILE_SUBDOMAINS = ['a', 'b', 'c', 'd'];
+// Google Maps Tile Subdomains
+const GOOGLE_TILE_SERVERS = ['mt0', 'mt1', 'mt2', 'mt3'];
 
-// Mercator Projection Math (EPSG:3857)
+// Latitude offset when focusing a lot so pin is lower on screen and popup doesn't clip
+const FOCUS_LAT_OFFSET = 0.0036;
+
+// Web Mercator projection formulas (EPSG:3857)
 function latLonToPixel(lat: number, lon: number, zoom: number): { x: number; y: number } {
   const siny = Math.sin((lat * Math.PI) / 180);
   const clampedSiny = Math.min(Math.max(siny, -0.9999), 0.9999);
@@ -32,7 +35,6 @@ function pixelToLatLon(x: number, y: number, zoom: number): { lat: number; lon: 
   return { lat, lon };
 }
 
-// Calculate meters per pixel for Google Maps scale bar
 function getMetersPerPixel(lat: number, zoom: number): number {
   return (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
 }
@@ -46,9 +48,9 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
   const [center, setCenter] = useState<{ lat: number; lon: number }>(() => {
     if (selectedLotId) {
       const c = getLotCoordinates(selectedLotId);
-      return { lon: c[0], lat: c[1] };
+      return { lon: c[0], lat: c[1] + FOCUS_LAT_OFFSET };
     }
-    return { lon: 106.7035, lat: 10.7745 }; // Nguyễn Huệ, Quận 1
+    return { lon: 106.7035, lat: 10.7745 + FOCUS_LAT_OFFSET }; // Nguyễn Huệ, Quận 1
   });
 
   const [zoom, setZoom] = useState<number>(14.5);
@@ -57,7 +59,7 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
 
   // Container dimensions
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 420 });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 440 });
 
   // Drag interaction state
   const isDraggingRef = useRef(false);
@@ -71,8 +73,8 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         setDimensions({
-          width: Math.max(300, rect.width),
-          height: Math.max(260, rect.height),
+          width: Math.max(300, Math.round(rect.width)),
+          height: Math.max(260, Math.round(rect.height)),
         });
       }
     };
@@ -81,20 +83,19 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
     return () => window.removeEventListener('resize', updateSize);
   }, [isFullscreen]);
 
-  // When selectedLotId changes from outside (e.g. clicking card below), pan to it
+  // When selectedLotId changes from outside, pan to it with comfortable vertical offset
   const [prevLotId, setPrevLotId] = useState(selectedLotId);
   if (selectedLotId !== prevLotId) {
     setPrevLotId(selectedLotId);
     if (selectedLotId) {
       const coords = getLotCoordinates(selectedLotId);
-      setCenter({ lon: coords[0], lat: coords[1] });
-      setZoom((prev) => Math.max(14, prev));
+      setCenter({ lon: coords[0], lat: coords[1] + FOCUS_LAT_OFFSET });
+      setZoom((prev) => Math.max(14.5, prev));
     }
   }
 
   // Pan handlers
   const handlePointerDown = (e: React.PointerEvent) => {
-    // Only drag with left mouse button or single touch
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     isDraggingRef.current = true;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
@@ -133,7 +134,7 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
     }
   };
 
-  // Mouse wheel zoom
+  // Mouse wheel zoom centered on cursor
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const zoomDelta = e.deltaY > 0 ? -0.35 : 0.35;
@@ -154,7 +155,7 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
     };
     const targetCoords = pixelToLatLon(targetPixel.x, targetPixel.y, zoom);
     setCenter(targetCoords);
-    setZoom((z) => Math.min(18, z + 1));
+    setZoom((z) => Math.min(18, Math.floor(z + 1)));
   };
 
   // Zoom controls
@@ -163,51 +164,61 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
   const handleRecenter = () => {
     if (selectedLotId) {
       const coords = getLotCoordinates(selectedLotId);
-      setCenter({ lon: coords[0], lat: coords[1] });
+      setCenter({ lon: coords[0], lat: coords[1] + FOCUS_LAT_OFFSET });
       setZoom(15);
     } else {
-      setCenter({ lon: 106.7035, lat: 10.7745 });
+      setCenter({ lon: 106.7035, lat: 10.7745 + FOCUS_LAT_OFFSET });
       setZoom(14.5);
     }
   };
 
-  // Visible tiles calculation
+  // Visible tiles calculation with DIRECT screen coordinates
   const intZoom = Math.floor(zoom);
   const zoomScale = Math.pow(2, zoom - intZoom);
   const centerPixelInt = latLonToPixel(center.lat, center.lon, intZoom);
+  const tileSize = 256 * zoomScale;
 
   const halfW = dimensions.width / (2 * zoomScale);
   const halfH = dimensions.height / (2 * zoomScale);
 
-  const minX = Math.floor((centerPixelInt.x - halfW) / 256);
-  const maxX = Math.floor((centerPixelInt.x + halfW) / 256);
-  const minY = Math.floor((centerPixelInt.y - halfH) / 256);
-  const maxY = Math.floor((centerPixelInt.y + halfH) / 256);
+  const minX = Math.floor((centerPixelInt.x - halfW) / 256) - 1;
+  const maxX = Math.floor((centerPixelInt.x + halfW) / 256) + 1;
+  const minY = Math.floor((centerPixelInt.y - halfH) / 256) - 1;
+  const maxY = Math.floor((centerPixelInt.y + halfH) / 256) + 1;
 
   const maxTileIndex = Math.pow(2, intZoom) - 1;
 
-  const visibleTiles: { key: string; x: number; y: number; z: number; px: number; py: number; url: string }[] = [];
+  interface TileItem {
+    key: string;
+    screenX: number;
+    screenY: number;
+    size: number;
+    url: string;
+  }
+
+  const visibleTiles: TileItem[] = [];
   for (let tx = minX; tx <= maxX; tx++) {
     for (let ty = minY; ty <= maxY; ty++) {
       if (ty < 0 || ty > maxTileIndex) continue;
       const wrappedX = ((tx % (maxTileIndex + 1)) + (maxTileIndex + 1)) % (maxTileIndex + 1);
 
-      const px = tx * 256;
-      const py = ty * 256;
-      const sub = TILE_SUBDOMAINS[Math.abs(tx + ty) % TILE_SUBDOMAINS.length];
+      // Direct screen coordinates relative to container top-left
+      const screenX = dimensions.width / 2 + (tx * 256 - centerPixelInt.x) * zoomScale;
+      const screenY = dimensions.height / 2 + (ty * 256 - centerPixelInt.y) * zoomScale;
 
+      const sub = GOOGLE_TILE_SERVERS[Math.abs(tx + ty) % GOOGLE_TILE_SERVERS.length];
+
+      // Google Maps Tile API (lyrs=m for standard vector streets, lyrs=y for hybrid satellite with road labels)
       const url =
         mapType === 'streets'
-          ? `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${intZoom}/${wrappedX}/${ty}.png`
-          : `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${intZoom}/${ty}/${wrappedX}`;
+          ? `https://${sub}.google.com/vt/lyrs=m&hl=vi&x=${wrappedX}&y=${ty}&z=${intZoom}`
+          : `https://${sub}.google.com/vt/lyrs=y&hl=vi&x=${wrappedX}&y=${ty}&z=${intZoom}`;
 
       visibleTiles.push({
-        key: `${mapType}-${intZoom}-${tx}-${ty}`,
-        x: tx,
-        y: ty,
-        z: intZoom,
-        px,
-        py,
+        key: `gm-${mapType}-${intZoom}-${wrappedX}-${ty}`,
+        screenX,
+        screenY,
+        size: tileSize,
         url,
       });
     }
@@ -255,65 +266,50 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
         width: '100%',
         height: isFullscreen ? '100vh' : '100%',
         overflow: 'hidden',
-        background: mapType === 'streets' ? '#e5e3df' : '#0a192f',
+        background: mapType === 'streets' ? '#eef0f2' : '#0a192f',
         cursor: isCursorGrabbing ? 'grabbing' : 'grab',
         userSelect: 'none',
         touchAction: 'none',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
-      {/* Tile Canvas / Viewport Layer */}
+      {/* Real-time Google Maps Tile Layer */}
       <div
         style={{
           position: 'absolute',
-          left: dimensions.width / 2,
-          top: dimensions.height / 2,
-          transform: `scale(${zoomScale})`,
-          transformOrigin: '0 0',
-          willChange: 'transform',
+          inset: 0,
           pointerEvents: 'none',
+          overflow: 'hidden',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            left: -centerPixelInt.x,
-            top: -centerPixelInt.y,
-            width: 0,
-            height: 0,
-          }}
-        >
-          {visibleTiles.map((tile) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={tile.key}
-              src={tile.url}
-              alt=""
-              loading="eager"
-              decoding="async"
-              draggable={false}
-              style={{
-                position: 'absolute',
-                left: tile.px,
-                top: tile.py,
-                width: 256,
-                height: 256,
-                display: 'block',
-                imageRendering: 'auto',
-                userSelect: 'none',
-                pointerEvents: 'none',
-              }}
-            />
-          ))}
-        </div>
+        {visibleTiles.map((tile) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={tile.key}
+            src={tile.url}
+            alt=""
+            loading="eager"
+            decoding="async"
+            draggable={false}
+            style={{
+              position: 'absolute',
+              left: Math.round(tile.screenX),
+              top: Math.round(tile.screenY),
+              width: Math.ceil(tile.size) + 1,
+              height: Math.ceil(tile.size) + 1,
+              display: 'block',
+              userSelect: 'none',
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
       </div>
 
-      {/* Pins Layer (Anchored to exact real-world Lat/Lon) */}
+      {/* Pins Layer (Anchored to exact real-world Lat/Lon on Google Maps grid) */}
       <div
         style={{
           position: 'absolute',
-          left: dimensions.width / 2,
-          top: dimensions.height / 2,
+          inset: 0,
           pointerEvents: 'none',
           zIndex: 20,
         }}
@@ -322,11 +318,10 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
           const coords = getLotCoordinates(lot.id);
           const pinPixel = latLonToPixel(coords[1], coords[0], zoom);
           const centerPixel = latLonToPixel(center.lat, center.lon, zoom);
-          const screenX = pinPixel.x - centerPixel.x;
-          const screenY = pinPixel.y - centerPixel.y;
+          const screenX = dimensions.width / 2 + (pinPixel.x - centerPixel.x);
+          const screenY = dimensions.height / 2 + (pinPixel.y - centerPixel.y);
           const isSelected = selectedLotId === lot.id;
 
-          // Status colors matching Google Maps style
           const pinColor =
             lot.ap === 'approved' ? '#0f9d58' : lot.ap === 'pending' ? '#f4b400' : '#ea4335';
 
@@ -339,8 +334,8 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
               }}
               style={{
                 position: 'absolute',
-                left: screenX,
-                top: screenY,
+                left: Math.round(screenX),
+                top: Math.round(screenY),
                 transform: `translate(-50%, -100%) scale(${isSelected ? 1.15 : 1})`,
                 transformOrigin: '50% 100%',
                 pointerEvents: 'auto',
@@ -358,7 +353,6 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                   alignItems: 'center',
                 }}
               >
-                {/* SVG Teardrop Pin */}
                 <svg
                   width={isSelected ? 36 : 30}
                   height={isSelected ? 48 : 40}
@@ -370,14 +364,11 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                       : 'drop-shadow(0 2px 5px rgba(0,0,0,0.25))',
                   }}
                 >
-                  {/* Pin Body */}
                   <path
                     d="M15 0C6.71573 0 0 6.71573 0 15C0 24 15 40 15 40C15 40 30 24 30 15C30 6.71573 23.2843 0 15 0Z"
                     fill={pinColor}
                   />
-                  {/* Inner White Circle */}
                   <circle cx="15" cy="14" r="9" fill="#ffffff" />
-                  {/* Parking 'P' Symbol */}
                   <text
                     x="15"
                     y="18"
@@ -420,8 +411,13 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
           const coords = getLotCoordinates(selectedLot.id);
           const pinPixel = latLonToPixel(coords[1], coords[0], zoom);
           const centerPixel = latLonToPixel(center.lat, center.lon, zoom);
-          const popupX = dimensions.width / 2 + (pinPixel.x - centerPixel.x);
-          const popupY = dimensions.height / 2 + (pinPixel.y - centerPixel.y) - 52;
+          const pinScreenX = dimensions.width / 2 + (pinPixel.x - centerPixel.x);
+          const pinScreenY = dimensions.height / 2 + (pinPixel.y - centerPixel.y);
+
+          // If pin is near the top edge (< 190px), anchor popup below the pin
+          const anchorBelow = pinScreenY < 190;
+          const popupX = Math.max(145, Math.min(dimensions.width - 145, pinScreenX));
+          const popupY = anchorBelow ? pinScreenY + 12 : pinScreenY - 48;
 
           return (
             <div
@@ -432,13 +428,13 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                 position: 'absolute',
                 left: popupX,
                 top: popupY,
-                transform: 'translate(-50%, -100%)',
+                transform: anchorBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
                 zIndex: 60,
-                width: 280,
+                width: 275,
                 background: '#ffffff',
                 borderRadius: 14,
                 boxShadow: '0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12)',
-                padding: '14px 16px',
+                padding: '13px 15px',
                 border: '1px solid #e8eaed',
                 pointerEvents: 'auto',
                 animation: 'ov2-fade-in 0.18s ease-out',
@@ -454,10 +450,10 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 14.5, fontWeight: 800, color: '#202124' }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#202124' }}>
                     {selectedLot.name}
                   </div>
-                  <div style={{ fontSize: 11.5, color: '#5f6368', marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: '#5f6368', marginTop: 2 }}>
                     📍 {selectedLot.addr}
                   </div>
                 </div>
@@ -470,13 +466,13 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                     background: '#f1f3f4',
                     border: 'none',
                     borderRadius: '50%',
-                    width: 24,
-                    height: 24,
+                    width: 22,
+                    height: 22,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    fontSize: 13,
+                    fontSize: 12,
                     color: '#5f6368',
                     lineHeight: 1,
                   }}
@@ -517,20 +513,20 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                   gridTemplateColumns: '1fr 1fr',
                   gap: 8,
                   marginTop: 10,
-                  padding: '8px 10px',
+                  padding: '7px 9px',
                   background: '#f8f9fa',
                   borderRadius: 8,
-                  fontSize: 11.5,
+                  fontSize: 11,
                 }}
               >
                 <div>
-                  <div style={{ color: '#70757a', fontSize: 10.5 }}>SỨC CHỨA</div>
+                  <div style={{ color: '#70757a', fontSize: 10 }}>SỨC CHỨA</div>
                   <div style={{ fontWeight: 700, color: '#202124', marginTop: 1 }}>
                     {selectedLot.cc} ô tô
                   </div>
                 </div>
                 <div>
-                  <div style={{ color: '#70757a', fontSize: 10.5 }}>GIỜ MỞ CỬA</div>
+                  <div style={{ color: '#70757a', fontSize: 10 }}>GIỜ MỞ CỬA</div>
                   <div style={{ fontWeight: 700, color: '#202124', marginTop: 1 }}>
                     {selectedLotInfo.openingHours || '24/7'}
                   </div>
@@ -541,7 +537,7 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
               <div
                 style={{
                   marginTop: 8,
-                  fontSize: 12,
+                  fontSize: 11.5,
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
@@ -554,7 +550,7 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <Link
                   href="/owner/layout/3d"
                   style={{
@@ -562,7 +558,7 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                     textAlign: 'center',
                     background: '#1a73e8',
                     color: '#ffffff',
-                    padding: '7px 10px',
+                    padding: '6px 10px',
                     borderRadius: 8,
                     fontSize: 11.5,
                     fontWeight: 700,
@@ -578,14 +574,14 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
               <div
                 style={{
                   position: 'absolute',
-                  bottom: -8,
+                  [anchorBelow ? 'top' : 'bottom']: -8,
                   left: '50%',
                   transform: 'translateX(-50%)',
                   width: 0,
                   height: 0,
                   borderLeft: '8px solid transparent',
                   borderRight: '8px solid transparent',
-                  borderTop: '8px solid #ffffff',
+                  [anchorBelow ? 'borderBottom' : 'borderTop']: '8px solid #ffffff',
                   filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.12))',
                 }}
               />
@@ -807,15 +803,26 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
           />
         </div>
 
-        {/* Google / OpenStreetMap Attribution */}
+        {/* Google Maps Logo & Attribution */}
         <div
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
             fontSize: 10,
-            color: mapType === 'streets' ? 'rgba(32,33,36,0.65)' : 'rgba(255,255,255,0.75)',
+            color: mapType === 'streets' ? 'rgba(32,33,36,0.75)' : 'rgba(255,255,255,0.85)',
             textShadow: '0 1px 2px rgba(0,0,0,0.5)',
           }}
         >
-          Bản đồ phong cách Google Maps • Dữ liệu © OpenStreetMap, CartoDB
+          <span style={{ fontWeight: 800, letterSpacing: -0.2 }}>
+            <span style={{ color: '#4285f4' }}>G</span>
+            <span style={{ color: '#ea4335' }}>o</span>
+            <span style={{ color: '#fbbc05' }}>o</span>
+            <span style={{ color: '#4285f4' }}>g</span>
+            <span style={{ color: '#34a853' }}>l</span>
+            <span style={{ color: '#ea4335' }}>e</span>
+          </span>
+          <span>Maps</span>
         </div>
       </div>
     </div>

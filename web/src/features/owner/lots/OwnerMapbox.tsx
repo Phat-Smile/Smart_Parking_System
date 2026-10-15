@@ -87,7 +87,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
           border: '1px solid #e3e8f2',
         }}
       >
-        {/* Search bar inside map */}
+        {/* Compact Google Maps Search Bar inside map */}
         <div
           style={{
             position: 'absolute',
@@ -95,7 +95,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
             left: 14,
             zIndex: 10,
             width: 'calc(100% - 28px)',
-            maxWidth: 280,
+            maxWidth: 210,
           }}
         >
           <div
@@ -103,12 +103,26 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
               display: 'flex',
               alignItems: 'center',
               background: '#fff',
-              borderRadius: 10,
-              padding: '7px 12px',
-              boxShadow: '0 4px 12px rgba(15,27,61,0.08)',
-              border: '1px solid #e3e8f2',
+              borderRadius: 8,
+              padding: '7px 11px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.22)',
+              border: '1px solid #dadce0',
+              gap: 8,
             }}
           >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#5f6368"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             <input
               type="text"
               placeholder="Tìm bãi trên bản đồ"
@@ -120,8 +134,8 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
                 background: 'transparent',
                 outline: 'none',
                 width: '100%',
-                fontSize: 12.5,
-                color: '#0f1b3d',
+                fontSize: 12,
+                color: '#202124',
               }}
             />
           </div>
