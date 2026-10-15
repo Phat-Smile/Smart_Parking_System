@@ -4,6 +4,7 @@ import React from 'react';
 import dynamic from 'next/dynamic';
 import { getPublicMapboxToken } from '@/shared/config/env';
 import { useAllLots, useOwnerMapStore } from './useOwnerMapStore';
+import { SchematicMap } from './SchematicMap';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const OwnerMapScene = dynamic(() => import('./OwnerMapScene'), { ssr: false });
@@ -126,7 +127,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
           </div>
         </div>
 
-        {/* Map Render or Fallback */}
+        {/* Mapbox Live Scene or Interactive Schematic Map */}
         {token ? (
           <OwnerMapScene
             token={token}
@@ -135,42 +136,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
             lots={filteredLots}
           />
         ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#6a7491',
-              padding: 24,
-              textAlign: 'center',
-            }}
-          >
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#9aa2b4"
-              strokeWidth="1.5"
-              style={{ marginBottom: 12 }}
-            >
-              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-              <line x1="8" y1="2" x2="8" y2="18" />
-              <line x1="16" y1="6" x2="16" y2="22" />
-            </svg>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#0f1b3d' }}>
-              Chưa cấu hình bản đồ
-            </div>
-            <div style={{ fontSize: 13, color: '#6a7491', marginTop: 6, maxWidth: 380, lineHeight: 1.5 }}>
-              Vui lòng thêm <strong>MAPBOX_ACCESS_TOKEN</strong> vào <code>.env.local</code> rồi chạy lại dev server để hiển thị bản đồ Mapbox.
-            </div>
-            <div style={{ fontSize: 12, color: '#9aa2b4', marginTop: 6 }}>
-              Danh sách các bãi đỗ xe bên dưới vẫn hoạt động bình thường.
-            </div>
-          </div>
+          <SchematicMap filteredLots={filteredLots} />
         )}
       </div>
 

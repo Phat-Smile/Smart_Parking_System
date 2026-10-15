@@ -113,7 +113,7 @@ interface OwnerMapState {
 
 export const useOwnerMapStore = create<OwnerMapState>((set) => ({
   overlayLots: DESIGN_LOTS,
-  selectedLotId: null,
+  selectedLotId: 1,
   filterStatus: 'all',
   mapSearchQuery: '',
   isAddModalOpen: false,
