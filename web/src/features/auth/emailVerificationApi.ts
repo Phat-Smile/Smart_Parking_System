@@ -3,8 +3,9 @@ import { gatewayFetch } from "@/shared/api/client";
 export interface VerifiedEmailAccount {
     accountId: string;
     email: string;
-    status: string;
+    status: "Active" | "EmailVerified";
     isVerified: boolean;
+    message: string;
 }
 
 export interface ResentOtpResult {
@@ -12,6 +13,7 @@ export interface ResentOtpResult {
     expiresInSeconds: number;
     cooldownSeconds: number;
     message: string;
+    otpSent: boolean;
 }
 
 export function verifyParkWiseEmail(email: string, otpCode: string) {

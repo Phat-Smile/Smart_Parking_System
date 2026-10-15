@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
@@ -21,8 +21,8 @@ import { ApiError } from "@/shared/errors/api-error";
 
 const signUpSchema = z
     .object({
-        firstName: z.string().trim().min(1, "First name is required"),
-        lastName: z.string().trim().min(1, "Last name is required"),
+        firstName: z.string().trim(),
+        lastName: z.string().trim(),
         email: z
             .string()
             .trim()
@@ -34,12 +34,24 @@ const signUpSchema = z
         phone: z
             .string()
             .trim()
-            .min(1, "Phone number is required")
-            .regex(
-                /^\s*(0|\+84)[35789][0-9]{8}\s*$/,
+            .refine(
+                (phone) =>
+                    !phone || /^\s*(0|\+84)[35789][0-9]{8}\s*$/.test(phone),
                 "Enter a valid Vietnamese mobile number",
             ),
     })
+    .refine(
+        (values) => {
+            const name = `${values.firstName} ${values.lastName}`.trim();
+            return (
+                !name ||
+                (name.length >= 2 &&
+                    name.length <= 100 &&
+                    /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u.test(name))
+            );
+        },
+        { message: "Enter a valid name (2–100 letters)", path: ["firstName"] },
+    )
     .refine((values) => values.password === values.confirmPassword, {
         message: "The passwords do not match",
         path: ["confirmPassword"],
@@ -86,10 +98,15 @@ export function ParkWiseSignUpPage({
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
     const [submitError, setSubmitError] = useState("");
+    const [emailConflict, setEmailConflict] = useState(false);
     const [notice, setNotice] = useState("");
+    const [googlePending, setGooglePending] = useState(false);
+    const [googleUnavailable, setGoogleUnavailable] = useState(false);
     const {
         register,
         handleSubmit,
+        setError,
+        control,
         formState: { errors, isSubmitting },
     } = useForm<SignUpValues>({
         resolver: zodResolver(signUpSchema),
@@ -102,19 +119,30 @@ export function ParkWiseSignUpPage({
             phone: "",
         },
     });
+    const password = useWatch({ control, name: "password" }) || "";
+    const passwordChecks = [
+        [password.length >= 8, "At least 8 characters"],
+        [/[A-Z]/.test(password), "One uppercase letter"],
+        [/[a-z]/.test(password), "One lowercase letter"],
+        [/[0-9]/.test(password), "One number"],
+        [/[^A-Za-z0-9]/.test(password), "One special character"],
+    ] as const;
 
     async function onSubmit(values: SignUpValues) {
         setNotice("");
         setSubmitError("");
+        setEmailConflict(false);
         try {
             const account = await registerParkWiseAccount({
-                fullName: `${values.firstName.trim()} ${values.lastName.trim()}`,
+                fullName:
+                    `${values.firstName.trim()} ${values.lastName.trim()}`.trim() ||
+                    null,
                 email: values.email.trim(),
                 password: values.password,
-                phoneNumber: values.phone.trim(),
+                phoneNumber: values.phone.trim() || null,
             });
             rememberRegisteredProfileName(account.email, account.fullName);
-            if (!rememberPendingVerification(account.email)) {
+            if (!rememberPendingVerification(account.email, 60)) {
                 setSubmitError(
                     "Registration was accepted, but this browser could not open email verification. Please enable session storage and try again.",
                 );
@@ -122,12 +150,24 @@ export function ParkWiseSignUpPage({
             }
             router.push("/verify-otp");
         } catch (error) {
+            const code =
+                error instanceof ApiError
+                    ? error.problem?.errorCode
+                    : undefined;
+            setEmailConflict(code === "identity.email_already_registered");
+            if (code === "identity.phone_already_registered") {
+                setError("phone", {
+                    message: "This phone number is already registered.",
+                });
+            }
             const message =
-                error instanceof ApiError && error.status === 409
-                    ? "This email address is already registered."
-                    : error instanceof ApiError && error.status === 400
-                      ? "Check your details and try again."
-                      : "We couldn't create your account. Check your connection and try again.";
+                code === "identity.email_already_registered"
+                    ? "This email address is already registered. Log in or reset your password."
+                    : code === "identity.phone_already_registered"
+                      ? "Check the phone number below."
+                      : error instanceof ApiError && error.status === 400
+                        ? "Check your details and try again."
+                        : "We couldn't create your account. Check your connection and try again.";
             setSubmitError(
                 error instanceof ApiError && error.correlationId
                     ? `${message} Support ID: ${error.correlationId}`
@@ -138,6 +178,7 @@ export function ParkWiseSignUpPage({
 
     // A Google account is verified by Google, so there is no OTP step.
     async function onGoogleCredential(idToken: string) {
+        setGooglePending(true);
         setNotice("");
         setSubmitError("");
         try {
@@ -146,11 +187,22 @@ export function ParkWiseSignUpPage({
                 `Signed in with Google as ${account.email}. Persistent sign-in is not available until session management is connected.`,
             );
         } catch (error) {
+            if (
+                error instanceof ApiError &&
+                (error.problem?.errorCode ===
+                    "identity.google_login_unavailable" ||
+                    error.status === 503)
+            ) {
+                setGoogleUnavailable(true);
+            }
             setSubmitError(describeGoogleSignInError(error));
+        } finally {
+            setGooglePending(false);
         }
     }
 
     function onGoogleUnavailable() {
+        setGoogleUnavailable(true);
         setSubmitError("");
         setNotice("Google sign-up is not available yet.");
     }
@@ -192,7 +244,7 @@ export function ParkWiseSignUpPage({
                     <div className="parkwise-signup-two-columns">
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-signup-first-name">
-                                First Name <span aria-hidden="true">*</span>
+                                First Name (optional)
                             </label>
                             <input
                                 id="parkwise-signup-first-name"
@@ -218,7 +270,7 @@ export function ParkWiseSignUpPage({
                         </div>
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-signup-last-name">
-                                Last Name <span aria-hidden="true">*</span>
+                                Last Name (optional)
                             </label>
                             <input
                                 id="parkwise-signup-last-name"
@@ -270,7 +322,7 @@ export function ParkWiseSignUpPage({
 
                     <div className="parkwise-login-field">
                         <label htmlFor="parkwise-signup-phone">
-                            Phone Number <span aria-hidden="true">*</span>
+                            Phone Number (optional)
                         </label>
                         <input
                             id="parkwise-signup-phone"
@@ -333,6 +385,16 @@ export function ParkWiseSignUpPage({
                                     {errors.password.message}
                                 </p>
                             )}
+                            <ul
+                                className="parkwise-password-checklist"
+                                aria-label="Password requirements"
+                            >
+                                {passwordChecks.map(([met, label]) => (
+                                    <li key={label} data-met={met}>
+                                        {met ? "✓" : "○"} {label}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-signup-confirm-password">
@@ -400,15 +462,30 @@ export function ParkWiseSignUpPage({
                             {submitError}
                         </p>
                     )}
+                    {emailConflict && (
+                        <p className="parkwise-login-forgot">
+                            <Link href="/login">Log in now</Link> ·{" "}
+                            <Link href="/forgot-password">
+                                Forgot password?
+                            </Link>
+                        </p>
+                    )}
 
                     <div className="parkwise-login-divider" aria-hidden="true">
                         <span>or</span>
                     </div>
-                    <GoogleSignInButton
-                        text="signup_with"
-                        onCredential={onGoogleCredential}
-                        onUnavailable={onGoogleUnavailable}
-                    />
+                    {!googleUnavailable && (
+                        <GoogleSignInButton
+                            text="signup_with"
+                            onCredential={onGoogleCredential}
+                            onUnavailable={onGoogleUnavailable}
+                        />
+                    )}
+                    {googlePending && (
+                        <p className="parkwise-login-notice" role="status">
+                            Verifying your Google account...
+                        </p>
+                    )}
                     {notice && (
                         <p
                             className="parkwise-login-notice"

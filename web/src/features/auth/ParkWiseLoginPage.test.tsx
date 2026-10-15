@@ -6,6 +6,9 @@ import { loginParkWiseAccount } from "./loginParkWiseAccount";
 import { googleLoginParkWiseAccount } from "./googleSignIn";
 import { ApiError } from "@/shared/errors/api-error";
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 vi.mock("./loginParkWiseAccount", () => ({ loginParkWiseAccount: vi.fn() }));
 const loginMock = vi.mocked(loginParkWiseAccount);
 
@@ -60,7 +63,7 @@ describe("ParkWise Login form", () => {
         fireEvent.click(screen.getByRole("button", { name: "Log in" }));
         await waitFor(() =>
             expect(screen.getByRole("status")).toHaveTextContent(
-                "Identity accepted driver@example.com",
+                "Signed in as driver@example.com",
             ),
         );
         expect(loginMock).toHaveBeenCalledWith(
@@ -84,7 +87,7 @@ describe("ParkWise Login form", () => {
 
         await waitFor(() =>
             expect(screen.getByRole("status")).toHaveTextContent(
-                "Identity accepted driver@gmail.com",
+                "Signed in as driver@gmail.com",
             ),
         );
         expect(googleLoginMock).toHaveBeenCalledWith("google-id-token");

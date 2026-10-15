@@ -22,7 +22,7 @@ describe("ParkWise Forgot Password", () => {
     it("requires a valid email without sending a request", async () => {
         render(<ParkWiseForgotPasswordPage fontClassName="test-font" />);
         fireEvent.click(
-            screen.getByRole("button", { name: "Send Reset Link" }),
+            screen.getByRole("button", { name: "Send Reset Code" }),
         );
         expect(
             await screen.findByText("Email is required"),
@@ -33,7 +33,7 @@ describe("ParkWise Forgot Password", () => {
             target: { value: "invalid" },
         });
         fireEvent.click(
-            screen.getByRole("button", { name: "Send Reset Link" }),
+            screen.getByRole("button", { name: "Send Reset Code" }),
         );
         expect(
             await screen.findByText("Enter a valid email address"),
@@ -42,23 +42,31 @@ describe("ParkWise Forgot Password", () => {
     });
 
     it("shows Check your email only after the gateway request succeeds", async () => {
-        requestMock.mockResolvedValue({ message: "Accepted" });
+        requestMock.mockResolvedValue({
+            email: "driver@example.com",
+            expiresInSeconds: 300,
+            cooldownSeconds: 0,
+            message: "Accepted",
+        });
         render(<ParkWiseForgotPasswordPage fontClassName="test-font" />);
         fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
             target: { value: "driver@example.com" },
         });
         fireEvent.click(
-            screen.getByRole("button", { name: "Send Reset Link" }),
+            screen.getByRole("button", { name: "Send Reset Code" }),
         );
         expect(
             await screen.findByRole("heading", { name: "Check your email" }),
         ).toBeInTheDocument();
         expect(requestMock).toHaveBeenCalledWith("driver@example.com");
-        fireEvent.click(screen.getByRole("button", { name: "Resend link" }));
+        expect(
+            screen.getByRole("link", { name: "Enter Reset Code" }),
+        ).toHaveAttribute("href", "/reset-password?email=driver%40example.com");
+        fireEvent.click(screen.getByRole("button", { name: "Resend code" }));
         await waitFor(() => expect(requestMock).toHaveBeenCalledTimes(2));
         expect(
             await screen.findByText(
-                "If an account exists, a new link is on its way.",
+                "If an account exists, a new code is on its way.",
             ),
         ).toBeInTheDocument();
     });

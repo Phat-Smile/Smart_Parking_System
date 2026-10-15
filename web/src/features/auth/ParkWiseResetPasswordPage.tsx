@@ -9,14 +9,20 @@ import { z } from "zod";
 import { ApiError } from "@/shared/errors/api-error";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
 import { ParkWiseRecoveryAside } from "./ParkWiseRecoveryAside";
-import {
-    changePassword,
-    ResetEndpointUnavailableError,
-} from "./changePassword";
+import { resetPassword } from "./changePassword";
 import { passwordSchema } from "./passwordSchema";
 
 const resetSchema = z
     .object({
+        email: z
+            .string()
+            .trim()
+            .min(1, "Email is required")
+            .email("Enter a valid email address")
+            .max(254, "Email is too long"),
+        otpCode: z
+            .string()
+            .regex(/^[0-9]{6}$/, "Enter the six-digit code from your email"),
         newPassword: passwordSchema,
         confirmPassword: z.string().min(1, "Confirm your new password"),
     })
@@ -26,7 +32,7 @@ const resetSchema = z
     });
 
 type ResetValues = z.infer<typeof resetSchema>;
-type View = "form" | "expired" | "success";
+type View = "form" | "success";
 
 function EyeIcon({ visible }: { visible: boolean }) {
     return visible ? (
@@ -60,13 +66,13 @@ function EyeIcon({ visible }: { visible: boolean }) {
 
 export function ParkWiseResetPasswordPage({
     fontClassName,
-    token,
+    email,
 }: {
     fontClassName: string;
-    token: string;
+    email: string;
 }) {
     const router = useRouter();
-    const [view, setView] = useState<View>(token ? "form" : "expired");
+    const [view, setView] = useState<View>("form");
     const [newPasswordVisible, setNewPasswordVisible] = useState(false);
     const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
     const [submitError, setSubmitError] = useState("");
@@ -77,7 +83,12 @@ export function ParkWiseResetPasswordPage({
         formState: { errors, isSubmitting },
     } = useForm<ResetValues>({
         resolver: zodResolver(resetSchema),
-        defaultValues: { newPassword: "", confirmPassword: "" },
+        defaultValues: {
+            email,
+            otpCode: "",
+            newPassword: "",
+            confirmPassword: "",
+        },
     });
 
     useEffect(() => {
@@ -93,32 +104,30 @@ export function ParkWiseResetPasswordPage({
         return () => window.clearTimeout(timeout);
     }, [router, secondsRemaining, view]);
 
-    async function onSubmit({ newPassword }: ResetValues) {
-        if (!token) {
-            setView("expired");
-            return;
-        }
+    async function onSubmit({
+        email: accountEmail,
+        otpCode,
+        newPassword,
+    }: ResetValues) {
         setSubmitError("");
         try {
-            await changePassword(token, newPassword);
+            await resetPassword(accountEmail.trim(), otpCode, newPassword);
             setSecondsRemaining(5);
             setView("success");
         } catch (error) {
-            if (
-                error instanceof ApiError &&
-                [401, 410].includes(error.status)
-            ) {
-                setView("expired");
-            } else if (
-                error instanceof ResetEndpointUnavailableError ||
-                (error instanceof ApiError && error.status === 404)
-            ) {
+            if (error instanceof ApiError) {
+                const code = error.problem?.errorCode;
                 setSubmitError(
-                    "Password reset is not available yet. Please try again later.",
-                );
-            } else if (error instanceof ApiError && error.status === 422) {
-                setSubmitError(
-                    "The password was rejected. Check the requirements and try again.",
+                    code === "identity.invalid_otp_code"
+                        ? "Incorrect code. Please check it and try again."
+                        : code === "identity.otp_expired" ||
+                            code === "identity.otp_max_attempts_exceeded"
+                          ? "This code is no longer valid. Request a new code."
+                          : code === "identity.password_same_as_old"
+                            ? "Choose a password different from your current one."
+                            : error.status === 400
+                              ? "Check your details and try again."
+                              : "We couldn't change your password. Please try again later.",
                 );
             } else {
                 setSubmitError(
@@ -135,21 +144,7 @@ export function ParkWiseResetPasswordPage({
         >
             <ParkWiseRecoveryAside />
             <div className="parkwise-login-form-panel parkwise-reset-form-panel">
-                {view === "expired" ? (
-                    <div className="parkwise-reset-state" role="status">
-                        <h2>Reset link expired</h2>
-                        <p>
-                            This password reset link has expired or is no longer
-                            valid.
-                        </p>
-                        <Link
-                            href="/forgot-password"
-                            className="parkwise-login-submit parkwise-forgot-login-link"
-                        >
-                            Request New Link
-                        </Link>
-                    </div>
-                ) : view === "success" ? (
+                {view === "success" ? (
                     <div
                         className="parkwise-reset-state"
                         role="status"
@@ -178,8 +173,39 @@ export function ParkWiseResetPasswordPage({
                     <form noValidate onSubmit={handleSubmit(onSubmit)}>
                         <h2>Create a new password</h2>
                         <p className="parkwise-reset-description">
-                            Choose a strong password for your ParkWise account.
+                            Enter the code from your email and choose a strong
+                            password.
                         </p>
+                        <div className="parkwise-login-field">
+                            <label htmlFor="parkwise-reset-email">Email</label>
+                            <input
+                                id="parkwise-reset-email"
+                                type="email"
+                                autoComplete="email"
+                                aria-invalid={Boolean(errors.email)}
+                                {...register("email")}
+                            />
+                            {errors.email && (
+                                <p role="alert">{errors.email.message}</p>
+                            )}
+                        </div>
+                        <div className="parkwise-login-field">
+                            <label htmlFor="parkwise-reset-code">
+                                Six-digit code
+                            </label>
+                            <input
+                                id="parkwise-reset-code"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                maxLength={6}
+                                aria-invalid={Boolean(errors.otpCode)}
+                                {...register("otpCode")}
+                            />
+                            {errors.otpCode && (
+                                <p role="alert">{errors.otpCode.message}</p>
+                            )}
+                        </div>
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-reset-new-password">
                                 New Password
@@ -292,6 +318,12 @@ export function ParkWiseResetPasswordPage({
                                 {submitError}
                             </p>
                         )}
+                        <Link
+                            href="/forgot-password"
+                            className="parkwise-forgot-back"
+                        >
+                            Request a new code
+                        </Link>
                         <Link href="/login" className="parkwise-forgot-back">
                             Back to Login
                         </Link>

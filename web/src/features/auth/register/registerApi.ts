@@ -1,22 +1,10 @@
-import { gatewayFetch } from "@/shared/api/client";
+import {
+    registerParkWiseAccount,
+    type ParkWiseRegisteredAccount,
+    type RegisterAccountRequest,
+} from "../registerParkWiseAccount";
 
-export interface RegisterAccountRequest {
-    email: string;
-    password: string;
-    phoneNumber: string | null;
-}
-
-export interface RegisteredAccount {
-    accountId: string;
-    email: string;
-    status: string;
-    isNewAccount?: boolean;
-}
-
+export type RegisteredAccount = ParkWiseRegisteredAccount;
 export function registerAccount(request: RegisterAccountRequest) {
-    return gatewayFetch<RegisteredAccount>("/api/identity/accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-    });
+    return registerParkWiseAccount(request);
 }

@@ -3,6 +3,27 @@ import { ApiError } from "@/shared/errors/api-error";
 import { parseProblemDetails } from "@/shared/errors/problem-details";
 import { getAccessToken } from "./access-token";
 
+let refreshHandler: (() => Promise<string | null>) | undefined;
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function registerAuthRefreshHandler(
+    handler: () => Promise<string | null>,
+) {
+    refreshHandler = handler;
+}
+
+const PUBLIC_IDENTITY_PATHS = new Set([
+    "/api/identity/accounts",
+    "/api/identity/accounts/login",
+    "/api/identity/accounts/google",
+    "/api/identity/accounts/verify-email",
+    "/api/identity/accounts/resend-otp",
+    "/api/identity/accounts/forgot-password",
+    "/api/identity/accounts/reset-password",
+    "/api/identity/accounts/refresh",
+    "/api/identity/accounts/logout",
+]);
+
 export async function gatewayFetch<T>(
     path: string,
     init?: RequestInit,
@@ -22,7 +43,21 @@ export async function gatewayFetch<T>(
     if (accessToken && !headers.has("Authorization")) {
         headers.set("Authorization", `Bearer ${accessToken}`);
     }
-    const response = await fetch(url, { ...init, headers });
+    let response = await fetch(url, { ...init, headers });
+    if (
+        response.status === 401 &&
+        refreshHandler &&
+        !PUBLIC_IDENTITY_PATHS.has(path)
+    ) {
+        refreshInFlight ??= refreshHandler().finally(() => {
+            refreshInFlight = null;
+        });
+        const token = await refreshInFlight;
+        if (token) {
+            headers.set("Authorization", `Bearer ${token}`);
+            response = await fetch(url, { ...init, headers });
+        }
+    }
     const correlationHeader =
         response.headers.get("X-Correlation-ID") || undefined;
     if (!response.ok) {
@@ -35,6 +70,12 @@ export async function gatewayFetch<T>(
             response.status,
             problem,
             correlationHeader || problem?.correlationId,
+            (() => {
+                const seconds = Number(response.headers.get("Retry-After"));
+                return Number.isFinite(seconds) && seconds > 0
+                    ? Math.ceil(seconds)
+                    : undefined;
+            })(),
         );
     }
     if (response.status === 204) return undefined as T;

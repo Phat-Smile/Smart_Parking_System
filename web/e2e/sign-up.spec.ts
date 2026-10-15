@@ -40,7 +40,6 @@ test("Sign Up validates fields and posts the documented registration contract", 
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/sign-up");
     await page.getByRole("button", { name: "Create Account" }).click();
-    await expect(page.getByText("First name is required")).toBeVisible();
     await expect(page.getByText("Email is required")).toBeVisible();
 
     await page.locator("#parkwise-signup-first-name").fill("Jane");
@@ -102,6 +101,40 @@ test("Sign Up keeps the form on a registered-email conflict", async ({
         page.getByText("This email address is already registered."),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/sign-up$/);
+});
+
+test("Sign Up accepts email and password without optional profile fields", async ({
+    page,
+}) => {
+    let body: Record<string, unknown> | undefined;
+    await page.route("**/api/identity/accounts", async (route) => {
+        body = route.request().postDataJSON();
+        await route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({
+                accountId: "id-2",
+                email: "minimal@example.com",
+                fullName: null,
+                status: "PendingEmailVerification",
+                message: "Code sent",
+            }),
+        });
+    });
+    await page.goto("/sign-up");
+    await page.locator("#parkwise-signup-email").fill("minimal@example.com");
+    await page.locator("#parkwise-signup-password").fill("ValidPassword123!");
+    await page
+        .locator("#parkwise-signup-confirm-password")
+        .fill("ValidPassword123!");
+    await page.getByRole("button", { name: "Create Account" }).click();
+    await expect(page).toHaveURL(/\/verify-otp$/);
+    expect(body).toEqual({
+        fullName: null,
+        email: "minimal@example.com",
+        password: "ValidPassword123!",
+        phoneNumber: null,
+    });
 });
 
 test("Sign Up password visibility and mobile layout remain usable", async ({

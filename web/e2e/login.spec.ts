@@ -55,7 +55,7 @@ test("Login validates locally and never sends credentials in the URL", async ({
         .fill("ValidPassword123!");
     await page.getByRole("button", { name: "Log in", exact: true }).click();
     await expect(
-        page.getByText(/Identity accepted driver@example.com/),
+        page.getByText(/Signed in as driver@example.com/),
     ).toBeVisible();
     expect(loginBody).toEqual({
         email: "driver@example.com",

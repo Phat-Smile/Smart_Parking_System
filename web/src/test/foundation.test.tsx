@@ -31,10 +31,12 @@ describe("application shell", () => {
     it("shows a safe not-found page", () => {
         render(<NotFound />);
         expect(
-            screen.getByRole("heading", { name: "Page not found" }),
+            screen.getByRole("heading", {
+                name: "We couldn't find this page.",
+            }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("link", { name: "Return home" }),
+            screen.getByRole("link", { name: "Back to home" }),
         ).toHaveAttribute("href", "/");
     });
 

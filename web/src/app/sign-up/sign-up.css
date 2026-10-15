@@ -43,3 +43,15 @@
         gap: 12px;
     }
 }
+.parkwise-password-checklist {
+    display: grid;
+    gap: 2px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.parkwise-password-checklist li[data-met="true"] {
+    color: #207d46;
+}
