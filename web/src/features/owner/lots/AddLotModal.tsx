@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useOwnerMapStore } from './useOwnerMapStore';
+import { useLotInfoStore } from './lotInfo';
 import { ParkingLot } from '@/types/owner';
 
 export function AddLotModal() {
@@ -42,6 +43,18 @@ export function AddLotModal() {
     };
 
     addOverlayLot(newLot);
+    // Initialize lotInfo with submittedAt = today, rest "Chưa cập nhật"
+    const today = new Date().toISOString().split('T')[0];
+    useLotInfoStore.getState().setLotInfo(newLot.id, {
+      submittedAt: today,
+      openingHours: `${newLot.op} – ${newLot.cl2}`,
+      phone: 'Chưa cập nhật',
+      prices: {
+        carFirstHour: newLot.pc,
+        carNextHour: newLot.pc,
+        reservationDeposit: newLot.dep,
+      },
+    });
     setAddModalOpen(false);
     setName('');
     setAddr('');

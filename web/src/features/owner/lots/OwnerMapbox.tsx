@@ -8,8 +8,13 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 const OwnerMapScene = dynamic(() => import('./OwnerMapScene'), { ssr: false });
 
-export function OwnerMapbox() {
-  const token = getPublicMapboxToken();
+interface OwnerMapboxProps {
+  token?: string;
+}
+
+export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
+  // Use prop token from server component or fallback to client public token
+  const token = propToken || getPublicMapboxToken();
   const lots = useAllLots();
   const { selectedLotId, setSelectedLotId, mapSearchQuery, setMapSearchQuery, setAddModalOpen } =
     useOwnerMapStore();
@@ -126,7 +131,7 @@ export function OwnerMapbox() {
           <OwnerMapScene
             token={token}
             selectedLotId={selectedLotId}
-            onSelectLot={(id: number) => setSelectedLotId(id)}
+            onSelectLot={(id: number | null) => setSelectedLotId(id)}
             lots={filteredLots}
           />
         ) : (
@@ -156,10 +161,13 @@ export function OwnerMapbox() {
               <line x1="8" y1="2" x2="8" y2="18" />
               <line x1="16" y1="6" x2="16" y2="22" />
             </svg>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1b3d' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#0f1b3d' }}>
               Chưa cấu hình bản đồ
             </div>
-            <div style={{ fontSize: 12.5, marginTop: 4 }}>
+            <div style={{ fontSize: 13, color: '#6a7491', marginTop: 6, maxWidth: 380, lineHeight: 1.5 }}>
+              Vui lòng thêm <strong>MAPBOX_ACCESS_TOKEN</strong> vào <code>.env.local</code> rồi chạy lại dev server để hiển thị bản đồ Mapbox.
+            </div>
+            <div style={{ fontSize: 12, color: '#9aa2b4', marginTop: 6 }}>
               Danh sách các bãi đỗ xe bên dưới vẫn hoạt động bình thường.
             </div>
           </div>
