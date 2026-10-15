@@ -20,6 +20,9 @@ using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 using ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
 using ParkingSystem.Identity.Application.Accounts.Admin.SearchAccounts;
 using ParkingSystem.Identity.Application.Accounts.Admin.SuspendAccount;
+using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
+using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
+using ParkingSystem.Identity.Application.Vehicles.GetVehicles;
 using ParkingSystem.Identity.WebAPI.Security;
 
 namespace ParkingSystem.Identity.WebAPI.Endpoints;
@@ -142,6 +145,40 @@ internal static class AccountEndpoints
         /// <summary>Mật khẩu mới cần đặt.</summary>
         /// <example>NewSecurePassword123!</example>
         string NewPassword);
+
+    /// <summary>
+    /// Dữ liệu cập nhật hồ sơ cá nhân.
+    /// </summary>
+    public sealed record UpsertProfileRequest(
+        /// <summary>Họ và tên đầy đủ (bắt buộc, tối đa 100 ký tự).</summary>
+        /// <example>Nguyễn Văn A</example>
+        string FullName,
+        /// <summary>Ngày sinh (ISO 8601 date, tùy chọn).</summary>
+        /// <example>1995-05-15</example>
+        DateOnly? DateOfBirth,
+        /// <summary>Số CCCD/CMND (tùy chọn, tối đa 20 ký tự).</summary>
+        /// <example>012345678901</example>
+        string? CitizenIdNumber,
+        /// <summary>Số bằng lái xe (tùy chọn, tối đa 20 ký tự).</summary>
+        /// <example>B2-012345</example>
+        string? DriverLicenseNumber,
+        /// <summary>URL ảnh đại diện (tùy chọn, tối đa 500 ký tự).</summary>
+        /// <example>https://cdn.example.com/avatar.jpg</example>
+        string? AvatarUrl);
+
+    /// <summary>
+    /// Dữ liệu yêu cầu thêm phương tiện.
+    /// </summary>
+    public sealed record AddVehicleRequest(
+        /// <summary>Biển số xe (bắt buộc, tối đa 20 ký tự). Tự động chuẩn hóa thành chữ hoa.</summary>
+        /// <example>51A-123.45</example>
+        string LicensePlate,
+        /// <summary>Loại phương tiện: Car hoặc Motorbike.</summary>
+        /// <example>Car</example>
+        string VehicleType,
+        /// <summary>Tên gợi nhớ (tùy chọn, tối đa 50 ký tự).</summary>
+        /// <example>Xe đi làm</example>
+        string? NickName);
 
     /// <summary>
     /// Dữ liệu yêu cầu đổi vai trò tài khoản.
@@ -757,6 +794,104 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
+
+        // US-PROFILE-001/002: Create or update the current user's profile (upsert).
+        app.MapPut("/api/identity/accounts/me/profile", async (
+                UpsertProfileRequest request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(
+                    new UpsertProfileCommand(
+                        accountId,
+                        request.FullName,
+                        request.DateOfBirth,
+                        request.CitizenIdNumber,
+                        request.DriverLicenseNumber,
+                        request.AvatarUrl),
+                    cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : Results.Problem(
+                        statusCode: StatusCodes.Status404NotFound,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")
+            .WithName("UpsertProfile")
+            .WithSummary("Tạo hoặc cập nhật hồ sơ cá nhân")
+            .WithDescription("Upsert: tạo mới nếu chưa có, cập nhật nếu đã có. Bắt buộc: fullName.")
+            .Produces<ProfileResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-VEH-001: Add a vehicle to the current account.
+        app.MapPost("/api/identity/accounts/me/vehicles", async (
+                AddVehicleRequest request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(
+                    new AddVehicleCommand(accountId, request.LicensePlate, request.VehicleType, request.NickName),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Created((string?)null, result.Value);
+
+                var statusCode = result.Error!.Code switch
+                {
+                    "identity.vehicle_plate_already_registered" => StatusCodes.Status409Conflict,
+                    "identity.account_not_found" => StatusCodes.Status404NotFound,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: result.Error.Message,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("6. Phương tiện (Vehicles)")
+            .WithName("AddVehicle")
+            .WithSummary("Thêm phương tiện vào tài khoản")
+            .WithDescription("Đăng ký biển số xe với tài khoản để hệ thống nhận diện xe ra/vào bãi đỗ. Bắt buộc: licensePlate, vehicleType (Car hoặc Motorbike).")
+            .Produces<AddedVehicleResult>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
+        // US-VEH-001: List all vehicles for the current account.
+        app.MapGet("/api/identity/accounts/me/vehicles", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new GetVehiclesQuery(accountId), cancellationToken);
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization()
+            .WithTags("6. Phương tiện (Vehicles)")
+            .WithName("GetVehicles")
+            .WithSummary("Danh sách phương tiện của tài khoản")
+            .Produces<GetVehiclesResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized);
 
         return app;
     }
