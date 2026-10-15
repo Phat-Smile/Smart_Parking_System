@@ -103,6 +103,7 @@ public sealed class GetMeTests
         public void Add(Profile p) { }
         public Task<Profile?> FindByAccountIdAsync(Guid accountId, CancellationToken ct) =>
             Task.FromResult(profile?.AccountId == accountId ? profile : null);
+        public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
     }
 }
 
@@ -124,11 +125,12 @@ public sealed class ListSessionsTests
             new FakeAuthSessionRepo([active, revoked, expired, otherUser]),
             new FixedClock(Now));
 
-        var result = await handler.Handle(new ListSessionsQuery(accountId), CancellationToken.None);
+        var result = await handler.Handle(new ListSessionsQuery(accountId, active.Id), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Single(result.Value!.Sessions);
-        Assert.Equal(active.Id, result.Value.Sessions[0].SessionId);
+        Assert.Equal(active.Id, result.Value.Sessions[0].Id);
+        Assert.True(result.Value.Sessions[0].IsCurrent);
     }
 
     [Fact]
@@ -138,7 +140,7 @@ public sealed class ListSessionsTests
             new FakeAuthSessionRepo([]),
             new FixedClock(Now));
 
-        var result = await handler.Handle(new ListSessionsQuery(Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.Handle(new ListSessionsQuery(Guid.NewGuid(), null), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Value!.Sessions);

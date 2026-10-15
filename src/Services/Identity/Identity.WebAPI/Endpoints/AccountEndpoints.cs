@@ -654,7 +654,8 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
                     return Results.Unauthorized();
 
-                var result = await sender.Send(new ListSessionsQuery(accountId), cancellationToken);
+                Guid.TryParse(currentUser.SessionId, out var currentSessionId);
+                var result = await sender.Send(new ListSessionsQuery(accountId, currentSessionId == Guid.Empty ? null : currentSessionId), cancellationToken);
                 return Results.Ok(result.Value);
             })
             .RequireAuthorization()
@@ -668,6 +669,7 @@ internal static class AccountEndpoints
         app.MapDelete("/api/identity/accounts/sessions/{sessionId:guid}", async (
                 Guid sessionId,
                 ICurrentUser currentUser,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
@@ -676,13 +678,18 @@ internal static class AccountEndpoints
 
                 var result = await sender.Send(new RevokeSessionCommand(accountId, sessionId), cancellationToken);
 
-                return result.IsSuccess
-                    ? Results.Ok(result.Value)
-                    : Results.Problem(
+                if (!result.IsSuccess)
+                    return Results.Problem(
                         statusCode: StatusCodes.Status404NotFound,
                         title: result.Error!.Message,
                         detail: result.Error.Message,
                         extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+
+                // If the revoked session is the caller's own current session, expire the refresh cookie.
+                if (Guid.TryParse(currentUser.SessionId, out var currentSessionId) && sessionId == currentSessionId)
+                    httpContext.Response.Cookies.Delete(RefreshCookieName);
+
+                return Results.Ok(result.Value);
             })
             .RequireAuthorization()
             .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")

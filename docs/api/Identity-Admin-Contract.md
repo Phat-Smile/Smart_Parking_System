@@ -283,8 +283,8 @@ Tạm dừng hoạt động của tài khoản. Thu hồi toàn bộ phiên và 
 
 | HTTP Status | Error Code (`errorCode`) | Nguyên nhân cụ thể | Hành động gợi ý cho Frontend |
 | :---: | :--- | :--- | :--- |
-| `403 Forbidden` | `identity.cannot_change_own_status` | Admin tự đình chỉ tài khoản của chính mình. | Ẩn nút "Đình chỉ" với dòng tài khoản của chính Admin. |
-| `403 Forbidden` | `identity.cannot_change_admin_status` | Cố gắng đình chỉ một tài khoản SystemAdmin khác. | Ẩn nút "Đình chỉ" cho các tài khoản có `role === 'SystemAdmin'`. |
+| `403 Forbidden` | `identity.admin_cannot_suspend_self` | Admin tự đình chỉ tài khoản của chính mình. | Ẩn nút "Đình chỉ" với dòng tài khoản của chính Admin. |
+| `403 Forbidden` | `identity.cannot_suspend_admin` | Cố gắng đình chỉ một tài khoản SystemAdmin khác. | Ẩn nút "Đình chỉ" cho các tài khoản có `role === 'SystemAdmin'`. |
 | `404 NotFound` | `identity.account_not_found` | Tài khoản không tồn tại. | Tải lại danh sách. |
 
 ---
@@ -312,7 +312,7 @@ Mở lại hoạt động cho tài khoản đang bị trạng thái `Suspended`.
 
 | HTTP Status | Error Code (`errorCode`) | Nguyên nhân cụ thể | Hành động gợi ý cho Frontend |
 | :---: | :--- | :--- | :--- |
-| `409 Conflict` | `identity.account_not_verified` | Tài khoản đang ở trạng thái `PendingEmailVerification` (chưa tự xác thực OTP email). Admin không được phép kích hoạt thay. | Ẩn nút kích hoạt đối với các tài khoản chưa xác thực email. |
+| `400 Bad Request` | `identity.account_not_suspended` | Tài khoản không đang ở trạng thái `Suspended` (chỉ tài khoản bị đình chỉ mới được kích hoạt lại). | Ẩn nút "Kích hoạt" cho các tài khoản không ở trạng thái Suspended. |
 
 ---
 

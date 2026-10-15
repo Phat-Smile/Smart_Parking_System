@@ -546,6 +546,7 @@ public sealed class RegisterAccountTests
 
         public Task<Profile?> FindByAccountIdAsync(Guid accountId, CancellationToken cancellationToken) =>
             Task.FromResult(Saved.FirstOrDefault(p => p.AccountId == accountId));
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher

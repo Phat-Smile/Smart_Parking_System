@@ -8,7 +8,7 @@ namespace ParkingSystem.Identity.Application.Admin.SuspendAccount;
 
 public sealed record SuspendAccountCommand(Guid AdminId, Guid AccountId) : IRequest<Result<SuspendedAccount>>;
 
-public sealed record SuspendedAccount(Guid AccountId, string Message);
+public sealed record SuspendedAccount(Guid AccountId, string Status, string Message);
 
 public static class SuspendAccountErrors
 {
@@ -54,7 +54,8 @@ public sealed class SuspendAccountCommandHandler(
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<SuspendedAccount>.Success(
-                new SuspendedAccount(account.Id, "Tài khoản đã bị đình chỉ và toàn bộ phiên làm việc đã được thu hồi."));
+                new SuspendedAccount(account.Id, account.Status.ToString(),
+                    "Đã đình chỉ tài khoản thành công. Toàn bộ phiên đăng nhập đã bị thu hồi."));
         }, cancellationToken);
     }
 }

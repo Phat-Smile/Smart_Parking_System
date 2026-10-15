@@ -394,7 +394,7 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         var admin = VerifiedAccount("admin@example.test");
         admin.AssignRole(AccountRole.SystemAdmin);
         var targetId = Guid.NewGuid();
-        _sender.Respond(Result<SuspendedAccount>.Success(new SuspendedAccount(targetId, "ok")));
+        _sender.Respond(Result<SuspendedAccount>.Success(new SuspendedAccount(targetId, "Suspended", "ok")));
 
         using var response = await PostAsync(
             $"/api/identity/admin/accounts/{targetId}/suspend", new { }, IssueToken(admin));
@@ -442,7 +442,7 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         var admin = VerifiedAccount("admin@example.test");
         admin.AssignRole(AccountRole.SystemAdmin);
         var targetId = Guid.NewGuid();
-        _sender.Respond(Result<ActivatedAccount>.Success(new ActivatedAccount(targetId, "ok")));
+        _sender.Respond(Result<ActivatedAccount>.Success(new ActivatedAccount(targetId, "EmailVerified", "ok")));
 
         using var response = await PostAsync(
             $"/api/identity/admin/accounts/{targetId}/activate", new { }, IssueToken(admin));
