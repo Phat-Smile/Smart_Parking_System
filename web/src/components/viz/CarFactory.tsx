@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useGLTF } from "@react-three/drei";
-import { Mesh, MeshStandardMaterial, MeshPhysicalMaterial, Color } from "three";
-import { Vehicle } from "../../domain/types";
+import { MeshStandardMaterial, MeshPhysicalMaterial, Color } from "three";
 
 // In a real implementation, we would load GLB files using useGLTF.
 // For this procedural version, we create detailed boxes to represent cars.

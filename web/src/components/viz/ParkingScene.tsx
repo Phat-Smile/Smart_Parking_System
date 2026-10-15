@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useParkingStore } from "../../store/useParkingStore";
-import { mk3D, ParkingSlot } from "./parkingScene3D";
+import { mk3D, ParkingSlot } from "./parkingScene3d";
 import { SlotStatus } from "../../domain/types";
 
 // Convert domain status to prototype status
@@ -21,14 +22,17 @@ export function ParkingScene() {
   const { slots, activeFloor, selectedSlotId, selectSlot } = useParkingStore();
 
   const slotsRef = useRef(slots);
-  slotsRef.current = slots;
+  useEffect(() => {
+    slotsRef.current = slots;
+  }, [slots]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
     const mapSlot = (slot: any): ParkingSlot => ({
       id: slot.id,
-      f: "T" + slot.floorId.replace('f', ''),
+      f: ("T" + slot.floorId.replace('f', '')) as ParkingSlot["f"],
       r: slot.row === 0 ? "A" : "B",
       n: slot.index,
       i: slot.index + (slot.row === 1 ? 10 : 0) + (parseInt(slot.floorId.replace('f', '')) - 1) * 20,
@@ -39,7 +43,7 @@ export function ParkingScene() {
     const spots = Object.values(slotsRef.current).map(mapSlot);
 
     // Initialize mk3D ONLY ONCE
-    apiRef.current = mk3D(containerRef.current, spots, (id) => {
+    apiRef.current = mk3D(container, spots, (id) => {
       selectSlot(id);
     });
 
@@ -48,8 +52,8 @@ export function ParkingScene() {
         apiRef.current.dispose();
         apiRef.current = null;
       }
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
+      if (container) {
+        container.innerHTML = "";
       }
     };
   }, [selectSlot]); // Do NOT depend on slots to avoid recreating WebGL context!
@@ -59,7 +63,7 @@ export function ParkingScene() {
     if (apiRef.current) {
       const mapSlot = (slot: any): ParkingSlot => ({
         id: slot.id,
-        f: "T" + slot.floorId.replace('f', ''),
+        f: ("T" + slot.floorId.replace('f', '')) as ParkingSlot["f"],
         r: slot.row === 0 ? "A" : "B",
         n: slot.index,
         i: slot.index + (slot.row === 1 ? 10 : 0) + (parseInt(slot.floorId.replace('f', '')) - 1) * 20,
