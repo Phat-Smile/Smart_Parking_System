@@ -8,7 +8,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
-import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import {
+    loginParkWiseAccount,
+    type LoginResponse,
+} from "./loginParkWiseAccount";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import {
     describeGoogleSignInError,
@@ -66,6 +69,14 @@ export function ParkWiseLoginPage({
         defaultValues: { email: "", password: "" },
     });
 
+    function finishSignIn(account: LoginResponse["account"]) {
+        if (account.role === "Customer") {
+            router.replace("/customer/complete-profile");
+            return;
+        }
+        setAuthenticatedEmail(account.email);
+    }
+
     async function onSubmit(values: LoginValues) {
         setNotice("");
         setSubmitError("");
@@ -76,7 +87,7 @@ export function ParkWiseLoginPage({
                 values.password,
             );
             resetField("password");
-            setAuthenticatedEmail(account.email);
+            finishSignIn(account);
         } catch (error) {
             if (error instanceof ApiError) {
                 const code = error.problem?.errorCode;
@@ -107,11 +118,7 @@ export function ParkWiseLoginPage({
                 ) {
                     setLockSeconds(error.retryAfterSeconds ?? 900);
                 }
-                setSubmitError(
-                    error.correlationId
-                        ? `${message} Support ID: ${error.correlationId}`
-                        : message,
-                );
+                setSubmitError(message);
             } else {
                 setSubmitError(
                     "We couldn't connect. Check your connection and try again.",
@@ -127,7 +134,7 @@ export function ParkWiseLoginPage({
         setAuthenticatedEmail("");
         try {
             const account = await googleLoginParkWiseAccount(idToken);
-            setAuthenticatedEmail(account.email);
+            finishSignIn(account);
         } catch (error) {
             if (
                 error instanceof ApiError &&

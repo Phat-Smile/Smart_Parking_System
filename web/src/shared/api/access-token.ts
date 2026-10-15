@@ -1,5 +1,5 @@
-// Keep short-lived access credentials in memory. Refresh credentials belong in
-// the backend's HttpOnly cookie and must not be copied into browser storage.
+// Keep short-lived access credentials in memory. Auth session data, including
+// the refresh token returned by Identity, is also held in memory.
 let accessToken: string | undefined;
 
 export function setAccessToken(token: string) {
