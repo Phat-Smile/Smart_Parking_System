@@ -1,19 +1,29 @@
 import { gatewayFetch } from "@/shared/api/client";
 
-export class ResetEndpointUnavailableError extends Error {
-    constructor() {
-        super("The password reset endpoint is not configured.");
-    }
+/** Reset a forgotten password with the emailed six-digit OTP. */
+export async function resetPassword(
+    email: string,
+    otpCode: string,
+    newPassword: string,
+) {
+    return gatewayFetch<{ message: string }>(
+        "/api/identity/accounts/reset-password",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, otpCode, newPassword }),
+        },
+    );
 }
 
-/** The Identity reset route must be supplied when its backend contract exists. */
-export async function changePassword(token: string, newPassword: string) {
-    const path = process.env.NEXT_PUBLIC_IDENTITY_RESET_PASSWORD_PATH?.trim();
-    if (!path) throw new ResetEndpointUnavailableError();
-
-    await gatewayFetch<unknown>(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword }),
-    });
+/** Change the password of the signed-in account. */
+export function changePassword(currentPassword: string, newPassword: string) {
+    return gatewayFetch<{ message: string }>(
+        "/api/identity/accounts/change-password",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ currentPassword, newPassword }),
+        },
+    );
 }

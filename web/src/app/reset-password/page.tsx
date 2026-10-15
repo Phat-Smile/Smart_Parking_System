@@ -17,14 +17,14 @@ export const metadata: Metadata = {
 export default async function ResetPasswordRoute({
     searchParams,
 }: {
-    searchParams: Promise<{ token?: string | string[] }>;
+    searchParams: Promise<{ email?: string | string[] }>;
 }) {
     const params = await searchParams;
-    const token = typeof params.token === "string" ? params.token.trim() : "";
+    const email = typeof params.email === "string" ? params.email.trim() : "";
     return (
         <ParkWiseResetPasswordPage
             fontClassName={manrope.className}
-            token={token}
+            email={email}
         />
     );
 }

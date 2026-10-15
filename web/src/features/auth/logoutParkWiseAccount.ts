@@ -3,14 +3,22 @@ import { clearAuthSession, getAuthSessionSnapshot } from "./authSession";
 
 export async function logoutParkWiseAccount() {
     const session = getAuthSessionSnapshot();
-    if (!session?.refreshToken) {
-        throw new Error("No active refresh session is available.");
+    try {
+        await gatewayFetch<{ message: string }>(
+            "/api/identity/accounts/logout",
+            {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                // Current Identity implementation still requires the body token.
+                body: JSON.stringify(
+                    session?.refreshToken
+                        ? { refreshToken: session.refreshToken }
+                        : {},
+                ),
+            },
+        );
+    } finally {
+        clearAuthSession();
     }
-
-    await gatewayFetch<{ message: string }>("/api/identity/accounts/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: session.refreshToken }),
-    });
-    clearAuthSession();
 }

@@ -4,16 +4,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RegisterForm } from "./RegisterForm";
 import { registerAccount } from "./registerApi";
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 vi.mock("./registerApi", () => ({ registerAccount: vi.fn() }));
 
 const mockedRegister = vi.mocked(registerAccount);
 
-beforeEach(() => mockedRegister.mockReset());
+beforeEach(() => {
+    mockedRegister.mockReset();
+    push.mockReset();
+    window.sessionStorage.clear();
+});
 
 describe("Registration form", () => {
     it("renders accessible fields and Login navigation", () => {
         render(<RegisterForm />);
-        expect(screen.getByLabelText("Full Name")).toBeInTheDocument();
+        expect(screen.getByLabelText(/Full Name/)).toBeInTheDocument();
         expect(screen.getByLabelText("Email Address")).toBeInTheDocument();
         expect(
             screen.getByLabelText("Password", { exact: true }),
@@ -31,12 +38,14 @@ describe("Registration form", () => {
         await user.click(
             screen.getByRole("button", { name: /Create account/i }),
         );
-        expect(await screen.findByText("Full name is required")).toBeVisible();
+        expect(await screen.findByText("Email is required")).toBeVisible();
         expect(screen.getByText("Email is required")).toBeVisible();
-        expect(screen.getByText("Password is required")).toBeVisible();
+        expect(
+            screen.getByText("Password must contain at least 8 characters"),
+        ).toBeVisible();
         expect(mockedRegister).not.toHaveBeenCalled();
 
-        await user.type(screen.getByLabelText("Full Name"), "Jane Park");
+        await user.type(screen.getByLabelText(/Full Name/), "Jane Park");
         await user.type(screen.getByLabelText("Email Address"), "not-an-email");
         await user.type(
             screen.getByLabelText("Password", { exact: true }),
@@ -62,11 +71,13 @@ describe("Registration form", () => {
         mockedRegister.mockResolvedValue({
             accountId: "id-1",
             email: "jane@example.com",
+            fullName: "Jane Park",
             status: "PendingEmailVerification",
+            message: "Code sent",
         });
         window.history.replaceState({}, "", "/register");
         render(<RegisterForm />);
-        await user.type(screen.getByLabelText("Full Name"), "Jane Park");
+        await user.type(screen.getByLabelText(/Full Name/), "Jane Park");
         await user.type(
             screen.getByLabelText("Email Address"),
             "jane@example.com",
@@ -87,14 +98,11 @@ describe("Registration form", () => {
             expect(mockedRegister).toHaveBeenCalledWith({
                 email: "jane@example.com",
                 password: "ValidPass1!",
+                fullName: "Jane Park",
                 phoneNumber: null,
             }),
         );
-        expect(window.location.pathname).toBe("/register");
-        expect(window.location.search).toBe("");
-        expect(
-            await screen.findByText(/Email verification is pending/),
-        ).toBeVisible();
+        await waitFor(() => expect(push).toHaveBeenCalledWith("/verify-otp"));
     });
 
     it("toggles password visibility without submitting", () => {

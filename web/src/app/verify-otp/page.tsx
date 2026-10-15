@@ -13,6 +13,17 @@ export const metadata: Metadata = {
     icons: { icon: "/images/parkwise/logo.png" },
 };
 
-export default function VerifyOtpRoute() {
-    return <ParkWiseOtpPage fontClassName={manrope.className} />;
+export default async function VerifyOtpRoute({
+    searchParams,
+}: {
+    searchParams: Promise<{ email?: string | string[] }>;
+}) {
+    const params = await searchParams;
+    const email = typeof params.email === "string" ? params.email.trim() : "";
+    return (
+        <ParkWiseOtpPage
+            fontClassName={manrope.className}
+            initialEmail={email}
+        />
+    );
 }

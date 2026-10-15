@@ -1,0 +1,102 @@
+/* Landing-only hover motion. The page remains fully visible without JavaScript. */
+.parkwise-landing .parkwise-button,
+.parkwise-landing .parkwise-step,
+.parkwise-landing .parkwise-stats > div,
+.parkwise-landing .parkwise-parking-card,
+.parkwise-landing .parkwise-desktop-nav a,
+.parkwise-landing .parkwise-mobile-menu nav > a {
+    transition:
+        translate 240ms cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 200ms,
+        color 200ms,
+        opacity 200ms;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .parkwise-landing .parkwise-button:hover,
+    .parkwise-landing .parkwise-button:focus-visible {
+        translate: 0 -3px;
+    }
+    .parkwise-landing .parkwise-step:hover,
+    .parkwise-landing .parkwise-stats > div:hover,
+    .parkwise-landing .parkwise-parking-card:hover {
+        translate: 0 -5px;
+    }
+    .parkwise-landing .parkwise-desktop-nav a:hover,
+    .parkwise-landing .parkwise-mobile-menu nav > a:hover {
+        translate: 0 -2px;
+    }
+}
+
+/* The parking demonstration sits behind the existing Destination copy. */
+.parkwise-landing .parkwise-nearby {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.parkwise-landing .parkwise-nearby > .parkwise-container {
+    position: relative;
+    z-index: 1;
+}
+
+.parkwise-destination-scene {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(62%, 840px);
+    pointer-events: none;
+}
+
+.parkwise-destination-scene::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        #010101 0%,
+        rgb(1 1 1 / 0.72) 28%,
+        transparent 78%
+    );
+    content: "";
+}
+
+.parkwise-destination-fallback,
+.parkwise-destination-canvas {
+    position: absolute;
+    inset: 0;
+}
+
+.parkwise-destination-fallback {
+    background: url("/images/parkwise/destination-parking-fallback.svg")
+        center / cover no-repeat;
+    transition: opacity 450ms ease;
+}
+
+.parkwise-destination-scene.has-canvas .parkwise-destination-fallback {
+    opacity: 0;
+}
+
+.parkwise-destination-canvas {
+    opacity: 0;
+    transition: opacity 450ms ease;
+}
+
+.parkwise-destination-canvas.is-ready {
+    opacity: 1;
+}
+
+@media (max-width: 767px) {
+    .parkwise-destination-scene {
+        width: 100%;
+        opacity: 0.42;
+    }
+    .parkwise-destination-scene::after {
+        background: rgb(1 1 1 / 0.52);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .parkwise-destination-canvas,
+    .parkwise-destination-fallback {
+        transition: none;
+    }
+}

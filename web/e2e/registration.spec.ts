@@ -14,7 +14,9 @@ test("Registration route renders and validates before sending data", async ({
             body: JSON.stringify({
                 accountId: "id-1",
                 email: "jane@example.com",
+                fullName: null,
                 status: "PendingEmailVerification",
+                message: "Code sent",
             }),
         });
     });
@@ -27,7 +29,7 @@ test("Registration route renders and validates before sending data", async ({
     await page
         .getByRole("button", { name: "Create account", exact: true })
         .click();
-    await expect(page.getByText("Full name is required")).toBeVisible();
+    await expect(page.getByText("Email is required")).toBeVisible();
     expect(calls).toBe(0);
     expect(new URL(page.url()).pathname).toBe("/register");
     expect(errors).toEqual([]);
@@ -46,12 +48,14 @@ test("Valid form uses Gateway POST and never places credentials in the URL", asy
             body: JSON.stringify({
                 accountId: "id-1",
                 email: "jane@example.com",
+                fullName: "Jane Park",
                 status: "PendingEmailVerification",
+                message: "Code sent",
             }),
         });
     });
     await page.goto("/register");
-    await page.getByLabel("Full Name").fill("Jane Park");
+    await page.getByLabel(/Full Name/).fill("Jane Park");
     await page.getByLabel("Email Address").fill("jane@example.com");
     await page.getByLabel("Password", { exact: true }).fill("ValidPass1!");
     await page.getByLabel("Confirm Password").fill("ValidPass1!");
@@ -59,13 +63,14 @@ test("Valid form uses Gateway POST and never places credentials in the URL", asy
     await page
         .getByRole("button", { name: "Create account", exact: true })
         .click();
-    await expect(page.getByText(/Email verification is pending/)).toBeVisible();
+    await expect(page).toHaveURL(/\/verify-otp$/);
     expect(payload).toEqual({
         email: "jane@example.com",
         password: "ValidPass1!",
+        fullName: "Jane Park",
         phoneNumber: null,
     });
-    expect(new URL(page.url()).pathname).toBe("/register");
+    expect(new URL(page.url()).pathname).toBe("/verify-otp");
     expect(new URL(page.url()).search).toBe("");
 });
 
@@ -83,11 +88,12 @@ test("Gateway conflict displays a safe registration error", async ({
             body: JSON.stringify({
                 title: "Conflict",
                 detail: "Internal database detail",
+                errorCode: "identity.email_already_registered",
             }),
         }),
     );
     await page.goto("/register");
-    await page.getByLabel("Full Name").fill("Jane Park");
+    await page.getByLabel(/Full Name/).fill("Jane Park");
     await page.getByLabel("Email Address").fill("jane@example.com");
     await page.getByLabel("Password", { exact: true }).fill("ValidPass1!");
     await page.getByLabel("Confirm Password").fill("ValidPass1!");
@@ -97,7 +103,7 @@ test("Gateway conflict displays a safe registration error", async ({
         .click();
     await expect(
         page.getByText(
-            "This email address is already registered. Support ID: trace-123",
+            "This email address is already registered. Log in or reset your password. Support ID: trace-123",
         ),
     ).toBeVisible();
     await expect(page.getByText("Internal database detail")).toHaveCount(0);
@@ -107,6 +113,7 @@ test("Gateway conflict displays a safe registration error", async ({
 test("Registration controls and responsive layout work", async ({
     page,
 }, testInfo) => {
+    test.setTimeout(60_000);
     const browserErrors: string[] = [];
     page.on("pageerror", (error) => browserErrors.push(error.message));
     for (const width of [390, 768, 1570]) {
@@ -114,7 +121,7 @@ test("Registration controls and responsive layout work", async ({
             width,
             height: width === 390 ? 844 : width === 1570 ? 730 : 1024,
         });
-        await page.goto("/register");
+        await page.goto("/register", { waitUntil: "domcontentloaded" });
         await expect(page.locator("html")).toHaveAttribute(
             "data-theme",
             "dark",

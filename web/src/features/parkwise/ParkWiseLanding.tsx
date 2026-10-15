@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,11 @@ import { ParkWiseFooter } from "./ParkWiseFooter";
 import { ParkWiseGridInfo } from "./ParkWiseGridInfo";
 import { ParkWiseHowItWorks } from "./ParkWiseHowItWorks";
 import { ParkWiseNavbar } from "./ParkWiseNavbar";
+import { DestinationParkingExperience } from "./DestinationParkingExperience";
+import {
+    useParkWiseLandingMotion,
+    DestinationScrollController,
+} from "./useParkWiseLandingMotion";
 
 /**
  * Port of ParkWise's src/Pages/Homepage.jsx and its DefaultLayout. The original
@@ -17,6 +22,12 @@ import { ParkWiseNavbar } from "./ParkWiseNavbar";
 export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
     const router = useRouter();
     const [address, setAddress] = useState("");
+    const pageRef = useRef<HTMLDivElement>(null);
+    const destinationScroll = useMemo(
+        () => new DestinationScrollController(),
+        [],
+    );
+    useParkWiseLandingMotion(pageRef, destinationScroll);
 
     function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -24,7 +35,10 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
     }
 
     return (
-        <div className={`parkwise-page ${fontClassName}`}>
+        <div
+            ref={pageRef}
+            className={`parkwise-page parkwise-landing ${fontClassName}`}
+        >
             <ParkWiseNavbar />
             <main>
                 {/* ParkWise Homepage.jsx: hero and search */}
@@ -94,6 +108,7 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
 
                 {/* Guest preview only: parking search requires an account. */}
                 <section id="nearby-parking" className="parkwise-nearby">
+                    <DestinationParkingExperience signal={destinationScroll} />
                     <div className="parkwise-container">
                         <div className="parkwise-section-title">
                             <p>Find parking near</p>

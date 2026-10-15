@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 
-/** src/Components/Nav/Footer.jsx, retaining the original columns and visual assets. */
 export function ParkWiseFooter() {
     return (
         <footer className="parkwise-footer">
@@ -16,36 +15,39 @@ export function ParkWiseFooter() {
                         />
                         <p>Find Convenient and Affordable Parking.</p>
                     </div>
-                    <div>
+                    <div className="parkwise-footer-column">
                         <h3>Explore</h3>
                         <div className="parkwise-footer-links">
-                            <span>Blog</span>
                             <Link href="/#about">About Us</Link>
-                            <span>Careers</span>
-                            <span>Contact Us</span>
+                            <Link href="/#how-it-works">How It Works</Link>
                         </div>
                     </div>
-                    <div>
-                        <h3>Link</h3>
+                    <div className="parkwise-footer-column">
+                        <h3>Support</h3>
                         <div className="parkwise-footer-links">
-                            <span>Privacy Policy</span>
-                            <span>Term &amp; Conditioner</span>
-                            <Link href="/#how-it-works">FAQs</Link>
+                            <span>Contact Us</span>
+                            <span>FAQs</span>
                         </div>
                     </div>
-                    <div>
-                        <h3>Link</h3>
-                        <div
-                            className="parkwise-socials"
-                            aria-label="ParkWise social icons"
-                        >
+                    <div className="parkwise-footer-column">
+                        <h3>Legal</h3>
+                        <div className="parkwise-footer-links">
+                            <Link href="/privacy-policy">Privacy Policy</Link>
+                            <Link href="/terms-and-conditions">
+                                Terms &amp; Conditions
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="parkwise-footer-column parkwise-footer-social-column">
+                        <h3>Follow Us</h3>
+                        <div className="parkwise-socials" aria-hidden="true">
                             {[1, 2, 3, 4, 5].map((number) => (
                                 <Image
                                     key={number}
                                     src={`/images/parkwise/ss (${number}).svg`}
                                     alt=""
-                                    width={32}
-                                    height={32}
+                                    width={40}
+                                    height={40}
                                 />
                             ))}
                         </div>
@@ -54,8 +56,10 @@ export function ParkWiseFooter() {
                 <div className="parkwise-footer-bottom">
                     <p>© {new Date().getFullYear()} ParkWise</p>
                     <div>
-                        <span>Privacy Policy</span>
-                        <span>Term &amp; Conditioner</span>
+                        <Link href="/privacy-policy">Privacy Policy</Link>
+                        <Link href="/terms-and-conditions">
+                            Terms &amp; Conditions
+                        </Link>
                     </div>
                 </div>
             </div>

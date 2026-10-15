@@ -3,15 +3,15 @@ import { setAuthSession } from "./authSession";
 
 export interface LoginResponse {
     accessToken: string;
-    tokenType: string;
+    tokenType: "Bearer";
     expiresIn: number;
-    refreshToken?: string;
+    refreshToken: string;
     account: {
         id: string;
         email: string;
         phoneNumber: string | null;
-        status: string;
-        role: string;
+        status: "EmailVerified" | "Active" | "Suspended" | "Disabled";
+        role: "Customer" | "Staff" | "ParkingLotOwner" | "SystemAdmin";
     };
 }
 
@@ -21,6 +21,7 @@ export async function loginParkWiseAccount(email: string, password: string) {
         "/api/identity/accounts/login",
         {
             method: "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
         },

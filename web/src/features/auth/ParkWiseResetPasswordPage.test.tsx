@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ParkWiseResetPasswordPage } from "./ParkWiseResetPasswordPage";
-import { changePassword } from "./changePassword";
+import { resetPassword } from "./changePassword";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 vi.mock("./ParkWiseAuthLayout", () => ({
@@ -13,68 +13,40 @@ vi.mock("./ParkWiseAuthLayout", () => ({
 vi.mock("./ParkWiseRecoveryAside", () => ({
     ParkWiseRecoveryAside: () => null,
 }));
-vi.mock("./changePassword", async (importOriginal) => {
-    const original = await importOriginal<typeof import("./changePassword")>();
-    return { ...original, changePassword: vi.fn() };
-});
+vi.mock("./changePassword", () => ({ resetPassword: vi.fn() }));
 
-const changeMock = vi.mocked(changePassword);
+const resetMock = vi.mocked(resetPassword);
 
 describe("ParkWise Reset Password", () => {
-    beforeEach(() => changeMock.mockReset());
+    beforeEach(() => resetMock.mockReset());
 
-    it("requires a link token", () => {
+    it("requires email, six ASCII digits, and a policy-compliant password", async () => {
         render(
-            <ParkWiseResetPasswordPage fontClassName="test-font" token="" />,
-        );
-        expect(
-            screen.getByRole("heading", { name: "Reset link expired" }),
-        ).toBeInTheDocument();
-        expect(
-            screen.getByRole("link", { name: "Request New Link" }),
-        ).toHaveAttribute("href", "/forgot-password");
-    });
-
-    it("requires matching policy-compliant passwords", async () => {
-        render(
-            <ParkWiseResetPasswordPage
-                fontClassName="test-font"
-                token="server-token"
-            />,
+            <ParkWiseResetPasswordPage fontClassName="test-font" email="" />,
         );
         fireEvent.click(
             screen.getByRole("button", { name: "Change Password" }),
         );
         expect(
-            await screen.findByText(
-                "Password must contain at least 8 characters",
-            ),
+            await screen.findByText("Email is required"),
         ).toBeInTheDocument();
-        expect(changeMock).not.toHaveBeenCalled();
-
-        fireEvent.change(screen.getByLabelText("New Password"), {
-            target: { value: "Valid123!" },
-        });
-        fireEvent.change(screen.getByLabelText("Confirm New Password"), {
-            target: { value: "Other123!" },
-        });
-        fireEvent.click(
-            screen.getByRole("button", { name: "Change Password" }),
-        );
         expect(
-            await screen.findByText("The passwords do not match"),
+            screen.getByText("Enter the six-digit code from your email"),
         ).toBeInTheDocument();
-        expect(changeMock).not.toHaveBeenCalled();
+        expect(resetMock).not.toHaveBeenCalled();
     });
 
-    it("shows the success state only after a successful response", async () => {
-        changeMock.mockResolvedValue(undefined);
+    it("sends email, OTP and new password and shows success", async () => {
+        resetMock.mockResolvedValue({ message: "Done" });
         render(
             <ParkWiseResetPasswordPage
                 fontClassName="test-font"
-                token="server-token"
+                email="driver@example.com"
             />,
         );
+        fireEvent.change(screen.getByLabelText("Six-digit code"), {
+            target: { value: "012345" },
+        });
         fireEvent.change(screen.getByLabelText("New Password"), {
             target: { value: "Valid123!" },
         });
@@ -89,9 +61,10 @@ describe("ParkWise Reset Password", () => {
                 name: "Password changed successfully!",
             }),
         ).toBeInTheDocument();
-        expect(changeMock).toHaveBeenCalledWith("server-token", "Valid123!");
-        expect(
-            screen.getByRole("link", { name: "Go to Login" }),
-        ).toHaveAttribute("href", "/login");
+        expect(resetMock).toHaveBeenCalledWith(
+            "driver@example.com",
+            "012345",
+            "Valid123!",
+        );
     });
 });

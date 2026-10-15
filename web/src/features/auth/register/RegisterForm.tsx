@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { ApiError } from "@/shared/errors/api-error";
 import { RegisterIcon } from "./RegisterIcons";
-import { registerAccount, type RegisteredAccount } from "./registerApi";
+import { registerAccount } from "./registerApi";
 import { registerSchema, type RegisterValues } from "./registerSchema";
+import { rememberPendingVerification } from "../pendingVerification";
+import { rememberRegisteredProfileName } from "../authSession";
 
 function GoogleMark() {
     return (
@@ -38,43 +41,65 @@ const labelClass =
     "mb-0.5 block font-mono text-[10.5px] font-semibold tracking-wider text-[var(--reg-muted)] uppercase";
 
 export function RegisterForm() {
+    const router = useRouter();
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [confirmationVisible, setConfirmationVisible] = useState(false);
     const [notice, setNotice] = useState("");
-    const [created, setCreated] = useState<RegisteredAccount | null>(null);
+    const [emailConflict, setEmailConflict] = useState(false);
     const {
         register,
         handleSubmit,
+        setError,
+        control,
         formState: { errors, isSubmitting },
     } = useForm<RegisterValues>({
         resolver: zodResolver(registerSchema),
         defaultValues: {
             fullName: "",
+            phoneNumber: "",
             email: "",
             password: "",
             confirmPassword: "",
             agreeTerms: false,
         },
     });
+    const password = useWatch({ control, name: "password" }) || "";
 
     const onSubmit = handleSubmit(async (values) => {
         setNotice("");
-        setCreated(null);
+        setEmailConflict(false);
         try {
             const account = await registerAccount({
                 email: values.email.trim(),
                 password: values.password,
-                phoneNumber: null,
+                fullName: values.fullName || null,
+                phoneNumber: values.phoneNumber || null,
             });
-            setCreated(account);
+            rememberRegisteredProfileName(account.email, account.fullName);
+            if (!rememberPendingVerification(account.email, 60)) {
+                setNotice(
+                    "Account created. Open email verification in this browser to enter your code.",
+                );
+                return;
+            }
+            router.push("/verify-otp");
         } catch (error) {
             if (error instanceof ApiError) {
+                const code = error.problem?.errorCode;
+                setEmailConflict(code === "identity.email_already_registered");
+                if (code === "identity.phone_already_registered") {
+                    setError("phoneNumber", {
+                        message: "This phone number is already registered.",
+                    });
+                }
                 const message =
-                    error.status === 409
-                        ? "This email address is already registered."
-                        : error.status === 400
-                          ? "Check your details and try again."
-                          : "Registration could not be completed. Please try again.";
+                    code === "identity.email_already_registered"
+                        ? "This email address is already registered. Log in or reset your password."
+                        : code === "identity.phone_already_registered"
+                          ? "Check the phone number below."
+                          : error.status === 400
+                            ? "Check your details and try again."
+                            : "Registration could not be completed. Please try again.";
                 setNotice(
                     error.correlationId
                         ? `${message} Support ID: ${error.correlationId}`
@@ -138,7 +163,7 @@ export function RegisterForm() {
                 >
                     <div>
                         <label htmlFor="register-name" className={labelClass}>
-                            Full Name
+                            Full Name (optional)
                         </label>
                         <div className="relative flex items-center">
                             <RegisterIcon
@@ -173,8 +198,35 @@ export function RegisterForm() {
                                 id="register-name-note"
                                 className="text-[10px] text-[var(--reg-muted)]"
                             >
-                                Your name is not saved until profile setup is
-                                available.
+                                You can add or update your name later.
+                            </p>
+                        )}
+                    </div>
+                    <div>
+                        <label htmlFor="register-phone" className={labelClass}>
+                            Phone Number (optional)
+                        </label>
+                        <input
+                            id="register-phone"
+                            type="tel"
+                            autoComplete="tel"
+                            placeholder="0901234567"
+                            aria-invalid={Boolean(errors.phoneNumber)}
+                            aria-describedby={
+                                errors.phoneNumber
+                                    ? "register-phone-error"
+                                    : undefined
+                            }
+                            className={inputClass}
+                            {...register("phoneNumber")}
+                        />
+                        {errors.phoneNumber && (
+                            <p
+                                id="register-phone-error"
+                                role="alert"
+                                className="text-[11px] text-red-400"
+                            >
+                                {errors.phoneNumber.message}
                             </p>
                         )}
                     </div>
@@ -266,6 +318,16 @@ export function RegisterForm() {
                                 {errors.password.message}
                             </p>
                         )}
+                        <p
+                            className="text-[11px] text-[var(--reg-muted)]"
+                            aria-live="polite"
+                        >
+                            {password.length >= 8 ? "✓" : "○"} 8 characters ·{" "}
+                            {/[A-Z]/.test(password) ? "✓" : "○"} uppercase ·{" "}
+                            {/[a-z]/.test(password) ? "✓" : "○"} lowercase ·{" "}
+                            {/[0-9]/.test(password) ? "✓" : "○"} number ·{" "}
+                            {/[^A-Za-z0-9]/.test(password) ? "✓" : "○"} special
+                        </p>
                     </div>
                     <div>
                         <label
@@ -380,21 +442,18 @@ export function RegisterForm() {
                         Log In →
                     </Link>
                 </div>
-                {created && (
-                    <p
-                        role="status"
-                        className="text-center text-[11px] text-emerald-400"
-                    >
-                        Account created. Email verification is pending. Your
-                        full name was not saved.
-                    </p>
-                )}
                 {notice && (
                     <p
                         role="status"
                         className="text-center text-[11px] text-[var(--reg-muted)]"
                     >
                         {notice}
+                    </p>
+                )}
+                {emailConflict && (
+                    <p className="text-center text-[11px] text-[var(--reg-muted)]">
+                        <Link href="/login">Log in now</Link> ·{" "}
+                        <Link href="/forgot-password">Forgot password?</Link>
                     </p>
                 )}
             </div>

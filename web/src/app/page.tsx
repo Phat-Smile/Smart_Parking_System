@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import { ParkWiseLanding } from "@/features/parkwise/ParkWiseLanding";
 import "./parkwise.css";
+import "./parkwise-motion.css";
 
 const manrope = Manrope({ subsets: ["latin"], display: "swap" });
 

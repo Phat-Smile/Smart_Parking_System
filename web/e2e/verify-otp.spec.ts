@@ -59,6 +59,7 @@ test("OTP verify and resend use Identity responses without exposing the code in 
                 expiresInSeconds: 300,
                 cooldownSeconds: 60,
                 message: "A new code was sent.",
+                otpSent: true,
             }),
         });
     });
@@ -80,16 +81,15 @@ test("OTP verify and resend use Identity responses without exposing the code in 
         page.getByText("Enter the verification code for driver@example.com."),
     ).toBeVisible();
     await page.getByRole("button", { name: "Resend code" }).click();
-    expect(resendBody).toEqual({ email: "driver@example.com" });
     await expect(
         page.getByRole("button", { name: /Resend in/ }),
     ).toBeDisabled();
+    expect(resendBody).toEqual({ email: "driver@example.com" });
     for (const [index, digit] of [..."012345"].entries()) {
         await page
             .getByRole("textbox", { name: `Digit ${index + 1} of 6` })
             .fill(digit);
     }
-    await page.getByRole("button", { name: "Verify Code" }).click();
     await expect(
         page.getByRole("heading", { name: "Email verified" }),
     ).toBeVisible();
@@ -131,7 +131,6 @@ test("An invalid OTP shows the Identity error and stays on verification", async 
             .getByRole("textbox", { name: `Digit ${index + 1} of 6` })
             .fill(digit);
     }
-    await page.getByRole("button", { name: "Verify Code" }).click();
     await expect(
         page.getByText("Incorrect code. Please check it and try again."),
     ).toBeVisible();

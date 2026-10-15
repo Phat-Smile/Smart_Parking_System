@@ -9,6 +9,7 @@ export async function googleLoginParkWiseAccount(idToken: string) {
         "/api/identity/accounts/google",
         {
             method: "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken }),
         },

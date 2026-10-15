@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,7 +27,10 @@ const loginSchema = z.object({
     password: z
         .string()
         .min(1, "Password is required")
-        .max(72, "Password is too long"),
+        .refine(
+            (password) => new TextEncoder().encode(password).length <= 72,
+            "Password is too long",
+        ),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -36,10 +40,22 @@ export function ParkWiseLoginPage({
 }: {
     fontClassName: string;
 }) {
+    const router = useRouter();
     const [notice, setNotice] = useState("");
     const [submitError, setSubmitError] = useState("");
     const [authenticatedEmail, setAuthenticatedEmail] = useState("");
-    const [canVerifyEmail, setCanVerifyEmail] = useState(false);
+    const [lockSeconds, setLockSeconds] = useState(0);
+    const [googlePending, setGooglePending] = useState(false);
+    const [googleUnavailable, setGoogleUnavailable] = useState(false);
+
+    useEffect(() => {
+        if (lockSeconds <= 0) return;
+        const timer = window.setTimeout(
+            () => setLockSeconds((value) => value - 1),
+            1000,
+        );
+        return () => window.clearTimeout(timer);
+    }, [lockSeconds]);
     const {
         register,
         handleSubmit,
@@ -54,7 +70,6 @@ export function ParkWiseLoginPage({
         setNotice("");
         setSubmitError("");
         setAuthenticatedEmail("");
-        setCanVerifyEmail(false);
         try {
             const account = await loginParkWiseAccount(
                 values.email.trim(),
@@ -80,9 +95,17 @@ export function ParkWiseLoginPage({
                                 ? "Check your email and password and try again."
                                 : "We couldn't log you in. Please try again later.";
                 if (code === "identity.email_not_verified") {
-                    setCanVerifyEmail(
-                        rememberPendingVerification(values.email.trim()),
+                    rememberPendingVerification(values.email.trim());
+                    router.push(
+                        `/verify-otp?email=${encodeURIComponent(values.email.trim())}`,
                     );
+                    return;
+                }
+                if (
+                    code === "identity.account_temporarily_locked" ||
+                    error.status === 423
+                ) {
+                    setLockSeconds(error.retryAfterSeconds ?? 900);
                 }
                 setSubmitError(
                     error.correlationId
@@ -98,19 +121,30 @@ export function ParkWiseLoginPage({
     }
 
     async function onGoogleCredential(idToken: string) {
+        setGooglePending(true);
         setNotice("");
         setSubmitError("");
         setAuthenticatedEmail("");
-        setCanVerifyEmail(false);
         try {
             const account = await googleLoginParkWiseAccount(idToken);
             setAuthenticatedEmail(account.email);
         } catch (error) {
+            if (
+                error instanceof ApiError &&
+                (error.problem?.errorCode ===
+                    "identity.google_login_unavailable" ||
+                    error.status === 503)
+            ) {
+                setGoogleUnavailable(true);
+            }
             setSubmitError(describeGoogleSignInError(error));
+        } finally {
+            setGooglePending(false);
         }
     }
 
     function onGoogleUnavailable() {
+        setGoogleUnavailable(true);
         setSubmitError("");
         setNotice("Google sign-in is not available yet.");
     }
@@ -159,6 +193,7 @@ export function ParkWiseLoginPage({
                                     : undefined
                             }
                             {...register("email")}
+                            disabled={lockSeconds > 0}
                         />
                         {errors.email && (
                             <p id="parkwise-login-email-error" role="alert">
@@ -183,6 +218,7 @@ export function ParkWiseLoginPage({
                                     : undefined
                             }
                             {...register("password")}
+                            disabled={lockSeconds > 0}
                         />
                         {errors.password && (
                             <p id="parkwise-login-password-error" role="alert">
@@ -200,7 +236,7 @@ export function ParkWiseLoginPage({
                     <button
                         className="parkwise-login-submit"
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || lockSeconds > 0}
                     >
                         {isSubmitting ? "Verifying..." : "Log in"}
                     </button>
@@ -209,30 +245,38 @@ export function ParkWiseLoginPage({
                             {submitError}
                         </p>
                     )}
-                    {canVerifyEmail && (
-                        <Link
-                            href="/verify-otp"
-                            className="parkwise-login-forgot"
-                        >
-                            Verify your email
-                        </Link>
+                    {lockSeconds > 0 && (
+                        <p className="parkwise-login-error" role="status">
+                            Account locked. Try again in{" "}
+                            {Math.floor(lockSeconds / 60)}:
+                            {String(lockSeconds % 60).padStart(2, "0")}, or
+                            reset your password.
+                        </p>
                     )}
                     {authenticatedEmail && (
-                        <p className="parkwise-login-notice" role="status">
-                            Identity accepted {authenticatedEmail}. Persistent
-                            sign-in is not available until session management is
-                            connected.
-                        </p>
+                        <div className="parkwise-login-notice" role="status">
+                            <p>Signed in as {authenticatedEmail}.</p>
+                            <Link href="/settings/security">
+                                Account security
+                            </Link>
+                        </div>
                     )}
 
                     <div className="parkwise-login-divider" aria-hidden="true">
                         <span>or</span>
                     </div>
-                    <GoogleSignInButton
-                        text="continue_with"
-                        onCredential={onGoogleCredential}
-                        onUnavailable={onGoogleUnavailable}
-                    />
+                    {!googleUnavailable && (
+                        <GoogleSignInButton
+                            text="continue_with"
+                            onCredential={onGoogleCredential}
+                            onUnavailable={onGoogleUnavailable}
+                        />
+                    )}
+                    {googlePending && (
+                        <p className="parkwise-login-notice" role="status">
+                            Verifying your Google account...
+                        </p>
+                    )}
                     {notice && (
                         <p
                             className="parkwise-login-notice"

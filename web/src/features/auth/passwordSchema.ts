@@ -4,7 +4,10 @@ import { z } from "zod";
 export const passwordSchema = z
     .string()
     .min(8, "Password must contain at least 8 characters")
-    .max(72, "Password must contain no more than 72 characters")
+    .refine(
+        (value) => new TextEncoder().encode(value).length <= 72,
+        "Password must contain no more than 72 UTF-8 bytes",
+    )
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[a-z]/, "Password must contain a lowercase letter")
     .regex(/[0-9]/, "Password must contain a number")

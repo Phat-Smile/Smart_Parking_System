@@ -8,6 +8,8 @@ type SegmentedOtpInputProps = {
     onChange: (value: string[]) => void;
     error?: string;
     disabled?: boolean;
+    resetKey?: number;
+    shaking?: boolean;
 };
 
 export function SegmentedOtpInput({
@@ -15,13 +17,15 @@ export function SegmentedOtpInput({
     onChange,
     error,
     disabled = false,
+    resetKey = 0,
+    shaking = false,
 }: SegmentedOtpInputProps) {
     const inputs = useRef<Array<HTMLInputElement | null>>([]);
     const length = value.length;
 
     useEffect(() => {
         if (!disabled) inputs.current[0]?.focus();
-    }, [disabled]);
+    }, [disabled, resetKey]);
 
     function focus(index: number) {
         inputs.current[Math.max(0, Math.min(index, length - 1))]?.focus();
@@ -31,7 +35,7 @@ export function SegmentedOtpInput({
         event: ChangeEvent<HTMLInputElement>,
         index: number,
     ) {
-        const digit = event.target.value.replace(/\D/g, "").slice(-1);
+        const digit = event.target.value.replace(/[^0-9]/g, "").slice(-1);
         const next = [...value];
         next[index] = digit;
         onChange(next);
@@ -66,7 +70,7 @@ export function SegmentedOtpInput({
         index: number,
     ) {
         event.preventDefault();
-        const code = event.clipboardData.getData("text").replace(/\D/g, "");
+        const code = event.clipboardData.getData("text").replace(/[^0-9]/g, "");
         if (!code) return;
 
         const start = code.length >= length ? 0 : index;
@@ -84,7 +88,7 @@ export function SegmentedOtpInput({
 
     return (
         <div
-            className="parkwise-otp-digits"
+            className={`parkwise-otp-digits${shaking ? " parkwise-otp-shake" : ""}`}
             role="group"
             aria-labelledby="parkwise-otp-label"
         >

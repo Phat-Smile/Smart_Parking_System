@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,20 +15,17 @@ const forgotPasswordSchema = z.object({
         .string()
         .trim()
         .min(1, "Email is required")
-        .email("Enter a valid email address"),
+        .email("Enter a valid email address")
+        .max(254, "Email is too long"),
 });
 
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 
 function resetRequestErrorMessage(error: unknown): string {
-    if (
-        error instanceof Error &&
-        error.message === "Password reset is not configured yet."
-    ) {
-        return "Password reset is not available yet. Please try again later.";
-    }
     if (error instanceof ApiError && error.status === 429) {
-        return "Too many requests. Please try again later.";
+        return error.retryAfterSeconds
+            ? `Please wait ${error.retryAfterSeconds} seconds before requesting another code.`
+            : "Too many requests. Please try again later.";
     }
     if (error instanceof ApiError && error.status === 503) {
         return "Password reset is temporarily unavailable. Please try again later.";
@@ -50,6 +47,16 @@ export function ParkWiseForgotPasswordPage({
     const [resendError, setResendError] = useState("");
     const [resendNotice, setResendNotice] = useState("");
     const [resendInFlight, setResendInFlight] = useState(false);
+    const [cooldown, setCooldown] = useState(0);
+
+    useEffect(() => {
+        if (cooldown <= 0) return;
+        const timer = window.setTimeout(
+            () => setCooldown((value) => value - 1),
+            1000,
+        );
+        return () => window.clearTimeout(timer);
+    }, [cooldown]);
     const {
         register,
         handleSubmit,
@@ -64,9 +71,12 @@ export function ParkWiseForgotPasswordPage({
         setRequestInFlight(true);
         setSubmitError("");
         try {
-            await requestPasswordReset(email);
+            const result = await requestPasswordReset(email);
             setSubmittedEmail(email);
+            setCooldown(Math.max(0, result.cooldownSeconds));
         } catch (error) {
+            if (error instanceof ApiError && error.retryAfterSeconds)
+                setCooldown(error.retryAfterSeconds);
             setSubmitError(resetRequestErrorMessage(error));
         } finally {
             setRequestInFlight(false);
@@ -74,14 +84,17 @@ export function ParkWiseForgotPasswordPage({
     }
 
     async function onResend() {
-        if (resendInFlight || !submittedEmail) return;
+        if (resendInFlight || !submittedEmail || cooldown > 0) return;
         setResendInFlight(true);
         setResendError("");
         setResendNotice("");
         try {
-            await requestPasswordReset(submittedEmail);
-            setResendNotice("If an account exists, a new link is on its way.");
+            const result = await requestPasswordReset(submittedEmail);
+            setCooldown(Math.max(0, result.cooldownSeconds));
+            setResendNotice("If an account exists, a new code is on its way.");
         } catch (error) {
+            if (error instanceof ApiError && error.retryAfterSeconds)
+                setCooldown(error.retryAfterSeconds);
             setResendError(resetRequestErrorMessage(error));
         } finally {
             setResendInFlight(false);
@@ -104,17 +117,18 @@ export function ParkWiseForgotPasswordPage({
                     >
                         <h2>Check your email</h2>
                         <p>
-                            We&apos;ve sent a password reset link to your email.
+                            If this account exists, a password reset code has
+                            been sent.
                         </p>
                         <p>
-                            Please check your inbox and follow the link to
+                            Check your inbox, then enter the six-digit code to
                             create a new password.
                         </p>
                         <Link
-                            href="/login"
+                            href={`/reset-password?email=${encodeURIComponent(submittedEmail)}`}
                             className="parkwise-login-submit parkwise-forgot-login-link"
                         >
-                            Back to Login
+                            Enter Reset Code
                         </Link>
                         <p className="parkwise-forgot-resend-row">
                             Didn&apos;t receive the email?{" "}
@@ -122,9 +136,13 @@ export function ParkWiseForgotPasswordPage({
                                 type="button"
                                 className="parkwise-forgot-resend"
                                 onClick={onResend}
-                                disabled={resendInFlight}
+                                disabled={resendInFlight || cooldown > 0}
                             >
-                                {resendInFlight ? "Sending..." : "Resend link"}
+                                {resendInFlight
+                                    ? "Sending..."
+                                    : cooldown > 0
+                                      ? `Resend in ${cooldown}s`
+                                      : "Resend code"}
                             </button>
                         </p>
                         {resendNotice && (
@@ -143,7 +161,8 @@ export function ParkWiseForgotPasswordPage({
                         <h2>Forgot your password?</h2>
                         <p className="parkwise-forgot-description">
                             Enter the email associated with your account.
-                            We&apos;ll send a link to reset your password.
+                            We&apos;ll send a six-digit code to reset your
+                            password.
                         </p>
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-forgot-email">Email</label>
@@ -178,7 +197,7 @@ export function ParkWiseForgotPasswordPage({
                         >
                             {isSubmitting || requestInFlight
                                 ? "Sending..."
-                                : "Send Reset Link"}
+                                : "Send Reset Code"}
                         </button>
                         {submitError && (
                             <p

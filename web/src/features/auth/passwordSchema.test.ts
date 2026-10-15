@@ -14,5 +14,11 @@ describe("ParkWise password policy", () => {
         expect(passwordSchema.safeParse("A1!" + "a".repeat(70)).success).toBe(
             false,
         );
+        expect(passwordSchema.safeParse("A1!a" + "é".repeat(34)).success).toBe(
+            true,
+        );
+        expect(passwordSchema.safeParse("A1!a" + "é".repeat(35)).success).toBe(
+            false,
+        );
     });
 });
