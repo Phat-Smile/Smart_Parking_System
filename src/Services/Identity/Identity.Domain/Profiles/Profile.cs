@@ -17,6 +17,27 @@ public sealed class Profile
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? UpdatedAtUtc { get; private set; }
 
+    public void Update(
+        string fullName,
+        DateTimeOffset updatedAtUtc,
+        DateOnly? dateOfBirth = null,
+        string? citizenIdNumber = null,
+        string? driverLicenseNumber = null,
+        string? avatarUrl = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
+        var trimmedName = fullName.Trim();
+        if (trimmedName.Length > MaxFullNameLength)
+            throw new ArgumentException($"FullName must not exceed {MaxFullNameLength} characters.", nameof(fullName));
+
+        FullName = trimmedName;
+        DateOfBirth = dateOfBirth;
+        CitizenIdNumber = citizenIdNumber?.Trim();
+        DriverLicenseNumber = driverLicenseNumber?.Trim();
+        AvatarUrl = avatarUrl?.Trim();
+        UpdatedAtUtc = updatedAtUtc;
+    }
+
     public static Profile Create(
         Guid accountId,
         string fullName,

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Domain.Profiles;
+using ParkingSystem.Identity.Domain.Vehicles;
 using ParkingSystem.Identity.Persistence.Inbox;
 using ParkingSystem.Identity.Persistence.Outbox;
 
@@ -14,6 +15,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<Account> Accounts => Set<Account>();
 
     public DbSet<Profile> Profiles => Set<Profile>();
+
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
 
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
 

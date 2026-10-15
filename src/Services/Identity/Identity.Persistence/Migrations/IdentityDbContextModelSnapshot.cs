@@ -337,6 +337,47 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.ToTable("profiles", "identity");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Vehicles.Vehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("LicensePlate")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("license_plate");
+
+                    b.Property<string>("NickName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("nick_name");
+
+                    b.Property<int>("VehicleType")
+                        .HasColumnType("integer")
+                        .HasColumnName("vehicle_type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vehicles");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("LicensePlate")
+                        .IsUnique()
+                        .HasDatabaseName("ix_vehicles_license_plate");
+
+                    b.ToTable("vehicles", "identity");
+                });
+
             modelBuilder.Entity("ParkingSystem.Identity.Persistence.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
@@ -467,6 +508,16 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_profiles_accounts_account_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Vehicles.Vehicle", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vehicles_accounts_account_id");
                 });
 #pragma warning restore 612, 618
         }
