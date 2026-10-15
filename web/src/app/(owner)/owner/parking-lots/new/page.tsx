@@ -1,180 +1,444 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { parkingLotSchema, ParkingLotFormData } from "../../../../../domain/schemas";
-import { useRouter } from "next/navigation";
+import React, { useState } from 'react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { PageHeader } from '../../../../../components/layout/PageHeader';
+import { Plan2D } from '../../../../../components/viz/Plan2D';
+import { useOwnerStore } from '../../../../../store/useOwnerStore';
+import { AP, vnd, ST, K } from '../../../../../types/owner';
 
-const steps = ["Thông tin chung", "Bảng giá & Chính sách", "Xác nhận"];
+const ParkingScene3DViewer = dynamic(
+  () => import('../../../../../components/viz/ParkingScene3DViewer'),
+  { ssr: false }
+);
 
-export default function NewParkingLotWizard() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const router = useRouter();
+interface WizardData {
+  name: string;
+  addr: string;
+  gps: string;
+  op: string;
+  cl2: string;
+  vc: boolean;
+  vm: boolean;
+  cap: number;
+  pc: number;
+  pm: number;
+  dep: number;
+  hold: number;
+  layout: string;
+}
 
-  const {
-    register,
-    handleSubmit,
-    trigger,
-    formState: { errors, isValid },
-  } = useForm<ParkingLotFormData>({
-    resolver: zodResolver(parkingLotSchema),
-    mode: "onBlur",
-    defaultValues: {
-      location: { lat: 10.7946, lng: 106.7225 },
-      operatingHours: { open: "08:00", close: "22:00", is24Hours: false },
-      vehicleTypes: ["sedan"],
-      pricing: { baseRate: 20000 },
-      holdDeposit: 50000,
-      reservationPolicy: { allowReservations: true, holdDurationMinutes: 30 },
+const INITIAL_DATA: WizardData = {
+  name: '',
+  addr: '',
+  gps: '',
+  op: '06:00',
+  cl2: '22:00',
+  vc: true,
+  vm: true,
+  cap: 500,
+  pc: 30000,
+  pm: 5000,
+  dep: 20000,
+  hold: 15,
+  layout: '5',
+};
+
+export default function NewParkingLotPage() {
+  const addLot = useOwnerStore((s) => s.addLot);
+
+  const [step, setStep] = useState(0);
+  const [data, setData] = useState<WizardData>(INITIAL_DATA);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [previewMode, setPreviewMode] = useState<'3d' | '2d'>('3d');
+  const [confirming, setConfirming] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const validate = () => {
+    const errs: string[] = [];
+    if (!data.name.trim()) errs.push('Nhập tên bãi');
+    if (!data.addr.trim()) errs.push('Nhập địa chỉ');
+    if (!/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(data.gps.trim())) {
+      errs.push('Tọa độ GPS theo dạng "vĩ độ, kinh độ", ví dụ 10.7769, 106.7009');
     }
-  });
+    if (!(data.cap > 0)) errs.push('Sức chứa phải lớn hơn 0');
+    if (!data.vc && !data.vm) errs.push('Chọn ít nhất một loại xe');
+    return errs;
+  };
 
-  const onNext = async () => {
-    const fieldsToValidate = currentStep === 0 
-      ? ["name", "address"] as const
-      : currentStep === 1
-      ? ["pricing.baseRate", "holdDeposit"] as const
-      : [];
-      
-    const isStepValid = await trigger(fieldsToValidate);
-    if (isStepValid) {
-      setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+  const handleNext = () => {
+    if (step === 0) {
+      const errs = validate();
+      if (errs.length > 0) {
+        setErrors(errs);
+        return;
+      }
+      setErrors([]);
+      setStep(1);
+    } else if (step === 1) {
+      setStep(2);
+    } else if (step === 2) {
+      setConfirming(true);
     }
   };
 
-  const onSubmit = (data: ParkingLotFormData) => {
-    // In a real scenario, this would be a mutation
-    console.log("Submitting:", data);
-    alert("Đã gửi yêu cầu phê duyệt bãi đỗ xe thành công!");
-    router.push("/owner/parking-lots");
+  const handleBack = () => {
+    if (confirming) {
+      setConfirming(false);
+      return;
+    }
+    if (step > 0) {
+      setStep(step - 1);
+    }
   };
+
+  const handleConfirmSend = () => {
+    addLot({
+      id: (Date.now() % 100000) + 10,
+      name: data.name,
+      addr: data.addr,
+      gps: data.gps,
+      op: data.op,
+      cl2: data.cl2,
+      vc: data.vc,
+      vm: data.vm,
+      cc: data.vc ? data.cap : 0,
+      cm: data.vm ? data.cap : 0,
+      fls: Number(data.layout) || 5,
+      pc: data.pc,
+      pm: data.pm,
+      dep: data.dep,
+      res: Number(data.hold) > 0 ? 'on' : 'off',
+      hold: Number(data.hold) || 15,
+      maxr: 6,
+      fc: 10,
+      ap: 'pending',
+      zones: [],
+    });
+    setDone(true);
+  };
+
+  if (done) {
+    return (
+      <>
+        <PageHeader
+          breadcrumb="/owner/parking-lots/new"
+          title="Đăng ký bãi mới"
+          subtitle="Gửi duyệt thành công"
+        />
+        <div className="ok">
+          <h3 style={{ marginTop: 0 }}>Đã gửi duyệt</h3>
+          <p>
+            Bãi &quot;{data.name}&quot; đang ở trạng thái{' '}
+            <span
+              className="tag"
+              style={{ '--c': AP.pending[1] } as React.CSSProperties}
+            >
+              {AP.pending[0]}
+            </span>
+            . Bạn sẽ thấy kết quả trong danh sách bãi khi quản trị viên xử lý.
+          </p>
+          <Link href="/owner/parking-lots" className="btn p">
+            Về danh sách bãi
+          </Link>
+        </div>
+      </>
+    );
+  }
+
+  const steps = ['Cấu hình', 'Xem trước', 'Gửi duyệt'];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-owner-dark">Thêm bãi đỗ xe mới</h1>
-        <p className="text-owner-text-secondary mt-1">
-          Làm theo các bước để thiết lập bãi đỗ xe và gửi yêu cầu phê duyệt.
-        </p>
+    <>
+      <PageHeader
+        breadcrumb="/owner/parking-lots/new"
+        title="Đăng ký bãi mới"
+        subtitle="Bản nháp → Xem lại → Gửi → Chờ duyệt"
+      />
+
+      <div className="steps">
+        {steps.map((s, i) => (
+          <span key={i} className={i === step ? 'on' : ''}>
+            {i + 1}. {s}
+          </span>
+        ))}
       </div>
 
-      {/* Progress */}
-      <nav aria-label="Progress">
-        <ol role="list" className="space-y-4 md:flex md:space-y-0 md:space-x-8">
-          {steps.map((step, index) => (
-            <li key={step} className="md:flex-1">
-              <div className={`group flex flex-col border-l-4 py-2 pl-4 md:border-l-0 md:border-t-4 md:pl-0 md:pt-4 md:pb-0 ${
-                index <= currentStep ? 'border-owner-primary' : 'border-owner-border'
-              }`}>
-                <span className={`text-sm font-medium ${index <= currentStep ? 'text-owner-dark' : 'text-owner-text-secondary'}`}>
-                  Bước {index + 1}
+      {/* Step 0: Cấu hình */}
+      {step === 0 && (
+        <>
+          {errors.length > 0 && (
+            <div className="err">
+              {errors.map((e, idx) => (
+                <div key={idx}>• {e}</div>
+              ))}
+            </div>
+          )}
+
+          <div className="card">
+            <div className="form">
+              <label className="f">
+                <span>Tên bãi</span>
+                <input
+                  type="text"
+                  value={data.name}
+                  onChange={(e) => setData({ ...data, name: e.target.value })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Địa chỉ</span>
+                <input
+                  type="text"
+                  value={data.addr}
+                  onChange={(e) => setData({ ...data, addr: e.target.value })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Tọa độ GPS</span>
+                <input
+                  type="text"
+                  value={data.gps}
+                  placeholder="10.7769, 106.7009"
+                  onChange={(e) => setData({ ...data, gps: e.target.value })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Giờ mở cửa</span>
+                <input
+                  type="time"
+                  value={data.op}
+                  onChange={(e) => setData({ ...data, op: e.target.value })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Giờ đóng cửa</span>
+                <input
+                  type="time"
+                  value={data.cl2}
+                  onChange={(e) => setData({ ...data, cl2: e.target.value })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Sức chứa tổng</span>
+                <input
+                  type="number"
+                  value={data.cap}
+                  onChange={(e) => setData({ ...data, cap: Number(e.target.value) })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Giá ô tô (đ/giờ)</span>
+                <input
+                  type="number"
+                  value={data.pc}
+                  onChange={(e) => setData({ ...data, pc: Number(e.target.value) })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Giá xe máy (đ/giờ)</span>
+                <input
+                  type="number"
+                  value={data.pm}
+                  onChange={(e) => setData({ ...data, pm: Number(e.target.value) })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Tiền cọc giữ chỗ (đ)</span>
+                <input
+                  type="number"
+                  value={data.dep}
+                  onChange={(e) => setData({ ...data, dep: Number(e.target.value) })}
+                />
+              </label>
+
+              <label className="f">
+                <span>Chính sách đặt trước</span>
+                <select
+                  value={data.hold}
+                  onChange={(e) => setData({ ...data, hold: Number(e.target.value) })}
+                >
+                  <option value={0}>Không cho đặt trước</option>
+                  <option value={15}>Giữ chỗ 15 phút</option>
+                  <option value={30}>Giữ chỗ 30 phút</option>
+                </select>
+              </label>
+
+              <label className="f">
+                <span>Mẫu sơ đồ</span>
+                <select
+                  value={data.layout}
+                  onChange={(e) => setData({ ...data, layout: e.target.value })}
+                >
+                  <option value="5">5 tầng · 4 dãy · 500 ô</option>
+                  <option value="3">3 tầng · 4 dãy · 300 ô</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="form" style={{ marginTop: '14px' }}>
+              <label className="f ck">
+                <input
+                  type="checkbox"
+                  checked={data.vc}
+                  onChange={(e) => setData({ ...data, vc: e.target.checked })}
+                />
+                Nhận ô tô
+              </label>
+              <label className="f ck">
+                <input
+                  type="checkbox"
+                  checked={data.vm}
+                  onChange={(e) => setData({ ...data, vm: e.target.checked })}
+                />
+                Nhận xe máy
+              </label>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Step 1: Xem trước */}
+      {step === 1 && (
+        <>
+          <div style={{ marginBottom: '12px' }}>
+            <div className="segs">
+              <button
+                className={previewMode === '3d' ? 'on' : ''}
+                onClick={() => setPreviewMode('3d')}
+              >
+                3D
+              </button>
+              <button
+                className={previewMode === '2d' ? 'on' : ''}
+                onClick={() => setPreviewMode('2d')}
+              >
+                2D
+              </button>
+            </div>
+          </div>
+
+          <div className="card">
+            {previewMode === '3d' ? <ParkingScene3DViewer /> : <Plan2D />}
+            <div className="lgd">
+              {K.map((k) => (
+                <span key={k}>
+                  <i style={{ background: ST[k][1] }} />
+                  {ST[k][0]}
                 </span>
-                <span className="text-sm font-medium">{step}</span>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
-      {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-sm border border-owner-border rounded-xl p-6 sm:p-8 space-y-6">
-        {currentStep === 0 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-medium text-owner-dark">Thông tin chung</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-owner-dark">Tên bãi đỗ</label>
-                <input
-                  {...register("name")}
-                  className="mt-1 block w-full border border-owner-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-owner-primary focus:border-owner-primary sm:text-sm"
-                  placeholder="Vd: Vincom Landmark 81"
-                />
-                {errors.name && <p className="mt-1 text-sm text-status-occupied">{errors.name.message}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-owner-dark">Địa chỉ</label>
-                <input
-                  {...register("address")}
-                  className="mt-1 block w-full border border-owner-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-owner-primary focus:border-owner-primary sm:text-sm"
-                  placeholder="Vd: 720A Điện Biên Phủ..."
-                />
-                {errors.address && <p className="mt-1 text-sm text-status-occupied">{errors.address.message}</p>}
-              </div>
+              ))}
             </div>
           </div>
-        )}
+          <p className="mut" style={{ marginTop: '8px' }}>
+            Bố cục xem trước theo mẫu bạn đã chọn. Kiểm tra rồi tiếp tục.
+          </p>
+        </>
+      )}
 
-        {currentStep === 1 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-medium text-owner-dark">Bảng giá & Chính sách</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-owner-dark">Giá cơ bản (VNĐ/giờ)</label>
-                <input
-                  type="number"
-                  {...register("pricing.baseRate", { valueAsNumber: true })}
-                  className="mt-1 block w-full border border-owner-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-owner-primary focus:border-owner-primary sm:text-sm"
-                />
-                {errors.pricing?.baseRate && <p className="mt-1 text-sm text-status-occupied">{errors.pricing.baseRate.message}</p>}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-owner-dark">Tiền cọc giữ chỗ (VNĐ)</label>
-                <input
-                  type="number"
-                  {...register("holdDeposit", { valueAsNumber: true })}
-                  className="mt-1 block w-full border border-owner-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-owner-primary focus:border-owner-primary sm:text-sm"
-                />
-              </div>
+      {/* Step 2: Gửi duyệt */}
+      {step === 2 && (
+        <>
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Kiểm tra thông tin</h3>
+            <div className="tw">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mục</th>
+                    <th>Giá trị</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Tên bãi</td>
+                    <td>{data.name}</td>
+                  </tr>
+                  <tr>
+                    <td>Địa chỉ</td>
+                    <td>{data.addr}</td>
+                  </tr>
+                  <tr>
+                    <td>GPS</td>
+                    <td>{data.gps}</td>
+                  </tr>
+                  <tr>
+                    <td>Giờ hoạt động</td>
+                    <td>
+                      {data.op} – {data.cl2}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Loại xe</td>
+                    <td>
+                      {[data.vc ? 'Ô tô' : '', data.vm ? 'Xe máy' : '']
+                        .filter(Boolean)
+                        .join(', ')}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Sức chứa</td>
+                    <td>{data.cap} chỗ</td>
+                  </tr>
+                  <tr>
+                    <td>Giá</td>
+                    <td>
+                      {vnd(data.pc)} / giờ (ô tô), {vnd(data.pm)} / giờ (xe máy)
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Tiền cọc</td>
+                    <td>{vnd(data.dep)}</td>
+                  </tr>
+                  <tr>
+                    <td>Đặt trước</td>
+                    <td>{data.hold > 0 ? `Giữ chỗ ${data.hold} phút` : 'Không'}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
 
-        {currentStep === 2 && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-medium text-owner-dark">Xác nhận thông tin</h2>
-            <p className="text-sm text-owner-text-secondary">
-              Vui lòng kiểm tra kỹ thông tin trước khi gửi phê duyệt. 
-              Bạn có thể xem trước mô hình 2D/3D (Placeholder) tại đây.
-            </p>
-            <div className="h-64 bg-owner-bg rounded-lg border border-dashed border-owner-border flex items-center justify-center text-owner-text-secondary">
-              Layout Preview (2D/3D)
+          {confirming && (
+            <div className="ok" style={{ marginTop: '14px' }}>
+              <b>Xác nhận gửi duyệt?</b>
+              <p>Sau khi gửi, bạn không thể sửa cho tới khi có kết quả.</p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn p" onClick={handleConfirmSend}>
+                  Xác nhận gửi
+                </button>
+                <button className="btn" onClick={() => setConfirming(false)}>
+                  Quay lại
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-
-        <div className="pt-5 flex justify-end space-x-3 border-t border-owner-border">
-          {currentStep > 0 && (
-            <button
-              type="button"
-              onClick={() => setCurrentStep((prev) => prev - 1)}
-              className="bg-white py-2 px-4 border border-owner-border rounded-md shadow-sm text-sm font-medium text-owner-dark hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-owner-primary"
-            >
-              Quay lại
-            </button>
           )}
-          {currentStep < steps.length - 1 ? (
-            <button
-              type="button"
-              onClick={onNext}
-              className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-owner-dark hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-owner-primary"
-            >
-              Tiếp tục
-            </button>
-          ) : (
-            <button
-              type="submit"
-              className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-owner-primary !text-owner-dark hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-owner-primary"
-            >
-              Gửi phê duyệt
-            </button>
-          )}
-        </div>
-      </form>
-    </div>
+        </>
+      )}
+
+      {/* Action buttons */}
+      <div className="ph" style={{ marginTop: '16px' }}>
+        {step === 0 ? (
+          <Link href="/owner/parking-lots" className="btn">
+            Hủy
+          </Link>
+        ) : (
+          <button className="btn" onClick={handleBack}>
+            Quay lại
+          </button>
+        )}
+
+        <button className="btn p" onClick={handleNext}>
+          {step === 2 ? 'Gửi duyệt' : 'Tiếp tục'}
+        </button>
+      </div>
+    </>
   );
 }
