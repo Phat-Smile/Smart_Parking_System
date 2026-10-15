@@ -1,54 +1,82 @@
-"use client";
+'use client';
 
-import React, { useMemo } from "react";
-import { useParkingStore } from "../../../../store/useParkingStore";
-import { useRouter } from "next/navigation";
+import React from 'react';
+import Link from 'next/link';
+import { OwnerPageHeader as PageHeader } from '../../../../components/layout/OwnerPageHeader';
+import { useOwnerStore, getSpotCounts } from '../../../../store/useOwnerStore';
+import { AP, HC } from '../../../../types/owner';
 
 export default function ParkingLotsPage() {
-  const { slots } = useParkingStore();
-  const router = useRouter();
+  const lots = useOwnerStore((s) => s.lots);
+  const spots = useOwnerStore((s) => s.spots);
+  const counts = getSpotCounts(spots);
 
-  const occ = Object.values(slots).filter(s => s.status === 'occupied' || s.status === 'assigned').length;
-  const total = Math.max(1, Object.keys(slots).length);
-  const pc = Math.round((occ / total) * 100) || 0;
-
-  const L = [
-    ['Bãi đỗ xe Vincom Đồng Khởi', '72 Lê Thánh Tôn, Q.1', 3, total, 'ok', pc],
-    ['Bãi xe Nguyễn Huệ', '25 Nguyễn Huệ, Q.1', 2, 40, 'pe', 0],
-    ['Bãi xe Pasteur', '12 Pasteur, Q.3', 4, 96, 'rj', 0]
-  ];
-  const A: any = {
-    ok: ['Đã duyệt', '#16a36a'],
-    pe: ['Chờ duyệt', '#f2a007'],
-    rj: ['Bị từ chối', '#e5484d']
-  };
+  const occPct = Math.round(((counts.occupied + counts.reserved) / (spots.length || 500)) * 100);
 
   return (
     <>
-      <div className="head rowb">
-        <div>
-          <h2>Bãi của tôi</h2>
-          <p className="mut" style={{ margin: 0 }}>Quản lý nhiều bãi, mỗi bãi nhiều tầng</p>
-        </div>
-        <button className="btn p" onClick={() => router.push('/owner/parking-lots/new')}>Thêm bãi mới</button>
-      </div>
+      <PageHeader
+        breadcrumb="/owner/parking-lots"
+        title="Bãi của tôi"
+        subtitle="Danh sách bãi, sức chứa và trạng thái duyệt"
+        actions={
+          <Link href="/owner/parking-lots/new" className="btn p">
+            + Thêm bãi mới
+          </Link>
+        }
+      />
+
       <div className="lots">
-        {L.map((l: any, i) => (
-          <div key={i} className="card lot">
-            <div className="top">
-              <span className="tag" style={{ '--c': A[l[4]][1] } as any}>{A[l[4]][0]}</span>
+        {lots.map((l) => {
+          const cap = l.cc + l.cm;
+          const u = l.ap === 'approved' ? occPct : 0;
+          const h1 = HC[l.ap][0];
+          const h2 = HC[l.ap][1];
+          const apInfo = AP[l.ap];
+
+          return (
+            <div key={l.id} className="card lot">
+              <div
+                className="top2"
+                style={{ '--h1': h1, '--h2': h2 } as React.CSSProperties}
+              >
+                <span
+                  className="tag"
+                  style={{ '--c': apInfo[1] } as React.CSSProperties}
+                >
+                  {apInfo[0]}
+                </span>
+              </div>
+              <h3 style={{ margin: 0 }}>{l.name}</h3>
+              <p className="mut" style={{ margin: 0 }}>
+                {l.addr}
+              </p>
+              <p style={{ margin: '8px 0 0' }}>
+                {l.fls} tầng · {cap} chỗ · {l.op} – {l.cl2}
+              </p>
+              <div className="bar">
+                <i style={{ width: `${u}%` }} />
+              </div>
+              <p className="mut" style={{ margin: '0 0 12px' }}>
+                {l.ap === 'approved'
+                  ? `${u}% đang sử dụng`
+                  : l.ap === 'rejected'
+                  ? `Lý do: ${l.why}`
+                  : 'Chưa có dữ liệu vận hành'}
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <Link href={`/owner/parking-lots/${l.id}`} className="btn p">
+                  Xem / Quản lý
+                </Link>
+                {l.ap === 'approved' && (
+                  <Link href="/owner/layout" className="btn">
+                    Sơ đồ
+                  </Link>
+                )}
+              </div>
             </div>
-            <h3>{l[0]}</h3>
-            <p className="mut" style={{ margin: 0 }}>{l[1]}</p>
-            <p style={{ margin: '8px 0 0' }}>{l[2]} tầng · {l[3]} ô</p>
-            <div className="bar"><i style={{ width: `${l[4] === 'ok' ? l[5] : 0}%` }}></i></div>
-            <p className="mut" style={{ margin: '0 0 12px' }}>
-              {l[4] === 'ok' ? `${l[5]}% đang sử dụng` : l[4] === 'rj' ? 'Lý do: ảnh sơ đồ chưa khớp địa chỉ, cần cập nhật GPS.' : 'Đang chờ quản trị viên xét duyệt'}
-            </p>
-            <button className="btn" onClick={() => router.push('/owner/dashboard/map')}>Xem sơ đồ</button>{" "}
-            <button className="btn">Chỉnh sửa</button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );

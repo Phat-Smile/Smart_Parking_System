@@ -1,0 +1,47 @@
+.dash-wrapper {
+    /* Light Mode Tokens (Default) */
+    --dash-bg: #f4f7f6;
+    --dash-surface: #ffffff;
+    --dash-primary: #84cc16; /* Lime-500 */
+    --dash-primary-hover: #65a30d; /* Lime-600 */
+    --dash-primary-text: #1a2e05; /* Always dark for contrast on lime */
+    --dash-text: #1e293b;
+    --dash-text-muted: #64748b;
+    --dash-border: #e2e8f0;
+    --dash-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    
+    background-color: var(--dash-bg);
+    color: var(--dash-text);
+}
+
+:is(.dark) .dash-wrapper,
+.dash-wrapper.dark {
+    /* Dark Mode Tokens */
+    --dash-bg: #0f172a;
+    --dash-surface: #1e293b;
+    --dash-primary: #8a6bff; /* Purple matching landing */
+    --dash-primary-hover: #7c5cff;
+    --dash-primary-text: #ffffff;
+    --dash-text: #f1f5f9;
+    --dash-text-muted: #94a3b8;
+    --dash-border: #334155;
+    --dash-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Utilities for Dashboard */
+.dash-card {
+    background-color: var(--dash-surface);
+    border: 1px solid var(--dash-border);
+    box-shadow: var(--dash-shadow);
+    border-radius: 1.5rem;
+}
+
+.dash-btn-primary {
+    background-color: var(--dash-primary);
+    color: var(--dash-primary-text);
+    font-weight: 700;
+    transition: all 0.2s;
+}
+.dash-btn-primary:hover {
+    background-color: var(--dash-primary-hover);
+}
