@@ -4,10 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
+using ParkingSystem.Identity.Application.Admin;
 using ParkingSystem.Identity.Application.Common.Messaging.Inbox;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Persistence.Accounts;
+using ParkingSystem.Identity.Persistence.Admin;
 using ParkingSystem.Identity.Persistence.EmailVerifications;
 using ParkingSystem.Identity.Persistence.Inbox;
 using ParkingSystem.Identity.Persistence.Outbox;
@@ -44,6 +46,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();
+        services.AddScoped<IAdminAccountQueries, AdminAccountQueries>();
         return services;
     }
 }

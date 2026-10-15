@@ -4,16 +4,22 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
+using ParkingSystem.Identity.Application.Accounts.GetMe;
 using ParkingSystem.Identity.Application.Accounts.GoogleLogin;
+using ParkingSystem.Identity.Application.Accounts.ListSessions;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
 using ParkingSystem.Identity.Application.Accounts.LogoutAll;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
 using ParkingSystem.Identity.Application.Accounts.ResetPassword;
+using ParkingSystem.Identity.Application.Accounts.RevokeSession;
 using ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
 using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
+using ParkingSystem.Identity.Application.Admin.ActivateAccount;
+using ParkingSystem.Identity.Application.Admin.SearchAccounts;
+using ParkingSystem.Identity.Application.Admin.SuspendAccount;
 using ParkingSystem.Identity.WebAPI.Security;
 
 namespace ParkingSystem.Identity.WebAPI.Endpoints;
@@ -144,6 +150,9 @@ internal static class AccountEndpoints
         /// <summary>Vai trò mới: Customer, Staff, ParkingLotOwner hoặc SystemAdmin (không phân biệt hoa thường).</summary>
         /// <example>Staff</example>
         string? Role);
+
+    private const string RefreshCookieName = "sp_refresh";
+    private const int RefreshCookieMaxAgeDays = 30;
 
     private static readonly Dictionary<string, int> RefreshErrorStatusCodes = new()
     {
@@ -336,7 +345,20 @@ internal static class AccountEndpoints
                     new LoginCommand(request.Email, request.Password, deviceInfo, ipAddress),
                     cancellationToken);
 
-                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
+                if (result.IsSuccess)
+                {
+                    httpContext.Response.Cookies.Append(RefreshCookieName, result.Value!.RefreshToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        SameSite = SameSiteMode.Strict,
+                        Path = "/api/identity/accounts",
+                        MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
+                        Secure = !httpContext.Request.IsHttps ? false : true
+                    });
+                    return Results.Ok(result.Value);
+                }
+
+                return AccountProblem(httpContext, result.Error!);
             })
             .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
@@ -363,7 +385,20 @@ internal static class AccountEndpoints
                         httpContext.Connection.RemoteIpAddress?.ToString()),
                     cancellationToken);
 
-                return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
+                if (result.IsSuccess)
+                {
+                    httpContext.Response.Cookies.Append(RefreshCookieName, result.Value!.RefreshToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        SameSite = SameSiteMode.Strict,
+                        Path = "/api/identity/accounts",
+                        MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
+                        Secure = !httpContext.Request.IsHttps ? false : true
+                    });
+                    return Results.Ok(result.Value);
+                }
+
+                return AccountProblem(httpContext, result.Error!);
             })
             .WithNoStore()
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
@@ -378,15 +413,31 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status503ServiceUnavailable);
 
         // US-AUTH-005: refresh access token and rotate refresh token (public endpoint).
+        // Cookie takes priority; body fallback supports mobile clients.
         app.MapPost("/api/identity/accounts/refresh", async (
-                RefreshTokenRequest request,
+                RefreshTokenRequest? request,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var result = await sender.Send(new RefreshTokenCommand(request.RefreshToken), cancellationToken);
+                var token = httpContext.Request.Cookies[RefreshCookieName]
+                    ?? request?.RefreshToken
+                    ?? string.Empty;
+
+                var result = await sender.Send(new RefreshTokenCommand(token), cancellationToken);
 
                 if (result.IsSuccess)
+                {
+                    httpContext.Response.Cookies.Append(RefreshCookieName, result.Value!.RefreshToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        SameSite = SameSiteMode.Strict,
+                        Path = "/api/identity/accounts",
+                        MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
+                        Secure = !httpContext.Request.IsHttps ? false : true
+                    });
                     return Results.Ok(result.Value);
+                }
 
                 var statusCode = RefreshErrorStatusCodes.GetValueOrDefault(result.Error!.Code, StatusCodes.Status400BadRequest);
 
@@ -407,13 +458,23 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden);
 
-        // US-AUTH-005: logout current session (public endpoint, authenticated via Refresh Token).
+        // US-AUTH-005: logout current session. Reads refresh token from cookie or body; always clears cookie.
         app.MapPost("/api/identity/accounts/logout", async (
-                LogoutRequest request,
+                LogoutRequest? request,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var result = await sender.Send(new LogoutCommand(request.RefreshToken), cancellationToken);
+                var token = httpContext.Request.Cookies[RefreshCookieName]
+                    ?? request?.RefreshToken
+                    ?? string.Empty;
+
+                httpContext.Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+                {
+                    Path = "/api/identity/accounts"
+                });
+
+                var result = await sender.Send(new LogoutCommand(token), cancellationToken);
 
                 return Results.Ok(result.Value);
             })
@@ -515,6 +576,183 @@ internal static class AccountEndpoints
             .WithSummary("Đổi vai trò tài khoản (Admin)")
             .WithDescription("Đổi vai trò Customer / Staff / ParkingLotOwner / SystemAdmin. Không tự đổi vai trò của mình; đổi xong người dùng bị đăng xuất khỏi mọi thiết bị.")
             .Produces<ChangedAccountRole>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-PROFILE-001: Get current user's account and profile data.
+        app.MapGet("/api/identity/accounts/me", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new GetMeQuery(accountId), cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : Results.Problem(
+                        statusCode: StatusCodes.Status404NotFound,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")
+            .WithName("GetMe")
+            .WithSummary("Lấy thông tin tài khoản và hồ sơ cá nhân")
+            .Produces<MeResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-AUTH-010: List all active sessions for the current account.
+        app.MapGet("/api/identity/accounts/sessions", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new ListSessionsQuery(accountId), cancellationToken);
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization()
+            .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")
+            .WithName("ListSessions")
+            .WithSummary("Danh sách phiên đăng nhập đang hoạt động")
+            .Produces<ListSessionsResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        // US-AUTH-010: Revoke a specific session (log out another device).
+        app.MapDelete("/api/identity/accounts/sessions/{sessionId:guid}", async (
+                Guid sessionId,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new RevokeSessionCommand(accountId, sessionId), cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : Results.Problem(
+                        statusCode: StatusCodes.Status404NotFound,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")
+            .WithName("RevokeSession")
+            .WithSummary("Thu hồi phiên làm việc trên thiết bị khác")
+            .Produces<RevokedSession>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-ADMIN-003: Tìm kiếm và phân trang danh sách tài khoản (Admin).
+        app.MapGet("/api/identity/admin/accounts", async (
+                string? search,
+                string? role,
+                string? status,
+                int page,
+                int pageSize,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(
+                    new SearchAccountsQuery(search, role, status, page <= 0 ? 1 : page, pageSize <= 0 ? 20 : pageSize),
+                    cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : Results.Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("4. Quản trị hệ thống (Administration)")
+            .WithName("SearchAccounts")
+            .WithSummary("Tìm kiếm danh sách tài khoản (Admin)")
+            .Produces<SearchAccountsResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        // US-ADMIN-003: Tạm đình chỉ tài khoản người dùng.
+        app.MapPost("/api/identity/admin/accounts/{accountId:guid}/suspend", async (
+                Guid accountId,
+                HttpContext httpContext,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new SuspendAccountCommand(adminId, accountId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error!.Code switch
+                {
+                    "identity.account_not_found" => StatusCodes.Status404NotFound,
+                    "identity.admin_cannot_suspend_self" or "identity.cannot_suspend_admin" => StatusCodes.Status403Forbidden,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: result.Error.Message,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("4. Quản trị hệ thống (Administration)")
+            .WithName("SuspendAccount")
+            .WithSummary("Tạm đình chỉ tài khoản (Admin)")
+            .Produces<SuspendedAccount>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-ADMIN-003: Kích hoạt lại tài khoản đang bị đình chỉ.
+        app.MapPost("/api/identity/admin/accounts/{accountId:guid}/activate", async (
+                Guid accountId,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new ActivateAccountCommand(accountId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error!.Code switch
+                {
+                    "identity.account_not_found" => StatusCodes.Status404NotFound,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: result.Error.Message,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("4. Quản trị hệ thống (Administration)")
+            .WithName("ActivateAccount")
+            .WithSummary("Kích hoạt lại tài khoản (Admin)")
+            .Produces<ActivatedAccount>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
