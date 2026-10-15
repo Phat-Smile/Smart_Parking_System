@@ -81,10 +81,10 @@ test("OTP verify and resend use Identity responses without exposing the code in 
         page.getByText("Enter the verification code for driver@example.com."),
     ).toBeVisible();
     await page.getByRole("button", { name: "Resend code" }).click();
-    expect(resendBody).toEqual({ email: "driver@example.com" });
     await expect(
         page.getByRole("button", { name: /Resend in/ }),
     ).toBeDisabled();
+    expect(resendBody).toEqual({ email: "driver@example.com" });
     for (const [index, digit] of [..."012345"].entries()) {
         await page
             .getByRole("textbox", { name: `Digit ${index + 1} of 6` })
