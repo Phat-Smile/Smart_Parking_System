@@ -44,7 +44,7 @@ public sealed class RevokeSessionCommandHandler(
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<RevokedSession>.Success(
-                new RevokedSession(session.Id, "Phiên làm việc đã được thu hồi."));
+                new RevokedSession(session.Id, "Đã đăng xuất thiết bị này."));
         }, cancellationToken);
     }
 }

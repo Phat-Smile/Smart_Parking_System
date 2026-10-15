@@ -314,7 +314,7 @@ Lấy hồ sơ cá nhân, vai trò (Role) và trạng thái hiện tại của c
 | `fullName` | `string` hoặc `null` | ⚪ **CÓ THỂ NULL** | Họ tên người dùng từ bảng Profile (nếu chưa cập nhật thì trả `null`) |
 | `phoneNumber` | `string` hoặc `null` | ⚪ **CÓ THỂ NULL** | Số điện thoại đã liên kết (nếu chưa có thì trả `null`) |
 | `role` | `string` | 🟢 **LUÔN CÓ** | Vai trò hệ thống: `"Customer"`, `"Staff"`, `"ParkingLotOwner"`, `"SystemAdmin"` |
-| `status` | `string` | 🟢 **LUÔN CÓ** | Trạng thái tài khoản: `"Active"`, `"PendingEmailVerification"`, `"Suspended"` |
+| `status` | `string` | 🟢 **LUÔN CÓ** | Trạng thái tài khoản: `"EmailVerified"`, `"PendingEmailVerification"`, `"Suspended"`, `"Disabled"` |
 | `hasPassword` | `boolean` | 🟢 **LUÔN CÓ** | `true` nếu đã có mật khẩu truyền thống, `false` nếu chỉ đăng nhập Google |
 | `googleLinked` | `boolean` | 🟢 **LUÔN CÓ** | `true` nếu tài khoản đã liên kết với Google OAuth |
 | `createdAtUtc` | `string (ISO-8601)` | 🟢 **LUÔN CÓ** | Thời gian tạo tài khoản (`"2026-10-12T15:30:00Z"`) |
@@ -326,7 +326,7 @@ Lấy hồ sơ cá nhân, vai trò (Role) và trạng thái hiện tại của c
   "fullName": "Nguyễn Văn A",
   "phoneNumber": "0912345678",
   "role": "Customer",
-  "status": "Active",
+  "status": "EmailVerified",
   "hasPassword": true,
   "googleLinked": false,
   "createdAtUtc": "2026-10-12T15:30:00Z"
@@ -395,7 +395,7 @@ export interface LogoutResponse {
 }
 
 export type UserRole = 'Customer' | 'Staff' | 'ParkingLotOwner' | 'SystemAdmin';
-export type AccountStatus = 'PendingEmailVerification' | 'Active' | 'Suspended' | 'Disabled';
+export type AccountStatus = 'PendingEmailVerification' | 'EmailVerified' | 'Suspended' | 'Disabled';
 
 export interface CurrentAccountResponse {
   id: string;                 // 🟢 [LUÔN CÓ]

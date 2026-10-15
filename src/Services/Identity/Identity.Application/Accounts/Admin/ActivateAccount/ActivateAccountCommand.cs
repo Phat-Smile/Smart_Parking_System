@@ -7,7 +7,7 @@ namespace ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
 
 public sealed record ActivateAccountCommand(Guid AccountId) : IRequest<Result<ActivatedAccount>>;
 
-public sealed record ActivatedAccount(Guid AccountId, string Message);
+public sealed record ActivatedAccount(Guid AccountId, string Status, string Message);
 
 public static class ActivateAccountErrors
 {
@@ -36,7 +36,8 @@ public sealed class ActivateAccountCommandHandler(IAccountRepository accounts)
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<ActivatedAccount>.Success(
-                new ActivatedAccount(account.Id, "Tài khoản đã được kích hoạt lại."));
+                new ActivatedAccount(account.Id, account.Status.ToString(),
+                    "Đã kích hoạt lại tài khoản. Người dùng có thể đăng nhập."));
         }, cancellationToken);
     }
 }

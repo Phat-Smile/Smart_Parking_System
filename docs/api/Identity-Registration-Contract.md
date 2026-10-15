@@ -12,8 +12,8 @@
 
 Nhóm API này xử lý toàn bộ quy trình khởi tạo tài khoản mới:
 1. **Bước 1 - Điền biểu mẫu**: Người dùng nhập Email, Mật khẩu (bắt buộc) cùng Họ tên, Số điện thoại (tùy chọn).
-2. **Bước 2 - Tạo tài khoản & Gửi OTP**: Backend tạo tài khoản ở trạng thái `PendingVerification`, đồng thời phát sinh mã OTP 6 chữ số có hiệu lực **5 phút (300 giây)** gửi qua RabbitMQ để Notification Service bắn email cho người dùng.
-3. **Bước 3 - Xác thực OTP**: Người dùng nhập mã OTP để kích hoạt tài khoản sang trạng thái `Active`.
+2. **Bước 2 - Tạo tài khoản & Gửi OTP**: Backend tạo tài khoản ở trạng thái `PendingEmailVerification`, đồng thời phát sinh mã OTP 6 chữ số có hiệu lực **5 phút (300 giây)** gửi qua RabbitMQ để Notification Service bắn email cho người dùng.
+3. **Bước 3 - Xác thực OTP**: Người dùng nhập mã OTP để kích hoạt tài khoản sang trạng thái `EmailVerified`.
    - **Giới hạn nhập sai:** Tối đa **3 lần** (`MaxAttempts = 3`). Nhập sai quá 3 lần, mã OTP lập tức bị vô hiệu hóa để chống dò mã.
 4. **Cơ chế gửi lại OTP (Resend)**: Có thời gian chờ **Cooldown 60 giây** giữa 2 lần gửi và **tối đa 5 mã OTP/giờ** (`MaxHourlyOtpIssued = 5`) trên mỗi email.
 
@@ -121,7 +121,7 @@ Tạo tài khoản người dùng mới với vai trò mặc định `Customer`.
 | `accountId` | `string (UUID)` | 🟢 **LUÔN CÓ** | Định danh duy nhất của tài khoản (`"a3bb108e-17d4-4a6c-9f87-2a54e9912345"`) |
 | `email` | `string` | 🟢 **LUÔN CÓ** | Email chuẩn hóa đã đăng ký (`"user@example.com"`) |
 | `fullName` | `string` hoặc `null` | ⚪ **CÓ THỂ NULL** | Họ tên nếu có nhập, hoặc `null` nếu bỏ qua |
-| `status` | `string` | 🟢 **LUÔN CÓ** | Trạng thái hiện tại: `"PendingVerification"` |
+| `status` | `string` | 🟢 **LUÔN CÓ** | Trạng thái hiện tại: `"PendingEmailVerification"` |
 | `message` | `string` | 🟢 **LUÔN CÓ** | `"Đăng ký thành công. Mã OTP đã được gửi đến user@example.com, có hiệu lực 5 phút."` |
 
 ```json
@@ -129,7 +129,7 @@ Tạo tài khoản người dùng mới với vai trò mặc định `Customer`.
   "accountId": "a3bb108e-17d4-4a6c-9f87-2a54e9912345",
   "email": "user@example.com",
   "fullName": "Nguyễn Văn A",
-  "status": "PendingVerification",
+  "status": "PendingEmailVerification",
   "message": "Đăng ký thành công. Mã OTP đã được gửi đến user@example.com, có hiệu lực 5 phút."
 }
 ```
@@ -146,7 +146,7 @@ Tạo tài khoản người dùng mới với vai trò mặc định `Customer`.
 
 ### 2.2. Xác Thực Email Bằng Mã OTP (Verify Email OTP)
 
-Kích hoạt tài khoản từ `PendingVerification` sang `Active`.
+Kích hoạt tài khoản từ `PendingEmailVerification` sang `EmailVerified`.
 
 - **HTTP Method:** `POST`
 - **URL Path:** `/api/identity/accounts/verify-email`
@@ -181,7 +181,7 @@ Kích hoạt tài khoản từ `PendingVerification` sang `Active`.
 | :--- | :---: | :---: | :--- |
 | `accountId` | `string (UUID)` | 🟢 **LUÔN CÓ** | Định danh tài khoản đã kích hoạt |
 | `email` | `string` | 🟢 **LUÔN CÓ** | Địa chỉ email của tài khoản |
-| `status` | `string` | 🟢 **LUÔN CÓ** | Trạng thái mới: `"Active"` |
+| `status` | `string` | 🟢 **LUÔN CÓ** | Trạng thái mới: `"EmailVerified"` |
 | `isVerified` | `boolean` | 🟢 **LUÔN CÓ** | `true` |
 | `message` | `string` | 🟢 **LUÔN CÓ** | `"Xác thực email thành công. Bạn có thể đăng nhập ngay."` |
 
@@ -189,7 +189,7 @@ Kích hoạt tài khoản từ `PendingVerification` sang `Active`.
 {
   "accountId": "a3bb108e-17d4-4a6c-9f87-2a54e9912345",
   "email": "user@example.com",
-  "status": "Active",
+  "status": "EmailVerified",
   "isVerified": true,
   "message": "Xác thực email thành công. Bạn có thể đăng nhập ngay."
 }
@@ -225,7 +225,7 @@ Phát hành mã OTP 6 chữ số mới khi mã cũ hết hạn, nhập sai 3 l�
 
 | Tên trường (Field) | Kiểu dữ liệu | Phân loại | Ràng buộc Validation & Quy tắc kiểm tra |
 | :--- | :---: | :---: | :--- |
-| `email` | `string` | 🔴 **BẮT BUỘC** | Địa chỉ email của tài khoản đang ở trạng thái `PendingVerification`. Tối đa 254 ký tự. Không được để trống. |
+| `email` | `string` | 🔴 **BẮT BUỘC** | Địa chỉ email của tài khoản đang ở trạng thái `PendingEmailVerification`. Tối đa 254 ký tự. Không được để trống. |
 
 #### 📝 Request Body Mẫu
 ```json

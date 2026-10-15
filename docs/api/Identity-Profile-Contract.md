@@ -1,0 +1,103 @@
+# Đặc Tả Giao Diện API: Hồ Sơ Cá Nhân (Profile)
+
+> **Dịch vụ:** Identity Service  
+> **Phiên bản:** v1.0.0  
+> **Trạng thái:** Sẵn sàng tích hợp  
+> **User Story:** US-PROFILE-001, US-PROFILE-002  
+> **Owner:** BE-1
+
+---
+
+## 1. Tổng quan
+
+Endpoint cho phép người dùng đã đăng nhập tạo hoặc cập nhật hồ sơ cá nhân. Hành vi là **upsert**: nếu chưa có hồ sơ sẽ tạo mới; nếu đã có sẽ cập nhật.
+
+---
+
+## 2. PUT /api/identity/accounts/me/profile
+
+| Thuộc tính | Chi tiết |
+| :--- | :--- |
+| **HTTP Method** | `PUT` |
+| **URL Path** | `/api/identity/accounts/me/profile` |
+| **Auth** | 🔴 **BẮT BUỘC** — `Bearer <access_token>` |
+| **Content-Type** | `application/json` |
+
+### Request Body Schema
+
+| Trường | Kiểu | Phân loại | Ràng buộc |
+| :--- | :---: | :---: | :--- |
+| `fullName` | `string` | 🔴 **BẮT BUỘC** | Tối đa 100 ký tự, không được để trống |
+| `dateOfBirth` | `string (yyyy-MM-dd)` hoặc `null` | 🟡 TÙY CHỌN | Định dạng ngày ISO-8601 |
+| `citizenIdNumber` | `string` hoặc `null` | 🟡 TÙY CHỌN | Tối đa 20 ký tự |
+| `driverLicenseNumber` | `string` hoặc `null` | 🟡 TÙY CHỌN | Tối đa 20 ký tự |
+| `avatarUrl` | `string` hoặc `null` | 🟡 TÙY CHỌN | URL ảnh đại diện, tối đa 500 ký tự |
+
+```json
+{
+  "fullName": "Nguyễn Văn A",
+  "dateOfBirth": "1995-05-20",
+  "citizenIdNumber": "079095012345",
+  "driverLicenseNumber": "B1-079095012",
+  "avatarUrl": "https://example.com/avatars/user123.jpg"
+}
+```
+
+### Phản Hồi Thành Công (`200 OK`)
+
+| Trường | Kiểu | Ý nghĩa |
+| :--- | :---: | :--- |
+| `accountId` | `string (UUID)` | ID tài khoản |
+| `fullName` | `string` | Họ và tên |
+| `dateOfBirth` | `string` hoặc `null` | Ngày sinh |
+| `citizenIdNumber` | `string` hoặc `null` | Số CCCD/CMND |
+| `driverLicenseNumber` | `string` hoặc `null` | Số bằng lái xe |
+| `avatarUrl` | `string` hoặc `null` | URL ảnh đại diện |
+| `createdAtUtc` | `string (ISO-8601)` | Thời điểm tạo hồ sơ |
+| `updatedAtUtc` | `string` hoặc `null` | Thời điểm cập nhật lần cuối |
+
+```json
+{
+  "accountId": "a3bb108e-17d4-4a6c-9f87-2a54e9912345",
+  "fullName": "Nguyễn Văn A",
+  "dateOfBirth": "1995-05-20",
+  "citizenIdNumber": "079095012345",
+  "driverLicenseNumber": "B1-079095012",
+  "avatarUrl": "https://example.com/avatars/user123.jpg",
+  "createdAtUtc": "2026-10-15T08:00:00Z",
+  "updatedAtUtc": "2026-10-15T09:30:00Z"
+}
+```
+
+### Mã Lỗi
+
+| HTTP Status | Error Code | Nguyên nhân |
+| :---: | :--- | :--- |
+| `400 Bad Request` | `validation_error` | `fullName` để trống, vượt độ dài |
+| `401 Unauthorized` | — | Thiếu hoặc token hết hạn |
+| `404 Not Found` | `identity.account_not_found` | Tài khoản không tồn tại |
+
+---
+
+## 3. TypeScript Interface
+
+```typescript
+export interface UpsertProfileRequest {
+  fullName: string;
+  dateOfBirth?: string | null;      // "yyyy-MM-dd"
+  citizenIdNumber?: string | null;
+  driverLicenseNumber?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface ProfileResponse {
+  accountId: string;
+  fullName: string;
+  dateOfBirth: string | null;
+  citizenIdNumber: string | null;
+  driverLicenseNumber: string | null;
+  avatarUrl: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+}
+```
