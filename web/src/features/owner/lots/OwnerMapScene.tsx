@@ -68,24 +68,79 @@ export default function OwnerMapScene({
     dateText = `Bị từ chối ngày ${formatDateVi(selectedLotInfo?.rejectedAt)}`;
   }
 
+  const [mapType, setMapType] = React.useState<'streets' | 'satellite'>('streets');
+
   return (
-    <Map
-      key={selectedLotId ? `lot-${selectedLotId}` : 'default-map'}
-      initialViewState={{
-        longitude: activeCoords[0],
-        latitude: activeCoords[1],
-        zoom: selectedLotId ? 15 : 12,
-      }}
-      mapboxAccessToken={token}
-      style={{ width: '100%', height: '100%' }}
-      mapStyle="mapbox://styles/mapbox/light-v11"
-      aria-label="Bản đồ vị trí các bãi đỗ xe"
-      onClick={() => {
-        // Click outside closes the popup without jumping
-        if (selectedLotId) onSelectLot(null);
-      }}
-    >
-      <NavigationControl position="bottom-right" />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Google Maps Top-Right Map/Satellite Switcher */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 14,
+          right: 14,
+          zIndex: 10,
+          display: 'flex',
+          background: '#ffffff',
+          borderRadius: 8,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+          overflow: 'hidden',
+          border: '1px solid #dadce0',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setMapType('streets')}
+          style={{
+            padding: '7px 14px',
+            fontSize: 12,
+            fontWeight: 700,
+            border: 'none',
+            background: mapType === 'streets' ? '#ffffff' : '#f8f9fa',
+            color: mapType === 'streets' ? '#1a73e8' : '#5f6368',
+            cursor: 'pointer',
+            borderRight: '1px solid #dadce0',
+          }}
+        >
+          Bản đồ
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapType('satellite')}
+          style={{
+            padding: '7px 14px',
+            fontSize: 12,
+            fontWeight: 700,
+            border: 'none',
+            background: mapType === 'satellite' ? '#ffffff' : '#f8f9fa',
+            color: mapType === 'satellite' ? '#1a73e8' : '#5f6368',
+            cursor: 'pointer',
+          }}
+        >
+          Vệ tinh
+        </button>
+      </div>
+
+      <Map
+        key={`${selectedLotId ? `lot-${selectedLotId}` : 'default-map'}-${mapType}`}
+        initialViewState={{
+          longitude: activeCoords[0],
+          latitude: activeCoords[1],
+          zoom: selectedLotId ? 15 : 13.5,
+        }}
+        mapboxAccessToken={token}
+        style={{ width: '100%', height: '100%' }}
+        mapStyle={
+          mapType === 'streets'
+            ? 'mapbox://styles/mapbox/streets-v12'
+            : 'mapbox://styles/mapbox/satellite-streets-v12'
+        }
+        aria-label="Bản đồ vị trí các bãi đỗ xe"
+        onClick={() => {
+          // Click outside closes the popup without jumping
+          if (selectedLotId) onSelectLot(null);
+        }}
+      >
+        <NavigationControl position="bottom-right" />
 
       {lots.map((lot) => {
         const coords = getLotCoordinates(lot.id);
@@ -174,5 +229,6 @@ export default function OwnerMapScene({
         </Popup>
       )}
     </Map>
+    </div>
   );
 }

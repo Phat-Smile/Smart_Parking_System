@@ -4,7 +4,7 @@ import React from 'react';
 import dynamic from 'next/dynamic';
 import { getPublicMapboxToken } from '@/shared/config/env';
 import { useAllLots, useOwnerMapStore } from './useOwnerMapStore';
-import { SchematicMap } from './SchematicMap';
+import { GoogleStyleMap } from './GoogleStyleMap';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const OwnerMapScene = dynamic(() => import('./OwnerMapScene'), { ssr: false });
@@ -80,7 +80,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
         style={{
           position: 'relative',
           width: '100%',
-          height: 380,
+          height: 440,
           borderRadius: 14,
           overflow: 'hidden',
           background: '#eef3fb',
@@ -127,7 +127,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
           </div>
         </div>
 
-        {/* Mapbox Live Scene or Interactive Schematic Map */}
+        {/* Mapbox Live Scene or Google-Style Interactive Tile Map */}
         {token ? (
           <OwnerMapScene
             token={token}
@@ -136,7 +136,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
             lots={filteredLots}
           />
         ) : (
-          <SchematicMap filteredLots={filteredLots} />
+          <GoogleStyleMap filteredLots={filteredLots} />
         )}
       </div>
 
