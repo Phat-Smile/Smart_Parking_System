@@ -42,7 +42,12 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
             .HasColumnName("approval_status")
             .HasConversion<string>()
             .HasMaxLength(32)
-            .IsRequired();
+            .IsRequired()
+            // Optimistic concurrency: a second reviewer cannot overwrite the first decision.
+            .IsConcurrencyToken();
+        builder.Property(parkingLot => parkingLot.RejectionReason)
+            .HasColumnName("rejection_reason")
+            .HasMaxLength(ParkingLot.RejectionReasonMaxLength);
 
         builder.HasIndex(parkingLot => parkingLot.OwnerUserId)
             .HasDatabaseName("ix_parking_lots_owner_user_id");
