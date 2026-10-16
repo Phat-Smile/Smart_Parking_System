@@ -20,6 +20,12 @@ internal sealed class AuthSessionRepository(IdentityDbContext dbContext) : IAuth
                 """)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<AuthSession>> ListActiveForAccountAsync(Guid accountId, DateTimeOffset nowUtc, CancellationToken cancellationToken) =>
+        await dbContext.AuthSessions.AsNoTracking()
+            .Where(s => s.AccountId == accountId && s.RevokedAtUtc == null && s.AbsoluteExpiresAtUtc > nowUtc)
+            .OrderByDescending(s => s.LastActivityAtUtc)
+            .ToListAsync(cancellationToken);
+
     public async Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
     {
         await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
