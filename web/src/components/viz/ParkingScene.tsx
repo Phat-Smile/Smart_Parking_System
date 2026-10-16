@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { useParkingStore } from "../../store/useParkingStore";
-import { mk3D, ParkingSlot } from "./parkingScene3d";
+import { mk3D, ParkingSlot } from "./parkingScene3D";
 import { SlotStatus } from "../../domain/types";
 
 // Convert domain status to prototype status

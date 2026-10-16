@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { mk3D, ParkingScene3DHandle } from './parkingScene3d';
+import { mk3D, ParkingScene3DHandle } from './parkingScene3D';
 import { useOwnerStore } from '../../store/useOwnerStore';
 
 interface ParkingScene3DViewerProps {
