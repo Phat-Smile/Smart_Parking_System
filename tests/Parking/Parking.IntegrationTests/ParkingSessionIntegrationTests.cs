@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Domain.ParkingLots;
@@ -82,7 +83,8 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
                 scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>(),
                 scope.ServiceProvider.GetRequiredService<IParkingLotAccess>(),
                 scope.ServiceProvider.GetRequiredService<IAuditLog>(),
-                scope.ServiceProvider.GetRequiredService<IClock>());
+                scope.ServiceProvider.GetRequiredService<IClock>(),
+                scope.ServiceProvider.GetRequiredService<ISlotDesignator>());
 
             var result = await handler.Handle(new CancelParkingSessionCommand(sessionId, "Vehicle did not enter", StaffId), cancellationToken);
 

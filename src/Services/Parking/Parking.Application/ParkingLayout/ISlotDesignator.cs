@@ -8,6 +8,12 @@ public interface ISlotDesignator
     /// the caller then applies BR-02.f (car with a booking) or BR-04.h (walk-in car).
     /// </summary>
     Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Clears the assignment of the slot held by the session, if any, and returns its slot code.
+    /// The change is only tracked: it is saved by the caller's next SaveChanges, in the same transaction as the session.
+    /// </summary>
+    Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken);
 }
 
 // SlotCode is what the driver is told at the gate (BR-04.a).

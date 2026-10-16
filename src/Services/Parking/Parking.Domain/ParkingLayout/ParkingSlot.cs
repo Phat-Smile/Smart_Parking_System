@@ -49,6 +49,17 @@ public sealed class ParkingSlot
 
     public static string NormalizeSlotCode(string slotCode) => slotCode.Trim().ToUpperInvariant();
 
+    // Lead decision (review of PR #67/#68): when staff cancel a session (the car did not enter), its slot goes back
+    // to the pool. Only the dispatch layer is cleared; sensor and override layers keep their own values.
+    public void ReleaseAssignment()
+    {
+        DispatchState = null;
+        AssignedSessionId = null;
+        AssignedAt = null;
+        EffectiveStatus = ComputeEffectiveStatus(SensorState, OverrideState, DispatchState);
+        RowVersion++;
+    }
+
     // ASSUMPTION (context 6, open point 21): priority Unavailable > Maintenance > NeedsVerification > Assigned
     // > Occupied > Available; the earlier state wins. If the mentor changes the order, only this method changes.
     public static SlotEffectiveStatus ComputeEffectiveStatus(SensorState? sensor, OverrideState? @override, DispatchState? dispatch)

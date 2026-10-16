@@ -2,6 +2,7 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -44,7 +45,7 @@ public sealed class CancelParkingSessionTests
         var session = NewActiveSession();
         var repository = new FakeRepository(session);
         var auditLog = new FakeAuditLog();
-        var handler = new CancelParkingSessionCommandHandler(repository, new FakeLotAccess(allowed: true), auditLog, new FixedClock());
+        var handler = new CancelParkingSessionCommandHandler(repository, new FakeLotAccess(allowed: true), auditLog, new FixedClock(), new FakeSlotDesignator(null));
 
         var result = await handler.Handle(
             new CancelParkingSessionCommand(session.Id, " Vehicle reversed, did not enter ", StaffId),
@@ -67,13 +68,31 @@ public sealed class CancelParkingSessionTests
         Assert.Equal("Active", entry.Details!["fromStatus"]);
         Assert.Equal("Cancelled", entry.Details["toStatus"]);
         Assert.DoesNotContain(entry.Details.Values, value => value.Contains("51A", StringComparison.OrdinalIgnoreCase));
+        Assert.False(entry.Details.ContainsKey("releasedSlotCode"));
+    }
+
+    [Fact]
+    public async Task Handler_releases_the_slot_of_the_cancelled_session_and_audits_it()
+    {
+        var session = NewActiveSession();
+        var slots = new FakeSlotDesignator("A-01");
+        var auditLog = new FakeAuditLog();
+        var handler = new CancelParkingSessionCommandHandler(new FakeRepository(session), new FakeLotAccess(allowed: true), auditLog, new FixedClock(), slots);
+
+        var result = await handler.Handle(
+            new CancelParkingSessionCommand(session.Id, "Vehicle did not enter", StaffId),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal([session.Id], slots.ReleasedSessionIds);
+        Assert.Equal("A-01", Assert.Single(auditLog.Entries).Details!["releasedSlotCode"]);
     }
 
     [Fact]
     public async Task Handler_returns_not_found_for_unknown_session()
     {
         var auditLog = new FakeAuditLog();
-        var handler = new CancelParkingSessionCommandHandler(new FakeRepository(null), new FakeLotAccess(allowed: true), auditLog, new FixedClock());
+        var handler = new CancelParkingSessionCommandHandler(new FakeRepository(null), new FakeLotAccess(allowed: true), auditLog, new FixedClock(), new FakeSlotDesignator(null));
 
         var result = await handler.Handle(
             new CancelParkingSessionCommand(Guid.NewGuid(), "Vehicle did not enter", StaffId),
@@ -90,7 +109,8 @@ public sealed class CancelParkingSessionTests
         session.Cancel(OtherStaffId, "first cancel", EntryTime.AddMinutes(1));
         var repository = new FakeRepository(session);
         var auditLog = new FakeAuditLog();
-        var handler = new CancelParkingSessionCommandHandler(repository, new FakeLotAccess(allowed: true), auditLog, new FixedClock());
+        var slots = new FakeSlotDesignator("A-01");
+        var handler = new CancelParkingSessionCommandHandler(repository, new FakeLotAccess(allowed: true), auditLog, new FixedClock(), slots);
 
         var result = await handler.Handle(
             new CancelParkingSessionCommand(session.Id, "second cancel", StaffId),
@@ -100,6 +120,7 @@ public sealed class CancelParkingSessionTests
         Assert.Equal(OtherStaffId, session.CancelledBy);
         Assert.Empty(auditLog.Entries);
         Assert.Equal(0, repository.SaveCount);
+        Assert.Empty(slots.ReleasedSessionIds);
     }
 
     [Fact]
@@ -108,7 +129,7 @@ public sealed class CancelParkingSessionTests
         var session = NewActiveSession();
         var repository = new FakeRepository(session);
         var auditLog = new FakeAuditLog();
-        var handler = new CancelParkingSessionCommandHandler(repository, new FakeLotAccess(allowed: false), auditLog, new FixedClock());
+        var handler = new CancelParkingSessionCommandHandler(repository, new FakeLotAccess(allowed: false), auditLog, new FixedClock(), new FakeSlotDesignator(null));
 
         var result = await handler.Handle(
             new CancelParkingSessionCommand(session.Id, "Vehicle did not enter", StaffId),
@@ -152,6 +173,20 @@ public sealed class CancelParkingSessionTests
         public List<AuditEntry> Entries { get; } = [];
 
         public void Record(AuditEntry entry) => Entries.Add(entry);
+    }
+
+    private sealed class FakeSlotDesignator(string? heldSlotCode) : ISlotDesignator
+    {
+        public List<Guid> ReleasedSessionIds { get; } = [];
+
+        public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken)
+        {
+            ReleasedSessionIds.Add(sessionId);
+            return Task.FromResult(heldSlotCode);
+        }
     }
 
     private sealed class FixedClock : IClock

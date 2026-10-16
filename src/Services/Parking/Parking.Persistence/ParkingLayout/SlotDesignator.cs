@@ -43,5 +43,18 @@ internal sealed class SlotDesignator(ParkingDbContext dbContext) : ISlotDesignat
             : new DesignatedSlot(designated[0].SlotId, designated[0].ZoneId, designated[0].SlotCode);
     }
 
+    public async Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken)
+    {
+        // Tracked on purpose (not a SQL UPDATE): the release is written by the same SaveChanges as the cancelled
+        // session, so both succeed or neither does. row_version is a concurrency token, so a concurrent change to
+        // the slot fails the save instead of being overwritten.
+        var slot = await dbContext.ParkingSlots.FirstOrDefaultAsync(item => item.AssignedSessionId == sessionId, cancellationToken);
+        if (slot is null)
+            return null;
+
+        slot.ReleaseAssignment();
+        return slot.SlotCode;
+    }
+
     private sealed record DesignatedSlotRow(Guid SlotId, Guid ZoneId, string SlotCode);
 }

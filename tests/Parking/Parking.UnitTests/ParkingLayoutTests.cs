@@ -49,6 +49,21 @@ public sealed class ParkingLayoutTests
     }
 
     [Fact]
+    public void Releasing_an_assignment_clears_only_the_dispatch_layer()
+    {
+        var slot = ParkingSlot.Create(Guid.NewGuid(), LotId, Guid.NewGuid(), "A-03", OverrideState.Maintenance);
+
+        slot.ReleaseAssignment();
+
+        Assert.Null(slot.DispatchState);
+        Assert.Null(slot.AssignedSessionId);
+        Assert.Null(slot.AssignedAt);
+        Assert.Equal(OverrideState.Maintenance, slot.OverrideState);
+        Assert.Equal(SlotEffectiveStatus.Maintenance, slot.EffectiveStatus);
+        Assert.Equal(1, slot.RowVersion);
+    }
+
+    [Fact]
     public void Zone_rejects_negative_capacity()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>

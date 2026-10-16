@@ -1,7 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.ParkingLayout;
+using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.Application.ParkingSessions;
+using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Domain.ParkingLayout;
+using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Testing;
@@ -90,6 +97,65 @@ public sealed class ParkingLayoutIntegrationTests(PostgreSqlContainerFixture pos
         // ERD: assigned_session_id is unique, so the database refuses a second slot for the same session.
         await Assert.ThrowsAnyAsync<Exception>(() => DesignateAsync(serviceProvider, lotId, sessionId, cancellationToken));
         Assert.Equal(1, await CountAvailableAsync(serviceProvider, lotId, cancellationToken));
+    }
+
+    [Fact]
+    public async Task Cancelling_a_session_returns_its_slot_to_available_in_the_same_save()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var lotId = await SeedLotAsync(serviceProvider, carSlotCodes: ["A-01"], cancellationToken);
+        var session = ParkingSession.Open(Guid.NewGuid(), lotId, "51A-123.45", VehicleType.Car, EntryTime, Guid.NewGuid().ToString("N"), null, null);
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+            sessions.Add(session);
+            Assert.True(await sessions.TrySaveChangesAsync(cancellationToken));
+        }
+
+        var designated = await DesignateAsync(serviceProvider, lotId, session.Id, cancellationToken);
+        Assert.Equal(0, await CountAvailableAsync(serviceProvider, lotId, cancellationToken));
+
+        // TECH-12: only staff assigned to the lot can cancel its sessions.
+        var staffId = Guid.NewGuid();
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var assignments = scope.ServiceProvider.GetRequiredService<IParkingLotAssignmentRepository>();
+            assignments.Add(ParkingLotAssignment.Create(lotId, staffId, ParkingLotMemberRole.Staff, Guid.NewGuid(), DateTimeOffset.UtcNow));
+            await assignments.SaveChangesAsync(cancellationToken);
+        }
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var handler = new CancelParkingSessionCommandHandler(
+                scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>(),
+                scope.ServiceProvider.GetRequiredService<IParkingLotAccess>(),
+                scope.ServiceProvider.GetRequiredService<IAuditLog>(),
+                scope.ServiceProvider.GetRequiredService<IClock>(),
+                scope.ServiceProvider.GetRequiredService<ISlotDesignator>());
+
+            var result = await handler.Handle(
+                new CancelParkingSessionCommand(session.Id, "Vehicle did not enter", staffId), cancellationToken);
+
+            Assert.True(result.IsSuccess);
+        }
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            var slot = await dbContext.ParkingSlots.AsNoTracking().SingleAsync(item => item.Id == designated!.SlotId, cancellationToken);
+            Assert.Null(slot.DispatchState);
+            Assert.Null(slot.AssignedSessionId);
+            Assert.Equal(SlotEffectiveStatus.Available, slot.EffectiveStatus);
+            Assert.Equal(2, slot.RowVersion);
+
+            var entry = await dbContext.AuditLogEntries.AsNoTracking().SingleAsync(item => item.TargetId == session.Id.ToString(), cancellationToken);
+            Assert.Contains("\"releasedSlotCode\": \"A-01\"", entry.Details);
+        }
+
+        // The released slot can be designated again.
+        Assert.Equal(1, await CountAvailableAsync(serviceProvider, lotId, cancellationToken));
+        Assert.Equal("A-01", (await DesignateAsync(serviceProvider, lotId, Guid.NewGuid(), cancellationToken))!.SlotCode);
     }
 
     private static async Task<DesignatedSlot?> DesignateAsync(
