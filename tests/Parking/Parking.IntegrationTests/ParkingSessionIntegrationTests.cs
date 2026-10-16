@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Auditing;
+using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
+using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Testing;
@@ -21,13 +24,13 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
-        var lotId = Guid.NewGuid();
+        var lotId = await CreateApprovedLotAsync(serviceProvider, cancellationToken);
 
         Assert.True(await SaveNewSessionAsync(serviceProvider, lotId, cancellationToken));
         Assert.False(await SaveNewSessionAsync(serviceProvider, lotId, cancellationToken));
 
         // The same plate may still enter another lot.
-        Assert.True(await SaveNewSessionAsync(serviceProvider, Guid.NewGuid(), cancellationToken));
+        Assert.True(await SaveNewSessionAsync(serviceProvider, await CreateApprovedLotAsync(serviceProvider, cancellationToken), cancellationToken));
 
         await using var scope = serviceProvider.CreateAsyncScope();
         var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
@@ -39,7 +42,7 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
-        var lotId = Guid.NewGuid();
+        var lotId = await CreateApprovedLotAsync(serviceProvider, cancellationToken);
         Assert.True(await SaveNewSessionAsync(serviceProvider, lotId, cancellationToken));
 
         // Completing a session belongs to the exit story; it is simulated here with SQL.
@@ -65,7 +68,7 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
-        var lotId = Guid.NewGuid();
+        var lotId = await CreateApprovedLotAsync(serviceProvider, cancellationToken);
         Assert.True(await SaveNewSessionAsync(serviceProvider, lotId, cancellationToken));
 
         Guid sessionId;
@@ -73,8 +76,11 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
             sessionId = await dbContext.ParkingSessions.Where(session => session.LotId == lotId).Select(session => session.Id).SingleAsync(cancellationToken);
+            // TECH-12: nhân viên phải được gắn với bãi mới huỷ được phiên.
+            await AssignStaffAsync(serviceProvider, lotId, cancellationToken);
             var handler = new CancelParkingSessionCommandHandler(
                 scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>(),
+                scope.ServiceProvider.GetRequiredService<IParkingLotAccess>(),
                 scope.ServiceProvider.GetRequiredService<IAuditLog>(),
                 scope.ServiceProvider.GetRequiredService<IClock>());
 
@@ -109,6 +115,37 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
         await using var scope = serviceProvider.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().Database.MigrateAsync(cancellationToken);
         return serviceProvider;
+    }
+
+    [Fact]
+    public async Task Foreign_key_rejects_a_session_for_a_lot_that_does_not_exist()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => SaveNewSessionAsync(serviceProvider, Guid.NewGuid(), cancellationToken));
+    }
+
+    // parking_sessions.lot_id references parking_lots, so every session test needs a real lot row.
+    private static async Task<Guid> CreateApprovedLotAsync(ServiceProvider serviceProvider, CancellationToken cancellationToken)
+    {
+        var lotId = Guid.NewGuid();
+        await using var scope = serviceProvider.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            INSERT INTO parking.parking_lots (id, name, address, latitude, longitude, type, approval_status)
+            VALUES ({lotId}, 'Session Test Parking', '1 Demo Street', 10.776530, 106.700981, 'Outdoor', 'Approved')
+            """,
+            cancellationToken);
+        return lotId;
+    }
+
+    private static async Task AssignStaffAsync(ServiceProvider serviceProvider, Guid lotId, CancellationToken cancellationToken)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var assignments = scope.ServiceProvider.GetRequiredService<IParkingLotAssignmentRepository>();
+        assignments.Add(ParkingLotAssignment.Create(lotId, StaffId, ParkingLotMemberRole.Staff, Guid.NewGuid(), DateTimeOffset.UtcNow));
+        await assignments.SaveChangesAsync(cancellationToken);
     }
 
     private static async Task<bool> SaveNewSessionAsync(ServiceProvider serviceProvider, Guid lotId, CancellationToken cancellationToken)

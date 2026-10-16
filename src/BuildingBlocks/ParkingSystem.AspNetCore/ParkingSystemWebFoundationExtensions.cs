@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
@@ -25,6 +26,9 @@ public static class ParkingSystemWebFoundationExtensions
                 : CorrelationIdMiddleware.GetCorrelationContext(httpContext);
         });
         builder.Services.AddProblemDetails();
+        // Minimal APIs throw on an unreadable body only in Development by default; outside it they return a bare 400
+        // (errorCode http.request_failed). Throwing everywhere gives request.malformed in every environment.
+        builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
         builder.Services.AddExceptionHandler<SafeExceptionHandler>();
 
         builder.Logging.ClearProviders();

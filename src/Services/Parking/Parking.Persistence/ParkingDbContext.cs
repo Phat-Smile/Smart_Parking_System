@@ -19,6 +19,8 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
 
     public DbSet<ParkingLot> ParkingLots => Set<ParkingLot>();
 
+    public DbSet<ParkingLotAssignment> ParkingLotAssignments => Set<ParkingLotAssignment>();
+
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

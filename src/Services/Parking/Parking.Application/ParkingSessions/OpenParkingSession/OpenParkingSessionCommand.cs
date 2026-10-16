@@ -2,14 +2,16 @@ using System.Buffers.Text;
 using System.Security.Cryptography;
 using FluentValidation;
 using MediatR;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 
-public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType)
+public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType, Guid ActorUserId)
     : IRequest<Result<OpenedParkingSession>>;
 
 public sealed record OpenedParkingSession(
@@ -29,6 +31,10 @@ public static class OpenParkingSessionErrors
     // ASSUMPTION: one open (Active or Paid) session per plate per lot; not written in Context yet.
     public static readonly Error SessionAlreadyOpen =
         new("parking.session.already_open", "This plate already has an open session in this lot.");
+
+    // Unknown and not-approved lots share one error, like the public lot detail API (PR #31 review).
+    public static readonly Error LotNotFound =
+        new("parking.lot.not_found", "The parking lot does not exist or is not approved.");
 }
 
 public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenParkingSessionCommand>
@@ -36,14 +42,15 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
     public OpenParkingSessionCommandValidator()
     {
         RuleFor(command => command.LotId).NotEmpty();
+        RuleFor(command => command.ActorUserId).NotEmpty();
 
         RuleFor(command => command.PlateNumber)
             .Must(plate => !string.IsNullOrWhiteSpace(plate))
             .MaximumLength(ParkingSession.PlateNumberMaxLength);
 
-        // Enum.IsDefined is needed because Enum.TryParse also accepts numeric strings such as "5".
+        // Match names only: Enum.TryParse also accepts numeric strings ("1") and padded values (" Car ").
         RuleFor(command => command.VehicleType)
-            .Must(value => Enum.TryParse<VehicleType>(value, ignoreCase: true, out var type) && Enum.IsDefined(type))
+            .Must(value => Enum.GetNames<VehicleType>().Contains(value, StringComparer.OrdinalIgnoreCase))
             .WithMessage($"vehicleType must be one of: {string.Join(", ", Enum.GetNames<VehicleType>())}.");
     }
 }
@@ -61,11 +68,21 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
 /// </summary>
 public sealed class OpenParkingSessionCommandHandler(
     IParkingSessionRepository sessions,
+    IParkingLotDetailReader parkingLots,
+    IParkingLotAccess lotAccess,
     IPlateOwnerLookup plateOwners,
     IClock clock) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
     public async Task<Result<OpenedParkingSession>> Handle(OpenParkingSessionCommand request, CancellationToken cancellationToken)
     {
+        // Only an existing, approved lot can receive vehicles.
+        if (await parkingLots.GetApprovedByIdAsync(request.LotId, cancellationToken) is null)
+            return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.LotNotFound);
+
+        // TECH-12: chỉ Staff/Owner được gắn với bãi này mới mở phiên được.
+        if (!await lotAccess.CanOperateAsync(request.ActorUserId, request.LotId, cancellationToken))
+            return Result<OpenedParkingSession>.Failure(ParkingLotAccessErrors.AccessDenied);
+
         var plate = ParkingSession.NormalizePlate(request.PlateNumber);
         var vehicleType = Enum.Parse<VehicleType>(request.VehicleType, ignoreCase: true);
 
