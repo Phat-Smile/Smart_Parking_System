@@ -12,6 +12,8 @@ pipeline {
         CI = 'true'
         DOTNET_CLI_TELEMETRY_OPTOUT = '1'
         DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
+        DOTNET_ROOT = '/usr/share/dotnet'
+        PATH = "/usr/share/dotnet:/usr/local/share/dotnet:${env.PATH}"
     }
 
     stages {
