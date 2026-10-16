@@ -222,7 +222,8 @@ public sealed class SecurityFoundationTests
             Assert.Equal(HttpStatusCode.NoContent, preflightResponse.StatusCode);
             Assert.Equal("https://frontend.test", preflightResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
             Assert.Contains("authorization", preflightResponse.Headers.GetValues("Access-Control-Allow-Headers").Single(), StringComparison.OrdinalIgnoreCase);
-            Assert.False(preflightResponse.Headers.Contains("Access-Control-Allow-Credentials"));
+            // Refresh token nằm trong cookie HttpOnly nên trình duyệt phải được gửi cookie tới Gateway.
+            Assert.Equal("true", preflightResponse.Headers.GetValues("Access-Control-Allow-Credentials").Single());
             AssertSecurityHeaders(preflightResponse);
 
             using var allowedRequest = new HttpRequestMessage(HttpMethod.Get, "/secure");
@@ -231,7 +232,9 @@ public sealed class SecurityFoundationTests
                 "Bearer", CreateToken(keys.PrivateKey, subject: "cors-subject"));
             using var allowedResponse = await app.GetTestClient().SendAsync(allowedRequest, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, allowedResponse.StatusCode);
-            Assert.Contains("X-Correlation-ID", allowedResponse.Headers.GetValues("Access-Control-Expose-Headers").Single(), StringComparison.OrdinalIgnoreCase);
+            var exposed = allowedResponse.Headers.GetValues("Access-Control-Expose-Headers").Single();
+            Assert.Contains("X-Correlation-ID", exposed, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Retry-After", exposed, StringComparison.OrdinalIgnoreCase);
             AssertSecurityHeaders(allowedResponse);
 
             using var blocked = new HttpRequestMessage(HttpMethod.Get, "/secure");
