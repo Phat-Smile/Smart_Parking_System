@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'parkwise-dotnet10 || parkwise-pr' }
+    agent { label 'parkwise-dotnet10' }
 
     options {
         skipDefaultCheckout(true)
