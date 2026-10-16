@@ -3,10 +3,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Application.Common.Messaging.Outbox;
 using ParkingSystem.Payment.Application.Common.Messaging.Inbox;
 using ParkingSystem.Payment.Persistence.Outbox;
 using ParkingSystem.Payment.Persistence.Inbox;
+using ParkingSystem.Payment.Persistence.Repositories;
 
 namespace ParkingSystem.Payment.Persistence;
 
@@ -32,6 +34,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, PaymentInboxExecutionCoordinator>();
+        services.AddScoped<IWalletRepository, WalletRepository>();
         return services;
     }
 }
