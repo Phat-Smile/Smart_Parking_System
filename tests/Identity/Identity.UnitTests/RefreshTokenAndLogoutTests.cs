@@ -539,6 +539,10 @@ public sealed class RefreshTokenAndLogoutTests
             }
             return Task.CompletedTask;
         }
+
+        public Task<IReadOnlyList<AuthSession>> ListActiveForAccountAsync(Guid accountId, DateTimeOffset nowUtc, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AuthSession>>(
+                Saved.Where(s => s.AccountId == accountId && s.IsActive(nowUtc)).ToList());
     }
 
     private sealed class FakeRefreshTokenRepository(IEnumerable<RefreshToken>? initial = null) : IRefreshTokenRepository
