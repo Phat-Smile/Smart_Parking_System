@@ -14,6 +14,7 @@ using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Persistence.ParkingLots;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Persistence.Auditing;
+using ParkingSystem.Parking.Persistence.ParkingLayout;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -46,6 +47,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<ParkingLotAssignmentRepository>();
         services.AddScoped<IParkingLotAssignmentRepository>(provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
         services.AddScoped<IParkingLotAccess>(provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
+        services.AddParkingLayout(configuration);
         return services;
     }
 }

@@ -7,6 +7,7 @@ using ParkingSystem.Parking.Infrastructure;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
 using ParkingSystem.Parking.WebAPI.OpenApi;
+using ParkingSystem.Parking.WebAPI.Grpc;
 using ParkingSystem.Parking.WebAPI.Security;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -53,6 +54,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
 app.MapParkingLotAssignmentEndpoints();
+app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Parking.Persistence.Outbox;
 using ParkingSystem.Parking.Persistence.Inbox;
 using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Persistence.Auditing;
 
@@ -22,6 +23,12 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
     public DbSet<ParkingLotAssignment> ParkingLotAssignments => Set<ParkingLotAssignment>();
 
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+
+    public DbSet<Floor> Floors => Set<Floor>();
+
+    public DbSet<Zone> Zones => Set<Zone>();
+
+    public DbSet<ParkingSlot> ParkingSlots => Set<ParkingSlot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
