@@ -9,11 +9,11 @@ pipeline {
     }
 
     environment {
-        CI = 'true'
-        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+        CI                                = 'true'
+        DOTNET_CLI_TELEMETRY_OPTOUT       = '1'
         DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
-        DOTNET_ROOT = '/usr/share/dotnet'
-        PATH = "/usr/share/dotnet:/usr/local/share/dotnet:${env.PATH}"
+        DOTNET_ROOT                       = '/usr/share/dotnet'
+        PATH                              = "/usr/share/dotnet:/usr/local/share/dotnet:${env.PATH}"
     }
 
     stages {
@@ -22,41 +22,72 @@ pipeline {
                 script {
                     def checkoutInfo = checkout scm
                     env.CHECKED_OUT_BRANCH = checkoutInfo.GIT_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
-                    env.CURRENT_COMMIT = checkoutInfo.GIT_COMMIT ?: env.GIT_COMMIT ?: 'HEAD'
+                    env.CURRENT_COMMIT     = checkoutInfo.GIT_COMMIT ?: env.GIT_COMMIT   ?: 'HEAD'
 
-                    // Tự động phát hiện Pull Request hoặc Branch thông thường
-                    def isPullRequest = (env.CHANGE_ID != null && env.CHANGE_ID != '') || 
-                                        (env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith('PR-')) ||
-                                        (env.CHECKED_OUT_BRANCH != null && env.CHECKED_OUT_BRANCH.startsWith('PR-'))
+                    def isPR = (env.CHANGE_ID != null && env.CHANGE_ID != '') ||
+                               (env.BRANCH_NAME?.startsWith('PR-')) ||
+                               (env.CHECKED_OUT_BRANCH?.startsWith('PR-'))
 
-                    if (isPullRequest) {
-                        def prMatcher = env.BRANCH_NAME =~ /PR-(\d+)/
-                        def prNumber = env.CHANGE_ID ?: (prMatcher ? prMatcher[0][1] : env.BRANCH_NAME)
-                        def prTitle = env.CHANGE_TITLE ?: 'Pull Request'
-                        def targetBranch = env.CHANGE_TARGET ?: 'develop'
-                        def sourceBranch = env.CHANGE_BRANCH ?: env.CHECKED_OUT_BRANCH
+                    if (isPR) {
+                        def prMatcher  = env.BRANCH_NAME =~ /PR-(\d+)/
+                        def prNumber   = env.CHANGE_ID ?: (prMatcher ? prMatcher[0][1] : env.BRANCH_NAME)
+                        def prTitle    = env.CHANGE_TITLE ?: 'Pull Request'
+                        def target     = env.CHANGE_TARGET ?: 'develop'
+                        def source     = env.CHANGE_BRANCH ?: env.CHECKED_OUT_BRANCH
 
-                        currentBuild.displayName = "#${BUILD_NUMBER} [PR-${prNumber}]"
-                        currentBuild.description = "PR #${prNumber}: ${prTitle} (${sourceBranch} -> ${targetBranch})"
+                        currentBuild.displayName  = "#${BUILD_NUMBER} [PR-${prNumber}]"
+                        currentBuild.description  = "PR #${prNumber}: ${prTitle}\n${source} → ${target}"
 
                         echo "========================================================="
-                        echo "  PARKWISE MULTIBRANCH CI: PULL REQUEST MODE"
-                        echo "  PR Number     : #${prNumber}"
-                        echo "  PR Title      : ${prTitle}"
-                        echo "  Source Branch : ${sourceBranch}"
-                        echo "  Target Branch : ${targetBranch}"
-                        echo "  Commit Hash   : ${env.CURRENT_COMMIT.take(8)}"
+                        echo "  PULL REQUEST MODE"
+                        echo "  PR #${prNumber}: ${prTitle}"
+                        echo "  ${source} → ${target}  @${env.CURRENT_COMMIT.take(8)}"
                         echo "========================================================="
                     } else {
-                        def branchName = env.BRANCH_NAME ?: env.CHECKED_OUT_BRANCH
-                        currentBuild.displayName = "#${BUILD_NUMBER} [${branchName}]"
-                        currentBuild.description = "Branch: ${branchName} | Commit: ${env.CURRENT_COMMIT.take(8)}"
+                        def branch = env.BRANCH_NAME ?: env.CHECKED_OUT_BRANCH
+                        currentBuild.displayName  = "#${BUILD_NUMBER} [${branch}]"
+                        currentBuild.description  = "Branch: ${branch} @${env.CURRENT_COMMIT.take(8)}"
 
                         echo "========================================================="
-                        echo "  PARKWISE MULTIBRANCH CI: BRANCH INTEGRATION MODE"
-                        echo "  Branch Name   : ${branchName}"
-                        echo "  Commit Hash   : ${env.CURRENT_COMMIT.take(8)}"
+                        echo "  BRANCH MODE"
+                        echo "  ${branch}  @${env.CURRENT_COMMIT.take(8)}"
                         echo "========================================================="
+                    }
+                }
+            }
+        }
+
+        stage('Environment') {
+            steps {
+                sh '''
+                    echo "=== Dotnet SDK ==="
+                    which dotnet 2>/dev/null || echo "dotnet not in PATH — checking DOTNET_ROOT"
+                    dotnet --info 2>&1 | head -10
+                    echo ""
+                    echo "=== Workspace ==="
+                    pwd
+                    df -h . | tail -1
+                '''
+            }
+        }
+
+        stage('Git Policy') {
+            when { changeRequest() }
+            steps {
+                script {
+                    def target  = env.CHANGE_TARGET ?: 'develop'
+                    def baseSha = sh(
+                        script: "git merge-base HEAD origin/${target} 2>/dev/null || git rev-parse origin/${target}",
+                        returnStdout: true
+                    ).trim()
+                    withEnv([
+                        "POLICY_HEAD_BRANCH=${env.CHANGE_BRANCH ?: env.BRANCH_NAME}",
+                        "POLICY_PR_TITLE=${env.CHANGE_TITLE ?: ''}",
+                        "POLICY_BASE_SHA=${baseSha}",
+                        "POLICY_HEAD_SHA=${env.CURRENT_COMMIT}",
+                        "POLICY_CUTOVER_UTC=2026-01-01T00:00:00Z"
+                    ]) {
+                        sh 'python3 -I scripts/ci/check_git_policy.py'
                     }
                 }
             }
@@ -64,60 +95,103 @@ pipeline {
 
         stage('Restore') {
             steps {
-                echo 'Restoring .NET solution dependencies...'
-                sh 'dotnet --version'
                 sh 'dotnet restore ParkingSystem.slnx -m:1 --disable-build-servers'
             }
         }
 
         stage('Build') {
             steps {
-                echo 'Building .NET solution...'
                 sh 'dotnet build ParkingSystem.slnx --no-restore -m:1 --disable-build-servers'
             }
         }
 
         stage('Unit Tests') {
             steps {
-                echo 'Executing Backend Unit Tests...'
                 sh '''
                     set -e
-                    dotnet test tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=identity-unit.trx" --results-directory TestResults
-                    dotnet test tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=parking-unit.trx" --results-directory TestResults
-                    dotnet test tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=booking-unit.trx" --results-directory TestResults
-                    dotnet test tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=payment-unit.trx" --results-directory TestResults
-                    dotnet test tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=notification-unit.trx" --results-directory TestResults
+                    mkdir -p TestResults
+                    FAILED=""
+
+                    run_unit() {
+                        NAME="$1"
+                        PROJ="$2"
+                        TRX="$3"
+                        echo ""
+                        echo "┌── Unit: ${NAME} ──────────────────────────────────────"
+                        if dotnet test "${PROJ}" \
+                            --no-build --no-restore \
+                            --logger "console;verbosity=normal" \
+                            --logger "trx;LogFileName=${TRX}" \
+                            --results-directory TestResults; then
+                            echo "└── ${NAME}: PASSED"
+                        else
+                            echo "└── ${NAME}: FAILED ← xem chi tiết bên trên"
+                            FAILED="${FAILED} ${NAME}"
+                        fi
+                    }
+
+                    run_unit "Identity"     "tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj"           "identity-unit.trx"
+                    run_unit "Parking"      "tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj"             "parking-unit.trx"
+                    run_unit "Booking"      "tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj"             "booking-unit.trx"
+                    run_unit "Payment"      "tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj"             "payment-unit.trx"
+                    run_unit "Notification" "tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj" "notification-unit.trx"
+
+                    if [ -n "${FAILED}" ]; then
+                        echo ""
+                        echo "╔══════════════════════════════════════════════════════╗"
+                        echo "║  UNIT TEST FAILURES:${FAILED}"
+                        echo "╚══════════════════════════════════════════════════════╝"
+                        exit 1
+                    fi
                 '''
             }
         }
 
         stage('Architecture Tests') {
             steps {
-                echo 'Executing Architecture Rule Tests...'
-                sh 'dotnet test tests/ArchitectureTests/ArchitectureTests.csproj --no-build --no-restore --logger "trx;LogFileName=architecture-rules.trx" --results-directory TestResults'
+                sh '''
+                    echo ""
+                    echo "┌── Architecture Rules ──────────────────────────────────"
+                    dotnet test tests/ArchitectureTests/ArchitectureTests.csproj \
+                        --no-build --no-restore \
+                        --logger "console;verbosity=normal" \
+                        --logger "trx;LogFileName=architecture-rules.trx" \
+                        --results-directory TestResults
+                    echo "└── Architecture: PASSED"
+                '''
             }
         }
 
         stage('Web Foundation Tests') {
             steps {
-                echo 'Executing Web Foundation Framework Tests...'
-                sh 'dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --no-build --no-restore --logger "trx;LogFileName=web-foundation.trx" --results-directory TestResults'
+                sh '''
+                    echo ""
+                    echo "┌── Web Foundation ──────────────────────────────────────"
+                    dotnet test tests/WebFoundationTests/WebFoundationTests.csproj \
+                        --no-build --no-restore \
+                        --logger "console;verbosity=normal" \
+                        --logger "trx;LogFileName=web-foundation.trx" \
+                        --results-directory TestResults
+                    echo "└── Web Foundation: PASSED"
+                '''
             }
         }
 
         stage('AI Service Tests') {
             steps {
                 script {
-                    def hasPython = sh(script: 'command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1', returnStatus: true) == 0
+                    def hasPython = sh(
+                        script: 'command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1',
+                        returnStatus: true
+                    ) == 0
                     if (hasPython && fileExists('ai/ai-service')) {
-                        echo 'Python runtime detected. Executing AI Service Tests...'
                         sh '''
-                            set -e
                             PYTHON_BIN=$(command -v python3 || command -v python)
-                            $PYTHON_BIN -m unittest discover -s ai/ai-service/tests -v
+                            echo "Using Python: $(${PYTHON_BIN} --version)"
+                            ${PYTHON_BIN} -m unittest discover -s ai/ai-service/tests -v
                         '''
                     } else {
-                        echo 'Skipping AI tests: Python runtime is not installed on this agent or ai directory is absent.'
+                        echo 'Skipping AI tests: Python not found or ai directory absent.'
                     }
                 }
             }
@@ -126,19 +200,19 @@ pipeline {
         stage('Frontend Checks') {
             steps {
                 script {
-                    def hasNode = sh(script: 'command -v node >/dev/null 2>&1', returnStatus: true) == 0
+                    def hasNode = sh(
+                        script: 'command -v node >/dev/null 2>&1',
+                        returnStatus: true
+                    ) == 0
                     if (hasNode && fileExists('web/package.json')) {
-                        echo 'Node.js detected. Running frontend validation (lint, typecheck, tests)...'
                         sh '''
-                            set -e
-                            node -v
-                            npm -v
+                            echo "Node $(node -v) / npm $(npm -v)"
                             npm --prefix web run lint
                             npm --prefix web run typecheck
                             npm --prefix web run test:run
                         '''
                     } else {
-                        echo 'Skipping frontend checks: Node.js is not installed on this agent or web directory is absent.'
+                        echo 'Skipping frontend checks: Node not found or web/package.json absent.'
                     }
                 }
             }
@@ -149,50 +223,76 @@ pipeline {
                 TESTCONTAINERS_HOST_OVERRIDE = 'host.docker.internal'
             }
             steps {
-                echo 'Executing Backend Integration Tests with Isolated Containers...'
                 sh '''
                     set -e
-                    dotnet test tests/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=identity-integration.trx" --results-directory TestResults
-                    dotnet test tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=parking-integration.trx" --results-directory TestResults
-                    dotnet test tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=booking-integration.trx" --results-directory TestResults
-                    dotnet test tests/Payment/Payment.IntegrationTests/Payment.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=payment-integration.trx" --results-directory TestResults
-                    dotnet test tests/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=notification-integration.trx" --results-directory TestResults
+                    mkdir -p TestResults
+                    FAILED=""
+
+                    run_it() {
+                        NAME="$1"
+                        PROJ="$2"
+                        TRX="$3"
+                        echo ""
+                        echo "┌── Integration: ${NAME} ────────────────────────────"
+                        if dotnet test "${PROJ}" \
+                            --no-build --no-restore --parallel none \
+                            --logger "console;verbosity=normal" \
+                            --logger "trx;LogFileName=${TRX}" \
+                            --results-directory TestResults; then
+                            echo "└── ${NAME}: PASSED"
+                        else
+                            echo "└── ${NAME}: FAILED ← xem chi tiết bên trên"
+                            FAILED="${FAILED} ${NAME}"
+                        fi
+                    }
+
+                    run_it "Identity"     "tests/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj"           "identity-integration.trx"
+                    run_it "Parking"      "tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj"             "parking-integration.trx"
+                    run_it "Booking"      "tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj"             "booking-integration.trx"
+                    run_it "Payment"      "tests/Payment/Payment.IntegrationTests/Payment.IntegrationTests.csproj"             "payment-integration.trx"
+                    run_it "Notification" "tests/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj" "notification-integration.trx"
+
+                    if [ -n "${FAILED}" ]; then
+                        echo ""
+                        echo "╔══════════════════════════════════════════════════════╗"
+                        echo "║  INTEGRATION TEST FAILURES:${FAILED}"
+                        echo "╚══════════════════════════════════════════════════════╝"
+                    exit 1
+                    fi
                 '''
             }
         }
     }
 
     post {
+        always {
+            script {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    archiveArtifacts allowEmptyArchive: true,
+                                     artifacts: 'TestResults/**/*.trx',
+                                     fingerprint: true
+                }
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    try {
+                        mstest testResultsFile: 'TestResults/**/*.trx', keepLongStdio: true
+                    } catch (NoSuchMethodError ignored) {
+                        echo 'MSTest plugin not installed — TRX files are archived as raw artifacts.'
+                    } catch (Exception e) {
+                        echo "MSTest publish: ${e.message}"
+                    }
+                }
+            }
+            cleanWs notFailBuild: true, deleteDirs: true
+        }
         success {
             echo "========================================================="
-            echo "  BUILD #${BUILD_NUMBER} PASSED SUCCESSFULLY! ALL CHECKS GREEN."
+            echo "  BUILD #${BUILD_NUMBER} PASSED — ALL CHECKS GREEN"
             echo "========================================================="
         }
         failure {
             echo "========================================================="
-            echo "  BUILD #${BUILD_NUMBER} FAILED! CHECK CONSOLE OUTPUT FOR DETAILS."
+            echo "  BUILD #${BUILD_NUMBER} FAILED — xem stage đỏ trong log"
             echo "========================================================="
-        }
-        always {
-            script {
-                // Lưu trữ các file kết quả kiểm thử .trx
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                    archiveArtifacts allowEmptyArchive: true, artifacts: 'TestResults/*.trx'
-                }
-
-                // Hiển thị kết quả kiểm thử trên giao diện Jenkins (nếu có plugin MSTest/xUnit)
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                    try {
-                        mstest testResultsFile: 'TestResults/*.trx', keepLongStdio: true
-                    } catch (NoSuchMethodError e) {
-                        echo "MSTest plugin is not installed on Jenkins Controller. Test artifacts are safely archived."
-                    } catch (Exception e) {
-                        echo "Failed to publish MSTest report: ${e.message}"
-                    }
-                }
-            }
-
-            cleanWs notFailBuild: true, deleteDirs: true
         }
     }
 }
