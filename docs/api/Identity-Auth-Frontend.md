@@ -28,15 +28,14 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/Seed-AuthTestAccounts.ps1
 
 | Thứ | Nằm ở đâu | FE làm gì |
 |---|---|---|
-| Access token (JWT, 15 phút) | Body của login / google / refresh; `session` của verify-email | Giữ **trong bộ nhớ** (state/store), gửi `Authorization: Bearer <token>`. Không lưu localStorage / sessionStorage |
-| Refresh token (7 ngày, xoay mỗi lần dùng) | Cookie `sp_refresh` HttpOnly do BE đặt | **Không đọc, không lưu**. Mọi `fetch` tới `/api/identity/accounts/verify-email`, `/login`, `/google`, `/refresh` và `/logout` phải có `credentials: "include"` (thiếu thì trình duyệt bỏ cookie BE trả về) |
+| Access token (JWT, 15 phút) | Body của login / google / refresh | Giữ **trong bộ nhớ** (state/store), gửi `Authorization: Bearer <token>`. Không lưu localStorage / sessionStorage |
+| Refresh token (7 ngày, xoay mỗi lần dùng) | Cookie `sp_refresh` HttpOnly do BE đặt | **Không đọc, không lưu**. Mọi `fetch` tới `/api/identity/accounts/refresh` và `/logout` phải có `credentials: "include"` |
 
 Cookie: `HttpOnly`, `SameSite=Strict`, `Path=/api/identity/accounts`, `Secure` ngoài Development. Gateway trả `Access-Control-Allow-Credentials: true` cho origin trong `Security__Cors__AllowedOrigins` (mặc định `http://localhost:3000`).
 
 ### Luồng chuẩn
 
 1. **Đăng nhập** `POST /login` → lưu `accessToken`, `account.role` để dựng menu.
-   **Đăng ký xong nhập OTP** `POST /verify-email` cũng là đăng nhập: `session` khác `null` thì xử lý y như body của login rồi vào thẳng bản đồ; `session = null` (tài khoản đang bị tạm khóa vì sai mật khẩu) thì hiện `message` và chuyển `/login`.
 2. **Tải lại trang (F5)** → access token trong bộ nhớ mất → gọi `POST /refresh` (body rỗng, `credentials: "include"`) → nhận access token mới → gọi `GET /me` để lấy lại thông tin.
 3. **Gọi API bị 401** → gọi `/refresh` **một lần** (gộp các request đang chờ vào một lần refresh) → thử lại request. Refresh trả 401/403 → coi như đã đăng xuất, chuyển `/login`.
 4. **Đăng xuất** `POST /logout` (`credentials: "include"`) → BE thu hồi phiên và xoá cookie; FE xoá access token trong bộ nhớ.
@@ -46,7 +45,7 @@ Cookie: `HttpOnly`, `SameSite=Strict`, `Path=/api/identity/accounts`, `Secure` n
 | API | Quyền | Request | Thành công |
 |---|---|---|---|
 | `POST /accounts` | Công khai | `{ email, password, phoneNumber?, fullName? }` | 201 `{ accountId, email, fullName, status, message }` |
-| `POST /accounts/verify-email` | Công khai | `{ email, otpCode }` | 200 `{ accountId, email, status, isVerified, message, session }`; `session` = `{ accessToken, tokenType, expiresIn, account }` + cookie, hoặc `null` |
+| `POST /accounts/verify-email` | Công khai | `{ email, otpCode }` | 200 |
 | `POST /accounts/resend-otp` | Công khai | `{ email }` | 200 `{ otpSent, expiresInSeconds, cooldownSeconds, message }` |
 | `POST /accounts/login` | Công khai | `{ email, password }` | 200 `{ accessToken, tokenType, expiresIn, account }` + cookie |
 | `POST /accounts/google` | Công khai | `{ idToken }` | Như login |
@@ -80,7 +79,6 @@ Mọi lỗi là `application/problem+json` có `title`, `detail` (câu tiếng V
 |---|---|---|---|
 | 409 | `identity.email_already_registered` | Email đã có (kể cả đang chờ xác thực) | Gợi ý đăng nhập; nếu chưa xác thực thì nút "Nhập mã OTP" |
 | 409 | `identity.phone_already_registered` | SĐT đã thuộc tài khoản khác | Báo dưới ô SĐT |
-| 400 | `identity.password_contains_personal_info` | Đổi / đặt lại mật khẩu chứa họ tên hoặc phần trước `@` của email (lúc đăng ký thì báo qua `request.validation_failed`) | Báo dưới ô mật khẩu mới |
 | 400 | `identity.invalid_otp_code` | Sai mã, còn lượt (câu có số lượt còn lại) | Cho nhập lại |
 | 400 | `identity.otp_max_attempts_exceeded` | Sai 3 lần | Ẩn ô nhập, chỉ còn "Gửi lại mã" |
 | 400 | `identity.otp_expired` | Hết hạn, bị thay bằng mã mới, hoặc tài khoản đã kích hoạt | Hiện câu trong `detail`, nút "Gửi lại mã" |

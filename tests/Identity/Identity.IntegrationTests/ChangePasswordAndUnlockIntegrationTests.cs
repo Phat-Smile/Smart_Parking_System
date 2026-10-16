@@ -7,7 +7,6 @@ using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
 using ParkingSystem.Identity.Application.Common.Security;
-using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Persistence;
 using ParkingSystem.Testing;
@@ -163,7 +162,6 @@ public sealed class ChangePasswordAndUnlockIntegrationTests(PostgreSqlContainerF
             s.GetRequiredService<IAuthSessionRepository>(),
             s.GetRequiredService<IRefreshTokenRepository>(),
             new PlainPasswordHasher(),
-            s.GetRequiredService<IProfileRepository>(),
             new FixedClock()).Handle(new ChangePasswordCommand(accountId, current, NewPassword), cancellationToken);
     }
 
