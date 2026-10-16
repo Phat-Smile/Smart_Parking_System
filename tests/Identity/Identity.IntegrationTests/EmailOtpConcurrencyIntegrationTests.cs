@@ -9,6 +9,7 @@ using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.EmailVerifications;
+using ParkingSystem.Identity.Infrastructure.Security;
 using ParkingSystem.Identity.Persistence;
 using ParkingSystem.Testing;
 using Xunit;
@@ -155,6 +156,10 @@ public sealed class EmailOtpConcurrencyIntegrationTests(PostgreSqlContainerFixtu
             services.GetRequiredService<IEmailVerificationRepository>(),
             new PlainOtpHasher(),
             services.GetRequiredService<IOutboxWriter>(),
+            services.GetRequiredService<IAuthSessionRepository>(),
+            services.GetRequiredService<IRefreshTokenRepository>(),
+            new RefreshTokenGenerator(),
+            new StubJwtTokenIssuer(),
             new FixedClock());
         return await handler.Handle(new VerifyEmailOtpCommand(email, code), cancellationToken);
     }
@@ -192,6 +197,13 @@ public sealed class EmailOtpConcurrencyIntegrationTests(PostgreSqlContainerFixtu
 
         public bool VerifyOtp(string candidateOtp, Guid accountId, string expectedHash) =>
             Hash(candidateOtp, accountId) == expectedHash;
+    }
+
+    private sealed class StubJwtTokenIssuer : IJwtTokenIssuer
+    {
+        public int AccessTokenExpirationSeconds => 900;
+
+        public string IssueAccessToken(Account account, Guid sessionId, DateTimeOffset nowUtc) => "access-token";
     }
 
     private sealed class FixedOtpGenerator : IOtpGenerator
