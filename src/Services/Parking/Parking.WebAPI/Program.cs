@@ -78,6 +78,7 @@ app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
 app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotAssignmentEndpoints();
+app.MapPricingEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
