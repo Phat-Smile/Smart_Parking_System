@@ -80,11 +80,11 @@ pipeline {
                 echo 'Executing Backend Unit Tests...'
                 sh '''
                     set -e
-                    dotnet test tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj --no-build --no-restore
-                    dotnet test tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj --no-build --no-restore
-                    dotnet test tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj --no-build --no-restore
-                    dotnet test tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj --no-build --no-restore
-                    dotnet test tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj --no-build --no-restore
+                    dotnet test tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=identity-unit.trx" --results-directory TestResults
+                    dotnet test tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=parking-unit.trx" --results-directory TestResults
+                    dotnet test tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=booking-unit.trx" --results-directory TestResults
+                    dotnet test tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=payment-unit.trx" --results-directory TestResults
+                    dotnet test tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj --no-build --no-restore --logger "trx;LogFileName=notification-unit.trx" --results-directory TestResults
                 '''
             }
         }
@@ -92,14 +92,32 @@ pipeline {
         stage('Architecture Tests') {
             steps {
                 echo 'Executing Architecture Rule Tests...'
-                sh 'dotnet test tests/ArchitectureTests/ArchitectureTests.csproj --no-build --no-restore'
+                sh 'dotnet test tests/ArchitectureTests/ArchitectureTests.csproj --no-build --no-restore --logger "trx;LogFileName=architecture-rules.trx" --results-directory TestResults'
             }
         }
 
         stage('Web Foundation Tests') {
             steps {
                 echo 'Executing Web Foundation Framework Tests...'
-                sh 'dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --no-build --no-restore'
+                sh 'dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --no-build --no-restore --logger "trx;LogFileName=web-foundation.trx" --results-directory TestResults'
+            }
+        }
+
+        stage('AI Service Tests') {
+            steps {
+                script {
+                    def hasPython = sh(script: 'command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1', returnStatus: true) == 0
+                    if (hasPython && fileExists('ai/ai-service')) {
+                        echo 'Python runtime detected. Executing AI Service Tests...'
+                        sh '''
+                            set -e
+                            PYTHON_BIN=$(command -v python3 || command -v python)
+                            $PYTHON_BIN -m unittest discover -s ai/ai-service/tests -v
+                        '''
+                    } else {
+                        echo 'Skipping AI tests: Python runtime is not installed on this agent or ai directory is absent.'
+                    }
+                }
             }
         }
 
@@ -108,12 +126,14 @@ pipeline {
                 script {
                     def hasNode = sh(script: 'command -v node >/dev/null 2>&1', returnStatus: true) == 0
                     if (hasNode && fileExists('web/package.json')) {
-                        echo 'Node.js detected. Running frontend validation...'
+                        echo 'Node.js detected. Running frontend validation (lint, typecheck, tests)...'
                         sh '''
                             set -e
                             node -v
                             npm -v
-                            npm --prefix web run typecheck || true
+                            npm --prefix web run lint
+                            npm --prefix web run typecheck
+                            npm --prefix web run test:run
                         '''
                     } else {
                         echo 'Skipping frontend checks: Node.js is not installed on this agent or web directory is absent.'
@@ -130,11 +150,11 @@ pipeline {
                 echo 'Executing Backend Integration Tests with Isolated Containers...'
                 sh '''
                     set -e
-                    dotnet test tests/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj --no-build --no-restore --parallel none
-                    dotnet test tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj --no-build --no-restore --parallel none
-                    dotnet test tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj --no-build --no-restore --parallel none
-                    dotnet test tests/Payment/Payment.IntegrationTests/Payment.IntegrationTests.csproj --no-build --no-restore --parallel none
-                    dotnet test tests/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj --no-build --no-restore --parallel none
+                    dotnet test tests/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=identity-integration.trx" --results-directory TestResults
+                    dotnet test tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=parking-integration.trx" --results-directory TestResults
+                    dotnet test tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=booking-integration.trx" --results-directory TestResults
+                    dotnet test tests/Payment/Payment.IntegrationTests/Payment.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=payment-integration.trx" --results-directory TestResults
+                    dotnet test tests/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj --no-build --no-restore --parallel none --logger "trx;LogFileName=notification-integration.trx" --results-directory TestResults
                 '''
             }
         }
@@ -152,6 +172,24 @@ pipeline {
             echo "========================================================="
         }
         always {
+            script {
+                // Lưu trữ các file kết quả kiểm thử .trx
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    archiveArtifacts allowEmptyArchive: true, artifacts: 'TestResults/*.trx'
+                }
+
+                // Hiển thị kết quả kiểm thử trên giao diện Jenkins (nếu có plugin MSTest/xUnit)
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    try {
+                        mstest testResultsFile: 'TestResults/*.trx', keepLongStdio: true
+                    } catch (NoSuchMethodError e) {
+                        echo "MSTest plugin is not installed on Jenkins Controller. Test artifacts are safely archived."
+                    } catch (Exception e) {
+                        echo "Failed to publish MSTest report: ${e.message}"
+                    }
+                }
+            }
+
             cleanWs notFailBuild: true, deleteDirs: true
         }
     }
