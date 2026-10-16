@@ -14,23 +14,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.BuildingBlocks.Results;
-using ParkingSystem.Identity.Application.Accounts.AdminAccounts;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
-using ParkingSystem.Identity.Application.Accounts.Sessions;
-using ParkingSystem.Identity.Application.Accounts.GetCurrentAccount;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
 using ParkingSystem.Identity.Application.Accounts.LogoutAll;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
 using ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
-using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Infrastructure.Security;
 using Xunit;
 using AccountEndpoints = IdentityWebApi::ParkingSystem.Identity.WebAPI.Endpoints.AccountEndpoints;
 using IdentityAuthorization = IdentityWebApi::ParkingSystem.Identity.WebAPI.Security.IdentityAuthorization;
-using RefreshTokenCookie = IdentityWebApi::ParkingSystem.Identity.WebAPI.Security.RefreshTokenCookie;
 
 namespace ParkingSystem.Tests.Identity.IntegrationTests;
 
@@ -69,7 +64,6 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         });
         builder.AddParkingSystemSecurity();
         IdentityAuthorization.AddIdentityAuthorization(builder.Services);
-        RefreshTokenCookie.AddRefreshTokenCookie(builder.Services, builder.Configuration);
         builder.Services.AddSingleton<ISender>(_sender);
 
         _app = builder.Build();
@@ -88,9 +82,7 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
 
         Assert.Equal(HttpStatusCode.Locked, response.StatusCode);
         Assert.Equal(TimeSpan.FromSeconds(600), response.Headers.RetryAfter?.Delta);
-        var problem = await ProblemAsync(response);
-        Assert.Equal(LoginErrors.AccountTemporarilyLocked.Code, problem.GetProperty("errorCode").GetString());
-        Assert.Equal(600, problem.GetProperty("retryAfterSeconds").GetInt32());
+        Assert.Equal(LoginErrors.AccountTemporarilyLocked.Code, await ErrorCodeAsync(response));
         AssertNoStore(response);
     }
 
@@ -98,134 +90,12 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
     public async Task Successful_login_carries_tokens_and_is_not_cacheable()
     {
         _sender.Respond(Result<LoginResponse>.Success(new LoginResponse(
-            "access", "Bearer", 900, "refresh", new AccountDto(Guid.NewGuid(), "a@example.test", null, "EmailVerified", "Customer"), DateTimeOffset.UtcNow.AddDays(7))));
+            "access", "Bearer", 900, "refresh", new AccountDto(Guid.NewGuid(), "a@example.test", null, "EmailVerified", "Customer"))));
 
         using var response = await PostAsync("/api/identity/accounts/login", new { email = "a@example.test", password = "Right@1234" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.False(response.Headers.Contains("Retry-After"));
-        AssertNoStore(response);
-        var body = await ProblemAsync(response);
-        Assert.Equal("access", body.GetProperty("accessToken").GetString());
-        Assert.False(body.TryGetProperty("refreshToken", out _));
-        var cookie = RefreshCookieHeader(response);
-        Assert.StartsWith("sp_refresh=refresh;", cookie);
-        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("path=/api/identity/accounts", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("expires=", cookie, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Verify_email_signs_in_with_the_refresh_cookie_and_keeps_the_token_out_of_the_body()
-    {
-        var accountId = Guid.NewGuid();
-        _sender.Respond(Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(accountId, "a@example.test", "EmailVerified",
-            new LoginResponse("access", "Bearer", 900, "refresh", new AccountDto(accountId, "a@example.test", null, "EmailVerified", "Customer"),
-                DateTimeOffset.UtcNow.AddDays(7)))));
-
-        using var response = await PostAsync("/api/identity/accounts/verify-email", new { email = "a@example.test", otpCode = "123456" });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await ProblemAsync(response);
-        Assert.True(body.GetProperty("isVerified").GetBoolean());
-        var session = body.GetProperty("session");
-        Assert.Equal("access", session.GetProperty("accessToken").GetString());
-        Assert.False(session.TryGetProperty("refreshToken", out _));
-        Assert.DoesNotContain("\"refresh\"", body.GetRawText(), StringComparison.Ordinal);
-        var cookie = RefreshCookieHeader(response);
-        Assert.StartsWith("sp_refresh=refresh;", cookie);
-        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Verify_email_of_a_locked_out_account_sets_no_cookie()
-    {
-        _sender.Respond(Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(Guid.NewGuid(), "a@example.test", "EmailVerified", null,
-            Message: VerifyEmailOtpErrors.SuccessWithoutSessionMessage)));
-
-        using var response = await PostAsync("/api/identity/accounts/verify-email", new { email = "a@example.test", otpCode = "123456" });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await ProblemAsync(response);
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("session").ValueKind);
-        Assert.False(response.Headers.Contains("Set-Cookie"));
-    }
-
-    [Fact]
-    public async Task Refresh_reads_the_cookie_rotates_it_and_keeps_the_token_out_of_the_body()
-    {
-        _sender.Respond(Result<RefreshTokenResponse>.Success(new RefreshTokenResponse(
-            "access-2", "Bearer", 900, "refresh-2", new AccountDto(Guid.NewGuid(), "a@example.test", null, "EmailVerified", "Customer"), DateTimeOffset.UtcNow.AddDays(7))));
-
-        using var response = await SendWithCookieAsync("/api/identity/accounts/refresh", "sp_refresh=refresh-1", body: null);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("refresh-1", Assert.IsType<RefreshTokenCommand>(Assert.Single(_sender.Requests)).RefreshToken);
-        Assert.StartsWith("sp_refresh=refresh-2;", RefreshCookieHeader(response));
-        Assert.False((await ProblemAsync(response)).TryGetProperty("refreshToken", out _));
-    }
-
-    [Fact]
-    public async Task Refresh_falls_back_to_the_body_for_clients_without_cookies()
-    {
-        _sender.Respond(Result<RefreshTokenResponse>.Success(new RefreshTokenResponse(
-            "access-2", "Bearer", 900, "refresh-2", new AccountDto(Guid.NewGuid(), "a@example.test", null, "EmailVerified", "Customer"), DateTimeOffset.UtcNow.AddDays(7))));
-
-        using var response = await PostAsync("/api/identity/accounts/refresh", new { refreshToken = "body-token" });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("body-token", Assert.IsType<RefreshTokenCommand>(Assert.Single(_sender.Requests)).RefreshToken);
-    }
-
-    [Fact]
-    public async Task Refresh_without_cookie_or_body_is_401_and_never_reaches_the_handler()
-    {
-        using var response = await SendWithCookieAsync("/api/identity/accounts/refresh", cookie: null, body: null);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        Assert.Equal(RefreshTokenErrors.InvalidRefreshToken.Code, await ErrorCodeAsync(response));
-        Assert.Empty(_sender.Requests);
-        AssertCookieCleared(response);
-    }
-
-    [Fact]
-    public async Task Logout_uses_the_cookie_and_clears_it()
-    {
-        _sender.Respond(Result<LogoutResponse>.Success(new LogoutResponse()));
-
-        using var response = await SendWithCookieAsync("/api/identity/accounts/logout", "sp_refresh=refresh-1", body: null);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("refresh-1", Assert.IsType<LogoutCommand>(Assert.Single(_sender.Requests)).RefreshToken);
-        AssertCookieCleared(response);
-    }
-
-    [Fact]
-    public async Task Logout_without_any_token_is_still_200_and_does_nothing()
-    {
-        using var response = await SendWithCookieAsync("/api/identity/accounts/logout", cookie: null, body: null);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Empty(_sender.Requests);
-        AssertCookieCleared(response);
-    }
-
-    [Fact]
-    public async Task Me_requires_a_token_and_reads_the_account_from_it()
-    {
-        var caller = VerifiedAccount("me@example.test");
-        _sender.Respond(Result<CurrentAccount>.Success(new CurrentAccount(
-            caller.Id, caller.Email, null, null, "Customer", "EmailVerified", true, false, Now)));
-
-        using var anonymous = await _client.GetAsync("/api/identity/accounts/me", TestContext.Current.CancellationToken);
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/identity/accounts/me");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", IssueToken(caller));
-        using var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(caller.Id, Assert.IsType<GetCurrentAccountQuery>(Assert.Single(_sender.Requests)).AccountId);
         AssertNoStore(response);
     }
 
@@ -257,7 +127,6 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
 
         Assert.Equal(expected, response.StatusCode);
         AssertNoStore(response);
-        AssertCookieCleared(response);
     }
 
     [Fact]
@@ -269,7 +138,6 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
 
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
         Assert.Equal(TimeSpan.FromSeconds(42), response.Headers.RetryAfter?.Delta);
-        Assert.Equal(42, (await ProblemAsync(response)).GetProperty("retryAfterSeconds").GetInt32());
     }
 
     [Fact]
@@ -371,93 +239,6 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         Assert.Equal("Customer", command.Role);
     }
 
-    [Fact]
-    public async Task Sessions_list_marks_the_current_device_from_the_sid_claim()
-    {
-        var caller = VerifiedAccount("devices@example.test");
-        var currentSession = Guid.NewGuid();
-        _sender.Respond(Result<IReadOnlyList<SessionInfo>>.Success([]));
-
-        using var anonymous = await _client.GetAsync("/api/identity/accounts/sessions", TestContext.Current.CancellationToken);
-        using var response = await SendAsync(HttpMethod.Get, "/api/identity/accounts/sessions", null, IssueToken(caller, sessionId: currentSession));
-
-        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var query = Assert.IsType<ListSessionsQuery>(Assert.Single(_sender.Requests));
-        Assert.Equal(caller.Id, query.AccountId);
-        Assert.Equal(currentSession, query.CurrentSessionId);
-    }
-
-    [Fact]
-    public async Task Revoking_the_current_device_also_clears_its_cookie_but_another_device_does_not()
-    {
-        var caller = VerifiedAccount("devices@example.test");
-        var currentSession = Guid.NewGuid();
-        var otherSession = Guid.NewGuid();
-        _sender.Respond(Result<RevokedSession>.Success(new RevokedSession(otherSession, "ok")));
-
-        using var other = await SendAsync(HttpMethod.Delete, $"/api/identity/accounts/sessions/{otherSession}", null, IssueToken(caller, sessionId: currentSession));
-        using var current = await SendAsync(HttpMethod.Delete, $"/api/identity/accounts/sessions/{currentSession}", null, IssueToken(caller, sessionId: currentSession));
-
-        Assert.Equal(HttpStatusCode.OK, other.StatusCode);
-        Assert.False(other.Headers.Contains("Set-Cookie"));
-        AssertCookieCleared(current);
-        Assert.All(_sender.Requests, request => Assert.Equal(caller.Id, Assert.IsType<RevokeSessionCommand>(request).AccountId));
-    }
-
-    [Fact]
-    public async Task Missing_session_maps_to_404()
-    {
-        _sender.Respond(Result<RevokedSession>.Failure(SessionErrors.SessionNotFound));
-
-        using var response = await SendAsync(HttpMethod.Delete, $"/api/identity/accounts/sessions/{Guid.NewGuid()}", null, IssueToken(VerifiedAccount("x@example.test")));
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal(SessionErrors.SessionNotFound.Code, await ErrorCodeAsync(response));
-    }
-
-    [Theory]
-    [InlineData(AccountRole.Customer)]
-    [InlineData(AccountRole.Staff)]
-    [InlineData(AccountRole.ParkingLotOwner)]
-    public async Task Only_a_system_admin_can_list_suspend_or_activate_accounts(AccountRole role)
-    {
-        var caller = VerifiedAccount("caller@example.test");
-        caller.AssignRole(role);
-        var token = IssueToken(caller);
-
-        using var list = await SendAsync(HttpMethod.Get, "/api/identity/admin/accounts", null, token);
-        using var suspend = await PostAsync($"/api/identity/admin/accounts/{Guid.NewGuid()}/suspend", new { }, token);
-        using var activate = await PostAsync($"/api/identity/admin/accounts/{Guid.NewGuid()}/activate", new { }, token);
-
-        Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, suspend.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, activate.StatusCode);
-        Assert.Empty(_sender.Requests);
-    }
-
-    [Fact]
-    public async Task Admin_search_passes_the_filters_and_self_suspend_maps_to_403()
-    {
-        var admin = VerifiedAccount("admin@example.test");
-        admin.AssignRole(AccountRole.SystemAdmin);
-        var token = IssueToken(admin);
-        _sender.Respond(Result<AccountPage>.Success(new AccountPage([], 2, 10, 0)));
-
-        using var list = await SendAsync(HttpMethod.Get, "/api/identity/admin/accounts?search=nguyen&role=Staff&status=EmailVerified&page=2&pageSize=10", null, token);
-
-        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
-        Assert.Equal(new SearchAccountsQuery("nguyen", "Staff", "EmailVerified", 2, 10), Assert.Single(_sender.Requests));
-
-        _sender.Respond(Result<ChangedAccountStatus>.Failure(ChangeAccountStatusErrors.CannotChangeOwnStatus));
-        using var self = await PostAsync($"/api/identity/admin/accounts/{admin.Id}/suspend", new { }, token);
-
-        Assert.Equal(HttpStatusCode.Forbidden, self.StatusCode);
-        var command = Assert.IsType<ChangeAccountStatusCommand>(_sender.Requests[^1]);
-        Assert.Equal(admin.Id, command.AdminId);
-        Assert.Equal(AccountStatusChange.Suspend, command.Change);
-    }
-
     private static Account VerifiedAccount(string email)
     {
         var account = Account.Register(Guid.NewGuid(), email, "hash", null, Now);
@@ -465,7 +246,7 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         return account;
     }
 
-    private string IssueToken(Account account, string issuer = Issuer, string audience = Audience, string? privateKeyPath = null, Guid? sessionId = null)
+    private string IssueToken(Account account, string issuer = Issuer, string audience = Audience, string? privateKeyPath = null)
     {
         using var jwtIssuer = new JwtTokenIssuer(Options.Create(new JwtIssuerOptions
         {
@@ -474,45 +255,19 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
             PrivateKeyPath = privateKeyPath ?? _privateKeyPath,
             ExpirationMinutes = 15
         }));
-        return jwtIssuer.IssueAccessToken(account, sessionId ?? Guid.NewGuid(), DateTimeOffset.UtcNow);
+        return jwtIssuer.IssueAccessToken(account, DateTimeOffset.UtcNow);
     }
 
     private Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken = null) =>
         SendAsync(HttpMethod.Post, path, body, accessToken);
 
-    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body, string? accessToken = null)
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object body, string? accessToken = null)
     {
-        using var request = new HttpRequestMessage(method, path);
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
+        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         if (accessToken is not null)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return await _client.SendAsync(request, TestContext.Current.CancellationToken);
     }
-
-    private async Task<HttpResponseMessage> SendWithCookieAsync(string path, string? cookie, object? body)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, path);
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
-        if (cookie is not null)
-            request.Headers.Add("Cookie", cookie);
-        return await _client.SendAsync(request, TestContext.Current.CancellationToken);
-    }
-
-    private static string RefreshCookieHeader(HttpResponseMessage response) =>
-        Assert.Single(response.Headers.GetValues("Set-Cookie"), value => value.StartsWith("sp_refresh=", StringComparison.Ordinal));
-
-    // Xoá cookie = giá trị rỗng và thời điểm hết hạn trong quá khứ.
-    private static void AssertCookieCleared(HttpResponseMessage response)
-    {
-        var cookie = RefreshCookieHeader(response);
-        Assert.StartsWith("sp_refresh=;", cookie);
-        Assert.Contains("expires=Thu, 01 Jan 1970", cookie, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static async Task<JsonElement> ProblemAsync(HttpResponseMessage response) =>
-        await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
 
     private static async Task<string?> ErrorCodeAsync(HttpResponseMessage response)
     {

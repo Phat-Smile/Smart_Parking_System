@@ -15,8 +15,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.Services.AddIdentityAuthorization();
-builder.Services.AddRefreshTokenCookie(builder.Configuration);
-builder.Services.AddGatewayForwardedHeaders();
 builder.AddParkingSystemTelemetry("identity-api");
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
@@ -41,8 +39,6 @@ builder.Services.AddSwaggerGen(options =>
         options.IncludeXmlComments(xmlPath);
     }
 
-    options.SupportNonNullableReferenceTypes();
-
     var appXmlPath = Path.Combine(AppContext.BaseDirectory, "Identity.Application.xml");
     if (File.Exists(appXmlPath))
     {
@@ -53,7 +49,6 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 if (!app.Environment.IsDevelopment() && VehicleLookupRegistration.IsStubConfigured(builder.Configuration))
     app.Logger.LogWarning("VehicleLookup uses the Stub provider outside Development: vehicle lookups return demo data.");
-app.UseForwardedHeaders();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemAuthentication();
 if (app.Environment.IsDevelopment())

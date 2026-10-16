@@ -484,7 +484,7 @@ public sealed class RefreshTokenAndLogoutTests
     {
         public int AccessTokenExpirationSeconds => expirationSeconds;
 
-        public string IssueAccessToken(Account account, Guid sessionId, DateTimeOffset nowUtc) => token;
+        public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => token;
     }
 
     private sealed class FakeAccountRepository(IEnumerable<Account> initial) : IAccountRepository
@@ -530,9 +530,6 @@ public sealed class RefreshTokenAndLogoutTests
 
         public Task<AuthSession?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
             FindByIdAsync(id, cancellationToken);
-
-        public Task<IReadOnlyList<AuthSession>> ListActiveForAccountAsync(Guid accountId, DateTimeOffset nowUtc, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<AuthSession>>(Saved.Where(s => s.AccountId == accountId && s.IsActive(nowUtc)).ToList());
 
         public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken)
         {
