@@ -74,12 +74,9 @@ public static class ParkingSystemSecurityExtensions
             if (origins.Length > 0)
                 policy.WithOrigins(origins);
 
-            // Cookie refresh token cần AllowCredentials; an toàn vì origin luôn là danh sách cụ thể, không có "*".
-            // Retry-After không thuộc nhóm header trình duyệt tự cho JS đọc nên phải expose để FE đếm ngược.
             policy.WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
                 .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID")
-                .WithExposedHeaders("X-Correlation-ID", "Retry-After")
-                .AllowCredentials();
+                .WithExposedHeaders("X-Correlation-ID");
         }));
 
         return builder;

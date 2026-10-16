@@ -15,8 +15,7 @@ public sealed record RefreshTokenResponse(
     string TokenType,
     int ExpiresIn,
     string RefreshToken,
-    AccountDto Account,
-    DateTimeOffset RefreshTokenExpiresAtUtc);
+    AccountDto Account);
 
 public static class RefreshTokenErrors
 {
@@ -170,8 +169,7 @@ public sealed class RefreshTokenCommandHandler(
                 "Bearer",
                 jwtTokenIssuer.AccessTokenExpirationSeconds,
                 newRawRefreshToken,
-                new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString(), account.Role.ToString()),
-                newRefreshToken.ExpiresAtUtc);
+                new AccountDto(account.Id, account.Email, account.PhoneNumber, account.Status.ToString(), account.Role.ToString()));
 
             return Result<RefreshTokenResponse>.Success(response);
         }, cancellationToken);

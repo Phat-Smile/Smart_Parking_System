@@ -15,7 +15,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.Services.AddIdentityAuthorization();
-builder.Services.AddRefreshTokenCookie(builder.Configuration);
 builder.AddParkingSystemTelemetry("identity-api");
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
@@ -39,8 +38,6 @@ builder.Services.AddSwaggerGen(options =>
     {
         options.IncludeXmlComments(xmlPath);
     }
-
-    options.SupportNonNullableReferenceTypes();
 
     var appXmlPath = Path.Combine(AppContext.BaseDirectory, "Identity.Application.xml");
     if (File.Exists(appXmlPath))
