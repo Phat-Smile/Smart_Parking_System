@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
-using ParkingSystem.Identity.Application.Accounts.AdminAccounts;
 using ParkingSystem.Identity.Application.Common.Messaging.Inbox;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Profiles;
@@ -42,7 +41,6 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IAccountRepository>(provider => provider.GetRequiredService<AccountRepository>());
         services.AddScoped<IGoogleAccountRepository>(provider => provider.GetRequiredService<AccountRepository>());
         services.AddScoped<IProfileRepository, ProfileRepository>();
-        services.AddScoped<IAccountDirectory, AccountDirectory>();
         services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();

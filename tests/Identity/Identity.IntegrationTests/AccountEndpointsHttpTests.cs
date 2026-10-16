@@ -14,9 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.BuildingBlocks.Results;
-using ParkingSystem.Identity.Application.Accounts.AdminAccounts;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
-using ParkingSystem.Identity.Application.Accounts.Sessions;
 using ParkingSystem.Identity.Application.Accounts.GetCurrentAccount;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
@@ -334,93 +332,6 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         Assert.Equal("Customer", command.Role);
     }
 
-    [Fact]
-    public async Task Sessions_list_marks_the_current_device_from_the_sid_claim()
-    {
-        var caller = VerifiedAccount("devices@example.test");
-        var currentSession = Guid.NewGuid();
-        _sender.Respond(Result<IReadOnlyList<SessionInfo>>.Success([]));
-
-        using var anonymous = await _client.GetAsync("/api/identity/accounts/sessions", TestContext.Current.CancellationToken);
-        using var response = await SendAsync(HttpMethod.Get, "/api/identity/accounts/sessions", null, IssueToken(caller, sessionId: currentSession));
-
-        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var query = Assert.IsType<ListSessionsQuery>(Assert.Single(_sender.Requests));
-        Assert.Equal(caller.Id, query.AccountId);
-        Assert.Equal(currentSession, query.CurrentSessionId);
-    }
-
-    [Fact]
-    public async Task Revoking_the_current_device_also_clears_its_cookie_but_another_device_does_not()
-    {
-        var caller = VerifiedAccount("devices@example.test");
-        var currentSession = Guid.NewGuid();
-        var otherSession = Guid.NewGuid();
-        _sender.Respond(Result<RevokedSession>.Success(new RevokedSession(otherSession, "ok")));
-
-        using var other = await SendAsync(HttpMethod.Delete, $"/api/identity/accounts/sessions/{otherSession}", null, IssueToken(caller, sessionId: currentSession));
-        using var current = await SendAsync(HttpMethod.Delete, $"/api/identity/accounts/sessions/{currentSession}", null, IssueToken(caller, sessionId: currentSession));
-
-        Assert.Equal(HttpStatusCode.OK, other.StatusCode);
-        Assert.False(other.Headers.Contains("Set-Cookie"));
-        AssertCookieCleared(current);
-        Assert.All(_sender.Requests, request => Assert.Equal(caller.Id, Assert.IsType<RevokeSessionCommand>(request).AccountId));
-    }
-
-    [Fact]
-    public async Task Missing_session_maps_to_404()
-    {
-        _sender.Respond(Result<RevokedSession>.Failure(SessionErrors.SessionNotFound));
-
-        using var response = await SendAsync(HttpMethod.Delete, $"/api/identity/accounts/sessions/{Guid.NewGuid()}", null, IssueToken(VerifiedAccount("x@example.test")));
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal(SessionErrors.SessionNotFound.Code, await ErrorCodeAsync(response));
-    }
-
-    [Theory]
-    [InlineData(AccountRole.Customer)]
-    [InlineData(AccountRole.Staff)]
-    [InlineData(AccountRole.ParkingLotOwner)]
-    public async Task Only_a_system_admin_can_list_suspend_or_activate_accounts(AccountRole role)
-    {
-        var caller = VerifiedAccount("caller@example.test");
-        caller.AssignRole(role);
-        var token = IssueToken(caller);
-
-        using var list = await SendAsync(HttpMethod.Get, "/api/identity/admin/accounts", null, token);
-        using var suspend = await PostAsync($"/api/identity/admin/accounts/{Guid.NewGuid()}/suspend", new { }, token);
-        using var activate = await PostAsync($"/api/identity/admin/accounts/{Guid.NewGuid()}/activate", new { }, token);
-
-        Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, suspend.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, activate.StatusCode);
-        Assert.Empty(_sender.Requests);
-    }
-
-    [Fact]
-    public async Task Admin_search_passes_the_filters_and_self_suspend_maps_to_403()
-    {
-        var admin = VerifiedAccount("admin@example.test");
-        admin.AssignRole(AccountRole.SystemAdmin);
-        var token = IssueToken(admin);
-        _sender.Respond(Result<AccountPage>.Success(new AccountPage([], 2, 10, 0)));
-
-        using var list = await SendAsync(HttpMethod.Get, "/api/identity/admin/accounts?search=nguyen&role=Staff&status=EmailVerified&page=2&pageSize=10", null, token);
-
-        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
-        Assert.Equal(new SearchAccountsQuery("nguyen", "Staff", "EmailVerified", 2, 10), Assert.Single(_sender.Requests));
-
-        _sender.Respond(Result<ChangedAccountStatus>.Failure(ChangeAccountStatusErrors.CannotChangeOwnStatus));
-        using var self = await PostAsync($"/api/identity/admin/accounts/{admin.Id}/suspend", new { }, token);
-
-        Assert.Equal(HttpStatusCode.Forbidden, self.StatusCode);
-        var command = Assert.IsType<ChangeAccountStatusCommand>(_sender.Requests[^1]);
-        Assert.Equal(admin.Id, command.AdminId);
-        Assert.Equal(AccountStatusChange.Suspend, command.Change);
-    }
-
     private static Account VerifiedAccount(string email)
     {
         var account = Account.Register(Guid.NewGuid(), email, "hash", null, Now);
@@ -428,7 +339,7 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         return account;
     }
 
-    private string IssueToken(Account account, string issuer = Issuer, string audience = Audience, string? privateKeyPath = null, Guid? sessionId = null)
+    private string IssueToken(Account account, string issuer = Issuer, string audience = Audience, string? privateKeyPath = null)
     {
         using var jwtIssuer = new JwtTokenIssuer(Options.Create(new JwtIssuerOptions
         {
@@ -437,17 +348,15 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
             PrivateKeyPath = privateKeyPath ?? _privateKeyPath,
             ExpirationMinutes = 15
         }));
-        return jwtIssuer.IssueAccessToken(account, sessionId ?? Guid.NewGuid(), DateTimeOffset.UtcNow);
+        return jwtIssuer.IssueAccessToken(account, DateTimeOffset.UtcNow);
     }
 
     private Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken = null) =>
         SendAsync(HttpMethod.Post, path, body, accessToken);
 
-    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body, string? accessToken = null)
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object body, string? accessToken = null)
     {
-        using var request = new HttpRequestMessage(method, path);
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
+        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         if (accessToken is not null)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return await _client.SendAsync(request, TestContext.Current.CancellationToken);

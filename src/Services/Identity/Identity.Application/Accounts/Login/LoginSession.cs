@@ -41,7 +41,7 @@ internal static class LoginSession
         await accounts.SaveChangesAsync(cancellationToken);
 
         return new LoginResponse(
-            jwtTokenIssuer.IssueAccessToken(account, session.Id, now),
+            jwtTokenIssuer.IssueAccessToken(account, now),
             "Bearer",
             jwtTokenIssuer.AccessTokenExpirationSeconds,
             rawRefreshToken,
