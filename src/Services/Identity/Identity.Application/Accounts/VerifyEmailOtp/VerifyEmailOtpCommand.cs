@@ -3,7 +3,6 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Identity;
-using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
@@ -11,24 +10,14 @@ using ParkingSystem.Identity.Domain.EmailVerifications;
 
 namespace ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 
-public sealed record VerifyEmailOtpCommand(string Email, string OtpCode, string? DeviceInfo = null, string? IpAddress = null)
+public sealed record VerifyEmailOtpCommand(string Email, string OtpCode)
     : IRequest<Result<VerifiedEmailAccount>>;
 
-// Session carries the same tokens as a login, so the client signs the user in without a second password prompt.
-// It is null only when the account is locked out by failed logins: the email is verified, the user logs in later.
-public sealed record VerifiedEmailAccount(
-    Guid AccountId,
-    string Email,
-    string Status,
-    LoginResponse? Session,
-    bool IsVerified = true,
-    string Message = VerifyEmailOtpErrors.SuccessMessage);
+public sealed record VerifiedEmailAccount(Guid AccountId, string Email, string Status, bool IsVerified = true, string Message = VerifyEmailOtpErrors.SuccessMessage);
 
 public static class VerifyEmailOtpErrors
 {
-    public const string SuccessMessage = "Xác thực email thành công. Bạn đã được đăng nhập.";
-
-    public const string SuccessWithoutSessionMessage = "Xác thực email thành công. Vui lòng đăng nhập để tiếp tục.";
+    public const string SuccessMessage = "Xác thực email thành công. Bạn có thể đăng nhập ngay.";
 
     public static readonly Error InvalidOtpCode =
         new("identity.invalid_otp_code", "Mã OTP không chính xác. Vui lòng kiểm tra lại.");
@@ -68,10 +57,6 @@ public sealed class VerifyEmailOtpCommandHandler(
     IEmailVerificationRepository emailVerifications,
     IOtpHasher otpHasher,
     IOutboxWriter outboxWriter,
-    IAuthSessionRepository authSessions,
-    IRefreshTokenRepository refreshTokens,
-    IRefreshTokenGenerator refreshTokenGenerator,
-    IJwtTokenIssuer jwtTokenIssuer,
     IClock clock) : IRequestHandler<VerifyEmailOtpCommand, Result<VerifiedEmailAccount>>
 {
     public async Task<Result<VerifiedEmailAccount>> Handle(VerifyEmailOtpCommand request, CancellationToken cancellationToken)
@@ -125,21 +110,9 @@ public sealed class VerifyEmailOtpCommandHandler(
                     1);
             }
 
-            // Failed password logins can lock a pending account; the code proves the email, not the password, so it
-            // must not lift that lock. The verification is still committed.
-            if (account.IsLockedOut(now))
-            {
-                await emailVerifications.SaveChangesAsync(cancellationToken);
-                return Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(
-                    account.Id, account.Email, account.Status.ToString(), null, Message: VerifyEmailOtpErrors.SuccessWithoutSessionMessage));
-            }
+            await emailVerifications.SaveChangesAsync(cancellationToken);
 
-            // The verification, the outbox row, the session and its refresh token are committed together.
-            var session = await LoginSession.StartAsync(
-                account, request.DeviceInfo, request.IpAddress, now,
-                accounts, authSessions, refreshTokens, refreshTokenGenerator, jwtTokenIssuer, cancellationToken);
-
-            return Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(account.Id, account.Email, account.Status.ToString(), session));
+            return Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(account.Id, account.Email, account.Status.ToString(), true));
         }, cancellationToken);
     }
 }

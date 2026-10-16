@@ -24,7 +24,6 @@ using ParkingSystem.Identity.Application.Accounts.LogoutAll;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
 using ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
-using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Infrastructure.Security;
 using Xunit;
@@ -114,42 +113,6 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("path=/api/identity/accounts", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("expires=", cookie, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Verify_email_signs_in_with_the_refresh_cookie_and_keeps_the_token_out_of_the_body()
-    {
-        var accountId = Guid.NewGuid();
-        _sender.Respond(Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(accountId, "a@example.test", "EmailVerified",
-            new LoginResponse("access", "Bearer", 900, "refresh", new AccountDto(accountId, "a@example.test", null, "EmailVerified", "Customer"),
-                DateTimeOffset.UtcNow.AddDays(7)))));
-
-        using var response = await PostAsync("/api/identity/accounts/verify-email", new { email = "a@example.test", otpCode = "123456" });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await ProblemAsync(response);
-        Assert.True(body.GetProperty("isVerified").GetBoolean());
-        var session = body.GetProperty("session");
-        Assert.Equal("access", session.GetProperty("accessToken").GetString());
-        Assert.False(session.TryGetProperty("refreshToken", out _));
-        Assert.DoesNotContain("\"refresh\"", body.GetRawText(), StringComparison.Ordinal);
-        var cookie = RefreshCookieHeader(response);
-        Assert.StartsWith("sp_refresh=refresh;", cookie);
-        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Verify_email_of_a_locked_out_account_sets_no_cookie()
-    {
-        _sender.Respond(Result<VerifiedEmailAccount>.Success(new VerifiedEmailAccount(Guid.NewGuid(), "a@example.test", "EmailVerified", null,
-            Message: VerifyEmailOtpErrors.SuccessWithoutSessionMessage)));
-
-        using var response = await PostAsync("/api/identity/accounts/verify-email", new { email = "a@example.test", otpCode = "123456" });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await ProblemAsync(response);
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("session").ValueKind);
-        Assert.False(response.Headers.Contains("Set-Cookie"));
     }
 
     [Fact]

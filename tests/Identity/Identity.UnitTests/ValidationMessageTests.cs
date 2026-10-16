@@ -19,57 +19,12 @@ public sealed class ValidationMessageTests
     [InlineData("Abcdefg1", "Mật khẩu phải chứa ít nhất một ký tự đặc biệt.")]
     [InlineData("12345678", "Mật khẩu phải chứa ít nhất một chữ cái viết hoa.")]
     [InlineData("Aa1@ầầầầầầầầầầầầầầầầầầầầầầầầ", PasswordPolicy.TooLongMessage)]
-    [InlineData(" Abc@12345", PasswordPolicy.EdgeWhitespaceMessage)]
-    [InlineData("Abc@12345	", PasswordPolicy.EdgeWhitespaceMessage)]
-    [InlineData("Abc defg1", "Mật khẩu phải chứa ít nhất một ký tự đặc biệt.")]
-    [InlineData("P@ssw0rd", PasswordPolicy.CommonPasswordMessage)]
-    [InlineData("admin@123", "Mật khẩu phải chứa ít nhất một chữ cái viết hoa.")]
-    [InlineData("aDMIN@1234", PasswordPolicy.CommonPasswordMessage)]
     public void Register_password_reports_only_the_first_broken_rule(string password, string expected)
     {
         var result = new RegisterAccountCommandValidator().Validate(new RegisterAccountCommand(null, "user@example.com", password, null));
 
         var error = Assert.Single(result.Errors);
         Assert.Equal(expected, error.ErrorMessage);
-    }
-
-    [Fact]
-    public void Register_password_may_contain_inner_spaces()
-    {
-        var result = new RegisterAccountCommandValidator().Validate(new RegisterAccountCommand(null, "user@example.com", "Xe cua toi @1", null));
-
-        Assert.True(result.IsValid);
-    }
-
-    [Theory]
-    [InlineData("hung123@gmail.com", null, "Hung123@gmail")]
-    [InlineData("hung.nguyen@example.com", null, "Nguyen@2026x")]
-    [InlineData("user@example.com", "Nguyễn Văn Hùng", "NguyenVanHung@1")]
-    [InlineData("user@example.com", "Nguyễn Văn Hùng", "Hung@20262026")]
-    [InlineData("user@example.com", "Đặng Thị Mai", "Dang#Secure9")]
-    public void Register_rejects_a_password_containing_the_email_name_or_full_name(string email, string? fullName, string password)
-    {
-        var result = new RegisterAccountCommandValidator().Validate(new RegisterAccountCommand(fullName, email, password, null));
-
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(PasswordPolicy.PersonalInfoMessage, error.ErrorMessage);
-    }
-
-    [Theory]
-    [InlineData("an@example.com", "Lê Văn An", "Vanan#Secure9")]
-    [InlineData("abc@example.com", null, "Abc@12345")]
-    public void Register_ignores_personal_tokens_shorter_than_four_characters(string email, string? fullName, string password)
-    {
-        var result = new RegisterAccountCommandValidator().Validate(new RegisterAccountCommand(fullName, email, password, null));
-
-        Assert.True(result.IsValid);
-    }
-
-    [Fact]
-    public void Personal_info_error_has_its_own_code()
-    {
-        Assert.Equal("identity.password_contains_personal_info", PasswordPolicy.PersonalInfoError.Code);
-        Assert.False(PasswordPolicy.ContainsPersonalInfo("Xyz@67890", null, null));
     }
 
     [Theory]

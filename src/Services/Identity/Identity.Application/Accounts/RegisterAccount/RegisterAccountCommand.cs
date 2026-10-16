@@ -64,10 +64,7 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
             .MaximumLength(254).WithMessage("Email không được vượt quá 254 ký tự.")
             .EmailAddress().WithMessage("Email không đúng định dạng hợp lệ.");
 
-        RuleFor(command => command.Password)
-            .MeetsPasswordPolicy()
-            .Must((command, password) => !PasswordPolicy.ContainsPersonalInfo(password, command.Email, command.FullName))
-            .WithMessage(PasswordPolicy.PersonalInfoMessage);
+        RuleFor(command => command.Password).MeetsPasswordPolicy();
 
         // Số điện thoại là trường tùy chọn và chỉ kiểm tra khi người dùng nhập vào.
         RuleFor(command => command.PhoneNumber)

@@ -62,7 +62,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new InMemoryEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("  User@Example.COM ", "654321"),
             TestContext.Current.CancellationToken);
@@ -84,59 +84,6 @@ public sealed class EmailOtpTests
     }
 
     [Fact]
-    public async Task VerifyEmailOtp_signs_the_user_in_with_a_new_session()
-    {
-        var clock = new MutableClock(InitialTime);
-        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
-        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("654321", account.Id), clock.UtcNow);
-        var authSessions = new FakeAuthSessionRepository();
-        var refreshTokens = new FakeRefreshTokenRepository();
-
-        var handler = CreateVerifyHandler(
-            new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([verification]), new FakeOutboxWriter(), clock,
-            authSessions, refreshTokens);
-        var result = await handler.Handle(
-            new VerifyEmailOtpCommand("user@example.com", "654321", "Mozilla/5.0", "203.0.113.7"),
-            TestContext.Current.CancellationToken);
-
-        var session = result.Value!.Session;
-        Assert.NotNull(session);
-        Assert.Equal("access-token", session.AccessToken);
-        Assert.Equal("Bearer", session.TokenType);
-        Assert.Equal("raw-refresh-token", session.RefreshToken);
-        Assert.Equal("EmailVerified", session.Account.Status);
-
-        var authSession = Assert.Single(authSessions.Saved);
-        Assert.Equal(account.Id, authSession.AccountId);
-        Assert.Equal("Mozilla/5.0", authSession.DeviceInfo);
-        Assert.Equal("203.0.113.7", authSession.IpAddress);
-        var refreshToken = Assert.Single(refreshTokens.Saved);
-        Assert.Equal(authSession.Id, refreshToken.SessionId);
-    }
-
-    [Fact]
-    public async Task VerifyEmailOtp_verifies_a_locked_out_account_without_a_session()
-    {
-        var clock = new MutableClock(InitialTime);
-        var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
-        for (var i = 0; i < Account.MaxFailedAttemptsBeforeLockout; i++)
-            account.RecordFailedLogin(clock.UtcNow);
-        var verification = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("654321", account.Id), clock.UtcNow);
-        var authSessions = new FakeAuthSessionRepository();
-
-        var handler = CreateVerifyHandler(
-            new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([verification]), new FakeOutboxWriter(), clock,
-            authSessions);
-        var result = await handler.Handle(new VerifyEmailOtpCommand("user@example.com", "654321"), TestContext.Current.CancellationToken);
-
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.Value!.Session);
-        Assert.Equal(VerifyEmailOtpErrors.SuccessWithoutSessionMessage, result.Value.Message);
-        Assert.Equal(AccountStatus.EmailVerified, account.Status);
-        Assert.Empty(authSessions.Saved);
-    }
-
-    [Fact]
     public async Task VerifyEmailOtp_fails_with_generic_expired_error_when_account_does_not_exist()
     {
         var clock = new MutableClock(InitialTime);
@@ -144,7 +91,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new InMemoryEmailVerificationRepository([]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("nonexistent@example.com", "123456"),
             TestContext.Current.CancellationToken);
@@ -164,7 +111,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new InMemoryEmailVerificationRepository([]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("user@example.com", "123456"),
             TestContext.Current.CancellationToken);
@@ -187,7 +134,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new InMemoryEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
         var result = await handler.Handle(
             new VerifyEmailOtpCommand("user@example.com", "123456"),
             TestContext.Current.CancellationToken);
@@ -208,7 +155,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new InMemoryEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
 
         // Attempt 1: wrong code
         var firstResult = await handler.Handle(
@@ -262,7 +209,7 @@ public sealed class EmailOtpTests
         var accountRepo = new FakeAccountRepository([account]);
         var verificationRepo = new InMemoryEmailVerificationRepository([first]);
         var outboxWriter = new FakeOutboxWriter();
-        var verify = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var verify = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
 
         foreach (var wrong in new[] { "111111", "222222", "333333" })
             await verify.Handle(new VerifyEmailOtpCommand("user@example.com", wrong), TestContext.Current.CancellationToken);
@@ -389,12 +336,12 @@ public sealed class EmailOtpTests
         var clock = new MutableClock(InitialTime);
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
         var code = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
-        var handler = CreateVerifyHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([code]), new FakeOutboxWriter(), clock);
+        var handler = new VerifyEmailOtpCommandHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([code]), _otpHasher, new FakeOutboxWriter(), clock);
 
         var result = await handler.Handle(new VerifyEmailOtpCommand("user@example.com", "123456"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Xác thực email thành công. Bạn đã được đăng nhập.", result.Value!.Message);
+        Assert.Equal("Xác thực email thành công. Bạn có thể đăng nhập ngay.", result.Value!.Message);
     }
 
     [Fact]
@@ -404,7 +351,7 @@ public sealed class EmailOtpTests
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
         var replaced = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("111111", account.Id), clock.UtcNow);
         replaced.Invalidate(clock.UtcNow);
-        var handler = CreateVerifyHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([replaced]), new FakeOutboxWriter(), clock);
+        var handler = new VerifyEmailOtpCommandHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([replaced]), _otpHasher, new FakeOutboxWriter(), clock);
 
         var result = await handler.Handle(new VerifyEmailOtpCommand("user@example.com", "111111"), TestContext.Current.CancellationToken);
 
@@ -419,7 +366,7 @@ public sealed class EmailOtpTests
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, clock.UtcNow);
         var code = EmailVerification.Issue(Guid.NewGuid(), account.Id, account.Email, _otpHasher.HashOtp("123456", account.Id), clock.UtcNow);
         clock.UtcNow = InitialTime.AddMinutes(EmailVerification.ExpirationMinutes + 1);
-        var handler = CreateVerifyHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([code]), new FakeOutboxWriter(), clock);
+        var handler = new VerifyEmailOtpCommandHandler(new FakeAccountRepository([account]), new InMemoryEmailVerificationRepository([code]), _otpHasher, new FakeOutboxWriter(), clock);
 
         var result = await handler.Handle(new VerifyEmailOtpCommand("user@example.com", "123456"), TestContext.Current.CancellationToken);
 
@@ -457,7 +404,7 @@ public sealed class EmailOtpTests
         var verificationRepo = new InMemoryEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
 
-        var handler = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
 
         // When 2 verify requests are sent concurrently (serialized in transaction via row-lock)
         var verifyTask1 = handler.Handle(new VerifyEmailOtpCommand("concurrent@example.com", "123456"), TestContext.Current.CancellationToken);
@@ -495,7 +442,7 @@ public sealed class EmailOtpTests
         var accountRepo = new FakeAccountRepository([account]);
         var verificationRepo = new InMemoryEmailVerificationRepository([verification]);
         var outboxWriter = new FakeOutboxWriter();
-        var handler = CreateVerifyHandler(accountRepo, verificationRepo, outboxWriter, clock);
+        var handler = new VerifyEmailOtpCommandHandler(accountRepo, verificationRepo, _otpHasher, outboxWriter, clock);
 
         // When: 3rd incorrect attempt is submitted
         var result = await handler.Handle(
@@ -608,71 +555,6 @@ public sealed class EmailOtpTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => generator.GenerateNumericOtp(4));
         Assert.Throws<ArgumentOutOfRangeException>(() => generator.GenerateNumericOtp(10));
-    }
-
-    private VerifyEmailOtpCommandHandler CreateVerifyHandler(
-        IAccountRepository accounts,
-        IEmailVerificationRepository verifications,
-        IOutboxWriter outboxWriter,
-        IClock clock,
-        FakeAuthSessionRepository? authSessions = null,
-        FakeRefreshTokenRepository? refreshTokens = null) =>
-        new(accounts, verifications, _otpHasher, outboxWriter,
-            authSessions ?? new FakeAuthSessionRepository(), refreshTokens ?? new FakeRefreshTokenRepository(),
-            new FakeRefreshTokenGenerator(), new FakeJwtTokenIssuer(), clock);
-
-    private sealed class FakeAuthSessionRepository : IAuthSessionRepository
-    {
-        public List<AuthSession> Saved { get; } = [];
-
-        public void Add(AuthSession session) => Saved.Add(session);
-
-        public Task<AuthSession?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved.FirstOrDefault(s => s.Id == id));
-
-        public Task<AuthSession?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
-            FindByIdAsync(id, cancellationToken);
-
-        public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task<IReadOnlyList<AuthSession>> ListActiveForAccountAsync(Guid accountId, DateTimeOffset nowUtc, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<AuthSession>>(Saved.Where(s => s.AccountId == accountId).ToList());
-    }
-
-    private sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
-    {
-        public List<RefreshToken> Saved { get; } = [];
-
-        public void Add(RefreshToken refreshToken) => Saved.Add(refreshToken);
-
-        public Task<RefreshToken?> FindByHashAsync(string tokenHash, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved.FirstOrDefault(rt => rt.TokenHash == tokenHash));
-
-        public Task<RefreshToken?> FindLatestBySessionIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
-            Task.FromResult(Saved.LastOrDefault(rt => rt.SessionId == sessionId));
-
-        public Task RevokeActiveTokensBySessionIdAsync(Guid sessionId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task RevokeAllForAccountAsync(Guid accountId, DateTimeOffset nowUtc, string reason, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken) => Task.CompletedTask;
-    }
-
-    private sealed class FakeRefreshTokenGenerator : IRefreshTokenGenerator
-    {
-        public (string RawToken, string TokenHash) GenerateToken() => ("raw-refresh-token", "refresh-token-hash");
-
-        public string HashToken(string rawToken) => "refresh-token-hash";
-    }
-
-    private sealed class FakeJwtTokenIssuer : IJwtTokenIssuer
-    {
-        public int AccessTokenExpirationSeconds => 900;
-
-        public string IssueAccessToken(Account account, Guid sessionId, DateTimeOffset nowUtc) => "access-token";
     }
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock
