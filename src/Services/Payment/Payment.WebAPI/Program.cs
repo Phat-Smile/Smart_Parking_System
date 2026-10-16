@@ -8,6 +8,7 @@ using ParkingSystem.Payment.Infrastructure;
 using ParkingSystem.Payment.Persistence;
 using ParkingSystem.Payment.WebAPI.Endpoints;
 using ParkingSystem.Payment.WebAPI.Security;
+using ParkingSystem.Payment.Application.Common.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
@@ -15,6 +16,8 @@ builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("payment-api");
 builder.Services.AddPaymentAuthorization();
 builder.Services.AddScoped<ICurrentActor, CurrentActor>();
+builder.Services.Configure<WalletOptions>(builder.Configuration.GetSection(WalletOptions.SectionName));
+builder.Services.Configure<VnpayOptions>(builder.Configuration.GetSection(VnpayOptions.SectionName));
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -34,6 +37,8 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemServiceSecurity();
+app.MapVnpayEndpoints();
+app.MapWalletEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

@@ -24,4 +24,15 @@ public static class DomainErrorMessages
         public const string ExitTimeBeforePaymentTime = "Giờ ra không hợp lệ vì nhỏ hơn giờ thanh toán.";
         public const string GracePeriodMinutesNegative = "Thời gian ân hạn không được là số âm.";
     }
+
+    // PHẦN 3: CÁC THÔNG BÁO LỖI CỦA GIAO DỊCH VNPAY (VNPAY TRANSACTION)
+    public static class VnpayTransaction
+    {
+        public const string InvalidAmount = "VNPay transaction amount must be a positive integer.";
+        public const string InvalidWalletId = "Associated wallet identifier is invalid.";
+        public const string InvalidTxnRef = "VNPay transaction reference (TxnRef) is invalid (must be 32 hexadecimal characters).";
+        public const string InvalidClientRequestKey = "Idempotency key is invalid (must be between 8 and 64 characters).";
+        public const string InvalidExpiryTime = "Transaction expiration time must be later than creation time.";
+        public const string EmptyTransactionId = "Transaction identifier cannot be empty.";
+    }
 }

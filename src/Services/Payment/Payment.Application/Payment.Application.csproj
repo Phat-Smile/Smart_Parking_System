@@ -1,1 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><RootNamespace>ParkingSystem.Payment.Application</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="MediatR" /><PackageReference Include="FluentValidation" /><PackageReference Include="FluentValidation.DependencyInjectionExtensions" /></ItemGroup><ItemGroup><ProjectReference Include="..\Payment.Domain\Payment.Domain.csproj" /><ProjectReference Include="..\..\..\BuildingBlocks\ParkingSystem.BuildingBlocks.csproj" /></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><RootNamespace>ParkingSystem.Payment.Application</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="MediatR" /><PackageReference Include="FluentValidation" /><PackageReference Include="FluentValidation.DependencyInjectionExtensions" /><PackageReference Include="Microsoft.Extensions.Options" /></ItemGroup>  <ItemGroup>
+    <ProjectReference Include="..\Payment.Domain\Payment.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\ParkingSystem.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\..\contracts\events\ParkingSystem.Contracts.Events\ParkingSystem.Contracts.Events.csproj" />
+  </ItemGroup>
+</Project>

@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using ParkingSystem.Payment.Infrastructure.Messaging;
 using ParkingSystem.Payment.Infrastructure.Messaging.Outbox;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Infrastructure.Gateways;
 
 namespace ParkingSystem.Payment.Infrastructure;
 
@@ -58,6 +60,7 @@ public static class DependencyInjection
             });
         });
 
+        services.AddScoped<IPaymentGateway, VnpayPaymentGateway>();
         return services;
     }
 }
