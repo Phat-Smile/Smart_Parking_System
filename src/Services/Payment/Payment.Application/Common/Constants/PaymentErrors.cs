@@ -21,4 +21,13 @@ public static class PaymentErrors
         public static readonly Error CustomerOnly =
             new("payment.customer_only", "Only registered customers have a wallet.");
     }
+
+    public static class Topup
+    {
+        // Loi ma giao dich nap tien khong hop le
+        public static readonly Error InvalidId = new("payment.invalid_topup_id", "Top-up id is invalid.");
+
+        // Loi khong tim thay giao dich hoac khong chinh chu
+        public static readonly Error NotFound = new("payment.topup_not_found", "Top-up not found.");
+    }
 }

@@ -6,6 +6,7 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Features.Wallets.Commands.CreateWalletTopup;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetMyWallet;
+using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetWalletTopupStatus;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetWalletTransactions;
 using ParkingSystem.Payment.WebAPI.Common;
 using ParkingSystem.Payment.WebAPI.Models;
@@ -147,6 +148,42 @@ public static class WalletEndpoints
         .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces<ApiResponse<object>>(StatusCodes.Status403Forbidden);
+
+        // Tra cuu trang thai mot giao dich nap tien vao vi
+        group.MapGet("/top-up/{topupId}", async (
+            string topupId,
+            ICurrentUser currentUser,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            if (!Guid.TryParse(currentUser.SubjectId, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var query = new GetWalletTopupStatusQuery(userId, topupId);
+            var result = await sender.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                var statusCode = result.Error!.Code.Contains("not_found", StringComparison.OrdinalIgnoreCase)
+                    ? StatusCodes.Status404NotFound
+                    : StatusCodes.Status400BadRequest;
+
+                return Results.Json(
+                    ApiResponse<object>.Failure(result.Error.Message, statusCode),
+                    statusCode: statusCode);
+            }
+
+            return Results.Ok(ApiResponse<WalletTopupStatusDto>.Success(
+                result.Value!, PaymentResponseMessages.GetTopupSuccessfully, StatusCodes.Status200OK));
+        })
+        .WithName("GetWalletTopupStatus") // Tên định danh endpoint cho Swagger và client
+        .WithSummary("Tra cứu trạng thái một giao dịch nạp tiền vào ví") // Mô tả ngắn gọn chức năng của API
+        .Produces<ApiResponse<WalletTopupStatusDto>>(StatusCodes.Status200OK) // Trả về dữ liệu giao dịch khi thành công
+        .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest) // Trả về thông báo lỗi khi mã giao dịch sai định dạng
+        .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound) // Trả về lỗi khi không tìm thấy hoặc sai chủ sở hữu
+        .Produces(StatusCodes.Status401Unauthorized); // Chặn yêu cầu khi người dùng chưa đăng nhập
 
         return app;
     }
