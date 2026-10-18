@@ -258,4 +258,48 @@ public class WalletTests
             wallet.AddEntry(undefinedType, 10000m));
         Assert.Contains("does not have balance rules configured", ex.Message);
     }
+
+    // 5. Test bộ đếm số thứ tự Sequence per wallet
+
+    [Fact]
+    public void AddEntry_ShouldIncrementSequenceMonotonically_ForSameWallet()
+    {
+        var wallet = Wallet.Create(Guid.NewGuid());
+        wallet.AddEntry(LedgerEntryType.TopUp, 50000m);
+        wallet.AddEntry(LedgerEntryType.FeePayment, -20000m);
+
+        Assert.Equal(2L, wallet.LastSequence);
+        var entries = wallet.LedgerEntries.ToList();
+        Assert.Equal(1L, entries[0].Sequence);
+        Assert.Equal(2L, entries[1].Sequence);
+    }
+
+    [Fact]
+    public void AddEntry_ShouldMaintainIndependentSequences_AcrossDifferentWallets()
+    {
+        var walletA = Wallet.Create(Guid.NewGuid());
+        var walletB = Wallet.Create(Guid.NewGuid());
+
+        walletA.AddEntry(LedgerEntryType.TopUp, 10000m);
+        walletB.AddEntry(LedgerEntryType.TopUp, 20000m);
+        walletA.AddEntry(LedgerEntryType.TopUp, 30000m);
+
+        Assert.Equal(2L, walletA.LastSequence);
+        Assert.Equal(1L, walletB.LastSequence);
+    }
+
+    [Fact]
+    public void AddEntry_WhenValidationFails_ShouldNotIncrementLastSequence()
+    {
+        var wallet = Wallet.Create(Guid.NewGuid());
+        wallet.AddEntry(LedgerEntryType.TopUp, 10000m);
+        Assert.Equal(1L, wallet.LastSequence);
+
+        // Cố ý trừ quá số dư để kích hoạt exception
+        Assert.Throws<InvalidOperationException>(() =>
+            wallet.AddEntry(LedgerEntryType.FeePayment, -50000m));
+
+        // LastSequence không bị đốt
+        Assert.Equal(1L, wallet.LastSequence);
+    }
 }

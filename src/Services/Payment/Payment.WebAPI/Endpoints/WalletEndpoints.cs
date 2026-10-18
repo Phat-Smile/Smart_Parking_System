@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Features.Wallets.Commands.CreateWalletTopup;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetMyWallet;
+using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetWalletTransactions;
 using ParkingSystem.Payment.WebAPI.Common;
 using ParkingSystem.Payment.WebAPI.Models;
 
@@ -92,6 +94,59 @@ public static class WalletEndpoints
         .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
         .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
         .Produces(StatusCodes.Status401Unauthorized);
+
+        // Xem lịch sử giao dịch ví (US-WAL-003)
+        group.MapGet("/transactions", async (
+            string? page,
+            string? pageSize,
+            string? type,
+            string? fromUtc,
+            string? toUtc,
+            HttpContext httpContext,
+            ICurrentUser currentUser,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            if (!Guid.TryParse(currentUser.SubjectId, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var role = httpContext.User.FindFirst("role")?.Value;
+
+            var query = new GetWalletTransactionsQuery(
+                UserId: userId,
+                Role: role,
+                RawPage: page,
+                RawPageSize: pageSize,
+                RawType: type,
+                RawFromUtc: fromUtc,
+                RawToUtc: toUtc
+            );
+
+            var result = await sender.Send(query, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                var statusCode = result.Error!.Code == PaymentErrors.Wallet.CustomerOnly.Code
+                    ? StatusCodes.Status403Forbidden
+                    : StatusCodes.Status400BadRequest;
+
+                return Results.Json(
+                    ApiResponse<object>.Failure(result.Error.Message, statusCode),
+                    statusCode: statusCode);
+            }
+
+            return Results.Ok(ApiResponse<WalletTransactionsPagedDto>.Success(
+                result.Value!,
+                PaymentResponseMessages.GetWalletTransactionsSuccessfully,
+                StatusCodes.Status200OK));
+        })
+        .WithName("GetWalletTransactions")
+        .WithSummary("Xem lịch sử giao dịch ví của khách hàng")
+        .Produces<ApiResponse<WalletTransactionsPagedDto>>(StatusCodes.Status200OK)
+        .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces<ApiResponse<object>>(StatusCodes.Status403Forbidden);
 
         return app;
     }
