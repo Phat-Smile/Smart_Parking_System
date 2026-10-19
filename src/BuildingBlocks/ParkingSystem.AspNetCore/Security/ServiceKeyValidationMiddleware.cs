@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
@@ -10,11 +12,11 @@ public sealed class ServiceKeyValidationMiddleware(RequestDelegate next, IOption
     public Task InvokeAsync(HttpContext context)
     {
         var requiredKey = options.Value.ServiceKey;
-        if (string.IsNullOrEmpty(requiredKey))
+        if (string.IsNullOrEmpty(requiredKey) || IsHealthProbe(context.Request.Path))
             return next(context);
 
         if (!context.Request.Headers.TryGetValue(HeaderName, out var providedKey)
-            || !string.Equals(providedKey, requiredKey, StringComparison.Ordinal))
+            || !KeysMatch(requiredKey, providedKey.ToString()))
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return Task.CompletedTask;
@@ -22,4 +24,10 @@ public sealed class ServiceKeyValidationMiddleware(RequestDelegate next, IOption
 
         return next(context);
     }
+
+    // Container and orchestrator probes carry no key and expose no business data.
+    private static bool IsHealthProbe(PathString path) => path.StartsWithSegments("/health");
+
+    private static bool KeysMatch(string required, string provided) =>
+        CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(required), Encoding.UTF8.GetBytes(provided));
 }

@@ -7,7 +7,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemGatewaySecurity();
 builder.AddParkingSystemAuthRateLimiting();
-builder.AddParkingSystemServiceKeyValidation();
 builder.AddParkingSystemTelemetry("parking-gateway");
 builder.Services.AddSingleton<ITransformProvider, GatewayServiceKeyTransform>();
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));

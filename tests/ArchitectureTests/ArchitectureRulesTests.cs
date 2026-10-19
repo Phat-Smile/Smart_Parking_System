@@ -317,6 +317,20 @@ public sealed class ArchitectureRulesTests
         }
     }
 
+    [Fact]
+    public void Every_service_host_enforces_the_service_key_and_the_gateway_does_not()
+    {
+        foreach (var (service, project) in new[] { ("Identity", "Identity.WebAPI"), ("Parking", "Parking.WebAPI"), ("Booking", "Booking.WebAPI"), ("Payment", "Payment.WebAPI"), ("Notification", "Notification.WebAPI") })
+        {
+            var source = File.ReadAllText(ProjectPath(service, project).Replace($"{project}.csproj", "Program.cs", StringComparison.Ordinal));
+            Assert.Equal(1, CountOccurrences(source, "UseParkingSystemServiceSecurity("));
+            Assert.DoesNotContain("UseParkingSystemAuthentication(", source, StringComparison.Ordinal);
+        }
+
+        var gateway = File.ReadAllText(Path.Combine(Root, "src", "Gateway", "Program.cs"));
+        Assert.DoesNotContain("UseParkingSystemServiceSecurity(", gateway, StringComparison.Ordinal);
+    }
+
     private static int CountOccurrences(string source, string value)
     {
         var count = 0;
