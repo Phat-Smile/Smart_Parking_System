@@ -58,10 +58,23 @@ export const activateAccount = (accountId: string) =>
     post(accountId, "activate");
 export const unlockAccount = (accountId: string) => post(accountId, "unlock");
 
+export function changeAccountRole(accountId: string, role: AccountRole) {
+    return gatewayFetch<{ accountId: string; role: AccountRole; message?: string }>(
+        `/api/identity/admin/accounts/${encodeURIComponent(accountId)}/role`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role }),
+        },
+    );
+}
+
 export function describeAccountError(error: unknown) {
     if (!(error instanceof ApiError))
         return "We couldn't reach the server. Try again.";
     switch (error.problem?.errorCode) {
+        case "identity.cannot_change_own_role":
+            return "You cannot change your own role.";
         case "identity.cannot_change_own_status":
             return "You can't change your own account status.";
         case "identity.cannot_change_admin_status":
@@ -71,6 +84,8 @@ export function describeAccountError(error: unknown) {
         case "identity.account_not_found":
             return "This account no longer exists. The list was refreshed.";
     }
+    if (error.status === 400)
+        return error.problem?.detail || "The request was invalid. Check the role and try again.";
     if (error.status === 401) return "Your session expired. Sign in again.";
     if (error.status === 403) return "You don't have permission to do that.";
     return "The change could not be saved. Please try again.";

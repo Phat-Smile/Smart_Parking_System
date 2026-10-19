@@ -9,6 +9,7 @@ import {
 import { AdminIcon, formatDate } from "./AdminUi";
 import {
     activateAccount,
+    changeAccountRole,
     describeAccountError,
     searchAccounts,
     suspendAccount,
@@ -85,6 +86,24 @@ export function AdminUsersPage() {
             setMessage({
                 kind: "ok",
                 text: `${account.email}: ${action === "unlock" ? "unlocked" : action === "suspend" ? "suspended" : "activated"}.`,
+            });
+        } catch (error) {
+            setMessage({ kind: "error", text: describeAccountError(error) });
+        } finally {
+            setBusyId("");
+            await client.invalidateQueries({ queryKey: ["admin-accounts"] });
+        }
+    }
+
+    async function updateRole(account: AccountSummary, newRole: AccountRole) {
+        if (newRole === account.role) return;
+        setBusyId(account.id);
+        setMessage(null);
+        try {
+            await changeAccountRole(account.id, newRole);
+            setMessage({
+                kind: "ok",
+                text: `${account.email}: role changed to ${roleLabel[newRole]}.`,
             });
         } catch (error) {
             setMessage({ kind: "error", text: describeAccountError(error) });
@@ -204,11 +223,32 @@ export function AdminUsersPage() {
                                                 <small>{account.email}</small>
                                             </td>
                                             <td>
-                                                <span
-                                                    className={`admin-role admin-role-${account.role.toLowerCase()}`}
-                                                >
-                                                    {roleLabel[account.role]}
-                                                </span>
+                                                {self ? (
+                                                    <span
+                                                        className={`admin-role admin-role-${account.role.toLowerCase()}`}
+                                                    >
+                                                        {roleLabel[account.role]}
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className="admin-select admin-select-sm"
+                                                        value={account.role}
+                                                        disabled={busyId === account.id}
+                                                        onChange={(e) =>
+                                                            updateRole(
+                                                                account,
+                                                                e.target.value as AccountRole,
+                                                            )
+                                                        }
+                                                        aria-label={`Change role for ${account.email}`}
+                                                    >
+                                                        {roles.map((r) => (
+                                                            <option key={r} value={r}>
+                                                                {roleLabel[r]}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                )}
                                             </td>
                                             <td>
                                                 {account.status}

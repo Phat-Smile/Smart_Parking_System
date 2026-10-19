@@ -511,6 +511,11 @@ a.admin-stat:hover {
     background: #fff;
     font-weight: 600;
 }
+.admin-select-sm {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12.5px;
+}
 .admin-table-card {
     padding: 4px 0 0;
     overflow-x: auto;

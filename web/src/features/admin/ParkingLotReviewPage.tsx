@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ApiError } from "@/shared/errors/api-error";
 import {
     AdminIcon,
     SampleDataNote,
@@ -250,6 +251,25 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                     : `${name} was rejected. The owner will see the reason.`,
             );
         } catch (error) {
+            // When backend is offline and inspecting sample lot, fallback to local decision overlay for UI preview
+            if (sample && !(error instanceof ApiError)) {
+                const fallbackResult: ReviewedParkingLot = {
+                    parkingLotId: id,
+                    approvalStatus:
+                        dialog === "approve" ? "Approved" : "Rejected",
+                    rejectionReason:
+                        dialog === "reject" ? reason.trim() : null,
+                };
+                recordDecision(fallbackResult);
+                setBackendResult(fallbackResult);
+                setDialog(null);
+                setToast(
+                    fallbackResult.approvalStatus === "Approved"
+                        ? `${name} is now active and visible to drivers (preview mode).`
+                        : `${name} was rejected (preview mode).`,
+                );
+                return;
+            }
             setSubmitError(describeReviewError(error));
         } finally {
             setSubmitting(false);
