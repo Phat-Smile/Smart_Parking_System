@@ -29,11 +29,34 @@ export function formatDateTime(iso: string): string {
     }
 }
 
-export function PlateBadge({ plate }: { plate: string }) {
+export function FormattedTime({
+    iso,
+    dateTime = false,
+}: {
+    iso: string;
+    dateTime?: boolean;
+}) {
     return (
-        <span className="staff-plate-badge" title={plate}>
-            <span className="staff-plate-dot" />
+        <span suppressHydrationWarning>
+            {dateTime ? formatDateTime(iso) : formatTime(iso)}
+        </span>
+    );
+}
+
+export function PlateBadge({
+    plate,
+    size = "normal",
+}: {
+    plate: string;
+    size?: "normal" | "large";
+}) {
+    return (
+        <span className={`staff-plate-badge ${size === "large" ? "plate-large" : ""}`} title={plate}>
+            <span className="staff-plate-flag">
+                <span className="staff-plate-vn">VN</span>
+            </span>
             <span className="staff-plate-text">{plate}</span>
+            <span className="staff-plate-bolt" />
         </span>
     );
 }

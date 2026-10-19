@@ -4,6 +4,7 @@ import {
     Space_Grotesk,
     JetBrains_Mono,
 } from "next/font/google";
+import Script from "next/script";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -51,7 +52,11 @@ export default function RootLayout({
             suppressHydrationWarning
         >
             <head>
-                <script dangerouslySetInnerHTML={{ __html: initializeTheme }} />
+                <Script
+                    id="smart-parking-theme-init"
+                    strategy="beforeInteractive"
+                    dangerouslySetInnerHTML={{ __html: initializeTheme }}
+                />
             </head>
             <body>
                 <Providers>{children}</Providers>

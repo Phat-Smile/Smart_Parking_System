@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PlateBadge, formatDateTime } from "./StaffUi";
+import { PlateBadge, FormattedTime } from "./StaffUi";
 import { useStaffData } from "./staffData";
 import type { VerificationIssue } from "./types";
 
@@ -90,7 +90,9 @@ export function StaffVerificationPage() {
                                             {issue.currentState}
                                         </span>
                                     </td>
-                                    <td>{formatDateTime(issue.createdAt)}</td>
+                                    <td>
+                                        <FormattedTime iso={issue.createdAt} dateTime />
+                                    </td>
                                     <td className="text-right">
                                         <div className="staff-table-btn-group">
                                             <button

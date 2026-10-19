@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PlateBadge, QrCodeModal, StatusPill, formatDateTime, formatVnd } from "./StaffUi";
+import { PlateBadge, QrCodeModal, StatusPill, FormattedTime, formatVnd } from "./StaffUi";
 import { cancelParkingSession, describeStaffError } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, StaffSession } from "./types";
@@ -143,7 +143,9 @@ export function StaffSessionsPage() {
                                             {s.slotCode}
                                         </span>
                                     </td>
-                                    <td>{formatDateTime(s.entryTime)}</td>
+                                    <td>
+                                        <FormattedTime iso={s.entryTime} dateTime />
+                                    </td>
                                     <td>
                                         <StatusPill status={s.status} />
                                     </td>

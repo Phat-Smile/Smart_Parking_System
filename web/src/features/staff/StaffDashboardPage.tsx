@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { PlateBadge, formatTime, formatVnd } from "./StaffUi";
+import { PlateBadge, FormattedTime, formatVnd } from "./StaffUi";
 import { useStaffData } from "./staffData";
 
 export function StaffDashboardPage() {
@@ -141,7 +141,7 @@ export function StaffDashboardPage() {
                                         </span>
                                     </div>
                                     <span className="staff-act-time">
-                                        {formatTime(act.timestamp)}
+                                        <FormattedTime iso={act.timestamp} />
                                     </span>
                                 </div>
                             ))
@@ -176,7 +176,7 @@ export function StaffDashboardPage() {
                                             </span>
                                         )}
                                         <span className="staff-act-time">
-                                            {formatTime(act.timestamp)}
+                                            <FormattedTime iso={act.timestamp} />
                                         </span>
                                     </div>
                                 </div>
