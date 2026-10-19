@@ -8,6 +8,7 @@ using ParkingSystem.Parking.Application.ParkingLots.ListParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.RegisterParkingLot;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
+using ParkingSystem.Parking.Application.ParkingLots.SearchNearbyParkingLots;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
@@ -83,6 +84,26 @@ internal static class ParkingLotEndpoints
             .WithSummary("List approved parking lots")
             .WithDescription("Returns approved lots. Optionally filter by arrivalAt (ISO 8601 with offset), using configured local opening hours. Missing arrivalAt leaves the existing catalog behavior unchanged.")
             .Produces<IReadOnlyList<ParkingLotCatalogItem>>(StatusCodes.Status200OK);
+
+        app.MapGet("/api/parking/lots/nearby", async (
+                decimal latitude,
+                decimal longitude,
+                double? radiusKm,
+                int? limit,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var results = await sender.Send(
+                    new SearchNearbyParkingLotsQuery(latitude, longitude, radiusKm ?? 5, limit ?? 20),
+                    cancellationToken);
+                return Results.Ok(results);
+            })
+            .AllowAnonymous()
+            .WithName("SearchNearbyParkingLots")
+            .WithSummary("Find approved parking lots near coordinates")
+            .WithDescription("Search by latitude/longitude. radiusKm defaults to 5 (max 50); limit defaults to 20 (max 100). Sorted by distance.")
+            .Produces<IReadOnlyList<NearbyParkingLotItem>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/parking/lots/{parkingLotId}", async (
                 Guid parkingLotId,
