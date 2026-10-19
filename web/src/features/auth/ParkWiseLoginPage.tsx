@@ -76,6 +76,10 @@ export function ParkWiseLoginPage({
                 values.password,
             );
             resetField("password");
+            if (account.role === "SystemAdmin") {
+                router.push("/admin/dashboard");
+                return;
+            }
             setAuthenticatedEmail(account.email);
         } catch (error) {
             if (error instanceof ApiError) {
