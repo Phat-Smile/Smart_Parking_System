@@ -442,87 +442,158 @@ export function StaffExitPage() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="staff-modal-head">
-                            <h3>
-                                {paymentModal === "Cash"
-                                    ? "💵 Collect Cash Payment"
-                                    : "📱 VNPay QR Payment"}
-                            </h3>
+                            <div className="staff-modal-head-title">
+                                <h3>
+                                    {paymentModal === "Cash"
+                                        ? "💵 Thu Phí Tiền Mặt (Cash Payment)"
+                                        : "📱 Thanh Toán VNPay QR"}
+                                </h3>
+                                <p className="staff-modal-head-sub">
+                                    Xác nhận giao dịch thanh toán tại bốt trước khi mở barrier
+                                </p>
+                            </div>
                             <button
                                 type="button"
                                 className="staff-modal-close"
                                 onClick={() => setPaymentModal(null)}
+                                title="Đóng cửa sổ"
                             >
                                 ✕
                             </button>
                         </div>
 
                         <div className="staff-payment-modal-body">
-                            <div className="staff-summary-row">
-                                <span>Vehicle:</span>
-                                <PlateBadge plate={scannedSession.plateNumber} />
-                            </div>
-                            <div className="staff-summary-row">
-                                <span>Amount Due:</span>
-                                <strong className="text-danger">
-                                    {formatVnd(scannedSession.amountDueVnd)}
-                                </strong>
+                            {/* Receipt Summary Card */}
+                            <div className="staff-modal-receipt-card">
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">Biển số phương tiện:</span>
+                                    <PlateBadge plate={scannedSession.plateNumber} size="normal" />
+                                </div>
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">Vị trí đỗ:</span>
+                                    <span className="staff-slot-code">Slot {scannedSession.slotCode}</span>
+                                </div>
+                                <div className="staff-summary-row staff-summary-due-row">
+                                    <span className="staff-summary-label">Tổng cước còn lại:</span>
+                                    <strong className="staff-modal-amount-due">
+                                        {formatVnd(scannedSession.amountDueVnd)}
+                                    </strong>
+                                </div>
                             </div>
 
                             {paymentModal === "Cash" ? (
                                 <div className="staff-cash-flow">
                                     <div className="staff-form-group">
-                                        <label htmlFor="staff-cash-received">
-                                            Cash received from driver
-                                        </label>
-                                        <input
-                                            id="staff-cash-received"
-                                            type="number"
-                                            className="staff-input"
-                                            value={cashGiven}
-                                            onChange={(e) =>
-                                                setCashGiven(Number(e.target.value))
-                                            }
-                                        />
+                                        <div className="staff-form-label-row">
+                                            <label htmlFor="staff-cash-received">
+                                                Tiền khách đưa (VND)
+                                            </label>
+                                            <span className="staff-form-hint">Nhập hoặc chọn nhanh</span>
+                                        </div>
+
+                                        <div className="staff-input-cash-wrap">
+                                            <input
+                                                id="staff-cash-received"
+                                                type="number"
+                                                step="1000"
+                                                className="staff-input staff-cash-input"
+                                                value={cashGiven || ""}
+                                                onChange={(e) =>
+                                                    setCashGiven(Number(e.target.value))
+                                                }
+                                                placeholder="Ví dụ: 100000"
+                                            />
+                                            <span className="staff-cash-unit">₫</span>
+                                        </div>
+
+                                        {/* Quick tap cash presets */}
+                                        <div className="staff-quick-cash-row">
+                                            <button
+                                                type="button"
+                                                className="staff-quick-cash-btn"
+                                                onClick={() => setCashGiven(scannedSession.amountDueVnd)}
+                                            >
+                                                Đúng số tiền ({formatVnd(scannedSession.amountDueVnd)})
+                                            </button>
+                                            {[100000, 200000, 500000].map((preset) => (
+                                                <button
+                                                    key={preset}
+                                                    type="button"
+                                                    className={`staff-quick-cash-btn ${
+                                                        cashGiven === preset ? "active" : ""
+                                                    }`}
+                                                    onClick={() => setCashGiven(preset)}
+                                                >
+                                                    {preset.toLocaleString("vi-VN")}₫
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
+
                                     <div className="staff-change-box">
-                                        <span>Change to return:</span>
-                                        <strong>
+                                        <div className="staff-change-info">
+                                            <span className="staff-change-label">Tiền thối lại cho khách:</span>
+                                            <span className="staff-change-sub">
+                                                {cashGiven >= scannedSession.amountDueVnd
+                                                    ? "Khách đã trả đủ tiền mặt"
+                                                    : "⚠️ Chưa đủ số tiền cước"}
+                                            </span>
+                                        </div>
+                                        <strong className="staff-change-val">
                                             {formatVnd(
                                                 Math.max(
                                                     0,
-                                                    cashGiven -
-                                                        scannedSession.amountDueVnd,
+                                                    cashGiven - scannedSession.amountDueVnd,
                                                 ),
                                             )}
                                         </strong>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="staff-btn staff-btn-primary staff-btn-block"
-                                        onClick={handleCompleteCashPayment}
-                                    >
-                                        Confirm Cash Received &amp; Mark Paid
-                                    </button>
+
+                                    <div className="staff-modal-action-bar">
+                                        <button
+                                            type="button"
+                                            className="staff-btn staff-btn-secondary"
+                                            onClick={() => setPaymentModal(null)}
+                                        >
+                                            Hủy bỏ
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="staff-btn staff-btn-primary staff-btn-flex"
+                                            disabled={cashGiven < scannedSession.amountDueVnd}
+                                            onClick={handleCompleteCashPayment}
+                                        >
+                                            ✓ Xác nhận thu tiền &amp; Đã thanh toán
+                                        </button>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="staff-vnpay-flow">
                                     <p className="staff-vnpay-desc">
-                                        Customer can scan this dynamic VNPay QR code
-                                        using any banking app or MoMo/VNPay wallet.
+                                        Hướng dẫn tài xế mở app Ngân hàng / VNPay / MoMo quét mã QR tĩnh của bốt xuất hoặc mã hiển thị bên dưới.
                                     </p>
                                     <div className="staff-vnpay-qr">
-                                        <div className="staff-vnpay-badge">VNPay QR</div>
+                                        <div className="staff-vnpay-badge">VNPay QR Cổng Ra</div>
                                         <div className="staff-vnpay-code">
-                                            🅿️ PARKWISE GATE OUT
+                                            🅿️ PARKWISE GATE 02 · {formatVnd(scannedSession.amountDueVnd)}
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="staff-btn staff-btn-primary staff-btn-block"
-                                        onClick={handleCompleteVnPayPayment}
-                                    >
-                                        Simulate Customer Payment Received
-                                    </button>
+                                    <div className="staff-modal-action-bar">
+                                        <button
+                                            type="button"
+                                            className="staff-btn staff-btn-secondary"
+                                            onClick={() => setPaymentModal(null)}
+                                        >
+                                            Hủy bỏ
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="staff-btn staff-btn-primary staff-btn-flex"
+                                            onClick={handleCompleteVnPayPayment}
+                                        >
+                                            ✓ Xác nhận giao dịch VNPay thành công
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
