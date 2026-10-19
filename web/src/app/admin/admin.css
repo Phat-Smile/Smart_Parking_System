@@ -46,9 +46,9 @@
     padding: 0 8px;
 }
 .admin-brand img {
-    width: 104px;
+    width: 110px;
     height: auto;
-    filter: brightness(0) invert(1);
+    object-fit: contain;
 }
 .admin-brand span {
     padding: 3px 8px;
