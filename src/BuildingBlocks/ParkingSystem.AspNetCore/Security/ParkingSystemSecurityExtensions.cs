@@ -82,10 +82,23 @@ public static class ParkingSystemSecurityExtensions
         return builder;
     }
 
+    public static WebApplicationBuilder AddParkingSystemServiceKeyValidation(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddOptions<ServiceKeyOptions>()
+            .Bind(builder.Configuration.GetSection(ServiceKeyOptions.SectionName));
+        return builder;
+    }
+
     public static WebApplication UseParkingSystemAuthentication(this WebApplication app)
     {
         app.UseAuthentication();
         app.UseAuthorization();
+        return app;
+    }
+
+    public static WebApplication UseServiceKeyValidation(this WebApplication app)
+    {
+        app.UseMiddleware<ServiceKeyValidationMiddleware>();
         return app;
     }
 
