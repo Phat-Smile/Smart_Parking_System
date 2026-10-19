@@ -1,0 +1,94 @@
+
+name: parkwise-ci
+
+services:
+  # Jenkins Controller
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: parkwise-jenkins
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8088:8080"
+
+    volumes:
+      - jenkins_home:/var/jenkins_home
+
+  # Trusted CI Agent - develop
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+
+    container_name: parkwise-jenkins-agent
+    restart: unless-stopped
+    init: true
+
+    depends_on:
+      - jenkins
+
+    # Trusted local CI only
+    user: "0:0"
+
+    volumes:
+      - agent_home:/home/jenkins/agent
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    secrets:
+      - agent_secret
+
+    command:
+      - "-url"
+      - "http://jenkins:8080/"
+      - "-secret"
+      - "@/run/secrets/agent_secret"
+      - "-name"
+      - "parkwise-dotnet10"
+      - "-webSocket"
+      - "-workDir"
+      - "/home/jenkins/agent"
+
+  # Pull Request CI Agent - No Docker Socket
+  pr-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.pr-agent
+
+    container_name: parkwise-jenkins-pr-agent
+    restart: unless-stopped
+    init: true
+
+    depends_on:
+      - jenkins
+
+    security_opt:
+      - no-new-privileges:true
+
+    volumes:
+      - pr_agent_home:/home/jenkins/agent
+
+    secrets:
+      - pr_agent_secret
+
+    command:
+      - "-url"
+      - "http://jenkins:8080/"
+      - "-secret"
+      - "@/run/secrets/pr_agent_secret"
+      - "-name"
+      - "parkwise-pr"
+      - "-webSocket"
+      - "-workDir"
+      - "/home/jenkins/agent"
+
+volumes:
+  jenkins_home:
+  agent_home:
+  pr_agent_home:
+
+secrets:
+  agent_secret:
+    file: ./agent.secret
+
+  pr_agent_secret:
+    file: ./pr-agent.secret

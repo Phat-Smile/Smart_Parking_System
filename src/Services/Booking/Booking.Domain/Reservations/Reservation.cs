@@ -3,7 +3,7 @@ namespace ParkingSystem.Booking.Domain.Reservations;
 public sealed class Reservation
 {
     public const int PlateNumberMaxLength = 20;
-
+    public const int NoShowGracePeriodMinutes = 15;
     private Reservation()
     {
     }
@@ -63,6 +63,15 @@ public sealed class Reservation
         if (prepaidAmount < 0)
             throw new ArgumentException("Prepaid amount cannot be negative.", nameof(prepaidAmount));
 
+        if (!Enum.IsDefined(reservationType))
+            throw new ArgumentOutOfRangeException(nameof(reservationType), $"Invalid reservation type: {reservationType}");
+
+        if (!Enum.IsDefined(vehicleGroup))
+            throw new ArgumentOutOfRangeException(nameof(vehicleGroup), $"Invalid vehicle group: {vehicleGroup}");
+
+        if (vehicleGroup != VehicleGroup.Car)
+            throw new ReservationDomainException("Only cars are allowed to create reservations.");
+
         return new Reservation
         {
             Id = id,
@@ -73,9 +82,9 @@ public sealed class Reservation
             VehicleGroup = vehicleGroup,
             ReservationType = reservationType,
             Status = ReservationStatus.TemporaryHold,
-            AppointmentTime = appointmentTime,
+            AppointmentTime = appointmentTime.ToUniversalTime(),
             DurationMinutes = durationMinutes,
-            TempHoldExpiresAt = tempHoldExpiresAt,
+            TempHoldExpiresAt = tempHoldExpiresAt?.ToUniversalTime(),
             PrepaidAmount = prepaidAmount,
             PriceSnapshot = priceSnapshot,
             ConfirmedAt = null,
@@ -86,7 +95,7 @@ public sealed class Reservation
             PrepaidOutcome = null,
             IsNoShow = false,
             RowVersion = 0,
-            CreatedAt = createdAt
+            CreatedAt = createdAt.ToUniversalTime()
         };
     }
 
@@ -106,10 +115,10 @@ public sealed class Reservation
         };
 
     /// <summary>
-    /// Executes a status transition enforcing domain transition rules.
+    /// Executes a status transition enforcing domain transition rules and advancing RowVersion.
     /// Rejects any transition outside the provisional transition matrix with <see cref="ReservationDomainException"/>.
     /// </summary>
-    public void TransitionTo(ReservationStatus newStatus)
+    private void TransitionTo(ReservationStatus newStatus)
     {
         if (!CanTransition(Status, newStatus))
         {
@@ -118,37 +127,85 @@ public sealed class Reservation
         }
 
         Status = newStatus;
+        RowVersion++;
     }
 
     public void Confirm(DateTimeOffset confirmedAt)
     {
         TransitionTo(ReservationStatus.Confirmed);
-        ConfirmedAt = confirmedAt;
+        ConfirmedAt = confirmedAt.ToUniversalTime();
     }
 
     public void Use(DateTimeOffset usedAt, Guid? sessionId = null)
     {
+        if (sessionId.HasValue && sessionId.Value == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Session ID must not be empty.",
+                nameof(sessionId));
+        }
+
         TransitionTo(ReservationStatus.Used);
-        UsedAt = usedAt;
+
+        UsedAt = usedAt.ToUniversalTime();
+
         if (sessionId.HasValue)
         {
             SessionId = sessionId;
         }
     }
 
-    public void Cancel(DateTimeOffset cancelledAt, CancelReason? cancelReason = null, bool isNoShow = false, PrepaidOutcome? prepaidOutcome = null)
+    public void Cancel(
+    DateTimeOffset cancelledAt,
+    CancelReason cancelReason,
+    PrepaidOutcome? prepaidOutcome = null)
     {
-        TransitionTo(ReservationStatus.Cancelled);
-        CancelledAt = cancelledAt;
-        CancelReason = cancelReason;
-        if (isNoShow)
+        // Validate enum values before changing the reservation.
+        if (!Enum.IsDefined(cancelReason))
         {
-            IsNoShow = true;
+            throw new ArgumentOutOfRangeException(
+            nameof(cancelReason),
+            $"Invalid cancel reason: {cancelReason}");
         }
-        if (prepaidOutcome.HasValue)
+
+        if (prepaidOutcome.HasValue &&
+            !Enum.IsDefined(prepaidOutcome.Value))
         {
-            PrepaidOutcome = prepaidOutcome;
+            throw new ArgumentOutOfRangeException(
+            nameof(prepaidOutcome),
+            $"Invalid prepaid outcome: {prepaidOutcome.Value}");
         }
+
+        var cancelledAtUtc = cancelledAt.ToUniversalTime();
+
+        // NoShow is only valid for a confirmed reservation.
+        if (cancelReason == Reservations.CancelReason.NoShow)
+        {
+            if (Status != ReservationStatus.Confirmed)
+            {
+                throw new ReservationDomainException(
+                    "Only confirmed reservations can be marked as NoShow.");
+            }
+
+                // The full 15-minute grace period must have elapsed.
+            var noShowEligibleAt = AppointmentTime.AddMinutes(
+                NoShowGracePeriodMinutes);
+
+            if (cancelledAtUtc < noShowEligibleAt)
+            {
+            throw new ReservationDomainException(
+                $"A reservation can only be marked as NoShow " +
+                $"after {NoShowGracePeriodMinutes} minutes past its appointment time.");
+        }
+    }
+
+    // Validate all business rules before changing the state.
+    TransitionTo(ReservationStatus.Cancelled);
+
+    CancelledAt = cancelledAtUtc;
+    CancelReason = cancelReason;
+    IsNoShow = cancelReason == Reservations.CancelReason.NoShow;
+    PrepaidOutcome = prepaidOutcome;
     }
 
     public void Expire()

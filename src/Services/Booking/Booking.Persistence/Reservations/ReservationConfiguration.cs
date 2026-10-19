@@ -100,5 +100,14 @@ internal sealed class ReservationConfiguration : IEntityTypeConfiguration<Reserv
         builder.Property(reservation => reservation.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
+
+        builder.HasIndex(reservation => reservation.UserId)
+            .HasDatabaseName("ix_reservations_user_id");
+
+        builder.HasIndex(reservation => new { reservation.LotId, reservation.Status })
+            .HasDatabaseName("ix_reservations_lot_id_status");
+
+        builder.HasIndex(reservation => new { reservation.Status, reservation.TempHoldExpiresAt })
+            .HasDatabaseName("ix_reservations_status_temp_hold_expires_at");
     }
 }

@@ -129,6 +129,15 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_reservations");
 
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_reservations_user_id");
+
+                    b.HasIndex("LotId", "Status")
+                        .HasDatabaseName("ix_reservations_lot_id_status");
+
+                    b.HasIndex("Status", "TempHoldExpiresAt")
+                        .HasDatabaseName("ix_reservations_status_temp_hold_expires_at");
+
                     b.ToTable("reservations", "booking");
                 });
 
