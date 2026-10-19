@@ -50,7 +50,7 @@ export function StaffSessionsPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">3.12 Guest &amp; Active Session Management</h1>
+                    <h1 className="staff-title">Guest &amp; Active Session Management</h1>
                     <p className="staff-subtitle">
                         Inspect active parked vehicles, view guest QR tickets, and handle cancellations.
                     </p>
@@ -88,7 +88,7 @@ export function StaffSessionsPage() {
                             onClick={() => setFilterType(tab)}
                         >
                             {tab === "Guest"
-                                ? "Guest Vehicles (3.12)"
+                                ? "Guest Vehicles"
                                 : tab === "Registered"
                                   ? "Registered App Users"
                                   : "All Sessions"}

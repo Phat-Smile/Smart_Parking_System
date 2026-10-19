@@ -30,28 +30,28 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
     const navItems = [
         {
             href: "/staff/dashboard",
-            label: "Dashboard (3.8)",
+            label: "Dashboard",
             icon: "📊",
         },
         {
             href: "/staff/entry",
-            label: "Gate In (3.9 - 3.11)",
+            label: "Gate In",
             icon: "🚗",
         },
         {
             href: "/staff/exit",
-            label: "Gate Out (3.14 - 3.18)",
+            label: "Gate Out",
             icon: "💳",
         },
         {
             href: "/staff/sessions",
-            label: "Guest & Sessions (3.12)",
+            label: "Guest & Sessions",
             icon: "📋",
             badge: occupancy.activeSessionsCount,
         },
         {
             href: "/staff/verification",
-            label: "Needs Verification (3.13)",
+            label: "Needs Verification",
             icon: "⚠️",
             badge: issues.length,
             badgeDanger: issues.length > 0,
@@ -122,36 +122,68 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 </div>
             </header>
 
-            {/* Main navigation tabs */}
-            <nav className="staff-nav">
-                <div className="staff-nav-container">
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href;
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`staff-nav-tab ${isActive ? "active" : ""}`}
-                            >
-                                <span className="staff-nav-icon">{item.icon}</span>
-                                <span>{item.label}</span>
-                                {typeof item.badge === "number" && item.badge > 0 && (
-                                    <span
-                                        className={`staff-nav-badge ${
-                                            item.badgeDanger ? "badge-danger" : ""
-                                        }`}
-                                    >
-                                        {item.badge}
-                                    </span>
-                                )}
-                            </Link>
-                        );
-                    })}
-                </div>
-            </nav>
+            {/* Main content + Right-docked Vertical Navigation */}
+            <div className="staff-body-wrapper">
+                <main className="staff-main-content">{children}</main>
 
-            {/* Page content */}
-            <main className="staff-main">{children}</main>
+                {/* Vertical Navigation Dock on the RIGHT side of screen */}
+                <aside className="staff-right-sidebar">
+                    <div className="staff-sidebar-header">
+                        <span className="staff-sidebar-tag">STAFF FUNCTIONS</span>
+                        <span className="staff-sidebar-sub">Control Center</span>
+                    </div>
+
+                    <nav className="staff-vertical-nav" aria-label="Staff Station Navigation">
+                        {navItems.map((item) => {
+                            const isActive = pathname === item.href;
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={`staff-vertical-nav-item ${isActive ? "active" : ""}`}
+                                >
+                                    <div className="staff-nav-item-left">
+                                        <span className="staff-nav-icon">{item.icon}</span>
+                                        <span className="staff-nav-label">{item.label}</span>
+                                    </div>
+                                    {typeof item.badge === "number" && item.badge > 0 && (
+                                        <span
+                                            className={`staff-nav-badge ${
+                                                item.badgeDanger ? "badge-danger" : ""
+                                            }`}
+                                        >
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </Link>
+                            );
+                        })}
+                    </nav>
+
+                    <div className="staff-sidebar-footer">
+                        <div className="staff-gate-health-card">
+                            <div className="staff-gate-health-title">
+                                <span className="staff-pulse-dot green" />
+                                <span>GATE HEALTH</span>
+                            </div>
+                            <div className="staff-gate-health-meta">
+                                <div className="staff-health-row">
+                                    <span>Gate In 01:</span>
+                                    <strong className="text-emerald">Online (Ready)</strong>
+                                </div>
+                                <div className="staff-health-row">
+                                    <span>Gate Out 02:</span>
+                                    <strong className="text-emerald">Online (Ready)</strong>
+                                </div>
+                                <div className="staff-health-row">
+                                    <span>Latency:</span>
+                                    <span className="staff-health-val">24ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
         </div>
     );
 }

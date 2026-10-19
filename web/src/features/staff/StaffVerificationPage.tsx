@@ -26,7 +26,7 @@ export function StaffVerificationPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">3.13 Needs Verification Queue</h1>
+                    <h1 className="staff-title">Needs Verification Queue</h1>
                     <p className="staff-subtitle">
                         Exceptional gate cases requiring manual operator confirmation, OCR overrides, and barrier interventions.
                     </p>

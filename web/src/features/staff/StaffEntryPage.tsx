@@ -183,10 +183,10 @@ export function StaffEntryPage() {
                         isScanning={loading}
                     />
 
-                    {/* 3.11 License Plate Verification (When confidence is low) */}
+                    {/* License Plate Verification (When confidence is low) */}
                     <div className="staff-card staff-plate-editor">
                         <div className="staff-card-header">
-                            <h3>3.11 License Plate Verification</h3>
+                            <h3>License Plate Verification</h3>
                             <span
                                 className={`staff-pill ${
                                     ocrConfidence >= 0.8
@@ -273,14 +273,14 @@ export function StaffEntryPage() {
                     </div>
                 </div>
 
-                {/* Right column: Entry Workflow Steps (3.9 & 3.10) */}
+                {/* Right column: Entry Workflow Steps */}
                 <div className="staff-col">
                     <div className="staff-card">
                         <div className="staff-card-header">
                             <h2>
                                 {entryType === "Registered"
-                                    ? "3.9 Registered Vehicle Entry Flow"
-                                    : "3.10 Guest Vehicle Entry Flow"}
+                                    ? "Registered Vehicle Entry Flow"
+                                    : "Guest Vehicle Entry Flow"}
                             </h2>
                             <span className="staff-pill staff-pill-active">
                                 {entryType}

@@ -193,10 +193,10 @@ export function StaffExitPage() {
                         isScanning={loading}
                     />
 
-                    {/* 3.15 Guest QR Verification input */}
+                    {/* Guest QR Verification input */}
                     <div className="staff-card">
                         <div className="staff-card-header">
-                            <h3>3.15 Guest QR / Ticket Verification</h3>
+                            <h3>Guest QR / Ticket Verification</h3>
                             <span className="staff-pill staff-pill-active">
                                 Scanner Ready
                             </span>
@@ -243,11 +243,11 @@ export function StaffExitPage() {
                     </div>
                 </div>
 
-                {/* Right column: 3.14 Exit Verification checklist & 3.16 Parking Fee */}
+                {/* Right column: Exit Verification checklist & Parking Fee */}
                 <div className="staff-col">
                     <div className="staff-card">
                         <div className="staff-card-header">
-                            <h2>3.14 Exit Verification Checklist</h2>
+                            <h2>Exit Verification Checklist</h2>
                             {canAllowExit ? (
                                 <span className="staff-pill staff-pill-success">
                                     EXIT AUTHORIZED
@@ -319,11 +319,11 @@ export function StaffExitPage() {
                             </div>
                         </div>
 
-                        {/* 3.16 Parking Fee at Exit */}
+                        {/* Parking Fee at Exit */}
                         {scannedSession && (
                             <div className="staff-fee-box">
                                 <div className="staff-fee-header">
-                                    <h3>3.16 Parking Fee Calculation</h3>
+                                    <h3>Parking Fee Calculation</h3>
                                     <span>Slot {scannedSession.slotCode}</span>
                                 </div>
 
@@ -360,7 +360,7 @@ export function StaffExitPage() {
                                     </div>
                                 </div>
 
-                                {/* 3.17 Staff Payment Handling buttons if amountDue > 0 */}
+                                {/* Staff Payment Handling buttons if amountDue > 0 */}
                                 {amountDue > 0 && (
                                     <div className="staff-payment-prompt">
                                         <p className="staff-warning-box">
@@ -394,7 +394,7 @@ export function StaffExitPage() {
                                 <div className="barrier-icon">🟢</div>
                                 <div className="barrier-content">
                                     <strong>
-                                        3.18 SESSION CLOSED &amp; BARRIER RAISED
+                                        SESSION CLOSED &amp; BARRIER RAISED
                                     </strong>
                                     <p>
                                         Slot {scannedSession?.slotCode} is now
