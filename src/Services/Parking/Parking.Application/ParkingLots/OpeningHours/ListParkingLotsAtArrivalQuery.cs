@@ -1,14 +1,15 @@
 using MediatR;
+using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 
 public interface IParkingLotArrivalSearch
 {
     Task<IReadOnlyList<ParkingLotCatalogItem>> ListApprovedOpenAtAsync(
-        DateTimeOffset arrivalAt, CancellationToken cancellationToken);
+        DateTimeOffset arrivalAt, CancellationToken cancellationToken, VehicleType? vehicleType = null);
 }
 
-public sealed record ListParkingLotsAtArrivalQuery(DateTimeOffset ArrivalAt)
+public sealed record ListParkingLotsAtArrivalQuery(DateTimeOffset ArrivalAt, VehicleType? VehicleType = null)
     : IRequest<IReadOnlyList<ParkingLotCatalogItem>>;
 
 public sealed class ListParkingLotsAtArrivalQueryHandler(IParkingLotArrivalSearch reader)
@@ -16,5 +17,5 @@ public sealed class ListParkingLotsAtArrivalQueryHandler(IParkingLotArrivalSearc
 {
     public Task<IReadOnlyList<ParkingLotCatalogItem>> Handle(
         ListParkingLotsAtArrivalQuery query, CancellationToken cancellationToken) =>
-        reader.ListApprovedOpenAtAsync(query.ArrivalAt, cancellationToken);
+        reader.ListApprovedOpenAtAsync(query.ArrivalAt, cancellationToken, query.VehicleType);
 }

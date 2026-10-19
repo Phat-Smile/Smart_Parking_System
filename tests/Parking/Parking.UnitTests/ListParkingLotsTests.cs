@@ -1,5 +1,6 @@
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.ListParkingLots;
+using ParkingSystem.Parking.Domain.ParkingSessions;
 using Xunit;
 
 namespace ParkingSystem.Tests.Parking.UnitTests;
@@ -27,6 +28,25 @@ public sealed class ListParkingLotsTests
             TestContext.Current.CancellationToken);
 
         Assert.Same(expected, result);
+        Assert.Null(reader.LastVehicleType);
+        Assert.Equal(1, reader.CallCount);
+    }
+
+    [Theory]
+    [InlineData(VehicleType.Car)]
+    [InlineData(VehicleType.Motorbike)]
+    public async Task Handler_forwards_the_requested_vehicle_filter_to_the_reader(VehicleType vehicleType)
+    {
+        IReadOnlyList<ParkingLotCatalogItem> expected = [];
+        var reader = new FakeParkingLotCatalogReader(expected);
+        var handler = new ListParkingLotsQueryHandler(reader);
+
+        var result = await handler.Handle(
+            new ListParkingLotsQuery(vehicleType),
+            TestContext.Current.CancellationToken);
+
+        Assert.Same(expected, result);
+        Assert.Equal(vehicleType, reader.LastVehicleType);
         Assert.Equal(1, reader.CallCount);
     }
 
@@ -34,10 +54,14 @@ public sealed class ListParkingLotsTests
         : IParkingLotCatalogReader
     {
         public int CallCount { get; private set; }
+        public VehicleType? LastVehicleType { get; private set; }
 
-        public Task<IReadOnlyList<ParkingLotCatalogItem>> ListApprovedAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ParkingLotCatalogItem>> ListApprovedAsync(
+            CancellationToken cancellationToken,
+            VehicleType? vehicleType = null)
         {
             CallCount++;
+            LastVehicleType = vehicleType;
             return Task.FromResult(result);
         }
     }

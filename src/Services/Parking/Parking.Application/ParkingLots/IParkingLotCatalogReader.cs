@@ -1,8 +1,12 @@
+using ParkingSystem.Parking.Domain.ParkingSessions;
+
 namespace ParkingSystem.Parking.Application.ParkingLots;
 
 public interface IParkingLotCatalogReader
 {
-    Task<IReadOnlyList<ParkingLotCatalogItem>> ListApprovedAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<ParkingLotCatalogItem>> ListApprovedAsync(
+        CancellationToken cancellationToken,
+        VehicleType? vehicleType = null);
 }
 
 public sealed record ParkingLotCatalogItem(
