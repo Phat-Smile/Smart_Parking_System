@@ -1,0 +1,12 @@
+{
+  "0792012345678": { "fullName": "NGUYEN VAN AN", "dob": "2001-03-15", "gender": "M" },
+  "0011991234567": { "fullName": "TRAN THI BICH", "dob": "1991-07-22", "gender": "F" },
+  "0380851234567": { "fullName": "LE VAN CUONG", "dob": "1985-11-30", "gender": "M" },
+  "0311902345678": { "fullName": "PHAM THI DIEU", "dob": "1990-05-18", "gender": "F" },
+  "0480751234568": { "fullName": "VO VAN EM", "dob": "1975-09-04", "gender": "M" },
+  "0740921234567": { "fullName": "NGUYEN THI PHUONG", "dob": "1992-02-28", "gender": "F" },
+  "000000000001": { "fullName": "TEST USER ONE", "dob": "2000-01-01", "gender": "M" },
+  "000000000002": { "fullName": "TEST USER TWO", "dob": "2001-06-15", "gender": "F" },
+  "000000000003": { "fullName": "TEST ADMIN USER", "dob": "1995-08-20", "gender": "M" },
+  "000000000004": { "fullName": "TEST STAFF USER", "dob": "1998-12-10", "gender": "F" }
+}
