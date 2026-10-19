@@ -3,13 +3,18 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Payment.Application;
+using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Infrastructure;
 using ParkingSystem.Payment.Persistence;
+using ParkingSystem.Payment.WebAPI.Endpoints;
+using ParkingSystem.Payment.WebAPI.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("payment-api");
+builder.Services.AddPaymentAuthorization();
+builder.Services.AddScoped<ICurrentActor, CurrentActor>();
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -51,4 +56,5 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
+app.MapAuditLogEndpoints();
 app.Run();
