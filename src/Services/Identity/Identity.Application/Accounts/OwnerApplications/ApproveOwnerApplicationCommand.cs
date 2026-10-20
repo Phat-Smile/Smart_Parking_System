@@ -1,6 +1,8 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Identity;
+using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.OwnerApplications;
@@ -13,6 +15,7 @@ public sealed class ApproveOwnerApplicationCommandHandler(
     IAccountRepository accounts,
     IAuthSessionRepository authSessions,
     IRefreshTokenRepository refreshTokens,
+    IOutboxWriter outboxWriter,
     IClock clock) : IRequestHandler<ApproveOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(ApproveOwnerApplicationCommand request, CancellationToken cancellationToken)
@@ -35,6 +38,12 @@ public sealed class ApproveOwnerApplicationCommandHandler(
             // Revoke all sessions and refresh tokens so user is forced to re-login to obtain new JWT with ParkingLotOwner role
             await authSessions.RevokeAllForAccountAsync(account.Id, now, "OwnerApplicationApproved", cancellationToken);
             await refreshTokens.RevokeAllForAccountAsync(account.Id, now, "OwnerApplicationApproved", cancellationToken);
+
+            outboxWriter.Enqueue(
+                new OwnerApplicationApprovedIntegrationEvent(account.Id, account.Email, now),
+                "identity.owner-application-approved.v1",
+                1);
+
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<OwnerApplicationActionResult>.Success(new OwnerApplicationActionResult(

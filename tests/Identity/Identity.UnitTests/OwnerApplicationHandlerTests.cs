@@ -1,7 +1,9 @@
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Identity;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
+using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Domain.Accounts;
 using Xunit;
 
@@ -19,12 +21,14 @@ public sealed class OwnerApplicationHandlerTests
         var accounts = new FakeAccountRepository(null);
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, new FixedClock(Now));
+        var outbox = new FakeOutboxWriter();
+        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(OwnerApplicationErrors.ApplicationNotFound.Code, result.Error!.Code);
+        Assert.Empty(outbox.EnqueuedEvents);
     }
 
     [Fact]
@@ -34,12 +38,14 @@ public sealed class OwnerApplicationHandlerTests
         var accounts = new FakeAccountRepository(account);
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, new FixedClock(Now));
+        var outbox = new FakeOutboxWriter();
+        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, AdminId), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(OwnerApplicationErrors.CannotApproveOwnApplication.Code, result.Error!.Code);
+        Assert.Empty(outbox.EnqueuedEvents);
     }
 
     [Fact]
@@ -50,12 +56,14 @@ public sealed class OwnerApplicationHandlerTests
         var accounts = new FakeAccountRepository(account);
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, new FixedClock(Now));
+        var outbox = new FakeOutboxWriter();
+        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(OwnerApplicationErrors.NotPending.Code, result.Error!.Code);
+        Assert.Empty(outbox.EnqueuedEvents);
     }
 
     [Fact]
@@ -65,7 +73,8 @@ public sealed class OwnerApplicationHandlerTests
         var accounts = new FakeAccountRepository(account);
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, new FixedClock(Now));
+        var outbox = new FakeOutboxWriter();
+        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
 
@@ -76,6 +85,15 @@ public sealed class OwnerApplicationHandlerTests
         Assert.Equal(OwnerApplicationStatus.Approved, account.OwnerApplicationStatus);
         Assert.True(sessions.RevokedAll);
         Assert.True(refreshTokens.RevokedAll);
+
+        Assert.Single(outbox.EnqueuedEvents);
+        var enqueued = outbox.EnqueuedEvents[0];
+        Assert.Equal("identity.owner-application-approved.v1", enqueued.EventType);
+        Assert.Equal(1, enqueued.Version);
+        var evt = Assert.IsType<OwnerApplicationApprovedIntegrationEvent>(enqueued.Event);
+        Assert.Equal(OwnerId, evt.AccountId);
+        Assert.Equal("owner@example.com", evt.Email);
+        Assert.Equal(Now, evt.ApprovedAtUtc);
     }
 
     [Fact]
@@ -83,7 +101,8 @@ public sealed class OwnerApplicationHandlerTests
     {
         var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
         var accounts = new FakeAccountRepository(account);
-        var handler = new RejectOwnerApplicationCommandHandler(accounts, new FixedClock(Now));
+        var outbox = new FakeOutboxWriter();
+        var handler = new RejectOwnerApplicationCommandHandler(accounts, outbox, new FixedClock(Now));
         var reason = "Hồ sơ chưa có giấy phép hợp lệ.";
 
         var result = await handler.Handle(new RejectOwnerApplicationCommand(AdminId, OwnerId, reason), TestContext.Current.CancellationToken);
@@ -92,6 +111,16 @@ public sealed class OwnerApplicationHandlerTests
         Assert.Equal("Rejected", result.Value!.Status);
         Assert.Equal(OwnerApplicationStatus.Rejected, account.OwnerApplicationStatus);
         Assert.Equal(reason, account.OwnerRejectionReason);
+
+        Assert.Single(outbox.EnqueuedEvents);
+        var enqueued = outbox.EnqueuedEvents[0];
+        Assert.Equal("identity.owner-application-rejected.v1", enqueued.EventType);
+        Assert.Equal(1, enqueued.Version);
+        var evt = Assert.IsType<OwnerApplicationRejectedIntegrationEvent>(enqueued.Event);
+        Assert.Equal(OwnerId, evt.AccountId);
+        Assert.Equal("owner@example.com", evt.Email);
+        Assert.Equal(reason, evt.Reason);
+        Assert.Equal(Now, evt.RejectedAtUtc);
     }
 
     [Fact]
@@ -300,5 +329,20 @@ public sealed class OwnerApplicationHandlerTests
             return Task.CompletedTask;
         }
         public Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakeOutboxWriter : IOutboxWriter
+    {
+        public List<(object Event, string EventType, int Version)> EnqueuedEvents { get; } = [];
+
+        public void Enqueue<TEvent>(
+            TEvent integrationEvent,
+            string eventType,
+            int eventVersion,
+            Guid? correlationId = null,
+            Guid? causationId = null) where TEvent : class
+        {
+            EnqueuedEvents.Add((integrationEvent, eventType, eventVersion));
+        }
     }
 }
