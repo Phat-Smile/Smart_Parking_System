@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { OwnerPageHeader as PageHeader } from '../../../../../components/layout/OwnerPageHeader';
 import { useOwnerStore, getSpotCounts } from '../../../../../store/useOwnerStore';
-import { ST, FLOORS, Floor } from '../../../../../types/owner';
+import { ST, FLOORS, Floor, SlotStatusKey } from '../../../../../types/owner';
 import { K_VISIBLE } from '../../../../../lib/mapStatus';
+import { SlotStatusChips } from '@/features/owner/layout/SlotStatusChips';
+import { SlotStatusListPanel } from '@/features/owner/layout/SlotStatusListPanel';
 
 // Dynamically import 3D viewer — must remain ssr:false, do NOT change
 const ParkingScene3DViewer = dynamic(
@@ -124,7 +126,6 @@ function SlotDetailPanel({ onBack }: { onBack: () => void }) {
 // Layout3DPage – trang chính
 // ──────────────────────────────────────────────────────────
 export default function Layout3DPage() {
-  const spots = useOwnerStore((s) => s.spots);
   const activeFloor = useOwnerStore((s) => s.activeFloor);
   const setActiveFloor = useOwnerStore((s) => s.setActiveFloor);
   const selectedId = useOwnerStore((s) => s.selectedId);
@@ -134,6 +135,8 @@ export default function Layout3DPage() {
 
   // showDetail được derive trực tiếp từ selectedId — không dùng state riêng
   const showDetail = !!selectedId;
+
+  const [selectedStatus, setSelectedStatus] = useState<SlotStatusKey | null>(null);
 
   // Auto-live simulation
   useEffect(() => {
@@ -147,7 +150,6 @@ export default function Layout3DPage() {
   };
 
   const mainLot = lots[0] || { name: 'Bãi đỗ xe Vincom Đồng Khởi' };
-  const counts = getSpotCounts(spots);
 
   return (
     <>
@@ -157,24 +159,12 @@ export default function Layout3DPage() {
         subtitle={`${mainLot.name} · theo dõi trực tiếp`}
       />
 
-      {/* Chip thống kê tổng */}
-      <div id="vchips" style={{ marginBottom: 12 }}>
-        {K_VISIBLE.map((k) => (
-          <span key={k} className="pill">
-            <i
-              style={{
-                display: 'inline-block',
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: ST[k][1],
-                marginRight: 6,
-              }}
-            />
-            {ST[k][0]} {counts[k]}
-          </span>
-        ))}
-      </div>
+      {/* Chip thống kê tổng bấm được */}
+      <SlotStatusChips
+        selectedStatus={selectedStatus}
+        onToggleStatus={(k) => setSelectedStatus((prev) => (prev === k ? null : k))}
+        onClearStatus={() => setSelectedStatus(null)}
+      />
 
       <div className="grid">
         {/* Khung 3D - 8 cột */}
@@ -208,13 +198,25 @@ export default function Layout3DPage() {
           </div>
         </div>
 
-        {/* Khung Chi tiết / Thống kê tầng - 4 cột */}
+        {/* Khung Chi tiết / Thống kê tầng / Lọc ô theo trạng thái - 4 cột */}
         <div className="card c4">
           <div className="wh">
-            <h3>{showDetail && selectedId ? `Chi tiết ô` : 'Thống kê tầng'}</h3>
+            <h3>
+              {selectedStatus
+                ? `Lọc theo trạng thái`
+                : showDetail && selectedId
+                ? `Chi tiết ô`
+                : 'Thống kê tầng'}
+            </h3>
           </div>
 
-          {showDetail ? (
+          {selectedStatus ? (
+            <SlotStatusListPanel
+              status={selectedStatus}
+              onClose={() => setSelectedStatus(null)}
+              onSelectSpot={(id) => handleSlotPick(id)}
+            />
+          ) : showDetail ? (
             <SlotDetailPanel onBack={() => selectSpot(null)} />
           ) : (
             <FloorStatsPanel />

@@ -3,9 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import { OwnerPageHeader as PageHeader } from '../../../../../components/layout/OwnerPageHeader';
 import { Plan2DGrid } from '../../../../../components/viz/Plan2DGrid';
-import { useOwnerStore, getSpotCounts } from '../../../../../store/useOwnerStore';
-import { ST, FLOORS, Floor, ParkingSpot } from '../../../../../types/owner';
+import { useOwnerStore } from '../../../../../store/useOwnerStore';
+import { ST, FLOORS, Floor, ParkingSpot, SlotStatusKey } from '../../../../../types/owner';
 import { K_VISIBLE } from '../../../../../lib/mapStatus';
+import { SlotStatusChips } from '@/features/owner/layout/SlotStatusChips';
+import { SlotStatusListPanel } from '@/features/owner/layout/SlotStatusListPanel';
 
 // ──────────────────────────────────────────────────────────
 // SlotModal – cửa sổ nhỏ hiển thị chi tiết ô được bấm
@@ -64,6 +66,8 @@ export default function Layout2DPage() {
   const simulateTick = useOwnerStore((s) => s.simulateTick);
 
   const [modalSpot, setModalSpot] = useState<ParkingSpot | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<SlotStatusKey | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Auto-live simulation
   useEffect(() => {
@@ -72,7 +76,6 @@ export default function Layout2DPage() {
   }, [simulateTick]);
 
   const mainLot = lots[0] || { name: 'Bãi đỗ xe Vincom Đồng Khởi' };
-  const counts = getSpotCounts(spots);
 
   const handleSelect = (spot: ParkingSpot) => {
     selectSpot(spot.id);
@@ -92,29 +95,50 @@ export default function Layout2DPage() {
         subtitle={`${mainLot.name} · theo dõi trực tiếp`}
       />
 
-      {/* Chip thống kê tổng */}
-      <div id="vchips" style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {K_VISIBLE.map((k) => (
-          <span key={k} className="pill">
-            <i
+      <div className="card" style={{ width: '100%' }}>
+        <div className="wh" style={{ marginBottom: 16 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800 }}>Mặt bằng 2D</h3>
+          <div style={{ position: 'relative', width: '100%', maxWidth: 280 }}>
+            <input
+              type="text"
+              placeholder="Nhập biển số để tìm ô"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{
-                display: 'inline-block',
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: ST[k][1],
-                marginRight: 6,
+                width: '100%',
+                padding: '7px 12px 7px 32px',
+                fontSize: 13,
+                borderRadius: 999,
+                border: '1px solid #e2e8f0',
+                outline: 'none',
+                background: '#fff',
+                color: '#1e293b',
               }}
             />
-            {ST[k][0]} {counts[k]}
-          </span>
-        ))}
-      </div>
+            <svg
+              style={{ position: 'absolute', left: 10, top: 9, color: '#94a3b8' }}
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
+        </div>
 
-      <div className="card" style={{ width: '100%' }}>
-        <div className="wh">
-          <h3>Sơ đồ 2D</h3>
-          {/* Tab chọn tầng */}
+        {/* Chip thống kê tổng bấm được */}
+        <SlotStatusChips
+          selectedStatus={selectedStatus}
+          onToggleStatus={(k) => setSelectedStatus((prev) => (prev === k ? null : k))}
+          onClearStatus={() => setSelectedStatus(null)}
+        />
+
+        {/* Tab chọn tầng */}
+        <div style={{ marginBottom: 16 }}>
           <div className="segs" id="ftabs">
             {(['all', ...FLOORS] as const).map((f) => (
               <button
@@ -128,8 +152,20 @@ export default function Layout2DPage() {
           </div>
         </div>
 
-        {/* Lưới 2D lấp đầy chiều ngang */}
-        <Plan2DGrid onSelect={handleSelect} />
+        {/* Khung liệt kê ô theo trạng thái đang chọn (ở dưới tab tầng) */}
+        {selectedStatus && (
+          <SlotStatusListPanel
+            status={selectedStatus}
+            onClose={() => setSelectedStatus(null)}
+            onSelectSpot={(id) => {
+              const sp = spots.find((s) => s.id === id);
+              if (sp) setModalSpot(sp);
+            }}
+          />
+        )}
+
+        {/* Lưới 2D thẳng hàng theo dãy như mô hình 3D, không xuống hàng */}
+        <Plan2DGrid onSelect={handleSelect} searchQuery={searchQuery} />
 
         {/* Legend */}
         <div className="lgd" style={{ marginTop: 12 }}>
