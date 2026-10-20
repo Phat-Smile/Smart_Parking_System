@@ -1,0 +1,20 @@
+{
+  "solution": {
+    "path": "..\\ParkingSystem.slnx",
+    "projects": [
+      "src\\BuildingBlocks\\ParkingSystem.AspNetCore\\ParkingSystem.AspNetCore.csproj",
+      "src\\BuildingBlocks\\ParkingSystem.BuildingBlocks.csproj",
+      "src\\Gateway\\ParkingSystem.Gateway.csproj",
+      "src\\Services\\Notification\\Notification.Application\\Notification.Application.csproj",
+      "src\\Services\\Notification\\Notification.Domain\\Notification.Domain.csproj",
+      "src\\Services\\Notification\\Notification.Infrastructure\\Notification.Infrastructure.csproj",
+      "src\\Services\\Notification\\Notification.Persistence\\Notification.Persistence.csproj",
+      "src\\Services\\Notification\\Notification.WebAPI\\Notification.WebAPI.csproj",
+      "tests\\ArchitectureTests\\ArchitectureTests.csproj",
+      "tests\\BuildingBlocks\\ParkingSystem.Testing\\ParkingSystem.Testing.csproj",
+      "tests\\Notification\\Notification.IntegrationTests\\Notification.IntegrationTests.csproj",
+      "tests\\Notification\\Notification.UnitTests\\Notification.UnitTests.csproj",
+      "tests\\WebFoundationTests\\WebFoundationTests.csproj"
+    ]
+  }
+}

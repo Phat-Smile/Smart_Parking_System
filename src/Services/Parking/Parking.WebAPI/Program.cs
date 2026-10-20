@@ -6,6 +6,8 @@ using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Infrastructure;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
+using ParkingSystem.Parking.WebAPI.OpenApi;
+using ParkingSystem.Parking.WebAPI.Grpc;
 using ParkingSystem.Parking.WebAPI.Security;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,16 +27,14 @@ builder.Services.AddGrpc();
 var enableGrpcReflection = builder.Environment.IsDevelopment();
 if (enableGrpcReflection)
     builder.Services.AddGrpcReflection();
-builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddParkingSwagger();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemAuthentication();
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
 }
@@ -53,6 +53,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
+app.MapParkingLotAssignmentEndpoints();
+app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();

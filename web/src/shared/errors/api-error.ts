@@ -5,6 +5,7 @@ export class ApiError extends Error {
         public readonly status: number,
         public readonly problem: ProblemDetails | undefined,
         public readonly correlationId: string | undefined,
+        public readonly retryAfterSeconds?: number,
     ) {
         // Deliberately omit server detail/exception text from user-facing error messages.
         super(problem?.title || "The request could not be completed.");

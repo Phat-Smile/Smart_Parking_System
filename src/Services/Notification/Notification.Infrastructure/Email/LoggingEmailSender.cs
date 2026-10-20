@@ -13,19 +13,30 @@ public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEm
         string email,
         string otpCode,
         DateTimeOffset expiresAtUtc,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        Log(email, otpCode, expiresAtUtc, "[Smart Parking] Mã xác thực tài khoản của bạn");
+
+    public Task SendPasswordResetOtpEmailAsync(
+        string email,
+        string otpCode,
+        DateTimeOffset expiresAtUtc,
+        CancellationToken cancellationToken = default) =>
+        Log(email, otpCode, expiresAtUtc, "[Smart Parking] Mã đặt lại mật khẩu");
+
+    private Task Log(string email, string otpCode, DateTimeOffset expiresAtUtc, string subject)
     {
         logger.LogInformation(
             """
 
             ======================= [DEV EMAIL DISPATCH] =======================
             To: {Email}
-            Subject: [Smart Parking] Mã xác thực tài khoản của bạn
+            Subject: {Subject}
             OTP Code: {OtpCode}
             Expires At: {ExpiresAtLocal:HH:mm:ss dd/MM/yyyy}
             ====================================================================
             """,
             email,
+            subject,
             otpCode,
             expiresAtUtc.ToLocalTime());
 

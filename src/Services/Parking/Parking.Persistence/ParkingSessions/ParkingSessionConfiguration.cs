@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Persistence.ParkingSessions;
@@ -24,6 +25,12 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
         builder.Property(session => session.LotId)
             .HasColumnName("lot_id")
             .IsRequired();
+        // ERD: lot_id references parking_lots. Restrict: a lot with sessions cannot be deleted.
+        builder.HasOne<ParkingLot>()
+            .WithMany()
+            .HasForeignKey(session => session.LotId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_parking_sessions_parking_lots_lot_id");
         builder.Property(session => session.PlateNumber)
             .HasColumnName("plate_number")
             .HasMaxLength(ParkingSession.PlateNumberMaxLength)

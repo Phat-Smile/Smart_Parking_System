@@ -11,7 +11,10 @@ public sealed class Account
 
     public Guid Id { get; private set; }
     public string Email { get; private set; } = null!;
-    public string PasswordHash { get; private set; } = null!;
+    // Null for an account created with Google until a password is set through forgot / reset password.
+    public string? PasswordHash { get; private set; }
+    public string? GoogleSubject { get; private set; }
+    public bool HasPassword => !string.IsNullOrEmpty(PasswordHash);
     public string? PhoneNumber { get; private set; }
     public AccountRole Role { get; private set; } = AccountRole.Customer;
     public AccountStatus Status { get; private set; }
@@ -40,6 +43,40 @@ public sealed class Account
             CreatedAtUtc = createdAtUtc,
             RowVersion = 1
         };
+    }
+
+    // US-AUTH-002 (G2, G3, G4): Google already verified the email; the account is a customer without a password.
+    public static Account RegisterWithGoogle(Guid id, string email, string googleSubject, DateTimeOffset createdAtUtc)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException("Account id must not be empty.", nameof(id));
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        ArgumentException.ThrowIfNullOrWhiteSpace(googleSubject);
+
+        return new Account
+        {
+            Id = id,
+            Email = NormalizeEmail(email),
+            PasswordHash = null,
+            GoogleSubject = googleSubject,
+            Role = AccountRole.Customer,
+            Status = AccountStatus.EmailVerified,
+            CreatedAtUtc = createdAtUtc,
+            RowVersion = 1
+        };
+    }
+
+    // US-AUTH-002 (G2): an existing account signs in with Google; a pending account becomes verified.
+    public void LinkGoogle(string googleSubject)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(googleSubject);
+        if (GoogleSubject is not null && GoogleSubject != googleSubject)
+            throw new InvalidOperationException("The account is linked to another Google account.");
+
+        GoogleSubject = googleSubject;
+        if (Status == AccountStatus.PendingEmailVerification)
+            Status = AccountStatus.EmailVerified;
+        RowVersion++;
     }
 
     public void AssignRole(AccountRole role)
@@ -102,6 +139,16 @@ public sealed class Account
         {
             LockoutEndUtc = nowUtc.AddMinutes(LockoutDurationMinutes);
         }
+    }
+
+    // US-AUTH-006: the user proved they own the email, so the lockout and the failed-attempt streak are cleared.
+    public void ResetPassword(string newPasswordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newPasswordHash);
+        PasswordHash = newPasswordHash;
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
+        RowVersion++;
     }
 
     public void RecordCorrectCredential()

@@ -11,12 +11,14 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Correlation;
+using ParkingSystem.BuildingBlocks.Results;
 using Xunit;
 using Yarp.ReverseProxy.Configuration;
 
@@ -24,6 +26,34 @@ namespace ParkingSystem.Tests.WebFoundation;
 
 public sealed class WebFoundationTests
 {
+    [Fact]
+    public void Console_logging_defaults_to_json_without_scopes()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        builder.AddParkingSystemWebFoundation();
+        using var app = builder.Build();
+
+        Assert.Equal(ConsoleFormatterNames.Json, app.Services.GetRequiredService<IOptions<ConsoleLoggerOptions>>().Value.FormatterName);
+        Assert.False(app.Services.GetRequiredService<IOptionsMonitor<JsonConsoleFormatterOptions>>()
+            .Get(ConsoleFormatterNames.Json).IncludeScopes);
+    }
+
+    [Fact]
+    public void Launch_profiles_can_switch_console_logging_to_simple_without_scopes()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [ParkingSystemWebFoundationExtensions.ConsoleFormatterNameKey] = "simple"
+        });
+        builder.AddParkingSystemWebFoundation();
+        using var app = builder.Build();
+
+        Assert.Equal(ConsoleFormatterNames.Simple, app.Services.GetRequiredService<IOptions<ConsoleLoggerOptions>>().Value.FormatterName);
+        Assert.False(app.Services.GetRequiredService<IOptionsMonitor<SimpleConsoleFormatterOptions>>()
+            .Get(ConsoleFormatterNames.Simple).IncludeScopes);
+    }
+
     [Fact]
     public async Task Valid_correlation_id_is_preserved_in_response_and_problem_details()
     {
@@ -39,11 +69,34 @@ public sealed class WebFoundationTests
             Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
             Assert.Equal("A2B4D30E-6990-4261-BD7F-9F0A8D5B0E16", response.Headers.GetValues("X-Correlation-ID").Single());
-            Assert.Equal("An unexpected error occurred.", problem.GetProperty("title").GetString());
+            Assert.Equal("Đã xảy ra lỗi hệ thống.", problem.GetProperty("title").GetString());
             Assert.Equal("A2B4D30E-6990-4261-BD7F-9F0A8D5B0E16", problem.GetProperty("correlationId").GetString(), ignoreCase: true);
             Assert.Equal("internal.unexpected", problem.GetProperty("errorCode").GetString());
             Assert.False(problem.TryGetProperty("stackTrace", out _));
             Assert.DoesNotContain("private-password-value", problem.ToString(), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task Business_problem_has_the_same_request_extensions_as_foundation_errors()
+    {
+        var app = await CreateApp(app => app.MapGet("/conflict", (HttpContext context) =>
+            BusinessProblem.Create(context, StatusCodes.Status409Conflict, new Error("sample.conflict", "Sample conflict."))));
+        await using (app)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/conflict");
+            request.Headers.Add("X-Correlation-ID", "6F1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D");
+
+            using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("Sample conflict.", problem.GetProperty("title").GetString());
+            Assert.Equal("/conflict", problem.GetProperty("instance").GetString());
+            Assert.Equal("sample.conflict", problem.GetProperty("errorCode").GetString());
+            Assert.Equal("6F1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D", problem.GetProperty("correlationId").GetString(), ignoreCase: true);
+            Assert.False(string.IsNullOrEmpty(problem.GetProperty("traceId").GetString()));
         }
     }
 
@@ -88,6 +141,25 @@ public sealed class WebFoundationTests
             Assert.Contains("request.validation_failed", body, StringComparison.Ordinal);
             Assert.True(body.Contains("password", StringComparison.OrdinalIgnoreCase), $"Validation response: {body}");
             Assert.DoesNotContain("private-password-value", body, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task Validation_problem_has_a_fixed_title_and_one_message_per_field()
+    {
+        var app = await CreateApp(application => application.MapGet("/invalid-fields", ThrowFieldValidation));
+        await using (app)
+        {
+            using var response = await app.GetTestClient().GetAsync("/invalid-fields", TestContext.Current.CancellationToken);
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            var root = json.RootElement;
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("Dữ liệu không hợp lệ.", root.GetProperty("title").GetString());
+            Assert.Equal("Email không đúng định dạng hợp lệ. Mật khẩu phải có ít nhất 8 ký tự.", root.GetProperty("detail").GetString());
+            // A one-letter input ("a") must not hide a message that happens to contain that letter.
+            Assert.Equal("Email không đúng định dạng hợp lệ.", root.GetProperty("errors").GetProperty("Email").EnumerateArray().Single().GetString());
+            Assert.Equal("Mật khẩu phải có ít nhất 8 ký tự.", root.GetProperty("errors").GetProperty("Password").EnumerateArray().Single().GetString());
         }
     }
 
@@ -376,6 +448,13 @@ public sealed class WebFoundationTests
     }
 
     private static Task<IResult> ThrowUnexpected() => throw new InvalidOperationException("private-password-value");
+
+    private static Task<IResult> ThrowFieldValidation() => throw new ValidationException(
+    [
+        new ValidationFailure("Email", "Email không đúng định dạng hợp lệ.") { AttemptedValue = "a" },
+        new ValidationFailure("Password", "Mật khẩu phải có ít nhất 8 ký tự.") { AttemptedValue = "8" },
+        new ValidationFailure("Password", "Mật khẩu phải chứa ít nhất một chữ cái viết hoa.") { AttemptedValue = "8" }
+    ]);
 
     private static Task<IResult> ThrowValidation() => throw new ValidationException(
     [new ValidationFailure("Password", "private-password-value") { AttemptedValue = "private-password-value" }]);

@@ -1,43 +1,74 @@
 <Solution>
-  <Project Path="src/BuildingBlocks/ParkingSystem.BuildingBlocks.csproj" Id="bfcb2654-e9e8-4585-9b9d-6387b60360b1" />
-  <Project Path="src/BuildingBlocks/ParkingSystem.AspNetCore/ParkingSystem.AspNetCore.csproj" />
-  <Project Path="src/Gateway/ParkingSystem.Gateway.csproj" Id="3d189e83-412f-412a-909e-7a6c57b47bae" />
-  <Project Path="src/Services/Booking/Booking.Application/Booking.Application.csproj" Id="b6d530f6-732f-48db-8d2e-172d734db3c8" />
-  <Project Path="src/Services/Booking/Booking.Domain/Booking.Domain.csproj" Id="e7829ca6-20cc-4be1-b6b0-45c8141d0716" />
-  <Project Path="src/Services/Booking/Booking.Infrastructure/Booking.Infrastructure.csproj" Id="449b1d48-b89f-42f9-a0ea-1526b9e66c39" />
-  <Project Path="src/Services/Booking/Booking.Persistence/Booking.Persistence.csproj" Id="425b1a20-cbe0-4ee4-8365-67657c16efaf" />
-  <Project Path="src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj" Id="e61cdec5-7f04-4ee3-9726-d704e6750775" />
-  <Project Path="src/Services/Identity/Identity.Application/Identity.Application.csproj" Id="d2311d44-9383-4b34-b914-db3374f07f28" />
-  <Project Path="src/Services/Identity/Identity.Domain/Identity.Domain.csproj" Id="3aa8d14c-125f-4641-95bd-79dbec3c308e" />
-  <Project Path="src/Services/Identity/Identity.Infrastructure/Identity.Infrastructure.csproj" Id="062e3ef1-1cfb-42ee-bc77-5306941a500b" />
-  <Project Path="src/Services/Identity/Identity.Persistence/Identity.Persistence.csproj" Id="312dd067-b3ed-4ed0-9743-fa65f1b9f8ed" />
-  <Project Path="src/Services/Identity/Identity.WebAPI/Identity.WebAPI.csproj" Id="46a1604f-bd7a-4163-b26c-6a16286a35bd" />
-  <Project Path="src/Services/Notification/Notification.Application/Notification.Application.csproj" Id="51ad3d2d-7d36-48a5-a174-f0deb094fde5" />
-  <Project Path="src/Services/Notification/Notification.Domain/Notification.Domain.csproj" Id="e3d4d574-c5a8-44f4-a503-8bc1c4510ec4" />
-  <Project Path="src/Services/Notification/Notification.Infrastructure/Notification.Infrastructure.csproj" Id="849167b3-7ee5-468b-adc5-ae3c158886ba" />
-  <Project Path="src/Services/Notification/Notification.Persistence/Notification.Persistence.csproj" Id="d85b1ca6-b2b6-414c-afb2-0e4e8928849a" />
-  <Project Path="src/Services/Notification/Notification.WebAPI/Notification.WebAPI.csproj" Id="00adf8d8-97b2-4c86-ba45-ad195b6080c6" />
-  <Project Path="src/Services/Parking/Parking.Application/Parking.Application.csproj" Id="a4032499-8d6c-4f71-83c1-ca58b1b50947" />
-  <Project Path="src/Services/Parking/Parking.Domain/Parking.Domain.csproj" Id="620cdca9-b219-4a84-be18-507fa4f6150b" />
-  <Project Path="src/Services/Parking/Parking.Infrastructure/Parking.Infrastructure.csproj" Id="1b1dda30-4ce0-44e4-8119-f5b5ed320750" />
-  <Project Path="src/Services/Parking/Parking.Persistence/Parking.Persistence.csproj" Id="583c3c2e-7b0c-4f58-b0a8-718b701628eb" />
-  <Project Path="src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj" Id="85935a63-7cb1-492d-acad-e62942bcf625" />
-  <Project Path="src/Services/Payment/Payment.Application/Payment.Application.csproj" Id="e5dbecd0-563a-4e52-85f9-854e8524fa59" />
-  <Project Path="src/Services/Payment/Payment.Domain/Payment.Domain.csproj" Id="2aeff800-98e0-47bc-add2-c3d7b6f9c6e9" />
-  <Project Path="src/Services/Payment/Payment.Infrastructure/Payment.Infrastructure.csproj" Id="4abfdc42-fbdb-48e6-ae74-c4e3641914b5" />
-  <Project Path="src/Services/Payment/Payment.Persistence/Payment.Persistence.csproj" Id="917d4c3f-735b-41b4-afec-3a473ad9bf7c" />
-  <Project Path="src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj" Id="d6fdd1cb-45a8-4fc3-8e6d-0a3ba20c6d69" />
-  <Project Path="tests/ArchitectureTests/ArchitectureTests.csproj" Id="c6fedad5-20d6-490e-9a42-be4534386b0c" />
-  <Project Path="tests/WebFoundationTests/WebFoundationTests.csproj" />
-  <Project Path="tests/BuildingBlocks/ParkingSystem.Testing/ParkingSystem.Testing.csproj" Id="842b59ba-7aa1-4ec3-86fb-c27fa749e80d" />
-  <Project Path="tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj" Id="181cd3c0-295f-4d36-bf7f-25ae2b8f031f" />
-  <Project Path="tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj" Id="d1ac45ba-8c28-4beb-a3df-cb8dd549c7d0" />
-  <Project Path="tests/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj" Id="1417c081-a93c-48b8-a2cf-8892ca74bf53" />
-  <Project Path="tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj" Id="595a5f6e-ccad-49a1-bae1-a67a0dcdf984" />
-  <Project Path="tests/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj" Id="aa236d6a-2478-40d2-bcb7-3de340dc4690" />
-  <Project Path="tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj" Id="d09ab2d9-fe4d-40b4-b622-6e482181544c" />
-  <Project Path="tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj" Id="57130175-d0cd-48d7-ad49-f59ab0a334b5" />
-  <Project Path="tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj" Id="0030c256-5a38-4c6e-bbbc-f9623e12acd7" />
-  <Project Path="tests/Payment/Payment.IntegrationTests/Payment.IntegrationTests.csproj" Id="4f874614-efc2-4657-a57c-1cf64550986a" />
-  <Project Path="tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj" Id="7d55584b-1317-4dd3-a374-f6f955a1399f" />
+  <Folder Name="/contracts/">
+    <Project Path="contracts/events/ParkingSystem.Contracts.Events/ParkingSystem.Contracts.Events.csproj" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/ApiGateway/">
+    <Project Path="src/Gateway/ParkingSystem.Gateway.csproj" Id="3d189e83-412f-412a-909e-7a6c57b47bae" />
+  </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/ParkingSystem.AspNetCore/ParkingSystem.AspNetCore.csproj" />
+    <Project Path="src/BuildingBlocks/ParkingSystem.BuildingBlocks.csproj" Id="bfcb2654-e9e8-4585-9b9d-6387b60360b1" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Identity/">
+    <Project Path="src/Services/Identity/Identity.Domain/Identity.Domain.csproj" Id="3aa8d14c-125f-4641-95bd-79dbec3c308e" />
+    <Project Path="src/Services/Identity/Identity.Application/Identity.Application.csproj" Id="d2311d44-9383-4b34-b914-db3374f07f28" />
+    <Project Path="src/Services/Identity/Identity.Infrastructure/Identity.Infrastructure.csproj" Id="062e3ef1-1cfb-42ee-bc77-5306941a500b" />
+    <Project Path="src/Services/Identity/Identity.Persistence/Identity.Persistence.csproj" Id="312dd067-b3ed-4ed0-9743-fa65f1b9f8ed" />
+    <Project Path="src/Services/Identity/Identity.WebAPI/Identity.WebAPI.csproj" Id="46a1604f-bd7a-4163-b26c-6a16286a35bd" />
+  </Folder>
+  <Folder Name="/src/Services/Parking/">
+    <Project Path="src/Services/Parking/Parking.Domain/Parking.Domain.csproj" Id="620cdca9-b219-4a84-be18-507fa4f6150b" />
+    <Project Path="src/Services/Parking/Parking.Application/Parking.Application.csproj" Id="a4032499-8d6c-4f71-83c1-ca58b1b50947" />
+    <Project Path="src/Services/Parking/Parking.Infrastructure/Parking.Infrastructure.csproj" Id="1b1dda30-4ce0-44e4-8119-f5b5ed320750" />
+    <Project Path="src/Services/Parking/Parking.Persistence/Parking.Persistence.csproj" Id="583c3c2e-7b0c-4f58-b0a8-718b701628eb" />
+    <Project Path="src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj" Id="85935a63-7cb1-492d-acad-e62942bcf625" />
+  </Folder>
+  <Folder Name="/src/Services/Booking/">
+    <Project Path="src/Services/Booking/Booking.Domain/Booking.Domain.csproj" Id="e7829ca6-20cc-4be1-b6b0-45c8141d0716" />
+    <Project Path="src/Services/Booking/Booking.Application/Booking.Application.csproj" Id="b6d530f6-732f-48db-8d2e-172d734db3c8" />
+    <Project Path="src/Services/Booking/Booking.Infrastructure/Booking.Infrastructure.csproj" Id="449b1d48-b89f-42f9-a0ea-1526b9e66c39" />
+    <Project Path="src/Services/Booking/Booking.Persistence/Booking.Persistence.csproj" Id="425b1a20-cbe0-4ee4-8365-67657c16efaf" />
+    <Project Path="src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj" Id="e61cdec5-7f04-4ee3-9726-d704e6750775" />
+  </Folder>
+  <Folder Name="/src/Services/Payment/">
+    <Project Path="src/Services/Payment/Payment.Domain/Payment.Domain.csproj" Id="2aeff800-98e0-47bc-add2-c3d7b6f9c6e9" />
+    <Project Path="src/Services/Payment/Payment.Application/Payment.Application.csproj" Id="e5dbecd0-563a-4e52-85f9-854e8524fa59" />
+    <Project Path="src/Services/Payment/Payment.Infrastructure/Payment.Infrastructure.csproj" Id="4abfdc42-fbdb-48e6-ae74-c4e3641914b5" />
+    <Project Path="src/Services/Payment/Payment.Persistence/Payment.Persistence.csproj" Id="917d4c3f-735b-41b4-afec-3a473ad9bf7c" />
+    <Project Path="src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj" Id="d6fdd1cb-45a8-4fc3-8e6d-0a3ba20c6d69" />
+  </Folder>
+  <Folder Name="/src/Services/Notification/">
+    <Project Path="src/Services/Notification/Notification.Domain/Notification.Domain.csproj" Id="e3d4d574-c5a8-44f4-a503-8bc1c4510ec4" />
+    <Project Path="src/Services/Notification/Notification.Application/Notification.Application.csproj" Id="51ad3d2d-7d36-48a5-a174-f0deb094fde5" />
+    <Project Path="src/Services/Notification/Notification.Infrastructure/Notification.Infrastructure.csproj" Id="849167b3-7ee5-468b-adc5-ae3c158886ba" />
+    <Project Path="src/Services/Notification/Notification.Persistence/Notification.Persistence.csproj" Id="d85b1ca6-b2b6-414c-afb2-0e4e8928849a" />
+    <Project Path="src/Services/Notification/Notification.WebAPI/Notification.WebAPI.csproj" Id="00adf8d8-97b2-4c86-ba45-ad195b6080c6" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ArchitectureTests/ArchitectureTests.csproj" Id="c6fedad5-20d6-490e-9a42-be4534386b0c" />
+    <Project Path="tests/BuildingBlocks/ParkingSystem.Testing/ParkingSystem.Testing.csproj" Id="842b59ba-7aa1-4ec3-86fb-c27fa749e80d" />
+    <Project Path="tests/WebFoundationTests/WebFoundationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Identity/">
+    <Project Path="tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj" Id="595a5f6e-ccad-49a1-bae1-a67a0dcdf984" />
+    <Project Path="tests/Identity/Identity.IntegrationTests/Identity.IntegrationTests.csproj" Id="1417c081-a93c-48b8-a2cf-8892ca74bf53" />
+  </Folder>
+  <Folder Name="/tests/Parking/">
+    <Project Path="tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj" Id="0030c256-5a38-4c6e-bbbc-f9623e12acd7" />
+    <Project Path="tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj" Id="57130175-d0cd-48d7-ad49-f59ab0a334b5" />
+  </Folder>
+  <Folder Name="/tests/Booking/">
+    <Project Path="tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj" Id="d1ac45ba-8c28-4beb-a3df-cb8dd549c7d0" />
+    <Project Path="tests/Booking/Booking.IntegrationTests/Booking.IntegrationTests.csproj" Id="181cd3c0-295f-4d36-bf7f-25ae2b8f031f" />
+  </Folder>
+  <Folder Name="/tests/Payment/">
+    <Project Path="tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj" Id="7d55584b-1317-4dd3-a374-f6f955a1399f" />
+    <Project Path="tests/Payment/Payment.IntegrationTests/Payment.IntegrationTests.csproj" Id="4f874614-efc2-4657-a57c-1cf64550986a" />
+  </Folder>
+  <Folder Name="/tests/Notification/">
+    <Project Path="tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj" Id="d09ab2d9-fe4d-40b4-b622-6e482181544c" />
+    <Project Path="tests/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj" Id="aa236d6a-2478-40d2-bcb7-3de340dc4690" />
+  </Folder>
 </Solution>

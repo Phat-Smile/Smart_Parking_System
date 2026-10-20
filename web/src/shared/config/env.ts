@@ -26,3 +26,9 @@ export function getPublicMapboxToken(): string | undefined {
     const value = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim();
     return value || undefined;
 }
+
+// OAuth web client ID of Google Identity Services. Empty keeps Google sign-in off.
+export function getGoogleClientId(): string | undefined {
+    const value = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
+    return value || undefined;
+}

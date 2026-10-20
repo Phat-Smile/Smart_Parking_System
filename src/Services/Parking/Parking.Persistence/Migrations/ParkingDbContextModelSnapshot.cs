@@ -23,6 +23,154 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_floors");
+
+                    b.HasIndex("LotId")
+                        .HasDatabaseName("ix_floors_lot_id");
+
+                    b.ToTable("floors", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.ParkingSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<Guid?>("AssignedSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_session_id");
+
+                    b.Property<string>("DispatchState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("dispatch_state");
+
+                    b.Property<string>("EffectiveStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("effective_status");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<string>("OverrideState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("override_state");
+
+                    b.Property<int>("RowVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("SensorState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sensor_state");
+
+                    b.Property<string>("SlotCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("slot_code");
+
+                    b.Property<Guid>("ZoneId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("zone_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_parking_slots");
+
+                    b.HasIndex("AssignedSessionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_parking_slots_assigned_session_id")
+                        .HasFilter("assigned_session_id IS NOT NULL");
+
+                    b.HasIndex("ZoneId")
+                        .HasDatabaseName("ix_parking_slots_zone_id");
+
+                    b.HasIndex("LotId", "EffectiveStatus")
+                        .HasDatabaseName("ix_parking_slots_lot_id_effective_status");
+
+                    b.HasIndex("LotId", "SlotCode")
+                        .IsUnique()
+                        .HasDatabaseName("ux_parking_slots_lot_slot_code");
+
+                    b.ToTable("parking_slots", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Zone", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("capacity");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<int>("CurrentVehicleCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_vehicle_count");
+
+                    b.Property<Guid>("FloorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("floor_id");
+
+                    b.Property<bool>("HasSlotSensor")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_slot_sensor");
+
+                    b.Property<string>("VehicleGroup")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("vehicle_group");
+
+                    b.HasKey("Id")
+                        .HasName("pk_zones");
+
+                    b.HasIndex("FloorId")
+                        .HasDatabaseName("ix_zones_floor_id");
+
+                    b.ToTable("zones", "parking", t =>
+                        {
+                            t.HasCheckConstraint("ck_zones_capacity_not_negative", "capacity >= 0");
+
+                            t.HasCheckConstraint("ck_zones_current_vehicle_count_not_negative", "current_vehicle_count >= 0");
+                        });
+                });
+
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", b =>
                 {
                     b.Property<Guid>("Id")
@@ -68,6 +216,39 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasDatabaseName("ix_parking_lots_approval_status_name");
 
                     b.ToTable("parking_lots", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLots.ParkingLotAssignment", b =>
+                {
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("AssignedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at_utc");
+
+                    b.Property<Guid>("AssignedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_by");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("role");
+
+                    b.HasKey("LotId", "AccountId")
+                        .HasName("pk_parking_lot_assignments");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_parking_lot_assignments_account_id");
+
+                    b.ToTable("parking_lot_assignments", "parking");
                 });
 
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingSessions.ParkingSession", b =>
@@ -298,6 +479,63 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasFilter("processed_at_utc IS NULL");
 
                     b.ToTable("outbox_messages", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_floors_parking_lots_lot_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.ParkingSlot", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_parking_slots_parking_lots_lot_id");
+
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLayout.Zone", null)
+                        .WithMany()
+                        .HasForeignKey("ZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_parking_slots_zones_zone_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Zone", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLayout.Floor", null)
+                        .WithMany()
+                        .HasForeignKey("FloorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_zones_floors_floor_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLots.ParkingLotAssignment", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_parking_lot_assignments_parking_lots_lot_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingSessions.ParkingSession", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_parking_sessions_parking_lots_lot_id");
                 });
 #pragma warning restore 612, 618
         }

@@ -8,7 +8,9 @@ using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Identity.Infrastructure.Security;
+using ParkingSystem.Identity.Infrastructure.VehicleLookup;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Identity;
 
 namespace ParkingSystem.Identity.Infrastructure;
 
@@ -51,6 +53,13 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IJwtTokenIssuer, JwtTokenIssuer>();
         services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
+        // Authentication:Google:ClientId, or GOOGLE_CLIENT_ID from .env (.env.example already lists it).
+        services.AddOptions<GoogleAuthOptions>()
+            .Bind(configuration.GetSection(GoogleAuthOptions.SectionName))
+            .PostConfigure(options => options.ClientId ??= configuration["GOOGLE_CLIENT_ID"]);
+        services.AddSingleton<IGoogleIdTokenValidator>(provider => new GoogleIdTokenValidator(
+            provider.GetRequiredService<IOptions<GoogleAuthOptions>>(),
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GoogleIdTokenValidator>>()));
         services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
         services.AddOptions<OtpSecurityOptions>()
             .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))
@@ -58,9 +67,11 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IOtpHasher, HmacSha256OtpHasher>();
         services.AddIntegrationEventRegistry();
-        services.AddIntegrationEvent<ParkingSystem.Identity.Application.Accounts.Events.AccountEmailVerifiedIntegrationEvent>(
+        services.AddIntegrationEvent<AccountEmailVerifiedIntegrationEvent>(
             "identity.account-email-verified.v1", 1);
-        services.AddIntegrationEvent<ParkingSystem.BuildingBlocks.Events.UserVerificationOtpIssuedIntegrationEvent>(
+        services.AddIntegrationEvent<PasswordResetOtpIssuedIntegrationEvent>(
+            "identity.password-reset-otp-issued.v1", 1);
+        services.AddIntegrationEvent<UserVerificationOtpIssuedIntegrationEvent>(
             "identity.user-verification-otp-issued.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
@@ -80,6 +91,8 @@ public static class DependencyInjection
                 rabbit.ConfigureEndpoints(context);
             });
         });
+
+        services.AddVehicleLookupReader(configuration);
 
         return services;
     }

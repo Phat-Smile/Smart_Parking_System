@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package smartparking.parking.availability.v1;
+
+option csharp_namespace = "SmartParking.Contracts.Parking.Availability.V1";
+
+// Contract 2, Parking part (master sheet, owner BE-4, caller BE-3 Booking).
+// The current price list part of contract 2 belongs to Payment (BE-5) and is not here.
+service ParkingAvailabilityContract {
+  rpc GetAvailableSlotCount(GetAvailableSlotCountRequest)
+      returns (GetAvailableSlotCountResponse);
+}
+
+message GetAvailableSlotCountRequest {
+  // Canonical UUID "D" format (36 chars). Malformed -> INVALID_ARGUMENT.
+  // Unknown or not-approved lot -> NOT_FOUND.
+  string lot_id = 1;
+}
+
+message GetAvailableSlotCountResponse {
+  // BR-02.a: car slots whose effective status is Available right now. Never negative.
+  // Booking uses it for BR-02.c (ii). It is not the walk-in count (BR-02.d) and not the valid capacity:
+  // context section 3 keeps these quantities apart.
+  int32 available_slot_count = 1;
+}

@@ -33,18 +33,15 @@ The example PostgreSQL and RabbitMQ credentials are public local-development val
 
 The PostgreSQL port inside Docker is `5432`; the host port is `5433` by default. The five API containers receive `ConnectionStrings__DefaultConnection` from Compose, built from `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. Their connection uses `postgres:5432` on the Compose network. No database password is stored in the API `appsettings.json` files.
 
-Tools and API processes running directly on the host use `localhost:5433`. For example, to run an API directly from PowerShell with the local development credentials:
+Set `SECURITY_OTP_PEPPER` in `.env` to your own random value (at least 32 characters) before starting Identity; it refuses to start without it. On PowerShell:
 
 ```powershell
-$env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5433;Database=parking_system;Username=parking_dev;Password=parking_dev_local_only;GSS Encryption Mode=Disable'
-$env:RabbitMq__Host = 'localhost'
-$env:RabbitMq__Port = '5672'
-$env:RabbitMq__Username = 'parking_dev'
-$env:RabbitMq__Password = '<copy from your local .env>'
-$env:RabbitMq__VirtualHost = '/'
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 ```
 
-The API requires these `RabbitMq__*` process variables when run directly on the host. Read the password from the ignored local `.env`; do not commit or copy it into project files.
+APIs started directly on the host (IDE or `dotnet run`) in the `Development` environment read the repository `.env` themselves: the connection string (`localhost:POSTGRES_HOST_PORT`), the `RabbitMq:*` settings (`localhost:RABBITMQ_HOST_PORT`), `Security:Otp:Pepper` from `SECURITY_OTP_PEPPER`, and the other keys such as `SMTP_HOST` or `GOOGLE_CLIENT_ID`. No credential lives in the `appsettings*.json` files, so do not add one there.
+
+A value that is already set wins over `.env`, for example a process or user environment variable `ConnectionStrings__DefaultConnection`. Remove such a variable if it holds old values. Containers never read `.env` (it is excluded by `.dockerignore`); Compose passes the same values as environment variables.
 
 ## Start infrastructure
 
@@ -145,7 +142,7 @@ All six gRPC hosts expose standard `grpc.health.v1.Health`; its empty service na
 After starting the stack, run the gRPC network smoke test from PowerShell:
 
 ```powershell
-./tests/GrpcHealthSmoke.ps1
+./scripts/dev/GrpcHealthSmoke.ps1
 ```
 
 ## Health endpoint semantics
@@ -245,7 +242,7 @@ The .NET Gateway and APIs validate RS256 tokens with a public key. Before starti
 ./scripts/security/New-DevelopmentJwtKey.ps1
 ```
 
-The script creates `.local/security/jwt/private.pem` and `public.pem` and refuses to overwrite an existing file. Validators mount only `public.pem`, read-only. The private key is ignored by Git and excluded from Docker build contexts; it is not needed by any application in this phase. Never paste either key into tracked files, logs, or documentation. Do not generate keys on application startup.
+The script creates `.local/security/jwt/private.pem` and `public.pem` and refuses to overwrite an existing file. Validators mount only `public.pem`, read-only. `identity-api` also mounts `private.pem`, read-only, because it signs access tokens. The private key is ignored by Git and excluded from Docker build contexts and images. Never paste either key into tracked files, logs, or documentation. Do not generate keys on application startup.
 
 Gateway browser origins are configured in `.env` with comma-separated explicit origins:
 

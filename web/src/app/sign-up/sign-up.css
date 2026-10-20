@@ -1,0 +1,57 @@
+/* Sign-up extends the shared Login shell without changing other auth routes. */
+.parkwise-signup-page .parkwise-login-card {
+    min-height: 600px;
+}
+.parkwise-signup-page .parkwise-login-illustration {
+    max-height: 280px;
+}
+.parkwise-signup-page .parkwise-login-form-panel form {
+    max-width: 470px;
+    gap: 12px;
+}
+.parkwise-signup-page .parkwise-login-form-panel h2 {
+    margin-bottom: 4px;
+}
+.parkwise-signup-two-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+.parkwise-signup-form-panel .parkwise-login-field {
+    min-width: 0;
+    gap: 5px;
+}
+.parkwise-signup-form-panel .parkwise-login-field label {
+    font-size: 14px;
+}
+.parkwise-signup-form-panel .parkwise-login-field label span {
+    color: #b91c1c;
+}
+.parkwise-signup-form-panel .parkwise-login-field input {
+    height: 44px;
+    padding: 10px 14px;
+}
+
+@media (max-width: 767px) {
+    .parkwise-signup-page .parkwise-login-card {
+        min-height: 0;
+    }
+}
+@media (max-width: 520px) {
+    .parkwise-signup-two-columns {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+.parkwise-password-checklist {
+    display: grid;
+    gap: 2px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.parkwise-password-checklist li[data-met="true"] {
+    color: #207d46;
+}

@@ -35,8 +35,9 @@ const initializeTheme = `
 `;
 
 export const metadata: Metadata = {
-    title: "Smart Parking System - Find parking before you arrive",
-    description: "Smart Parking System web application",
+    title: "ParkWise - Find parking before you arrive",
+    description: "ParkWise web application",
+    icons: { icon: "/images/parkwise/logo.png" },
 };
 
 export default function RootLayout({
@@ -45,6 +46,7 @@ export default function RootLayout({
     return (
         <html
             lang="en"
+            data-scroll-behavior="smooth"
             className={`${plusJakartaSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
             suppressHydrationWarning
         >

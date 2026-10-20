@@ -1,8 +1,11 @@
 using FluentValidation;
 using MediatR;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Auditing;
+using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
@@ -37,8 +40,10 @@ public sealed class CancelParkingSessionCommandValidator : AbstractValidator<Can
 
 public sealed class CancelParkingSessionCommandHandler(
     IParkingSessionRepository sessions,
+    IParkingLotAccess lotAccess,
     IAuditLog auditLog,
-    IClock clock) : IRequestHandler<CancelParkingSessionCommand, Result<CancelledParkingSession>>
+    IClock clock,
+    ISlotDesignator slots) : IRequestHandler<CancelParkingSessionCommand, Result<CancelledParkingSession>>
 {
     public async Task<Result<CancelledParkingSession>> Handle(CancelParkingSessionCommand request, CancellationToken cancellationToken)
     {
@@ -46,10 +51,25 @@ public sealed class CancelParkingSessionCommandHandler(
         if (session is null)
             return Result<CancelledParkingSession>.Failure(CancelParkingSessionErrors.SessionNotFound);
 
+        // TECH-12: bãi lấy từ phiên, không tin bãi do client gửi.
+        if (!await lotAccess.CanOperateAsync(request.ActorUserId, session.LotId, cancellationToken))
+            return Result<CancelledParkingSession>.Failure(ParkingLotAccessErrors.AccessDenied);
+
         var previousStatus = session.Status;
         var now = clock.UtcNow;
         if (!session.Cancel(request.ActorUserId, request.Reason, now))
             return Result<CancelledParkingSession>.Failure(CancelParkingSessionErrors.SessionNotActive);
+
+        // The car did not enter, so its slot (car with a slot designated) goes back to Available.
+        var releasedSlotCode = await slots.ReleaseSessionSlotAsync(session.Id, cancellationToken);
+
+        var details = new Dictionary<string, string>
+        {
+            ["fromStatus"] = previousStatus.ToString(),
+            ["toStatus"] = session.Status.ToString()
+        };
+        if (releasedSlotCode is not null)
+            details["releasedSlotCode"] = releasedSlotCode;
 
         // Saved together with the status change, so a cancellation without an audit entry cannot happen.
         auditLog.Record(new AuditEntry(
@@ -60,12 +80,9 @@ public sealed class CancelParkingSessionCommandHandler(
             session.Id.ToString(),
             session.CancelReason!,
             now,
-            new Dictionary<string, string>
-            {
-                ["fromStatus"] = previousStatus.ToString(),
-                ["toStatus"] = session.Status.ToString()
-            }));
+            details));
 
+        // One SaveChanges: session status, slot release and audit entry are committed together.
         await sessions.TrySaveChangesAsync(cancellationToken);
 
         return Result<CancelledParkingSession>.Success(

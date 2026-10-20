@@ -103,7 +103,7 @@ public sealed class SecurityFoundationTests
                 var body = await forbiddenResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
                 Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
                 Assert.Equal(403, body.GetProperty("status").GetInt32());
-                Assert.Equal("Forbidden", body.GetProperty("title").GetString());
+                Assert.Equal("Không có quyền truy cập.", body.GetProperty("title").GetString());
                 Assert.Equal("auth.forbidden", body.GetProperty("errorCode").GetString());
                 Assert.True(body.TryGetProperty("traceId", out _));
                 Assert.True(body.TryGetProperty("correlationId", out _));
@@ -338,7 +338,7 @@ public sealed class SecurityFoundationTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal(401, body.RootElement.GetProperty("status").GetInt32());
-        Assert.Equal("Unauthorized", body.RootElement.GetProperty("title").GetString());
+        Assert.Equal("Chưa đăng nhập.", body.RootElement.GetProperty("title").GetString());
         Assert.Equal("auth.unauthorized", body.RootElement.GetProperty("errorCode").GetString());
         Assert.True(body.RootElement.TryGetProperty("traceId", out _));
         Assert.True(body.RootElement.TryGetProperty("correlationId", out _));
@@ -383,9 +383,41 @@ public sealed class SecurityFoundationTests
         return app;
     }
 
-    private static WebApplicationBuilder CreateBuilder(string publicKeyPath, string allowedOrigins = "")
+    [Theory]
+    [InlineData("Development", true)]
+    [InlineData("Production", false)]
+    public async Task Relative_key_path_is_searched_in_parent_folders_only_in_development(string environment, bool starts)
     {
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        using var keys = new TestJwtKeys();
+        // The key sits in a parent folder of the test output, the way .local/ sits above a project started with `dotnet run`.
+        var folder = $"jwt-parent-{Guid.NewGuid():N}";
+        var parentFolder = Path.Combine(Directory.GetParent(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar))!.FullName, folder);
+        Directory.CreateDirectory(parentFolder);
+        File.Copy(keys.PublicKeyPath, Path.Combine(parentFolder, "public.pem"));
+        try
+        {
+            var builder = CreateBuilder(Path.Combine(folder, "public.pem"), environment: environment);
+            builder.WebHost.UseTestServer();
+            builder.AddParkingSystemWebFoundation();
+            builder.AddParkingSystemSecurity();
+            await using var app = builder.Build();
+
+            var start = () => app.StartAsync(TestContext.Current.CancellationToken);
+            if (starts)
+                await start();
+            else
+                Assert.Contains("JWT public key file does not exist",
+                    (await Assert.ThrowsAsync<Microsoft.Extensions.Options.OptionsValidationException>(start)).Message);
+        }
+        finally
+        {
+            Directory.Delete(parentFolder, recursive: true);
+        }
+    }
+
+    private static WebApplicationBuilder CreateBuilder(string publicKeyPath, string allowedOrigins = "", string environment = "Development")
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment });
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Security:Jwt:Issuer"] = Issuer,

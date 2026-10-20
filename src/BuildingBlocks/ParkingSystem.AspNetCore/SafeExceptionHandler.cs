@@ -24,18 +24,20 @@ internal sealed class SafeExceptionHandler(
         ProblemDetails problem;
         if (exception is ValidationException validationException)
         {
+            // One message per field: validators stop at the first failed rule, so the user sees the reason to fix first.
             var errors = validationException.Errors
                 .GroupBy(failure => string.IsNullOrWhiteSpace(failure.PropertyName) ? "_" : failure.PropertyName)
                 .ToDictionary(
                     group => group.Key,
-                    _ => new[] { "The value is invalid." },
+                    group => new[] { SafeMessage(group.First()) },
                     StringComparer.Ordinal);
+
             problem = new ValidationProblemDetails(errors)
             {
                 Type = "about:blank",
                 Status = StatusCodes.Status400BadRequest,
-                Title = "One or more validation errors occurred.",
-                Detail = "Correct the invalid fields and retry.",
+                Title = "Dữ liệu không hợp lệ.",
+                Detail = string.Join(" ", errors.Values.Select(messages => messages[0])),
                 Instance = context.Request.Path.Value
             };
             SafeProblemDetails.AddRequestExtensions(context, problem, "request.validation_failed");
@@ -44,8 +46,8 @@ internal sealed class SafeExceptionHandler(
         {
             var statusCode = badHttpRequestException.StatusCode;
             problem = SafeProblemDetails.Create(context, statusCode);
-            problem.Title = "Invalid request format.";
-            problem.Detail = "Failed to parse request body. Please ensure the request body is valid JSON.";
+            problem.Title = "Dữ liệu yêu cầu không hợp lệ.";
+            problem.Detail = "Không thể phân tích nội dung yêu cầu. Vui lòng đảm bảo dữ liệu gửi lên là định dạng JSON hợp lệ.";
             SafeProblemDetails.AddRequestExtensions(context, problem, "request.malformed");
         }
         else
@@ -56,8 +58,6 @@ internal sealed class SafeExceptionHandler(
                 exception.GetType().FullName,
                 exceptionDetails));
             problem = SafeProblemDetails.Create(context, StatusCodes.Status500InternalServerError);
-            problem.Title = "An unexpected error occurred.";
-            problem.Detail = "An unexpected error occurred. Please try again later.";
         }
 
         context.Response.Clear();
@@ -80,6 +80,20 @@ internal sealed class SafeExceptionHandler(
                 cancellationToken);
         }
         return true;
+    }
+
+    // A message that echoes the submitted value (a password, a token) is never sent back. Values shorter than 4
+    // characters are skipped: "a" or "6" would match ordinary words of the message and hide a useful reason.
+    private const int MinEchoLength = 4;
+
+    private static string SafeMessage(FluentValidation.Results.ValidationFailure failure)
+    {
+        var attempted = failure.AttemptedValue?.ToString();
+        if (string.IsNullOrWhiteSpace(failure.ErrorMessage) ||
+            (attempted is { Length: >= MinEchoLength } && failure.ErrorMessage.Contains(attempted, StringComparison.OrdinalIgnoreCase)))
+            return "Giá trị không hợp lệ.";
+
+        return failure.ErrorMessage;
     }
 
     private static void TryLog(Action writeLog)

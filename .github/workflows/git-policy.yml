@@ -21,14 +21,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Policy code must come from the trusted target revision.
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: policy
+      - uses: actions/checkout@v4
+        with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          path: candidate
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Test Git policy rules
+        working-directory: policy
         run: python -m unittest discover -s scripts/ci -p 'test_*.py'
       - name: Validate branch, PR title, and new commits
+        working-directory: candidate
         env:
           POLICY_HEAD_BRANCH: ${{ github.head_ref }}
           POLICY_PR_TITLE: ${{ github.event.pull_request.title }}
@@ -36,4 +44,4 @@ jobs:
           POLICY_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           # Historical commits before policy adoption are preserved.
           POLICY_CUTOVER_UTC: "2026-10-06T01:41:50Z"
-        run: python scripts/ci/check_git_policy.py
+        run: python ../policy/scripts/ci/check_git_policy.py

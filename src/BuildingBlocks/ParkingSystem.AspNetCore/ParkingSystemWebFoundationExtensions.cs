@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
@@ -11,8 +12,11 @@ namespace ParkingSystem.AspNetCore;
 
 public static class ParkingSystemWebFoundationExtensions
 {
+    public const string ConsoleFormatterNameKey = "Logging:Console:FormatterName";
+
     public static WebApplicationBuilder AddParkingSystemWebFoundation(this WebApplicationBuilder builder)
     {
+        DevelopmentEnvFile.AddTo(builder);
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped(provider =>
         {
@@ -22,12 +26,28 @@ public static class ParkingSystemWebFoundationExtensions
                 : CorrelationIdMiddleware.GetCorrelationContext(httpContext);
         });
         builder.Services.AddProblemDetails();
+        // Minimal APIs throw on an unreadable body only in Development by default; outside it they return a bare 400
+        // (errorCode http.request_failed). Throwing everywhere gives request.malformed in every environment.
+        builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
         builder.Services.AddExceptionHandler<SafeExceptionHandler>();
 
         builder.Logging.ClearProviders();
         // ASP.NET Core's ambient scope includes the raw RequestPath. The request
         // event writes correlation and trace fields explicitly without that scope.
-        builder.Logging.AddJsonConsole(options => options.IncludeScopes = false);
+        // JSON stays the default (containers, tests); launch profiles opt into the
+        // readable "simple" formatter for local F5 / dotnet run.
+        if (string.Equals(builder.Configuration[ConsoleFormatterNameKey], ConsoleFormatterNames.Simple, StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Logging.AddSimpleConsole(options =>
+            {
+                options.IncludeScopes = false;
+                options.TimestampFormat = "HH:mm:ss ";
+            });
+        }
+        else
+        {
+            builder.Logging.AddJsonConsole(options => options.IncludeScopes = false);
+        }
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
         builder.Logging.AddFilter<ConsoleLoggerProvider>("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogLevel.Warning);
         // The Outbox dispatcher polls every second; executed-SQL logs at Information drown out real errors.

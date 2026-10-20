@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Parking.Application.Common.Messaging.Inbox;
@@ -13,6 +14,7 @@ using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Persistence.ParkingLots;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Persistence.Auditing;
+using ParkingSystem.Parking.Persistence.ParkingLayout;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -42,6 +44,10 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IAuditLog, AuditLog>();
         services.AddScoped<IParkingLotCatalogReader, ParkingLotCatalogReader>();
         services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
+        services.AddScoped<ParkingLotAssignmentRepository>();
+        services.AddScoped<IParkingLotAssignmentRepository>(provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
+        services.AddScoped<IParkingLotAccess>(provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
+        services.AddParkingLayout(configuration);
         return services;
     }
 }

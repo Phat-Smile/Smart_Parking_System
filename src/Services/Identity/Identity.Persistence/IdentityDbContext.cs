@@ -15,6 +15,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<Profile> Profiles => Set<Profile>();
 
+    public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<EmailVerification> EmailVerifications => Set<EmailVerification>();

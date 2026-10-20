@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" fill="none">
+  <defs>
+    <linearGradient id="asphalt" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#344338"/>
+      <stop offset="1" stop-color="#17221b"/>
+    </linearGradient>
+    <symbol id="car" viewBox="0 0 94 29">
+      <rect x="3" y="3" width="88" height="23" rx="7" fill="currentColor"/>
+      <rect x="30" y="5" width="32" height="19" rx="4" fill="#263e38"/>
+      <path d="M33 6h25l4 4H29z" fill="#769889" opacity=".7"/>
+      <circle cx="15" cy="3" r="3" fill="#0a0d0b"/>
+      <circle cx="79" cy="3" r="3" fill="#0a0d0b"/>
+      <circle cx="15" cy="26" r="3" fill="#0a0d0b"/>
+      <circle cx="79" cy="26" r="3" fill="#0a0d0b"/>
+    </symbol>
+  </defs>
+  <g transform="translate(122 54) rotate(-17 290 155) skewX(12)">
+    <rect x="7" y="10" width="580" height="320" rx="9" fill="#080d09" opacity=".65"/>
+    <rect x="0" y="0" width="580" height="320" rx="7" fill="url(#asphalt)" stroke="#526852" stroke-width="3"/>
+    <rect x="18" y="16" width="544" height="288" fill="#141b17"/>
+    <rect x="226" y="19" width="128" height="282" fill="#1c2920"/>
+    <g stroke="#a5ba9f" stroke-width="2" opacity=".75">
+      <path d="M22 20h204M354 20h204M22 66h204M354 66h204M22 112h204M354 112h204M22 158h204M354 158h204M22 204h204M354 204h204M22 250h204M354 250h204M22 298h204M354 298h204"/>
+      <path d="M22 20v278M226 20v278M354 20v278M558 20v278"/>
+    </g>
+    <g fill="#294630" stroke="#a8d66d" stroke-width="2">
+      <rect x="27" y="70" width="194" height="38"/>
+      <rect x="27" y="162" width="194" height="38"/>
+      <rect x="27" y="254" width="194" height="39"/>
+      <rect x="359" y="24" width="194" height="38"/>
+      <rect x="359" y="116" width="194" height="38"/>
+      <rect x="359" y="208" width="194" height="38"/>
+    </g>
+    <g fill="#a5ba9f" opacity=".8">
+      <rect x="288" y="32" width="4" height="22"/>
+      <rect x="288" y="78" width="4" height="22"/>
+      <rect x="288" y="124" width="4" height="22"/>
+      <rect x="288" y="170" width="4" height="22"/>
+      <rect x="288" y="216" width="4" height="22"/>
+      <rect x="288" y="262" width="4" height="22"/>
+    </g>
+    <use href="#car" x="72" y="28" width="100" height="30" color="#eafe89"/>
+    <use href="#car" x="72" y="120" width="100" height="30" color="#98aaa0"/>
+    <use href="#car" x="72" y="212" width="100" height="30" color="#d8e0d1"/>
+    <use href="#car" x="404" y="74" width="100" height="30" color="#b7c989"/>
+    <use href="#car" x="404" y="166" width="100" height="30" color="#748a7c"/>
+    <use href="#car" x="404" y="258" width="100" height="30" color="#a8b8ad"/>
+  </g>
+</svg>

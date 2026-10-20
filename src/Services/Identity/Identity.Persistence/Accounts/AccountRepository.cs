@@ -5,8 +5,18 @@ using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Persistence.Accounts;
 
-internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountRepository
+internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountRepository, IGoogleAccountRepository
 {
+    public async Task<Account?> FindByGoogleSubjectForUpdateAsync(string googleSubject, CancellationToken cancellationToken)
+    {
+        return await dbContext.Accounts
+            .FromSqlInterpolated($"SELECT * FROM identity.accounts WHERE google_subject = {googleSubject} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<Account?> FindByGoogleSubjectAsync(string googleSubject, CancellationToken cancellationToken) =>
+        dbContext.Accounts.SingleOrDefaultAsync(account => account.GoogleSubject == googleSubject, cancellationToken);
+
     public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         dbContext.Accounts.AsNoTracking().AnyAsync(account => account.Email == normalizedEmail, cancellationToken);
 
@@ -16,24 +26,42 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
     public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Accounts.SingleOrDefaultAsync(account => account.Id == id, cancellationToken);
 
+    public async Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return await dbContext.Accounts
+            .FromSqlInterpolated($"SELECT * FROM identity.accounts WHERE id = {id} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
     public void Add(Account account) => dbContext.Accounts.Add(account);
 
-    public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+    public async Task<SaveAccountResult> SaveNewAccountAsync(CancellationToken cancellationToken)
     {
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
-            return true;
+            return SaveAccountResult.Success;
         }
-        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException pg
+            && pg.SqlState == PostgresErrorCodes.UniqueViolation
+            && pg.ConstraintName is AccountConfiguration.EmailIndexName or AccountConfiguration.PhoneNumberIndexName)
         {
-            SqlState: PostgresErrorCodes.UniqueViolation,
-            ConstraintName: AccountConfiguration.EmailIndexName
-        })
-        {
+            if (dbContext.Database.CurrentTransaction is not null)
+            {
+                await dbContext.Database.CurrentTransaction.RollbackAsync(cancellationToken);
+            }
+
             dbContext.ChangeTracker.Clear();
-            return false;
+            return pg.ConstraintName == AccountConfiguration.PhoneNumberIndexName
+                ? SaveAccountResult.DuplicatePhoneConflict
+                : SaveAccountResult.DuplicateEmailConflict;
         }
+    }
+
+    public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
+    {
+        var result = await SaveNewAccountAsync(cancellationToken);
+        return result == SaveAccountResult.Success;
     }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>

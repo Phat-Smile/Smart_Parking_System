@@ -73,6 +73,8 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: http://localhost:5000
+        # US-AUTH-002: same OAuth client ID as identity-api; empty keeps the Google button off.
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     ports:
       - "127.0.0.1:3000:3000"
     networks:
@@ -111,6 +113,10 @@ services:
     expose:
       - "8081"
     <<: *dotnet-service
+    # Identity signs access tokens, so it is the only service that also receives the private key.
+    volumes:
+      - ./.local/security/jwt/public.pem:/run/parking-system/security/jwt/public.pem:ro
+      - ./.local/security/jwt/private.pem:/run/parking-system/security/jwt/private.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -118,6 +124,7 @@ services:
         condition: service_healthy
     environment:
       <<: *jwt-environment
+      Security__Jwt__PrivateKeyPath: /run/parking-system/security/jwt/private.pem
       ASPNETCORE_ENVIRONMENT: Development
       Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
       OTEL_SERVICE_NAME: identity-api
@@ -133,6 +140,10 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      # US-AUTH-002: Google OAuth web client ID; empty switches Google sign-in off (503).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # HMAC pepper for OTP codes; required, Identity refuses to start without it.
+      Security__Otp__Pepper: ${SECURITY_OTP_PEPPER:-}
 
   parking-api:
     build:
@@ -261,6 +272,11 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
 
   ai-service:
     build:

@@ -1,23 +1,36 @@
 import { z } from "zod";
+import { passwordSchema } from "../passwordSchema";
+
+const fullNamePattern = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
+const phonePattern = /^\s*(0|\+84)[35789][0-9]{8}\s*$/;
 
 export const registerSchema = z
     .object({
-        fullName: z.string().trim().min(1, "Full name is required"),
+        fullName: z
+            .string()
+            .trim()
+            .refine(
+                (name) =>
+                    !name ||
+                    (name.length >= 2 &&
+                        name.length <= 100 &&
+                        fullNamePattern.test(name)),
+                "Enter a valid full name (2–100 letters)",
+            ),
         email: z
             .string()
             .trim()
             .min(1, "Email is required")
             .email("Enter a valid email address")
             .max(254, "Email is too long"),
-        password: z
+        password: passwordSchema,
+        phoneNumber: z
             .string()
-            .min(1, "Password is required")
-            .min(8, "Use at least 8 characters")
-            .max(72, "Use no more than 72 characters")
-            .regex(/[A-Z]/, "Include an uppercase letter")
-            .regex(/[a-z]/, "Include a lowercase letter")
-            .regex(/[0-9]/, "Include a number")
-            .regex(/[^A-Za-z0-9]/, "Include a special character"),
+            .trim()
+            .refine(
+                (phone) => !phone || phonePattern.test(phone),
+                "Enter a valid Vietnamese mobile number",
+            ),
         confirmPassword: z.string().min(1, "Confirm your password"),
         agreeTerms: z
             .boolean()

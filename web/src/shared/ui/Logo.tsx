@@ -19,8 +19,8 @@ export function Logo({
                 </span>
             </div>
             {showText && (
-                <span className="font-heading font-bold text-sm tracking-tight text-[#111322] dark:text-white transition-colors">
-                    Smart Parking System
+                <span className="font-heading font-bold text-base tracking-tight text-[#111322] dark:text-white transition-colors">
+                    ParkWise
                 </span>
             )}
         </div>
