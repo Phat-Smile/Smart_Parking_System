@@ -54,6 +54,24 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("lockout_end_utc");
 
+                    b.Property<string>("OwnerApplicationStatus")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("owner_application_status");
+
+                    b.Property<string>("OwnerRejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("owner_rejection_reason");
+
+                    b.Property<DateTimeOffset?>("OwnerReviewedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("owner_reviewed_at_utc");
+
+                    b.Property<Guid?>("OwnerReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_reviewed_by");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -96,6 +114,10 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_accounts_google_subject")
                         .HasFilter("google_subject IS NOT NULL");
+
+                    b.HasIndex("OwnerApplicationStatus")
+                        .HasDatabaseName("ix_accounts_owner_application_status")
+                        .HasFilter("owner_application_status IS NOT NULL");
 
                     b.HasIndex("PhoneNumber")
                         .IsUnique()

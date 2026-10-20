@@ -9,6 +9,7 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
     internal const string EmailIndexName = "ux_accounts_email";
     internal const string PhoneNumberIndexName = "ux_accounts_phone_number";
     internal const string GoogleSubjectIndexName = "ux_accounts_google_subject";
+    internal const string OwnerApplicationStatusIndexName = "ix_accounts_owner_application_status";
 
     public void Configure(EntityTypeBuilder<Account> builder)
     {
@@ -26,6 +27,10 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(account => account.PhoneNumber).HasColumnName("phone_number").HasMaxLength(16);
         builder.Property(account => account.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(account => account.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(32).HasDefaultValue(AccountRole.Customer).IsRequired();
+        builder.Property(account => account.OwnerApplicationStatus).HasColumnName("owner_application_status").HasConversion<string>().HasMaxLength(32);
+        builder.Property(account => account.OwnerRejectionReason).HasColumnName("owner_rejection_reason").HasMaxLength(500);
+        builder.Property(account => account.OwnerReviewedAtUtc).HasColumnName("owner_reviewed_at_utc");
+        builder.Property(account => account.OwnerReviewedBy).HasColumnName("owner_reviewed_by");
         builder.Property(account => account.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
         builder.Property(account => account.FailedLoginAttempts).HasColumnName("failed_login_attempts").HasDefaultValue(0).IsRequired();
         builder.Property(account => account.LockoutEndUtc).HasColumnName("lockout_end_utc");
@@ -35,5 +40,8 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
             .IsUnique()
             .HasFilter("phone_number IS NOT NULL")
             .HasDatabaseName(PhoneNumberIndexName);
+        builder.HasIndex(account => account.OwnerApplicationStatus)
+            .HasFilter("owner_application_status IS NOT NULL")
+            .HasDatabaseName(OwnerApplicationStatusIndexName);
     }
 }

@@ -20,6 +20,7 @@ using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 using ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
 using ParkingSystem.Identity.Application.Accounts.Admin.SearchAccounts;
 using ParkingSystem.Identity.Application.Accounts.Admin.SuspendAccount;
+using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
 using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
 using ParkingSystem.Identity.Application.Vehicles.GetVehicles;
@@ -58,7 +59,21 @@ internal static class AccountEndpoints
         /// [Tùy chọn] Số điện thoại di động Việt Nam (10 chữ số, bắt đầu bằng 0 hoặc +84).
         /// </summary>
         /// <example>0912345678</example>
-        string? PhoneNumber);
+        string? PhoneNumber,
+
+        /// <summary>
+        /// [Tùy chọn] Loại tài khoản đăng ký: "Customer" (mặc định) hoặc "ParkingLotOwner".
+        /// </summary>
+        /// <example>Customer</example>
+        string? AccountType = null);
+
+    /// <summary>
+    /// Dữ liệu yêu cầu từ chối hồ sơ đăng ký chủ bãi.
+    /// </summary>
+    public sealed record RejectOwnerApplicationRequest(
+        /// <summary>[Bắt buộc] Lý do từ chối (1-500 ký tự).</summary>
+        /// <example>Hồ sơ thiếu giấy phép kinh doanh bãi đỗ xe hợp lệ.</example>
+        string Reason);
     /// <summary>
     /// Dữ liệu yêu cầu xác thực email bằng mã OTP.
     /// </summary>
@@ -254,7 +269,8 @@ internal static class AccountEndpoints
                         request.FullName,
                         request.Email,
                         request.Password,
-                        request.PhoneNumber),
+                        request.PhoneNumber,
+                        request.AccountType),
                     cancellationToken);
 
                 if (!result.IsSuccess)
@@ -899,6 +915,180 @@ internal static class AccountEndpoints
             .WithSummary("Danh sách phương tiện của tài khoản")
             .Produces<GetVehiclesResult>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
+
+        // US-ADMIN-001: Lấy thông tin trạng thái xét duyệt Chủ bãi của tài khoản hiện tại.
+        app.MapGet("/api/identity/accounts/me/owner-application", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new GetMyOwnerApplicationQuery(accountId), cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status404NotFound,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization()
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("GetMyOwnerApplication")
+            .WithSummary("Xem trạng thái xét duyệt Chủ bãi của tài khoản")
+            .Produces<MyOwnerApplicationDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-ADMIN-001: Gửi lại đơn xét duyệt Chủ bãi sau khi bị từ chối.
+        app.MapPost("/api/identity/accounts/me/owner-application/resubmit", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new ResubmitOwnerApplicationCommand(accountId), cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    var statusCode = result.Error!.Code switch
+                    {
+                        "identity.owner_application_not_found" => StatusCodes.Status404NotFound,
+                        _ => StatusCodes.Status409Conflict
+                    };
+
+                    return Results.Problem(
+                        statusCode: statusCode,
+                        title: result.Error.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization()
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("ResubmitOwnerApplication")
+            .WithSummary("Gửi lại đơn xét duyệt Chủ bãi")
+            .Produces<OwnerApplicationActionResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
+        // US-ADMIN-001: Danh sách hồ sơ xét duyệt Chủ bãi (Dành cho Quản trị viên).
+        app.MapGet("/api/identity/admin/owner-applications", async (
+                string? status,
+                int page,
+                int pageSize,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var query = new ListOwnerApplicationsQuery(status, page <= 0 ? 1 : page, pageSize <= 0 ? 20 : pageSize);
+                var result = await sender.Send(query, cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("ListOwnerApplications")
+            .WithSummary("Danh sách đơn xét duyệt Chủ bãi (Admin)")
+            .Produces<ListOwnerApplicationsResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        // US-ADMIN-001: Phê duyệt hồ sơ đăng ký Chủ bãi (Dành cho Quản trị viên).
+        app.MapPost("/api/identity/admin/owner-applications/{id:guid}/approve", async (
+                Guid id,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new ApproveOwnerApplicationCommand(adminId, id), cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    var statusCode = result.Error!.Code switch
+                    {
+                        "identity.owner_application_not_found" => StatusCodes.Status404NotFound,
+                        _ => StatusCodes.Status409Conflict
+                    };
+
+                    return Results.Problem(
+                        statusCode: statusCode,
+                        title: result.Error.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("ApproveOwnerApplication")
+            .WithSummary("Phê duyệt hồ sơ Chủ bãi (Admin)")
+            .Produces<OwnerApplicationActionResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
+        // US-ADMIN-001: Từ chối hồ sơ đăng ký Chủ bãi kèm lý do (Dành cho Quản trị viên).
+        app.MapPost("/api/identity/admin/owner-applications/{id:guid}/reject", async (
+                Guid id,
+                RejectOwnerApplicationRequest request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new RejectOwnerApplicationCommand(adminId, id, request.Reason), cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    var statusCode = result.Error!.Code switch
+                    {
+                        "identity.owner_application_not_found" => StatusCodes.Status404NotFound,
+                        "identity.owner_reject_reason_required" => StatusCodes.Status400BadRequest,
+                        _ => StatusCodes.Status409Conflict
+                    };
+
+                    return Results.Problem(
+                        statusCode: statusCode,
+                        title: result.Error.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("RejectOwnerApplication")
+            .WithSummary("Từ chối hồ sơ Chủ bãi (Admin)")
+            .Produces<OwnerApplicationActionResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
 
         return app;
     }

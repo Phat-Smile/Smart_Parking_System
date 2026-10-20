@@ -48,8 +48,9 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-        services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();
-        services.AddScoped<IAdminAccountQueries, AdminAccountQueries>();
+        services.AddScoped<AdminAccountQueries>();
+        services.AddScoped<IAdminAccountQueries>(provider => provider.GetRequiredService<AdminAccountQueries>());
+        services.AddScoped<IOwnerApplicationQueries>(provider => provider.GetRequiredService<AdminAccountQueries>());
         services.AddScoped<IVehicleRepository, VehicleRepository>();
 
         // Register DB-backed vehicle lookup when provider = "Database"; Infrastructure registers the Stub otherwise.
