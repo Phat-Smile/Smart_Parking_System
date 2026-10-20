@@ -38,6 +38,13 @@ public sealed class Profile
         UpdatedAtUtc = updatedAtUtc;
     }
 
+    public void ClearIdentity(DateTimeOffset updatedAtUtc)
+    {
+        CitizenIdNumber = null;
+        DriverLicenseNumber = null;
+        UpdatedAtUtc = updatedAtUtc;
+    }
+
     public static Profile Create(
         Guid accountId,
         string fullName,

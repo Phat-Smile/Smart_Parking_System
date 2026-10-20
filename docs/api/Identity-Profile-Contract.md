@@ -91,13 +91,15 @@ Lấy chi tiết hồ sơ cá nhân của tài khoản hiện tại (bao gồm c
 
 ### Phản Hồi Thành Công (`200 OK`)
 
+> **Lưu ý bảo mật (US-PRIV-002):** API tuyệt đối không trả số CCCD/GPLX đầy đủ. Dữ liệu trả về luôn được che tự động (masking), chỉ hiển thị 4 ký tự cuối (ví dụ: `********2345` cho CCCD, `*****012` cho GPLX).
+
 | Trường | Kiểu | Ý nghĩa |
 | :--- | :---: | :--- |
 | `accountId` | `string (UUID)` | ID tài khoản |
 | `fullName` | `string` | Họ và tên |
 | `dateOfBirth` | `string` hoặc `null` | Ngày sinh (yyyy-MM-dd) |
-| `citizenIdNumber` | `string` hoặc `null` | Số CCCD/CMND |
-| `driverLicenseNumber` | `string` hoặc `null` | Số bằng lái xe |
+| `citizenIdNumber` | `string` hoặc `null` | Số CCCD/CMND đã che (`********2345`) |
+| `driverLicenseNumber` | `string` hoặc `null` | Số bằng lái xe đã che (`*****012`) |
 | `avatarUrl` | `string` hoặc `null` | URL ảnh đại diện |
 | `createdAtUtc` | `string (ISO-8601)` | Thời điểm tạo hồ sơ |
 | `updatedAtUtc` | `string` hoặc `null` | Thời điểm cập nhật lần cuối |
@@ -107,8 +109,8 @@ Lấy chi tiết hồ sơ cá nhân của tài khoản hiện tại (bao gồm c
   "accountId": "a3bb108e-17d4-4a6c-9f87-2a54e9912345",
   "fullName": "Nguyễn Văn A",
   "dateOfBirth": "1995-05-20",
-  "citizenIdNumber": "079095012345",
-  "driverLicenseNumber": "B1-079095012",
+  "citizenIdNumber": "********2345",
+  "driverLicenseNumber": "*****012",
   "avatarUrl": "https://example.com/avatars/user123.jpg",
   "createdAtUtc": "2026-10-15T08:00:00Z",
   "updatedAtUtc": "2026-10-15T09:30:00Z"
@@ -124,7 +126,29 @@ Lấy chi tiết hồ sơ cá nhân của tài khoản hiện tại (bao gồm c
 
 ---
 
-## 4. TypeScript Interface
+## 4. DELETE /api/identity/accounts/me/profile/identity
+
+Xóa triệt để thông tin định danh cá nhân nhạy cảm (`citizenIdNumber` và `driverLicenseNumber`) khỏi hồ sơ cá nhân theo tiêu chuẩn quyền riêng tư dữ liệu **US-PRIV-002**. Sau khi xóa, mọi chức năng khác (đăng nhập, tìm bãi, xe, phiên) vẫn hoạt động hoàn toàn bình thường.
+
+| Thuộc tính | Chi tiết |
+| :--- | :--- |
+| **HTTP Method** | `DELETE` |
+| **URL Path** | `/api/identity/accounts/me/profile/identity` |
+| **Auth** | 🔴 **BẮT BUỘC** — `Bearer <access_token>` |
+
+### Phản Hồi Thành Công (`204 No Content`)
+- Thành công: HTTP 204 không có body.
+
+### Mã Lỗi
+
+| HTTP Status | Error Code | Nguyên nhân |
+| :---: | :--- | :--- |
+| `401 Unauthorized` | — | Thiếu hoặc token hết hạn |
+| `404 Not Found` | `identity.account_not_found` | Tài khoản không tồn tại |
+
+---
+
+## 5. TypeScript Interface
 
 ```typescript
 export interface UpsertProfileRequest {
@@ -139,8 +163,8 @@ export interface ProfileResponse {
   accountId: string;
   fullName: string;
   dateOfBirth: string | null;
-  citizenIdNumber: string | null;
-  driverLicenseNumber: string | null;
+  citizenIdNumber: string | null;     // Masked: "********2345"
+  driverLicenseNumber: string | null; // Masked: "*****012"
   avatarUrl: string | null;
   createdAtUtc: string;
   updatedAtUtc: string | null;

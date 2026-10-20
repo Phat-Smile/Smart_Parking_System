@@ -21,6 +21,7 @@ using ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
 using ParkingSystem.Identity.Application.Accounts.Admin.SearchAccounts;
 using ParkingSystem.Identity.Application.Accounts.Admin.SuspendAccount;
 using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
+using ParkingSystem.Identity.Application.Profiles.DeleteProfileIdentity;
 using ParkingSystem.Identity.Application.Profiles.GetMyProfile;
 using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
@@ -912,6 +913,35 @@ internal static class AccountEndpoints
             .WithSummary("Xem chi tiết hồ sơ cá nhân")
             .WithDescription("Lấy thông tin hồ sơ của tài khoản đang đăng nhập (họ tên, ngày sinh, CCCD, bằng lái, avatar).")
             .Produces<ProfileResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-PRIV-002: Xóa thông tin định danh (CCCD/GPLX) khỏi hồ sơ cá nhân.
+        app.MapDelete("/api/identity/accounts/me/profile/identity", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new DeleteProfileIdentityCommand(accountId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.NoContent();
+
+                return Results.Problem(
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: result.Error!.Message,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")
+            .WithName("DeleteProfileIdentity")
+            .WithSummary("Xóa thông tin định danh (CCCD/GPLX)")
+            .WithDescription("Xóa triệt để số CCCD và GPLX khỏi hồ sơ tài khoản theo quyền riêng tư (US-PRIV-002). Sau khi xóa, người dùng vẫn tiếp tục sử dụng các chức năng bình thường.")
+            .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 

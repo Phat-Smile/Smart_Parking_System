@@ -107,6 +107,21 @@ public sealed class ProfileDomainTests
         Assert.Null(profile.DriverLicenseNumber);
         Assert.Equal(Now.AddDays(1), profile.UpdatedAtUtc);
     }
+
+    [Fact]
+    public void ClearIdentity_removes_both_cccd_and_driver_license_and_updates_timestamp()
+    {
+        var profile = Profile.Create(Guid.NewGuid(), "User", Now, new DateOnly(1990, 1, 1), "012345678901", "B123456", "https://a.example/x.png");
+
+        profile.ClearIdentity(Now.AddHours(2));
+
+        Assert.Equal("User", profile.FullName);
+        Assert.Equal(new DateOnly(1990, 1, 1), profile.DateOfBirth);
+        Assert.Null(profile.CitizenIdNumber);
+        Assert.Null(profile.DriverLicenseNumber);
+        Assert.Equal("https://a.example/x.png", profile.AvatarUrl);
+        Assert.Equal(Now.AddHours(2), profile.UpdatedAtUtc);
+    }
 }
 
 public sealed class AddVehicleHandlerTests

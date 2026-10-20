@@ -30,8 +30,8 @@ public sealed class GetMyProfileQueryHandler(
                 profile.AccountId,
                 profile.FullName,
                 profile.DateOfBirth,
-                profile.CitizenIdNumber,
-                profile.DriverLicenseNumber,
+                IdentityMaskingHelper.MaskCitizenId(profile.CitizenIdNumber),
+                IdentityMaskingHelper.MaskDriverLicense(profile.DriverLicenseNumber),
                 profile.AvatarUrl,
                 profile.CreatedAtUtc,
                 profile.UpdatedAtUtc));

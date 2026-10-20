@@ -35,8 +35,11 @@ public sealed class GetMyProfileQueryTests
         Assert.Equal(AccountId, result.Value!.AccountId);
         Assert.Equal("Nguyen Van Test", result.Value.FullName);
         Assert.Equal(new DateOnly(1995, 5, 20), result.Value.DateOfBirth);
-        Assert.Equal("079201234567", result.Value.CitizenIdNumber);
-        Assert.Equal("B2-123456", result.Value.DriverLicenseNumber);
+        // US-PRIV-002: API must never return raw CCCD/GPLX numbers; they must be masked.
+        Assert.Equal("********4567", result.Value.CitizenIdNumber);
+        Assert.Equal("*****3456", result.Value.DriverLicenseNumber);
+        Assert.NotEqual("079201234567", result.Value.CitizenIdNumber);
+        Assert.NotEqual("B2-123456", result.Value.DriverLicenseNumber);
         Assert.Equal("https://example.com/avatar.png", result.Value.AvatarUrl);
     }
 
