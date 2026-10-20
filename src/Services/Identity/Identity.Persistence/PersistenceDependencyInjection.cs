@@ -46,6 +46,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<AccountRepository>();
         services.AddScoped<IAccountRepository>(provider => provider.GetRequiredService<AccountRepository>());
         services.AddScoped<IGoogleAccountRepository>(provider => provider.GetRequiredService<AccountRepository>());
+        services.AddScoped<IEmailVerificationRepository, EmailVerificationRepository>();
         services.AddScoped<IProfileRepository, ProfileRepository>();
         services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
