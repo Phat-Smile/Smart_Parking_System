@@ -6,6 +6,7 @@ namespace ParkingSystem.Parking.Persistence.ParkingLots;
 
 internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<ParkingLot>
 {
+    internal const string OwnerNameUniqueIndex = "ux_parking_lots_owner_user_id_name";
     public void Configure(EntityTypeBuilder<ParkingLot> builder)
     {
         builder.ToTable("parking_lots", ParkingDbContext.DefaultSchema);
@@ -14,6 +15,10 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
         builder.Property(parkingLot => parkingLot.Id)
             .HasColumnName("id")
             .ValueGeneratedNever();
+        // Optional only for legacy catalog rows and S1 seeded lots.
+        builder.Property(parkingLot => parkingLot.OwnerUserId)
+            .HasColumnName("owner_user_id");
+
         builder.Property(parkingLot => parkingLot.Name)
             .HasColumnName("name")
             .IsRequired();
@@ -38,6 +43,14 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
             .HasConversion<string>()
             .HasMaxLength(32)
             .IsRequired();
+
+        builder.HasIndex(parkingLot => parkingLot.OwnerUserId)
+            .HasDatabaseName("ix_parking_lots_owner_user_id");
+
+        // Nullable owner IDs on legacy S1 rows do not conflict in PostgreSQL.
+        builder.HasIndex(parkingLot => new { parkingLot.OwnerUserId, parkingLot.Name })
+            .IsUnique()
+            .HasDatabaseName(OwnerNameUniqueIndex);
 
         builder.HasIndex(parkingLot => new { parkingLot.ApprovalStatus, parkingLot.Name })
             .HasDatabaseName("ix_parking_lots_approval_status_name");
