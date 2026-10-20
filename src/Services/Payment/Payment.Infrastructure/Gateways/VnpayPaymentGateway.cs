@@ -1,0 +1,95 @@
+using System.Globalization;
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Options;
+using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Application.Common.Options;
+
+namespace ParkingSystem.Payment.Infrastructure.Gateways;
+
+public class VnpayPaymentGateway : IPaymentGateway
+{
+    private readonly VnpayOptions _options;
+
+    public VnpayPaymentGateway(IOptions<VnpayOptions> options)
+    {
+        _options = options.Value;
+    }
+
+    public string CreatePaymentUrl(
+        string txnRef,
+        decimal amount,
+        DateTimeOffset expiresAtUtc,
+        string clientIp)
+    {
+        var vnpayParams = new SortedList<string, string>(
+            Comparer<string>.Create((x, y) => string.Compare(x, y, CultureInfo.InvariantCulture, CompareOptions.Ordinal)))
+        {
+            ["vnp_Version"] = "2.1.0",
+            ["vnp_Command"] = "pay",
+            ["vnp_TmnCode"] = _options.TmnCode,
+            ["vnp_Amount"] = ((long)Math.Round(amount * 100)).ToString(CultureInfo.InvariantCulture),
+            ["vnp_CreateDate"] = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
+            ["vnp_CurrCode"] = "VND",
+            ["vnp_IpAddr"] = NormalizeIp(clientIp),
+            ["vnp_Locale"] = "vn",
+            ["vnp_OrderInfo"] = $"Nap tien vi {txnRef}",
+            ["vnp_OrderType"] = "other",
+            ["vnp_ReturnUrl"] = _options.ReturnUrl,
+            ["vnp_TxnRef"] = txnRef,
+            ["vnp_ExpireDate"] = expiresAtUtc.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)
+        };
+
+        var queryString = new StringBuilder();
+        var rawData = new StringBuilder();
+
+        foreach (var (key, value) in vnpayParams)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                continue;
+            }
+
+            if (queryString.Length > 0)
+            {
+                queryString.Append('&');
+                rawData.Append('&');
+            }
+
+            var encodedKey = WebUtility.UrlEncode(key);
+            var encodedValue = WebUtility.UrlEncode(value);
+
+            queryString.Append(encodedKey).Append('=').Append(encodedValue);
+            rawData.Append(encodedKey).Append('=').Append(encodedValue);
+        }
+
+        var secureHash = ComputeHmacSha512(_options.HashSecret, rawData.ToString());
+        return $"{_options.BaseUrl}?{queryString}&vnp_SecureHash={secureHash}";
+    }
+
+    private static string NormalizeIp(string clientIp)
+    {
+        if (string.IsNullOrWhiteSpace(clientIp) || clientIp == "::1")
+        {
+            return "127.0.0.1";
+        }
+
+        return clientIp;
+    }
+
+    private static string ComputeHmacSha512(string secret, string data)
+    {
+        if (string.IsNullOrEmpty(secret))
+        {
+            return string.Empty;
+        }
+
+        var keyBytes = Encoding.UTF8.GetBytes(secret);
+        var dataBytes = Encoding.UTF8.GetBytes(data);
+
+        using var hmac = new HMACSHA512(keyBytes);
+        var hashBytes = hmac.ComputeHash(dataBytes);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+}
