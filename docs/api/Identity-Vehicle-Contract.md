@@ -110,7 +110,36 @@ Trả về mảng các phương tiện (có thể rỗng):
 
 ---
 
-## 4. TypeScript Interface
+## 4. DELETE /api/identity/accounts/me/vehicles/{vehicleId}
+
+Xóa một phương tiện khỏi danh sách xe của tài khoản hiện tại. Chỉ chủ sở hữu phương tiện mới có quyền thực hiện.
+
+| Thuộc tính | Chi tiết |
+| :--- | :--- |
+| **HTTP Method** | `DELETE` |
+| **URL Path** | `/api/identity/accounts/me/vehicles/{vehicleId}` |
+| **Auth** | 🔴 **BẮT BUỘC** — `Bearer <access_token>` |
+
+### Tham Số Đường Dẫn (Route Parameters)
+
+| Tham số | Kiểu | Mô tả |
+| :--- | :---: | :--- |
+| `vehicleId` | `string (UUID)` | ID của phương tiện cần xóa |
+
+### Phản Hồi Thành Công (`204 No Content`)
+
+Phương tiện đã được xóa thành công. Không có dữ liệu trả về trong body.
+
+### Mã Lỗi
+
+| HTTP Status | Error Code | Nguyên nhân |
+| :---: | :--- | :--- |
+| `401 Unauthorized` | — | Thiếu hoặc token hết hạn |
+| `404 Not Found` | `identity.vehicle_not_found` | Phương tiện không tồn tại hoặc không thuộc quyền sở hữu của bạn |
+
+---
+
+## 5. TypeScript Interface
 
 ```typescript
 export type VehicleType = 'Car' | 'Motorbike';
@@ -130,3 +159,4 @@ export interface VehicleResponse {
   createdAtUtc: string;
 }
 ```
+

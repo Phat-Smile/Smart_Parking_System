@@ -79,7 +79,52 @@ Endpoint cho phép người dùng đã đăng nhập tạo hoặc cập nhật h
 
 ---
 
-## 3. TypeScript Interface
+## 3. GET /api/identity/accounts/me/profile
+
+Lấy chi tiết hồ sơ cá nhân của tài khoản hiện tại (bao gồm cả CCCD, bằng lái, ngày sinh và ảnh đại diện). Nếu tài khoản chưa tạo hồ sơ, hệ thống sẽ trả về bản ghi mặc định với `fullName` lấy từ bảng Account và các trường chi tiết là `null`.
+
+| Thuộc tính | Chi tiết |
+| :--- | :--- |
+| **HTTP Method** | `GET` |
+| **URL Path** | `/api/identity/accounts/me/profile` |
+| **Auth** | 🔴 **BẮT BUỘC** — `Bearer <access_token>` |
+
+### Phản Hồi Thành Công (`200 OK`)
+
+| Trường | Kiểu | Ý nghĩa |
+| :--- | :---: | :--- |
+| `accountId` | `string (UUID)` | ID tài khoản |
+| `fullName` | `string` | Họ và tên |
+| `dateOfBirth` | `string` hoặc `null` | Ngày sinh (yyyy-MM-dd) |
+| `citizenIdNumber` | `string` hoặc `null` | Số CCCD/CMND |
+| `driverLicenseNumber` | `string` hoặc `null` | Số bằng lái xe |
+| `avatarUrl` | `string` hoặc `null` | URL ảnh đại diện |
+| `createdAtUtc` | `string (ISO-8601)` | Thời điểm tạo hồ sơ |
+| `updatedAtUtc` | `string` hoặc `null` | Thời điểm cập nhật lần cuối |
+
+```json
+{
+  "accountId": "a3bb108e-17d4-4a6c-9f87-2a54e9912345",
+  "fullName": "Nguyễn Văn A",
+  "dateOfBirth": "1995-05-20",
+  "citizenIdNumber": "079095012345",
+  "driverLicenseNumber": "B1-079095012",
+  "avatarUrl": "https://example.com/avatars/user123.jpg",
+  "createdAtUtc": "2026-10-15T08:00:00Z",
+  "updatedAtUtc": "2026-10-15T09:30:00Z"
+}
+```
+
+### Mã Lỗi
+
+| HTTP Status | Error Code | Nguyên nhân |
+| :---: | :--- | :--- |
+| `401 Unauthorized` | — | Thiếu hoặc token hết hạn |
+| `404 Not Found` | `identity.account_not_found` | Tài khoản không tồn tại |
+
+---
+
+## 4. TypeScript Interface
 
 ```typescript
 export interface UpsertProfileRequest {
@@ -101,3 +146,4 @@ export interface ProfileResponse {
   updatedAtUtc: string | null;
 }
 ```
+
