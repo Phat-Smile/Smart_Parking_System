@@ -37,6 +37,10 @@ public sealed class ParkingSession
     public Guid? VehicleId { get; private set; }
     public Guid? ReservationId { get; private set; }
 
+    // US-PARK-008: the motorbike zone whose space this session took, so the exit flow can give it back.
+    // Null for cars until slot designation (US-PARK-004/007) records their zone.
+    public Guid? ZoneId { get; private set; }
+
     public CustomerType CustomerType =>
         ReservationId is not null ? CustomerType.Booking
         : UserId is not null ? CustomerType.RegisteredWalkIn
@@ -50,7 +54,8 @@ public sealed class ParkingSession
         DateTimeOffset entryTime,
         string qrToken,
         Guid? userId,
-        Guid? vehicleId)
+        Guid? vehicleId,
+        Guid? zoneId = null)
     {
         return new ParkingSession
         {
@@ -62,7 +67,8 @@ public sealed class ParkingSession
             EntryTime = entryTime,
             QrToken = qrToken,
             UserId = userId,
-            VehicleId = vehicleId
+            VehicleId = vehicleId,
+            ZoneId = zoneId
         };
     }
 
