@@ -225,6 +225,7 @@ internal sealed class FakeVehicles : IVehicleRepository
     public SaveVehicleResult SaveResult { get; set; } = SaveVehicleResult.Success;
 
     public void Add(Vehicle vehicle) => Items.Add(vehicle);
+    public void Remove(Vehicle vehicle) => Items.Remove(vehicle);
     public Task<Vehicle?> FindByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(Items.FirstOrDefault(v => v.Id == id));
     public Task<Vehicle?> FindByAccountAndPlateAsync(Guid accountId, string plate, CancellationToken ct) =>
         Task.FromResult(Items.FirstOrDefault(v => v.AccountId == accountId && v.LicensePlate == plate));

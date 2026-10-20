@@ -84,6 +84,22 @@ public sealed class GetMeTests
         Assert.True(result.Value.GoogleLinked);
     }
 
+    [Fact]
+    public async Task Returns_owner_application_status()
+    {
+        var accountId = Guid.NewGuid();
+        var account = Account.Register(accountId, "applicant@test.com", "hashedpw", null, Now, applyAsParkingLotOwner: true);
+
+        var handler = new GetMeQueryHandler(
+            new FakeAccountRepository(account),
+            new FakeProfileRepository(null));
+
+        var result = await handler.Handle(new GetMeQuery(accountId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Pending", result.Value!.OwnerApplicationStatus);
+    }
+
     private sealed class FakeAccountRepository(Account? account) : IAccountRepository
     {
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(account?.Id == id ? account : null);

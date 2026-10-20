@@ -21,8 +21,10 @@ using ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
 using ParkingSystem.Identity.Application.Accounts.Admin.SearchAccounts;
 using ParkingSystem.Identity.Application.Accounts.Admin.SuspendAccount;
 using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
+using ParkingSystem.Identity.Application.Profiles.GetMyProfile;
 using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
+using ParkingSystem.Identity.Application.Vehicles.DeleteVehicle;
 using ParkingSystem.Identity.Application.Vehicles.GetVehicles;
 using ParkingSystem.Identity.WebAPI.Security;
 
@@ -885,6 +887,34 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
+        // US-PROFILE-001: Get the current user's profile.
+        app.MapGet("/api/identity/accounts/me/profile", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new GetMyProfileQuery(accountId), cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : Results.Problem(
+                        statusCode: StatusCodes.Status404NotFound,
+                        title: result.Error!.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")
+            .WithName("GetMyProfile")
+            .WithSummary("Xem chi tiết hồ sơ cá nhân")
+            .WithDescription("Lấy thông tin hồ sơ của tài khoản đang đăng nhập (họ tên, ngày sinh, CCCD, bằng lái, avatar).")
+            .Produces<ProfileResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
         // US-VEH-001: Add a vehicle to the current account.
         app.MapPost("/api/identity/accounts/me/vehicles", async (
                 AddVehicleRequest request,
@@ -944,6 +974,45 @@ internal static class AccountEndpoints
             .WithSummary("Danh sách phương tiện của tài khoản")
             .Produces<GetVehiclesResult>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
+
+        // US-VEH-001: Delete a vehicle from the current account.
+        app.MapDelete("/api/identity/accounts/me/vehicles/{vehicleId:guid}", async (
+                Guid vehicleId,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new DeleteVehicleCommand(accountId, vehicleId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error!.Code switch
+                {
+                    "identity.vehicle_forbidden" => StatusCodes.Status403Forbidden,
+                    "identity.vehicle_not_found" => StatusCodes.Status404NotFound,
+                    "identity.account_not_found" => StatusCodes.Status404NotFound,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: result.Error.Message,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("6. Phương tiện (Vehicles)")
+            .WithName("DeleteVehicle")
+            .WithSummary("Xóa phương tiện khỏi tài khoản")
+            .WithDescription("Xóa phương tiện đã đăng ký. Chỉ chủ sở hữu phương tiện mới có quyền xóa.")
+            .Produces<DeletedVehicleResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
 
         // US-ADMIN-001: Lấy thông tin trạng thái xét duyệt Chủ bãi của tài khoản hiện tại.
         app.MapGet("/api/identity/accounts/me/owner-application", async (

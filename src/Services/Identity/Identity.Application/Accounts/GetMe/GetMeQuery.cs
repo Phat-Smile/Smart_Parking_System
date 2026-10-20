@@ -16,7 +16,8 @@ public sealed record MeResult(
     string Status,
     bool HasPassword,
     bool GoogleLinked,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    string OwnerApplicationStatus = "None");
 
 public static class GetMeErrors
 {
@@ -45,6 +46,7 @@ public sealed class GetMeQueryHandler(
             account.Status.ToString(),
             account.HasPassword,
             account.GoogleSubject is not null,
-            account.CreatedAtUtc));
+            account.CreatedAtUtc,
+            account.OwnerApplicationStatus?.ToString() ?? "None"));
     }
 }

@@ -12,6 +12,8 @@ public interface IVehicleRepository
 {
     void Add(Vehicle vehicle);
 
+    void Remove(Vehicle vehicle);
+
     Task<Vehicle?> FindByIdAsync(Guid vehicleId, CancellationToken cancellationToken);
 
     Task<Vehicle?> FindByAccountAndPlateAsync(Guid accountId, string normalizedPlate, CancellationToken cancellationToken);

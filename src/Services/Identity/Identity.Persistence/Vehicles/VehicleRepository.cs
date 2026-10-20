@@ -9,6 +9,8 @@ internal sealed class VehicleRepository(IdentityDbContext dbContext) : IVehicleR
 {
     public void Add(Vehicle vehicle) => dbContext.Vehicles.Add(vehicle);
 
+    public void Remove(Vehicle vehicle) => dbContext.Vehicles.Remove(vehicle);
+
     public Task<Vehicle?> FindByIdAsync(Guid vehicleId, CancellationToken cancellationToken) =>
         dbContext.Vehicles.FirstOrDefaultAsync(v => v.Id == vehicleId, cancellationToken);
 
