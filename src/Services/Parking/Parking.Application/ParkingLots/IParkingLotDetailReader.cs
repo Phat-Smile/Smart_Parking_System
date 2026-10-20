@@ -1,3 +1,5 @@
+using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
+
 namespace ParkingSystem.Parking.Application.ParkingLots;
 
 public interface IParkingLotDetailReader
@@ -11,4 +13,5 @@ public sealed record ParkingLotDetail(
     string Address,
     decimal Latitude,
     decimal Longitude,
-    string Type);
+    string Type,
+    WeeklyOpeningHours? OpeningHours = null);

@@ -7,7 +7,7 @@ internal static class ParkingAuthorization
     public const string ParkingLotOwnerPolicy = "parking-lot-owner";
     public const string AdminPolicy = "parking-system-admin";
     public const string SystemAdminPolicy = "parking-admin";
-
+    public const string OwnerPolicy = ParkingLotOwnerPolicy;
     public const string RoleClaimType = "role";
 
     public const string StaffRole = "Staff";

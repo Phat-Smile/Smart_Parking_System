@@ -81,4 +81,12 @@ public sealed class ParkingLot
         RejectionReason = reason.Trim();
         return true;
     }
+
+    public string? OpeningHoursJson { get; private set; }
+
+    public void SetOpeningHours(string openingHoursJson)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(openingHoursJson);
+        OpeningHoursJson = openingHoursJson;
+    }
 }

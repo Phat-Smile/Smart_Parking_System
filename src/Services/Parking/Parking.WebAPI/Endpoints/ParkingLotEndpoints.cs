@@ -7,6 +7,7 @@ using ParkingSystem.Parking.Application.ParkingLots.GetParkingLotDetail;
 using ParkingSystem.Parking.Application.ParkingLots.ListParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.RegisterParkingLot;
 using ParkingSystem.Parking.WebAPI.Security;
+using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
@@ -70,15 +71,17 @@ internal static class ParkingLotEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
-        app.MapGet("/api/parking/lots", async (ISender sender, CancellationToken cancellationToken) =>
+        app.MapGet("/api/parking/lots", async (DateTimeOffset? arrivalAt, ISender sender, CancellationToken cancellationToken) =>
             {
-                var parkingLots = await sender.Send(new ListParkingLotsQuery(), cancellationToken);
+                var parkingLots = arrivalAt.HasValue
+                    ? await sender.Send(new ListParkingLotsAtArrivalQuery(arrivalAt.Value), cancellationToken)
+                    : await sender.Send(new ListParkingLotsQuery(), cancellationToken);
                 return Results.Ok(parkingLots);
             })
             .AllowAnonymous()
             .WithName("ListParkingLots")
             .WithSummary("List approved parking lots")
-            .WithDescription("Returns only parking lots that have been approved by an administrator. Authentication is not required.")
+            .WithDescription("Returns approved lots. Optionally filter by arrivalAt (ISO 8601 with offset), using configured local opening hours. Missing arrivalAt leaves the existing catalog behavior unchanged.")
             .Produces<IReadOnlyList<ParkingLotCatalogItem>>(StatusCodes.Status200OK);
 
         app.MapGet("/api/parking/lots/{parkingLotId}", async (

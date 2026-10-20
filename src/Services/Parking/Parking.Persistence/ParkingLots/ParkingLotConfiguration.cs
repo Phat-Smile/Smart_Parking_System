@@ -33,6 +33,9 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
             .HasColumnName("longitude")
             .HasPrecision(9, 6)
             .IsRequired();
+        builder.Property(parkingLot => parkingLot.OpeningHoursJson)
+            .HasColumnName("opening_hours")
+            .HasColumnType("jsonb");
         builder.Property(parkingLot => parkingLot.Type)
             .HasColumnName("type")
             .HasConversion<string>()
