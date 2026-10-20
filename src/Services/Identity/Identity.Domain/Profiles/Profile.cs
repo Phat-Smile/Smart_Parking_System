@@ -32,9 +32,9 @@ public sealed class Profile
 
         FullName = trimmedName;
         DateOfBirth = dateOfBirth;
-        CitizenIdNumber = citizenIdNumber?.Trim();
-        DriverLicenseNumber = driverLicenseNumber?.Trim();
-        AvatarUrl = avatarUrl?.Trim();
+        CitizenIdNumber = NullIfBlank(citizenIdNumber);
+        DriverLicenseNumber = NullIfBlank(driverLicenseNumber);
+        AvatarUrl = NullIfBlank(avatarUrl);
         UpdatedAtUtc = updatedAtUtc;
     }
 
@@ -60,11 +60,15 @@ public sealed class Profile
             AccountId = accountId,
             FullName = trimmedName,
             DateOfBirth = dateOfBirth,
-            CitizenIdNumber = citizenIdNumber?.Trim(),
-            DriverLicenseNumber = driverLicenseNumber?.Trim(),
-            AvatarUrl = avatarUrl?.Trim(),
+            CitizenIdNumber = NullIfBlank(citizenIdNumber),
+            DriverLicenseNumber = NullIfBlank(driverLicenseNumber),
+            AvatarUrl = NullIfBlank(avatarUrl),
             CreatedAtUtc = createdAtUtc,
             UpdatedAtUtc = null
         };
     }
+
+    // A blank optional field means "not provided": it is stored as null so the field reads as removed.
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

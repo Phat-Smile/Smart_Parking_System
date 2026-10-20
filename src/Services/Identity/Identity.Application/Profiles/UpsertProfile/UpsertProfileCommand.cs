@@ -34,15 +34,29 @@ public static class UpsertProfileErrors
 
 public sealed class UpsertProfileCommandValidator : AbstractValidator<UpsertProfileCommand>
 {
-    public UpsertProfileCommandValidator()
+    private const int MaxAgeYears = 120;
+
+    public UpsertProfileCommandValidator(IClock clock)
     {
         RuleFor(c => c.FullName)
             .NotEmpty().WithMessage("Họ và tên không được để trống.")
             .MaximumLength(Profile.MaxFullNameLength).WithMessage($"Họ và tên không được vượt quá {Profile.MaxFullNameLength} ký tự.");
 
+        RuleFor(c => c.DateOfBirth)
+            .Must(dob => dob!.Value <= DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
+            .WithMessage("Ngày sinh không được ở tương lai.")
+            .Must(dob => dob!.Value >= DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).AddYears(-MaxAgeYears))
+            .WithMessage($"Ngày sinh không hợp lệ (quá {MaxAgeYears} năm trước).")
+            .When(c => c.DateOfBirth is not null);
+
         RuleFor(c => c.AvatarUrl)
             .MaximumLength(500).When(c => c.AvatarUrl is not null)
             .WithMessage("URL ảnh đại diện không được vượt quá 500 ký tự.");
+
+        RuleFor(c => c.AvatarUrl)
+            .Must(url => Uri.TryCreate(url!.Trim(), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+            .When(c => !string.IsNullOrWhiteSpace(c.AvatarUrl))
+            .WithMessage("URL ảnh đại diện phải là địa chỉ http hoặc https đầy đủ.");
 
         RuleFor(c => c.CitizenIdNumber)
             .MaximumLength(20).When(c => c.CitizenIdNumber is not null)

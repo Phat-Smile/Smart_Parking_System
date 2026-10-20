@@ -7,6 +7,8 @@ namespace ParkingSystem.Identity.Persistence.Vehicles;
 
 internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 {
+    public const string PlateIndexName = "ix_vehicles_license_plate";
+
     public void Configure(EntityTypeBuilder<Vehicle> builder)
     {
         builder.ToTable("vehicles", IdentityDbContext.DefaultSchema);
@@ -23,7 +25,7 @@ internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 
         builder.HasIndex(v => v.LicensePlate)
             .IsUnique()
-            .HasDatabaseName("ix_vehicles_license_plate");
+            .HasDatabaseName(PlateIndexName);
 
         builder.Property(v => v.VehicleType)
             .HasColumnName("vehicle_type")
