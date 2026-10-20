@@ -138,9 +138,104 @@ public sealed class OwnerApplicationHandlerTests
         Assert.Equal(OwnerApplicationErrors.InvalidPageSize.Code, result.Error!.Code);
     }
 
+    [Fact]
+    public async Task Apply_unknown_account_returns_AccountNotFound()
+    {
+        var accounts = new FakeAccountRepository(null);
+        var profiles = new FakeProfileRepository();
+        var handler = new ApplyForOwnerApplicationCommandHandler(accounts, profiles, new FixedClock(Now));
+
+        var result = await handler.Handle(new ApplyForOwnerApplicationCommand(OwnerId, "0312345678", "Biz"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.AccountNotFound.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Apply_already_owner_returns_AlreadyApproved()
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now);
+        account.AssignRole(AccountRole.ParkingLotOwner);
+        var accounts = new FakeAccountRepository(account);
+        var profiles = new FakeProfileRepository();
+        var handler = new ApplyForOwnerApplicationCommandHandler(accounts, profiles, new FixedClock(Now));
+
+        var result = await handler.Handle(new ApplyForOwnerApplicationCommand(OwnerId, "0312345678", "Biz"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.AlreadyApproved.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Apply_already_pending_returns_AlreadyPending()
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        var accounts = new FakeAccountRepository(account);
+        var profiles = new FakeProfileRepository();
+        var handler = new ApplyForOwnerApplicationCommandHandler(accounts, profiles, new FixedClock(Now));
+
+        var result = await handler.Handle(new ApplyForOwnerApplicationCommand(OwnerId, "0312345678", "Biz"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.AlreadyPending.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Apply_valid_customer_succeeds_and_updates_profile_and_phone()
+    {
+        var account = Account.Register(OwnerId, "customer@example.com", "hash", null, Now);
+        var accounts = new FakeAccountRepository(account);
+        var profiles = new FakeProfileRepository();
+        var handler = new ApplyForOwnerApplicationCommandHandler(accounts, profiles, new FixedClock(Now));
+
+        var command = new ApplyForOwnerApplicationCommand(
+            OwnerId,
+            TaxCode: "0312345678",
+            BusinessName: "Smart Lot Co",
+            PhoneNumber: "0912345678",
+            FullName: "Tran Owner");
+
+        var result = await handler.Handle(command, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Pending", result.Value!.Status);
+        Assert.Equal(OwnerApplicationStatus.Pending, account.OwnerApplicationStatus);
+        Assert.Equal("0312345678", account.OwnerTaxCode);
+        Assert.Equal("Smart Lot Co", account.OwnerBusinessName);
+        Assert.Equal("+84912345678", account.PhoneNumber);
+        Assert.NotNull(profiles.CreatedProfile);
+        Assert.Equal("Tran Owner", profiles.CreatedProfile!.FullName);
+    }
+
     private sealed class FixedClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow => now;
+    }
+
+    private sealed class FakeProfileRepository : ParkingSystem.Identity.Application.Profiles.IProfileRepository
+    {
+        public ParkingSystem.Identity.Domain.Profiles.Profile? CreatedProfile { get; private set; }
+
+        public Task<ParkingSystem.Identity.Domain.Profiles.Profile?> FindByAccountIdAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(CreatedProfile);
+
+        public Task<ParkingSystem.Identity.Domain.Profiles.Profile?> FindByAccountIdForUpdateAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(CreatedProfile);
+
+        public void Add(ParkingSystem.Identity.Domain.Profiles.Profile profile)
+        {
+            CreatedProfile = profile;
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakeOwnerApplicationQueries : IOwnerApplicationQueries
+    {
+        public Task<(IReadOnlyList<OwnerApplicationListItem> Items, int TotalCount)> ListOwnerApplicationsAsync(
+            string? status, int page, int pageSize, CancellationToken cancellationToken) =>
+            Task.FromResult<(IReadOnlyList<OwnerApplicationListItem>, int)>(([new OwnerApplicationListItem(
+                OwnerId, "owner@example.com", null, "Nguyen Van A", "Pending", null, null, null, null, null, Now)], 1));
     }
 
     private sealed class FakeAccountRepository(Account? account) : IAccountRepository
@@ -205,13 +300,5 @@ public sealed class OwnerApplicationHandlerTests
             return Task.CompletedTask;
         }
         public Task ReloadAsync(RefreshToken refreshToken, CancellationToken cancellationToken) => Task.CompletedTask;
-    }
-
-    private sealed class FakeOwnerApplicationQueries : IOwnerApplicationQueries
-    {
-        public Task<(IReadOnlyList<OwnerApplicationListItem> Items, int TotalCount)> ListOwnerApplicationsAsync(
-            string? status, int page, int pageSize, CancellationToken cancellationToken) =>
-            Task.FromResult<(IReadOnlyList<OwnerApplicationListItem>, int)>(([new OwnerApplicationListItem(
-                OwnerId, "owner@example.com", null, "Nguyen Van A", "Pending", null, null, null, Now)], 1));
     }
 }

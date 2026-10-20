@@ -74,6 +74,35 @@ internal static class AccountEndpoints
         /// <summary>[Bắt buộc] Lý do từ chối (1-500 ký tự).</summary>
         /// <example>Hồ sơ thiếu giấy phép kinh doanh bãi đỗ xe hợp lệ.</example>
         string Reason);
+
+    /// <summary>
+    /// Dữ liệu yêu cầu nộp hồ sơ xét duyệt làm Chủ bãi đỗ xe.
+    /// </summary>
+    public sealed record ApplyOwnerApplicationRequest(
+        /// <summary>[Tùy chọn] Mã số thuế (10 hoặc 13 chữ số).</summary>
+        /// <example>0312345678</example>
+        string? TaxCode,
+        /// <summary>[Tùy chọn] Tên doanh nghiệp hoặc hộ kinh doanh.</summary>
+        /// <example>Công ty TNHH Bãi xe Thông minh</example>
+        string? BusinessName,
+        /// <summary>[Tùy chọn] Số điện thoại liên hệ di động Việt Nam.</summary>
+        /// <example>0912345678</example>
+        string? PhoneNumber,
+        /// <summary>[Tùy chọn] Họ và tên người đại diện.</summary>
+        /// <example>Nguyễn Văn A</example>
+        string? FullName);
+
+    /// <summary>
+    /// Dữ liệu yêu cầu nộp lại hồ sơ xét duyệt làm Chủ bãi sau khi bị từ chối.
+    /// </summary>
+    public sealed record ResubmitOwnerApplicationRequest(
+        /// <summary>[Tùy chọn] Mã số thuế đã điều chỉnh.</summary>
+        /// <example>0312345678</example>
+        string? TaxCode,
+        /// <summary>[Tùy chọn] Tên doanh nghiệp/hộ kinh doanh.</summary>
+        /// <example>Công ty TNHH Bãi xe Thông minh</example>
+        string? BusinessName);
+
     /// <summary>
     /// Dữ liệu yêu cầu xác thực email bằng mã OTP.
     /// </summary>
@@ -945,8 +974,9 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
-        // US-ADMIN-001: Gửi lại đơn xét duyệt Chủ bãi sau khi bị từ chối.
-        app.MapPost("/api/identity/accounts/me/owner-application/resubmit", async (
+        // US-ADMIN-001: Nộp hồ sơ xét duyệt nâng cấp tài khoản lên Chủ bãi.
+        app.MapPost("/api/identity/accounts/me/owner-application/apply", async (
+                ApplyOwnerApplicationRequest? request,
                 ICurrentUser currentUser,
                 ISender sender,
                 CancellationToken cancellationToken) =>
@@ -954,7 +984,58 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
                     return Results.Unauthorized();
 
-                var result = await sender.Send(new ResubmitOwnerApplicationCommand(accountId), cancellationToken);
+                var command = new ApplyForOwnerApplicationCommand(
+                    accountId,
+                    request?.TaxCode,
+                    request?.BusinessName,
+                    request?.PhoneNumber,
+                    request?.FullName);
+
+                var result = await sender.Send(command, cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    var statusCode = result.Error!.Code switch
+                    {
+                        "identity.account_not_found" => StatusCodes.Status404NotFound,
+                        "identity.invalid_tax_code" => StatusCodes.Status400BadRequest,
+                        _ => StatusCodes.Status409Conflict
+                    };
+
+                    return Results.Problem(
+                        statusCode: statusCode,
+                        title: result.Error.Message,
+                        detail: result.Error.Message,
+                        extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+                }
+
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization()
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("ApplyForOwnerApplication")
+            .WithSummary("Nộp hồ sơ xét duyệt nâng cấp lên Chủ bãi")
+            .Produces<OwnerApplicationActionResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
+        // US-ADMIN-001: Gửi lại đơn xét duyệt Chủ bãi sau khi bị từ chối.
+        app.MapPost("/api/identity/accounts/me/owner-application/resubmit", async (
+                ResubmitOwnerApplicationRequest? request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var command = new ResubmitOwnerApplicationCommand(
+                    accountId,
+                    request?.TaxCode,
+                    request?.BusinessName);
+
+                var result = await sender.Send(command, cancellationToken);
                 if (!result.IsSuccess)
                 {
                     var statusCode = result.Error!.Code switch

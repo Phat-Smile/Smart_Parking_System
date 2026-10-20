@@ -19,6 +19,8 @@ public sealed class Account
     public AccountRole Role { get; private set; } = AccountRole.Customer;
     public AccountStatus Status { get; private set; }
     public OwnerApplicationStatus? OwnerApplicationStatus { get; private set; }
+    public string? OwnerTaxCode { get; private set; }
+    public string? OwnerBusinessName { get; private set; }
     public string? OwnerRejectionReason { get; private set; }
     public DateTimeOffset? OwnerReviewedAtUtc { get; private set; }
     public Guid? OwnerReviewedBy { get; private set; }
@@ -33,7 +35,9 @@ public sealed class Account
         string passwordHash,
         string? phoneNumber,
         DateTimeOffset createdAtUtc,
-        bool applyAsParkingLotOwner = false)
+        bool applyAsParkingLotOwner = false,
+        string? taxCode = null,
+        string? businessName = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Account id must not be empty.", nameof(id));
@@ -48,6 +52,8 @@ public sealed class Account
             PhoneNumber = NormalizePhoneNumber(phoneNumber),
             Role = AccountRole.Customer,
             OwnerApplicationStatus = applyAsParkingLotOwner ? Domain.Accounts.OwnerApplicationStatus.Pending : null,
+            OwnerTaxCode = applyAsParkingLotOwner ? NullIfBlank(taxCode) : null,
+            OwnerBusinessName = applyAsParkingLotOwner ? NullIfBlank(businessName) : null,
             Status = AccountStatus.PendingEmailVerification,
             FailedLoginAttempts = 0,
             LockoutEndUtc = null,
@@ -137,15 +143,48 @@ public sealed class Account
         RowVersion++;
     }
 
-    public void ResubmitOwnerApplication(DateTimeOffset resubmittedAtUtc)
+    public void ApplyForParkingLotOwner(
+        DateTimeOffset appliedAtUtc,
+        string? taxCode = null,
+        string? businessName = null)
+    {
+        if (Role == AccountRole.ParkingLotOwner || OwnerApplicationStatus == Domain.Accounts.OwnerApplicationStatus.Approved)
+            throw new InvalidOperationException("Account is already a parking lot owner.");
+        if (OwnerApplicationStatus == Domain.Accounts.OwnerApplicationStatus.Pending)
+            throw new InvalidOperationException("An owner application is already pending review.");
+
+        OwnerApplicationStatus = Domain.Accounts.OwnerApplicationStatus.Pending;
+        OwnerTaxCode = NullIfBlank(taxCode);
+        OwnerBusinessName = NullIfBlank(businessName);
+        OwnerRejectionReason = null;
+        OwnerReviewedBy = null;
+        OwnerReviewedAtUtc = null;
+        RowVersion++;
+    }
+
+    public void ResubmitOwnerApplication(
+        DateTimeOffset resubmittedAtUtc,
+        string? taxCode = null,
+        string? businessName = null)
     {
         if (OwnerApplicationStatus != Domain.Accounts.OwnerApplicationStatus.Rejected)
             throw new InvalidOperationException("Only rejected owner applications can be resubmitted.");
 
         OwnerApplicationStatus = Domain.Accounts.OwnerApplicationStatus.Pending;
+        if (!string.IsNullOrWhiteSpace(taxCode))
+            OwnerTaxCode = NullIfBlank(taxCode);
+        if (!string.IsNullOrWhiteSpace(businessName))
+            OwnerBusinessName = NullIfBlank(businessName);
+
         OwnerRejectionReason = null;
         OwnerReviewedBy = null;
         OwnerReviewedAtUtc = null;
+        RowVersion++;
+    }
+
+    public void UpdatePhoneNumber(string? phoneNumber)
+    {
+        PhoneNumber = NormalizePhoneNumber(phoneNumber);
         RowVersion++;
     }
 
@@ -234,4 +273,7 @@ public sealed class Account
         var trimmed = phoneNumber.Trim();
         return trimmed.StartsWith('0') ? "+84" + trimmed[1..] : trimmed;
     }
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

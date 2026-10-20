@@ -19,6 +19,15 @@ public static class OwnerApplicationErrors
     public static readonly Error InvalidReason =
         new("identity.owner_reject_reason_required", "Lý do từ chối không được để trống và không vượt quá 500 ký tự.");
 
+    public static readonly Error AccountNotFound =
+        new("identity.account_not_found", "Không tìm thấy tài khoản.");
+
+    public static readonly Error AlreadyApproved =
+        new("identity.owner_application_already_approved", "Tài khoản này đã là chủ bãi đỗ xe.");
+
+    public static readonly Error AlreadyPending =
+        new("identity.owner_application_already_pending", "Tài khoản đã có hồ sơ đăng ký chủ bãi đang chờ duyệt.");
+
     public static readonly Error InvalidPageSize =
         new("identity.invalid_page_size", "Kích thước trang phải từ 1 đến 100.");
 }

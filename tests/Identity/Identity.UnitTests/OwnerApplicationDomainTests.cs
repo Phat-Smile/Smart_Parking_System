@@ -153,4 +153,64 @@ public sealed class OwnerApplicationDomainTests
         Assert.Equal(AccountRole.Customer, account.Role);
         Assert.Null(account.OwnerApplicationStatus);
     }
+
+    [Fact]
+    public void ApplyForParkingLotOwner_transitions_from_null_to_Pending_and_stores_tax_code_and_business_name()
+    {
+        var account = Account.Register(AccountId, "customer@example.com", "hash", null, Now);
+        var taxCode = "0312345678";
+        var businessName = "Bãi Xe Thông Minh 247";
+
+        account.ApplyForParkingLotOwner(Now, taxCode, businessName);
+
+        Assert.Equal(OwnerApplicationStatus.Pending, account.OwnerApplicationStatus);
+        Assert.Equal(taxCode, account.OwnerTaxCode);
+        Assert.Equal(businessName, account.OwnerBusinessName);
+        Assert.Null(account.OwnerRejectionReason);
+        Assert.Null(account.OwnerReviewedBy);
+        Assert.Null(account.OwnerReviewedAtUtc);
+    }
+
+    [Fact]
+    public void ApplyForParkingLotOwner_when_already_owner_throws_InvalidOperationException()
+    {
+        var account = Account.Register(AccountId, "owner@example.com", "hash", null, Now);
+        account.AssignRole(AccountRole.ParkingLotOwner);
+
+        Assert.Throws<InvalidOperationException>(() => account.ApplyForParkingLotOwner(Now, "0312345678", "Biz"));
+    }
+
+    [Fact]
+    public void ApplyForParkingLotOwner_when_already_pending_throws_InvalidOperationException()
+    {
+        var account = Account.Register(AccountId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+
+        Assert.Throws<InvalidOperationException>(() => account.ApplyForParkingLotOwner(Now, "0312345678", "Biz"));
+    }
+
+    [Fact]
+    public void Resubmit_allows_updating_tax_code_and_business_name()
+    {
+        var account = Account.Register(AccountId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true, taxCode: "1111111111", businessName: "Old Biz");
+        account.RejectOwnerApplication(AdminId, "Sai MST", Now);
+
+        var newTaxCode = "0399999999";
+        var newBizName = "New Biz Co";
+        account.ResubmitOwnerApplication(Now.AddDays(1), newTaxCode, newBizName);
+
+        Assert.Equal(OwnerApplicationStatus.Pending, account.OwnerApplicationStatus);
+        Assert.Equal(newTaxCode, account.OwnerTaxCode);
+        Assert.Equal(newBizName, account.OwnerBusinessName);
+        Assert.Null(account.OwnerRejectionReason);
+    }
+
+    [Fact]
+    public void UpdatePhoneNumber_normalizes_and_updates_number()
+    {
+        var account = Account.Register(AccountId, "user@example.com", "hash", null, Now);
+
+        account.UpdatePhoneNumber("0912345678");
+
+        Assert.Equal("+84912345678", account.PhoneNumber);
+    }
 }

@@ -31,7 +31,8 @@ stateDiagram-v2
 
 | Method | Endpoint | Quyền (Auth) | Mô tả |
 | :---: | :--- | :---: | :--- |
-| `POST` | `/api/identity/accounts` | Public | Đăng ký tài khoản (chọn `accountType = ParkingLotOwner`) |
+| `POST` | `/api/identity/accounts` | Public | Đăng ký tài khoản mới (chọn `accountType = ParkingLotOwner`) |
+| `POST` | `/api/identity/accounts/me/owner-application/apply` | `Bearer <token>` | Nộp hồ sơ xét duyệt nâng cấp tài khoản Customer lên Chủ bãi |
 | `GET` | `/api/identity/accounts/me/owner-application` | `Bearer <token>` | Chủ bãi xem trạng thái đơn và lý do từ chối (nếu có) |
 | `POST` | `/api/identity/accounts/me/owner-application/resubmit` | `Bearer <token>` | Chủ bãi nộp lại đơn khi đang ở trạng thái `Rejected` |
 | `GET` | `/api/identity/admin/owner-applications` | `Admin` | Quản trị viên tra cứu danh sách đơn phân trang |
@@ -68,25 +69,63 @@ stateDiagram-v2
 
 ---
 
-### 3.2. Xem trạng thái hồ sơ của tôi (`GET /api/identity/accounts/me/owner-application`)
+### 3.2. Nộp hồ sơ xin nâng cấp lên Chủ bãi (`POST /api/identity/accounts/me/owner-application/apply`)
+* **Endpoint:** `/api/identity/accounts/me/owner-application/apply`
+* **Auth:** 🔴 **BẮT BUỘC** — `Bearer <access_token>`
+* **Mô tả:** Dành cho tài khoản hiện đang là `Customer` muốn nâng cấp trở thành Chủ bãi đỗ xe.
+* **Request Body:**
+```json
+{
+  "taxCode": "0312345678",
+  "businessName": "Công ty TNHH Bãi xe Thông minh ParkWise",
+  "phoneNumber": "0912345678",
+  "fullName": "Nguyễn Văn Chủ Bãi"
+}
+```
+* **Ràng buộc:**
+  * `taxCode` *(string, tùy chọn)*: 10 chữ số hoặc 13 chữ số (dạng `0312345678-001`).
+  * `businessName` *(string, tùy chọn)*: Tối đa 200 ký tự.
+  * `phoneNumber` *(string, tùy chọn)*: Định dạng di động Việt Nam hợp lệ.
+  * `fullName` *(string, tùy chọn)*: Tối thiểu 2 ký tự, tối đa 100 ký tự.
+* **Response (`200 OK`):**
+```json
+{
+  "accountId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "status": "Pending",
+  "message": "Yêu cầu đăng ký xét duyệt chủ bãi đã được gửi thành công. Vui lòng chờ quản trị viên phê duyệt."
+}
+```
+
+---
+
+### 3.3. Xem trạng thái hồ sơ của tôi (`GET /api/identity/accounts/me/owner-application`)
 * **Auth:** `Bearer <access_token>`
 * **Response (`200 OK`):**
 ```json
 {
   "accountId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "email": "owner@example.com",
-  "status": "Rejected",
-  "rejectionReason": "Số điện thoại liên hệ không thể liên lạc được để xác minh thực địa bãi xe.",
-  "reviewedAtUtc": "2026-10-20T10:30:00Z"
+  "status": "Pending",
+  "taxCode": "0312345678",
+  "businessName": "Công ty TNHH Bãi xe Thông minh ParkWise",
+  "rejectionReason": null,
+  "reviewedAtUtc": null
 }
 ```
 * **Lưu ý:** Nếu tài khoản chưa từng đăng ký chủ bãi (tài khoản Customer thông thường), trường `status` trả về `null`.
 
 ---
 
-### 3.3. Nộp lại hồ sơ (`POST /api/identity/accounts/me/owner-application/resubmit`)
+### 3.4. Nộp lại hồ sơ sau khi bị từ chối (`POST /api/identity/accounts/me/owner-application/resubmit`)
 * **Auth:** `Bearer <access_token>`
 * **Điều kiện:** Hồ sơ hiện tại phải ở trạng thái `Rejected`. Nếu không, hệ thống trả về lỗi `409 Conflict`.
+* **Request Body (Tùy chọn bổ sung/sửa đổi MST):**
+```json
+{
+  "taxCode": "0312345678",
+  "businessName": "Công ty TNHH Bãi xe Thông minh ParkWise"
+}
+```
 * **Response (`200 OK`):**
 ```json
 {
@@ -194,10 +233,24 @@ export interface RegisterOwnerRequest {
   accountType: "ParkingLotOwner";
 }
 
+export interface ApplyOwnerApplicationRequest {
+  taxCode?: string | null;
+  businessName?: string | null;
+  phoneNumber?: string | null;
+  fullName?: string | null;
+}
+
+export interface ResubmitOwnerApplicationRequest {
+  taxCode?: string | null;
+  businessName?: string | null;
+}
+
 export interface MyOwnerApplicationResponse {
   accountId: string;
   email: string;
   status: OwnerApplicationStatus | null;
+  taxCode: string | null;
+  businessName: string | null;
   rejectionReason: string | null;
   reviewedAtUtc: string | null;
 }
@@ -208,6 +261,8 @@ export interface OwnerApplicationItem {
   phoneNumber: string | null;
   fullName: string | null;
   status: OwnerApplicationStatus;
+  taxCode: string | null;
+  businessName: string | null;
   rejectionReason: string | null;
   reviewedAtUtc: string | null;
   reviewedBy: string | null;

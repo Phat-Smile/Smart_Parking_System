@@ -82,6 +82,8 @@ internal sealed class AdminAccountQueries(IdentityDbContext dbContext) : IAdminA
                 x.Account.PhoneNumber,
                 x.Profile != null ? x.Profile.FullName : null,
                 x.Account.OwnerApplicationStatus!.Value.ToString(),
+                x.Account.OwnerTaxCode,
+                x.Account.OwnerBusinessName,
                 x.Account.OwnerRejectionReason,
                 x.Account.OwnerReviewedAtUtc,
                 x.Account.OwnerReviewedBy,

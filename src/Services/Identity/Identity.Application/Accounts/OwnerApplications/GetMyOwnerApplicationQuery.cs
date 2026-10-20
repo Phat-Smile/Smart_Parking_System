@@ -11,6 +11,8 @@ public sealed record MyOwnerApplicationDto(
     Guid AccountId,
     string Email,
     string? Status,
+    string? TaxCode,
+    string? BusinessName,
     string? RejectionReason,
     DateTimeOffset? ReviewedAtUtc);
 
@@ -27,6 +29,8 @@ public sealed class GetMyOwnerApplicationQueryHandler(
             account.Id,
             account.Email,
             account.OwnerApplicationStatus?.ToString(),
+            account.OwnerTaxCode,
+            account.OwnerBusinessName,
             account.OwnerRejectionReason,
             account.OwnerReviewedAtUtc));
     }

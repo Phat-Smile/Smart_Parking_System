@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -17,6 +17,22 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                 table: "accounts",
                 type: "character varying(32)",
                 maxLength: 32,
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "owner_tax_code",
+                schema: "identity",
+                table: "accounts",
+                type: "character varying(32)",
+                maxLength: 32,
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "owner_business_name",
+                schema: "identity",
+                table: "accounts",
+                type: "character varying(200)",
+                maxLength: 200,
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
@@ -59,6 +75,16 @@ namespace ParkingSystem.Identity.Persistence.Migrations
 
             migrationBuilder.DropColumn(
                 name: "owner_application_status",
+                schema: "identity",
+                table: "accounts");
+
+            migrationBuilder.DropColumn(
+                name: "owner_tax_code",
+                schema: "identity",
+                table: "accounts");
+
+            migrationBuilder.DropColumn(
+                name: "owner_business_name",
                 schema: "identity",
                 table: "accounts");
 

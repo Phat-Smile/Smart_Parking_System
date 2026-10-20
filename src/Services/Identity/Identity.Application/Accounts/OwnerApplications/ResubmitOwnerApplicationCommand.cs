@@ -6,7 +6,9 @@ using ParkingSystem.Identity.Domain.Accounts;
 namespace ParkingSystem.Identity.Application.Accounts.OwnerApplications;
 
 public sealed record ResubmitOwnerApplicationCommand(
-    Guid AccountId) : IRequest<Result<OwnerApplicationActionResult>>;
+    Guid AccountId,
+    string? TaxCode = null,
+    string? BusinessName = null) : IRequest<Result<OwnerApplicationActionResult>>;
 
 public sealed class ResubmitOwnerApplicationCommandHandler(
     IAccountRepository accounts,
@@ -23,7 +25,7 @@ public sealed class ResubmitOwnerApplicationCommandHandler(
             if (account.OwnerApplicationStatus != OwnerApplicationStatus.Rejected)
                 return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.NotRejected);
 
-            account.ResubmitOwnerApplication(clock.UtcNow);
+            account.ResubmitOwnerApplication(clock.UtcNow, request.TaxCode, request.BusinessName);
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<OwnerApplicationActionResult>.Success(new OwnerApplicationActionResult(

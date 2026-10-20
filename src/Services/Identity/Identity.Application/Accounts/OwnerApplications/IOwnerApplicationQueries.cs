@@ -15,6 +15,8 @@ public sealed record OwnerApplicationListItem(
     string? PhoneNumber,
     string? FullName,
     string Status,
+    string? TaxCode,
+    string? BusinessName,
     string? RejectionReason,
     DateTimeOffset? ReviewedAtUtc,
     Guid? ReviewedBy,
