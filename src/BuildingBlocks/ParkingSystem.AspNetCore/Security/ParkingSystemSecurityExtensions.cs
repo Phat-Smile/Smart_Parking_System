@@ -20,7 +20,6 @@ public static class ParkingSystemSecurityExtensions
         // Authentication responses already use a safe challenge; suppress these diagnostic categories.
         builder.Logging.AddFilter("Microsoft.AspNetCore.Authentication.JwtBearer", LogLevel.None);
         builder.Logging.AddFilter("Microsoft.IdentityModel", LogLevel.None);
-        builder.AddParkingSystemServiceKeyValidation();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
         builder.Services.AddSingleton<IValidateOptions<JwtSecurityOptions>, JwtSecurityOptionsValidator>();
@@ -83,31 +82,10 @@ public static class ParkingSystemSecurityExtensions
         return builder;
     }
 
-    public static WebApplicationBuilder AddParkingSystemServiceKeyValidation(this WebApplicationBuilder builder)
-    {
-        builder.Services.AddOptions<ServiceKeyOptions>()
-            .Bind(builder.Configuration.GetSection(ServiceKeyOptions.SectionName));
-        return builder;
-    }
-
     public static WebApplication UseParkingSystemAuthentication(this WebApplication app)
     {
         app.UseAuthentication();
         app.UseAuthorization();
-        return app;
-    }
-
-    // Pipeline for the five business services: the key proves the call came through the gateway, then the JWT proves the user.
-    public static WebApplication UseParkingSystemServiceSecurity(this WebApplication app)
-    {
-        app.UseServiceKeyValidation();
-        app.UseParkingSystemAuthentication();
-        return app;
-    }
-
-    public static WebApplication UseServiceKeyValidation(this WebApplication app)
-    {
-        app.UseMiddleware<ServiceKeyValidationMiddleware>();
         return app;
     }
 

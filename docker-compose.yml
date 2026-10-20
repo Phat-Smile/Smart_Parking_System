@@ -8,7 +8,6 @@ x-jwt-environment: &jwt-environment
   Security__Jwt__Audience: ParkingSystem
   Security__Jwt__PublicKeyPath: /run/parking-system/security/jwt/public.pem
   Security__Jwt__ClockSkewSeconds: "30"
-  ServiceAuth__ServiceKey: ${SERVICE_KEY:-}
 
 x-jwt-public-key-volume: &jwt-public-key-volume
   - ./.local/security/jwt/public.pem:/run/parking-system/security/jwt/public.pem:ro

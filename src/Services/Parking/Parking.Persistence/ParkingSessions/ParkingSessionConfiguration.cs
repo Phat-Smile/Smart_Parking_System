@@ -66,11 +66,6 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
             .IsUnique()
             .HasDatabaseName("ux_parking_sessions_qr_token");
 
-        // US-PARK-009: a customer lists their own open sessions.
-        builder.HasIndex(session => session.UserId)
-            .HasFilter("user_id IS NOT NULL")
-            .HasDatabaseName("ix_parking_sessions_user_id");
-
         // At most one Active or Paid session per plate in a lot (ASSUMPTION, see OpenParkingSessionErrors).
         builder.HasIndex(session => new { session.LotId, session.PlateNumber })
             .IsUnique()

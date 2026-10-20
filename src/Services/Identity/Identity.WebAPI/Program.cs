@@ -50,7 +50,7 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment() && VehicleLookupRegistration.IsStubConfigured(builder.Configuration))
     app.Logger.LogWarning("VehicleLookup uses the Stub provider outside Development: vehicle lookups return demo data.");
 app.UseParkingSystemWebFoundation();
-app.UseParkingSystemServiceSecurity();
+app.UseParkingSystemAuthentication();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

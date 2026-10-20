@@ -3,11 +3,8 @@ using System.ComponentModel.DataAnnotations;
 using MediatR;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
-using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
-using ParkingSystem.Parking.Application.ParkingSessions.FindParkingSessionByQr;
-using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.WebAPI.Security;
@@ -108,52 +105,6 @@ internal static class ParkingSessionEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
-
-        // US-PARK-009. A signed-in customer sees the QR of their own open sessions (BR-05.f).
-        app.MapGet($"{Route}/me", async (ICurrentUser currentUser, ISender sender, CancellationToken cancellationToken) =>
-            {
-                if (!Guid.TryParse(currentUser.SubjectId, out var userId))
-                    return Results.Forbid();
-
-                return Results.Ok(await sender.Send(new ListMyParkingSessionsQuery(userId), cancellationToken));
-            })
-            .RequireAuthenticatedUser()
-            .WithName("ListMyParkingSessions")
-            .WithSummary("List my open parking sessions with their QR")
-            .Produces<IReadOnlyList<MyParkingSession>>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        // US-PARK-009. Staff or the exit gate scan a session QR; unknown and expired QR codes both return 404 (BR-11.e).
-        app.MapGet($"{Route}/by-qr/{{qrToken}}", async (
-                string qrToken,
-                ICurrentUser currentUser,
-                HttpContext httpContext,
-                ISender sender,
-                CancellationToken cancellationToken) =>
-            {
-                // TECH-12: the caller must be assigned to the lot of the scanned session.
-                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
-                    return Results.Forbid();
-
-                var result = await sender.Send(new FindParkingSessionByQrQuery(qrToken, actorUserId), cancellationToken);
-
-                if (result.IsSuccess)
-                    return Results.Ok(result.Value);
-
-                var statusCode = result.Error == ParkingLotAccessErrors.AccessDenied
-                    ? StatusCodes.Status403Forbidden
-                    : StatusCodes.Status404NotFound;
-                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
-            })
-            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
-            .WithName("FindParkingSessionByQr")
-            .WithSummary("Find the open parking session of a scanned QR")
-            .Produces<ParkingSessionByQr>(StatusCodes.Status200OK)
-            .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }

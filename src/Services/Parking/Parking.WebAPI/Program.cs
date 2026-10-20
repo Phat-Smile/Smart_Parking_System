@@ -32,7 +32,7 @@ builder.Services.AddParkingSwagger();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
-app.UseParkingSystemServiceSecurity();
+app.UseParkingSystemAuthentication();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

@@ -44,13 +44,9 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IAuditLog, AuditLog>();
         services.AddScoped<IParkingLotCatalogReader, ParkingLotCatalogReader>();
         services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
-        services.AddScoped<IRegisterParkingLotRepository, RegisterParkingLotRepository>();
-
         services.AddScoped<ParkingLotAssignmentRepository>();
-        services.AddScoped<IParkingLotAssignmentRepository>(
-            provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
-        services.AddScoped<IParkingLotAccess>(
-            provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
+        services.AddScoped<IParkingLotAssignmentRepository>(provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
+        services.AddScoped<IParkingLotAccess>(provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
         services.AddParkingLayout(configuration);
         return services;
     }

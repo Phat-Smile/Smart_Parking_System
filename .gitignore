@@ -36,3 +36,6 @@ web/test-results/
 web/.env
 web/.env.local
 web/.env.*.local
+*.secret
+web/app-screenshots/
+web/reference-screenshots/

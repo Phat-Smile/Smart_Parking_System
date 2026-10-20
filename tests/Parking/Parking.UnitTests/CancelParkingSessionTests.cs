@@ -151,12 +151,6 @@ public sealed class CancelParkingSessionTests
         public Task<bool> HasOpenSessionAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
-        public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(session?.Id == sessionId ? session : null);
 
