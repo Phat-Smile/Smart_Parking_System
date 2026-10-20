@@ -273,4 +273,65 @@ public class CreateWalletTopupCommandHandlerTests
         Assert.NotNull(result.Error);
         Assert.Equal("payment.invalid_user", result.Error.Code);
     }
+
+    [Fact]
+    public async Task Handle_WhenReplayed_WhenAlreadySuccess_ReturnsSuccessWithoutNewPaymentUrl()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var handler = CreateHandler();
+        var key = "replay-success-key";
+        var wallet = await _walletRepo.GetOrCreateByUserIdAsync(userId, CancellationToken.None);
+
+        var tx = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            Guid.NewGuid().ToString("N"),
+            wallet.Id,
+            100_000m,
+            key,
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            DateTimeOffset.UtcNow.AddMinutes(10));
+        tx.MarkAsSuccess("VNP123456", "NCB", "00", DateTimeOffset.UtcNow);
+        _txRepo.SeedTransaction(tx);
+
+        var command = new CreateWalletTopupCommand(userId, 100_000m, key, "127.0.0.1");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value!.IsReplay);
+        Assert.Equal("Success", result.Value.Status);
+        Assert.Null(result.Value.PaymentUrl);
+    }
+
+    [Fact]
+    public async Task Handle_WhenReplayed_WhenExpired_ReturnsFailure()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var handler = CreateHandler();
+        var key = "replay-expired-key";
+        var wallet = await _walletRepo.GetOrCreateByUserIdAsync(userId, CancellationToken.None);
+
+        var tx = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            Guid.NewGuid().ToString("N"),
+            wallet.Id,
+            100_000m,
+            key,
+            DateTimeOffset.UtcNow.AddMinutes(-20),
+            DateTimeOffset.UtcNow.AddMinutes(-5));
+        _txRepo.SeedTransaction(tx);
+
+        var command = new CreateWalletTopupCommand(userId, 100_000m, key, "127.0.0.1");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal("payment.topup_expired", result.Error!.Code);
+    }
 }

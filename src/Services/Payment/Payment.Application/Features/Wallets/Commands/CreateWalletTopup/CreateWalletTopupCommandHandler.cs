@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Application.Common.Options;
 using ParkingSystem.Payment.Domain.Entities;
+using ParkingSystem.Payment.Domain.Enums;
 
 namespace ParkingSystem.Payment.Application.Features.Wallets.Commands.CreateWalletTopup;
 
@@ -50,14 +51,39 @@ public class CreateWalletTopupCommandHandler : IRequestHandler<CreateWalletTopup
 
         if (existingTxn != null)
         {
-            // Cùng key nhưng khác số tiền -> Báo xung đột (HTTP 409 Conflict)
+            // Cùng key nhưng khác số tiền -> Báo xung đột
             if (existingTxn.Amount != request.Amount)
             {
                 return Result<WalletTopupResultDto>.Failure(
                     new Error("payment.idempotency_key_reused", "Idempotency-Key was already used with a different request."));
             }
 
-            // Cùng key và cùng số tiền -> Trả về giao dịch cũ (HTTP 200 OK)
+            // Giao dịch đã nạp thành công -> không sinh URL thanh toán mới
+            if (existingTxn.Status == VnpayTransactionStatus.Success)
+            {
+                return Result<WalletTopupResultDto>.Success(new WalletTopupResultDto
+                {
+                    TopupId = existingTxn.TxnRef,
+                    Amount = existingTxn.Amount,
+                    Status = existingTxn.Status.ToString(),
+                    PaymentUrl = null,
+                    CreatedAtUtc = existingTxn.CreatedAt,
+                    ExpiresAtUtc = existingTxn.ExpiresAt,
+                    IsReplay = true
+                });
+            }
+
+            // Giao dịch đã hết hạn -> không sinh URL mới, báo lỗi
+            var isExpired = existingTxn.Status == VnpayTransactionStatus.Expired
+                || (existingTxn.Status == VnpayTransactionStatus.Pending && existingTxn.ExpiresAt <= DateTimeOffset.UtcNow);
+
+            if (isExpired)
+            {
+                return Result<WalletTopupResultDto>.Failure(
+                    new Error("payment.topup_expired", "The previous top-up request for this idempotency key has expired. Please initiate a new top-up request."));
+            }
+
+            // Giao dịch đang Pending và còn hạn -> Trả về URL thanh toán VNPay
             var existingUrl = _paymentGateway.CreatePaymentUrl(
                 existingTxn.TxnRef,
                 existingTxn.Amount,
