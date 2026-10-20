@@ -17,6 +17,8 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.Common.Persistence;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -106,6 +108,8 @@ public sealed class ParkingLotScopeHttpTests
         builder.Services.AddSingleton<IParkingSessionRepository, UnusedSessionRepository>();
         builder.Services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
+        builder.Services.AddSingleton<IMotorbikeZoneCounter, UnusedMotorbikeZones>();
+        builder.Services.AddSingleton<IParkingUnitOfWork, UnusedUnitOfWork>();
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
@@ -170,5 +174,18 @@ public sealed class ParkingLotScopeHttpTests
             Task.FromResult<ParkingSession?>(ParkingSession.Open(Guid.NewGuid(), Guid.NewGuid(), "51A-123.45", VehicleType.Car, DateTimeOffset.UtcNow, qrToken, null, null));
         public void Add(ParkingSession session) => throw new InvalidOperationException();
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
+    // Không được gọi tới: request bị chặn ở bước kiểm quyền theo bãi, trước khi đụng tới chỗ xe máy.
+    private sealed class UnusedMotorbikeZones : IMotorbikeZoneCounter
+    {
+        public Task<MotorbikeSpaceTaken?> TakeSpaceAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task ReleaseSpaceAsync(Guid zoneId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<MotorbikeAvailability?> GetAvailabilityAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
+    private sealed class UnusedUnitOfWork : IParkingUnitOfWork
+    {
+        public Task<IParkingTransaction> BeginTransactionAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }
 }
