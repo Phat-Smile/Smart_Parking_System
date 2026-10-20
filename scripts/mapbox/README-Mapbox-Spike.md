@@ -1,6 +1,6 @@
 # TECH-03 · Mapbox feasibility spike (Sprint 1, Khoa / BE-2)
 
-**Provider nhóm dùng: MAPBOX** (không dùng OSRM/OSM làm mặc định theo context cũ). Đây là spike kỹ thuật, **không đăng ký endpoint HTTP mới**. `US-SEARCH-003` (S2), `US-SEARCH-006` (S3) sẽ triển khai theo hợp đồng đã review riêng; các API FE/BE đề xuất chưa có trong code S1.
+**Provider nhóm dùng: MAPBOX** (không dùng OSRM/OSM làm mặc định theo context cũ). Nhánh đã bổ sung **adapter C# tại `src/Services/Parking/Parking.Infrastructure/Mapbox/MapboxGeoRoutingClient.cs`**, interface `IMapboxGeoRouting`, và đăng ký DI trong `Parking.WebAPI/Program.cs`; **không đăng ký endpoint HTTP mới**. `US-SEARCH-003` (S2), `US-SEARCH-006` (S3) sẽ triển khai theo hợp đồng đã review riêng; các API FE/BE đề xuất chưa có trong code S1.
 
 ## Chạy mock không cần token / không phát sinh phí
 
@@ -48,3 +48,13 @@ Live thực hiện **3 request** với tọa độ mẫu tĩnh: (1) Geocoding v6
 - [Search Box](https://docs.mapbox.com/api/search/search-box/)
 
 **Tiêu chí `Xong`:** 15+ tests offline pass, Mapbox live evidence hợp lệ, ghi nhận chính sách/giới hạn/tối thiểu 1 vùng Việt Nam, FE/BE thống nhất contract và reviewer chấp nhận. Mock pass không được tự đổi thành `Xong`.
+
+## C# adapter (review follow-up TECH-03)
+
+- `IMapboxGeoRouting.GeocodeAsync`: Mapbox Geocoding v6, `country=vn`, `autocomplete=false`, no caching.
+- `DirectionsAsync` / `MatrixAsync`: coordinates passed as `(latitude, longitude)` in code; translated to Mapbox `longitude,latitude`. Distances in **meters**, durations in **seconds**, `NoRoute`/null handled.
+- Token via `Mapbox:AccessToken` (use User Secrets or environment variable `Mapbox__AccessToken`), never commit the token. No network access until one of the adapter methods is called.
+- `MapboxProviderException.Code` returns safe error codes; no raw HTTP exception with tokenized URL. No HttpClientFactory request logging on the server-side tokenized request.
+- Test via `dotnet test tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj`, `MapboxGeoRoutingClientTests` uses stub HttpMessageHandler, no token or billable calls.
+- The old `scripts/mapbox` spike and its offline tests remain available; live evidence remains **NOT VERIFIED** until explicitly authorized and reviewed.
+- **S2 integration open:** the `US-SEARCH-003` branch uses Nominatim today. This S1 adapter does NOT silently replace it. Reviewer/Lead must decide provider and separately integrate with the S2 feature.
