@@ -36,6 +36,14 @@ The Gateway adds `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referre
 
 JWT APIs use the Authorization header rather than cookies, so this phase adds no cookie or antiforgery middleware. Revisit CSRF policy if credentials move to cookies. Browser access-token and refresh-token storage remains a VS01 design decision. The Gateway rate-limits the public Auth routes per client IP with a one-minute fixed window (TECH-10): login 10, register 5, resend-otp 5, verify-email 10, refresh 30, forgot-password 5, reset-password 10, google 10. Each limit can be overridden with `RateLimiting:Auth:<policy>`. Over the limit the Gateway answers 429 with `Retry-After` and `errorCode = gateway.rate_limited`, and the request never reaches Identity. `X-Forwarded-For` is not trusted because no trusted proxy sits in front of the Gateway yet. There is no global limit on other routes.
 
+## Service key (gateway to service)
+
+The Gateway adds an `X-Service-Key` header to every proxied request (replacing any value sent by the client). Each of the five business services checks it before authentication through `UseParkingSystemServiceSecurity()` and answers 403 when the header is missing or different. The comparison is constant time. `/health/*` is exempt so container probes keep working. The Gateway itself does not require the key from browsers.
+
+`ServiceAuth:ServiceKey` (env `SERVICE_KEY`, see `.env.example`) set to empty disables the check; this is the local default. Set a long random value in every shared or production environment, the same value for the Gateway and all services. Service-to-service gRPC calls must send the same header once a service calls another service.
+
+An architecture test fails if a service `Program.cs` does not call `UseParkingSystemServiceSecurity()`.
+
 ## Error and data handling
 
 Unauthenticated protected requests receive 401 and authenticated but unauthorized requests receive 403, in the existing safe ProblemDetails format with status, title, traceId, correlationId, and a safe error code. Bearer challenge behavior and `WWW-Authenticate` are preserved. Token validation diagnostics, tokens, claims, cookies, credentials, and key material are not returned to clients.
