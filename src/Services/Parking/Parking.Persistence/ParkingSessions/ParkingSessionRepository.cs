@@ -17,6 +17,17 @@ internal sealed class ParkingSessionRepository(ParkingDbContext dbContext) : IPa
     public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
         dbContext.ParkingSessions.FirstOrDefaultAsync(session => session.Id == sessionId, cancellationToken);
 
+    public async Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        await dbContext.ParkingSessions.AsNoTracking()
+            .Where(session => session.UserId == userId && ParkingSession.OpenStatuses.Contains(session.Status))
+            .OrderByDescending(session => session.EntryTime)
+            .ToListAsync(cancellationToken);
+
+    public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
+        dbContext.ParkingSessions.AsNoTracking().FirstOrDefaultAsync(
+            session => session.QrToken == qrToken && ParkingSession.OpenStatuses.Contains(session.Status),
+            cancellationToken);
+
     public void Add(ParkingSession session) => dbContext.ParkingSessions.Add(session);
 
     public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)

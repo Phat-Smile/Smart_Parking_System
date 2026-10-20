@@ -332,6 +332,10 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_parking_sessions_qr_token");
 
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_parking_sessions_user_id")
+                        .HasFilter("user_id IS NOT NULL");
+
                     b.HasIndex("LotId", "PlateNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_parking_sessions_lot_plate_open")
