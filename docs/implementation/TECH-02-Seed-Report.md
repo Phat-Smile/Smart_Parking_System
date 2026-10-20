@@ -7,17 +7,18 @@
 
 ## Scope actually implemented
 
-1. A guarded `run_parking_seed.py` (dry-run by default; needs explicit Development/Testing environment and disposable database acknowledgement).
-2. SQL assertions in `Validate-ParkingCatalogSeed.sql`: four known IDs, three Approved, one Pending, expected names, types, geocoordinates.
-3. Seven Python unit tests in `tests/database/test_seed_runner.py` (guards, dry-run, transaction command, SQL contract).
-4. `ParkingSeedIntegrationTests.cs`: PostgreSQL 17 Testcontainers + EF migrations, apply same seed twice, check public readers exclude Pending.
-5. Updated `Parking.IntegrationTests.csproj` to copy the two SQL files into test output.
+1. A guarded `run_parking_seed.py` (dry-run by default; requires local DB ending `_test`, explicit port and disposable acknowledgement).
+2. Optional Floor/Zone/Slot seed using existing migration tables only; car slots + motorbike capacity. **Pricing is still blocked on approved schema.**
+3. SQL assertions in `Validate-ParkingCatalogSeed.sql`: four known IDs, three Approved, one Pending, expected names, types, geocoordinates.
+4. Nine Python unit tests in `tests/database/test_seed_runner.py` (guards, dry-run, transaction command, SQL contract).
+5. `ParkingSeedIntegrationTests.cs`: PostgreSQL 17 Testcontainers + EF migrations, apply same seed twice, check public readers exclude Pending.
+6. Updated `Parking.IntegrationTests.csproj` to copy the two SQL files into test output.
 
 ## Tested as part of preparation
 
 | Check | Evidence/status |
 | --- | --- |
-| `python -m unittest discover -s tests/database -v` on source snapshot with original catalog SQL present | **7/7 PASS** (2026-10-12, preparation environment) |
+| `python -m unittest discover -s tests/database -v` on source snapshot with original catalog SQL present | **Original 7/7 PASS; rerun after patch** (2026-10-12, preparation environment) |
 | `python scripts/database/run_parking_seed.py` | Requires running locally; dry-run only |
 | Testcontainers PostgreSQL / EF migrations / SQL assertions | **NOT RUN** in preparation environment (`dotnet`/Docker unavailable) |
 | Idempotency against a real database | **NOT VERIFIED** until integration test passes |
@@ -27,7 +28,7 @@
 
 - [ ] Branch was based on updated `develop` and includes only TECH-02 files.
 - [ ] Confirm the existing SQL fixture `scripts/database/Seed-ParkingCatalog.sql` matches expected IDs.
-- [ ] Python test command reports seven tests and OK.
+- [ ] Python test command reports nine tests and OK.
 - [ ] Run `python scripts/database/run_parking_seed.py` to verify safe dry-run.
 - [ ] Docker and .NET SDK available; PostgreSQL migration applied to an **isolated/disposable** local database.
 - [ ] Run `dotnet test tests/Parking/Parking.IntegrationTests/Parking.IntegrationTests.csproj` (including new seed integration test) and archive passing output.

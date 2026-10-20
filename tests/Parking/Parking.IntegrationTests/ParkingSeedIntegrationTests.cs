@@ -31,11 +31,19 @@ public sealed class ParkingSeedIntegrationTests(PostgreSqlContainerFixture postg
         var validationSql = await File.ReadAllTextAsync(
             Path.Combine(AppContext.BaseDirectory, "Validate-ParkingCatalogSeed.sql"), ct);
 
+        var layoutSql = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "Seed-ParkingLayout.sql"), ct);
+        var layoutValidation = await File.ReadAllTextAsync(
+            Path.Combine(AppContext.BaseDirectory, "Validate-ParkingLayoutSeed.sql"), ct);
+
         await using (var transaction = await db.Database.BeginTransactionAsync(ct))
         {
             await db.Database.ExecuteSqlRawAsync(seedSql, ct);
+            await db.Database.ExecuteSqlRawAsync(layoutSql, ct);
             await db.Database.ExecuteSqlRawAsync(seedSql, ct);
+            await db.Database.ExecuteSqlRawAsync(layoutSql, ct);
             await db.Database.ExecuteSqlRawAsync(validationSql, ct);
+            await db.Database.ExecuteSqlRawAsync(layoutValidation, ct);
             await transaction.CommitAsync(ct);
         }
 

@@ -18,31 +18,43 @@ class SeedRunnerTests(unittest.TestCase):
             self.assertEqual(seed.main([]), 0)
 
     def test_production_refused(self):
-        env = {"PGDATABASE": "parking_system", "PGHOST": "localhost", "PGUSER": "dev",
+        env = {"PGDATABASE": "parking_system_seed_test", "PGHOST": "localhost", "PGPORT": "5433", "PGUSER": "dev",
                "ASPNETCORE_ENVIRONMENT": "Production"}
         with patch.dict("os.environ", env, clear=True):
             self.assertEqual(seed.main(["--apply", "--confirm-disposable", seed.ACK]), 2)
 
     def test_requires_explicit_ack(self):
-        env = {"PGDATABASE": "parking_system", "PGHOST": "localhost", "PGUSER": "dev",
+        env = {"PGDATABASE": "parking_system_seed_test", "PGHOST": "localhost", "PGPORT": "5433", "PGUSER": "dev",
                "ASPNETCORE_ENVIRONMENT": "Development"}
         with patch.dict("os.environ", env, clear=True):
             self.assertEqual(seed.main(["--apply"]), 2)
 
     def test_refuses_default_postgres_database(self):
-        env = {"PGDATABASE": "postgres", "PGHOST": "localhost", "PGUSER": "dev",
+        env = {"PGDATABASE": "postgres", "PGHOST": "localhost", "PGPORT": "5433", "PGUSER": "dev",
                "ASPNETCORE_ENVIRONMENT": "Testing"}
         with patch.dict("os.environ", env, clear=True):
             self.assertEqual(seed.main(["--apply", "--confirm-disposable", seed.ACK]), 2)
 
+    def test_rejects_shared_database_name_even_with_ack(self):
+        env = {"PGDATABASE": "parking_system", "PGHOST": "localhost", "PGPORT": "5433", "PGUSER": "dev",
+               "ASPNETCORE_ENVIRONMENT": "Development"}
+        with patch.dict("os.environ", env, clear=True):
+            self.assertEqual(seed.main(["--apply", "--confirm-disposable", seed.ACK]), 2)
+
+    def test_rejects_remote_host(self):
+        env = {"PGDATABASE": "parking_system_seed_test", "PGHOST": "example.com", "PGPORT": "5433", "PGUSER": "dev",
+               "ASPNETCORE_ENVIRONMENT": "Development"}
+        with patch.dict("os.environ", env, clear=True):
+            self.assertEqual(seed.main(["--apply", "--confirm-disposable", seed.ACK]), 2)
+
     def test_requires_psql_binary(self):
-        env = {"PGDATABASE": "parking_system", "PGHOST": "localhost", "PGUSER": "dev",
+        env = {"PGDATABASE": "parking_system_seed_test", "PGHOST": "localhost", "PGPORT": "5433", "PGUSER": "dev",
                "ASPNETCORE_ENVIRONMENT": "Development"}
         with patch.dict("os.environ", env, clear=True), patch.object(seed.shutil, "which", return_value=None):
             self.assertEqual(seed.main(["--apply", "--confirm-disposable", seed.ACK]), 2)
 
     def test_executes_atomic_sql_and_validation(self):
-        env = {"PGDATABASE": "parking_system", "PGHOST": "localhost", "PGUSER": "dev",
+        env = {"PGDATABASE": "parking_system_seed_test", "PGHOST": "localhost", "PGPORT": "5433", "PGUSER": "dev",
                "ASPNETCORE_ENVIRONMENT": "Development"}
         with patch.dict("os.environ", env, clear=True), \
              patch.object(seed.shutil, "which", return_value="/usr/bin/psql"), \
@@ -52,6 +64,8 @@ class SeedRunnerTests(unittest.TestCase):
             self.assertIn("--single-transaction", command)
             self.assertIn("ON_ERROR_STOP=1", command)
             self.assertTrue(any("Validate-ParkingCatalogSeed.sql" in arg for arg in command))
+            self.assertTrue(any("Seed-ParkingLayout.sql" in arg for arg in command))
+            self.assertTrue(any("Validate-ParkingLayoutSeed.sql" in arg for arg in command))
             self.assertNotIn("parking_dev_local_only", " ".join(command))
 
     def test_sql_contains_expected_count_and_upsert(self):

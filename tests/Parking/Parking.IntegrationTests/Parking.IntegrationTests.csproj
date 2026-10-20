@@ -17,5 +17,9 @@
           Link="Seed-ParkingCatalog.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\..\scripts\database\Validate-ParkingCatalogSeed.sql"
           Link="Validate-ParkingCatalogSeed.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\scripts\database\Seed-ParkingLayout.sql"
+          Link="Seed-ParkingLayout.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\scripts\database\Validate-ParkingLayoutSeed.sql"
+          Link="Validate-ParkingLayoutSeed.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
