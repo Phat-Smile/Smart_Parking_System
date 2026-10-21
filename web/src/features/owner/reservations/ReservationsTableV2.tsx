@@ -2,15 +2,24 @@
 
 import React, { useState, useMemo } from 'react';
 import { useOwnerStore } from '@/store/useOwnerStore';
+import { useOwnerSearchStore } from '@/features/owner/search/useOwnerSearchStore';
 import { ExcelExportButton } from '@/components/common/ExcelExportButton';
 import { Reservation, RC } from '@/types/owner';
 
+const STATUS_CHIPS = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'Đã xác nhận', label: 'Đã xác nhận' },
+  { key: 'Đang giữ', label: 'Đang giữ' },
+  { key: 'Chờ thanh toán', label: 'Chờ thanh toán' },
+  { key: 'Hết hạn', label: 'Hết hạn' },
+  { key: 'Đã hủy', label: 'Đã hủy' },
+];
+
 export function ReservationsTableV2() {
   const storeReservations = useOwnerStore((s) => s.reservations);
+  const { query, clearQuery } = useOwnerSearchStore();
 
-  // Local state overlay for reservations so user can cancel reservations interactively
   const [reservations, setReservations] = useState<Reservation[]>(storeReservations);
-  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -18,21 +27,28 @@ export function ReservationsTableV2() {
   // Cancel reservation confirm modal state
   const [cancelingReservation, setCancelingReservation] = useState<Reservation | null>(null);
 
-  // Filter reservations
+  // Filter reservations based on header search and status chips
   const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return reservations.filter((r) => {
       const matchesSearch =
-        !searchQuery ||
-        r.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.slot.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        r.id.toLowerCase().includes(q) ||
+        r.plate.toLowerCase().includes(q) ||
+        r.slot.toLowerCase().includes(q);
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [reservations, searchQuery, statusFilter]);
+  }, [reservations, query, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const handleClearFilters = () => {
+    clearQuery();
+    setStatusFilter('all');
+    setPage(1);
+  };
 
   const handleConfirmCancel = () => {
     if (!cancelingReservation) return;
@@ -54,6 +70,8 @@ export function ReservationsTableV2() {
     ];
   }, [filtered]);
 
+  const hasActiveFilters = Boolean(query || statusFilter !== 'all');
+
   return (
     <div
       className="ov2-card"
@@ -64,7 +82,7 @@ export function ReservationsTableV2() {
         padding: 24,
       }}
     >
-      {/* Top Controls */}
+      {/* Top Controls: Status chips on left, Clear filters & Excel export on right */}
       <div
         style={{
           display: 'flex',
@@ -75,64 +93,77 @@ export function ReservationsTableV2() {
           marginBottom: 20,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Search box */}
-          <input
-            type="text"
-            placeholder="Tìm mã, biển số, ô đỗ..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(1);
-            }}
-            aria-label="Tìm kiếm đặt chỗ"
-            style={{
-              border: '1px solid #e3e8f2',
-              background: '#f3f6fb',
-              borderRadius: 10,
-              padding: '8px 14px',
-              fontSize: 13,
-              color: '#0f1b3d',
-              outline: 'none',
-              width: 240,
-            }}
-          />
-
-          {/* Status filter dropdown */}
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-            aria-label="Lọc theo trạng thái đặt chỗ"
-            style={{
-              border: '1px solid #e3e8f2',
-              background: '#fff',
-              borderRadius: 10,
-              padding: '8px 12px',
-              fontSize: 13,
-              color: '#0f1b3d',
-              outline: 'none',
-              fontWeight: 600,
-            }}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="Đã xác nhận">Đã xác nhận</option>
-            <option value="Đang giữ">Đang giữ</option>
-            <option value="Chờ thanh toán">Chờ thanh toán</option>
-            <option value="Hết hạn">Hết hạn</option>
-            <option value="Đã hủy">Đã hủy</option>
-          </select>
+        {/* Status Chips */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {STATUS_CHIPS.map((chip) => {
+            const isActive = statusFilter === chip.key;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => {
+                  setStatusFilter(chip.key);
+                  setPage(1);
+                }}
+                aria-pressed={isActive}
+                style={{
+                  border: isActive ? '1px solid #2563eb' : '1px solid #e3e8f2',
+                  background: isActive ? '#eff6ff' : '#f8faff',
+                  color: isActive ? '#2563eb' : '#475569',
+                  borderRadius: 999,
+                  padding: '6px 14px',
+                  fontSize: 12.5,
+                  fontWeight: isActive ? 700 : 500,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  minHeight: 36,
+                }}
+              >
+                {chip.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Excel Export Button */}
-        <ExcelExportButton
-          filename="danh-sach-dat-cho.xlsx"
-          sheetName="Đặt chỗ"
-          data={excelData}
-          title="Xuất Excel"
-        />
+        {/* Right Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              aria-label="Xóa bộ lọc đặt chỗ"
+              style={{
+                border: '1px solid #e2e8f0',
+                background: '#fff',
+                color: '#64748b',
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                minHeight: 38,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              Xóa bộ lọc
+            </button>
+          )}
+
+          {/* Excel Export Button */}
+          <ExcelExportButton
+            filename="danh-sach-dat-cho.xlsx"
+            sheetName="Đặt chỗ"
+            data={excelData}
+            title="Xuất Excel"
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -233,8 +264,28 @@ export function ReservationsTableV2() {
               })
             ) : (
               <tr>
-                <td colSpan={7} style={{ padding: '28px', textAlign: 'center', color: '#6a7491' }}>
-                  Không tìm thấy đặt chỗ nào phù hợp
+                <td colSpan={7} style={{ padding: '36px 16px', textAlign: 'center' }}>
+                  <div style={{ color: '#6a7491', fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
+                    Không tìm thấy kết quả
+                  </div>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: 8,
+                        padding: '6px 14px',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Xóa bộ lọc
+                    </button>
+                  )}
                 </td>
               </tr>
             )}

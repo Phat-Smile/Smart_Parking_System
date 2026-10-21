@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { NotificationBell } from '@/features/owner/notifications/NotificationBell';
+import { useOwnerProfileStore } from '@/features/owner/profile/useOwnerProfileStore';
 
 const IC: Record<string, string> = {
   grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
@@ -85,15 +87,29 @@ export function OwnerSidebar() {
   const isLayoutActive = pathname.startsWith('/owner/layout');
   const [layoutOpen, setLayoutOpen] = useState(isLayoutActive);
 
+  const shortName = useOwnerProfileStore((s) => s.getShortName());
+  const avatarUrl = useOwnerProfileStore((s) => s.savedProfile.avatarUrl);
+
   return (
     <aside className="side" id="side">
-      {/* Brand / Logo */}
-      <Link href="/owner/dashboard" className="brand">
-        <ParkWiseLogoBadge />
-        <span>
-          Park<span style={{ color: 'var(--pw-lime)' }}>Wise</span>
-        </span>
-      </Link>
+      {/* Brand / Logo + Notification Bell */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          marginBottom: 16,
+        }}
+      >
+        <Link href="/owner/dashboard" className="brand" style={{ marginBottom: 0, flex: 1 }}>
+          <ParkWiseLogoBadge />
+          <span>
+            Park<span style={{ color: 'var(--pw-lime)' }}>Wise</span>
+          </span>
+        </Link>
+        <NotificationBell variant="sidebar" />
+      </div>
 
       {/* Mục thẳng trước submenu */}
       {NAV_FLAT.slice(0, 2).map((item) => {
@@ -145,14 +161,30 @@ export function OwnerSidebar() {
         );
       })}
 
-      {/* User profile card */}
-      <div className="user">
-        <span className="av">M</span>
+      {/* User profile card -> Link to /owner/profile */}
+      <Link
+        href="/owner/profile"
+        className={`user ${pathname === '/owner/profile' ? 'ov2-user-active on' : ''}`}
+        aria-label="Mở hồ sơ chủ bãi"
+        style={{ textDecoration: 'none', cursor: 'pointer' }}
+      >
+        <span className="av">
+          {avatarUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={avatarUrl}
+              alt=""
+              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            shortName.charAt(0).toUpperCase()
+          )}
+        </span>
         <div>
-          <div className="uname">Minh</div>
+          <div className="uname">{shortName}</div>
           <div className="urole">Chủ bãi</div>
         </div>
-      </div>
+      </Link>
 
       {/* Nút Đăng xuất */}
       <button

@@ -13,6 +13,8 @@ const ParkingScene3DViewer = dynamic(
   { ssr: false }
 );
 
+import { registerParkingLotApi, ParkingLotTypeEnum } from '@/features/owner/api/ownerApi';
+
 interface WizardData {
   name: string;
   addr: string;
@@ -26,7 +28,9 @@ interface WizardData {
   pm: number;
   dep: number;
   hold: number;
-  layout: string;
+  type: ParkingLotTypeEnum;
+  floors: number;
+  rowsPerFloor: number;
 }
 
 const INITIAL_DATA: WizardData = {
@@ -42,7 +46,9 @@ const INITIAL_DATA: WizardData = {
   pm: 5000,
   dep: 20000,
   hold: 15,
-  layout: '5',
+  type: 'MultiStorey',
+  floors: 5,
+  rowsPerFloor: 4,
 };
 
 export default function NewParkingLotPage() {
@@ -53,6 +59,7 @@ export default function NewParkingLotPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [previewMode, setPreviewMode] = useState<'3d' | '2d'>('3d');
   const [confirming, setConfirming] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
   const validate = () => {
@@ -63,6 +70,8 @@ export default function NewParkingLotPage() {
       errs.push('Tọa độ GPS theo dạng "vĩ độ, kinh độ", ví dụ 10.7769, 106.7009');
     }
     if (!(data.cap > 0)) errs.push('Sức chứa phải lớn hơn 0');
+    if (data.type !== 'Outdoor' && !(data.floors > 0)) errs.push('Số tầng phải lớn hơn 0');
+    if (!(data.rowsPerFloor > 0)) errs.push('Số dãy mỗi tầng phải lớn hơn 0');
     if (!data.vc && !data.vm) errs.push('Chọn ít nhất một loại xe');
     return errs;
   };
@@ -93,30 +102,53 @@ export default function NewParkingLotPage() {
     }
   };
 
-  const handleConfirmSend = () => {
-    addLot({
-      id: (Date.now() % 100000) + 10,
-      name: data.name,
-      addr: data.addr,
-      gps: data.gps,
-      op: data.op,
-      cl2: data.cl2,
-      vc: data.vc,
-      vm: data.vm,
-      cc: data.vc ? data.cap : 0,
-      cm: data.vm ? data.cap : 0,
-      fls: Number(data.layout) || 5,
-      pc: data.pc,
-      pm: data.pm,
-      dep: data.dep,
-      res: Number(data.hold) > 0 ? 'on' : 'off',
-      hold: Number(data.hold) || 15,
-      maxr: 6,
-      fc: 10,
-      ap: 'pending',
-      zones: [],
-    });
-    setDone(true);
+  const handleConfirmSend = async () => {
+    setIsSubmitting(true);
+    try {
+      const [latStr, lngStr] = data.gps.split(',').map((s) => s.trim());
+      const latitude = Number(latStr) || 10.7769;
+      const longitude = Number(lngStr) || 106.7009;
+
+      // Gọi API đăng ký bãi xe chuẩn BE nếu Backend sẵn sàng
+      try {
+        await registerParkingLotApi({
+          name: data.name,
+          address: data.addr,
+          latitude,
+          longitude,
+          type: data.type,
+        });
+      } catch (err: unknown) {
+        console.warn('Backend API registration call skipped or offline, falling back to local store:', err);
+      }
+
+      // Cập nhật bãi xe vào store để hiển thị ngay trên UI của Owner
+      addLot({
+        id: (Date.now() % 100000) + 10,
+        name: data.name,
+        addr: data.addr,
+        gps: data.gps,
+        op: data.op,
+        cl2: data.cl2,
+        vc: data.vc,
+        vm: data.vm,
+        cc: data.vc ? data.cap : 0,
+        cm: data.vm ? data.cap : 0,
+        fls: data.type === 'Outdoor' ? 1 : data.floors,
+        pc: data.pc,
+        pm: data.pm,
+        dep: data.dep,
+        res: Number(data.hold) > 0 ? 'on' : 'off',
+        hold: Number(data.hold) || 15,
+        maxr: 6,
+        fc: 10,
+        ap: 'pending',
+        zones: [],
+      });
+      setDone(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (done) {
@@ -273,14 +305,49 @@ export default function NewParkingLotPage() {
               </label>
 
               <label className="f">
-                <span>Mẫu sơ đồ</span>
+                <span>Loại bãi xe (Chuẩn BE)</span>
                 <select
-                  value={data.layout}
-                  onChange={(e) => setData({ ...data, layout: e.target.value })}
+                  value={data.type}
+                  onChange={(e) => {
+                    const newType = e.target.value as ParkingLotTypeEnum;
+                    const newFloors = newType === 'Outdoor' ? 1 : data.floors > 1 ? data.floors : 3;
+                    setData({ ...data, type: newType, floors: newFloors });
+                  }}
                 >
-                  <option value="5">5 tầng · 4 dãy · 500 ô</option>
-                  <option value="3">3 tầng · 4 dãy · 300 ô</option>
+                  <option value="MultiStorey">Nhà xe cao tầng (MultiStorey)</option>
+                  <option value="Underground">Hầm xe (Underground)</option>
+                  <option value="Outdoor">Ngoài trời (Outdoor)</option>
                 </select>
+              </label>
+
+              <label className="f">
+                <span>Số tầng</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  disabled={data.type === 'Outdoor'}
+                  value={data.type === 'Outdoor' ? 1 : data.floors}
+                  onChange={(e) =>
+                    setData({ ...data, floors: Math.max(1, Number(e.target.value)) })
+                  }
+                />
+              </label>
+
+              <label className="f">
+                <span>Số dãy mỗi tầng</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={data.rowsPerFloor}
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      rowsPerFloor: Math.max(1, Number(e.target.value)),
+                    })
+                  }
+                />
               </label>
             </div>
 
@@ -376,6 +443,22 @@ export default function NewParkingLotPage() {
                     </td>
                   </tr>
                   <tr>
+                    <td>Loại bãi xe (BE)</td>
+                    <td>
+                      {data.type === 'MultiStorey'
+                        ? 'Nhà xe cao tầng (MultiStorey)'
+                        : data.type === 'Underground'
+                        ? 'Hầm xe (Underground)'
+                        : 'Ngoài trời (Outdoor)'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Mẫu sơ đồ</td>
+                    <td>
+                      {data.type === 'Outdoor' ? '1 tầng (Ngoài trời)' : `${data.floors} tầng`} · {data.rowsPerFloor} dãy/tầng ({data.cap} ô đỗ)
+                    </td>
+                  </tr>
+                  <tr>
                     <td>Loại xe</td>
                     <td>
                       {[data.vc ? 'Ô tô' : '', data.vm ? 'Xe máy' : '']
@@ -409,12 +492,12 @@ export default function NewParkingLotPage() {
           {confirming && (
             <div className="ok" style={{ marginTop: '14px' }}>
               <b>Xác nhận gửi duyệt?</b>
-              <p>Sau khi gửi, bạn không thể sửa cho tới khi có kết quả.</p>
+              <p>Sau khi gửi, thông tin bãi xe sẽ được gửi lên hệ thống ở trạng thái Chờ duyệt (Pending).</p>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn p" onClick={handleConfirmSend}>
-                  Xác nhận gửi
+                <button className="btn p" onClick={handleConfirmSend} disabled={isSubmitting}>
+                  {isSubmitting ? 'Đang gửi duyệt...' : 'Xác nhận gửi'}
                 </button>
-                <button className="btn" onClick={() => setConfirming(false)}>
+                <button className="btn" onClick={() => setConfirming(false)} disabled={isSubmitting}>
                   Quay lại
                 </button>
               </div>

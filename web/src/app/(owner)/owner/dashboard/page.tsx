@@ -5,9 +5,9 @@ import { OwnerPageHeader } from '@/components/layout/OwnerPageHeader';
 import { DashboardKpisV2 } from '@/components/dashboard/DashboardKpisV2';
 import { TrafficChart } from '@/components/dashboard/TrafficChart';
 import { WeeklyParkingChart } from '@/components/dashboard/WeeklyParkingChart';
+import { FloorCardsV2 } from '@/components/dashboard/FloorCardsV2';
 import { StatusDonutV2 } from '@/components/dashboard/StatusDonutV2';
 import { RecentActivityV2 } from '@/components/dashboard/RecentActivityV2';
-import { FloorCardsV2 } from '@/components/dashboard/FloorCardsV2';
 import { useOwnerStore } from '@/store/useOwnerStore';
 
 export default function DashboardPage() {
@@ -28,14 +28,14 @@ export default function DashboardPage() {
         subtitle="Doanh thu, xe trong bãi và tình hình vận hành"
       />
 
-      {/* 4 Thẻ KPI */}
+      {/* Khối 1: 4 Thẻ tổng (KPIs) */}
       <DashboardKpisV2 />
 
-      {/* Hàng 1: Lưu lượng xe (2/3) + Lượt đỗ trong tuần (1/3) */}
+      {/* Khối 2: Hàng 2 biểu đồ (Lưu lượng xe + Lượt đỗ trong tuần) */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.9fr) minmax(320px, 1.1fr)',
+          gridTemplateColumns: 'minmax(0, 1.35fr) minmax(380px, 1.15fr)',
           gap: 16,
           marginBottom: 20,
         }}
@@ -45,22 +45,23 @@ export default function DashboardPage() {
         <WeeklyParkingChart />
       </div>
 
-      {/* Hàng 2: Trạng thái ô (1/3) + Hoạt động gần đây (2/3) */}
+      {/* Khối 3: Khung "Theo từng tầng" (5 thẻ, nằm trên cặp Trạng thái ô / Hoạt động gần đây) */}
+      <div style={{ marginBottom: 20 }}>
+        <FloorCardsV2 />
+      </div>
+
+      {/* Khối 4: Hàng cuối (Trạng thái ô 1/3 + Hoạt động gần đây 2/3) */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(300px, 1.1fr) minmax(0, 1.9fr)',
           gap: 16,
-          marginBottom: 20,
         }}
         className="ov2-row-status"
       >
         <StatusDonutV2 />
         <RecentActivityV2 />
       </div>
-
-      {/* Hàng 3: Theo từng tầng (5 thẻ) */}
-      <FloorCardsV2 />
     </div>
   );
 }

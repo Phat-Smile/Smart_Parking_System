@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { getPublicMapboxToken } from '@/shared/config/env';
 import { useAllLots, useOwnerMapStore } from './useOwnerMapStore';
@@ -54,9 +55,8 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
           Vị trí các bãi
         </h2>
 
-        <button
-          type="button"
-          onClick={() => setAddModalOpen(true)}
+        <Link
+          href="/owner/parking-lots/new"
           style={{
             background: '#d9f99d',
             color: '#143806',
@@ -66,13 +66,14 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
             fontSize: 13,
             fontWeight: 700,
             cursor: 'pointer',
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
+            textDecoration: 'none',
           }}
         >
-          + Thêm bãi mới
-        </button>
+          + Đăng ký bãi mới
+        </Link>
       </div>
 
       {/* Map Container */}

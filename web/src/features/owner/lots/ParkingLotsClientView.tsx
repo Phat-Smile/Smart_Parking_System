@@ -7,12 +7,19 @@ import { LotStatusPanel } from '@/features/owner/lots/LotStatusPanel';
 import { AddLotModal } from '@/features/owner/lots/AddLotModal';
 import { useAllLots, useOwnerMapStore } from '@/features/owner/lots/useOwnerMapStore';
 
+import { useOwnerSearchStore } from '@/features/owner/search/useOwnerSearchStore';
+
 interface ParkingLotsClientViewProps {
   mapboxToken?: string;
 }
 
+function normalizeSearch(str: string): string {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
 export function ParkingLotsClientView({ mapboxToken }: ParkingLotsClientViewProps) {
   const lots = useAllLots();
+  const searchQuery = useOwnerSearchStore((s) => s.query);
   const {
     selectedLotId,
     setSelectedLotId,
@@ -27,8 +34,14 @@ export function ParkingLotsClientView({ mapboxToken }: ParkingLotsClientViewProp
   const rejectedCount = lots.filter((l) => l.ap === 'rejected').length;
 
   const filteredLots = lots.filter((lot) => {
-    if (filterStatus === 'all') return true;
-    return lot.ap === filterStatus;
+    const matchesStatus = filterStatus === 'all' || lot.ap === filterStatus;
+    if (!matchesStatus) return false;
+
+    if (!searchQuery) return true;
+    const q = normalizeSearch(searchQuery);
+    const nameMatch = normalizeSearch(lot.name).includes(q);
+    const addrMatch = normalizeSearch(lot.addr || '').includes(q);
+    return nameMatch || addrMatch;
   });
 
   return (
@@ -104,88 +117,106 @@ export function ParkingLotsClientView({ mapboxToken }: ParkingLotsClientViewProp
           gap: 16,
         }}
       >
-        {filteredLots.map((lot) => {
-          const isSelected = selectedLotId === lot.id;
-          const statusBg =
-            lot.ap === 'approved'
-              ? '#def7ec'
-              : lot.ap === 'pending'
-              ? '#fef3c7'
-              : '#fde8e8';
-          const statusColor =
-            lot.ap === 'approved'
-              ? '#0e9f6e'
-              : lot.ap === 'pending'
-              ? '#b45309'
-              : '#e5484d';
-          const statusText =
-            lot.ap === 'approved'
-              ? 'Đang hoạt động'
-              : lot.ap === 'pending'
-              ? 'Chờ duyệt'
-              : 'Bị từ chối';
+        {filteredLots.length > 0 ? (
+          filteredLots.map((lot) => {
+            const isSelected = selectedLotId === lot.id;
+            const statusBg =
+              lot.ap === 'approved'
+                ? '#def7ec'
+                : lot.ap === 'pending'
+                ? '#fef3c7'
+                : '#fde8e8';
+            const statusColor =
+              lot.ap === 'approved'
+                ? '#0e9f6e'
+                : lot.ap === 'pending'
+                ? '#b45309'
+                : '#e5484d';
+            const statusText =
+              lot.ap === 'approved'
+                ? 'Đang hoạt động'
+                : lot.ap === 'pending'
+                ? 'Chờ duyệt'
+                : 'Bị từ chối';
 
-          return (
-            <div
-              key={lot.id}
-              onClick={() => setSelectedLotId(isSelected ? null : lot.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setSelectedLotId(isSelected ? null : lot.id);
-                }
-              }}
-              aria-label={`Bãi xe ${lot.name}, ${lot.addr}, ${lot.cc} ô đỗ`}
-              style={{
-                background: '#fff',
-                borderRadius: 18,
-                border: isSelected ? '2px solid #2563eb' : '1px solid #e3e8f2',
-                padding: 22,
-                cursor: 'pointer',
-                boxShadow: isSelected
-                  ? '0 8px 24px rgba(37,99,235,0.12)'
-                  : '0 2px 6px rgba(15,27,61,0.04)',
-                transition: 'all 0.15s ease',
-              }}
-            >
+            return (
               <div
+                key={lot.id}
+                onClick={() => setSelectedLotId(isSelected ? null : lot.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedLotId(isSelected ? null : lot.id);
+                  }
+                }}
+                aria-label={`Bãi xe ${lot.name}, ${lot.addr}, ${lot.cc} ô đỗ`}
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: 10,
+                  background: '#fff',
+                  borderRadius: 18,
+                  border: isSelected ? '2px solid #2563eb' : '1px solid #e3e8f2',
+                  padding: 22,
+                  cursor: 'pointer',
+                  boxShadow: isSelected
+                    ? '0 8px 24px rgba(37,99,235,0.12)'
+                    : '0 2px 6px rgba(15,27,61,0.04)',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1b3d' }}>
-                  {lot.name}
-                </div>
-                <span
+                <div
                   style={{
-                    background: statusBg,
-                    color: statusColor,
-                    borderRadius: 999,
-                    padding: '3px 10px',
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: 10,
                   }}
                 >
-                  {statusText}
-                </span>
-              </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1b3d' }}>
+                    {lot.name}
+                  </div>
+                  <span
+                    style={{
+                      background: statusBg,
+                      color: statusColor,
+                      borderRadius: 999,
+                      padding: '3px 10px',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {statusText}
+                  </span>
+                </div>
 
-              <div style={{ fontSize: 13, color: '#6a7491', marginBottom: 14 }}>
-                {lot.addr}
-              </div>
+                <div style={{ fontSize: 13, color: '#6a7491', marginBottom: 14 }}>
+                  {lot.addr}
+                </div>
 
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1b3d' }}>
-                {lot.cc} ô đỗ
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1b3d' }}>
+                  {lot.cc} ô đỗ
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        ) : (
+          <div
+            style={{
+              gridColumn: '1 / -1',
+              padding: '48px 24px',
+              textAlign: 'center',
+              background: '#fff',
+              borderRadius: 18,
+              border: '1px dashed #e3e8f2',
+              color: '#6a7491',
+              fontSize: 14,
+              fontWeight: 600,
+            }}
+          >
+            Không tìm thấy bãi phù hợp
+          </div>
+        )}
       </div>
 
       {/* Add Lot Modal */}

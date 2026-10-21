@@ -6,7 +6,19 @@ import { useParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useOwnerStore } from '@/store/useOwnerStore';
 import { vnd } from '@/types/owner';
-import { Calculator, Check, AlertCircle, ArrowLeft } from 'lucide-react';
+
+const IconCalculator = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="14"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+);
+const IconArrowLeft = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+);
+const IconCheck = ({ style }: { style?: React.CSSProperties }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}><polyline points="20 6 9 17 4 12"/></svg>
+);
+const IconAlertCircle = ({ style }: { style?: React.CSSProperties }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+);
 
 export default function LotPricingConfigPage() {
   const params = useParams();
@@ -63,7 +75,7 @@ export default function LotPricingConfigPage() {
           <div style={{ display: 'flex', gap: '8px' }}>
             <Link href={`/owner/parking-lots/${lotId}`} className="btn">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <ArrowLeft size={14} /> Về chi tiết bãi
+                <IconArrowLeft /> Về chi tiết bãi
               </span>
             </Link>
             <button className="btn p" onClick={handleSave}>
@@ -84,7 +96,7 @@ export default function LotPricingConfigPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-          <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+          <IconAlertCircle style={{ flexShrink: 0, marginTop: '2px' }} />
           <div>
             <b>Thông báo tích hợp Backend (BE-5 / Payment Service):</b>
             <p style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -185,7 +197,7 @@ export default function LotPricingConfigPage() {
 
           <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--line)' }}>
             <button className="btn p" onClick={handleSave}>
-              <Check size={16} style={{ display: 'inline-block', marginRight: '6px' }} />
+              <IconCheck style={{ display: 'inline-block', marginRight: '6px' }} />
               Áp dụng bảng giá cho bãi
             </button>
           </div>
@@ -246,7 +258,7 @@ export default function LotPricingConfigPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--mut)', fontSize: '13px' }}>
-              <Calculator size={16} />
+              <IconCalculator />
               <span>Tổng tiền dự kiến</span>
             </div>
             <div style={{ fontSize: '32px', fontWeight: 800, marginTop: '6px', color: 'var(--ink)' }}>

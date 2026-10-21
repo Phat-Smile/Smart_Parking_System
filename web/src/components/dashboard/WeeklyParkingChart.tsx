@@ -1,25 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { getWeeklyParkingData } from '@/features/owner/dashboard/trafficAdapter';
 
 export function WeeklyParkingChart() {
   const [selectedWeek, setSelectedWeek] = useState('current');
-  const items = getWeeklyParkingData();
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const width = 360;
-  const height = 310;
-  const padLeft = 40;
-  const padRight = 15;
-  const padTop = 45;
-  const padBottom = 30;
+  const items = useMemo(() => getWeeklyParkingData(selectedWeek), [selectedWeek]);
+
+  // Tổng lượt đặt trước và vãng lai
+  const totalReserved = useMemo(
+    () => items.reduce((acc, it) => acc + it.reserved, 0),
+    [items]
+  );
+  const totalWalkIn = useMemo(
+    () => items.reduce((acc, it) => acc + it.walkIn, 0),
+    [items]
+  );
+
+  const width = 540;
+  const height = 370;
+  const padLeft = 60; // Lề trái đủ rộng để số 1.000 / 750 không bao giờ bị cắt
+  const padRight = 20;
+  const padTop = 52;
+  const padBottom = 38;
 
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
-  const maxVal = 2000;
+  const maxVal = 1000;
 
-  const colWidth = 16;
-  const gap = chartW / items.length;
+  const stepTicks = [0, 250, 500, 750, 1000];
+  const slotW = chartW / items.length;
+  const barW = Math.min(22, (slotW - 12) / 2);
 
   return (
     <div
@@ -31,6 +44,7 @@ export function WeeklyParkingChart() {
         padding: 24,
         display: 'flex',
         flexDirection: 'column',
+        position: 'relative',
       }}
     >
       {/* Header with Dropdown */}
@@ -42,13 +56,13 @@ export function WeeklyParkingChart() {
           marginBottom: 16,
         }}
       >
-        <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f1b3d' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#0f1b3d' }}>
           Lượt đỗ trong tuần
         </h2>
         <select
           value={selectedWeek}
           onChange={(e) => setSelectedWeek(e.target.value)}
-          aria-label="Chọn tuần"
+          aria-label="Chọn tuần để xem lượt đỗ"
           style={{
             border: '1px solid #e3e8f2',
             background: '#f3f6fb',
@@ -58,6 +72,7 @@ export function WeeklyParkingChart() {
             color: '#0f1b3d',
             outline: 'none',
             fontWeight: 600,
+            cursor: 'pointer',
           }}
         >
           <option value="current">Tuần này</option>
@@ -66,41 +81,54 @@ export function WeeklyParkingChart() {
         </select>
       </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 14, fontSize: 12.5 }}>
+      {/* Legend with Totals */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 16,
+          marginBottom: 12,
+          fontSize: 12.5,
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span
             style={{
-              width: 9,
-              height: 9,
+              width: 10,
+              height: 10,
               borderRadius: '50%',
-              backgroundColor: '#2563eb',
+              backgroundColor: '#2563EB',
             }}
           />
-          <span style={{ color: '#0f1b3d', fontWeight: 600 }}>Đặt trước</span>
+          <span style={{ color: '#0f1b3d', fontWeight: 700 }}>
+            Đặt trước {totalReserved.toLocaleString('vi-VN')} lượt
+          </span>
         </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span
             style={{
-              width: 9,
-              height: 9,
+              width: 10,
+              height: 10,
               borderRadius: '50%',
-              backgroundColor: '#bfdbfe',
+              backgroundColor: '#8B5CF6',
             }}
           />
-          <span style={{ color: '#6a7491' }}>Vãng lai</span>
+          <span style={{ color: '#6a7491', fontWeight: 600 }}>
+            Vãng lai {totalWalkIn.toLocaleString('vi-VN')} lượt
+          </span>
         </div>
       </div>
 
-      {/* SVG Stacked Bar Chart */}
+      {/* SVG Grouped Bar Chart */}
       <div style={{ position: 'relative', width: '100%', flex: 1 }}>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           style={{ width: '100%', height: 'auto', display: 'block' }}
-          aria-label="Biểu đồ lượt đỗ trong tuần"
+          aria-label="Biểu đồ cột nhóm lượt đỗ trong tuần"
         >
-          {/* Horizontal Grid lines */}
-          {[0, 500, 1000, 1500, 2000].map((val) => {
+          {/* Horizontal Grid lines & Y-axis labels */}
+          {stepTicks.map((val) => {
             const y = padTop + chartH * (1 - val / maxVal);
             return (
               <g key={val}>
@@ -109,53 +137,76 @@ export function WeeklyParkingChart() {
                   y1={y}
                   x2={width - padRight}
                   y2={y}
-                  stroke="#f0f2f5"
+                  stroke="#f1f3f7"
                   strokeDasharray="4 4"
                 />
                 <text
-                  x={padLeft - 6}
+                  x={padLeft - 10}
                   y={y + 4}
                   textAnchor="end"
-                  fontSize="11"
-                  fill="#9aa2b4"
+                  fontSize="12"
+                  fill="#64748b"
+                  fontWeight="600"
                 >
-                  {val >= 1000 ? (val / 1000).toFixed(val % 1000 === 0 ? 0 : 1) + '.000' : val}
+                  {val >= 1000 ? (val / 1000).toFixed(0) + '.000' : val}
                 </text>
               </g>
             );
           })}
 
-          {/* Bars */}
+          {/* Grouped Bars per day */}
           {items.map((item, idx) => {
-            const x = padLeft + idx * gap + gap / 2 - colWidth / 2;
+            const slotX = padLeft + idx * slotW;
             const bottomY = padTop + chartH;
 
-            const resH = (item.reserved / maxVal) * chartH;
-            const walkH = (item.walkIn / maxVal) * chartH;
-            const totalH = resH + walkH;
+            const resH = Math.min(chartH, Math.max(6, (item.reserved / maxVal) * chartH));
+            const walkH = Math.min(chartH, Math.max(6, (item.walkIn / maxVal) * chartH));
 
             const resY = bottomY - resH;
-            const walkY = bottomY - totalH;
+            const walkY = bottomY - walkH;
+
+            const isHovered = hoveredIdx === idx;
+            const groupCenterX = slotX + slotW / 2;
+            const resX = groupCenterX - barW - 2;
+            const walkX = groupCenterX + 2;
 
             return (
-              <g key={item.day}>
+              <g
+                key={item.day}
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* Background highlight for Peak day or Hover */}
+                {(item.isPeak || isHovered) && (
+                  <rect
+                    x={slotX + 4}
+                    y={padTop - 28}
+                    width={slotW - 8}
+                    height={chartH + 28}
+                    rx={8}
+                    fill={item.isPeak ? '#eff6ff' : '#f8faff'}
+                    opacity={item.isPeak ? 0.9 : 0.6}
+                  />
+                )}
+
                 {/* Badge "Đông nhất" if peak */}
                 {item.isPeak && (
                   <g>
                     <rect
-                      x={x + colWidth / 2 - 32}
-                      y={walkY - 34}
-                      width={64}
+                      x={groupCenterX - 34}
+                      y={padTop - 28}
+                      width={68}
                       height={20}
                       rx={10}
-                      fill="#0f1b3d"
+                      fill="#2563EB"
                     />
                     <text
-                      x={x + colWidth / 2}
-                      y={walkY - 20}
+                      x={groupCenterX}
+                      y={padTop - 14}
                       textAnchor="middle"
-                      fontSize="10"
-                      fontWeight="700"
+                      fontSize="10.5"
+                      fontWeight="800"
                       fill="#fff"
                     >
                       Đông nhất
@@ -163,47 +214,64 @@ export function WeeklyParkingChart() {
                   </g>
                 )}
 
-                {/* Number above bar */}
+                {/* Bar 1: Đặt trước (#2563EB) */}
+                <rect
+                  x={resX}
+                  y={resY}
+                  width={barW}
+                  height={resH}
+                  rx={5}
+                  fill="#2563EB"
+                  style={{
+                    filter: isHovered ? 'brightness(1.15)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                />
+                {/* Number on top of reserved bar */}
                 <text
-                  x={x + colWidth / 2}
-                  y={walkY - 6}
+                  x={resX + barW / 2}
+                  y={resY - 6}
                   textAnchor="middle"
-                  fontSize="10"
-                  fontWeight="700"
-                  fill="#0f1b3d"
+                  fontSize="11"
+                  fontWeight="800"
+                  fill="#2563EB"
                 >
-                  {item.total.toLocaleString('vi-VN')}
+                  {item.reserved}
                 </text>
 
-                {/* Stacked Bars: Top = Vãng lai (light blue), Bottom = Đặt trước (darker blue) */}
-                {/* Walk-in top segment */}
+                {/* Bar 2: Vãng lai (#8B5CF6) */}
                 <rect
-                  x={x}
+                  x={walkX}
                   y={walkY}
-                  width={colWidth}
+                  width={barW}
                   height={walkH}
-                  rx={item.reserved === 0 ? 8 : 0}
-                  fill="#bfdbfe"
-                  style={{ borderTopLeftRadius: 8, borderTopRightRadius: 8 }}
+                  rx={5}
+                  fill="#8B5CF6"
+                  style={{
+                    filter: isHovered ? 'brightness(1.15)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
                 />
-                {/* Reserved bottom segment */}
-                <rect
-                  x={x}
-                  y={resY}
-                  width={colWidth}
-                  height={resH}
-                  fill="#2563eb"
-                  rx={0}
-                />
-
-                {/* X axis label */}
+                {/* Number on top of walk-in bar */}
                 <text
-                  x={x + colWidth / 2}
-                  y={height - 10}
+                  x={walkX + barW / 2}
+                  y={walkY - 6}
                   textAnchor="middle"
-                  fontSize="11.5"
-                  fill={item.isPeak ? '#0f1b3d' : '#6a7491'}
-                  fontWeight={item.isPeak ? '700' : '500'}
+                  fontSize="11"
+                  fontWeight="800"
+                  fill="#8B5CF6"
+                >
+                  {item.walkIn}
+                </text>
+
+                {/* X axis Day label */}
+                <text
+                  x={groupCenterX}
+                  y={height - 12}
+                  textAnchor="middle"
+                  fontSize="13"
+                  fill={item.isPeak ? '#2563EB' : '#334155'}
+                  fontWeight={item.isPeak ? '800' : '700'}
                 >
                   {item.day}
                 </text>
@@ -211,6 +279,52 @@ export function WeeklyParkingChart() {
             );
           })}
         </svg>
+
+        {/* Hover / Touch Tooltip popover with white background */}
+        {hoveredIdx !== null && items[hoveredIdx] && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 10,
+              left: Math.min(
+                width - 180,
+                Math.max(10, padLeft + hoveredIdx * slotW + slotW / 2 - 75)
+              ),
+              background: '#ffffff',
+              borderRadius: 12,
+              padding: '10px 14px',
+              boxShadow: '0 8px 24px rgba(15, 27, 61, 0.16)',
+              border: '1px solid #e3e8f2',
+              pointerEvents: 'none',
+              zIndex: 10,
+              minWidth: 150,
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: 13, color: '#0f1b3d', marginBottom: 6 }}>
+              Thứ {items[hoveredIdx].day}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+              <span style={{ color: '#2563EB', fontWeight: 600 }}>Đặt trước:</span>
+              <strong style={{ color: '#0f1b3d' }}>{items[hoveredIdx].reserved.toLocaleString('vi-VN')}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+              <span style={{ color: '#8B5CF6', fontWeight: 600 }}>Vãng lai:</span>
+              <strong style={{ color: '#0f1b3d' }}>{items[hoveredIdx].walkIn.toLocaleString('vi-VN')}</strong>
+            </div>
+            <div
+              style={{
+                borderTop: '1px solid #f1f3f7',
+                paddingTop: 4,
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 12,
+              }}
+            >
+              <span style={{ color: '#64748b' }}>Tổng cộng:</span>
+              <strong style={{ color: '#0f1b3d' }}>{items[hoveredIdx].total.toLocaleString('vi-VN')}</strong>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

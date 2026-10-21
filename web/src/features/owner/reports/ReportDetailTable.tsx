@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useOwnerSearchStore } from '@/features/owner/search/useOwnerSearchStore';
 import { ReportTableRow } from './revenueAdapter';
 
 interface ReportDetailTableProps {
@@ -8,15 +9,16 @@ interface ReportDetailTableProps {
 }
 
 export function ReportDetailTable({ rows }: ReportDetailTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const { query, clearQuery } = useOwnerSearchStore();
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
-  const filtered = rows.filter(
-    (r) =>
-      r.time.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.popularMethod.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Lọc dòng theo nhãn thời gian từ ô tìm kiếm Header
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.time.toLowerCase().includes(q));
+  }, [rows, query]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentRows = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -32,7 +34,7 @@ export function ReportDetailTable({ rows }: ReportDetailTableProps) {
         marginTop: 20,
       }}
     >
-      {/* Top search & title */}
+      {/* Top title & Clear filters if active */}
       <div
         style={{
           display: 'flex',
@@ -47,26 +49,35 @@ export function ReportDetailTable({ rows }: ReportDetailTableProps) {
           Chi tiết doanh thu theo mốc
         </h2>
 
-        <input
-          type="text"
-          placeholder="Tìm mốc thời gian..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setPage(1);
-          }}
-          aria-label="Tìm kiếm trong bảng chi tiết"
-          style={{
-            border: '1px solid #e3e8f2',
-            background: '#f3f6fb',
-            borderRadius: 8,
-            padding: '6px 12px',
-            fontSize: 12.5,
-            color: '#0f1b3d',
-            outline: 'none',
-            width: 200,
-          }}
-        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              clearQuery();
+              setPage(1);
+            }}
+            aria-label="Xóa bộ lọc mốc thời gian"
+            style={{
+              border: '1px solid #e2e8f0',
+              background: '#fff',
+              color: '#64748b',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+            Xóa bộ lọc
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -126,8 +137,31 @@ export function ReportDetailTable({ rows }: ReportDetailTableProps) {
               ))
             ) : (
               <tr>
-                <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#6a7491' }}>
-                  Không tìm thấy kết quả phù hợp
+                <td colSpan={5} style={{ padding: '36px 16px', textAlign: 'center' }}>
+                  <div style={{ color: '#6a7491', fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
+                    Không tìm thấy kết quả
+                  </div>
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearQuery();
+                        setPage(1);
+                      }}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: 8,
+                        padding: '6px 14px',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Xóa bộ lọc
+                    </button>
+                  )}
                 </td>
               </tr>
             )}
