@@ -11,6 +11,7 @@ obj/
 !.env.example
 
 TestResults/
+ci-results/
 coverage/
 logs/
 
@@ -22,6 +23,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+ai/ai-service/.ci-venv/
 *.py[cod]
 
 /net-commander
