@@ -6,7 +6,7 @@
     max-height: 280px;
 }
 .parkwise-signup-page .parkwise-login-form-panel form {
-    max-width: 470px;
+    max-width: 448px;
     gap: 12px;
 }
 .parkwise-signup-page .parkwise-login-form-panel h2 {
@@ -32,6 +32,37 @@
     padding: 10px 14px;
 }
 
+@media (max-height: 800px) and (min-width: 768px) {
+    .parkwise-signup-page .parkwise-login-card {
+        min-height: 0;
+    }
+    .parkwise-signup-page .parkwise-login-illustration {
+        max-height: 240px;
+    }
+    .parkwise-signup-page .parkwise-login-form-panel form {
+        gap: 8px;
+    }
+    .parkwise-signup-page .parkwise-login-form-panel {
+        padding-top: 18px;
+        padding-bottom: 18px;
+    }
+    .parkwise-signup-page .parkwise-login-aside {
+        padding-top: 20px;
+        padding-bottom: 20px;
+    }
+    .parkwise-signup-page .parkwise-login-form-panel h2 {
+        margin-bottom: 0;
+        font-size: clamp(28px, 2.3vw, 34px);
+    }
+    .parkwise-signup-form-panel .parkwise-login-field {
+        gap: 4px;
+    }
+    .parkwise-signup-form-panel .parkwise-login-field input {
+        height: 42px;
+        padding: 8px 14px;
+    }
+}
+
 @media (max-width: 767px) {
     .parkwise-signup-page .parkwise-login-card {
         min-height: 0;
@@ -43,15 +74,48 @@
         gap: 12px;
     }
 }
-.parkwise-password-checklist {
-    display: grid;
-    gap: 2px;
-    margin: 8px 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: 12px;
+.parkwise-signup-password-help {
+    margin: -4px 0 0;
+    color: #525252;
+    font-size: 13px;
     line-height: 1.4;
 }
-.parkwise-password-checklist li[data-met="true"] {
+.parkwise-signup-password-help[data-met="true"] {
     color: #207d46;
+}
+.parkwise-signup-password-strength {
+    --strength-color: #d1d5db;
+    display: grid;
+    gap: 5px;
+    margin-top: -4px;
+}
+.parkwise-signup-password-strength[data-strength="1"] {
+    --strength-color: #c2413a;
+}
+.parkwise-signup-password-strength[data-strength="2"] {
+    --strength-color: #c77719;
+}
+.parkwise-signup-password-strength[data-strength="3"] {
+    --strength-color: #78a52a;
+}
+.parkwise-signup-password-strength[data-strength="4"] {
+    --strength-color: #207d46;
+}
+.parkwise-signup-password-strength-track {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+}
+.parkwise-signup-password-strength-track span {
+    height: 5px;
+    border-radius: 99px;
+    background: #e5e7eb;
+}
+.parkwise-signup-password-strength-track span.filled {
+    background: var(--strength-color);
+}
+.parkwise-signup-password-strength-label {
+    color: #525252;
+    font-size: 12px;
+    font-weight: 600;
 }

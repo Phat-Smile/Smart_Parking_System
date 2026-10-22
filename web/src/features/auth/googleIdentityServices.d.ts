@@ -17,6 +17,7 @@ interface GoogleButtonConfiguration {
     text?: "signin_with" | "signup_with" | "continue_with" | "signin";
     logo_alignment?: "left" | "center";
     width?: number;
+    locale?: string;
 }
 
 interface Window {

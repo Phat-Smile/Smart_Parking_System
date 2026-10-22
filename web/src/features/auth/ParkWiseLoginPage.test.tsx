@@ -1,13 +1,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ParkWiseLoginPage } from "./ParkWiseLoginPage";
 import { loginParkWiseAccount } from "./loginParkWiseAccount";
 import { googleLoginParkWiseAccount } from "./googleSignIn";
 import { ApiError } from "@/shared/errors/api-error";
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const { push, replace } = vi.hoisted(() => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
 
 vi.mock("./loginParkWiseAccount", () => ({ loginParkWiseAccount: vi.fn() }));
 const loginMock = vi.mocked(loginParkWiseAccount);
@@ -38,6 +41,8 @@ vi.mock("./ParkWiseAuthLayout", () => ({
 }));
 
 describe("ParkWise Login form", () => {
+    beforeEach(() => vi.clearAllMocks());
+
     it("requires email and password before calling Identity", async () => {
         loginMock.mockResolvedValue({
             id: "account-id",
@@ -62,9 +67,7 @@ describe("ParkWise Login form", () => {
         });
         fireEvent.click(screen.getByRole("button", { name: "Log in" }));
         await waitFor(() =>
-            expect(screen.getByRole("status")).toHaveTextContent(
-                "Signed in as driver@example.com",
-            ),
+            expect(replace).toHaveBeenCalledWith("/customer/complete-profile"),
         );
         expect(loginMock).toHaveBeenCalledWith(
             "driver@example.com",
@@ -86,9 +89,7 @@ describe("ParkWise Login form", () => {
         fireEvent.click(screen.getByRole("button", { name: "Google" }));
 
         await waitFor(() =>
-            expect(screen.getByRole("status")).toHaveTextContent(
-                "Signed in as driver@gmail.com",
-            ),
+            expect(replace).toHaveBeenCalledWith("/customer/complete-profile"),
         );
         expect(googleLoginMock).toHaveBeenCalledWith("google-id-token");
     });
@@ -130,5 +131,28 @@ describe("ParkWise Login form", () => {
         expect(await screen.findByRole("alert")).toHaveTextContent(
             'This account was created with Google and has no password yet. Use "Continue with Google"',
         );
+    });
+
+    it("shows a clean invalid-credentials message without a support ID", async () => {
+        loginMock.mockRejectedValue(
+            new ApiError(
+                401,
+                { errorCode: "identity.invalid_credentials" } as never,
+                "internal-correlation-id",
+            ),
+        );
+        render(<ParkWiseLoginPage fontClassName="test-font" />);
+        fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+            target: { value: "driver@example.com" },
+        });
+        fireEvent.change(screen.getByLabelText("Password"), {
+            target: { value: "WrongPassword1!" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+            "Email or password is incorrect.",
+        );
+        expect(screen.getByRole("alert")).not.toHaveTextContent("Support ID");
     });
 });
