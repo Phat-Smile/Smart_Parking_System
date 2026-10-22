@@ -11,28 +11,57 @@ public sealed class MotorbikeAvailabilityTests
     private static readonly Guid LotId = Guid.Parse("10000000-0000-0000-0000-000000000001");
     private static readonly Guid StaffId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    [Theory]
-    [InlineData(100, 20, 80, false)]
-    [InlineData(100, 100, 0, true)]
-    // The count can exceed the capacity after the owner lowers it; the screen then shows 0, never a negative number.
-    [InlineData(100, 105, 0, true)]
-    public async Task Returns_capacity_occupied_and_spaces_left(int capacity, int occupied, int expectedAvailable, bool expectedFull)
+    [Fact]
+    public async Task Returns_the_lot_totals_and_each_motorbike_zone()
     {
-        var handler = NewHandler(new MotorbikeAvailability(capacity, occupied));
+        // Two motorbike zones on different floors, each with its own capacity (context 6.3).
+        var handler = NewHandler(TwoZones(groundOccupied: 20, basementOccupied: 50));
 
         var result = await handler.Handle(new GetMotorbikeAvailabilityQuery(LotId, StaffId), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(capacity, result.Value!.Capacity);
-        Assert.Equal(occupied, result.Value.Occupied);
-        Assert.Equal(expectedAvailable, result.Value.Available);
-        Assert.Equal(expectedFull, result.Value.IsFull);
+        Assert.Equal(150, result.Value!.TotalCapacity);
+        Assert.Equal(70, result.Value.Occupied);
+        Assert.Equal(80, result.Value.Available);
+        Assert.False(result.Value.IsFull);
+        Assert.Collection(result.Value.Zones,
+            ground => { Assert.Equal("M1", ground.ZoneCode); Assert.Equal("Tầng 1", ground.FloorName); Assert.Equal(80, ground.Available); },
+            basement => { Assert.Equal("M2", basement.ZoneCode); Assert.Equal(0, basement.Available); });
     }
+
+    [Fact]
+    public async Task The_lot_is_full_only_when_every_motorbike_zone_is_full()
+    {
+        var handler = NewHandler(TwoZones(groundOccupied: 100, basementOccupied: 50));
+
+        var result = await handler.Handle(new GetMotorbikeAvailabilityQuery(LotId, StaffId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.Value!.Available);
+        Assert.True(result.Value.IsFull);
+    }
+
+    [Fact]
+    public async Task A_zone_over_its_capacity_shows_zero_and_does_not_lower_the_other_zones()
+    {
+        // The owner lowered a capacity below the current count: that zone shows 0, never a negative number.
+        var handler = NewHandler(TwoZones(groundOccupied: 30, basementOccupied: 55));
+
+        var result = await handler.Handle(new GetMotorbikeAvailabilityQuery(LotId, StaffId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(70, result.Value!.Available);
+        Assert.Equal(0, result.Value.Zones[1].Available);
+    }
+
+    private static MotorbikeAvailability TwoZones(int groundOccupied, int basementOccupied) => new(
+    [
+        new MotorbikeZoneAvailability(Guid.NewGuid(), "M1", "Tầng 1", 100, groundOccupied),
+        new MotorbikeZoneAvailability(Guid.NewGuid(), "M2", "Tầng hầm", 50, basementOccupied)
+    ]);
 
     [Fact]
     public async Task Rejects_an_unknown_or_unapproved_lot()
     {
-        var handler = NewHandler(new MotorbikeAvailability(100, 0), lotApproved: false);
+        var handler = NewHandler(TwoZones(0, 0), lotApproved: false);
 
         var result = await handler.Handle(new GetMotorbikeAvailabilityQuery(LotId, StaffId), TestContext.Current.CancellationToken);
 
@@ -42,7 +71,7 @@ public sealed class MotorbikeAvailabilityTests
     [Fact]
     public async Task Refuses_staff_not_assigned_to_the_lot()
     {
-        var handler = NewHandler(new MotorbikeAvailability(100, 0), assigned: false);
+        var handler = NewHandler(TwoZones(0, 0), assigned: false);
 
         var result = await handler.Handle(new GetMotorbikeAvailabilityQuery(LotId, StaffId), TestContext.Current.CancellationToken);
 

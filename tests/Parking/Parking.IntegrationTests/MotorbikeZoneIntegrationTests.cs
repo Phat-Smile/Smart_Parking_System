@@ -23,24 +23,50 @@ public sealed class MotorbikeZoneIntegrationTests(PostgreSqlContainerFixture pos
     private static readonly Guid StaffId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
     [Fact]
-    public async Task Concurrent_motorbike_entries_never_exceed_the_zone_capacity()
+    public async Task Concurrent_motorbike_entries_never_exceed_any_zone_capacity()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
-        var (lotId, zoneId) = await SeedLotWithMotorbikeZoneAsync(serviceProvider, capacity: 5, cancellationToken);
+        // Two motorbike zones on two floors, each with its own capacity (context 6.3): 5 spaces in total.
+        var (lotId, zones) = await SeedLotWithMotorbikeZonesAsync(serviceProvider, cancellationToken, ("Tầng 1", "M1", 3), ("Tầng hầm", "M2", 2));
 
-        // 20 motorbikes reach two gates at the same time; only 5 spaces exist.
+        // 20 motorbikes reach the gates at the same time.
         var results = await Task.WhenAll(Enumerable.Range(0, 20).Select(index =>
             OpenMotorbikeSessionAsync(serviceProvider, lotId, $"59X1-{index:000}.00", cancellationToken)));
 
         Assert.Equal(5, results.Count(result => result.IsSuccess));
         Assert.Equal(15, results.Count(result => result.Error == OpenParkingSessionErrors.MotorbikeZoneFull));
-        Assert.All(results.Where(result => result.IsSuccess), result => Assert.Equal(zoneId, result.Value!.ZoneId));
+        Assert.All(results.Where(result => result.IsSuccess), result => Assert.NotNull(result.Value!.ZoneCode));
 
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
-        Assert.Equal(5, (await dbContext.Zones.AsNoTracking().SingleAsync(zone => zone.Id == zoneId, cancellationToken)).CurrentVehicleCount);
-        Assert.Equal(5, await dbContext.ParkingSessions.CountAsync(session => session.ZoneId == zoneId, cancellationToken));
+        foreach (var (zoneId, capacity) in new[] { (zones[0], 3), (zones[1], 2) })
+        {
+            Assert.Equal(capacity, (await dbContext.Zones.AsNoTracking().SingleAsync(zone => zone.Id == zoneId, cancellationToken)).CurrentVehicleCount);
+            Assert.Equal(capacity, await dbContext.ParkingSessions.CountAsync(session => session.ZoneId == zoneId, cancellationToken));
+        }
+    }
+
+    [Fact]
+    public async Task A_motorbike_is_sent_to_the_zone_with_the_most_free_spaces_and_told_its_floor()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var (lotId, zones) = await SeedLotWithMotorbikeZonesAsync(serviceProvider, cancellationToken, ("Tầng 1", "M1", 2), ("Tầng hầm", "M2", 5));
+
+        var result = await OpenMotorbikeSessionAsync(serviceProvider, lotId, "59X1-111.11", cancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(zones[1], result.Value!.ZoneId);
+        Assert.Equal("M2", result.Value.ZoneCode);
+        Assert.Equal("Tầng hầm", result.Value.FloorName);
+        // Spaces left in the whole lot after this entry: 2 + 4.
+        Assert.Equal(6, result.Value.AvailableMotorbikeSpaces);
+
+        // The customer view (US-PARK-009 /me) reads the same labels.
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var labels = await scope.ServiceProvider.GetRequiredService<IZoneLabelReader>().GetLabelsAsync([zones[1]], cancellationToken);
+        Assert.Equal(new ZoneLabel("M2", "Tầng hầm"), labels[zones[1]]);
     }
 
     [Fact]
@@ -48,7 +74,7 @@ public sealed class MotorbikeZoneIntegrationTests(PostgreSqlContainerFixture pos
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
-        var (lotId, _) = await SeedLotWithMotorbikeZoneAsync(serviceProvider, capacity: 5, cancellationToken);
+        var (lotId, _) = await SeedLotWithMotorbikeZonesAsync(serviceProvider, cancellationToken, ("Tầng 1", "M1", 5));
 
         await using (var scope = serviceProvider.CreateAsyncScope())
         {
@@ -57,7 +83,7 @@ public sealed class MotorbikeZoneIntegrationTests(PostgreSqlContainerFixture pos
             Assert.NotNull(await scope.ServiceProvider.GetRequiredService<IMotorbikeZoneCounter>().TakeSpaceAsync(lotId, cancellationToken));
         }
 
-        Assert.Equal(new MotorbikeAvailability(5, 0), await GetAvailabilityAsync(serviceProvider, lotId, cancellationToken));
+        Assert.Equal(0, (await GetAvailabilityAsync(serviceProvider, lotId, cancellationToken))!.Occupied);
     }
 
     [Fact]
@@ -65,18 +91,20 @@ public sealed class MotorbikeZoneIntegrationTests(PostgreSqlContainerFixture pos
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
-        var (lotId, zoneId) = await SeedLotWithMotorbikeZoneAsync(serviceProvider, capacity: 3, cancellationToken);
+        var (lotId, zones) = await SeedLotWithMotorbikeZonesAsync(serviceProvider, cancellationToken, ("Tầng 1", "M1", 3));
         Assert.True((await OpenMotorbikeSessionAsync(serviceProvider, lotId, "59X1-111.11", cancellationToken)).IsSuccess);
-        Assert.Equal(new MotorbikeAvailability(3, 1), await GetAvailabilityAsync(serviceProvider, lotId, cancellationToken));
+        Assert.Equal(1, (await GetAvailabilityAsync(serviceProvider, lotId, cancellationToken))!.Occupied);
 
         // The exit flow (US-PAY-006) gives the space back; a second release must not push the count below 0.
         for (var release = 0; release < 2; release++)
         {
             await using var scope = serviceProvider.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<IMotorbikeZoneCounter>().ReleaseSpaceAsync(zoneId, cancellationToken);
+            await scope.ServiceProvider.GetRequiredService<IMotorbikeZoneCounter>().ReleaseSpaceAsync(zones[0], cancellationToken);
         }
 
-        Assert.Equal(new MotorbikeAvailability(3, 0), await GetAvailabilityAsync(serviceProvider, lotId, cancellationToken));
+        var availability = await GetAvailabilityAsync(serviceProvider, lotId, cancellationToken);
+        Assert.Equal(0, availability!.Occupied);
+        Assert.Equal(3, availability.Available);
     }
 
     [Fact]
@@ -106,20 +134,26 @@ public sealed class MotorbikeZoneIntegrationTests(PostgreSqlContainerFixture pos
         return await scope.ServiceProvider.GetRequiredService<IMotorbikeZoneCounter>().GetAvailabilityAsync(lotId, cancellationToken);
     }
 
-    // Owners cannot declare a layout yet (US-OWNER-003), so the test builds one: an approved lot, the floor the owner
-    // registered for motorbikes, and its single motorbike zone with the lot-wide capacity.
-    private static async Task<(Guid LotId, Guid ZoneId)> SeedLotWithMotorbikeZoneAsync(
-        ServiceProvider serviceProvider, int capacity, CancellationToken cancellationToken)
+    // Owners cannot declare zones yet (US-OWNER-003), so the test builds them: an approved lot and, for each entry,
+    // a floor with one motorbike zone and its own capacity.
+    private static async Task<(Guid LotId, Guid[] ZoneIds)> SeedLotWithMotorbikeZonesAsync(
+        ServiceProvider serviceProvider, CancellationToken cancellationToken, params (string Floor, string Code, int Capacity)[] zones)
     {
         var lotId = await SeedApprovedLotAsync(serviceProvider, cancellationToken);
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
-        var floor = Floor.Create(Guid.NewGuid(), lotId, "Ground");
-        var zone = Zone.Create(Guid.NewGuid(), floor.Id, "M", VehicleType.Motorbike, capacity, hasSlotSensor: false);
-        dbContext.Floors.Add(floor);
-        dbContext.Zones.Add(zone);
+        var zoneIds = new List<Guid>();
+        foreach (var (floorName, code, capacity) in zones)
+        {
+            var floor = Floor.Create(Guid.NewGuid(), lotId, floorName);
+            var zone = Zone.Create(Guid.NewGuid(), floor.Id, code, VehicleType.Motorbike, capacity, hasSlotSensor: false);
+            dbContext.Floors.Add(floor);
+            dbContext.Zones.Add(zone);
+            zoneIds.Add(zone.Id);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
-        return (lotId, zone.Id);
+        return (lotId, zoneIds.ToArray());
     }
 
     private static async Task<Guid> SeedApprovedLotAsync(ServiceProvider serviceProvider, CancellationToken cancellationToken)

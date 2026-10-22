@@ -193,6 +193,9 @@ public sealed class OpenParkingSessionTests
         Assert.Equal(FakeMotorbikeZones.ZoneId, Assert.Single(repository.Saved).ZoneId);
         Assert.Equal(FakeMotorbikeZones.ZoneId, result.Value!.ZoneId);
         Assert.Equal(79, result.Value.AvailableMotorbikeSpaces);
+        // Printed with the QR so the rider knows where to park (team decision 2026-10-22).
+        Assert.Equal("M2", result.Value.ZoneCode);
+        Assert.Equal("Tầng 2", result.Value.FloorName);
         Assert.Equal(1, zones.Taken);
         Assert.True(unitOfWork.Committed);
     }
@@ -247,6 +250,7 @@ public sealed class OpenParkingSessionTests
         Assert.True(result.IsSuccess);
         Assert.Null(result.Value!.ZoneId);
         Assert.Null(result.Value.AvailableMotorbikeSpaces);
+        Assert.Null(result.Value.ZoneCode);
         Assert.Equal(0, zones.Taken);
         Assert.False(unitOfWork.Begun);
     }
@@ -312,13 +316,13 @@ public sealed class OpenParkingSessionTests
             if (full || !configured)
                 return Task.FromResult<MotorbikeSpaceTaken?>(null);
             Taken++;
-            return Task.FromResult<MotorbikeSpaceTaken?>(new MotorbikeSpaceTaken(ZoneId, 79));
+            return Task.FromResult<MotorbikeSpaceTaken?>(new MotorbikeSpaceTaken(ZoneId, "M2", "Tầng 2", 79));
         }
 
         public Task ReleaseSpaceAsync(Guid zoneId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<MotorbikeAvailability?> GetAvailabilityAsync(Guid lotId, CancellationToken cancellationToken) =>
-            Task.FromResult(configured ? new MotorbikeAvailability(80, full ? 80 : 1) : null);
+            Task.FromResult(configured ? new MotorbikeAvailability([new MotorbikeZoneAvailability(ZoneId, "M2", "Tầng 2", 80, full ? 80 : 1)]) : null);
     }
 
     private sealed class FakeUnitOfWork : IParkingUnitOfWork, IParkingTransaction
