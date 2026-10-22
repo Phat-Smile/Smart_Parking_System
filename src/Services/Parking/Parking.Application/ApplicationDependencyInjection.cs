@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.Parking.Application.Behaviors;
+using ParkingSystem.Parking.Application.Common.Interfaces;
 
 namespace ParkingSystem.Parking.Application;
 

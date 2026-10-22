@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddIntegrationEventRegistry();
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
+        services.AddScoped<ParkingSystem.Parking.Application.Common.Interfaces.IAuditWriter, ParkingSystem.Parking.Infrastructure.Auditing.AuditWriter>();
         services.AddScoped<IPlateOwnerLookup, StubPlateOwnerLookup>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()
