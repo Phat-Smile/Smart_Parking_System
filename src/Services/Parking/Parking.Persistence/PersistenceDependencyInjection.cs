@@ -54,6 +54,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IParkingLotAccess>(
             provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
         services.AddScoped<IPricingPolicyRepository, PricingPolicyRepository>();
+        services.AddScoped<ILotOwnershipService, LotOwnershipService>();
         services.AddParkingLayout(configuration);
         services.AddScoped<IParkingLotApprovalRepository, ParkingLotApprovalRepository>();
         return services;

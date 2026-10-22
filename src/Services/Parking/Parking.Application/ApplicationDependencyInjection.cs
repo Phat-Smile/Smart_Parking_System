@@ -13,10 +13,6 @@ public static class ApplicationDependencyInjection
         services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(typeof(ApplicationDependencyInjection).Assembly));
         services.AddValidatorsFromAssembly(typeof(ApplicationDependencyInjection).Assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-
-        // Khai bao stub kiem tra chu bai xe
-        services.AddScoped<ILotOwnershipService, LotOwnershipServiceStub>();
-
         return services;
     }
 }
