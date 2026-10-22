@@ -6,26 +6,45 @@ namespace ParkingSystem.Parking.Persistence.ParkingLayout;
 
 internal sealed class MotorbikeZoneCounter(ParkingDbContext dbContext) : IMotorbikeZoneCounter
 {
+    // Each lost race means another entry took a space, so the number of retries a lot can need is bounded by its zones.
+    private const int MaxAttempts = 10;
+
     public async Task<MotorbikeSpaceTaken?> TakeSpaceAsync(Guid lotId, CancellationToken cancellationToken)
     {
-        // BR-07.b: the capacity check and the +1 are one statement, so the row lock makes concurrent entries queue
-        // and only the ones that still fit succeed. LIMIT 1 keeps the update on a single zone if a lot ever has two.
-        var taken = await dbContext.Database.SqlQuery<TakenRow>($"""
-            UPDATE parking.zones AS zone
-            SET current_vehicle_count = zone.current_vehicle_count + 1
-            WHERE zone.id = (
-                SELECT candidate.id
-                FROM parking.zones AS candidate
-                JOIN parking.floors AS floor ON floor.id = candidate.floor_id
-                WHERE floor.lot_id = {lotId}
-                  AND candidate.vehicle_group = 'Motorbike'
-                ORDER BY candidate.code
-                LIMIT 1)
-              AND zone.current_vehicle_count < zone.capacity
-            RETURNING zone.id AS "ZoneId", zone.capacity - zone.current_vehicle_count AS "AvailableSpaces"
-            """).ToListAsync(cancellationToken);
+        for (var attempt = 0; attempt < MaxAttempts; attempt++)
+        {
+            // BR-07.b: pick the zone with the most free spaces and +1 in one statement. The final
+            // "current_vehicle_count < capacity" is re-checked after the row lock, so a zone never goes over capacity.
+            var taken = await dbContext.Database.SqlQuery<TakenRow>($"""
+                UPDATE parking.zones AS zone
+                SET current_vehicle_count = zone.current_vehicle_count + 1
+                FROM parking.floors AS floor
+                WHERE floor.id = zone.floor_id
+                  AND zone.id = (
+                    SELECT candidate.id
+                    FROM parking.zones AS candidate
+                    JOIN parking.floors AS candidate_floor ON candidate_floor.id = candidate.floor_id
+                    WHERE candidate_floor.lot_id = {lotId}
+                      AND candidate.vehicle_group = 'Motorbike'
+                      AND candidate.current_vehicle_count < candidate.capacity
+                    ORDER BY candidate.capacity - candidate.current_vehicle_count DESC, candidate.code
+                    LIMIT 1)
+                  AND zone.current_vehicle_count < zone.capacity
+                RETURNING zone.id AS "ZoneId", zone.code AS "ZoneCode", floor.name AS "FloorName"
+                """).ToListAsync(cancellationToken);
 
-        return taken.Count == 0 ? null : new MotorbikeSpaceTaken(taken[0].ZoneId, taken[0].AvailableSpaces);
+            if (taken.Count == 1)
+            {
+                var availability = await GetAvailabilityAsync(lotId, cancellationToken);
+                return new MotorbikeSpaceTaken(taken[0].ZoneId, taken[0].ZoneCode, taken[0].FloorName, availability?.Available ?? 0);
+            }
+
+            // Nothing updated: either every zone is full, or a concurrent entry filled the chosen zone first.
+            if ((await GetAvailabilityAsync(lotId, cancellationToken))?.Available is not > 0)
+                return null;
+        }
+
+        return null;
     }
 
     public Task ReleaseSpaceAsync(Guid zoneId, CancellationToken cancellationToken) =>
@@ -36,13 +55,17 @@ internal sealed class MotorbikeZoneCounter(ParkingDbContext dbContext) : IMotorb
             WHERE id = {zoneId} AND vehicle_group = 'Motorbike' AND current_vehicle_count > 0
             """, cancellationToken);
 
-    public Task<MotorbikeAvailability?> GetAvailabilityAsync(Guid lotId, CancellationToken cancellationToken) =>
-        dbContext.Zones.AsNoTracking()
-            .Join(dbContext.Floors, candidate => candidate.FloorId, floor => floor.Id, (candidate, floor) => new { candidate, floor })
-            .Where(row => row.floor.LotId == lotId && row.candidate.VehicleGroup == VehicleType.Motorbike)
-            .OrderBy(row => row.candidate.Code)
-            .Select(row => new MotorbikeAvailability(row.candidate.Capacity, row.candidate.CurrentVehicleCount))
-            .FirstOrDefaultAsync(cancellationToken);
+    public async Task<MotorbikeAvailability?> GetAvailabilityAsync(Guid lotId, CancellationToken cancellationToken)
+    {
+        var zones = await dbContext.Zones.AsNoTracking()
+            .Join(dbContext.Floors, zone => zone.FloorId, floor => floor.Id, (zone, floor) => new { zone, floor })
+            .Where(row => row.floor.LotId == lotId && row.zone.VehicleGroup == VehicleType.Motorbike)
+            .OrderBy(row => row.floor.Name).ThenBy(row => row.zone.Code)
+            .Select(row => new MotorbikeZoneAvailability(row.zone.Id, row.zone.Code, row.floor.Name, row.zone.Capacity, row.zone.CurrentVehicleCount))
+            .ToListAsync(cancellationToken);
 
-    private sealed record TakenRow(Guid ZoneId, int AvailableSpaces);
+        return zones.Count == 0 ? null : new MotorbikeAvailability(zones);
+    }
+
+    private sealed record TakenRow(Guid ZoneId, string ZoneCode, string FloorName);
 }

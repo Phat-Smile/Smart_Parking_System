@@ -10,6 +10,7 @@ internal static class ParkingLayoutRegistration
     {
         services.AddScoped<ISlotDesignator, SlotDesignator>();
         services.AddScoped<IMotorbikeZoneCounter, MotorbikeZoneCounter>();
+        services.AddScoped<IZoneLabelReader, ZoneLabelReader>();
 
         var options = ReadAvailabilityOptions(configuration.GetSection(AvailabilityOptions.SectionName));
         services.AddSingleton(options);

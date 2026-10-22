@@ -28,6 +28,8 @@ public sealed record OpenedParkingSession(
     Guid? ReservationId,
     string QrToken,
     Guid? ZoneId,
+    string? ZoneCode,
+    string? FloorName,
     int? AvailableMotorbikeSpaces);
 
 public static class OpenParkingSessionErrors
@@ -40,9 +42,9 @@ public static class OpenParkingSessionErrors
     public static readonly Error LotNotFound =
         new("parking.lot.not_found", "The parking lot does not exist or is not approved.");
 
-    // US-PARK-008 (BR-07.b): the motorbike zone has reached its capacity, so the barrier stays closed.
+    // US-PARK-008 (BR-07.b): every motorbike zone of the lot has reached its capacity, so the barrier stays closed.
     public static readonly Error MotorbikeZoneFull =
-        new("parking.motorbike_zone.full", "The motorbike zone of this lot is full.");
+        new("parking.motorbike_zone.full", "Every motorbike zone of this lot is full.");
 
     public static readonly Error MotorbikeZoneNotConfigured =
         new("parking.motorbike_zone.not_configured", "This lot has no motorbike zone.");
@@ -74,8 +76,9 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
 /// <item>Car with a booking (MF-08): Booking has moved the booking to Used, and a slot is designated (US-PARK-004).</item>
 /// <item>Walk-in car (MF-09A): walk-in capacity is above 0 and a slot is designated atomically (US-PARK-007).</item>
 /// </list>
-/// Motorbikes (MF-09B, US-PARK-008) take one space of the lot's motorbike zone here, atomically and in the same
-/// transaction as the session; a full zone keeps the barrier closed.
+/// Motorbikes (MF-09B, US-PARK-008) take one space of the lot's motorbike zone with the most free spaces here, atomically
+/// and in the same transaction as the session; the zone and floor are returned so they can be printed with the QR.
+/// The barrier stays closed only when every motorbike zone is full.
 /// Opening the session is the moment the system sends the barrier-open command, so EntryTime is taken from the clock here.
 /// </summary>
 public sealed class OpenParkingSessionCommandHandler(
@@ -154,6 +157,8 @@ public sealed class OpenParkingSessionCommandHandler(
             session.ReservationId,
             session.QrToken,
             session.ZoneId,
+            space?.ZoneCode,
+            space?.FloorName,
             space?.AvailableSpaces));
     }
 

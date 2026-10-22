@@ -1,12 +1,13 @@
 namespace ParkingSystem.Parking.Application.ParkingLayout;
 
-// US-PARK-008 (BR-07.b): motorbikes have no slots. Each lot has one motorbike zone holding the capacity the owner
-// declared for all its motorbike floors, and a count of motorbikes inside (team decision 2026-10-16, option A).
+// US-PARK-008 (BR-07.b): motorbikes have no slots. A lot can have several motorbike zones (one per floor area),
+// each with the capacity the owner declared and a count of motorbikes inside (context 6.3, team decision 2026-10-22).
 public interface IMotorbikeZoneCounter
 {
     /// <summary>
-    /// Adds one motorbike to the lot's motorbike zone if it is below capacity, as one atomic statement.
-    /// Returns null when the zone is full or the lot has no motorbike zone.
+    /// Adds one motorbike to the lot's motorbike zone with the most free spaces, as one atomic statement per zone.
+    /// The rider is told the chosen zone (printed with the QR). Returns null when every motorbike zone is full
+    /// or the lot has no motorbike zone.
     /// </summary>
     Task<MotorbikeSpaceTaken?> TakeSpaceAsync(Guid lotId, CancellationToken cancellationToken);
 
@@ -19,9 +20,18 @@ public interface IMotorbikeZoneCounter
     Task<MotorbikeAvailability?> GetAvailabilityAsync(Guid lotId, CancellationToken cancellationToken);
 }
 
-public sealed record MotorbikeSpaceTaken(Guid ZoneId, int AvailableSpaces);
+// AvailableSpaces is for the whole lot right after this entry, so the staff screen can refresh its total.
+public sealed record MotorbikeSpaceTaken(Guid ZoneId, string ZoneCode, string FloorName, int AvailableSpaces);
 
-public sealed record MotorbikeAvailability(int Capacity, int Occupied)
+public sealed record MotorbikeZoneAvailability(Guid ZoneId, string ZoneCode, string FloorName, int Capacity, int Occupied)
 {
+    // A zone whose capacity was lowered below its count shows 0, never a negative number.
     public int Available => Math.Max(0, Capacity - Occupied);
+}
+
+public sealed record MotorbikeAvailability(IReadOnlyList<MotorbikeZoneAvailability> Zones)
+{
+    public int Capacity => Zones.Sum(zone => zone.Capacity);
+    public int Occupied => Zones.Sum(zone => zone.Occupied);
+    public int Available => Zones.Sum(zone => zone.Available);
 }

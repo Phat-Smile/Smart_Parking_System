@@ -1,4 +1,5 @@
 using MediatR;
+using ParkingSystem.Parking.Application.ParkingLayout;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessions;
 
@@ -12,9 +13,11 @@ public sealed record MyParkingSession(
     string VehicleType,
     string Status,
     DateTimeOffset EntryTime,
-    string QrToken);
+    string QrToken,
+    string? ZoneCode,
+    string? FloorName);
 
-public sealed class ListMyParkingSessionsQueryHandler(IParkingSessionRepository sessions)
+public sealed class ListMyParkingSessionsQueryHandler(IParkingSessionRepository sessions, IZoneLabelReader zoneLabels)
     : IRequestHandler<ListMyParkingSessionsQuery, IReadOnlyList<MyParkingSession>>
 {
     public async Task<IReadOnlyList<MyParkingSession>> Handle(ListMyParkingSessionsQuery request, CancellationToken cancellationToken)
@@ -22,15 +25,25 @@ public sealed class ListMyParkingSessionsQueryHandler(IParkingSessionRepository 
         // Only Active / Paid sessions: the QR is invalid once the session is Completed or Cancelled (BR-11.e).
         var openSessions = await sessions.ListOpenByUserAsync(request.UserId, cancellationToken);
 
+        // US-PARK-008: a motorbike session shows the zone and floor the rider was sent to, next to the QR.
+        var zoneIds = openSessions.Where(session => session.ZoneId is not null).Select(session => session.ZoneId!.Value).Distinct().ToList();
+        var labels = await zoneLabels.GetLabelsAsync(zoneIds, cancellationToken);
+
         return openSessions
-            .Select(session => new MyParkingSession(
-                session.Id,
-                session.LotId,
-                session.PlateNumber,
-                session.VehicleType.ToString(),
-                session.Status.ToString(),
-                session.EntryTime,
-                session.QrToken))
+            .Select(session =>
+            {
+                var label = session.ZoneId is { } zoneId && labels.TryGetValue(zoneId, out var found) ? found : null;
+                return new MyParkingSession(
+                    session.Id,
+                    session.LotId,
+                    session.PlateNumber,
+                    session.VehicleType.ToString(),
+                    session.Status.ToString(),
+                    session.EntryTime,
+                    session.QrToken,
+                    label?.ZoneCode,
+                    label?.FloorName);
+            })
             .ToList();
     }
 }

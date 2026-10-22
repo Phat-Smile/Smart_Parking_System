@@ -10,7 +10,15 @@ namespace ParkingSystem.Parking.Application.ParkingLayout.GetMotorbikeAvailabili
 // a motorbike and print its QR (team decision 2026-10-16).
 public sealed record GetMotorbikeAvailabilityQuery(Guid LotId, Guid ActorUserId) : IRequest<Result<MotorbikeAvailabilityResponse>>;
 
-public sealed record MotorbikeAvailabilityResponse(Guid LotId, int Capacity, int Occupied, int Available, bool IsFull);
+public sealed record MotorbikeAvailabilityResponse(
+    Guid LotId,
+    int TotalCapacity,
+    int Occupied,
+    int Available,
+    bool IsFull,
+    IReadOnlyList<MotorbikeZoneAvailabilityItem> Zones);
+
+public sealed record MotorbikeZoneAvailabilityItem(Guid ZoneId, string ZoneCode, string FloorName, int Capacity, int Occupied, int Available);
 
 public static class GetMotorbikeAvailabilityErrors
 {
@@ -53,6 +61,9 @@ public sealed class GetMotorbikeAvailabilityQueryHandler(
             availability.Capacity,
             availability.Occupied,
             availability.Available,
-            availability.Available == 0));
+            availability.Available == 0,
+            availability.Zones
+                .Select(zone => new MotorbikeZoneAvailabilityItem(zone.ZoneId, zone.ZoneCode, zone.FloorName, zone.Capacity, zone.Occupied, zone.Available))
+                .ToList()));
     }
 }
