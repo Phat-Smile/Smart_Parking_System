@@ -9,6 +9,8 @@ using ParkingSystem.Parking.WebAPI.Endpoints;
 using ParkingSystem.Parking.WebAPI.OpenApi;
 using ParkingSystem.Parking.WebAPI.Grpc;
 using ParkingSystem.Parking.WebAPI.Security;
+using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.WebAPI.Geocoding;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
@@ -16,6 +18,19 @@ builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("parking-api");
 builder.Services.AddParkingAuthorization();
 builder.Services.AddApplicationServices();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<NominatimRequestGate>();
+builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
+{
+    var endpoint = builder.Configuration["Nominatim:BaseUrl"]
+        ?? "https://nominatim.openstreetmap.org/";
+    client.BaseAddress = new Uri(
+        endpoint.EndsWith('/') ? endpoint : endpoint + "/");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        builder.Configuration["Nominatim:UserAgent"]
+        ?? "ParkWise-OJT/1.0 (+https://github.com/Phat-Smile/Smart_Parking_System)");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks()
@@ -53,6 +68,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
+app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotAssignmentEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
