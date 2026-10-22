@@ -145,6 +145,9 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # HMAC pepper for OTP codes; required, Identity refuses to start without it.
       Security__Otp__Pepper: ${SECURITY_OTP_PEPPER:-}
+      # VNeID CCCD verification; defaults to Stub when BaseUrl is empty.
+      VneidApi__Provider: Http
+      VneidApi__BaseUrl: http://vneid-simulator:8000
 
   parking-api:
     build:
@@ -350,6 +353,24 @@ services:
       MQTT_USERNAME: ${RABBITMQ_USER:-parking_dev}
       MQTT_PASSWORD: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       DEVICE_SIMULATION_ENABLED: ${DEVICE_SIMULATION_ENABLED:-false}
+    networks:
+      - parking-network
+    restart: unless-stopped
+
+  vneid-simulator:
+    build:
+      context: .
+      dockerfile: src/Simulators/VneidSimulator/Dockerfile
+    ports:
+      - "127.0.0.1:${VNEID_PORT:-5010}:8000"
+    environment:
+      APP_ENVIRONMENT: Development
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     networks:
       - parking-network
     restart: unless-stopped

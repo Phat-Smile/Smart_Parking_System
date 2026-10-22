@@ -8,6 +8,7 @@ using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Identity.Infrastructure.Security;
+using ParkingSystem.Identity.Infrastructure.Cccd;
 using ParkingSystem.Identity.Infrastructure.VehicleLookup;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Identity;
@@ -97,6 +98,7 @@ public static class DependencyInjection
         });
 
         services.AddVehicleLookupReader(configuration);
+        services.AddCccdVerification(configuration);
 
         return services;
     }
