@@ -50,7 +50,8 @@ public sealed class OutboxPersistenceIntegrationTests(PostgreSqlContainerFixture
             "auth_sessions",
             "email_verifications",
             "refresh_tokens",
-            "profiles");
+            "profiles",
+            "vehicles");
         var probeMessageId = Guid.NewGuid();
         var inboxProbeBus = serviceProvider.GetRequiredService<IBusControl>();
         await inboxProbeBus.StartAsync(cancellationToken);

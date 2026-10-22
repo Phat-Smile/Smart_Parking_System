@@ -62,7 +62,8 @@ public sealed class InboxIdempotencyIntegrationTests(
                 "auth_sessions",
                 "email_verifications",
                 "refresh_tokens",
-                "profiles");
+                "profiles",
+                "vehicles");
         }
 
         var bus = provider.GetRequiredService<IBusControl>();

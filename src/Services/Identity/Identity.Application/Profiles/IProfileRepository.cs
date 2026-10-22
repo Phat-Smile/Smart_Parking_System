@@ -7,4 +7,6 @@ public interface IProfileRepository
     void Add(Profile profile);
 
     Task<Profile?> FindByAccountIdAsync(Guid accountId, CancellationToken cancellationToken);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
 }

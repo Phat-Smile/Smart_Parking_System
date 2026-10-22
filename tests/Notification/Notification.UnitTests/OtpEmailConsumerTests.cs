@@ -71,6 +71,8 @@ public sealed class OtpEmailConsumerTests
     {
         public int VerificationEmails { get; private set; }
         public int PasswordResetEmails { get; private set; }
+        public int OwnerApprovedEmails { get; private set; }
+        public int OwnerRejectedEmails { get; private set; }
 
         public Task SendVerificationOtpEmailAsync(string email, string otpCode, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken = default)
         {
@@ -81,6 +83,18 @@ public sealed class OtpEmailConsumerTests
         public Task SendPasswordResetOtpEmailAsync(string email, string otpCode, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken = default)
         {
             PasswordResetEmails++;
+            return Task.CompletedTask;
+        }
+
+        public Task SendOwnerApplicationApprovedEmailAsync(string email, DateTimeOffset approvedAtUtc, CancellationToken cancellationToken = default)
+        {
+            OwnerApprovedEmails++;
+            return Task.CompletedTask;
+        }
+
+        public Task SendOwnerApplicationRejectedEmailAsync(string email, string reason, DateTimeOffset rejectedAtUtc, CancellationToken cancellationToken = default)
+        {
+            OwnerRejectedEmails++;
             return Task.CompletedTask;
         }
     }

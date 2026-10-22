@@ -15,12 +15,18 @@ using Microsoft.Extensions.Options;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
+using ParkingSystem.Identity.Application.Accounts.GetMe;
+using ParkingSystem.Identity.Application.Accounts.ListSessions;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
 using ParkingSystem.Identity.Application.Accounts.LogoutAll;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
+using ParkingSystem.Identity.Application.Accounts.RevokeSession;
 using ParkingSystem.Identity.Application.Accounts.TokenRefresh;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
+using ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
+using ParkingSystem.Identity.Application.Accounts.Admin.SearchAccounts;
+using ParkingSystem.Identity.Application.Accounts.Admin.SuspendAccount;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Infrastructure.Security;
 using Xunit;
@@ -239,6 +245,229 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         Assert.Equal("Customer", command.Role);
     }
 
+    // ── GET /api/identity/accounts/me ──────────────────────────────────────────
+
+    [Fact]
+    public async Task GetMe_without_token_returns_401()
+    {
+        using var response = await GetAsync("/api/identity/accounts/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(_sender.Requests);
+    }
+
+    [Fact]
+    public async Task GetMe_takes_account_id_from_token()
+    {
+        var caller = VerifiedAccount("me@example.test");
+        _sender.Respond(Result<MeResult>.Success(new MeResult(
+            caller.Id, "me@example.test", null, null, "Customer", "EmailVerified", true, false, Now)));
+
+        using var response = await GetAsync("/api/identity/accounts/me", IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var query = Assert.IsType<GetMeQuery>(Assert.Single(_sender.Requests));
+        Assert.Equal(caller.Id, query.AccountId);
+    }
+
+    [Fact]
+    public async Task GetMe_maps_not_found_to_404()
+    {
+        var caller = VerifiedAccount("me@example.test");
+        _sender.Respond(Result<MeResult>.Failure(GetMeErrors.AccountNotFound));
+
+        using var response = await GetAsync("/api/identity/accounts/me", IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(GetMeErrors.AccountNotFound.Code, await ErrorCodeAsync(response));
+    }
+
+    // ── GET /api/identity/accounts/sessions ────────────────────────────────────
+
+    [Fact]
+    public async Task ListSessions_without_token_returns_401()
+    {
+        using var response = await GetAsync("/api/identity/accounts/sessions");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(_sender.Requests);
+    }
+
+    [Fact]
+    public async Task ListSessions_takes_account_id_from_token()
+    {
+        var caller = VerifiedAccount("sessions@example.test");
+        _sender.Respond(Result<ListSessionsResult>.Success(new ListSessionsResult([])));
+
+        using var response = await GetAsync("/api/identity/accounts/sessions", IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var query = Assert.IsType<ListSessionsQuery>(Assert.Single(_sender.Requests));
+        Assert.Equal(caller.Id, query.AccountId);
+    }
+
+    // ── DELETE /api/identity/accounts/sessions/{sessionId} ─────────────────────
+
+    [Fact]
+    public async Task RevokeSession_without_token_returns_401()
+    {
+        using var response = await DeleteAsync($"/api/identity/accounts/sessions/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(_sender.Requests);
+    }
+
+    [Fact]
+    public async Task RevokeSession_takes_account_id_from_token_and_session_id_from_route()
+    {
+        var caller = VerifiedAccount("revoke@example.test");
+        var sessionId = Guid.NewGuid();
+        _sender.Respond(Result<RevokedSession>.Success(new RevokedSession(sessionId, "ok")));
+
+        using var response = await DeleteAsync($"/api/identity/accounts/sessions/{sessionId}", IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var command = Assert.IsType<RevokeSessionCommand>(Assert.Single(_sender.Requests));
+        Assert.Equal(caller.Id, command.AccountId);
+        Assert.Equal(sessionId, command.SessionId);
+    }
+
+    [Fact]
+    public async Task RevokeSession_maps_not_found_to_404()
+    {
+        var caller = VerifiedAccount("revoke@example.test");
+        _sender.Respond(Result<RevokedSession>.Failure(RevokeSessionErrors.SessionNotFound));
+
+        using var response = await DeleteAsync($"/api/identity/accounts/sessions/{Guid.NewGuid()}", IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(RevokeSessionErrors.SessionNotFound.Code, await ErrorCodeAsync(response));
+    }
+
+    // ── GET /api/identity/admin/accounts ───────────────────────────────────────
+
+    [Theory]
+    [InlineData(AccountRole.Customer)]
+    [InlineData(AccountRole.Staff)]
+    [InlineData(AccountRole.ParkingLotOwner)]
+    public async Task SearchAccounts_non_admin_returns_403(AccountRole role)
+    {
+        var caller = VerifiedAccount("nonadmin@example.test");
+        caller.AssignRole(role);
+
+        using var response = await GetAsync("/api/identity/admin/accounts?page=1&pageSize=20", IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(_sender.Requests);
+    }
+
+    [Fact]
+    public async Task SearchAccounts_admin_reaches_handler()
+    {
+        var admin = VerifiedAccount("admin@example.test");
+        admin.AssignRole(AccountRole.SystemAdmin);
+        _sender.Respond(Result<SearchAccountsResult>.Success(new SearchAccountsResult([], 0, 1, 20)));
+
+        using var response = await GetAsync("/api/identity/admin/accounts?page=1&pageSize=20", IssueToken(admin));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsType<SearchAccountsQuery>(Assert.Single(_sender.Requests));
+    }
+
+    // ── POST /api/identity/admin/accounts/{id}/suspend ─────────────────────────
+
+    [Fact]
+    public async Task SuspendAccount_non_admin_returns_403()
+    {
+        var caller = VerifiedAccount("customer@example.test");
+
+        using var response = await PostAsync(
+            $"/api/identity/admin/accounts/{Guid.NewGuid()}/suspend", new { }, IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(_sender.Requests);
+    }
+
+    [Fact]
+    public async Task SuspendAccount_takes_admin_id_from_token_and_target_id_from_route()
+    {
+        var admin = VerifiedAccount("admin@example.test");
+        admin.AssignRole(AccountRole.SystemAdmin);
+        var targetId = Guid.NewGuid();
+        _sender.Respond(Result<SuspendedAccount>.Success(new SuspendedAccount(targetId, "Suspended", "ok")));
+
+        using var response = await PostAsync(
+            $"/api/identity/admin/accounts/{targetId}/suspend", new { }, IssueToken(admin));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var command = Assert.IsType<SuspendAccountCommand>(Assert.Single(_sender.Requests));
+        Assert.Equal(admin.Id, command.AdminId);
+        Assert.Equal(targetId, command.AccountId);
+    }
+
+    [Theory]
+    [InlineData("identity.account_not_found", HttpStatusCode.NotFound)]
+    [InlineData("identity.admin_cannot_suspend_self", HttpStatusCode.Forbidden)]
+    [InlineData("identity.cannot_suspend_admin", HttpStatusCode.Forbidden)]
+    public async Task SuspendAccount_errors_map_to_correct_status(string errorCode, HttpStatusCode expected)
+    {
+        var admin = VerifiedAccount("admin@example.test");
+        admin.AssignRole(AccountRole.SystemAdmin);
+        _sender.Respond(Result<SuspendedAccount>.Failure(new Error(errorCode, "msg")));
+
+        using var response = await PostAsync(
+            $"/api/identity/admin/accounts/{Guid.NewGuid()}/suspend", new { }, IssueToken(admin));
+
+        Assert.Equal(expected, response.StatusCode);
+        Assert.Equal(errorCode, await ErrorCodeAsync(response));
+    }
+
+    // ── POST /api/identity/admin/accounts/{id}/activate ────────────────────────
+
+    [Fact]
+    public async Task ActivateAccount_non_admin_returns_403()
+    {
+        var caller = VerifiedAccount("customer@example.test");
+
+        using var response = await PostAsync(
+            $"/api/identity/admin/accounts/{Guid.NewGuid()}/activate", new { }, IssueToken(caller));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(_sender.Requests);
+    }
+
+    [Fact]
+    public async Task ActivateAccount_admin_reaches_handler()
+    {
+        var admin = VerifiedAccount("admin@example.test");
+        admin.AssignRole(AccountRole.SystemAdmin);
+        var targetId = Guid.NewGuid();
+        _sender.Respond(Result<ActivatedAccount>.Success(new ActivatedAccount(targetId, "EmailVerified", "ok")));
+
+        using var response = await PostAsync(
+            $"/api/identity/admin/accounts/{targetId}/activate", new { }, IssueToken(admin));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var command = Assert.IsType<ActivateAccountCommand>(Assert.Single(_sender.Requests));
+        Assert.Equal(targetId, command.AccountId);
+    }
+
+    [Theory]
+    [InlineData("identity.account_not_found", HttpStatusCode.NotFound)]
+    [InlineData("identity.account_not_suspended", HttpStatusCode.BadRequest)]
+    public async Task ActivateAccount_errors_map_to_correct_status(string errorCode, HttpStatusCode expected)
+    {
+        var admin = VerifiedAccount("admin@example.test");
+        admin.AssignRole(AccountRole.SystemAdmin);
+        _sender.Respond(Result<ActivatedAccount>.Failure(new Error(errorCode, "msg")));
+
+        using var response = await PostAsync(
+            $"/api/identity/admin/accounts/{Guid.NewGuid()}/activate", new { }, IssueToken(admin));
+
+        Assert.Equal(expected, response.StatusCode);
+        Assert.Equal(errorCode, await ErrorCodeAsync(response));
+    }
+
     private static Account VerifiedAccount(string email)
     {
         var account = Account.Register(Guid.NewGuid(), email, "hash", null, Now);
@@ -260,6 +489,20 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
 
     private Task<HttpResponseMessage> PostAsync(string path, object body, string? accessToken = null) =>
         SendAsync(HttpMethod.Post, path, body, accessToken);
+
+    private Task<HttpResponseMessage> GetAsync(string path, string? accessToken = null) =>
+        SendAsync(HttpMethod.Get, path, accessToken);
+
+    private Task<HttpResponseMessage> DeleteAsync(string path, string? accessToken = null) =>
+        SendAsync(HttpMethod.Delete, path, accessToken);
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, string? accessToken = null)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        if (accessToken is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return await _client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object body, string? accessToken = null)
     {

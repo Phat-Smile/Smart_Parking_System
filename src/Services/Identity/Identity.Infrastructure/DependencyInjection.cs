@@ -73,6 +73,10 @@ public static class DependencyInjection
             "identity.password-reset-otp-issued.v1", 1);
         services.AddIntegrationEvent<UserVerificationOtpIssuedIntegrationEvent>(
             "identity.user-verification-otp-issued.v1", 1);
+        services.AddIntegrationEvent<OwnerApplicationApprovedIntegrationEvent>(
+            "identity.owner-application-approved.v1", 1);
+        services.AddIntegrationEvent<OwnerApplicationRejectedIntegrationEvent>(
+            "identity.owner-application-rejected.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()
