@@ -55,4 +55,30 @@ public sealed class ParkingLot
             ApprovalStatus = ParkingLotApprovalStatus.Pending
         };
     }
+
+    public const int RejectionReasonMaxLength = 500;
+    public string? RejectionReason { get; private set; }
+
+    // Only an unreviewed lot may be approved or rejected. Re-review is a separate owner workflow.
+    public bool Approve()
+    {
+        if (ApprovalStatus != ParkingLotApprovalStatus.Pending)
+            return false;
+
+        ApprovalStatus = ParkingLotApprovalStatus.Approved;
+        RejectionReason = null;
+        return true;
+    }
+
+    public bool Reject(string reason)
+    {
+        if (ApprovalStatus != ParkingLotApprovalStatus.Pending)
+            return false;
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > RejectionReasonMaxLength)
+            throw new ArgumentException("A valid rejection reason is required.", nameof(reason));
+
+        ApprovalStatus = ParkingLotApprovalStatus.Rejected;
+        RejectionReason = reason.Trim();
+        return true;
+    }
 }

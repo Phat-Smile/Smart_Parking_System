@@ -183,6 +183,7 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnName("address");
 
                     b.Property<string>("ApprovalStatus")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
@@ -206,6 +207,11 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                     b.Property<Guid?>("OwnerUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_user_id");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("rejection_reason");
 
                     b.Property<string>("Type")
                         .IsRequired()

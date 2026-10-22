@@ -24,4 +24,6 @@ public static class AuditActions
     public const string SessionCancelled = "session.cancelled";
     public const string LotMemberAssigned = "lot.member_assigned";
     public const string LotMemberRemoved = "lot.member_removed";
+    public const string ParkingLotApproved = "parking_lot.approved";
+    public const string ParkingLotRejected = "parking_lot.rejected";
 }

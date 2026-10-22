@@ -6,6 +6,7 @@ internal static class ParkingAuthorization
     public const string StaffPolicy = "parking-staff";
     public const string ParkingLotOwnerPolicy = "parking-lot-owner";
     public const string AdminPolicy = "parking-system-admin";
+    public const string SystemAdminPolicy = "parking-admin";
 
     public const string RoleClaimType = "role";
 
@@ -13,6 +14,7 @@ internal static class ParkingAuthorization
     public const string OwnerRole = "ParkingLotOwner";
     public const string ParkingLotOwnerRole = OwnerRole;
     public const string AdminRole = "SystemAdmin";
+    public const string SystemAdminRole = AdminRole;
 
     public static IServiceCollection AddParkingAuthorization(
         this IServiceCollection services)
@@ -26,8 +28,10 @@ internal static class ParkingAuthorization
                 .RequireClaim(RoleClaimType, OwnerRole))
             .AddPolicy(AdminPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireClaim(RoleClaimType, AdminRole));
-
+                .RequireClaim(RoleClaimType, AdminRole))
+            .AddPolicy(SystemAdminPolicy, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireClaim(RoleClaimType, SystemAdminRole));
         return services;
     }
 }

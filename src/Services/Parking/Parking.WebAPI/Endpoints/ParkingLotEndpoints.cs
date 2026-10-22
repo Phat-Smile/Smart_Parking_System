@@ -1,5 +1,7 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Parking.Application.ParkingLots.ReviewParkingLot;
+using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.GetParkingLotDetail;
 using ParkingSystem.Parking.Application.ParkingLots.ListParkingLots;
@@ -100,6 +102,70 @@ internal static class ParkingLotEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // US-ADMIN-002: authorized administrators can decide only Pending lots.
+        app.MapPost("/api/parking/admin/lots/{parkingLotId:guid}/approve", async (
+                Guid parkingLotId,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new ReviewParkingLotCommand(
+                    parkingLotId, ParkingLotApprovalStatus.Approved, null, actorId), cancellationToken);
+                return ToReviewResult(result);
+            })
+            .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
+            .WithName("ApproveParkingLot")
+            .WithSummary("Approve a pending parking lot")
+            .Produces<ReviewedParkingLot>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        app.MapPost("/api/parking/admin/lots/{parkingLotId:guid}/reject", async (
+                Guid parkingLotId,
+                RejectParkingLotRequest request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new ReviewParkingLotCommand(
+                    parkingLotId, ParkingLotApprovalStatus.Rejected, request.Reason, actorId), cancellationToken);
+                return ToReviewResult(result);
+            })
+            .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
+            .WithName("RejectParkingLot")
+            .WithSummary("Reject a pending parking lot with a reason")
+            .Produces<ReviewedParkingLot>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         return app;
+    }
+
+    public sealed record RejectParkingLotRequest(string? Reason);
+
+    private static IResult ToReviewResult(ParkingSystem.BuildingBlocks.Results.Result<ReviewedParkingLot> result)
+    {
+        if (result.IsSuccess)
+            return Results.Ok(result.Value);
+
+        var statusCode = result.Error == ReviewParkingLotErrors.NotFound
+            ? StatusCodes.Status404NotFound
+            : StatusCodes.Status409Conflict;
+        return Results.Problem(
+            statusCode: statusCode,
+            title: result.Error!.Message,
+            extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
     }
 }
