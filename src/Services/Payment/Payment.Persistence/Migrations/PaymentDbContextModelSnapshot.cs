@@ -23,6 +23,94 @@ namespace ParkingSystem.Payment.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ParkingLotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Seq")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Seq"));
+
+                    b.Property<Guid>("SourceEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceService")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TargetId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionType", "OccurredAtUtc")
+                        .HasDatabaseName("ix_audit_action");
+
+                    b.HasIndex("ActorId", "OccurredAtUtc")
+                        .HasDatabaseName("ix_audit_actor");
+
+                    b.HasIndex("OccurredAtUtc", "Seq")
+                        .HasDatabaseName("ix_audit_occurred");
+
+                    b.HasIndex("ParkingLotId", "OccurredAtUtc")
+                        .HasDatabaseName("ix_audit_lot");
+
+                    b.HasIndex("SourceService", "SourceEntryId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_audit_source_entry");
+
+                    b.ToTable("audit_logs", "payment");
+                });
+
             modelBuilder.Entity("ParkingSystem.Payment.Persistence.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")

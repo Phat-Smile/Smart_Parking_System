@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ParkingSystem.Payment.Domain.Entities;
 using ParkingSystem.Payment.Persistence.Outbox;
 using ParkingSystem.Payment.Persistence.Inbox;
 
@@ -11,6 +12,8 @@ public sealed class PaymentDbContext(DbContextOptions<PaymentDbContext> options)
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

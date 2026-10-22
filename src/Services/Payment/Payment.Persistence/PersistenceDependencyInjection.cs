@@ -8,6 +8,9 @@ using ParkingSystem.Payment.Application.Common.Messaging.Inbox;
 using ParkingSystem.Payment.Persistence.Outbox;
 using ParkingSystem.Payment.Persistence.Inbox;
 
+using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Persistence.Repositories;
+
 namespace ParkingSystem.Payment.Persistence;
 
 public static class PersistenceDependencyInjection
@@ -32,6 +35,8 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, PaymentInboxExecutionCoordinator>();
+        services.AddScoped<IAuditWriter, AuditWriter>();
+        services.AddScoped<IAuditLogQueryRepository, AuditLogQueryRepository>();
         return services;
     }
 }
