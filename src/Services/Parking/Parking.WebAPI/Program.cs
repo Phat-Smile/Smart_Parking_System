@@ -3,6 +3,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Mapbox;
+using ParkingSystem.Parking.Infrastructure.Mapbox;
 using ParkingSystem.Parking.Infrastructure;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
@@ -31,6 +33,12 @@ builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(clien
         ?? "ParkWise-OJT/1.0 (+https://github.com/Phat-Smile/Smart_Parking_System)");
     client.Timeout = TimeSpan.FromSeconds(5);
 });
+
+// Mapbox client is opt-in: no token is required until a provider method is invoked.
+// A singleton raw HttpClient avoids HttpClientFactory URL logging of the query-string token.
+builder.Services.AddSingleton<IMapboxGeoRouting>(_ => new MapboxGeoRoutingClient(
+    new HttpClient { Timeout = TimeSpan.FromSeconds(6), MaxResponseContentBufferSize = 1024 * 1024 },
+    builder.Configuration["Mapbox:AccessToken"] ?? string.Empty));
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks()
