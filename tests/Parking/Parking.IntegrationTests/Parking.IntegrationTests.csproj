@@ -28,4 +28,14 @@
     <ProjectReference Include="..\..\..\src\Services\Parking\Parking.WebAPI\Parking.WebAPI.csproj" Aliases="global,ParkingWebApi" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\scripts\database\Seed-ParkingCatalog.sql"
+          Link="Seed-ParkingCatalog.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\scripts\database\Validate-ParkingCatalogSeed.sql"
+          Link="Validate-ParkingCatalogSeed.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\scripts\database\Seed-ParkingLayout.sql"
+          Link="Seed-ParkingLayout.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\scripts\database\Validate-ParkingLayoutSeed.sql"
+          Link="Validate-ParkingLayoutSeed.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
