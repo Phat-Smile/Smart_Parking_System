@@ -4,12 +4,20 @@
     <IsTestProject>true</IsTestProject>
     <RootNamespace>ParkingSystem.Tests.Booking.IntegrationTests</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Services\Booking\Booking.Persistence\Booking.Persistence.csproj" />
     <ProjectReference Include="..\..\..\src\Services\Booking\Booking.Infrastructure\Booking.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Booking\Booking.WebAPI\Booking.WebAPI.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
   </ItemGroup>
 </Project>
