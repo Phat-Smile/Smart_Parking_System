@@ -6,6 +6,7 @@ using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Persistence.Auditing;
+using ParkingSystem.Parking.Persistence.ParkingLayout;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -26,6 +27,8 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
     public DbSet<ParkingLotAssignment> ParkingLotAssignments => Set<ParkingLotAssignment>();
 
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+
+    public DbSet<ParkingLayoutDocument> LayoutDocuments => Set<ParkingLayoutDocument>();
 
     public DbSet<Floor> Floors => Set<Floor>();
 

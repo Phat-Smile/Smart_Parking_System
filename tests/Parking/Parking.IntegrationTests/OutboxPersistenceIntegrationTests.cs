@@ -48,6 +48,7 @@ public sealed class OutboxPersistenceIntegrationTests(PostgreSqlContainerFixture
             cancellationToken,
             "audit_logs",
             "floors",
+            "parking_layout_documents",
             "parking_lot_assignments",
             "parking_lots",
             "parking_sessions",
