@@ -1,8 +1,16 @@
+using ParkingSystem.Parking.Application.Common.Paging;
+using ParkingSystem.Parking.Domain.ParkingLots;
+
 namespace ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
 
 public interface IOwnerParkingLotReader
 {
-    Task<IReadOnlyList<OwnerParkingLotItem>> ListByOwnerAsync(Guid ownerUserId, CancellationToken cancellationToken);
+    Task<PagedResult<OwnerParkingLotItem>> ListByOwnerAsync(
+        Guid ownerUserId,
+        ParkingLotApprovalStatus? status,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
 }
 
 public sealed record OwnerParkingLotItem(
@@ -13,4 +21,6 @@ public sealed record OwnerParkingLotItem(
     decimal Longitude,
     string Type,
     string ApprovalStatus,
-    string? RejectionReason);
+    string? RejectionReason,
+    bool HasOpeningHours,
+    bool HasPricing);

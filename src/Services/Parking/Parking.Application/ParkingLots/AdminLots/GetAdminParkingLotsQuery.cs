@@ -1,16 +1,22 @@
 using MediatR;
+using ParkingSystem.Parking.Application.Common.Paging;
 using ParkingSystem.Parking.Domain.ParkingLots;
 
 namespace ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 
-public sealed record GetAdminParkingLotsQuery(ParkingLotApprovalStatus? Status = null)
-    : IRequest<IReadOnlyList<AdminParkingLotItem>>;
+public sealed record GetAdminParkingLotsQuery(
+    ParkingLotApprovalStatus? Status = null,
+    int? Page = null,
+    int? PageSize = null) : IRequest<PagedResult<AdminParkingLotItem>>;
 
 public sealed class GetAdminParkingLotsQueryHandler(IAdminParkingLotReader reader)
-    : IRequestHandler<GetAdminParkingLotsQuery, IReadOnlyList<AdminParkingLotItem>>
+    : IRequestHandler<GetAdminParkingLotsQuery, PagedResult<AdminParkingLotItem>>
 {
-    public Task<IReadOnlyList<AdminParkingLotItem>> Handle(
+    public Task<PagedResult<AdminParkingLotItem>> Handle(
         GetAdminParkingLotsQuery request,
-        CancellationToken cancellationToken) =>
-        reader.ListForAdminAsync(request.Status, cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        var (page, pageSize) = Paging.Normalize(request.Page, request.PageSize);
+        return reader.ListForAdminAsync(request.Status, page, pageSize, cancellationToken);
+    }
 }

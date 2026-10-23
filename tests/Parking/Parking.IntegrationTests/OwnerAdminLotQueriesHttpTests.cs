@@ -26,7 +26,7 @@ using Xunit;
 
 namespace ParkingSystem.Tests.Parking.IntegrationTests;
 
-// Review of PR 118 over HTTP (R1 to R3): the real routes, policies, handlers and PostgreSQL.
+// Review of PR 118 over HTTP (R1 to R4): the real routes, policies, handlers and PostgreSQL.
 // Only the sign-in is replaced: two headers stand in for the "sub" and "role" claims of the Identity token.
 public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture postgres)
     : IClassFixture<PostgreSqlContainerFixture>
@@ -53,7 +53,7 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
         // The registrant sees every lot of hers, Pending and Rejected included, with the reason of the rejection.
         var firstList = await ListOwnerLotsAsync(client, ownerA, ct);
         Assert.Contains(shared, Ids(firstList));
-        var rejectedItem = firstList.EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == rejected);
+        var rejectedItem = Items(firstList).Single(item => item.GetProperty("id").GetGuid() == rejected);
         Assert.Equal("Rejected", rejectedItem.GetProperty("approvalStatus").GetString());
         Assert.Equal("thieu giay to", rejectedItem.GetProperty("rejectionReason").GetString());
 
@@ -143,13 +143,10 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
         await ReviewAsync(client, admin, approved, approve: true, null, ct);
         var mine = new[] { pending, rejected, approved };
 
-        async Task<Guid[]> ListAsync(string? status)
-        {
-            var route = status is null ? "/api/parking/admin/lots" : $"/api/parking/admin/lots?status={status}";
-            using var response = await SendAsync(client, HttpMethod.Get, route, AdminRole, admin, null, ct);
-            await AssertStatusAsync(HttpStatusCode.OK, response, ct);
-            return Ids(await response.Content.ReadFromJsonAsync<JsonElement>(ct)).Where(mine.Contains).ToArray();
-        }
+        // The list is paged and shared with the other tests of this class: walk every page before looking for these lots.
+        async Task<Guid[]> ListAsync(string? status) =>
+            (await ListAllAdminLotsAsync(client, admin, status, ct))
+                .Select(item => item.GetProperty("id").GetGuid()).Where(mine.Contains).ToArray();
 
         Assert.Equal([pending], await ListAsync("Pending"));
         Assert.Equal([pending], await ListAsync("pending"));
@@ -158,16 +155,248 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
         Assert.Equal(mine.OrderBy(id => id), (await ListAsync(null)).OrderBy(id => id));
     }
 
+    // R4: both lists are pages in the shape of the catalog (API-PK-01, API-PK-03): { items, totalCount, page, pageSize }.
+    [Fact]
+    public async Task The_owner_list_is_a_page_in_the_catalog_shape_ordered_by_name()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var owner = Guid.NewGuid();
+        var tag = Guid.NewGuid().ToString("N");
+
+        var expected = new List<Guid>();
+        for (var number = 1; number <= 25; number++)
+            expected.Add(await RegisterLotAsync(client, owner, $"Paging {number:00} {tag}", ct));
+
+        var first = await ListOwnerLotsAsync(client, owner, ct);
+        var second = await ListOwnerLotsAsync(client, owner, ct, "?page=2");
+
+        Assert.Equal(JsonValueKind.Object, first.ValueKind);
+        Assert.Equal((25, 1, 20), (first.GetProperty("totalCount").GetInt32(), first.GetProperty("page").GetInt32(), first.GetProperty("pageSize").GetInt32()));
+        Assert.Equal((25, 2, 20), (second.GetProperty("totalCount").GetInt32(), second.GetProperty("page").GetInt32(), second.GetProperty("pageSize").GetInt32()));
+        Assert.Equal(20, Ids(first).Count);
+        Assert.Equal(5, Ids(second).Count);
+        // The pages follow each other without a gap or an overlap, ordered by name.
+        Assert.Equal(expected, Ids(first).Concat(Ids(second)).ToArray());
+
+        var item = Items(first).First();
+        foreach (var field in new[] { "id", "name", "address", "latitude", "longitude", "type", "approvalStatus", "rejectionReason", "hasOpeningHours", "hasPricing" })
+            Assert.True(item.TryGetProperty(field, out _), $"An owner list item has no '{field}'.");
+    }
+
+    [Fact]
+    public async Task The_owner_list_normalizes_paging_values_and_rejects_values_that_are_not_numbers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var owner = Guid.NewGuid();
+        for (var number = 1; number <= 7; number++)
+            await RegisterLotAsync(client, owner, NewName($"Clamp {number}"), ct);
+
+        async Task<(int Page, int PageSize, int Count, int Total)> ReadAsync(string query)
+        {
+            var body = await ListOwnerLotsAsync(client, owner, ct, query);
+            return (body.GetProperty("page").GetInt32(), body.GetProperty("pageSize").GetInt32(), Ids(body).Count, body.GetProperty("totalCount").GetInt32());
+        }
+
+        Assert.Equal((1, 20, 7, 7), await ReadAsync("?page=0&pageSize=0"));
+        Assert.Equal((1, 20, 7, 7), await ReadAsync("?page=-3&pageSize=-1"));
+        Assert.Equal((1, 100, 7, 7), await ReadAsync("?pageSize=1000"));
+        Assert.Equal((1, 3, 3, 7), await ReadAsync("?pageSize=3"));
+        Assert.Equal((3, 3, 1, 7), await ReadAsync("?page=3&pageSize=3"));
+        // Past the last page: no items, the total is kept, and a huge page number must not overflow the offset.
+        Assert.Equal((99, 3, 0, 7), await ReadAsync("?page=99&pageSize=3"));
+        Assert.Equal((int.MaxValue, 100, 0, 7), await ReadAsync("?page=2147483647&pageSize=100"));
+
+        foreach (var query in new[] { "?page=abc", "?pageSize=x", "?page=1.5", "?pageSize=99999999999" })
+        {
+            using var response = await SendAsync(client, HttpMethod.Get, "/api/parking/owner/lots" + query, OwnerRole, owner, null, ct);
+            await AssertStatusAsync(HttpStatusCode.BadRequest, response, ct);
+        }
+    }
+
+    [Fact]
+    public async Task The_owner_list_filters_by_status_and_counts_only_the_lots_it_filtered()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var (owner, admin) = (Guid.NewGuid(), Guid.NewGuid());
+
+        var pendingA = await RegisterLotAsync(client, owner, NewName("Filter pending A"), ct);
+        var pendingB = await RegisterLotAsync(client, owner, NewName("Filter pending B"), ct);
+        var approved = await RegisterLotAsync(client, owner, NewName("Filter approved"), ct);
+        var rejected = await RegisterLotAsync(client, owner, NewName("Filter rejected"), ct);
+        await ReviewAsync(client, admin, approved, approve: true, null, ct);
+        await ReviewAsync(client, admin, rejected, approve: false, "khong hop le", ct);
+
+        var all = await ListOwnerLotsAsync(client, owner, ct);
+        Assert.Equal(4, all.GetProperty("totalCount").GetInt32());
+
+        var pending = await ListOwnerLotsAsync(client, owner, ct, "?status=Pending");
+        Assert.Equal(2, pending.GetProperty("totalCount").GetInt32());
+        Assert.Equal(new[] { pendingA, pendingB }.OrderBy(id => id), Ids(pending).OrderBy(id => id));
+
+        var approvedOnly = await ListOwnerLotsAsync(client, owner, ct, "?status=approved");
+        Assert.Equal(1, approvedOnly.GetProperty("totalCount").GetInt32());
+        Assert.Equal([approved], Ids(approvedOnly));
+
+        var rejectedOnly = await ListOwnerLotsAsync(client, owner, ct, "?status=REJECTED");
+        Assert.Equal([rejected], Ids(rejectedOnly));
+        Assert.Equal("khong hop le", Items(rejectedOnly).Single().GetProperty("rejectionReason").GetString());
+
+        // The total counts every lot that matches, not only the ones on this page.
+        var firstPending = await ListOwnerLotsAsync(client, owner, ct, "?status=Pending&pageSize=1");
+        Assert.Equal(2, firstPending.GetProperty("totalCount").GetInt32());
+        Assert.Single(Ids(firstPending));
+
+        foreach (var status in new[] { "99", "-1", "Pending,Rejected", "Nope" })
+        {
+            using var response = await SendAsync(client, HttpMethod.Get, $"/api/parking/owner/lots?status={Uri.EscapeDataString(status)}", OwnerRole, owner, null, ct);
+            await AssertStatusAsync(HttpStatusCode.BadRequest, response, ct);
+        }
+    }
+
+    [Fact]
+    public async Task The_owner_list_says_whether_opening_hours_and_prices_are_set()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var owner = Guid.NewGuid();
+
+        var bare = await RegisterLotAsync(client, owner, NewName("Bare"), ct);
+        var priced = await RegisterLotAsync(client, owner, NewName("Priced"), ct);
+        var complete = await RegisterLotAsync(client, owner, NewName("Complete"), ct);
+        await SetPriceAsync(app, priced, ct);
+        await SetPriceAsync(app, complete, ct);
+        await SetOpeningHoursAsync(app, complete, ct);
+
+        var flags = Items(await ListOwnerLotsAsync(client, owner, ct)).ToDictionary(
+            item => item.GetProperty("id").GetGuid(),
+            item => (item.GetProperty("hasOpeningHours").GetBoolean(), item.GetProperty("hasPricing").GetBoolean()));
+
+        Assert.Equal((false, false), flags[bare]);
+        Assert.Equal((false, true), flags[priced]);
+        Assert.Equal((true, true), flags[complete]);
+    }
+
+    [Fact]
+    public async Task The_admin_list_is_a_page_in_the_catalog_shape_and_walks_every_lot_once()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var (owner, admin) = (Guid.NewGuid(), Guid.NewGuid());
+
+        var mine = new List<Guid>();
+        for (var number = 1; number <= 5; number++)
+            mine.Add(await RegisterLotAsync(client, owner, NewName($"Walk {number}"), ct));
+        await ReviewAsync(client, admin, mine[0], approve: true, null, ct);
+        await ReviewAsync(client, admin, mine[1], approve: false, "khong hop le", ct);
+
+        var seen = new List<JsonElement>();
+        var total = 0;
+        for (var page = 1; page <= 500; page++)
+        {
+            var body = await ListAdminLotsAsync(client, admin, $"?page={page}&pageSize=3", ct);
+            Assert.Equal((page, 3), (body.GetProperty("page").GetInt32(), body.GetProperty("pageSize").GetInt32()));
+            total = body.GetProperty("totalCount").GetInt32();
+            var items = Items(body).ToArray();
+            Assert.True(items.Length <= 3, $"Page {page} has {items.Length} items for a page size of 3.");
+            seen.AddRange(items);
+            if (items.Length == 0 || seen.Count >= total)
+                break;
+        }
+
+        var ids = seen.Select(item => item.GetProperty("id").GetGuid()).ToArray();
+        Assert.Equal(total, ids.Length);
+        Assert.Equal(ids.Length, ids.Distinct().Count());
+        foreach (var lot in mine)
+            Assert.Contains(lot, ids);
+
+        // The review queue comes first, as before: no Pending lot after a lot that is not Pending.
+        var statuses = seen.Select(item => item.GetProperty("approvalStatus").GetString()).ToList();
+        var firstOther = statuses.FindIndex(status => status != "Pending");
+        Assert.True(firstOther < 0 || statuses.Skip(firstOther).All(status => status != "Pending"), "A Pending lot follows a lot that is not Pending.");
+
+        foreach (var field in new[] { "id", "ownerUserId", "name", "address", "latitude", "longitude", "type", "approvalStatus", "rejectionReason" })
+            Assert.True(seen[0].TryGetProperty(field, out _), $"An admin list item has no '{field}'.");
+    }
+
+    [Fact]
+    public async Task The_admin_list_normalizes_paging_values_and_rejects_values_that_are_not_numbers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var admin = Guid.NewGuid();
+
+        async Task<(int Page, int PageSize)> ReadAsync(string query)
+        {
+            var body = await ListAdminLotsAsync(client, admin, query, ct);
+            Assert.True(Items(body).Count() <= body.GetProperty("pageSize").GetInt32(), $"{query}: more items than the page size.");
+            return (body.GetProperty("page").GetInt32(), body.GetProperty("pageSize").GetInt32());
+        }
+
+        Assert.Equal((1, 20), await ReadAsync(""));
+        Assert.Equal((1, 20), await ReadAsync("?page=0&pageSize=0"));
+        Assert.Equal((1, 100), await ReadAsync("?page=-1&pageSize=1000"));
+        Assert.Equal((int.MaxValue, 100), await ReadAsync("?page=2147483647&pageSize=100"));
+
+        foreach (var query in new[] { "?page=abc", "?pageSize=x", "?pageSize=99999999999" })
+        {
+            using var response = await SendAsync(client, HttpMethod.Get, "/api/parking/admin/lots" + query, AdminRole, admin, null, ct);
+            await AssertStatusAsync(HttpStatusCode.BadRequest, response, ct);
+        }
+    }
+
     private static string NewName(string prefix) => $"{prefix} {Guid.NewGuid():N}";
 
-    private static IReadOnlyCollection<Guid> Ids(JsonElement list) =>
-        list.EnumerateArray().Select(item => item.GetProperty("id").GetGuid()).ToArray();
+    private static IEnumerable<JsonElement> Items(JsonElement page) => page.GetProperty("items").EnumerateArray();
 
-    private static async Task<JsonElement> ListOwnerLotsAsync(HttpClient client, Guid owner, CancellationToken ct)
+    private static IReadOnlyCollection<Guid> Ids(JsonElement page) =>
+        Items(page).Select(item => item.GetProperty("id").GetGuid()).ToArray();
+
+    private static async Task<JsonElement> ListOwnerLotsAsync(HttpClient client, Guid owner, CancellationToken ct, string query = "")
     {
-        using var response = await SendAsync(client, HttpMethod.Get, "/api/parking/owner/lots", OwnerRole, owner, null, ct);
+        using var response = await SendAsync(client, HttpMethod.Get, "/api/parking/owner/lots" + query, OwnerRole, owner, null, ct);
         await AssertStatusAsync(HttpStatusCode.OK, response, ct);
         return await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+    }
+
+    private static async Task<JsonElement> ListAdminLotsAsync(HttpClient client, Guid admin, string query, CancellationToken ct)
+    {
+        using var response = await SendAsync(client, HttpMethod.Get, "/api/parking/admin/lots" + query, AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.OK, response, ct);
+        return await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+    }
+
+    // The admin list is paged and shared by every test of this class: walk all of it, a hundred lots at a time.
+    private static async Task<IReadOnlyList<JsonElement>> ListAllAdminLotsAsync(HttpClient client, Guid admin, string? status, CancellationToken ct)
+    {
+        var all = new List<JsonElement>();
+        for (var page = 1; page <= 500; page++)
+        {
+            var body = await ListAdminLotsAsync(client, admin, $"?page={page}&pageSize=100" + (status is null ? "" : $"&status={status}"), ct);
+            var items = Items(body).ToArray();
+            all.AddRange(items);
+            if (items.Length == 0 || all.Count >= body.GetProperty("totalCount").GetInt32())
+                break;
+        }
+
+        return all;
+    }
+
+    private static async Task SetOpeningHoursAsync(WebApplication app, Guid lotId, CancellationToken ct)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        var lot = await db.ParkingLots.SingleAsync(candidate => candidate.Id == lotId, ct);
+        lot.SetOpeningHours("""{"days":[{"day":"Monday","open":"06:00","close":"22:00"}]}""");
+        await db.SaveChangesAsync(ct);
     }
 
     private static async Task<Guid> RegisterLotAsync(HttpClient client, Guid owner, string name, CancellationToken ct)

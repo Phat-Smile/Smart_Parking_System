@@ -1,10 +1,15 @@
+using ParkingSystem.Parking.Application.Common.Paging;
 using ParkingSystem.Parking.Domain.ParkingLots;
 
 namespace ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 
 public interface IAdminParkingLotReader
 {
-    Task<IReadOnlyList<AdminParkingLotItem>> ListForAdminAsync(ParkingLotApprovalStatus? status, CancellationToken cancellationToken);
+    Task<PagedResult<AdminParkingLotItem>> ListForAdminAsync(
+        ParkingLotApprovalStatus? status,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
 }
 
 public sealed record AdminParkingLotItem(
