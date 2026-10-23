@@ -44,7 +44,9 @@ export function ParkWiseLoginPage({
     const router = useRouter();
     const searchParams = useSearchParams();
     const explicitRedirect =
-        searchParams?.get?.("redirect") || searchParams?.get?.("returnUrl") || null;
+        searchParams?.get?.("redirect") ||
+        searchParams?.get?.("returnUrl") ||
+        null;
 
     const [notice, setNotice] = useState("");
     const [submitError, setSubmitError] = useState("");

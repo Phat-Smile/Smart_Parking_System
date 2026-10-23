@@ -21,9 +21,9 @@ describe("reviewParkingLot API integration", () => {
 
     describe("isParkingLotId", () => {
         it("accepts valid UUIDs", () => {
-            expect(
-                isParkingLotId("11111111-1111-1111-1111-111111111111"),
-            ).toBe(true);
+            expect(isParkingLotId("11111111-1111-1111-1111-111111111111")).toBe(
+                true,
+            );
             expect(
                 isParkingLotId(" 22222222-2222-2222-2222-222222222222 "),
             ).toBe(true);
@@ -32,9 +32,9 @@ describe("reviewParkingLot API integration", () => {
         it("rejects invalid or empty UUIDs", () => {
             expect(isParkingLotId("")).toBe(false);
             expect(isParkingLotId("not-a-uuid")).toBe(false);
-            expect(
-                isParkingLotId("00000000-0000-0000-0000-000000000000"),
-            ).toBe(false);
+            expect(isParkingLotId("00000000-0000-0000-0000-000000000000")).toBe(
+                false,
+            );
         });
     });
 

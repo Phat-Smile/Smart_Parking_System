@@ -59,14 +59,15 @@ export const activateAccount = (accountId: string) =>
 export const unlockAccount = (accountId: string) => post(accountId, "unlock");
 
 export function changeAccountRole(accountId: string, role: AccountRole) {
-    return gatewayFetch<{ accountId: string; role: AccountRole; message?: string }>(
-        `/api/identity/admin/accounts/${encodeURIComponent(accountId)}/role`,
-        {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ role }),
-        },
-    );
+    return gatewayFetch<{
+        accountId: string;
+        role: AccountRole;
+        message?: string;
+    }>(`/api/identity/admin/accounts/${encodeURIComponent(accountId)}/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+    });
 }
 
 export function describeAccountError(error: unknown) {
@@ -85,7 +86,10 @@ export function describeAccountError(error: unknown) {
             return "This account no longer exists. The list was refreshed.";
     }
     if (error.status === 400)
-        return error.problem?.detail || "The request was invalid. Check the role and try again.";
+        return (
+            error.problem?.detail ||
+            "The request was invalid. Check the role and try again."
+        );
     if (error.status === 401) return "Your session expired. Sign in again.";
     if (error.status === 403) return "You don't have permission to do that.";
     return "The change could not be saved. Please try again.";

@@ -199,9 +199,7 @@ describe("adminAccounts API integration", () => {
                 },
                 undefined,
             );
-            expect(describeAccountError(error)).toContain(
-                "no longer exists",
-            );
+            expect(describeAccountError(error)).toContain("no longer exists");
         });
     });
 });

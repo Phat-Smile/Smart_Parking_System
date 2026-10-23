@@ -257,8 +257,7 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                     parkingLotId: id,
                     approvalStatus:
                         dialog === "approve" ? "Approved" : "Rejected",
-                    rejectionReason:
-                        dialog === "reject" ? reason.trim() : null,
+                    rejectionReason: dialog === "reject" ? reason.trim() : null,
                 };
                 recordDecision(fallbackResult);
                 setBackendResult(fallbackResult);

@@ -227,23 +227,34 @@ export function AdminUsersPage() {
                                                     <span
                                                         className={`admin-role admin-role-${account.role.toLowerCase()}`}
                                                     >
-                                                        {roleLabel[account.role]}
+                                                        {
+                                                            roleLabel[
+                                                                account.role
+                                                            ]
+                                                        }
                                                     </span>
                                                 ) : (
                                                     <select
                                                         className="admin-select admin-select-sm"
                                                         value={account.role}
-                                                        disabled={busyId === account.id}
+                                                        disabled={
+                                                            busyId ===
+                                                            account.id
+                                                        }
                                                         onChange={(e) =>
                                                             updateRole(
                                                                 account,
-                                                                e.target.value as AccountRole,
+                                                                e.target
+                                                                    .value as AccountRole,
                                                             )
                                                         }
                                                         aria-label={`Change role for ${account.email}`}
                                                     >
                                                         {roles.map((r) => (
-                                                            <option key={r} value={r}>
+                                                            <option
+                                                                key={r}
+                                                                value={r}
+                                                            >
                                                                 {roleLabel[r]}
                                                             </option>
                                                         ))}

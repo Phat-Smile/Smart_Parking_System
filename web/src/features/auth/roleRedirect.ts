@@ -1,8 +1,4 @@
-export type UserRole =
-    | "Customer"
-    | "Staff"
-    | "ParkingLotOwner"
-    | "SystemAdmin";
+export type UserRole = "Customer" | "Staff" | "ParkingLotOwner" | "SystemAdmin";
 
 /**
  * Returns the default dashboard destination path based on account role.

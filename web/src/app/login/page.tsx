@@ -15,7 +15,9 @@ export const metadata: Metadata = {
 
 export default function LoginRoute() {
     return (
-        <Suspense fallback={<div className="parkwise-login-loading">Loading...</div>}>
+        <Suspense
+            fallback={<div className="parkwise-login-loading">Loading...</div>}
+        >
             <ParkWiseLoginPage fontClassName={manrope.className} />
         </Suspense>
     );
