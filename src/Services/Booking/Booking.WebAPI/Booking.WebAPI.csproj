@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\..\..\contracts\grpc\parking_availability.proto" GrpcServices="Both" Link="Protos\parking_availability.proto" />
+    <Protobuf Include="..\..\..\..\contracts\grpc\parking_availability.proto" GrpcServices="Client" Link="Protos\parking_availability.proto" />
   </ItemGroup>
 
   <ItemGroup>

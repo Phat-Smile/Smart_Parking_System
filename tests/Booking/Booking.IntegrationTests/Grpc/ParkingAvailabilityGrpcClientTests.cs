@@ -1,3 +1,5 @@
+extern alias BookingWebApi;
+
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Builder;
@@ -7,10 +9,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Booking.Application.Parking;
-using ParkingSystem.Booking.WebAPI.Grpc;
 using SmartParking.Contracts.Parking.Availability.V1;
 using Xunit;
+
+using BookingGrpcClient = BookingWebApi::SmartParking.Contracts.Parking.Availability.V1.ParkingAvailabilityContract.ParkingAvailabilityContractClient;
+using BookingParkingAvailabilityGrpcClient = BookingWebApi::ParkingSystem.Booking.WebAPI.Grpc.ParkingAvailabilityGrpcClient;
+using BookingParkingClientRegistration = BookingWebApi::ParkingSystem.Booking.WebAPI.Grpc.ParkingClientRegistration;
+using BookingParkingServiceOptions = BookingWebApi::ParkingSystem.Booking.WebAPI.Grpc.ParkingServiceOptions;
 
 namespace ParkingSystem.Tests.Booking.IntegrationTests.Grpc;
 
@@ -147,6 +154,46 @@ public sealed class ParkingAvailabilityGrpcClientTests
         Assert.Equal(ParkingAvailabilityErrors.CommunicationFailed, result.Error);
     }
 
+    [Fact]
+    public async Task Service_key_header_is_transmitted_and_accepted_by_server_with_security_middleware()
+    {
+        const string serverKey = "shared-secret-key-123456";
+
+        await using var host = await FakeGrpcServer.StartAsync(
+            (req, ctx) => Task.FromResult(new GetAvailableSlotCountResponse { AvailableSlotCount = 8 }),
+            serverServiceKey: serverKey);
+
+        // Client with matching service key
+        var client = host.CreateAvailabilityClient(clientServiceKey: serverKey);
+
+        var result = await client.GetAvailableSlotCountAsync(ApprovedLotId, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(8, result.Value);
+    }
+
+    [Fact]
+    public async Task Missing_or_invalid_service_key_is_rejected_by_server_with_security_middleware()
+    {
+        const string serverKey = "shared-secret-key-123456";
+
+        await using var host = await FakeGrpcServer.StartAsync(
+            (req, ctx) => Task.FromResult(new GetAvailableSlotCountResponse { AvailableSlotCount = 8 }),
+            serverServiceKey: serverKey);
+
+        // Client with wrong service key
+        var clientWrongKey = host.CreateAvailabilityClient(clientServiceKey: "wrong-key-000000");
+        var resultWrong = await clientWrongKey.GetAvailableSlotCountAsync(ApprovedLotId, TestContext.Current.CancellationToken);
+
+        Assert.True(resultWrong.IsFailure);
+
+        // Client with no service key
+        var clientNoKey = host.CreateAvailabilityClient(clientServiceKey: null);
+        var resultNoKey = await clientNoKey.GetAvailableSlotCountAsync(ApprovedLotId, TestContext.Current.CancellationToken);
+
+        Assert.True(resultNoKey.IsFailure);
+    }
+
     [Theory]
     [InlineData("", 5, "ParkingService:GrpcEndpoint must be a valid absolute URI.")]
     [InlineData("not-a-uri", 5, "ParkingService:GrpcEndpoint must be a valid absolute URI.")]
@@ -164,7 +211,7 @@ public sealed class ParkingAvailabilityGrpcClientTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddParkingServiceClient(configuration);
+        BookingParkingClientRegistration.AddParkingServiceClient(services, configuration);
 
         var provider = services.BuildServiceProvider();
 
@@ -185,14 +232,14 @@ public sealed class ParkingAvailabilityGrpcClientTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddParkingServiceClient(configuration);
+        BookingParkingClientRegistration.AddParkingServiceClient(services, configuration);
 
         var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
         var client = scope.ServiceProvider.GetService<IParkingAvailabilityClient>();
         Assert.NotNull(client);
-        Assert.IsType<ParkingAvailabilityGrpcClient>(client);
+        Assert.IsType<BookingParkingAvailabilityGrpcClient>(client);
     }
 
     private sealed class FakeGrpcServer : IAsyncDisposable
@@ -206,16 +253,18 @@ public sealed class ParkingAvailabilityGrpcClientTests
             _channel = channel;
         }
 
-        public IParkingAvailabilityClient CreateAvailabilityClient(int timeoutSeconds = 5)
+        public IParkingAvailabilityClient CreateAvailabilityClient(int timeoutSeconds = 5, string? clientServiceKey = null)
         {
-            var grpcClient = new ParkingAvailabilityContract.ParkingAvailabilityContractClient(_channel);
-            var options = Options.Create(new ParkingServiceOptions { TimeoutSeconds = timeoutSeconds });
-            var logger = LoggerFactory.Create(builder => { }).CreateLogger<ParkingAvailabilityGrpcClient>();
-            return new ParkingAvailabilityGrpcClient(grpcClient, options, logger);
+            var grpcClient = new BookingGrpcClient(_channel);
+            var options = Options.Create(new BookingParkingServiceOptions { TimeoutSeconds = timeoutSeconds });
+            var serviceKeyOpts = Options.Create(new ServiceKeyOptions { ServiceKey = clientServiceKey ?? string.Empty });
+            var logger = LoggerFactory.Create(builder => { }).CreateLogger<BookingParkingAvailabilityGrpcClient>();
+            return new BookingParkingAvailabilityGrpcClient(grpcClient, options, serviceKeyOpts, logger);
         }
 
         public static async Task<FakeGrpcServer> StartAsync(
-            Func<GetAvailableSlotCountRequest, ServerCallContext, Task<GetAvailableSlotCountResponse>> handler)
+            Func<GetAvailableSlotCountRequest, ServerCallContext, Task<GetAvailableSlotCountResponse>> handler,
+            string? serverServiceKey = null)
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseTestServer();
@@ -223,7 +272,20 @@ public sealed class ParkingAvailabilityGrpcClientTests
             builder.Services.AddGrpc();
             builder.Services.AddSingleton(new FakeAvailabilityService(handler));
 
+            if (!string.IsNullOrEmpty(serverServiceKey))
+            {
+                builder.Configuration[ServiceKeyOptions.SectionName + ":ServiceKey"] = serverServiceKey;
+                builder.Services.AddOptions<ServiceKeyOptions>()
+                    .Bind(builder.Configuration.GetSection(ServiceKeyOptions.SectionName));
+            }
+
             var app = builder.Build();
+
+            if (!string.IsNullOrEmpty(serverServiceKey))
+            {
+                app.UseMiddleware<ServiceKeyValidationMiddleware>();
+            }
+
             app.MapGrpcService<FakeAvailabilityService>();
             await app.StartAsync(TestContext.Current.CancellationToken);
 
