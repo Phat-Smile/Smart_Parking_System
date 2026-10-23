@@ -234,6 +234,16 @@ The reset command deletes the PostgreSQL and RabbitMQ data stored in this Compos
 
 Compose initializes one database named `parking_system`. Each service's explicit EF migration owns its schema, `outbox_messages` table, and migration history table. The API does not apply migrations during startup. See `docs/data/Data-Ownership.md` for schema ownership.
 
+### Identity migration `AddUniqueIndexToOwnerTaxCode`
+
+The migration `20261023091247_AddUniqueIndexToOwnerTaxCode` creates a unique index on `identity.accounts.owner_tax_code`, so it fails on a database in which two accounts already hold the same tax code (test data of older demos). Check before running `dotnet ef database update`:
+
+```sql
+select owner_tax_code, count(*) from identity.accounts where owner_tax_code is not null group by 1 having count(*) > 1;
+```
+
+Change the duplicate codes first if the query returns rows.
+
 ## Local JWT verification key
 
 The .NET Gateway and APIs validate RS256 tokens with a public key. Before starting the full Compose stack, generate a local development key pair once:

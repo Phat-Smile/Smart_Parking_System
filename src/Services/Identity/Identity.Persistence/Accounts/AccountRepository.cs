@@ -78,6 +78,27 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 
+    public async Task<bool> TrySaveOwnerApplicationAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: AccountConfiguration.OwnerTaxCodeIndexName
+        })
+        {
+            // Another application took the tax code between the check and the save. Nothing of this application is kept
+            // (the failed save is rolled back), so the caller answers with a business error. Drop the tracked changes so
+            // they cannot be saved by mistake.
+            dbContext.ChangeTracker.Clear();
+            return false;
+        }
+    }
+
     public async Task<Account?> FindByEmailForUpdateAsync(string normalizedEmail, CancellationToken cancellationToken)
     {
         return await dbContext.Accounts

@@ -83,7 +83,7 @@ stateDiagram-v2
 }
 ```
 * **Ràng buộc:**
-  * `taxCode` *(string, tùy chọn)*: 10 chữ số hoặc 13 chữ số (dạng `0312345678-001`).
+  * `taxCode` *(string, tùy chọn)*: 10 chữ số hoặc 13 chữ số (dạng `0312345678-001`). Một mã số thuế chỉ gắn với một hồ sơ chủ bãi: mã đã gắn với tài khoản khác thì trả `409 identity.owner_tax_code_already_registered`, cả khi nộp, nộp lại, và khi hai hồ sơ cùng mã được gửi đồng thời (hồ sơ nộp sau bị từ chối bằng lỗi này). Hiện tại mã vẫn được giữ cho hồ sơ đã bị từ chối; quy tắc này có thể đổi theo quyết định của PO.
   * `businessName` *(string, tùy chọn)*: Tối đa 200 ký tự.
   * `phoneNumber` *(string, tùy chọn)*: Định dạng di động Việt Nam hợp lệ.
   * `fullName` *(string, tùy chọn)*: Tối thiểu 2 ký tự, tối đa 100 ký tự.
@@ -217,6 +217,8 @@ stateDiagram-v2
 | `409 Conflict` | `identity.owner_application_not_pending` | Đơn không ở trạng thái `Pending` khi Admin cố duyệt/từ chối |
 | `409 Conflict` | `identity.owner_application_not_rejected` | Đơn không ở trạng thái `Rejected` khi chủ bãi gọi `resubmit` |
 | `409 Conflict` | `identity.cannot_approve_own_application` | Admin không được tự phê duyệt đơn chủ bãi của chính mình |
+| `409 Conflict` | `identity.cannot_reject_own_application` | Admin không được tự từ chối đơn chủ bãi của chính mình |
+| `409 Conflict` | `identity.owner_tax_code_already_registered` | Mã số thuế đã gắn với hồ sơ chủ bãi của tài khoản khác; áp dụng cho `apply` và `resubmit`, kể cả khi hai hồ sơ cùng mã được gửi đồng thời |
 
 ---
 
