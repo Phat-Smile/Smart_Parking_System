@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.Parking.Application.ParkingLayout;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
+using ParkingSystem.Parking.Application.ParkingLayout.ZoneCapacity;
 
 namespace ParkingSystem.Parking.Persistence.ParkingLayout;
 
@@ -11,6 +13,8 @@ internal static class ParkingLayoutRegistration
         services.AddScoped<ISlotDesignator, SlotDesignator>();
         services.AddScoped<IMotorbikeZoneCounter, MotorbikeZoneCounter>();
         services.AddScoped<IZoneLabelReader, ZoneLabelReader>();
+        services.AddScoped<IZoneCapacityReader, ZoneCapacityReader>();
+        services.AddScoped<IHeldQuotaReader, StubHeldQuotaReader>();
 
         var options = ReadAvailabilityOptions(configuration.GetSection(AvailabilityOptions.SectionName));
         services.AddSingleton(options);
