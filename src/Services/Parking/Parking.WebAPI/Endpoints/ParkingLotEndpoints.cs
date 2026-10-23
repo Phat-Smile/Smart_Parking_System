@@ -12,6 +12,8 @@ using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 using ParkingSystem.Parking.Application.ParkingLots.SearchNearbyParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
+using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
@@ -72,6 +74,25 @@ internal static class ParkingLotEndpoints
             .Produces<RegisteredParkingLot>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // D2-BE-1: Owner gets their own parking lots (including Pending and Rejected)
+        app.MapGet("/api/parking/owner/lots", async (
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var ownerUserId) || ownerUserId == Guid.Empty)
+                    return Results.Forbid();
+
+                var lots = await sender.Send(new GetOwnerParkingLotsQuery(ownerUserId), cancellationToken);
+                return Results.Ok(lots);
+            })
+            .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
+            .WithName("GetOwnerParkingLots")
+            .WithSummary("Get all parking lots owned by the authenticated owner")
+            .Produces<IReadOnlyList<OwnerParkingLotItem>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -148,6 +169,36 @@ internal static class ParkingLotEndpoints
             .Produces<ParkingLotDetail>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // D2-BE-2: Admin gets parking lots, optionally filtered by status (Pending, Approved, Rejected)
+        app.MapGet("/api/parking/admin/lots", async (
+                string? status,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                ParkingLotApprovalStatus? approvalStatus = null;
+                if (!string.IsNullOrWhiteSpace(status))
+                {
+                    if (!Enum.TryParse<ParkingLotApprovalStatus>(status, ignoreCase: true, out var parsed))
+                    {
+                        return Results.ValidationProblem(new Dictionary<string, string[]>
+                        {
+                            ["status"] = ["status must be one of: Pending, Approved, Rejected."]
+                        });
+                    }
+                    approvalStatus = parsed;
+                }
+
+                var lots = await sender.Send(new GetAdminParkingLotsQuery(approvalStatus), cancellationToken);
+                return Results.Ok(lots);
+            })
+            .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
+            .WithName("GetAdminParkingLots")
+            .WithSummary("Get parking lots for administrator review")
+            .Produces<IReadOnlyList<AdminParkingLotItem>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // US-ADMIN-002: authorized administrators can decide only Pending lots.
         app.MapPost("/api/parking/admin/lots/{parkingLotId:guid}/approve", async (

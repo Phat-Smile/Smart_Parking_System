@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Parking.Application.Features.Pricing.Commands.ConfigurePricing;
+using ParkingSystem.Parking.Application.Features.Pricing.Queries.GetPricingPolicy;
 using ParkingSystem.Parking.WebAPI.DTOs;
 using ParkingSystem.Parking.WebAPI.Security;
 
@@ -13,6 +14,43 @@ public static class PricingEndpoints
 {
     public static IEndpointRouteBuilder MapPricingEndpoints(this IEndpointRouteBuilder app)
     {
+        // Tra cuu bang gia theo loai xe cho bai xe (D2-BE-3)
+        app.MapGet("/api/parking/lots/{lotId:guid}/pricing/{vehicleType}", async (
+            Guid lotId,
+            string vehicleType,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetPricingPolicyQuery(lotId, vehicleType);
+            var result = await sender.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                var errorCode = result.Error!.Code;
+                var statusCode = errorCode.Contains("not_found", StringComparison.OrdinalIgnoreCase)
+                    ? StatusCodes.Status404NotFound
+                    : StatusCodes.Status400BadRequest;
+
+                return Results.Json(
+                    new { result = (object?)null, isSuccess = false, statusCode, message = result.Error.Message },
+                    statusCode: statusCode);
+            }
+
+            return Results.Ok(new
+            {
+                result = result.Value,
+                isSuccess = true,
+                statusCode = StatusCodes.Status200OK,
+                message = "Get pricing policy successfully"
+            });
+        })
+        .AllowAnonymous()
+        .WithName("GetPricingPolicy")
+        .WithSummary("Tra cuu bang gia cho bai do xe theo loai xe")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // Cau hinh bang gia theo loai xe cho bai xe
         app.MapPut("/api/parking/lots/{lotId:guid}/pricing/{vehicleType}", async (
             Guid lotId,

@@ -20,6 +20,8 @@ using ParkingSystem.Parking.Persistence.ParkingLayout;
 using ParkingSystem.Parking.Persistence.Repositories;
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
+using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
+using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -66,6 +68,8 @@ public static class PersistenceDependencyInjection
         services.AddParkingLayout(configuration);
         services.AddScoped<IParkingLotApprovalRepository, ParkingLotApprovalRepository>();
         services.AddScoped<IManageParkingLayoutRepository, ManageParkingLayoutRepository>();
+        services.AddScoped<IOwnerParkingLotReader, OwnerParkingLotReader>();
+        services.AddScoped<IAdminParkingLotReader, AdminParkingLotReader>();
         return services;
     }
 }
