@@ -7,6 +7,7 @@ public class WalletLedgerEntry
 {
     public Guid Id { get; private set; }
     public Guid WalletId { get; private set; }
+    public long Sequence { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public LedgerEntryType EntryType { get; private set; }
     public decimal Amount { get; private set; }
@@ -24,6 +25,7 @@ public class WalletLedgerEntry
     // Ép buộc chỉ class Wallet mới được quyền in Biên lai
     internal WalletLedgerEntry(
         Guid walletId,
+        long sequence,
         LedgerEntryType entryType,
         decimal amount,
         decimal balanceAfter,
@@ -37,6 +39,7 @@ public class WalletLedgerEntry
     {
         Id = Guid.NewGuid();
         WalletId = walletId;
+        Sequence = sequence;
         CreatedAt = DateTimeOffset.UtcNow;
         EntryType = entryType;
         Amount = amount;

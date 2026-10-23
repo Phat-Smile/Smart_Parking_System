@@ -37,6 +37,10 @@ public class WalletConfiguration : IEntityTypeConfiguration<Wallet>
             .IsConcurrencyToken()
             .IsRequired();
 
+        // Bộ đếm số thứ tự bút toán của ví
+        builder.Property(x => x.LastSequence)
+            .IsRequired();
+
         // Một ví có nhiều dòng sổ cái, cấm xóa ví nếu đã có giao dịch
         builder.HasMany(w => w.LedgerEntries)
             .WithOne()

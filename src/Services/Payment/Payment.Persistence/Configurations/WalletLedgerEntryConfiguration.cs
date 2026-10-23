@@ -30,6 +30,15 @@ public class WalletLedgerEntryConfiguration : IEntityTypeConfiguration<WalletLed
             .HasColumnType("numeric(12,0)")
             .IsRequired();
 
+        // Số thứ tự tăng dần theo ví
+        builder.Property(x => x.Sequence)
+            .IsRequired();
+
+        // Đảm bảo thứ tự bút toán per wallet là duy nhất
+        builder.HasIndex(x => new { x.WalletId, x.Sequence })
+            .IsUnique()
+            .HasDatabaseName("ux_ledger_wallet_sequence");
+
         builder.Property(x => x.Reason)
             .HasMaxLength(500);
 
