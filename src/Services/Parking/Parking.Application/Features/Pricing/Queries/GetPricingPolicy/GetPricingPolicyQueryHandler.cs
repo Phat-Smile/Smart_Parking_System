@@ -36,6 +36,15 @@ public sealed class GetPricingPolicyQueryHandler(
             return Result<PricingPolicyDto>.Failure(ParkingErrors.Pricing.LotNotFound);
         }
 
+        // MF-15: a Pending or Rejected lot is not visible to customers, so its price is for its owners only.
+        // Everyone else gets the same "not found" as for a lot that does not exist.
+        bool visible = await lotOwnershipService.IsLotApprovedAsync(request.LotId)
+            || (request.CallerId is { } callerId && await lotOwnershipService.IsLotOwnerAsync(request.LotId, callerId));
+        if (!visible)
+        {
+            return Result<PricingPolicyDto>.Failure(ParkingErrors.Pricing.LotNotFound);
+        }
+
         var policy = await pricingRepository.GetLatestAsync(request.LotId, normalizedVehicleType, cancellationToken);
         if (policy is null)
         {

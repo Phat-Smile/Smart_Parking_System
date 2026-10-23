@@ -232,5 +232,6 @@ public sealed class ParkingLotScopeHttpTests
     {
         public Task<bool> LotExistsAsync(Guid lotId) => Task.FromResult(true);
         public Task<bool> IsLotOwnerAsync(Guid lotId, Guid callerId) => Task.FromResult(false);
+        public Task<bool> IsLotApprovedAsync(Guid lotId) => Task.FromResult(true);
     }
 }

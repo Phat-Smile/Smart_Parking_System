@@ -179,7 +179,7 @@ internal static class ParkingLotEndpoints
                 ParkingLotApprovalStatus? approvalStatus = null;
                 if (!string.IsNullOrWhiteSpace(status))
                 {
-                    if (!Enum.TryParse<ParkingLotApprovalStatus>(status, ignoreCase: true, out var parsed))
+                    if (!ParkingLotApprovalStatusParser.TryParse(status, out var parsed))
                     {
                         return Results.ValidationProblem(new Dictionary<string, string[]>
                         {

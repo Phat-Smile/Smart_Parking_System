@@ -118,13 +118,69 @@ public sealed class GetPricingPolicyQueryTests
         Assert.Equal(60000m, dto.OvernightFee);
     }
 
+    // MF-15: a Pending or Rejected lot is not visible to customers; only its owners may read its price.
+    [Fact]
+    public async Task Handle_WhenTheLotIsNotApprovedAndThereIsNoCaller_ReturnsLotNotFound()
+    {
+        var lotId = Guid.NewGuid();
+        _lotOwnershipService.SetupLot(lotId, exists: true, isOwner: true, approved: false);
+        await _pricingRepository.AddAsync(NewPolicy(lotId), CancellationToken.None);
+
+        var result = await _handler.Handle(new GetPricingPolicyQuery(lotId, "CAR"), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ParkingErrors.Pricing.LotNotFound.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheLotIsNotApprovedAndTheCallerIsNotAnOwner_ReturnsLotNotFound()
+    {
+        var lotId = Guid.NewGuid();
+        _lotOwnershipService.SetupLot(lotId, exists: true, isOwner: false, approved: false);
+        await _pricingRepository.AddAsync(NewPolicy(lotId), CancellationToken.None);
+
+        var result = await _handler.Handle(new GetPricingPolicyQuery(lotId, "CAR", Guid.NewGuid()), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ParkingErrors.Pricing.LotNotFound.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheLotIsNotApprovedAndTheCallerIsAnOwner_ReturnsThePrice()
+    {
+        var lotId = Guid.NewGuid();
+        _lotOwnershipService.SetupLot(lotId, exists: true, isOwner: true, approved: false);
+        await _pricingRepository.AddAsync(NewPolicy(lotId), CancellationToken.None);
+
+        var result = await _handler.Handle(new GetPricingPolicyQuery(lotId, "CAR", Guid.NewGuid()), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(15000m, result.Value!.Price);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheLotIsApproved_AnAnonymousCallerGetsThePrice()
+    {
+        var lotId = Guid.NewGuid();
+        _lotOwnershipService.SetupLot(lotId, exists: true, isOwner: false, approved: true);
+        await _pricingRepository.AddAsync(NewPolicy(lotId), CancellationToken.None);
+
+        var result = await _handler.Handle(new GetPricingPolicyQuery(lotId, "CAR"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    private static PricingPolicy NewPolicy(Guid lotId) =>
+        PricingPolicy.Create(lotId, "CAR", version: 1, billingMode: "Block", blockMinutes: 30, price: 15000m, overnightFee: 60000m);
+
     private sealed class FakeLotOwnershipService : ILotOwnershipService
     {
-        private readonly System.Collections.Generic.Dictionary<Guid, (bool Exists, bool IsOwner)> _lots = new();
+        private readonly System.Collections.Generic.Dictionary<Guid, (bool Exists, bool IsOwner, bool Approved)> _lots = new();
 
-        public void SetupLot(Guid lotId, bool exists, bool isOwner)
+        // isOwner says whether the caller owns the lot; approved defaults to true so that the tests of a public price stay short.
+        public void SetupLot(Guid lotId, bool exists, bool isOwner, bool approved = true)
         {
-            _lots[lotId] = (exists, isOwner);
+            _lots[lotId] = (exists, isOwner, approved);
         }
 
         public Task<bool> LotExistsAsync(Guid lotId)
@@ -135,6 +191,11 @@ public sealed class GetPricingPolicyQueryTests
         public Task<bool> IsLotOwnerAsync(Guid lotId, Guid callerId)
         {
             return Task.FromResult(_lots.TryGetValue(lotId, out var lot) && lot.IsOwner);
+        }
+
+        public Task<bool> IsLotApprovedAsync(Guid lotId)
+        {
+            return Task.FromResult(_lots.TryGetValue(lotId, out var lot) && lot.Exists && lot.Approved);
         }
     }
 

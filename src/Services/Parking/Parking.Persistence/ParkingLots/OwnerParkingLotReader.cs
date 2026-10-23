@@ -9,9 +9,12 @@ internal sealed class OwnerParkingLotReader(ParkingDbContext dbContext) : IOwner
         Guid ownerUserId,
         CancellationToken cancellationToken)
     {
-        return await dbContext.ParkingLots
+        // "Owner of a lot" is an Owner row in parking_lot_assignments (LotOwnership, MOD-PK-05). owner_user_id only records
+        // who registered the lot: a co-owner added by an admin must see the lot, a removed owner must not.
+        return await dbContext.OwnerAssignments()
             .AsNoTracking()
-            .Where(lot => lot.OwnerUserId == ownerUserId)
+            .Where(assignment => assignment.AccountId == ownerUserId)
+            .Join(dbContext.ParkingLots.AsNoTracking(), assignment => assignment.LotId, lot => lot.Id, (_, lot) => lot)
             .OrderByDescending(lot => lot.Id)
             .Select(lot => new OwnerParkingLotItem(
                 lot.Id,

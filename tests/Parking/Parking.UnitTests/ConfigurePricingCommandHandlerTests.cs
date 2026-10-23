@@ -202,6 +202,12 @@ public class ConfigurePricingCommandHandlerTests
         {
             return Task.FromResult(_lots.TryGetValue(lotId, out var lot) && lot.IsOwner);
         }
+
+        // Setting a price does not depend on the approval of the lot; an owner prices a Pending lot too.
+        public Task<bool> IsLotApprovedAsync(Guid lotId)
+        {
+            return Task.FromResult(_lots.TryGetValue(lotId, out var lot) && lot.Exists);
+        }
     }
 
     private sealed class FakePricingPolicyRepository : IPricingPolicyRepository

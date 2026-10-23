@@ -18,10 +18,14 @@ public static class PricingEndpoints
         app.MapGet("/api/parking/lots/{lotId:guid}/pricing/{vehicleType}", async (
             Guid lotId,
             string vehicleType,
+            ICurrentUser currentUser,
             ISender sender,
             CancellationToken cancellationToken) =>
         {
-            var query = new GetPricingPolicyQuery(lotId, vehicleType);
+            // Anonymous callers are allowed. A signed-in account is passed on so that an owner can read the price
+            // of a lot that is not approved yet.
+            Guid? callerId = Guid.TryParse(currentUser.SubjectId, out var subject) ? subject : null;
+            var query = new GetPricingPolicyQuery(lotId, vehicleType, callerId);
             var result = await sender.Send(query, cancellationToken);
 
             if (!result.IsSuccess)
