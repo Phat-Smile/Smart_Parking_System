@@ -1,5 +1,6 @@
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.SearchParkingLotsByAddress;
+using ParkingSystem.Parking.Domain.ParkingSessions;
 using Xunit;
 
 namespace ParkingSystem.Tests.Parking.UnitTests;
@@ -94,7 +95,7 @@ public sealed class SearchParkingLotsByAddressTests
     private sealed class FakeCatalogReader(IReadOnlyList<ParkingLotCatalogItem> lots) : IParkingLotCatalogReader
     {
         public int CallCount { get; private set; }
-        public Task<IReadOnlyList<ParkingLotCatalogItem>> ListApprovedAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<ParkingLotCatalogItem>> ListApprovedAsync(CancellationToken cancellationToken, VehicleType? vehicleType = null)
         {
             CallCount++;
             return Task.FromResult(lots);

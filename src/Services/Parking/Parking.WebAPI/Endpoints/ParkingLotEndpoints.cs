@@ -11,6 +11,7 @@ using ParkingSystem.Parking.Application.ParkingLayout.GetMotorbikeAvailability;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 using ParkingSystem.Parking.Application.ParkingLots.SearchNearbyParkingLots;
+using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
@@ -74,18 +75,38 @@ internal static class ParkingLotEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
-        app.MapGet("/api/parking/lots", async (DateTimeOffset? arrivalAt, ISender sender, CancellationToken cancellationToken) =>
+        app.MapGet("/api/parking/lots", async (
+                DateTimeOffset? arrivalAt,
+                string? vehicleType,
+                ISender sender,
+                CancellationToken cancellationToken) =>
             {
+                VehicleType? selectedVehicleType = null;
+                if (vehicleType is not null)
+                {
+                    // Enum.TryParse accepts integer strings (e.g. "1"); allow enum names only.
+                    if (!Enum.GetNames<VehicleType>().Contains(vehicleType, StringComparer.OrdinalIgnoreCase))
+                    {
+                        return Results.ValidationProblem(new Dictionary<string, string[]>
+                        {
+                            ["vehicleType"] = ["vehicleType must be one of: Car, Motorbike."]
+                        });
+                    }
+
+                    selectedVehicleType = Enum.Parse<VehicleType>(vehicleType, ignoreCase: true);
+                }
+
                 var parkingLots = arrivalAt.HasValue
-                    ? await sender.Send(new ListParkingLotsAtArrivalQuery(arrivalAt.Value), cancellationToken)
-                    : await sender.Send(new ListParkingLotsQuery(), cancellationToken);
+                    ? await sender.Send(new ListParkingLotsAtArrivalQuery(arrivalAt.Value, selectedVehicleType), cancellationToken)
+                    : await sender.Send(new ListParkingLotsQuery(selectedVehicleType), cancellationToken);
                 return Results.Ok(parkingLots);
             })
             .AllowAnonymous()
             .WithName("ListParkingLots")
-            .WithSummary("List approved parking lots")
-            .WithDescription("Returns approved lots. Optionally filter by arrivalAt (ISO 8601 with offset), using configured local opening hours. Missing arrivalAt leaves the existing catalog behavior unchanged.")
-            .Produces<IReadOnlyList<ParkingLotCatalogItem>>(StatusCodes.Status200OK);
+            .WithSummary("List approved parking lots, optionally filtered by vehicle type and arrival time")
+            .WithDescription("Returns approved lots only. Optional vehicleType=Car|Motorbike matches a configured zone. Optional arrivalAt (ISO 8601 with offset) keeps only lots open at that time, using configured local opening hours. Without filters the original catalog is returned. Authentication is not required.")
+            .Produces<IReadOnlyList<ParkingLotCatalogItem>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem();
 
         app.MapGet("/api/parking/lots/nearby", async (
                 decimal latitude,
