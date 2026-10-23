@@ -247,6 +247,10 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<string>("OpeningHoursJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("opening_hours");
+
                     b.Property<Guid?>("OwnerUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_user_id");

@@ -26,4 +26,5 @@ public static class AuditActions
     public const string LotMemberRemoved = "lot.member_removed";
     public const string ParkingLotApproved = "parking_lot.approved";
     public const string ParkingLotRejected = "parking_lot.rejected";
+    public const string ParkingLotOpeningHoursUpdated = "parking_lot.opening_hours_updated";
 }

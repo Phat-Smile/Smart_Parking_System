@@ -17,6 +17,7 @@ using ParkingSystem.Parking.Application.Common.Interfaces;
 using ParkingSystem.Parking.Persistence.Auditing;
 using ParkingSystem.Parking.Persistence.ParkingLayout;
 using ParkingSystem.Parking.Persistence.Repositories;
+using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -44,7 +45,10 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IInboxExecutionCoordinator, ParkingInboxExecutionCoordinator>();
         services.AddScoped<IParkingSessionRepository, ParkingSessionRepository>();
         services.AddScoped<IAuditLog, AuditLog>();
-        services.AddScoped<IParkingLotCatalogReader, ParkingLotCatalogReader>();
+        services.AddScoped<ParkingLotCatalogReader>();
+        services.AddScoped<IParkingLotCatalogReader>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
+        services.AddScoped<IParkingLotArrivalSearch>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
+        services.AddScoped<IParkingLotOpeningHoursRepository, ParkingLotOpeningHoursRepository>();
         services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
         services.AddScoped<IRegisterParkingLotRepository, RegisterParkingLotRepository>();
 
