@@ -378,6 +378,10 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("vehicle_type");
 
+                    b.Property<Guid?>("ZoneId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("zone_id");
+
                     b.HasKey("Id")
                         .HasName("pk_parking_sessions");
 
@@ -388,6 +392,9 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_parking_sessions_user_id")
                         .HasFilter("user_id IS NOT NULL");
+
+                    b.HasIndex("ZoneId")
+                        .HasDatabaseName("ix_parking_sessions_zone_id");
 
                     b.HasIndex("LotId", "PlateNumber")
                         .IsUnique()
@@ -604,6 +611,12 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_parking_sessions_parking_lots_lot_id");
+
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLayout.Zone", null)
+                        .WithMany()
+                        .HasForeignKey("ZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_parking_sessions_zones_zone_id");
                 });
 #pragma warning restore 612, 618
         }

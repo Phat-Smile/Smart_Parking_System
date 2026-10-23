@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
@@ -55,6 +56,14 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
         builder.Property(session => session.UserId).HasColumnName("user_id");
         builder.Property(session => session.VehicleId).HasColumnName("vehicle_id");
         builder.Property(session => session.ReservationId).HasColumnName("reservation_id");
+        // ERD: zone_id NOT NULL; kept nullable until car sessions get their zone in US-PARK-004/007 (team decision 2026-10-16).
+        builder.Property(session => session.ZoneId).HasColumnName("zone_id");
+        builder.HasOne<Zone>()
+            .WithMany()
+            .HasForeignKey(session => session.ZoneId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_parking_sessions_zones_zone_id");
+        builder.HasIndex(session => session.ZoneId).HasDatabaseName("ix_parking_sessions_zone_id");
         builder.Property(session => session.CancelledAt).HasColumnName("cancelled_at");
         builder.Property(session => session.CancelledBy).HasColumnName("cancelled_by");
         builder.Property(session => session.CancelReason)

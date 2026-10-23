@@ -6,6 +6,8 @@ using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.GetParkingLotDetail;
 using ParkingSystem.Parking.Application.ParkingLots.ListParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.RegisterParkingLot;
+using ParkingSystem.AspNetCore;
+using ParkingSystem.Parking.Application.ParkingLayout.GetMotorbikeAvailability;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 
@@ -152,6 +154,35 @@ internal static class ParkingLotEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // US-PARK-008. The staff screen reads how many motorbike spaces are left before accepting a motorbike.
+        app.MapGet("/api/parking/lots/{parkingLotId:guid}/motorbike-availability", async (
+                Guid parkingLotId,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                // TECH-12: the caller must be assigned to this lot.
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new GetMotorbikeAvailabilityQuery(parkingLotId, actorUserId), cancellationToken);
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == ParkingLotAccessErrors.AccessDenied
+                    ? StatusCodes.Status403Forbidden
+                    : StatusCodes.Status404NotFound;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("GetMotorbikeAvailability")
+            .WithSummary("Get the motorbike spaces left in a lot")
+            .Produces<MotorbikeAvailabilityResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }
