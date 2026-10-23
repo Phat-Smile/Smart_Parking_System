@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Parking.Application.Features.Pricing.Commands.ConfigurePricing;
 using ParkingSystem.Parking.WebAPI.DTOs;
+using ParkingSystem.Parking.WebAPI.Security;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
@@ -57,7 +58,7 @@ public static class PricingEndpoints
                 message = "Configure pricing successfully"
             });
         })
-        .RequireAuthorization()
+        .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
         .WithName("ConfigurePricing")
         .WithSummary("Cau hinh bang gia cho bai do xe");
 

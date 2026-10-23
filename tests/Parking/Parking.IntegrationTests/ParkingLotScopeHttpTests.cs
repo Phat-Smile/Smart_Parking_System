@@ -17,10 +17,12 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.Common.Interfaces;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
+using ParkingSystem.Parking.Domain.Entities;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.WebAPI.Endpoints;
 using ParkingSystem.Parking.WebAPI.Security;
@@ -50,6 +52,27 @@ public sealed class ParkingLotScopeHttpTests
 
         Assert.Equal(expected, put.StatusCode);
         Assert.Equal(expected, delete.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(null, HttpStatusCode.Unauthorized)]
+    [InlineData("Customer", HttpStatusCode.Forbidden)]
+    [InlineData("Staff", HttpStatusCode.Forbidden)]
+    public async Task Pricing_endpoint_rejects_unauthenticated_customer_and_staff(string? role, HttpStatusCode expected)
+    {
+        await using var app = await CreateAppAsync();
+        var client = app.GetTestClient();
+        var pricingRoute = $"/api/parking/lots/{Guid.NewGuid()}/pricing/Car";
+
+        using var put = await SendAsync(client, HttpMethod.Put, pricingRoute, role, new
+        {
+            billingMode = "Block",
+            blockMinutes = 30,
+            price = 10000m,
+            overnightFee = 50000m
+        });
+
+        Assert.Equal(expected, put.StatusCode);
     }
 
     [Theory]
@@ -110,6 +133,9 @@ public sealed class ParkingLotScopeHttpTests
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
         builder.Services.AddSingleton<IMotorbikeZoneCounter, UnusedMotorbikeZones>();
         builder.Services.AddSingleton<IParkingUnitOfWork, UnusedUnitOfWork>();
+        builder.Services.AddSingleton<IPricingPolicyRepository, UnusedPricingPolicyRepository>();
+        builder.Services.AddSingleton<IAuditWriter, UnusedAuditWriter>();
+        builder.Services.AddSingleton<ILotOwnershipService, UnusedLotOwnershipService>();
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
@@ -117,6 +143,7 @@ public sealed class ParkingLotScopeHttpTests
         app.UseAuthorization();
         app.MapParkingSessionEndpoints();
         app.MapParkingLotAssignmentEndpoints();
+        app.MapPricingEndpoints();
         await app.StartAsync(TestContext.Current.CancellationToken);
         return app;
     }
@@ -187,5 +214,23 @@ public sealed class ParkingLotScopeHttpTests
     private sealed class UnusedUnitOfWork : IParkingUnitOfWork
     {
         public Task<IParkingTransaction> BeginTransactionAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
+    private sealed class UnusedPricingPolicyRepository : IPricingPolicyRepository
+    {
+        public Task<PricingPolicy?> GetLatestAsync(Guid lotId, string vehicleType, CancellationToken cancellationToken) => Task.FromResult<PricingPolicy?>(null);
+        public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<bool> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
+    }
+
+    private sealed class UnusedAuditWriter : IAuditWriter
+    {
+        public void Log(Guid actorId, string action, string targetId, string details) { }
+    }
+
+    private sealed class UnusedLotOwnershipService : ILotOwnershipService
+    {
+        public Task<bool> LotExistsAsync(Guid lotId) => Task.FromResult(true);
+        public Task<bool> IsLotOwnerAsync(Guid lotId, Guid callerId) => Task.FromResult(false);
     }
 }
