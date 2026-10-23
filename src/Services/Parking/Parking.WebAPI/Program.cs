@@ -78,6 +78,7 @@ app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
 app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
+app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();
 app.MapPricingEndpoints();
 app.MapParkingLayoutOwnerEndpoints();
