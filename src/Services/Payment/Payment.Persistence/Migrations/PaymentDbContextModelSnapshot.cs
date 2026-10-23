@@ -197,6 +197,9 @@ namespace ParkingSystem.Payment.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<long>("LastSequence")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -264,12 +267,19 @@ namespace ParkingSystem.Payment.Persistence.Migrations
                     b.Property<Guid?>("ReversalOfEntryId")
                         .HasColumnType("uuid");
 
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid>("WalletId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ReversalOfEntryId");
+
+                    b.HasIndex("WalletId", "Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ledger_wallet_sequence");
 
                     b.HasIndex("WalletId", "EntryType", "IdempotencyKey")
                         .IsUnique()
