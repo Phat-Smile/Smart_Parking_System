@@ -3,13 +3,29 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RootNamespace>ParkingSystem.Tests.Booking.IntegrationTests</RootNamespace>
+    <!-- CS0436: proto types generated for server test stubs shadow the client types from Booking.WebAPI. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Grpc.AspNetCore.Server" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\..\contracts\grpc\parking_availability.proto" GrpcServices="Server" Link="Protos\parking_availability.proto" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Services\Booking\Booking.Persistence\Booking.Persistence.csproj" />
     <ProjectReference Include="..\..\..\src\Services\Booking\Booking.Infrastructure\Booking.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Booking\Booking.WebAPI\Booking.WebAPI.csproj" Aliases="global,BookingWebApi" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
   </ItemGroup>
 </Project>

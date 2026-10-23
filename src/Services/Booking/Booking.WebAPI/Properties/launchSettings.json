@@ -11,7 +11,8 @@
         "Kestrel__Endpoints__Http__Url": "http://localhost:5003",
         "Kestrel__Endpoints__Grpc__Url": "http://localhost:5103",
         "RabbitMq__Host": "127.0.0.1",
-        "Security__Jwt__PublicKeyPath": "../../../../.local/security/jwt/public.pem"
+        "Security__Jwt__PublicKeyPath": "../../../../.local/security/jwt/public.pem",
+        "ParkingService__GrpcEndpoint": "http://localhost:5102"
       }
     }
   }
