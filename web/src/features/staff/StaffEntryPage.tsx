@@ -29,11 +29,18 @@ export function StaffEntryPage() {
     >("camera");
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
-    const [lastOpened, setLastOpened] = useState<OpenedSessionResponse | null>(null);
+    const [lastOpened, setLastOpened] = useState<OpenedSessionResponse | null>(
+        null,
+    );
     const [showQrModal, setShowQrModal] = useState(false);
 
     // Mock presets for testing
-    function loadPreset(plate: string, type: VehicleType, cust: CustomerType, conf: number) {
+    function loadPreset(
+        plate: string,
+        type: VehicleType,
+        cust: CustomerType,
+        conf: number,
+    ) {
         setPlateNumber(plate);
         setEditedPlate(plate);
         setVehicleType(type);
@@ -49,7 +56,9 @@ export function StaffEntryPage() {
         setErrorMsg("");
         setStep("checking");
 
-        const finalPlate = isEditingPlate ? editedPlate.trim() : plateNumber.trim();
+        const finalPlate = isEditingPlate
+            ? editedPlate.trim()
+            : plateNumber.trim();
 
         try {
             // Call the real POST /api/parking/sessions endpoint
@@ -69,7 +78,10 @@ export function StaffEntryPage() {
                 plateNumber: res.plateNumber,
                 vehicleType: res.vehicleType,
                 customerType: entryType,
-                driverName: entryType === "Registered" ? "Nguyễn Văn An" : "Guest Driver",
+                driverName:
+                    entryType === "Registered"
+                        ? "Nguyễn Văn An"
+                        : "Guest Driver",
                 entryTime: res.entryTime,
                 status: "Active",
                 qrToken: res.qrToken,
@@ -77,7 +89,12 @@ export function StaffEntryPage() {
                 paymentStatus: "Pending",
                 totalFeeVnd: vehicleType === "Car" ? 30000 : 6000,
                 prepaidVnd: entryType === "Registered" ? 30000 : 0,
-                amountDueVnd: entryType === "Registered" ? 0 : vehicleType === "Car" ? 30000 : 6000,
+                amountDueVnd:
+                    entryType === "Registered"
+                        ? 0
+                        : vehicleType === "Car"
+                          ? 30000
+                          : 6000,
             });
 
             // If Guest, auto prompt QR ticket modal
@@ -113,9 +130,12 @@ export function StaffEntryPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">Gate In — Vehicle Entry Control</h1>
+                    <h1 className="staff-title">
+                        Gate In — Vehicle Entry Control
+                    </h1>
                     <p className="staff-subtitle">
-                        Automated ANPR camera detection, plate correction, and session opening.
+                        Automated ANPR camera detection, plate correction, and
+                        session opening.
                     </p>
                 </div>
 
@@ -141,7 +161,9 @@ export function StaffEntryPage() {
 
             {/* Top quick simulation bar */}
             <div className="staff-presets-bar">
-                <span className="staff-presets-label">Simulate incoming vehicle:</span>
+                <span className="staff-presets-label">
+                    Simulate incoming vehicle:
+                </span>
                 <button
                     type="button"
                     className="staff-preset-chip"
@@ -200,19 +222,21 @@ export function StaffEntryPage() {
 
                         {ocrConfidence < 0.8 ? (
                             <p className="staff-warning-box">
-                                ⚠️ Camera OCR confidence is below threshold (80%).
-                                Please review and correct the license plate before
-                                opening the gate.
+                                ⚠️ Camera OCR confidence is below threshold
+                                (80%). Please review and correct the license
+                                plate before opening the gate.
                             </p>
                         ) : (
                             <p className="staff-card-hint">
-                                High confidence match detected. Staff can still edit
-                                manually if needed.
+                                High confidence match detected. Staff can still
+                                edit manually if needed.
                             </p>
                         )}
 
                         <div className="staff-form-group">
-                            <label htmlFor="staff-edit-plate">License plate</label>
+                            <label htmlFor="staff-edit-plate">
+                                License plate
+                            </label>
                             <div className="staff-input-group">
                                 <input
                                     id="staff-edit-plate"
@@ -220,7 +244,9 @@ export function StaffEntryPage() {
                                     className="staff-input staff-plate-input"
                                     value={editedPlate}
                                     onChange={(e) => {
-                                        setEditedPlate(e.target.value.toUpperCase());
+                                        setEditedPlate(
+                                            e.target.value.toUpperCase(),
+                                        );
                                         setIsEditingPlate(true);
                                     }}
                                 />
@@ -246,11 +272,15 @@ export function StaffEntryPage() {
                                     className="staff-select"
                                     value={vehicleType}
                                     onChange={(e) =>
-                                        setVehicleType(e.target.value as VehicleType)
+                                        setVehicleType(
+                                            e.target.value as VehicleType,
+                                        )
                                     }
                                 >
                                     <option value="Car">Car (Ô tô)</option>
-                                    <option value="Motorbike">Motorbike (Xe máy)</option>
+                                    <option value="Motorbike">
+                                        Motorbike (Xe máy)
+                                    </option>
                                 </select>
                             </div>
 
@@ -260,13 +290,17 @@ export function StaffEntryPage() {
                                     className="staff-select"
                                     value={entryType}
                                     onChange={(e) =>
-                                        setEntryType(e.target.value as CustomerType)
+                                        setEntryType(
+                                            e.target.value as CustomerType,
+                                        )
                                     }
                                 >
                                     <option value="Registered">
                                         Registered (App account)
                                     </option>
-                                    <option value="Guest">Guest (Vãng lai)</option>
+                                    <option value="Guest">
+                                        Guest (Vãng lai)
+                                    </option>
                                 </select>
                             </div>
                         </div>
@@ -332,7 +366,9 @@ export function StaffEntryPage() {
                             </div>
                             <div
                                 className={`staff-step ${
-                                    step === "barrier_open" ? "active done-gate" : ""
+                                    step === "barrier_open"
+                                        ? "active done-gate"
+                                        : ""
                                 }`}
                             >
                                 <span className="step-num">5</span>
@@ -383,8 +419,12 @@ export function StaffEntryPage() {
                             <div className="staff-barrier-open-alert">
                                 <div className="barrier-icon">🟢</div>
                                 <div className="barrier-content">
-                                    <strong>BARRIER RAISED — ALLOW ENTRY</strong>
-                                    <p>Vehicle is clear to enter zone and park.</p>
+                                    <strong>
+                                        BARRIER RAISED — ALLOW ENTRY
+                                    </strong>
+                                    <p>
+                                        Vehicle is clear to enter zone and park.
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -406,15 +446,18 @@ export function StaffEntryPage() {
                                 </button>
                             ) : (
                                 <div className="staff-done-actions">
-                                    {lastOpened?.qrToken && entryType === "Guest" && (
-                                        <button
-                                            type="button"
-                                            className="staff-btn staff-btn-secondary"
-                                            onClick={() => setShowQrModal(true)}
-                                        >
-                                            View Guest QR Ticket
-                                        </button>
-                                    )}
+                                    {lastOpened?.qrToken &&
+                                        entryType === "Guest" && (
+                                            <button
+                                                type="button"
+                                                className="staff-btn staff-btn-secondary"
+                                                onClick={() =>
+                                                    setShowQrModal(true)
+                                                }
+                                            >
+                                                View Guest QR Ticket
+                                            </button>
+                                        )}
                                     <button
                                         type="button"
                                         className="staff-btn staff-btn-primary"

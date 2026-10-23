@@ -63,7 +63,11 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             {/* Left Sidebar (Navigation on the LEFT side of screen) */}
             <aside className="staff-left-sidebar">
                 <div className="staff-sidebar-brand">
-                    <Link href="/staff/dashboard" className="staff-brand" title="ParkWise Staff Portal">
+                    <Link
+                        href="/staff/dashboard"
+                        className="staff-brand"
+                        title="ParkWise Staff Portal"
+                    >
                         <Image
                             src="/images/parkwise/logo.png"
                             alt="ParkWise"
@@ -74,14 +78,23 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         />
                     </Link>
                     <div className="staff-sidebar-tag-wrap">
-                        <span className="staff-brand-station-tag">STAFF STATION</span>
-                        <span className="staff-brand-gate-id">GATE 01 · ZONE B1/B2</span>
+                        <span className="staff-brand-station-tag">
+                            STAFF STATION
+                        </span>
+                        <span className="staff-brand-gate-id">
+                            GATE 01 · ZONE B1/B2
+                        </span>
                     </div>
                 </div>
 
-                <div className="staff-sidebar-section-title">CHỨC NĂNG VẬN HÀNH</div>
+                <div className="staff-sidebar-section-title">
+                    CHỨC NĂNG VẬN HÀNH
+                </div>
 
-                <nav className="staff-vertical-nav" aria-label="Staff Station Navigation">
+                <nav
+                    className="staff-vertical-nav"
+                    aria-label="Staff Station Navigation"
+                >
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
@@ -91,18 +104,25 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                 className={`staff-vertical-nav-item ${isActive ? "active" : ""}`}
                             >
                                 <div className="staff-nav-item-left">
-                                    <span className="staff-nav-icon">{item.icon}</span>
-                                    <span className="staff-nav-label">{item.label}</span>
-                                </div>
-                                {typeof item.badge === "number" && item.badge > 0 && (
-                                    <span
-                                        className={`staff-nav-badge ${
-                                            item.badgeDanger ? "badge-danger" : ""
-                                        }`}
-                                    >
-                                        {item.badge}
+                                    <span className="staff-nav-icon">
+                                        {item.icon}
                                     </span>
-                                )}
+                                    <span className="staff-nav-label">
+                                        {item.label}
+                                    </span>
+                                </div>
+                                {typeof item.badge === "number" &&
+                                    item.badge > 0 && (
+                                        <span
+                                            className={`staff-nav-badge ${
+                                                item.badgeDanger
+                                                    ? "badge-danger"
+                                                    : ""
+                                            }`}
+                                        >
+                                            {item.badge}
+                                        </span>
+                                    )}
                             </Link>
                         );
                     })}
@@ -112,8 +132,12 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                     <div className="staff-operator-card">
                         <div className="staff-operator-avatar">👤</div>
                         <div className="staff-operator-info">
-                            <span className="staff-operator-shift">Ca #2 · Sáng</span>
-                            <strong className="staff-operator-name">Nguyễn Văn Hải</strong>
+                            <span className="staff-operator-shift">
+                                Ca #2 · Sáng
+                            </span>
+                            <strong className="staff-operator-name">
+                                Nguyễn Văn Hải
+                            </strong>
                         </div>
                     </div>
 
@@ -151,26 +175,44 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                     <div className="staff-topbar-left">
                         <div className="staff-lot-badge">
                             <span className="staff-lot-dot" />
-                            <span className="staff-lot-name">ParkWise Central Tower</span>
-                            <span className="staff-lot-zone">Tầng Hầm B1/B2</span>
+                            <span className="staff-lot-name">
+                                ParkWise Central Tower
+                            </span>
+                            <span className="staff-lot-zone">
+                                Tầng Hầm B1/B2
+                            </span>
                         </div>
                     </div>
 
                     <div className="staff-topbar-right">
                         {currentTime && (
-                            <div className="staff-clock-badge" suppressHydrationWarning>
+                            <div
+                                className="staff-clock-badge"
+                                suppressHydrationWarning
+                            >
                                 <span className="staff-clock-icon">🕒</span>
-                                <span className="staff-clock-time">{currentTime}</span>
-                                <span className="staff-clock-tz">ICT (UTC+7)</span>
+                                <span className="staff-clock-time">
+                                    {currentTime}
+                                </span>
+                                <span className="staff-clock-tz">
+                                    ICT (UTC+7)
+                                </span>
                             </div>
                         )}
 
                         <div className="staff-barrier-status">
-                            <span className="staff-barrier-badge green" title="Barrier In 01 Ready">
+                            <span
+                                className="staff-barrier-badge green"
+                                title="Barrier In 01 Ready"
+                            >
                                 <span className="staff-pulse-dot green" /> IN 01
                             </span>
-                            <span className="staff-barrier-badge green" title="Barrier Out 02 Ready">
-                                <span className="staff-pulse-dot green" /> OUT 02
+                            <span
+                                className="staff-barrier-badge green"
+                                title="Barrier Out 02 Ready"
+                            >
+                                <span className="staff-pulse-dot green" /> OUT
+                                02
                             </span>
                         </div>
                     </div>

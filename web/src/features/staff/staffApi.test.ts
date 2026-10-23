@@ -52,7 +52,9 @@ describe("staffApi integration", () => {
             expect(fetchMock).toHaveBeenCalledTimes(1);
 
             const [url, init] = fetchMock.mock.calls[0];
-            expect(String(url)).toBe("http://localhost:5000/api/parking/sessions");
+            expect(String(url)).toBe(
+                "http://localhost:5000/api/parking/sessions",
+            );
             expect(init?.method).toBe("POST");
             expect(JSON.parse(init?.body as string)).toEqual({
                 lotId: DEFAULT_STAFF_LOT_ID,
@@ -79,7 +81,10 @@ describe("staffApi integration", () => {
             );
             vi.stubGlobal("fetch", fetchMock);
 
-            const result = await cancelParkingSession(sessionId, "  Driver changed mind  ");
+            const result = await cancelParkingSession(
+                sessionId,
+                "  Driver changed mind  ",
+            );
             expect(result).toEqual(mockRes);
             expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -136,7 +141,9 @@ describe("staffApi integration", () => {
                 { errorCode: "parking.session.already_open" },
                 undefined,
             );
-            expect(describeStaffError(err)).toContain("already has an active session");
+            expect(describeStaffError(err)).toContain(
+                "already has an active session",
+            );
         });
 
         it("handles lot access denied (403)", () => {
@@ -145,7 +152,9 @@ describe("staffApi integration", () => {
                 { errorCode: "parking.lot.access_denied" },
                 undefined,
             );
-            expect(describeStaffError(err)).toContain("not assigned to operate");
+            expect(describeStaffError(err)).toContain(
+                "not assigned to operate",
+            );
         });
 
         it("handles lot not found (404)", () => {
@@ -154,7 +163,9 @@ describe("staffApi integration", () => {
                 { errorCode: "parking.lot.not_found" },
                 undefined,
             );
-            expect(describeStaffError(err)).toContain("not found or is not approved");
+            expect(describeStaffError(err)).toContain(
+                "not found or is not approved",
+            );
         });
 
         it("handles 401 unauthenticated", () => {

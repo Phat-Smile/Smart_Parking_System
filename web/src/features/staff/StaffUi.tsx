@@ -51,7 +51,10 @@ export function PlateBadge({
     size?: "normal" | "large";
 }) {
     return (
-        <span className={`staff-plate-badge ${size === "large" ? "plate-large" : ""}`} title={plate}>
+        <span
+            className={`staff-plate-badge ${size === "large" ? "plate-large" : ""}`}
+            title={plate}
+        >
             <span className="staff-plate-flag">
                 <span className="staff-plate-vn">VN</span>
             </span>
@@ -61,7 +64,11 @@ export function PlateBadge({
     );
 }
 
-export function StatusPill({ status }: { status: SessionStatus | PaymentStatus }) {
+export function StatusPill({
+    status,
+}: {
+    status: SessionStatus | PaymentStatus;
+}) {
     const cls =
         status === "Active"
             ? "staff-pill-active"
@@ -180,37 +187,199 @@ export function QrCodeModal({
                         >
                             <rect width="100" height="100" fill="#fff" />
                             {/* QR Finder Corners */}
-                            <rect x="10" y="10" width="26" height="26" fill="#171717" />
-                            <rect x="14" y="14" width="18" height="18" fill="#fff" />
-                            <rect x="18" y="18" width="10" height="10" fill="#171717" />
+                            <rect
+                                x="10"
+                                y="10"
+                                width="26"
+                                height="26"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="14"
+                                y="14"
+                                width="18"
+                                height="18"
+                                fill="#fff"
+                            />
+                            <rect
+                                x="18"
+                                y="18"
+                                width="10"
+                                height="10"
+                                fill="#171717"
+                            />
 
-                            <rect x="64" y="10" width="26" height="26" fill="#171717" />
-                            <rect x="68" y="14" width="18" height="18" fill="#fff" />
-                            <rect x="72" y="18" width="10" height="10" fill="#171717" />
+                            <rect
+                                x="64"
+                                y="10"
+                                width="26"
+                                height="26"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="68"
+                                y="14"
+                                width="18"
+                                height="18"
+                                fill="#fff"
+                            />
+                            <rect
+                                x="72"
+                                y="18"
+                                width="10"
+                                height="10"
+                                fill="#171717"
+                            />
 
-                            <rect x="10" y="64" width="26" height="26" fill="#171717" />
-                            <rect x="14" y="68" width="18" height="18" fill="#fff" />
-                            <rect x="18" y="72" width="10" height="10" fill="#171717" />
+                            <rect
+                                x="10"
+                                y="64"
+                                width="26"
+                                height="26"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="14"
+                                y="68"
+                                width="18"
+                                height="18"
+                                fill="#fff"
+                            />
+                            <rect
+                                x="18"
+                                y="72"
+                                width="10"
+                                height="10"
+                                fill="#171717"
+                            />
 
                             {/* Data matrix patterns */}
-                            <rect x="42" y="12" width="6" height="6" fill="#171717" />
-                            <rect x="52" y="16" width="6" height="6" fill="#171717" />
-                            <rect x="42" y="24" width="6" height="6" fill="#171717" />
-                            <rect x="48" y="32" width="6" height="6" fill="#171717" />
-                            <rect x="14" y="44" width="6" height="6" fill="#171717" />
-                            <rect x="26" y="48" width="6" height="6" fill="#171717" />
-                            <rect x="36" y="42" width="6" height="6" fill="#171717" />
-                            <rect x="44" y="48" width="6" height="6" fill="#171717" />
-                            <rect x="56" y="44" width="6" height="6" fill="#171717" />
-                            <rect x="68" y="48" width="6" height="6" fill="#171717" />
-                            <rect x="80" y="42" width="6" height="6" fill="#171717" />
-                            <rect x="42" y="58" width="6" height="6" fill="#171717" />
-                            <rect x="54" y="62" width="6" height="6" fill="#171717" />
-                            <rect x="64" y="66" width="6" height="6" fill="#171717" />
-                            <rect x="76" y="72" width="6" height="6" fill="#171717" />
-                            <rect x="46" y="78" width="6" height="6" fill="#171717" />
-                            <rect x="62" y="82" width="6" height="6" fill="#171717" />
-                            <rect x="84" y="80" width="6" height="6" fill="#171717" />
+                            <rect
+                                x="42"
+                                y="12"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="52"
+                                y="16"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="42"
+                                y="24"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="48"
+                                y="32"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="14"
+                                y="44"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="26"
+                                y="48"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="36"
+                                y="42"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="44"
+                                y="48"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="56"
+                                y="44"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="68"
+                                y="48"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="80"
+                                y="42"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="42"
+                                y="58"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="54"
+                                y="62"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="64"
+                                y="66"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="76"
+                                y="72"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="46"
+                                y="78"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="62"
+                                y="82"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
+                            <rect
+                                x="84"
+                                y="80"
+                                width="6"
+                                height="6"
+                                fill="#171717"
+                            />
                         </svg>
                     </div>
 

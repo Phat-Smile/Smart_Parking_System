@@ -23,15 +23,18 @@ export async function openParkingSession(
     payload: OpenSessionPayload,
 ): Promise<OpenedSessionResponse> {
     try {
-        return await gatewayFetch<OpenedSessionResponse>("/api/parking/sessions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                lotId: payload.lotId,
-                plateNumber: payload.plateNumber.trim().toUpperCase(),
-                vehicleType: payload.vehicleType,
-            }),
-        });
+        return await gatewayFetch<OpenedSessionResponse>(
+            "/api/parking/sessions",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    lotId: payload.lotId,
+                    plateNumber: payload.plateNumber.trim().toUpperCase(),
+                    vehicleType: payload.vehicleType,
+                }),
+            },
+        );
     } catch (error) {
         // Fallback for offline preview/demo
         if (!(error instanceof ApiError)) {
@@ -133,7 +136,10 @@ export function describeStaffError(error: unknown): string {
         return "You are not assigned to operate this parking lot.";
     }
     if (error.status === 400) {
-        return error.problem?.detail || "Invalid license plate or vehicle parameters.";
+        return (
+            error.problem?.detail ||
+            "Invalid license plate or vehicle parameters."
+        );
     }
     if (error.status === 401) {
         return "Your staff session has expired. Please log in again.";

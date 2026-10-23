@@ -4,7 +4,8 @@ import { StaffShell } from "@/features/staff/StaffShell";
 
 export const metadata: Metadata = {
     title: "Staff Barrier Station | ParkWise",
-    description: "Gate control, ANPR detection, session management, and fee collection.",
+    description:
+        "Gate control, ANPR detection, session management, and fee collection.",
 };
 
 export default function StaffLayout({

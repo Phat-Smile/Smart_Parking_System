@@ -1,11 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type {
-    OccupancyStats,
-    StaffSession,
-    VerificationIssue,
-} from "./types";
+import type { OccupancyStats, StaffSession, VerificationIssue } from "./types";
 import { DEFAULT_STAFF_LOT_ID } from "./staffApi";
 
 const initialSessions: StaffSession[] = [
@@ -219,7 +215,9 @@ export const staffStore = {
 
     resolveIssue: (issueId: string) => {
         issuesState = issuesState.map((issue) =>
-            issue.id === issueId ? { ...issue, status: "Resolved" as const } : issue,
+            issue.id === issueId
+                ? { ...issue, status: "Resolved" as const }
+                : issue,
         );
         notify();
     },
@@ -253,8 +251,14 @@ export function useStaffData() {
     const occupancy: OccupancyStats = {
         totalCapacity: 240,
         occupied: activeSessions.length + 86, // base active in lot
-        carAvailable: 140 - activeSessions.filter((s) => s.vehicleType === "Car").length - 45,
-        motorbikeAvailable: 100 - activeSessions.filter((s) => s.vehicleType === "Motorbike").length - 41,
+        carAvailable:
+            140 -
+            activeSessions.filter((s) => s.vehicleType === "Car").length -
+            45,
+        motorbikeAvailable:
+            100 -
+            activeSessions.filter((s) => s.vehicleType === "Motorbike").length -
+            41,
         activeSessionsCount: activeSessions.length,
         needsVerificationCount: pendingIssues.length,
     };

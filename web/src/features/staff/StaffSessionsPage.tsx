@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { PlateBadge, QrCodeModal, StatusPill, FormattedTime, formatVnd } from "./StaffUi";
+import {
+    PlateBadge,
+    QrCodeModal,
+    StatusPill,
+    FormattedTime,
+    formatVnd,
+} from "./StaffUi";
 import { cancelParkingSession, describeStaffError } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, StaffSession } from "./types";
@@ -11,22 +17,35 @@ export function StaffSessionsPage() {
 
     const [filterType, setFilterType] = useState<CustomerType | "All">("All");
     const [search, setSearch] = useState("");
-    const [selectedQrSession, setSelectedQrSession] = useState<StaffSession | null>(null);
+    const [selectedQrSession, setSelectedQrSession] =
+        useState<StaffSession | null>(null);
 
     // Cancel modal state
-    const [cancellingSession, setCancellingSession] = useState<StaffSession | null>(null);
-    const [cancelReason, setCancelReason] = useState("Vehicle driver requested turn around");
+    const [cancellingSession, setCancellingSession] =
+        useState<StaffSession | null>(null);
+    const [cancelReason, setCancelReason] = useState(
+        "Vehicle driver requested turn around",
+    );
     const [cancelBusy, setCancelBusy] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
     const filtered = sessions
-        .filter((s) => (filterType === "All" ? true : s.customerType === filterType))
+        .filter((s) =>
+            filterType === "All" ? true : s.customerType === filterType,
+        )
         .filter(
             (s) =>
                 !search.trim() ||
-                s.plateNumber.toLowerCase().includes(search.trim().toLowerCase()) ||
-                s.slotCode.toLowerCase().includes(search.trim().toLowerCase()) ||
-                (s.driverName && s.driverName.toLowerCase().includes(search.trim().toLowerCase())),
+                s.plateNumber
+                    .toLowerCase()
+                    .includes(search.trim().toLowerCase()) ||
+                s.slotCode
+                    .toLowerCase()
+                    .includes(search.trim().toLowerCase()) ||
+                (s.driverName &&
+                    s.driverName
+                        .toLowerCase()
+                        .includes(search.trim().toLowerCase())),
         );
 
     async function handleConfirmCancel() {
@@ -50,9 +69,12 @@ export function StaffSessionsPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">Guest &amp; Active Session Management</h1>
+                    <h1 className="staff-title">
+                        Guest &amp; Active Session Management
+                    </h1>
                     <p className="staff-subtitle">
-                        Inspect active parked vehicles, view guest QR tickets, and handle cancellations.
+                        Inspect active parked vehicles, view guest QR tickets,
+                        and handle cancellations.
                     </p>
                 </div>
             </header>
@@ -144,7 +166,10 @@ export function StaffSessionsPage() {
                                         </span>
                                     </td>
                                     <td>
-                                        <FormattedTime iso={s.entryTime} dateTime />
+                                        <FormattedTime
+                                            iso={s.entryTime}
+                                            dateTime
+                                        />
                                     </td>
                                     <td>
                                         <StatusPill status={s.status} />
@@ -161,7 +186,9 @@ export function StaffSessionsPage() {
                                         <button
                                             type="button"
                                             className="staff-btn staff-btn-ghost staff-btn-sm"
-                                            onClick={() => setSelectedQrSession(s)}
+                                            onClick={() =>
+                                                setSelectedQrSession(s)
+                                            }
                                         >
                                             🎟️ View QR
                                         </button>
@@ -221,19 +248,23 @@ export function StaffSessionsPage() {
                         <div className="staff-modal-body">
                             <p>
                                 Are you sure you want to cancel the session for{" "}
-                                <strong>{cancellingSession.plateNumber}</strong>?
-                                Use this when the barrier was opened but the vehicle did
-                                not enter.
+                                <strong>{cancellingSession.plateNumber}</strong>
+                                ? Use this when the barrier was opened but the
+                                vehicle did not enter.
                             </p>
 
                             <div className="staff-form-group">
-                                <label htmlFor="cancel-reason">Reason for cancellation</label>
+                                <label htmlFor="cancel-reason">
+                                    Reason for cancellation
+                                </label>
                                 <textarea
                                     id="cancel-reason"
                                     className="staff-textarea"
                                     rows={3}
                                     value={cancelReason}
-                                    onChange={(e) => setCancelReason(e.target.value)}
+                                    onChange={(e) =>
+                                        setCancelReason(e.target.value)
+                                    }
                                     placeholder="Enter reason..."
                                 />
                             </div>
@@ -249,7 +280,9 @@ export function StaffSessionsPage() {
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-danger"
-                                    disabled={cancelBusy || !cancelReason.trim()}
+                                    disabled={
+                                        cancelBusy || !cancelReason.trim()
+                                    }
                                     onClick={handleConfirmCancel}
                                 >
                                     {cancelBusy

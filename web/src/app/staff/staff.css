@@ -22,7 +22,8 @@
     --pw-admin-amber: #b7791f;
     --pw-admin-amber-soft: #fef3c7;
 
-    --pw-admin-font-sans: var(--font-sans), "Plus Jakarta Sans", system-ui, sans-serif;
+    --pw-admin-font-sans:
+        var(--font-sans), "Plus Jakarta Sans", system-ui, sans-serif;
     --pw-admin-font-heading: var(--font-heading), "Space Grotesk", sans-serif;
     --pw-admin-font-mono: var(--font-mono), "JetBrains Mono", monospace;
 
@@ -854,8 +855,12 @@
 }
 
 @keyframes staff-rec-blink {
-    from { opacity: 0.4; }
-    to { opacity: 1; }
+    from {
+        opacity: 0.4;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 .staff-camera-title {
@@ -881,8 +886,9 @@
 .staff-camera-grid {
     position: absolute;
     inset: 0;
-    background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     background-size: 28px 28px;
 }
 
@@ -897,10 +903,20 @@
 }
 
 @keyframes staff-scan-laser {
-    0% { top: 0%; opacity: 0; }
-    20% { opacity: 1; }
-    80% { opacity: 1; }
-    100% { top: 100%; opacity: 0; }
+    0% {
+        top: 0%;
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    80% {
+        opacity: 1;
+    }
+    100% {
+        top: 100%;
+        opacity: 0;
+    }
 }
 
 .staff-camera-target {
@@ -921,10 +937,30 @@
     border-width: 0;
 }
 
-.staff-target-corner.top-left { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; }
-.staff-target-corner.top-right { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; }
-.staff-target-corner.bottom-left { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; }
-.staff-target-corner.bottom-right { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; }
+.staff-target-corner.top-left {
+    top: 0;
+    left: 0;
+    border-top-width: 3px;
+    border-left-width: 3px;
+}
+.staff-target-corner.top-right {
+    top: 0;
+    right: 0;
+    border-top-width: 3px;
+    border-right-width: 3px;
+}
+.staff-target-corner.bottom-left {
+    bottom: 0;
+    left: 0;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
+}
+.staff-target-corner.bottom-right {
+    bottom: 0;
+    right: 0;
+    border-bottom-width: 3px;
+    border-right-width: 3px;
+}
 
 .staff-camera-overlay-info {
     display: flex;

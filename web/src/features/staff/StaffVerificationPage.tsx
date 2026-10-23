@@ -28,7 +28,8 @@ export function StaffVerificationPage() {
                 <div>
                     <h1 className="staff-title">Needs Verification Queue</h1>
                     <p className="staff-subtitle">
-                        Exceptional gate cases requiring manual operator confirmation, OCR overrides, and barrier interventions.
+                        Exceptional gate cases requiring manual operator
+                        confirmation, OCR overrides, and barrier interventions.
                     </p>
                 </div>
             </header>
@@ -56,7 +57,8 @@ export function StaffVerificationPage() {
                         {issues.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="staff-empty">
-                                    🎉 No issues currently pending operator verification!
+                                    🎉 No issues currently pending operator
+                                    verification!
                                 </td>
                             </tr>
                         ) : (
@@ -67,12 +69,16 @@ export function StaffVerificationPage() {
                                     </td>
                                     <td>
                                         <div className="staff-issue-prob">
-                                            <span className="issue-icon">⚠️</span>
+                                            <span className="issue-icon">
+                                                ⚠️
+                                            </span>
                                             <span>{issue.problem}</span>
                                         </div>
                                     </td>
                                     <td>
-                                        <PlateBadge plate={issue.detectedPlate} />
+                                        <PlateBadge
+                                            plate={issue.detectedPlate}
+                                        />
                                     </td>
                                     <td>
                                         <span
@@ -82,7 +88,10 @@ export function StaffVerificationPage() {
                                                     : "conf-low"
                                             }`}
                                         >
-                                            {(issue.confidence * 100).toFixed(0)}%
+                                            {(issue.confidence * 100).toFixed(
+                                                0,
+                                            )}
+                                            %
                                         </span>
                                     </td>
                                     <td>
@@ -91,14 +100,19 @@ export function StaffVerificationPage() {
                                         </span>
                                     </td>
                                     <td>
-                                        <FormattedTime iso={issue.createdAt} dateTime />
+                                        <FormattedTime
+                                            iso={issue.createdAt}
+                                            dateTime
+                                        />
                                     </td>
                                     <td className="text-right">
                                         <div className="staff-table-btn-group">
                                             <button
                                                 type="button"
                                                 className="staff-btn staff-btn-primary staff-btn-sm"
-                                                disabled={resolvingId === issue.id}
+                                                disabled={
+                                                    resolvingId === issue.id
+                                                }
                                                 onClick={() =>
                                                     handleResolve(
                                                         issue,
@@ -111,7 +125,9 @@ export function StaffVerificationPage() {
                                             <button
                                                 type="button"
                                                 className="staff-btn staff-btn-ghost staff-btn-sm"
-                                                disabled={resolvingId === issue.id}
+                                                disabled={
+                                                    resolvingId === issue.id
+                                                }
                                                 onClick={() =>
                                                     handleResolve(
                                                         issue,

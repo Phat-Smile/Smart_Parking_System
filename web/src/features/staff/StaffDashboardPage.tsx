@@ -13,8 +13,12 @@ export function StaffDashboardPage() {
         Math.round((occupancy.occupied / occupancy.totalCapacity) * 100),
     );
 
-    const entryActivities = activities.filter((a) => a.type === "entry").slice(0, 6);
-    const exitActivities = activities.filter((a) => a.type === "exit").slice(0, 6);
+    const entryActivities = activities
+        .filter((a) => a.type === "entry")
+        .slice(0, 6);
+    const exitActivities = activities
+        .filter((a) => a.type === "exit")
+        .slice(0, 6);
 
     return (
         <div className="staff-page">
@@ -22,7 +26,8 @@ export function StaffDashboardPage() {
                 <div>
                     <h1 className="staff-title">Staff Dashboard</h1>
                     <p className="staff-subtitle">
-                        Real-time gate traffic, slot capacity, and pending verifications.
+                        Real-time gate traffic, slot capacity, and pending
+                        verifications.
                     </p>
                 </div>
 
@@ -46,7 +51,9 @@ export function StaffDashboardPage() {
             <section className="staff-stats-grid">
                 <div className="staff-stat-card occupancy-card">
                     <div className="staff-stat-header">
-                        <span className="staff-stat-title">Current Occupancy</span>
+                        <span className="staff-stat-title">
+                            Current Occupancy
+                        </span>
                         <span className="staff-stat-pill">
                             {occupancyPercent}% FULL
                         </span>
@@ -62,7 +69,9 @@ export function StaffDashboardPage() {
                             style={{
                                 width: `${occupancyPercent}%`,
                                 backgroundColor:
-                                    occupancyPercent > 85 ? "#ef4444" : "#10b981",
+                                    occupancyPercent > 85
+                                        ? "#ef4444"
+                                        : "#10b981",
                             }}
                         />
                     </div>
@@ -85,7 +94,9 @@ export function StaffDashboardPage() {
 
                 <div className="staff-stat-card">
                     <span className="staff-stat-title">Active Sessions</span>
-                    <div className="staff-stat-number">{occupancy.activeSessionsCount}</div>
+                    <div className="staff-stat-number">
+                        {occupancy.activeSessionsCount}
+                    </div>
                     <p className="staff-stat-hint">Vehicles parked right now</p>
                     <Link href="/staff/sessions" className="staff-link">
                         View all active sessions →
@@ -96,7 +107,9 @@ export function StaffDashboardPage() {
                     <span className="staff-stat-title">Needs Verification</span>
                     <div
                         className={`staff-stat-number ${
-                            occupancy.needsVerificationCount > 0 ? "text-danger" : ""
+                            occupancy.needsVerificationCount > 0
+                                ? "text-danger"
+                                : ""
                         }`}
                     >
                         {occupancy.needsVerificationCount}
@@ -104,16 +117,23 @@ export function StaffDashboardPage() {
                     <p className="staff-stat-hint">
                         Camera OCR flags & barrier issues
                     </p>
-                    <Link href="/staff/verification" className="staff-link text-danger">
+                    <Link
+                        href="/staff/verification"
+                        className="staff-link text-danger"
+                    >
                         Resolve issues now →
                     </Link>
                 </div>
 
                 <div className="staff-stat-card">
-                    <span className="staff-stat-title">Barrier Gate Health</span>
+                    <span className="staff-stat-title">
+                        Barrier Gate Health
+                    </span>
                     <div className="staff-stat-number text-emerald">ONLINE</div>
                     <p className="staff-stat-hint">Gate 01 & Gate 02 Synced</p>
-                    <span className="staff-pill staff-pill-success">Latency 24ms</span>
+                    <span className="staff-pill staff-pill-success">
+                        Latency 24ms
+                    </span>
                 </div>
             </section>
 
@@ -128,16 +148,23 @@ export function StaffDashboardPage() {
 
                     <div className="staff-activity-list">
                         {entryActivities.length === 0 ? (
-                            <p className="staff-empty">No recent vehicle entries.</p>
+                            <p className="staff-empty">
+                                No recent vehicle entries.
+                            </p>
                         ) : (
                             entryActivities.map((act) => (
-                                <div key={act.id} className="staff-activity-item">
+                                <div
+                                    key={act.id}
+                                    className="staff-activity-item"
+                                >
                                     <div className="staff-act-icon in">IN</div>
                                     <div className="staff-act-info">
                                         <PlateBadge plate={act.plateNumber} />
                                         <span className="staff-act-meta">
-                                            {act.vehicleType} · {act.customerType}
-                                            {act.slotCode && ` · Slot ${act.slotCode}`}
+                                            {act.vehicleType} ·{" "}
+                                            {act.customerType}
+                                            {act.slotCode &&
+                                                ` · Slot ${act.slotCode}`}
                                         </span>
                                     </div>
                                     <span className="staff-act-time">
@@ -158,15 +185,23 @@ export function StaffDashboardPage() {
 
                     <div className="staff-activity-list">
                         {exitActivities.length === 0 ? (
-                            <p className="staff-empty">No recent vehicle exits.</p>
+                            <p className="staff-empty">
+                                No recent vehicle exits.
+                            </p>
                         ) : (
                             exitActivities.map((act) => (
-                                <div key={act.id} className="staff-activity-item">
-                                    <div className="staff-act-icon out">OUT</div>
+                                <div
+                                    key={act.id}
+                                    className="staff-activity-item"
+                                >
+                                    <div className="staff-act-icon out">
+                                        OUT
+                                    </div>
                                     <div className="staff-act-info">
                                         <PlateBadge plate={act.plateNumber} />
                                         <span className="staff-act-meta">
-                                            {act.vehicleType} · {act.customerType}
+                                            {act.vehicleType} ·{" "}
+                                            {act.customerType}
                                         </span>
                                     </div>
                                     <div className="staff-act-right">
@@ -176,7 +211,9 @@ export function StaffDashboardPage() {
                                             </span>
                                         )}
                                         <span className="staff-act-time">
-                                            <FormattedTime iso={act.timestamp} />
+                                            <FormattedTime
+                                                iso={act.timestamp}
+                                            />
                                         </span>
                                     </div>
                                 </div>
