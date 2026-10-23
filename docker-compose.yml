@@ -244,6 +244,11 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      Vnpay__Mode: ${VNPAY_MODE:-Sandbox}
+      Vnpay__TmnCode: ${VNPAY_TMN_CODE:-}
+      Vnpay__HashSecret: ${VNPAY_HASH_SECRET:-}
+      Vnpay__BaseUrl: ${VNPAY_BASE_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      Vnpay__ReturnUrl: ${VNPAY_RETURN_URL:-http://localhost:3000/payment/vnpay-return}
 
   notification-api:
     build:
