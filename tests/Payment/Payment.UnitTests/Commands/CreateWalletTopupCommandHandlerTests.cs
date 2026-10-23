@@ -85,6 +85,15 @@ public class CreateWalletTopupCommandHandlerTests
             return Task.CompletedTask;
         }
 
+        public Task<VnpayTransaction?> GetTopupByTxnRefAndUserIdAsync(
+            string txnRef,
+            Guid userId,
+            CancellationToken cancellationToken)
+        {
+            var tx = _transactions.FirstOrDefault(t => t.TxnRef == txnRef);
+            return Task.FromResult(tx);
+        }
+
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;

@@ -57,6 +57,12 @@ public class ProcessVnpayIpnCommandHandlerTests
             SaveChangesCalled = true;
             return Task.CompletedTask;
         }
+
+        public Task<VnpayTransaction?> GetTopupByTxnRefAndUserIdAsync(string txnRef, Guid userId, CancellationToken cancellationToken)
+        {
+            _txns.TryGetValue(txnRef, out var tx);
+            return Task.FromResult(tx);
+        }
     }
 
     private class FakeWalletRepository : IWalletRepository

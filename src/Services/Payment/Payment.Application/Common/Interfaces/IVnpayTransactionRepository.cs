@@ -14,4 +14,7 @@ public interface IVnpayTransactionRepository
 
     Task AddAsync(VnpayTransaction transaction, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    // Tim giao dich nap vi theo ma tham chieu va tai khoan so huu
+    Task<VnpayTransaction?> GetTopupByTxnRefAndUserIdAsync(string txnRef, Guid userId, CancellationToken cancellationToken);
 }
