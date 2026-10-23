@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.RegisterParkingLot;
 using ParkingSystem.Parking.Domain.ParkingLots;
@@ -29,7 +30,8 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
             await db.Database.MigrateAsync(cancellationToken);
 
             var handler = new RegisterParkingLotCommandHandler(
-                scope.ServiceProvider.GetRequiredService<IRegisterParkingLotRepository>());
+                scope.ServiceProvider.GetRequiredService<IRegisterParkingLotRepository>(),
+                scope.ServiceProvider.GetRequiredService<IClock>());
             var created = await handler.Handle(
                 new RegisterParkingLotCommand(
                     ownerId, "New Owner Lot", "15 Demo Street",
@@ -71,7 +73,8 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
         var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
         var handler = new RegisterParkingLotCommandHandler(
-            scope.ServiceProvider.GetRequiredService<IRegisterParkingLotRepository>());
+            scope.ServiceProvider.GetRequiredService<IRegisterParkingLotRepository>(),
+            scope.ServiceProvider.GetRequiredService<IClock>());
         var command = new RegisterParkingLotCommand(
             ownerId, "Review Duplicate", "15 Demo Street", 10m, 106m, "Outdoor");
 
@@ -95,7 +98,7 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
             var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
             await db.Database.MigrateAsync(cancellationToken);
             var repository = scope.ServiceProvider.GetRequiredService<IRegisterParkingLotRepository>();
-            await repository.AddAsync(ParkingLot.Register(
+            await AddLotAsync(repository, ParkingLot.Register(
                 Guid.NewGuid(), ownerId, "Race Condition Lot", "15 Demo Street",
                 10m, 106m, ParkingLotType.Outdoor), cancellationToken);
         }
@@ -103,10 +106,16 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
         await using (var scope = provider.CreateAsyncScope())
         {
             var repository = scope.ServiceProvider.GetRequiredService<IRegisterParkingLotRepository>();
-            await Assert.ThrowsAsync<DuplicateParkingLotException>(() => repository.AddAsync(
+            await Assert.ThrowsAsync<DuplicateParkingLotException>(() => AddLotAsync(
+                repository,
                 ParkingLot.Register(Guid.NewGuid(), ownerId, "Race Condition Lot",
                     "15 Demo Street", 10m, 106m, ParkingLotType.Outdoor), cancellationToken));
         }
     }
 
+    private static Task AddLotAsync(IRegisterParkingLotRepository repository, ParkingLot lot, CancellationToken cancellationToken) =>
+        repository.AddAsync(
+            lot,
+            ParkingLotAssignment.Create(lot.Id, lot.OwnerUserId!.Value, ParkingLotMemberRole.Owner, lot.OwnerUserId.Value, DateTimeOffset.UtcNow),
+            cancellationToken);
 }
