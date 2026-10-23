@@ -13,6 +13,10 @@ public sealed class UpdateOwnerTypeCommandHandler(
 {
     public async Task<Result<MyOwnerApplicationDto>> Handle(UpdateOwnerTypeCommand request, CancellationToken cancellationToken)
     {
+        // A number that is not an owner type has no checklist; it must not be stored.
+        if (!Enum.IsDefined(request.OwnerType))
+            return Result<MyOwnerApplicationDto>.Failure(OwnerApplicationErrors.OwnerTypeInvalid);
+
         return await accounts.ExecuteInTransactionAsync(async () =>
         {
             var account = await accounts.FindByIdForUpdateAsync(request.AccountId, cancellationToken);

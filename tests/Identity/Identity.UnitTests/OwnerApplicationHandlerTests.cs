@@ -217,6 +217,7 @@ public sealed class OwnerApplicationHandlerTests
     public async Task Apply_valid_customer_succeeds_and_updates_profile_and_phone()
     {
         var account = Account.Register(OwnerId, "customer@example.com", "hash", null, Now);
+        account.VerifyEmail();
         var accounts = new FakeAccountRepository(account);
         var profiles = new FakeProfileRepository();
         var handler = new ApplyForOwnerApplicationCommandHandler(accounts, profiles, new FixedClock(Now));
@@ -238,6 +239,23 @@ public sealed class OwnerApplicationHandlerTests
         Assert.Equal("+84912345678", account.PhoneNumber);
         Assert.NotNull(profiles.CreatedProfile);
         Assert.Equal("Tran Owner", profiles.CreatedProfile!.FullName);
+    }
+
+    // F3: a number that is not an owner type (the endpoint used to accept "99") must not reach the application.
+    [Fact]
+    public async Task Apply_with_an_owner_type_that_is_not_defined_is_rejected_and_changes_nothing()
+    {
+        var account = Account.Register(OwnerId, "customer@example.com", "hash", null, Now);
+        var accounts = new FakeAccountRepository(account);
+        var handler = new ApplyForOwnerApplicationCommandHandler(accounts, new FakeProfileRepository(), new FixedClock(Now));
+
+        var result = await handler.Handle(
+            new ApplyForOwnerApplicationCommand(OwnerId, OwnerType: (OwnerType)99), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.OwnerTypeInvalid.Code, result.Error!.Code);
+        Assert.Null(account.OwnerApplicationStatus);
+        Assert.Null(account.OwnerType);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : IClock
@@ -371,5 +389,7 @@ public sealed class OwnerApplicationHandlerTests
         public IReadOnlyList<OwnerDocumentRequirementItem> GetRequirements(OwnerType ownerType) => [];
         public bool IsAllowed(OwnerType ownerType, string documentType) => true;
         public IReadOnlyList<string> GetMissingRequiredDocuments(OwnerType ownerType, IEnumerable<string> uploadedDocumentTypes) => [];
+        public string? ResolveDocumentType(OwnerType ownerType, string? documentType) => documentType;
+        public string? ResolveKnownDocumentType(string? documentType) => documentType;
     }
 }

@@ -11,28 +11,42 @@ public sealed record DeleteOwnerDocumentCommand(
 public sealed class DeleteOwnerDocumentCommandHandler(
     IAccountRepository accounts,
     IOwnerDocumentRepository documents,
-    IOwnerDocumentStore store) : IRequestHandler<DeleteOwnerDocumentCommand, Result<bool>>
+    IOwnerDocumentStore store,
+    IOwnerDocumentRequirements requirements) : IRequestHandler<DeleteOwnerDocumentCommand, Result<bool>>
 {
     public async Task<Result<bool>> Handle(DeleteOwnerDocumentCommand request, CancellationToken cancellationToken)
     {
-        var account = await accounts.FindByIdAsync(request.AccountId, cancellationToken);
-        if (account is null || account.OwnerApplicationStatus is null)
-            return Result<bool>.Failure(OwnerApplicationErrors.ApplicationNotFound);
+        string? removedStorageKey = null;
+        var result = await accounts.ExecuteInTransactionAsync(async () =>
+        {
+            // Same lock as the upload: the row lock is the first read, so a delete cannot interleave with an upload or a decision.
+            var account = await accounts.FindByIdForUpdateAsync(request.AccountId, cancellationToken);
+            if (account is null || account.OwnerApplicationStatus is null)
+                return Result<bool>.Failure(OwnerApplicationErrors.ApplicationNotFound);
 
-        if (account.OwnerApplicationStatus == OwnerApplicationStatus.Approved)
-            return Result<bool>.Failure(OwnerApplicationErrors.ApplicationLocked);
+            if (account.OwnerApplicationStatus == OwnerApplicationStatus.Approved)
+                return Result<bool>.Failure(OwnerApplicationErrors.ApplicationLocked);
 
-        var docType = request.DocumentType?.Trim() ?? string.Empty;
-        var existing = await documents.FindByAccountAndTypeAsync(account.Id, docType, cancellationToken);
-        if (existing is null)
-            return Result<bool>.Failure(OwnerApplicationErrors.DocumentNotFound);
+            // Any checklist, not only the current one: after the owner type changed, a kept document is outside the new checklist.
+            var docType = requirements.ResolveKnownDocumentType(request.DocumentType);
+            if (docType is null)
+                return Result<bool>.Failure(OwnerApplicationErrors.DocumentNotFound);
 
-        var storageKey = existing.StorageKey;
-        documents.Remove(existing);
-        await documents.SaveChangesAsync(cancellationToken);
+            var existing = await documents.FindByAccountAndTypeAsync(account.Id, docType, cancellationToken);
+            if (existing is null)
+                return Result<bool>.Failure(OwnerApplicationErrors.DocumentNotFound);
 
-        _ = store.DeleteAsync(storageKey, CancellationToken.None);
+            removedStorageKey = existing.StorageKey;
+            documents.Remove(existing);
+            await documents.SaveChangesAsync(cancellationToken);
 
-        return Result<bool>.Success(true);
+            return Result<bool>.Success(true);
+        }, cancellationToken);
+
+        // Only after the commit: a failed commit must leave the file in place for the row that still points at it.
+        if (result.IsSuccess && removedStorageKey is not null)
+            await store.TryDeleteAsync(removedStorageKey);
+
+        return result;
     }
 }

@@ -54,6 +54,9 @@ public sealed class ApplyForOwnerApplicationCommandHandler(
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(ApplyForOwnerApplicationCommand request, CancellationToken cancellationToken)
     {
+        if (request.OwnerType is { } ownerType && !Enum.IsDefined(ownerType))
+            return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeInvalid);
+
         return await accounts.ExecuteInTransactionAsync(async () =>
         {
             var account = await accounts.FindByIdForUpdateAsync(request.AccountId, cancellationToken);
@@ -65,6 +68,16 @@ public sealed class ApplyForOwnerApplicationCommandHandler(
 
             if (account.OwnerApplicationStatus == OwnerApplicationStatus.Pending)
                 return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.AlreadyPending);
+
+            if (account.Status != AccountStatus.EmailVerified)
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.AccountNotVerified);
+
+            if (!string.IsNullOrWhiteSpace(request.TaxCode))
+            {
+                var trimmedTaxCode = request.TaxCode.Trim();
+                if (await accounts.OwnerTaxCodeExistsAsync(trimmedTaxCode, account.Id, cancellationToken))
+                    return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.TaxCodeAlreadyRegistered);
+            }
 
             var now = clock.UtcNow;
 

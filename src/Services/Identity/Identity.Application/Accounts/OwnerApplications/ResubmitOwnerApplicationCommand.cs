@@ -32,6 +32,10 @@ public sealed class ResubmitOwnerApplicationCommandHandler(
             if (!effectiveOwnerType.HasValue)
                 return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeRequired);
 
+            // Request or stored value alike: a number that is not an owner type has no checklist, so it must never pass as "complete".
+            if (!Enum.IsDefined(effectiveOwnerType.Value))
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeInvalid);
+
             // Check if all required documents for this ownerType have been uploaded
             var uploadedDocs = await documents.ListByAccountAsync(account.Id, cancellationToken);
             var missingDocs = requirements.GetMissingRequiredDocuments(
@@ -40,6 +44,13 @@ public sealed class ResubmitOwnerApplicationCommandHandler(
 
             if (missingDocs.Count > 0)
                 return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.DocumentsIncomplete);
+
+            if (!string.IsNullOrWhiteSpace(request.TaxCode))
+            {
+                var trimmedTaxCode = request.TaxCode.Trim();
+                if (await accounts.OwnerTaxCodeExistsAsync(trimmedTaxCode, account.Id, cancellationToken))
+                    return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.TaxCodeAlreadyRegistered);
+            }
 
             account.ResubmitOwnerApplication(clock.UtcNow, request.TaxCode, request.BusinessName, effectiveOwnerType);
             await accounts.SaveChangesAsync(cancellationToken);

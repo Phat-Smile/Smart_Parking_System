@@ -134,6 +134,11 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasDatabaseName("ix_accounts_owner_application_status")
                         .HasFilter("owner_application_status IS NOT NULL");
 
+                    b.HasIndex("OwnerTaxCode")
+                        .IsUnique()
+                        .HasDatabaseName("ux_accounts_owner_tax_code")
+                        .HasFilter("owner_tax_code IS NOT NULL");
+
                     b.HasIndex("PhoneNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_accounts_phone_number")

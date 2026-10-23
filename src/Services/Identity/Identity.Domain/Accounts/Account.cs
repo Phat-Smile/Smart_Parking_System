@@ -150,6 +150,7 @@ public sealed class Account
             throw new InvalidOperationException("Account does not have an owner application.");
         if (OwnerApplicationStatus == Domain.Accounts.OwnerApplicationStatus.Approved)
             throw new InvalidOperationException("Approved owner applications cannot change owner type.");
+        EnsureDefined(ownerType);
 
         OwnerType = ownerType;
         RowVersion++;
@@ -165,6 +166,8 @@ public sealed class Account
             throw new InvalidOperationException("Account is already a parking lot owner.");
         if (OwnerApplicationStatus == Domain.Accounts.OwnerApplicationStatus.Pending)
             throw new InvalidOperationException("An owner application is already pending review.");
+        if (ownerType.HasValue)
+            EnsureDefined(ownerType.Value);
 
         OwnerApplicationStatus = Domain.Accounts.OwnerApplicationStatus.Pending;
         OwnerTaxCode = NullIfBlank(taxCode);
@@ -185,6 +188,8 @@ public sealed class Account
     {
         if (OwnerApplicationStatus != Domain.Accounts.OwnerApplicationStatus.Rejected)
             throw new InvalidOperationException("Only rejected owner applications can be resubmitted.");
+        if (ownerType.HasValue)
+            EnsureDefined(ownerType.Value);
 
         OwnerApplicationStatus = Domain.Accounts.OwnerApplicationStatus.Pending;
         if (!string.IsNullOrWhiteSpace(taxCode))
@@ -198,6 +203,13 @@ public sealed class Account
         OwnerReviewedBy = null;
         OwnerReviewedAtUtc = null;
         RowVersion++;
+    }
+
+    // A number that is not an OwnerType has no checklist, so it must never be stored.
+    private static void EnsureDefined(OwnerType ownerType)
+    {
+        if (!Enum.IsDefined(ownerType))
+            throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Owner type is not one of the supported values.");
     }
 
     public void UpdatePhoneNumber(string? phoneNumber)

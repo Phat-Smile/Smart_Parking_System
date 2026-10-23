@@ -118,6 +118,7 @@ services:
     volumes:
       - ./.local/security/jwt/public.pem:/run/parking-system/security/jwt/public.pem:ro
       - ./.local/security/jwt/private.pem:/run/parking-system/security/jwt/private.pem:ro
+      - identity_owner_documents:/app/data/owner-documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,6 +149,8 @@ services:
       # VNeID CCCD verification; defaults to Stub when BaseUrl is empty.
       VneidApi__Provider: Http
       VneidApi__BaseUrl: http://vneid-simulator:8000
+      # Owner application documents live on a named volume so they survive container re-creation.
+      OwnerDocuments__RootPath: /app/data/owner-documents
 
   parking-api:
     build:
@@ -385,4 +388,6 @@ volumes:
     name: parking_postgres_data
   rabbitmq_data:
     name: parking_rabbitmq_data
+  identity_owner_documents:
+    name: parking_identity_owner_documents
 

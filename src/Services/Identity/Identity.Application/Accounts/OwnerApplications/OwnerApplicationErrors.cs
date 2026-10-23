@@ -34,6 +34,9 @@ public static class OwnerApplicationErrors
     public static readonly Error OwnerTypeRequired =
         new("identity.owner_type_required", "Vui lòng chọn loại chủ thể (Cá nhân, Hộ kinh doanh hoặc Doanh nghiệp).");
 
+    public static readonly Error OwnerTypeInvalid =
+        new("identity.owner_type_invalid", "Loại chủ thể phải là Individual, HouseholdBusiness hoặc Enterprise.");
+
     public static readonly Error ApplicationLocked =
         new("identity.owner_application_locked", "Hồ sơ chủ bãi đã được duyệt và không thể chỉnh sửa.");
 
@@ -51,6 +54,15 @@ public static class OwnerApplicationErrors
 
     public static readonly Error DocumentNotFound =
         new("identity.owner_document_not_found", "Không tìm thấy giấy tờ yêu cầu.");
+
+    public static readonly Error AccountNotVerified =
+        new("identity.account_not_verified", "Tài khoản cần xác thực email trước khi đăng ký xét duyệt chủ bãi.");
+
+    public static readonly Error CannotRejectOwnApplication =
+        new("identity.cannot_reject_own_application", "Quản trị viên không thể tự từ chối hồ sơ chủ bãi của chính mình.");
+
+    public static readonly Error TaxCodeAlreadyRegistered =
+        new("identity.owner_tax_code_already_registered", "Mã số thuế này đã được đăng ký cho một tài khoản chủ bãi khác.");
 
     public static readonly Error DocumentsIncomplete =
         new("identity.owner_documents_incomplete", "Hồ sơ chưa nộp đủ các giấy tờ bắt buộc theo quy định.");

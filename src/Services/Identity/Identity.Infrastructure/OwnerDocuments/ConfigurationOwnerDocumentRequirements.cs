@@ -75,17 +75,27 @@ public sealed class ConfigurationOwnerDocumentRequirements(IOptions<OwnerDocumen
                     StandardAcceptedMimes,
                     MaxFileSizeBytes)
             ],
-            _ => []
+            _ => throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Owner type is not one of the supported values.")
         };
     }
 
-    public bool IsAllowed(OwnerType ownerType, string documentType)
+    public bool IsAllowed(OwnerType ownerType, string documentType) => ResolveDocumentType(ownerType, documentType) is not null;
+
+    public string? ResolveDocumentType(OwnerType ownerType, string? documentType) =>
+        Canonical(GetRequirements(ownerType), documentType);
+
+    public string? ResolveKnownDocumentType(string? documentType) =>
+        Canonical(Enum.GetValues<OwnerType>().SelectMany(GetRequirements), documentType);
+
+    private static string? Canonical(IEnumerable<OwnerDocumentRequirementItem> items, string? documentType)
     {
         if (string.IsNullOrWhiteSpace(documentType))
-            return false;
+            return null;
 
-        var reqs = GetRequirements(ownerType);
-        return reqs.Any(r => string.Equals(r.DocumentType, documentType.Trim(), StringComparison.OrdinalIgnoreCase));
+        var wanted = documentType.Trim();
+        return items
+            .Select(item => item.DocumentType)
+            .FirstOrDefault(candidate => string.Equals(candidate, wanted, StringComparison.OrdinalIgnoreCase));
     }
 
     public IReadOnlyList<string> GetMissingRequiredDocuments(OwnerType ownerType, IEnumerable<string> uploadedDocumentTypes)

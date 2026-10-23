@@ -88,4 +88,61 @@ public sealed class OwnerDocumentRequirementsTests
 
         Assert.Empty(missing);
     }
+
+    // F3: an owner type that is not one of the enum values used to get an empty checklist, so nothing was ever missing.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(99)]
+    public void An_owner_type_that_is_not_defined_is_rejected_instead_of_getting_an_empty_checklist(int value)
+    {
+        var undefined = (OwnerType)value;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => _requirements.GetRequirements(undefined));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _requirements.GetMissingRequiredDocuments(undefined, []));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _requirements.ResolveDocumentType(undefined, "PremisesRightProof"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _requirements.IsAllowed(undefined, "PremisesRightProof"));
+    }
+
+    // F8: the checklist matches a document type in any casing, so it has to hand back its own spelling for storage and lookup.
+    [Theory]
+    [InlineData("PremisesRightProof", "PremisesRightProof")]
+    [InlineData("premisesrightproof", "PremisesRightProof")]
+    [InlineData("  PREMISESRIGHTPROOF  ", "PremisesRightProof")]
+    [InlineData("authorizationletter", "AuthorizationLetter")]
+    public void ResolveDocumentType_returns_the_canonical_spelling_of_a_type_on_the_checklist(string input, string expected)
+    {
+        Assert.Equal(expected, _requirements.ResolveDocumentType(OwnerType.Individual, input));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("UnknownType")]
+    [InlineData("EnterpriseRegistration")]
+    [InlineData("Premises RightProof")]
+    public void ResolveDocumentType_is_null_for_blank_unknown_or_other_checklists(string? input)
+    {
+        Assert.Null(_requirements.ResolveDocumentType(OwnerType.Individual, input));
+    }
+
+    // A document kept after the owner type changed is outside the new checklist, but it must still be found and deletable.
+    [Theory]
+    [InlineData("enterpriseregistration", "EnterpriseRegistration")]
+    [InlineData("HOUSEHOLDBUSINESSREGISTRATION", "HouseholdBusinessRegistration")]
+    [InlineData("premisesrightproof", "PremisesRightProof")]
+    [InlineData(" authorizationLetter ", "AuthorizationLetter")]
+    public void ResolveKnownDocumentType_finds_the_canonical_spelling_across_all_checklists(string input, string expected)
+    {
+        Assert.Equal(expected, _requirements.ResolveKnownDocumentType(input));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("nope")]
+    public void ResolveKnownDocumentType_is_null_for_blank_or_unknown_types(string? input)
+    {
+        Assert.Null(_requirements.ResolveKnownDocumentType(input));
+    }
 }

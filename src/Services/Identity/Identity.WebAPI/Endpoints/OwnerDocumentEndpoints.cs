@@ -18,8 +18,7 @@ internal static class OwnerDocumentEndpoints
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                if (string.IsNullOrWhiteSpace(ownerType) ||
-                    !Enum.TryParse<OwnerType>(ownerType, ignoreCase: true, out var parsedType))
+                if (!OwnerTypeParser.TryParse(ownerType, out var parsedType))
                 {
                     return Results.Problem(
                         statusCode: StatusCodes.Status400BadRequest,
@@ -50,8 +49,7 @@ internal static class OwnerDocumentEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
                     return Results.Unauthorized();
 
-                if (string.IsNullOrWhiteSpace(request?.OwnerType) ||
-                    !Enum.TryParse<OwnerType>(request.OwnerType, ignoreCase: true, out var parsedType))
+                if (!OwnerTypeParser.TryParse(request?.OwnerType, out var parsedType))
                 {
                     return Results.Problem(
                         statusCode: StatusCodes.Status400BadRequest,
