@@ -13,9 +13,10 @@ internal sealed class RegisterParkingLotRepository(ParkingDbContext dbContext) :
             lot => lot.OwnerUserId == ownerUserId && lot.Name == name,
             cancellationToken);
 
-    public async Task AddAsync(ParkingLot parkingLot, CancellationToken cancellationToken)
+    public async Task AddAsync(ParkingLot parkingLot, ParkingLotAssignment ownerAssignment, CancellationToken cancellationToken)
     {
         dbContext.ParkingLots.Add(parkingLot);
+        dbContext.ParkingLotAssignments.Add(ownerAssignment);
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
