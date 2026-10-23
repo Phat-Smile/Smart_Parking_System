@@ -80,6 +80,7 @@ app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
 app.MapParkingLotAssignmentEndpoints();
 app.MapPricingEndpoints();
+app.MapParkingLayoutOwnerEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)

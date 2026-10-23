@@ -15,4 +15,11 @@ public sealed class Floor
 
     public static Floor Create(Guid id, Guid lotId, string name) =>
         new() { Id = id, LotId = lotId, Name = name.Trim() };
+    public bool Rename(string name)
+    {
+        var normalized = name.Trim();
+        if (Name == normalized) return false;
+        Name = normalized;
+        return true;
+    }
 }
