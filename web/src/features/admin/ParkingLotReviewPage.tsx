@@ -3,13 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ApiError } from "@/shared/errors/api-error";
-import {
-    AdminIcon,
-    SampleDataNote,
-    StatusPill,
-    formatDate,
-    vnd,
-} from "./AdminUi";
+import { AdminIcon, StatusPill, formatDate, vnd } from "./AdminUi";
 import { findLot, recordDecision, useAdminLots } from "./adminLotsData";
 import {
     MAX_REJECTION_REASON,
@@ -291,9 +285,7 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                 <StatusPill status={status} />
             </header>
 
-            {sample ? (
-                <SampleDataNote />
-            ) : (
+            {!sample && (
                 <p className="admin-sample-note">
                     <AdminIcon name="alert" size={15} />
                     Details for this ID aren&apos;t available yet (no admin

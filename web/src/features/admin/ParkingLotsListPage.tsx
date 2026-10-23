@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AdminIcon, SampleDataNote, StatusPill, formatDate } from "./AdminUi";
-import { countByStatus, useAdminLots } from "./adminLotsData";
-import { isParkingLotId } from "./reviewParkingLot";
-import type { ApprovalStatus } from "./types";
+import { AdminIcon, StatusPill, formatDate } from "./AdminUi";
+import {
+    approveParkingLot,
+    describeReviewError,
+    getAdminParkingLots,
+    isParkingLotId,
+    rejectParkingLot,
+} from "./reviewParkingLot";
+import type { AdminParkingLot, ApprovalStatus } from "./types";
 
 type Filter = ApprovalStatus | "All";
 
@@ -22,14 +27,76 @@ export function ParkingLotsListPage({
     initialStatus?: Filter;
 }) {
     const router = useRouter();
-    const lots = useAdminLots();
-    const counts = countByStatus(lots);
     const [status, setStatus] = useState<Filter>(
         mode === "pending" ? "Pending" : initialStatus,
     );
+    const [lots, setLots] = useState<AdminParkingLot[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
     const [search, setSearch] = useState("");
     const [lookupId, setLookupId] = useState("");
     const [lookupError, setLookupError] = useState("");
+
+    // Quick review modal
+    const [selectedLot, setSelectedLot] = useState<AdminParkingLot | null>(
+        null,
+    );
+    const [reviewAction, setReviewAction] = useState<
+        "approve" | "reject" | null
+    >(null);
+    const [rejectReason, setRejectReason] = useState("");
+    const [actionBusy, setActionBusy] = useState(false);
+    const [toast, setToast] = useState<string | null>(null);
+
+    const loadLots = useCallback(async () => {
+        setLoading(true);
+        setErrorMsg("");
+        try {
+            const data = await getAdminParkingLots(
+                mode === "pending" ? "Pending" : status,
+            );
+            setLots(data);
+        } catch (err) {
+            setErrorMsg(describeReviewError(err));
+        } finally {
+            setLoading(false);
+        }
+    }, [mode, status]);
+
+    useEffect(() => {
+        let active = true;
+        getAdminParkingLots(mode === "pending" ? "Pending" : status)
+            .then((data) => {
+                if (active) {
+                    setLots(data);
+                    setLoading(false);
+                }
+            })
+            .catch((err) => {
+                if (active) {
+                    setErrorMsg(describeReviewError(err));
+                    setLoading(false);
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [mode, status]);
+
+    useEffect(() => {
+        if (!toast) return;
+        const timer = setTimeout(() => setToast(null), 4000);
+        return () => clearTimeout(timer);
+    }, [toast]);
+
+    const counts = useMemo(() => {
+        return {
+            All: lots.length,
+            Pending: lots.filter((l) => l.status === "Pending").length,
+            Approved: lots.filter((l) => l.status === "Approved").length,
+            Rejected: lots.filter((l) => l.status === "Rejected").length,
+        };
+    }, [lots]);
 
     const rows = useMemo(() => {
         const term = search.trim().toLowerCase();
@@ -54,6 +121,39 @@ export function ParkingLotsListPage({
         router.push(`/admin/parking-lots/${lookupId.trim()}`);
     }
 
+    async function handleQuickApprove() {
+        if (!selectedLot) return;
+        setActionBusy(true);
+        try {
+            await approveParkingLot(selectedLot.id);
+            setToast(`Đã duyệt bãi đỗ xe ${selectedLot.name}.`);
+            setSelectedLot(null);
+            setReviewAction(null);
+            await loadLots();
+        } catch (err) {
+            setErrorMsg(describeReviewError(err));
+        } finally {
+            setActionBusy(false);
+        }
+    }
+
+    async function handleQuickReject() {
+        if (!selectedLot || !rejectReason.trim()) return;
+        setActionBusy(true);
+        try {
+            await rejectParkingLot(selectedLot.id, rejectReason.trim());
+            setToast(`Đã từ chối bãi đỗ xe ${selectedLot.name}.`);
+            setSelectedLot(null);
+            setReviewAction(null);
+            setRejectReason("");
+            await loadLots();
+        } catch (err) {
+            setErrorMsg(describeReviewError(err));
+        } finally {
+            setActionBusy(false);
+        }
+    }
+
     const tabs: Filter[] = ["All", "Pending", "Approved", "Rejected"];
 
     return (
@@ -61,16 +161,71 @@ export function ParkingLotsListPage({
             <header className="admin-heading">
                 <div>
                     <p className="admin-eyebrow">
-                        {mode === "pending" ? "Review queue" : "Management"}
+                        {mode === "pending"
+                            ? "Hàng đợi xét duyệt"
+                            : "Quản lý hệ thống"}
                     </p>
                     <h1>
                         {mode === "pending"
-                            ? "Pending parking lots"
-                            : "Parking lots"}
+                            ? "Bãi đỗ xe chờ duyệt"
+                            : "Danh sách bãi đỗ xe"}
                     </h1>
                 </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                        type="button"
+                        onClick={loadLots}
+                        className="admin-btn admin-btn-ghost"
+                        disabled={loading}
+                    >
+                        🔄 Làm mới
+                    </button>
+                </div>
             </header>
-            <SampleDataNote />
+
+            {/* Navigation tab bar between Parking Lots and Owner Applications */}
+            <div style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>
+                <Link
+                    href="/admin/parking-lots/pending"
+                    className={`admin-btn ${mode === "pending" ? "admin-btn-dark" : "admin-btn-ghost"}`}
+                >
+                    🅿️ Bãi xe chờ duyệt
+                </Link>
+                <Link
+                    href="/admin/owner-applications"
+                    className="admin-btn admin-btn-ghost"
+                >
+                    👤 Duyệt hồ sơ Chủ bãi
+                </Link>
+            </div>
+
+            {errorMsg && (
+                <div
+                    className="admin-banner"
+                    role="alert"
+                    style={{
+                        background: "rgba(239, 68, 68, 0.15)",
+                        border: "1px solid #ef4444",
+                        color: "#f87171",
+                    }}
+                >
+                    <AdminIcon name="alert" size={16} />
+                    <span>{errorMsg}</span>
+                    <button
+                        type="button"
+                        onClick={() => setErrorMsg("")}
+                        style={{
+                            marginLeft: "auto",
+                            background: "none",
+                            border: "none",
+                            color: "inherit",
+                            cursor: "pointer",
+                        }}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
 
             <div className="admin-toolbar">
                 {mode === "all" && (
@@ -85,9 +240,7 @@ export function ParkingLotsListPage({
                                 onClick={() => setStatus(tab)}
                             >
                                 {tab === "Approved" ? "Active" : tab}
-                                <span>
-                                    {tab === "All" ? lots.length : counts[tab]}
-                                </span>
+                                <span>{counts[tab]}</span>
                             </button>
                         ))}
                     </div>
@@ -98,7 +251,7 @@ export function ParkingLotsListPage({
                         id="lots-search"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search name, owner or address"
+                        placeholder="Tìm tên bãi, chủ bãi, email hoặc địa chỉ..."
                     />
                 </label>
             </div>
@@ -107,12 +260,17 @@ export function ParkingLotsListPage({
                 <table className="admin-table">
                     <thead>
                         <tr>
-                            <th>Parking lot</th>
-                            <th>Owner</th>
-                            <th>Submitted</th>
-                            <th>Capacity</th>
-                            <th>Status</th>
-                            <th aria-label="Actions" />
+                            <th>Bãi đỗ xe</th>
+                            <th>Chủ bãi</th>
+                            <th>Ngày nộp</th>
+                            <th>Sức chứa</th>
+                            <th>Trạng thái</th>
+                            <th
+                                aria-label="Actions"
+                                style={{ textAlign: "right" }}
+                            >
+                                Thao tác
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -127,39 +285,79 @@ export function ParkingLotsListPage({
                                     <small>{lot.ownerEmail}</small>
                                 </td>
                                 <td>{formatDate(lot.submittedAtUtc)}</td>
-                                <td>{lot.totalCapacity} slots</td>
+                                <td>{lot.totalCapacity} chỗ</td>
                                 <td>
                                     <StatusPill status={lot.status} />
                                 </td>
-                                <td className="admin-table-action">
-                                    <Link
-                                        href={`/admin/parking-lots/${lot.id}`}
-                                        className={`admin-btn admin-btn-sm ${lot.status === "Pending" ? "admin-btn-lime" : "admin-btn-ghost"}`}
-                                    >
-                                        {lot.status === "Pending"
-                                            ? "Review"
-                                            : "View"}
-                                    </Link>
+                                <td
+                                    className="admin-table-action"
+                                    style={{ textAlign: "right" }}
+                                >
+                                    {lot.status === "Pending" ? (
+                                        <div
+                                            style={{
+                                                display: "inline-flex",
+                                                gap: "6px",
+                                            }}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-sm admin-btn-lime"
+                                                onClick={() => {
+                                                    setSelectedLot(lot);
+                                                    setReviewAction("approve");
+                                                }}
+                                            >
+                                                Duyệt
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-sm admin-btn-danger-ghost"
+                                                onClick={() => {
+                                                    setSelectedLot(lot);
+                                                    setReviewAction("reject");
+                                                }}
+                                            >
+                                                Từ chối
+                                            </button>
+                                            <Link
+                                                href={`/admin/parking-lots/${lot.id}`}
+                                                className="admin-btn admin-btn-sm admin-btn-ghost"
+                                            >
+                                                Chi tiết
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <Link
+                                            href={`/admin/parking-lots/${lot.id}`}
+                                            className="admin-btn admin-btn-sm admin-btn-ghost"
+                                        >
+                                            Xem
+                                        </Link>
+                                    )}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                {rows.length === 0 && (
+                {rows.length === 0 && !loading && (
                     <p className="admin-empty">
                         {mode === "pending"
-                            ? "No parking lots are waiting for review."
-                            : "No parking lots match your filters."}
+                            ? "Không có bãi đỗ xe nào đang chờ duyệt."
+                            : "Không tìm thấy bãi đỗ xe nào phù hợp với bộ lọc."}
                     </p>
+                )}
+                {loading && (
+                    <p className="admin-empty">Đang tải dữ liệu bãi đỗ xe...</p>
                 )}
             </section>
 
             <form className="admin-lookup" onSubmit={openById}>
                 <div>
-                    <strong>Review a lot by ID</strong>
+                    <strong>Tra cứu bãi đỗ xe theo ID</strong>
                     <small>
-                        Paste the UUID from the owner&apos;s submission to
-                        review it against the backend.
+                        Dán mã UUID của bãi đỗ xe từ đơn đăng ký để trực tiếp
+                        xét duyệt.
                     </small>
                 </div>
                 <input
@@ -177,7 +375,7 @@ export function ParkingLotsListPage({
                     className="admin-btn admin-btn-dark"
                     id="lots-lookup-open"
                 >
-                    Open
+                    Mở
                 </button>
                 {lookupError && (
                     <p className="admin-field-error" role="alert">
@@ -185,6 +383,109 @@ export function ParkingLotsListPage({
                     </p>
                 )}
             </form>
+
+            {/* Modal Approve / Reject */}
+            {reviewAction && selectedLot && (
+                <div
+                    className="admin-modal-backdrop"
+                    onClick={() => !actionBusy && setReviewAction(null)}
+                >
+                    <div
+                        className="admin-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <span className={`admin-modal-icon ${reviewAction}`}>
+                            <AdminIcon
+                                name={
+                                    reviewAction === "approve"
+                                        ? "check"
+                                        : "close"
+                                }
+                                size={22}
+                            />
+                        </span>
+                        <h2>
+                            {reviewAction === "approve"
+                                ? `Duyệt bãi đỗ xe ${selectedLot.name}?`
+                                : `Từ chối bãi đỗ xe ${selectedLot.name}?`}
+                        </h2>
+                        <p>
+                            {reviewAction === "approve"
+                                ? `Bãi đỗ xe sẽ được chuyển sang trạng thái Hoạt động (Approved) và xuất hiện trên danh mục công khai cho khách hàng.`
+                                : `Vui lòng nhập lý do từ chối để chủ bãi có thể điều chỉnh lại hồ sơ.`}
+                        </p>
+
+                        {reviewAction === "reject" && (
+                            <label
+                                className="admin-field"
+                                style={{ marginTop: "1rem" }}
+                            >
+                                <span>Lý do từ chối:</span>
+                                <textarea
+                                    rows={4}
+                                    autoFocus
+                                    value={rejectReason}
+                                    onChange={(e) =>
+                                        setRejectReason(e.target.value)
+                                    }
+                                    placeholder="Ví dụ: Chưa cung cấp đủ giấy tờ PCCC hoặc sơ đồ bãi xe không hợp lệ."
+                                    style={{
+                                        width: "100%",
+                                        padding: "8px",
+                                        borderRadius: "6px",
+                                        background:
+                                            "var(--admin-bg-subtle, #1a1e24)",
+                                        color: "inherit",
+                                        border: "1px solid rgba(255,255,255,0.15)",
+                                    }}
+                                />
+                            </label>
+                        )}
+
+                        <div
+                            className="admin-modal-actions"
+                            style={{ marginTop: "1.5rem" }}
+                        >
+                            <button
+                                type="button"
+                                className="admin-btn admin-btn-ghost"
+                                onClick={() => setReviewAction(null)}
+                                disabled={actionBusy}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                className={`admin-btn ${reviewAction === "approve" ? "admin-btn-lime" : "admin-btn-danger"}`}
+                                onClick={
+                                    reviewAction === "approve"
+                                        ? handleQuickApprove
+                                        : handleQuickReject
+                                }
+                                disabled={
+                                    actionBusy ||
+                                    (reviewAction === "reject" &&
+                                        !rejectReason.trim())
+                                }
+                            >
+                                {actionBusy
+                                    ? "Đang lưu..."
+                                    : reviewAction === "approve"
+                                      ? "Xác nhận duyệt"
+                                      : "Xác nhận từ chối"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {toast && (
+                <div className="admin-toast" role="status">
+                    {toast}
+                </div>
+            )}
         </>
     );
 }

@@ -21,6 +21,11 @@ const links = [
         badge: true,
     },
     { href: "/admin/parking-lots", label: "Parking lots", icon: "lots" },
+    {
+        href: "/admin/owner-applications",
+        label: "Duyệt hồ sơ Chủ bãi",
+        icon: "check",
+    },
     { href: "/admin/users", label: "Users & owners", icon: "users" },
 ];
 

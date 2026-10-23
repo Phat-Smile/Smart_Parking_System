@@ -56,9 +56,36 @@ export interface AdminParkingLot {
     source: "sample" | "backend";
 }
 
-/** Response of POST /api/parking/admin/lots/{id}/approve|reject. */
+/** Response of PUT/POST /api/parking/admin/lots/{id}/approve|reject. */
 export interface ReviewedParkingLot {
     parkingLotId: string;
     approvalStatus: "Approved" | "Rejected";
     rejectionReason: string | null;
+}
+
+export interface OwnerApplicationItem {
+    accountId: string;
+    email: string;
+    phoneNumber?: string | null;
+    fullName?: string | null;
+    businessName?: string | null;
+    taxCode?: string | null;
+    status: ApprovalStatus;
+    rejectionReason?: string | null;
+    reviewedAtUtc?: string | null;
+    reviewedBy?: string | null;
+    createdAtUtc: string;
+}
+
+export interface ListOwnerApplicationsResponse {
+    items: OwnerApplicationItem[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+}
+
+export interface OwnerApplicationActionResult {
+    accountId: string;
+    status: ApprovalStatus;
+    message?: string;
 }

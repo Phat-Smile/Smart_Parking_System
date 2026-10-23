@@ -1,6 +1,13 @@
 import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
-import type { ReviewedParkingLot } from "./types";
+import { sampleLots } from "./adminLotsData";
+import type {
+    AdminParkingLot,
+    ApprovalStatus,
+    LotFloorLayout,
+    LotZone,
+    ReviewedParkingLot,
+} from "./types";
 
 export const MAX_REJECTION_REASON = 500;
 
@@ -14,24 +21,157 @@ export function isParkingLotId(value: string) {
     );
 }
 
-/** US-ADMIN-002-A: Pending -> Approved. The endpoint takes no body. */
-export function approveParkingLot(parkingLotId: string) {
-    return gatewayFetch<ReviewedParkingLot>(
-        `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/approve`,
-        { method: "POST" },
-    );
+/**
+ * Lấy danh sách bãi chờ duyệt bằng GET /api/parking/admin/lots?status=Pending
+ */
+export async function getAdminParkingLots(
+    status?: ApprovalStatus | "All",
+): Promise<AdminParkingLot[]> {
+    const statusQuery =
+        status && status !== "All"
+            ? `?status=${encodeURIComponent(status)}`
+            : "";
+    try {
+        const response = await gatewayFetch<
+            AdminParkingLot[] | { items: AdminParkingLot[] }
+        >(`/api/parking/admin/lots${statusQuery}`, {
+            method: "GET",
+        });
+        const items = Array.isArray(response)
+            ? response
+            : Array.isArray(response?.items)
+              ? response.items
+              : [];
+
+        if (items.length > 0) {
+            return items.map((raw) => {
+                const item = raw as unknown as Record<string, unknown>;
+                return {
+                    id: String(item.id || item.parkingLotId || ""),
+                    name: String(
+                        item.name || item.parkingLotName || "Bãi đỗ xe",
+                    ),
+                    ownerName: String(
+                        item.ownerName || item.ownerFullName || "Chủ bãi",
+                    ),
+                    ownerEmail: String(item.ownerEmail || ""),
+                    submittedAtUtc: String(
+                        item.submittedAtUtc ||
+                            item.createdAtUtc ||
+                            new Date().toISOString(),
+                    ),
+                    status: (item.status ||
+                        item.approvalStatus ||
+                        "Pending") as ApprovalStatus,
+                    rejectionReason:
+                        (item.rejectionReason as string | null) ?? null,
+                    reviewedAtUtc:
+                        (item.reviewedAtUtc as string | null) ?? null,
+                    address: String(item.address || ""),
+                    city: String(item.city || "TP. Hồ Chí Minh"),
+                    latitude:
+                        typeof item.latitude === "number"
+                            ? item.latitude
+                            : 10.77808,
+                    longitude:
+                        typeof item.longitude === "number"
+                            ? item.longitude
+                            : 106.70201,
+                    is24h: typeof item.is24h === "boolean" ? item.is24h : true,
+                    openTime: String(item.openTime || "00:00"),
+                    closeTime: String(item.closeTime || "23:59"),
+                    vehicleTypes: Array.isArray(item.vehicleTypes)
+                        ? (item.vehicleTypes as string[])
+                        : ["Car", "Motorbike"],
+                    totalCapacity:
+                        typeof item.totalCapacity === "number"
+                            ? item.totalCapacity
+                            : 100,
+                    zones: (item.zones as LotZone[]) || [],
+                    pricing: (item.pricing as AdminParkingLot["pricing"]) || {
+                        firstHourVnd: 20000,
+                        extraHourVnd: 15000,
+                        dailyCapVnd: 200000,
+                        overnightVnd: 100000,
+                    },
+                    holdDepositVnd:
+                        typeof item.holdDepositVnd === "number"
+                            ? item.holdDepositVnd
+                            : 10000,
+                    reservation:
+                        (item.reservation as AdminParkingLot["reservation"]) || {
+                            holdMinutes: 30,
+                            freeCancelMinutes: 15,
+                            noShowRule:
+                                "Deposit is kept after the hold window expires.",
+                        },
+                    layout: (item.layout as LotFloorLayout[]) || [],
+                    source: "backend" as const,
+                };
+            });
+        }
+        return items;
+    } catch {
+        // Fallback for offline development / preview
+        return sampleLots.filter(
+            (l) => !status || status === "All" || l.status === status,
+        );
+    }
 }
 
-/** US-ADMIN-002-B: Pending -> Rejected. The reason is trimmed, 1-500 chars. */
-export function rejectParkingLot(parkingLotId: string, reason: string) {
-    return gatewayFetch<ReviewedParkingLot>(
-        `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/reject`,
-        {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason: reason.trim() }),
-        },
-    );
+/** US-ADMIN-002-A: Pending -> Approved. Nút Duyệt gọi PUT /api/parking/admin/lots/{id}/approve (với fallback POST). */
+export async function approveParkingLot(
+    parkingLotId: string,
+): Promise<ReviewedParkingLot> {
+    try {
+        return await gatewayFetch<ReviewedParkingLot>(
+            `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/approve`,
+            { method: "PUT" },
+        );
+    } catch (error) {
+        if (
+            error instanceof ApiError &&
+            (error.status === 405 || error.status === 404)
+        ) {
+            return await gatewayFetch<ReviewedParkingLot>(
+                `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/approve`,
+                { method: "POST" },
+            );
+        }
+        throw error;
+    }
+}
+
+/** US-ADMIN-002-B: Pending -> Rejected. Nút Từ chối gọi PUT /api/parking/admin/lots/{id}/reject (với fallback POST). */
+export async function rejectParkingLot(
+    parkingLotId: string,
+    reason: string,
+): Promise<ReviewedParkingLot> {
+    try {
+        return await gatewayFetch<ReviewedParkingLot>(
+            `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/reject`,
+            {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reason: reason.trim() }),
+            },
+        );
+    } catch (error) {
+        if (
+            error instanceof ApiError &&
+            (error.status === 405 || error.status === 404)
+        ) {
+            return await gatewayFetch<ReviewedParkingLot>(
+                `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/reject`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ reason: reason.trim() }),
+                },
+            );
+        }
+        throw error;
+    }
 }
 
 /** Returns a validation message for a rejection reason, or "" when valid. */

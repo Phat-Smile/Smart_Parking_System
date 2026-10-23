@@ -20,7 +20,7 @@ const grid = (name: string, rows: number, cols: number, blocked: number[]) => ({
     blocked,
 });
 
-const sampleLots: AdminParkingLot[] = [
+export const sampleLots: AdminParkingLot[] = [
     {
         id: "11111111-1111-1111-1111-111111111111",
         name: "Vincom Center Basement",
