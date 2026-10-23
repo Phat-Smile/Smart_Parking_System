@@ -244,6 +244,8 @@ select owner_tax_code, count(*) from identity.accounts where owner_tax_code is n
 
 Change the duplicate codes first if the query returns rows.
 
+The migration `20261023150113_ScopeOwnerTaxCodeIndexToActiveApplications` then narrows that index to the applications in force: it covers only rows whose `owner_application_status` is `Pending` or `Approved`, so a rejected application keeps its tax code in the row but no longer holds it against other accounts. It loosens the rule, so no check is needed before applying it. Rolling it back (`Down`) re-creates the strict index and fails if two accounts hold the same code at that moment.
+
 ## Local JWT verification key
 
 The .NET Gateway and APIs validate RS256 tokens with a public key. Before starting the full Compose stack, generate a local development key pair once:

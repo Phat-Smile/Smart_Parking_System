@@ -25,7 +25,12 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
 
     public Task<bool> OwnerTaxCodeExistsAsync(string taxCode, Guid? excludeAccountId, CancellationToken cancellationToken)
     {
-        var query = dbContext.Accounts.AsNoTracking().Where(account => account.OwnerTaxCode == taxCode);
+        // Same rule as the unique index: only an application in force (Pending or Approved) holds a tax code. A rejected one
+        // keeps the code in its record but does not hold it against other accounts.
+        var query = dbContext.Accounts.AsNoTracking().Where(account =>
+            account.OwnerTaxCode == taxCode
+            && (account.OwnerApplicationStatus == OwnerApplicationStatus.Pending
+                || account.OwnerApplicationStatus == OwnerApplicationStatus.Approved));
         if (excludeAccountId.HasValue)
         {
             query = query.Where(account => account.Id != excludeAccountId.Value);
