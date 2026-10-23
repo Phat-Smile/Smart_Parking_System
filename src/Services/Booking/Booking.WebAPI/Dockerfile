@@ -12,6 +12,7 @@ COPY src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj src/Services/Book
 RUN dotnet restore src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
+COPY contracts/grpc/ contracts/grpc/
 COPY src/Services/Booking/ src/Services/Booking/
 RUN dotnet publish src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj \
     --configuration Release \
