@@ -23,6 +23,17 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
     public Task<Account?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         dbContext.Accounts.SingleOrDefaultAsync(account => account.Email == normalizedEmail, cancellationToken);
 
+    public Task<bool> OwnerTaxCodeExistsAsync(string taxCode, Guid? excludeAccountId, CancellationToken cancellationToken)
+    {
+        var query = dbContext.Accounts.AsNoTracking().Where(account => account.OwnerTaxCode == taxCode);
+        if (excludeAccountId.HasValue)
+        {
+            query = query.Where(account => account.Id != excludeAccountId.Value);
+        }
+
+        return query.AnyAsync(cancellationToken);
+    }
+
     public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Accounts.SingleOrDefaultAsync(account => account.Id == id, cancellationToken);
 

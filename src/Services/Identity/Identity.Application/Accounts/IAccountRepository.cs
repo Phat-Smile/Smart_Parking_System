@@ -21,6 +21,8 @@ public interface IAccountRepository
 
     Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<bool> OwnerTaxCodeExistsAsync(string taxCode, Guid? excludeAccountId, CancellationToken cancellationToken) => Task.FromResult(false);
+
     void Add(Account account);
 
     /// <summary>Saves a new account with email uniqueness check. Returns DuplicateEmailConflict when the email index violates unique constraint.</summary>

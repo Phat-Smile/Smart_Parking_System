@@ -228,7 +228,7 @@ To intentionally reset local database and broker data, remove the named volumes 
 docker compose down -v
 ```
 
-The reset command deletes the PostgreSQL and RabbitMQ data stored in this Compose stack.
+The reset command deletes the PostgreSQL and RabbitMQ data stored in this Compose stack, and the owner application documents that Identity keeps on the `parking_identity_owner_documents` volume (mounted at `/app/data/owner-documents`, which the Identity image creates for its non-root user).
 
 ## PostgreSQL ownership
 

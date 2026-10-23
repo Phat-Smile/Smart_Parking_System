@@ -30,6 +30,9 @@ public sealed class RejectOwnerApplicationCommandHandler(
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(RejectOwnerApplicationCommand request, CancellationToken cancellationToken)
     {
+        if (request.AdminId == request.AccountId)
+            return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.CannotRejectOwnApplication);
+
         return await accounts.ExecuteInTransactionAsync(async () =>
         {
             var account = await accounts.FindByIdForUpdateAsync(request.AccountId, cancellationToken);

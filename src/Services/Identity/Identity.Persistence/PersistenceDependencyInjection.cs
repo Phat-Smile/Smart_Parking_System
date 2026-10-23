@@ -54,6 +54,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IAdminAccountQueries>(provider => provider.GetRequiredService<AdminAccountQueries>());
         services.AddScoped<IOwnerApplicationQueries>(provider => provider.GetRequiredService<AdminAccountQueries>());
         services.AddScoped<IVehicleRepository, VehicleRepository>();
+        services.AddScoped<IOwnerDocumentRepository, OwnerDocumentRepository>();
 
         // Register DB-backed vehicle lookup when provider = "Database"; Infrastructure registers the Stub otherwise.
         if (string.Equals(configuration["VehicleLookup:Provider"], "Database", StringComparison.OrdinalIgnoreCase))

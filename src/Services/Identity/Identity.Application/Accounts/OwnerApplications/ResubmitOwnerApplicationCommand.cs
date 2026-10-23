@@ -8,10 +8,13 @@ namespace ParkingSystem.Identity.Application.Accounts.OwnerApplications;
 public sealed record ResubmitOwnerApplicationCommand(
     Guid AccountId,
     string? TaxCode = null,
-    string? BusinessName = null) : IRequest<Result<OwnerApplicationActionResult>>;
+    string? BusinessName = null,
+    OwnerType? OwnerType = null) : IRequest<Result<OwnerApplicationActionResult>>;
 
 public sealed class ResubmitOwnerApplicationCommandHandler(
     IAccountRepository accounts,
+    IOwnerDocumentRepository documents,
+    IOwnerDocumentRequirements requirements,
     IClock clock) : IRequestHandler<ResubmitOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(ResubmitOwnerApplicationCommand request, CancellationToken cancellationToken)
@@ -25,7 +28,31 @@ public sealed class ResubmitOwnerApplicationCommandHandler(
             if (account.OwnerApplicationStatus != OwnerApplicationStatus.Rejected)
                 return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.NotRejected);
 
-            account.ResubmitOwnerApplication(clock.UtcNow, request.TaxCode, request.BusinessName);
+            var effectiveOwnerType = request.OwnerType ?? account.OwnerType;
+            if (!effectiveOwnerType.HasValue)
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeRequired);
+
+            // Request or stored value alike: a number that is not an owner type has no checklist, so it must never pass as "complete".
+            if (!Enum.IsDefined(effectiveOwnerType.Value))
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeInvalid);
+
+            // Check if all required documents for this ownerType have been uploaded
+            var uploadedDocs = await documents.ListByAccountAsync(account.Id, cancellationToken);
+            var missingDocs = requirements.GetMissingRequiredDocuments(
+                effectiveOwnerType.Value,
+                uploadedDocs.Select(d => d.DocumentType));
+
+            if (missingDocs.Count > 0)
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.DocumentsIncomplete);
+
+            if (!string.IsNullOrWhiteSpace(request.TaxCode))
+            {
+                var trimmedTaxCode = request.TaxCode.Trim();
+                if (await accounts.OwnerTaxCodeExistsAsync(trimmedTaxCode, account.Id, cancellationToken))
+                    return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.TaxCodeAlreadyRegistered);
+            }
+
+            account.ResubmitOwnerApplication(clock.UtcNow, request.TaxCode, request.BusinessName, effectiveOwnerType);
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<OwnerApplicationActionResult>.Success(new OwnerApplicationActionResult(

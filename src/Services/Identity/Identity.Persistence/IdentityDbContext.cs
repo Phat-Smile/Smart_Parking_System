@@ -23,6 +23,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<EmailVerification> EmailVerifications => Set<EmailVerification>();
+    public DbSet<OwnerApplicationDocument> OwnerApplicationDocuments => Set<OwnerApplicationDocument>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

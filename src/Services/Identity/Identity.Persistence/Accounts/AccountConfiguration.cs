@@ -10,6 +10,7 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
     internal const string PhoneNumberIndexName = "ux_accounts_phone_number";
     internal const string GoogleSubjectIndexName = "ux_accounts_google_subject";
     internal const string OwnerApplicationStatusIndexName = "ix_accounts_owner_application_status";
+    internal const string OwnerTaxCodeIndexName = "ux_accounts_owner_tax_code";
 
     public void Configure(EntityTypeBuilder<Account> builder)
     {
@@ -29,7 +30,12 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(account => account.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(32).HasDefaultValue(AccountRole.Customer).IsRequired();
         builder.Property(account => account.OwnerApplicationStatus).HasColumnName("owner_application_status").HasConversion<string>().HasMaxLength(32);
         builder.Property(account => account.OwnerTaxCode).HasColumnName("owner_tax_code").HasMaxLength(32);
+        builder.HasIndex(account => account.OwnerTaxCode)
+            .IsUnique()
+            .HasFilter("owner_tax_code IS NOT NULL")
+            .HasDatabaseName(OwnerTaxCodeIndexName);
         builder.Property(account => account.OwnerBusinessName).HasColumnName("owner_business_name").HasMaxLength(200);
+        builder.Property(account => account.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(30);
         builder.Property(account => account.OwnerRejectionReason).HasColumnName("owner_rejection_reason").HasMaxLength(500);
         builder.Property(account => account.OwnerReviewedAtUtc).HasColumnName("owner_reviewed_at_utc");
         builder.Property(account => account.OwnerReviewedBy).HasColumnName("owner_reviewed_by");

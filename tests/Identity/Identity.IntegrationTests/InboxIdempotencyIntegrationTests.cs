@@ -61,6 +61,7 @@ public sealed class InboxIdempotencyIntegrationTests(
                 "accounts",
                 "auth_sessions",
                 "email_verifications",
+                "owner_application_documents",
                 "refresh_tokens",
                 "profiles",
                 "vehicles");

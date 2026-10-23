@@ -100,6 +100,10 @@ public static class DependencyInjection
         services.AddVehicleLookupReader(configuration);
         services.AddCccdVerification(configuration);
 
+        services.Configure<OwnerDocuments.OwnerDocumentsOptions>(configuration.GetSection(OwnerDocuments.OwnerDocumentsOptions.SectionName));
+        services.AddSingleton<Application.Accounts.OwnerApplications.IOwnerDocumentRequirements, OwnerDocuments.ConfigurationOwnerDocumentRequirements>();
+        services.AddScoped<Application.Accounts.OwnerApplications.IOwnerDocumentStore, OwnerDocuments.FileSystemOwnerDocumentStore>();
+
         return services;
     }
 }

@@ -21,6 +21,7 @@ public sealed class Account
     public OwnerApplicationStatus? OwnerApplicationStatus { get; private set; }
     public string? OwnerTaxCode { get; private set; }
     public string? OwnerBusinessName { get; private set; }
+    public OwnerType? OwnerType { get; private set; }
     public string? OwnerRejectionReason { get; private set; }
     public DateTimeOffset? OwnerReviewedAtUtc { get; private set; }
     public Guid? OwnerReviewedBy { get; private set; }
@@ -143,19 +144,36 @@ public sealed class Account
         RowVersion++;
     }
 
+    public void SetOwnerType(OwnerType ownerType)
+    {
+        if (OwnerApplicationStatus == null)
+            throw new InvalidOperationException("Account does not have an owner application.");
+        if (OwnerApplicationStatus == Domain.Accounts.OwnerApplicationStatus.Approved)
+            throw new InvalidOperationException("Approved owner applications cannot change owner type.");
+        EnsureDefined(ownerType);
+
+        OwnerType = ownerType;
+        RowVersion++;
+    }
+
     public void ApplyForParkingLotOwner(
         DateTimeOffset appliedAtUtc,
         string? taxCode = null,
-        string? businessName = null)
+        string? businessName = null,
+        OwnerType? ownerType = null)
     {
         if (Role == AccountRole.ParkingLotOwner || OwnerApplicationStatus == Domain.Accounts.OwnerApplicationStatus.Approved)
             throw new InvalidOperationException("Account is already a parking lot owner.");
         if (OwnerApplicationStatus == Domain.Accounts.OwnerApplicationStatus.Pending)
             throw new InvalidOperationException("An owner application is already pending review.");
+        if (ownerType.HasValue)
+            EnsureDefined(ownerType.Value);
 
         OwnerApplicationStatus = Domain.Accounts.OwnerApplicationStatus.Pending;
         OwnerTaxCode = NullIfBlank(taxCode);
         OwnerBusinessName = NullIfBlank(businessName);
+        if (ownerType.HasValue)
+            OwnerType = ownerType.Value;
         OwnerRejectionReason = null;
         OwnerReviewedBy = null;
         OwnerReviewedAtUtc = null;
@@ -165,21 +183,33 @@ public sealed class Account
     public void ResubmitOwnerApplication(
         DateTimeOffset resubmittedAtUtc,
         string? taxCode = null,
-        string? businessName = null)
+        string? businessName = null,
+        OwnerType? ownerType = null)
     {
         if (OwnerApplicationStatus != Domain.Accounts.OwnerApplicationStatus.Rejected)
             throw new InvalidOperationException("Only rejected owner applications can be resubmitted.");
+        if (ownerType.HasValue)
+            EnsureDefined(ownerType.Value);
 
         OwnerApplicationStatus = Domain.Accounts.OwnerApplicationStatus.Pending;
         if (!string.IsNullOrWhiteSpace(taxCode))
             OwnerTaxCode = NullIfBlank(taxCode);
         if (!string.IsNullOrWhiteSpace(businessName))
             OwnerBusinessName = NullIfBlank(businessName);
+        if (ownerType.HasValue)
+            OwnerType = ownerType.Value;
 
         OwnerRejectionReason = null;
         OwnerReviewedBy = null;
         OwnerReviewedAtUtc = null;
         RowVersion++;
+    }
+
+    // A number that is not an OwnerType has no checklist, so it must never be stored.
+    private static void EnsureDefined(OwnerType ownerType)
+    {
+        if (!Enum.IsDefined(ownerType))
+            throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Owner type is not one of the supported values.");
     }
 
     public void UpdatePhoneNumber(string? phoneNumber)
