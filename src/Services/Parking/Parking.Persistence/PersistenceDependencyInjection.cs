@@ -50,6 +50,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IParkingLotCatalogReader>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
         services.AddScoped<IParkingLotArrivalSearch>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
         services.AddScoped<IParkingLotOpeningHoursRepository, ParkingLotOpeningHoursRepository>();
+        services.AddScoped<INearbyParkingLotReader, NearbyParkingLotReader>();
         services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
         services.AddScoped<IRegisterParkingLotRepository, RegisterParkingLotRepository>();
 
