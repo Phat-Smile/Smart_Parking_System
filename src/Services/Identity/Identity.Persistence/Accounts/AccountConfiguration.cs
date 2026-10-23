@@ -30,6 +30,7 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(account => account.OwnerApplicationStatus).HasColumnName("owner_application_status").HasConversion<string>().HasMaxLength(32);
         builder.Property(account => account.OwnerTaxCode).HasColumnName("owner_tax_code").HasMaxLength(32);
         builder.Property(account => account.OwnerBusinessName).HasColumnName("owner_business_name").HasMaxLength(200);
+        builder.Property(account => account.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(30);
         builder.Property(account => account.OwnerRejectionReason).HasColumnName("owner_rejection_reason").HasMaxLength(500);
         builder.Property(account => account.OwnerReviewedAtUtc).HasColumnName("owner_reviewed_at_utc");
         builder.Property(account => account.OwnerReviewedBy).HasColumnName("owner_reviewed_by");

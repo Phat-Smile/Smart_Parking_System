@@ -71,6 +71,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 app.MapAccountEndpoints();
+app.MapOwnerDocumentEndpoints();
 app.MapGrpcService<IdentityVehicleGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)

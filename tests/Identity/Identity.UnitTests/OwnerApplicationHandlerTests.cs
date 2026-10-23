@@ -127,9 +127,13 @@ public sealed class OwnerApplicationHandlerTests
     public async Task Resubmit_rejected_application_transitions_to_Pending()
     {
         var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        account.SetOwnerType(OwnerType.Individual);
         account.RejectOwnerApplication(AdminId, "Lý do", Now);
         var accounts = new FakeAccountRepository(account);
-        var handler = new ResubmitOwnerApplicationCommandHandler(accounts, new FixedClock(Now));
+        var docs = new FakeOwnerDocumentRepository();
+        docs.Add(OwnerApplicationDocument.Create(Guid.NewGuid(), OwnerId, "PremisesRightProof", "mb.pdf", "application/pdf", 100, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "k1", Now));
+        var reqs = new FakeRequirements();
+        var handler = new ResubmitOwnerApplicationCommandHandler(accounts, docs, reqs, new FixedClock(Now));
 
         var result = await handler.Handle(new ResubmitOwnerApplicationCommand(OwnerId), TestContext.Current.CancellationToken);
 
@@ -344,5 +348,28 @@ public sealed class OwnerApplicationHandlerTests
         {
             EnqueuedEvents.Add((integrationEvent, eventType, eventVersion));
         }
+    }
+
+    private sealed class FakeOwnerDocumentRepository : IOwnerDocumentRepository
+    {
+        private readonly List<OwnerApplicationDocument> _docs = [];
+        public void Add(OwnerApplicationDocument document) => _docs.Add(document);
+        public void Remove(OwnerApplicationDocument document) => _docs.Remove(document);
+        public Task<OwnerApplicationDocument?> FindByAccountAndTypeAsync(Guid accountId, string documentType, CancellationToken cancellationToken) =>
+            Task.FromResult(_docs.FirstOrDefault(d => d.AccountId == accountId && d.DocumentType == documentType));
+        public Task<IReadOnlyList<OwnerApplicationDocument>> ListByAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<OwnerApplicationDocument>>(_docs.Where(d => d.AccountId == accountId).ToList());
+        public Task<int> CountByAccountAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(_docs.Count(d => d.AccountId == accountId));
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakeRequirements : IOwnerDocumentRequirements
+    {
+        public long MaxFileSizeBytes => 5 * 1024 * 1024;
+        public int MaxFilesPerApplication => 10;
+        public IReadOnlyList<OwnerDocumentRequirementItem> GetRequirements(OwnerType ownerType) => [];
+        public bool IsAllowed(OwnerType ownerType, string documentType) => true;
+        public IReadOnlyList<string> GetMissingRequiredDocuments(OwnerType ownerType, IEnumerable<string> uploadedDocumentTypes) => [];
     }
 }

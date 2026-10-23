@@ -30,6 +30,30 @@ public static class OwnerApplicationErrors
 
     public static readonly Error InvalidPageSize =
         new("identity.invalid_page_size", "Kích thước trang phải từ 1 đến 100.");
+
+    public static readonly Error OwnerTypeRequired =
+        new("identity.owner_type_required", "Vui lòng chọn loại chủ thể (Cá nhân, Hộ kinh doanh hoặc Doanh nghiệp).");
+
+    public static readonly Error ApplicationLocked =
+        new("identity.owner_application_locked", "Hồ sơ chủ bãi đã được duyệt và không thể chỉnh sửa.");
+
+    public static readonly Error DocumentInvalidType =
+        new("identity.owner_document_invalid_type", "Loại giấy tờ không thuộc danh mục quy định.");
+
+    public static readonly Error DocumentUnsupportedContent =
+        new("identity.owner_document_unsupported_content", "Định dạng tệp không được hỗ trợ. Chỉ chấp nhận tệp PDF, PNG hoặc JPEG.");
+
+    public static readonly Error DocumentTooLarge =
+        new("identity.owner_document_too_large", "Dung lượng tệp vượt quá giới hạn tối đa cho phép.");
+
+    public static readonly Error DocumentLimitReached =
+        new("identity.owner_document_limit_reached", "Đã đạt số lượng giấy tờ tối đa cho phép.");
+
+    public static readonly Error DocumentNotFound =
+        new("identity.owner_document_not_found", "Không tìm thấy giấy tờ yêu cầu.");
+
+    public static readonly Error DocumentsIncomplete =
+        new("identity.owner_documents_incomplete", "Hồ sơ chưa nộp đủ các giấy tờ bắt buộc theo quy định.");
 }
 
 public sealed record OwnerApplicationActionResult(

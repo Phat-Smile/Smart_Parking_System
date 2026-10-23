@@ -14,7 +14,8 @@ public sealed record ApplyForOwnerApplicationCommand(
     string? TaxCode = null,
     string? BusinessName = null,
     string? PhoneNumber = null,
-    string? FullName = null) : IRequest<Result<OwnerApplicationActionResult>>;
+    string? FullName = null,
+    OwnerType? OwnerType = null) : IRequest<Result<OwnerApplicationActionResult>>;
 
 public sealed class ApplyForOwnerApplicationCommandValidator : AbstractValidator<ApplyForOwnerApplicationCommand>
 {
@@ -67,7 +68,7 @@ public sealed class ApplyForOwnerApplicationCommandHandler(
 
             var now = clock.UtcNow;
 
-            account.ApplyForParkingLotOwner(now, request.TaxCode, request.BusinessName);
+            account.ApplyForParkingLotOwner(now, request.TaxCode, request.BusinessName, request.OwnerType);
 
             if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
             {
