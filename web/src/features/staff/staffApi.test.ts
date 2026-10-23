@@ -3,8 +3,10 @@ import { ApiError } from "@/shared/errors/api-error";
 import {
     DEFAULT_STAFF_LOT_ID,
     cancelParkingSession,
+    completeParkingSession,
     describeStaffError,
     findSessionByQr,
+    getAssignedLot,
     openParkingSession,
 } from "./staffApi";
 
@@ -17,6 +19,38 @@ describe("staffApi integration", () => {
 
     afterEach(() => {
         globalThis.fetch = originalFetch;
+    });
+
+    describe("getAssignedLot", () => {
+        it("sends GET to /api/parking/staff/assigned-lot", async () => {
+            const mockLot = {
+                lotId: "22222222-2222-2222-2222-222222222222",
+                lotName: "Bitexco Financial Tower Parking",
+                address: "2 Hải Triều, Bến Nghé, Quận 1",
+                availableMotorbikeSlots: 45,
+                availableCarSlots: 80,
+                totalCapacity: 200,
+                occupiedSlots: 75,
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockLot), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await getAssignedLot();
+            expect(result).toEqual(mockLot);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            const [url, init] = fetchMock.mock.calls[0];
+            expect(String(url)).toBe(
+                "http://localhost:5000/api/parking/staff/assigned-lot",
+            );
+            expect(init?.method).toBe("GET");
+        });
     });
 
     describe("openParkingSession", () => {
@@ -32,6 +66,7 @@ describe("staffApi integration", () => {
                 isAccountLinked: true,
                 reservationId: null,
                 qrToken: "QR-TEST-TOKEN",
+                availableMotorbikeSlots: 50,
             };
 
             const fetchMock = vi.fn().mockResolvedValue(
@@ -49,6 +84,7 @@ describe("staffApi integration", () => {
             });
 
             expect(result).toEqual(mockRes);
+            expect(result.availableMotorbikeSlots).toBe(50);
             expect(fetchMock).toHaveBeenCalledTimes(1);
 
             const [url, init] = fetchMock.mock.calls[0];
@@ -123,7 +159,9 @@ describe("staffApi integration", () => {
             vi.stubGlobal("fetch", fetchMock);
 
             const result = await findSessionByQr(qrToken);
-            expect(result).toEqual(mockRes);
+            expect(result.sessionId).toBe(mockRes.sessionId);
+            expect(result.plateNumber).toBe(mockRes.plateNumber);
+            expect(result.amountDueVnd).toBeDefined();
             expect(fetchMock).toHaveBeenCalledTimes(1);
 
             const [url, init] = fetchMock.mock.calls[0];
@@ -131,6 +169,45 @@ describe("staffApi integration", () => {
                 `http://localhost:5000/api/parking/sessions/by-qr/${qrToken}`,
             );
             expect(init?.method).toBe("GET");
+        });
+    });
+
+    describe("completeParkingSession", () => {
+        it("sends POST to /api/parking/sessions/{id}/complete", async () => {
+            const sessionId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+            const mockRes = {
+                sessionId,
+                status: "Completed",
+                completedAt: "2026-10-19T09:30:00Z",
+                amountPaidVnd: 60000,
+                paymentMethod: "Cash",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockRes), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await completeParkingSession(sessionId, {
+                paymentMethod: "Cash",
+                amountPaidVnd: 60000,
+            });
+
+            expect(result).toEqual(mockRes);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            const [url, init] = fetchMock.mock.calls[0];
+            expect(String(url)).toBe(
+                `http://localhost:5000/api/parking/sessions/${sessionId}/complete`,
+            );
+            expect(init?.method).toBe("POST");
+            expect(JSON.parse(init?.body as string)).toEqual({
+                paymentMethod: "Cash",
+                amountPaidVnd: 60000,
+            });
         });
     });
 

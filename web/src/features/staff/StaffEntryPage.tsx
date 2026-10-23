@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { CameraFeedMock, PlateBadge, QrCodeModal } from "./StaffUi";
 import {
-    DEFAULT_STAFF_LOT_ID,
     describeStaffError,
     openParkingSession,
 } from "./staffApi";
@@ -11,7 +10,13 @@ import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
 
 export function StaffEntryPage() {
-    const { addSession, occupancy } = useStaffData();
+    const { addSession, occupancy, assignedLot, fetchAssignedLot } =
+        useStaffData();
+
+    // Load assigned lot on mount
+    React.useEffect(() => {
+        fetchAssignedLot().catch(() => {});
+    }, [fetchAssignedLot]);
 
     // Mode: registered vs guest
     const [entryType, setEntryType] = useState<CustomerType>("Registered");
@@ -61,9 +66,9 @@ export function StaffEntryPage() {
             : plateNumber.trim();
 
         try {
-            // Call the real POST /api/parking/sessions endpoint
+            // Call the real POST /api/parking/sessions endpoint with real assigned lotId
             const res = await openParkingSession({
-                lotId: DEFAULT_STAFF_LOT_ID,
+                lotId: assignedLot.lotId,
                 plateNumber: finalPlate,
                 vehicleType,
             });
@@ -415,6 +420,75 @@ export function StaffEntryPage() {
                         </div>
 
                         {/* Result state */}
+                        {lastOpened && (
+                            <div
+                                className="staff-card staff-session-token-box"
+                                style={{
+                                    marginTop: "1rem",
+                                    background: "rgba(16, 185, 129, 0.08)",
+                                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                                    padding: "12px 16px",
+                                    borderRadius: "8px",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        marginBottom: "8px",
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: "12px",
+                                            color: "var(--staff-text-muted)",
+                                        }}
+                                    >
+                                        QR Token phiên gửi xe:
+                                    </span>
+                                    <code
+                                        style={{
+                                            fontSize: "13px",
+                                            fontWeight: "bold",
+                                            color: "#10b981",
+                                            background: "rgba(0,0,0,0.2)",
+                                            padding: "2px 8px",
+                                            borderRadius: "4px",
+                                        }}
+                                    >
+                                        {lastOpened.qrToken}
+                                    </code>
+                                </div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: "12px",
+                                            color: "var(--staff-text-muted)",
+                                        }}
+                                    >
+                                        Số chỗ xe máy còn trống:
+                                    </span>
+                                    <strong
+                                        style={{
+                                            fontSize: "14px",
+                                            color: "#10b981",
+                                        }}
+                                    >
+                                        {lastOpened.availableMotorbikeSlots ??
+                                            occupancy.motorbikeAvailable}{" "}
+                                        chỗ
+                                    </strong>
+                                </div>
+                            </div>
+                        )}
+
                         {step === "barrier_open" && (
                             <div className="staff-barrier-open-alert">
                                 <div className="barrier-icon">🟢</div>

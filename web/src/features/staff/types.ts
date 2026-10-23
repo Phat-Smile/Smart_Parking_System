@@ -6,6 +6,16 @@ export type SessionStatus = "Active" | "Completed" | "Cancelled";
 
 export type PaymentStatus = "Pending" | "Paid" | "Exempt";
 
+export interface AssignedLotResponse {
+    lotId: string;
+    lotName: string;
+    address?: string;
+    availableMotorbikeSlots: number;
+    availableCarSlots?: number;
+    totalCapacity?: number;
+    occupiedSlots?: number;
+}
+
 export interface OpenedSessionResponse {
     sessionId: string;
     lotId: string;
@@ -17,6 +27,7 @@ export interface OpenedSessionResponse {
     isAccountLinked: boolean;
     reservationId: string | null;
     qrToken: string;
+    availableMotorbikeSlots?: number;
 }
 
 export interface CancelledSessionResponse {
@@ -25,16 +36,26 @@ export interface CancelledSessionResponse {
     reason: string;
 }
 
+export interface CompletedSessionResponse {
+    sessionId: string;
+    status: SessionStatus;
+    completedAt: string;
+    amountPaidVnd?: number;
+    paymentMethod?: string;
+}
+
 export interface SessionByQrResponse {
     sessionId: string;
     lotId: string;
-    lotName: string;
+    lotName?: string;
     plateNumber: string;
     vehicleType: VehicleType;
     customerType: CustomerType;
     entryTime: string;
     status: SessionStatus;
     qrToken: string;
+    amountDueVnd?: number;
+    totalFeeVnd?: number;
 }
 
 export interface StaffSession {

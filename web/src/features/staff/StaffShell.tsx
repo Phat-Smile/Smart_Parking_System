@@ -8,10 +8,11 @@ import { useStaffData } from "./staffData";
 
 export function StaffShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const { occupancy, issues } = useStaffData();
+    const { occupancy, issues, assignedLot, fetchAssignedLot } = useStaffData();
     const [currentTime, setCurrentTime] = useState("");
 
     useEffect(() => {
+        fetchAssignedLot().catch(() => {});
         const updateClock = () => {
             const now = new Date();
             setCurrentTime(
@@ -25,7 +26,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         updateClock();
         const timer = setInterval(updateClock, 1000);
         return () => clearInterval(timer);
-    }, []);
+    }, [fetchAssignedLot]);
 
     const navItems = [
         {
@@ -176,10 +177,10 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         <div className="staff-lot-badge">
                             <span className="staff-lot-dot" />
                             <span className="staff-lot-name">
-                                ParkWise Central Tower
+                                {assignedLot.lotName}
                             </span>
                             <span className="staff-lot-zone">
-                                Tầng Hầm B1/B2
+                                {assignedLot.address || "Tầng Hầm B1/B2"}
                             </span>
                         </div>
                     </div>

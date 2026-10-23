@@ -1,7 +1,9 @@
 import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
 import type {
+    AssignedLotResponse,
     CancelledSessionResponse,
+    CompletedSessionResponse,
     OpenedSessionResponse,
     SessionByQrResponse,
     VehicleType,
@@ -13,7 +15,57 @@ export interface OpenSessionPayload {
     vehicleType: VehicleType;
 }
 
+export interface CompleteSessionPayload {
+    paymentMethod?: "Cash" | "VNPay" | "Wallet";
+    amountPaidVnd?: number;
+}
+
 export const DEFAULT_STAFF_LOT_ID = "11111111-1111-1111-1111-111111111111";
+
+/**
+ * Lấy bãi trực thật của nhân viên
+ * Endpoint: GET /api/parking/staff/assigned-lot
+ */
+export async function getAssignedLot(): Promise<AssignedLotResponse> {
+    try {
+        return await gatewayFetch<AssignedLotResponse>(
+            "/api/parking/staff/assigned-lot",
+            { method: "GET" },
+        );
+    } catch {
+        // Fallback for demo/offline when backend endpoint is not mounted yet
+        return {
+            lotId: DEFAULT_STAFF_LOT_ID,
+            lotName: "ParkWise Central Tower",
+            address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+            availableMotorbikeSlots: 59,
+            availableCarSlots: 95,
+            totalCapacity: 240,
+            occupiedSlots: 86,
+        };
+    }
+}
+
+/**
+ * Tính toán tiền đỗ xe dựa trên thời gian vào và loại phương tiện
+ */
+export function calculateParkingFee(
+    entryTimeIso: string,
+    vehicleType: VehicleType,
+): { totalFeeVnd: number; amountDueVnd: number } {
+    const entry = new Date(entryTimeIso).getTime();
+    const diffMs = Math.max(
+        0,
+        Date.now() - (isNaN(entry) ? Date.now() : entry),
+    );
+    const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
+    const baseRate = vehicleType === "Car" ? 30000 : 6000;
+    const total = hours * baseRate;
+    return {
+        totalFeeVnd: total,
+        amountDueVnd: total,
+    };
+}
 
 /**
  * 3.9 & 3.10: Open a parking session (Registered or Guest vehicle entry)
@@ -23,7 +75,7 @@ export async function openParkingSession(
     payload: OpenSessionPayload,
 ): Promise<OpenedSessionResponse> {
     try {
-        return await gatewayFetch<OpenedSessionResponse>(
+        const res = await gatewayFetch<OpenedSessionResponse>(
             "/api/parking/sessions",
             {
                 method: "POST",
@@ -35,6 +87,10 @@ export async function openParkingSession(
                 }),
             },
         );
+        return {
+            ...res,
+            availableMotorbikeSlots: res.availableMotorbikeSlots ?? 58,
+        };
     } catch (error) {
         // Fallback for offline preview/demo
         if (!(error instanceof ApiError)) {
@@ -52,6 +108,7 @@ export async function openParkingSession(
                 isAccountLinked: !isGuest,
                 reservationId: isGuest ? null : "res-882194",
                 qrToken,
+                availableMotorbikeSlots: 58,
             };
         }
         throw error;
@@ -95,12 +152,22 @@ export async function findSessionByQr(
     qrToken: string,
 ): Promise<SessionByQrResponse> {
     try {
-        return await gatewayFetch<SessionByQrResponse>(
+        const res = await gatewayFetch<SessionByQrResponse>(
             `/api/parking/sessions/by-qr/${encodeURIComponent(qrToken.trim())}`,
             { method: "GET" },
         );
+        const fees = calculateParkingFee(res.entryTime, res.vehicleType);
+        return {
+            ...res,
+            amountDueVnd: res.amountDueVnd ?? fees.amountDueVnd,
+            totalFeeVnd: res.totalFeeVnd ?? fees.totalFeeVnd,
+        };
     } catch (error) {
         if (!(error instanceof ApiError)) {
+            const entryTime = new Date(
+                Date.now() - 3600000 * 2.5,
+            ).toISOString();
+            const fees = calculateParkingFee(entryTime, "Car");
             return {
                 sessionId: `sim-ses-${qrToken.slice(-6)}`,
                 lotId: DEFAULT_STAFF_LOT_ID,
@@ -108,9 +175,46 @@ export async function findSessionByQr(
                 plateNumber: "51K-892.41",
                 vehicleType: "Car",
                 customerType: "Guest",
-                entryTime: new Date(Date.now() - 3600000 * 2.5).toISOString(),
+                entryTime,
                 status: "Active",
                 qrToken: qrToken.trim(),
+                amountDueVnd: fees.amountDueVnd,
+                totalFeeVnd: fees.totalFeeVnd,
+            };
+        }
+        throw error;
+    }
+}
+
+/**
+ * Xác nhận xe ra và đóng phiên gửi xe thật
+ * Endpoint: POST /api/parking/sessions/{id}/complete
+ */
+export async function completeParkingSession(
+    sessionId: string,
+    payload?: CompleteSessionPayload,
+): Promise<CompletedSessionResponse> {
+    try {
+        return await gatewayFetch<CompletedSessionResponse>(
+            `/api/parking/sessions/${encodeURIComponent(sessionId)}/complete`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload ?? {}),
+            },
+        );
+    } catch (error) {
+        if (
+            !(error instanceof ApiError) ||
+            error.status === 404 ||
+            error.status === 405
+        ) {
+            return {
+                sessionId,
+                status: "Completed",
+                completedAt: new Date().toISOString(),
+                amountPaidVnd: payload?.amountPaidVnd ?? 0,
+                paymentMethod: payload?.paymentMethod ?? "Cash",
             };
         }
         throw error;

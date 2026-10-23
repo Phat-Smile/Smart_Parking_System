@@ -7,12 +7,16 @@ import {
     formatDateTime,
     formatVnd,
 } from "./StaffUi";
-import { describeStaffError, findSessionByQr } from "./staffApi";
+import {
+    completeParkingSession,
+    describeStaffError,
+    findSessionByQr,
+} from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { SessionByQrResponse, StaffSession } from "./types";
 
 export function StaffExitPage() {
-    const { activeSessions, completeExit } = useStaffData();
+    const { completeExit } = useStaffData();
 
     // Inputs
     const [qrInput, setQrInput] = useState("QR-GUEST-51K-89241");
@@ -61,42 +65,31 @@ export function StaffExitPage() {
         setPaymentSuccess(false);
 
         try {
-            // First look in live local sessions
-            const local = activeSessions.find(
-                (s) => s.qrToken.toLowerCase() === qrInput.trim().toLowerCase(),
+            // Call real endpoint GET /api/parking/sessions/by-qr/{qrToken}
+            const res: SessionByQrResponse = await findSessionByQr(
+                qrInput.trim(),
             );
-
-            if (local) {
-                setScannedSession(local);
-                setDetectedExitPlate(local.plateNumber);
-                if (
-                    local.amountDueVnd === 0 &&
-                    local.paymentStatus === "Paid"
-                ) {
-                    setPaymentSuccess(true);
-                }
-            } else {
-                // Call real endpoint GET /api/parking/sessions/by-qr/{qrToken}
-                const res: SessionByQrResponse = await findSessionByQr(
-                    qrInput.trim(),
-                );
-                const simulated: StaffSession = {
-                    id: res.sessionId,
-                    lotId: res.lotId,
-                    plateNumber: res.plateNumber,
-                    vehicleType: res.vehicleType,
-                    customerType: res.customerType,
-                    entryTime: res.entryTime,
-                    status: res.status,
-                    qrToken: res.qrToken,
-                    slotCode: "B1-B10",
-                    paymentStatus: "Pending",
-                    totalFeeVnd: 60000,
-                    prepaidVnd: 0,
-                    amountDueVnd: 60000,
-                };
-                setScannedSession(simulated);
-                setDetectedExitPlate(res.plateNumber);
+            const fee = res.amountDueVnd ?? 60000;
+            const isReg = res.customerType === "Registered";
+            const scanned: StaffSession = {
+                id: res.sessionId,
+                lotId: res.lotId,
+                plateNumber: res.plateNumber,
+                vehicleType: res.vehicleType,
+                customerType: res.customerType,
+                entryTime: res.entryTime,
+                status: res.status,
+                qrToken: res.qrToken,
+                slotCode: res.vehicleType === "Car" ? "B1-B10" : "B2-M12",
+                paymentStatus: isReg ? "Paid" : fee === 0 ? "Paid" : "Pending",
+                totalFeeVnd: res.totalFeeVnd ?? fee,
+                prepaidVnd: isReg ? fee : 0,
+                amountDueVnd: isReg ? 0 : fee,
+            };
+            setScannedSession(scanned);
+            setDetectedExitPlate(res.plateNumber);
+            if (scanned.amountDueVnd === 0) {
+                setPaymentSuccess(true);
             }
         } catch (err) {
             setErrorMsg(describeStaffError(err));
@@ -118,11 +111,26 @@ export function StaffExitPage() {
         setPaymentModal(null);
     }
 
-    // 3.18 Close Parking Session
-    function handleAuthorizeExit() {
+    // 3.18 Close Parking Session: Call real POST /api/parking/sessions/{id}/complete
+    async function handleAuthorizeExit() {
         if (!scannedSession || !canAllowExit) return;
-        completeExit(scannedSession.id, scannedSession.paymentMethod || "Cash");
-        setExitAllowed(true);
+        setLoading(true);
+        setErrorMsg("");
+        try {
+            await completeParkingSession(scannedSession.id, {
+                paymentMethod: scannedSession.paymentMethod || "Cash",
+                amountPaidVnd: scannedSession.totalFeeVnd,
+            });
+            completeExit(
+                scannedSession.id,
+                scannedSession.paymentMethod || "Cash",
+            );
+            setExitAllowed(true);
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setLoading(false);
+        }
     }
 
     function resetExitGate() {

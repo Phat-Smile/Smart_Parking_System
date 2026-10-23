@@ -6,7 +6,16 @@ import { PlateBadge, FormattedTime, formatVnd } from "./StaffUi";
 import { useStaffData } from "./staffData";
 
 export function StaffDashboardPage() {
-    const { occupancy, activities, issues, activeSessions } = useStaffData();
+    const {
+        occupancy,
+        activities,
+        assignedLot,
+        fetchAssignedLot,
+    } = useStaffData();
+
+    React.useEffect(() => {
+        fetchAssignedLot().catch(() => {});
+    }, [fetchAssignedLot]);
 
     const occupancyPercent = Math.min(
         100,
@@ -24,7 +33,9 @@ export function StaffDashboardPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">Staff Dashboard</h1>
+                    <h1 className="staff-title">
+                        Staff Dashboard — {assignedLot.lotName}
+                    </h1>
                     <p className="staff-subtitle">
                         Real-time gate traffic, slot capacity, and pending
                         verifications.

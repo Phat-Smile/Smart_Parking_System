@@ -1,8 +1,13 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { OccupancyStats, StaffSession, VerificationIssue } from "./types";
-import { DEFAULT_STAFF_LOT_ID } from "./staffApi";
+import type {
+    AssignedLotResponse,
+    OccupancyStats,
+    StaffSession,
+    VerificationIssue,
+} from "./types";
+import { DEFAULT_STAFF_LOT_ID, getAssignedLot } from "./staffApi";
 
 const initialSessions: StaffSession[] = [
     {
@@ -140,6 +145,16 @@ const initialActivities: GateActivity[] = [
     },
 ];
 
+let assignedLotState: AssignedLotResponse = {
+    lotId: DEFAULT_STAFF_LOT_ID,
+    lotName: "ParkWise Central Tower",
+    address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    availableMotorbikeSlots: 59,
+    availableCarSlots: 95,
+    totalCapacity: 240,
+    occupiedSlots: 86,
+};
+
 let sessionsState = [...initialSessions];
 let issuesState = [...initialIssues];
 let activitiesState = [...initialActivities];
@@ -153,9 +168,32 @@ export const staffStore = {
     getSessions: () => sessionsState,
     getIssues: () => issuesState,
     getActivities: () => activitiesState,
+    getAssignedLot: () => assignedLotState,
+
+    setAssignedLot: (lot: AssignedLotResponse) => {
+        assignedLotState = lot;
+        notify();
+    },
+
+    fetchAssignedLot: async () => {
+        const lot = await getAssignedLot();
+        assignedLotState = lot;
+        notify();
+        return lot;
+    },
 
     addSession: (session: StaffSession) => {
         sessionsState = [session, ...sessionsState];
+        if (
+            session.vehicleType === "Motorbike" &&
+            assignedLotState.availableMotorbikeSlots > 0
+        ) {
+            assignedLotState = {
+                ...assignedLotState,
+                availableMotorbikeSlots:
+                    assignedLotState.availableMotorbikeSlots - 1,
+            };
+        }
         activitiesState = [
             {
                 id: `act-${Date.now()}`,
@@ -172,6 +210,14 @@ export const staffStore = {
     },
 
     cancelSession: (sessionId: string) => {
+        const found = sessionsState.find((s) => s.id === sessionId);
+        if (found && found.vehicleType === "Motorbike") {
+            assignedLotState = {
+                ...assignedLotState,
+                availableMotorbikeSlots:
+                    assignedLotState.availableMotorbikeSlots + 1,
+            };
+        }
         sessionsState = sessionsState.map((s) =>
             s.id === sessionId ? { ...s, status: "Cancelled" as const } : s,
         );
@@ -183,7 +229,13 @@ export const staffStore = {
         paymentMethod: "Cash" | "VNPay" | "Wallet",
     ) => {
         const found = sessionsState.find((s) => s.id === sessionId);
-        if (!found) return;
+        if (found && found.vehicleType === "Motorbike") {
+            assignedLotState = {
+                ...assignedLotState,
+                availableMotorbikeSlots:
+                    assignedLotState.availableMotorbikeSlots + 1,
+            };
+        }
 
         sessionsState = sessionsState.map((s) =>
             s.id === sessionId
@@ -198,18 +250,20 @@ export const staffStore = {
                 : s,
         );
 
-        activitiesState = [
-            {
-                id: `act-${Date.now()}`,
-                type: "exit",
-                plateNumber: found.plateNumber,
-                vehicleType: found.vehicleType,
-                customerType: found.customerType,
-                timestamp: new Date().toISOString(),
-                amount: found.amountDueVnd,
-            },
-            ...activitiesState,
-        ];
+        if (found) {
+            activitiesState = [
+                {
+                    id: `act-${Date.now()}`,
+                    type: "exit",
+                    plateNumber: found.plateNumber,
+                    vehicleType: found.vehicleType,
+                    customerType: found.customerType,
+                    timestamp: new Date().toISOString(),
+                    amount: found.amountDueVnd,
+                },
+                ...activitiesState,
+            ];
+        }
         notify();
     },
 
@@ -244,21 +298,27 @@ export function useStaffData() {
         staffStore.getActivities,
         () => initialActivities,
     );
+    const assignedLot = useSyncExternalStore(
+        staffStore.subscribe,
+        staffStore.getAssignedLot,
+        () => assignedLotState,
+    );
 
     const activeSessions = sessions.filter((s) => s.status === "Active");
     const pendingIssues = issues.filter((i) => i.status === "Pending");
 
+    const totalCap = assignedLot.totalCapacity ?? 240;
+    const occupied = activeSessions.length + (assignedLot.occupiedSlots ?? 86);
+
     const occupancy: OccupancyStats = {
-        totalCapacity: 240,
-        occupied: activeSessions.length + 86, // base active in lot
-        carAvailable:
-            140 -
-            activeSessions.filter((s) => s.vehicleType === "Car").length -
-            45,
-        motorbikeAvailable:
-            100 -
-            activeSessions.filter((s) => s.vehicleType === "Motorbike").length -
-            41,
+        totalCapacity: totalCap,
+        occupied,
+        carAvailable: Math.max(
+            0,
+            (assignedLot.availableCarSlots ?? 95) -
+                activeSessions.filter((s) => s.vehicleType === "Car").length,
+        ),
+        motorbikeAvailable: Math.max(0, assignedLot.availableMotorbikeSlots),
         activeSessionsCount: activeSessions.length,
         needsVerificationCount: pendingIssues.length,
     };
@@ -269,6 +329,9 @@ export function useStaffData() {
         issues: pendingIssues,
         activities,
         occupancy,
+        assignedLot,
+        fetchAssignedLot: staffStore.fetchAssignedLot,
+        setAssignedLot: staffStore.setAssignedLot,
         addSession: staffStore.addSession,
         cancelSession: staffStore.cancelSession,
         completeExit: staffStore.completeExit,
