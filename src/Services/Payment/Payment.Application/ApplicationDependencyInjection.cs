@@ -9,9 +9,16 @@ public static class ApplicationDependencyInjection
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(typeof(ApplicationDependencyInjection).Assembly));
+        services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(
+            typeof(ApplicationDependencyInjection).Assembly));
+
         services.AddValidatorsFromAssembly(typeof(ApplicationDependencyInjection).Assembly);
+
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+        services.AddScoped<Features.Vnpay.Commands.ProcessVnpayIpn.IVnpayResultHandler, 
+            Features.Vnpay.Commands.ProcessVnpayIpn.WalletTopUpResultHandler>();
+
         return services;
     }
 }
