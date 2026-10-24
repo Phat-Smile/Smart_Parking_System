@@ -30,6 +30,8 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
 
     public DbSet<ParkingLayoutDocument> LayoutDocuments => Set<ParkingLayoutDocument>();
 
+    public DbSet<ParkingLayoutChangeRequest> LayoutChangeRequests => Set<ParkingLayoutChangeRequest>();
+
     public DbSet<Floor> Floors => Set<Floor>();
 
     public DbSet<Zone> Zones => Set<Zone>();

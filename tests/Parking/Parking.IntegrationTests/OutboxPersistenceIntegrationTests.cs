@@ -54,7 +54,7 @@ public sealed class OutboxPersistenceIntegrationTests(PostgreSqlContainerFixture
             "parking_sessions",
             "parking_slots",
             "pricing_policies",
-            "zones");
+            "zones", "parking_layout_change_requests");
 
         var probeMessageId = Guid.NewGuid();
         var inboxProbeBus = serviceProvider.GetRequiredService<IBusControl>();
