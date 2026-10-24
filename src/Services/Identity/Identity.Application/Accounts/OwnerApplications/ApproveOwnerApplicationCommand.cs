@@ -15,6 +15,8 @@ public sealed class ApproveOwnerApplicationCommandHandler(
     IAccountRepository accounts,
     IAuthSessionRepository authSessions,
     IRefreshTokenRepository refreshTokens,
+    IOwnerDocumentRepository documents,
+    IOwnerDocumentRequirements requirements,
     IOutboxWriter outboxWriter,
     IClock clock) : IRequestHandler<ApproveOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
 {
@@ -31,6 +33,20 @@ public sealed class ApproveOwnerApplicationCommandHandler(
 
             if (account.OwnerApplicationStatus != OwnerApplicationStatus.Pending)
                 return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.NotPending);
+
+            // The role is granted only for a complete checklist of the owner type the applicant chose. The row lock taken above queues
+            // an upload or a delete behind this decision, so the documents cannot change between the check and the approval.
+            if (account.OwnerType is not { } ownerType)
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeRequired);
+
+            // A stored number that is not an owner type has no checklist, and the lookup throws for it.
+            if (!Enum.IsDefined(ownerType))
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeInvalid);
+
+            var uploaded = await documents.ListByAccountAsync(account.Id, cancellationToken);
+            var missing = requirements.GetMissingRequiredDocuments(ownerType, uploaded.Select(document => document.DocumentType));
+            if (missing.Count > 0)
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.DocumentsIncomplete);
 
             var now = clock.UtcNow;
             account.ApproveOwnerApplication(request.AdminId, now);

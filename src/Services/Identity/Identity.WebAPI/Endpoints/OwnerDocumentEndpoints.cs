@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
 using ParkingSystem.Identity.Domain.Accounts;
+using ParkingSystem.Identity.WebAPI.Security;
 
 namespace ParkingSystem.Identity.WebAPI.Endpoints;
 
@@ -238,6 +240,79 @@ internal static class OwnerDocumentEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
 
+        // WP-B: Admin xem giấy tờ của một hồ sơ chủ bãi, kèm kết quả đối chiếu checklist.
+        app.MapGet("/api/identity/admin/owner-applications/{id:guid}/documents", async (
+                Guid id,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new GetOwnerApplicationDocumentsQuery(id), cancellationToken);
+                if (!result.IsSuccess)
+                    return ReviewNotFound(result.Error!);
+
+                MarkPrivate(httpContext);
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("ListOwnerApplicationDocumentsForAdmin")
+            .WithSummary("Admin xem giấy tờ của hồ sơ chủ bãi và kết quả đối chiếu checklist")
+            .Produces<OwnerApplicationDocumentsDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // WP-B: Admin tải về một giấy tờ (file riêng tư: chỉ đọc qua route này, không có đường dẫn công khai).
+        app.MapGet("/api/identity/admin/owner-applications/{id:guid}/documents/{documentType}", async (
+                Guid id,
+                string documentType,
+                HttpContext httpContext,
+                ICurrentUser currentUser,
+                ILoggerFactory loggerFactory,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new GetOwnerApplicationDocumentContentQuery(id, documentType), cancellationToken);
+                if (!result.IsSuccess)
+                    return ReviewNotFound(result.Error!);
+
+                var content = result.Value!;
+
+                // Opening a person's papers leaves a trace: who, whose application, which type. The file name is the applicant's
+                // own text and the type below is the checklist's spelling, so neither can inject into the log line.
+                loggerFactory.CreateLogger("ParkingSystem.Identity.OwnerDocumentReview").LogInformation(
+                    "Admin {AdminId} opened document {DocumentType} of owner application {AccountId}.",
+                    currentUser.SubjectId,
+                    content.DocumentType,
+                    id);
+
+                MarkPrivate(httpContext);
+                return Results.File(content.Content, content.ContentType, content.FileName);
+            })
+            .RequireAuthorization(IdentityAuthorization.AdminPolicy)
+            .WithTags("7. Hồ sơ Chủ bãi (Owner Applications)")
+            .WithName("DownloadOwnerApplicationDocumentForAdmin")
+            .WithSummary("Admin tải giấy tờ của hồ sơ chủ bãi")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         return app;
+    }
+
+    private static IResult ReviewNotFound(Error error) =>
+        Results.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: error.Message,
+            detail: error.Message,
+            extensions: new Dictionary<string, object?> { ["errorCode"] = error.Code });
+
+    // Identity papers: neither a browser cache nor a shared cache keeps them, and the browser does not guess a type for the bytes.
+    private static void MarkPrivate(HttpContext httpContext)
+    {
+        httpContext.Response.Headers.CacheControl = "no-store, private";
+        httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
     }
 }

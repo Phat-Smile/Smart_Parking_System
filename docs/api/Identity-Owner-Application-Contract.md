@@ -36,8 +36,12 @@ stateDiagram-v2
 | `GET` | `/api/identity/accounts/me/owner-application` | `Bearer <token>` | Chủ bãi xem trạng thái đơn và lý do từ chối (nếu có) |
 | `POST` | `/api/identity/accounts/me/owner-application/resubmit` | `Bearer <token>` | Chủ bãi nộp lại đơn khi đang ở trạng thái `Rejected` |
 | `GET` | `/api/identity/admin/owner-applications` | `Admin` | Quản trị viên tra cứu danh sách đơn phân trang |
-| `POST` | `/api/identity/admin/owner-applications/{id}/approve` | `Admin` | Quản trị viên duyệt cấp quyền Chủ bãi |
+| `GET` | `/api/identity/admin/owner-applications/{id}/documents` | `Admin` | Quản trị viên xem giấy tờ của đơn, kèm kết quả đối chiếu checklist |
+| `GET` | `/api/identity/admin/owner-applications/{id}/documents/{documentType}` | `Admin` | Quản trị viên tải một giấy tờ |
+| `POST` | `/api/identity/admin/owner-applications/{id}/approve` | `Admin` | Quản trị viên duyệt cấp quyền Chủ bãi (chỉ khi đủ giấy tờ bắt buộc) |
 | `POST` | `/api/identity/admin/owner-applications/{id}/reject` | `Admin` | Quản trị viên từ chối đơn kèm lý do |
+
+Chọn loại chủ thể, checklist và tải giấy tờ lên: xem [Identity-Owner-Documents.md](Identity-Owner-Documents.md).
 
 ---
 
@@ -169,6 +173,7 @@ stateDiagram-v2
 
 ### 3.5. Admin Phê duyệt (`POST /api/identity/admin/owner-applications/{id}/approve`)
 * **Auth:** `Bearer <admin_token>`
+* **Điều kiện:** đơn đang `Pending`, đã chọn loại chủ thể và đã có đủ mọi giấy tờ bắt buộc của loại đó (xem [Identity-Owner-Documents.md](Identity-Owner-Documents.md) mục 4). Không đạt thì trả `409` và không đổi gì: đơn vẫn `Pending`, vai trò vẫn là Customer, phiên đăng nhập không bị thu hồi, không phát sự kiện.
 * **Hành vi nghiệp vụ:**
   1. Chuyển `OwnerApplicationStatus` sang `Approved`.
   2. Gán vai trò tài khoản thành `ParkingLotOwner`.
@@ -179,7 +184,7 @@ stateDiagram-v2
 {
   "accountId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "status": "Approved",
-  "message": "Hồ sơ chủ bãi đã được phê duyệt thành công. Phiên đăng nhập cũ của người dùng đã được thu hồi."
+  "message": "Hồ sơ chủ bãi đã được phê duyệt thành công. Người dùng cần đăng nhập lại để nhận quyền Chủ bãi."
 }
 ```
 
@@ -217,6 +222,9 @@ stateDiagram-v2
 | `409 Conflict` | `identity.owner_application_not_pending` | Đơn không ở trạng thái `Pending` khi Admin cố duyệt/từ chối |
 | `409 Conflict` | `identity.owner_application_not_rejected` | Đơn không ở trạng thái `Rejected` khi chủ bãi gọi `resubmit` |
 | `409 Conflict` | `identity.cannot_approve_own_application` | Admin không được tự phê duyệt đơn chủ bãi của chính mình |
+| `409 Conflict` | `identity.owner_type_required` | Khi duyệt: đơn chưa chọn loại chủ thể nên chưa có checklist |
+| `409 Conflict` | `identity.owner_type_invalid` | Khi duyệt: loại chủ thể lưu trong dữ liệu không hợp lệ (dữ liệu hỏng) |
+| `409 Conflict` | `identity.owner_documents_incomplete` | Khi duyệt: còn thiếu giấy tờ bắt buộc của loại chủ thể |
 
 ---
 
@@ -253,6 +261,7 @@ export interface MyOwnerApplicationResponse {
   businessName: string | null;
   rejectionReason: string | null;
   reviewedAtUtc: string | null;
+  ownerType: "Individual" | "HouseholdBusiness" | "Enterprise" | null;
 }
 
 export interface OwnerApplicationItem {

@@ -66,6 +66,9 @@ public static class OwnerApplicationErrors
 
     public static readonly Error DocumentsIncomplete =
         new("identity.owner_documents_incomplete", "Hồ sơ chưa nộp đủ các giấy tờ bắt buộc theo quy định.");
+
+    public static readonly Error DocumentFileUnavailable =
+        new("identity.owner_document_file_unavailable", "Không đọc được tệp của giấy tờ này. Vui lòng yêu cầu chủ bãi tải lại giấy tờ.");
 }
 
 public sealed record OwnerApplicationActionResult(
