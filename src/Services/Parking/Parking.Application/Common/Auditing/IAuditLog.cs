@@ -28,4 +28,7 @@ public static class AuditActions
     public const string ParkingLotRejected = "parking_lot.rejected";
     public const string ParkingLotOpeningHoursUpdated = "parking_lot.opening_hours_updated";
     public const string ParkingLayoutUpdated = "parking.layout.updated";
+    public const string ParkingLayoutReviewSubmitted = "parking.layout.review_submitted";
+    public const string ParkingLayoutReviewApproved = "parking.layout.review_approved";
+    public const string ParkingLayoutReviewRejected = "parking.layout.review_rejected";
 }

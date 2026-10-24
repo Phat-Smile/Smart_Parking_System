@@ -82,6 +82,7 @@ app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();
 app.MapPricingEndpoints();
 app.MapParkingLayoutOwnerEndpoints();
+app.MapParkingLayoutReviewEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)

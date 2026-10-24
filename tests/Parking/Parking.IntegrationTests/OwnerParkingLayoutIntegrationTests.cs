@@ -5,6 +5,7 @@ using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
+using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Testing;
 using Xunit;
@@ -114,6 +115,198 @@ public sealed class OwnerParkingLayoutIntegrationTests(PostgreSqlContainerFixtur
         Assert.True((await SaveAsync(provider, lotId, ownerId, 0, [floor], ct)).IsSuccess);
         var stale = await SaveAsync(provider, lotId, ownerId, 0, [floor with { Name = "Changed" }], ct);
         Assert.Equal(ParkingLayoutErrors.StaleVersion, stale.Error);
+    }
+
+    [Fact]
+    public async Task Approved_lot_put_creates_pending_review_without_changing_active_layout()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Original", []);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await ApproveLotAsync(provider, lot, ct);
+
+        var proposed = floor with { Name = "After review" };
+        var submitted = await SaveAsync(provider, lot, owner, 1, [proposed], ct);
+        Assert.True(submitted.IsSuccess, submitted.Error?.Message);
+        Assert.Equal(1, submitted.Value!.Version);
+        var review = Assert.IsType<LayoutReviewSubmission>(submitted.Value.PendingReview);
+        Assert.Equal("Pending", review.Status);
+        Assert.Equal("Original", Assert.Single(submitted.Value.Floors).Name);
+        Assert.Empty(submitted.Value.Warnings);
+
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        Assert.Equal(1, (await db.LayoutDocuments.AsNoTracking().SingleAsync(d => d.LotId == lot, ct)).Version);
+        Assert.Equal("Original", (await db.Floors.AsNoTracking().SingleAsync(f => f.LotId == lot, ct)).Name);
+        Assert.Equal(ParkingLayoutChangeStatus.Pending,
+            (await db.LayoutChangeRequests.AsNoTracking().SingleAsync(r => r.Id == review.RequestId, ct)).Status);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        Assert.Contains(await sender.Send(new ListPendingLayoutReviewsQuery(), ct), r =>
+            r.RequestId == review.RequestId && Assert.Single(r.ProposedFloors).Name == "After review");
+        var duplicate = await SaveAsync(provider, lot, owner, 1, [proposed], ct);
+        Assert.Equal(LayoutReviewErrors.PendingAlreadyExists, duplicate.Error);
+    }
+
+    [Fact]
+    public async Task Admin_approve_applies_layout_and_request_status_together()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Original", []);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await ApproveLotAsync(provider, lot, ct);
+        var submission = await SaveAsync(provider, lot, owner, 1, [floor with { Name = "Renamed" }], ct);
+        var id = submission.Value!.PendingReview!.RequestId;
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            var result = await sender.Send(new ReviewLayoutChangeCommand(lot, id, Guid.NewGuid(), true, null), ct);
+            Assert.True(result.IsSuccess, result.Error?.Message);
+            Assert.Equal("Approved", result.Value!.Request.Status);
+            Assert.Equal(2, result.Value.ActiveLayout!.Version);
+            Assert.Equal("Renamed", Assert.Single(result.Value.ActiveLayout.Floors).Name);
+        }
+        await using var verification = provider.CreateAsyncScope();
+        var db = verification.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        Assert.Equal(ParkingLayoutChangeStatus.Approved,
+            (await db.LayoutChangeRequests.AsNoTracking().SingleAsync(r => r.Id == id, ct)).Status);
+        Assert.Equal(2, (await db.LayoutDocuments.AsNoTracking().SingleAsync(d => d.LotId == lot, ct)).Version);
+        Assert.DoesNotContain(await verification.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new ListPendingLayoutReviewsQuery(), ct), r => r.RequestId == id);
+    }
+
+    [Fact]
+    public async Task Admin_reject_keeps_active_layout_and_second_review_conflicts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Ground", []);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await ApproveLotAsync(provider, lot, ct);
+        var proposal = await SaveAsync(provider, lot, owner, 1, [floor with { Name = "Unapproved" }], ct);
+        var requestId = proposal.Value!.PendingReview!.RequestId;
+        await using var scope = provider.CreateAsyncScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var denied = await sender.Send(new ReviewLayoutChangeCommand(lot, requestId, Guid.NewGuid(), false, "No"), ct);
+        Assert.True(denied.IsSuccess, denied.Error?.Message);
+        Assert.Null(denied.Value!.ActiveLayout);
+        var again = await sender.Send(new ReviewLayoutChangeCommand(lot, requestId, Guid.NewGuid(), true, null), ct);
+        Assert.Equal(LayoutReviewErrors.AlreadyReviewed, again.Error);
+        var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        Assert.Equal("Ground", (await db.Floors.AsNoTracking().SingleAsync(f => f.LotId == lot, ct)).Name);
+        Assert.Equal(1, (await db.LayoutDocuments.AsNoTracking().SingleAsync(d => d.LotId == lot, ct)).Version);
+    }
+
+    [Fact]
+    public async Task Stale_version_on_review_does_not_approve_or_change_operational_layout()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Ground", []);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await ApproveLotAsync(provider, lot, ct);
+        var request = await SaveAsync(provider, lot, owner, 1, [floor with { Name = "Proposed" }], ct);
+        var requestId = request.Value!.PendingReview!.RequestId;
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE parking.parking_layout_documents SET version = 2 WHERE lot_id = {lot}", ct);
+        }
+        await using var reviewScope = provider.CreateAsyncScope();
+        var sender = reviewScope.ServiceProvider.GetRequiredService<ISender>();
+        var result = await sender.Send(new ReviewLayoutChangeCommand(lot, requestId, Guid.NewGuid(), true, null), ct);
+        Assert.Equal(ParkingLayoutErrors.StaleVersion, result.Error);
+        var verify = reviewScope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        Assert.Equal(ParkingLayoutChangeStatus.Pending,
+            (await verify.LayoutChangeRequests.AsNoTracking().SingleAsync(r => r.Id == requestId, ct)).Status);
+        Assert.Equal("Ground", (await verify.Floors.AsNoTracking().SingleAsync(f => f.LotId == lot, ct)).Name);
+    }
+
+    [Fact]
+    public async Task Invalid_operational_edit_at_review_keeps_request_pending_and_data_unchanged()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var slot = new LayoutSlotInput(Guid.NewGuid(), "C-01", null, new GridPoint(0, 0));
+        var zone = new LayoutZoneInput(Guid.NewGuid(), "C", "Car", 2, false, [slot]);
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Ground", [zone]);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await ApproveLotAsync(provider, lot, ct);
+        // This is syntactically valid, but removing an existing slot is forbidden during apply.
+        var removed = floor with { Zones = [zone with { Slots = [] }] };
+        var request = await SaveAsync(provider, lot, owner, 1, [removed], ct);
+        Assert.True(request.IsSuccess, request.Error?.Message);
+        var id = request.Value!.PendingReview!.RequestId;
+        await using var scope = provider.CreateAsyncScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new ReviewLayoutChangeCommand(lot, id, Guid.NewGuid(), true, null), ct);
+        Assert.Equal(ParkingLayoutErrors.Conflict, result.Error);
+        var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        Assert.Equal(ParkingLayoutChangeStatus.Pending,
+            (await db.LayoutChangeRequests.AsNoTracking().SingleAsync(r => r.Id == id, ct)).Status);
+        Assert.Equal(1, await db.ParkingSlots.AsNoTracking().CountAsync(s => s.LotId == lot, ct));
+        Assert.Equal(1, (await db.LayoutDocuments.AsNoTracking().SingleAsync(d => d.LotId == lot, ct)).Version);
+    }
+
+    [Fact]
+    public async Task Database_failure_while_marking_approved_rolls_back_active_layout_changes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Before", []);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await ApproveLotAsync(provider, lot, ct);
+        var proposal = await SaveAsync(provider, lot, owner, 1, [floor with { Name = "After" }], ct);
+        var id = proposal.Value!.PendingReview!.RequestId;
+
+        // Force the *second* SaveChanges (status=Approved) to fail after SaveActiveAsync saves.
+        // The per-request check is cleaned up; no shared fixtures or other requests are changed.
+        const string constraint = "ck_test_layout_review_atomicity";
+        var guard = $"ALTER TABLE parking.parking_layout_change_requests ADD CONSTRAINT {constraint} " +
+            $"CHECK (id <> '{id:D}'::uuid OR status <> 'Approved')";
+        await using (var setup = provider.CreateAsyncScope())
+        {
+            await setup.ServiceProvider.GetRequiredService<ParkingDbContext>()
+                .Database.ExecuteSqlRawAsync(guard, ct);
+        }
+        try
+        {
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+                await Assert.ThrowsAsync<DbUpdateException>(async () =>
+                {
+                    await sender.Send(new ReviewLayoutChangeCommand(lot, id, Guid.NewGuid(), true, null), ct);
+                });
+            }
+            await using var verification = provider.CreateAsyncScope();
+            var db = verification.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            Assert.Equal("Before", (await db.Floors.AsNoTracking().SingleAsync(f => f.LotId == lot, ct)).Name);
+            Assert.Equal(1, (await db.LayoutDocuments.AsNoTracking().SingleAsync(d => d.LotId == lot, ct)).Version);
+            Assert.Equal(ParkingLayoutChangeStatus.Pending,
+                (await db.LayoutChangeRequests.AsNoTracking().SingleAsync(r => r.Id == id, ct)).Status);
+        }
+        finally
+        {
+            await using var cleanup = provider.CreateAsyncScope();
+            await cleanup.ServiceProvider.GetRequiredService<ParkingDbContext>()
+                .Database.ExecuteSqlRawAsync($"ALTER TABLE parking.parking_layout_change_requests DROP CONSTRAINT {constraint}", CancellationToken.None);
+        }
+    }
+
+    private static async Task ApproveLotAsync(ServiceProvider provider, Guid lot, CancellationToken ct)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE parking.parking_lots SET approval_status = 'Approved' WHERE id = {lot}", ct);
     }
 
     private async Task<ServiceProvider> CreateProviderAsync(CancellationToken ct)

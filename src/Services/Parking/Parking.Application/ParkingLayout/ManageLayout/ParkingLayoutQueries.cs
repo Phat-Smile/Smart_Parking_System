@@ -35,10 +35,13 @@ public sealed class SaveParkingLayoutCommandHandler(
         var invalid = ParkingLayoutInputValidator.Validate(request.Floors);
         if (invalid is not null)
             return Result<ParkingLotLayout>.Failure(invalid);
-        var conflict = await repository.SaveAsync(request.LotId, request.ActorId, request.ExpectedVersion, request.Floors!, cancellationToken);
-        if (conflict is not null)
-            return Result<ParkingLotLayout>.Failure(conflict);
+        var outcome = await repository.SaveAsync(request.LotId, request.ActorId, request.ExpectedVersion, request.Floors!, cancellationToken);
+        if (outcome.Error is not null)
+            return Result<ParkingLotLayout>.Failure(outcome.Error);
         var layout = await repository.ReadAsync(request.LotId, cancellationToken);
+        // A submitted proposal does not alter availability. Check held quota only after application.
+        if (outcome.PendingReview is not null)
+            return Result<ParkingLotLayout>.Success(layout with { PendingReview = outcome.PendingReview });
         var warning = await shortageCheck.CheckAsync(request.LotId, cancellationToken);
         return Result<ParkingLotLayout>.Success(layout with
         {

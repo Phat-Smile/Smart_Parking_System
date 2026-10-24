@@ -70,6 +70,63 @@ public sealed class OwnerLayoutQuotaWarningTests
         Assert.Empty(result.Value!.Warnings);
     }
 
+    [Fact]
+    public async Task Approved_lot_submission_reports_pending_without_computing_quota()
+    {
+        var lotId = Guid.NewGuid();
+        var submission = new LayoutReviewSubmission(Guid.NewGuid(), lotId, 0, "Pending", DateTimeOffset.UtcNow);
+        var repo = new FakeRepository(lotId) { PendingReview = submission };
+        var check = new FakeCheck(new CapacityWarning("x", "x", 1, 2));
+        var result = await new SaveParkingLayoutCommandHandler(repo, check)
+            .Handle(new SaveParkingLayoutCommand(lotId, Guid.NewGuid(), 0, ValidLayout()), CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(submission.RequestId, result.Value!.PendingReview?.RequestId);
+        Assert.Empty(result.Value.Warnings);
+        Assert.Equal(0, check.Calls);
+    }
+
+    [Fact]
+    public async Task Admin_approval_checks_quota_only_after_review_succeeds()
+    {
+        var lotId = Guid.NewGuid();
+        var review = new LayoutReviewSubmission(Guid.NewGuid(), lotId, 1, "Approved", DateTimeOffset.UtcNow);
+        var repo = new FakeRepository(lotId) { ReviewResult = new ReviewLayoutOutcome(Review: review) };
+        var check = new FakeCheck(new CapacityWarning("x", "x", 1, 2));
+        var result = await new ReviewLayoutChangeCommandHandler(repo, check)
+            .Handle(new ReviewLayoutChangeCommand(lotId, review.RequestId, Guid.NewGuid(), true, null), CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value!.ActiveLayout);
+        Assert.Single(result.Value.Warnings);
+        Assert.Equal(1, check.Calls);
+    }
+
+    [Fact]
+    public async Task Admin_rejection_keeps_active_layout_unread_and_does_not_check_quota()
+    {
+        var lotId = Guid.NewGuid();
+        var review = new LayoutReviewSubmission(Guid.NewGuid(), lotId, 1, "Rejected", DateTimeOffset.UtcNow);
+        var repo = new FakeRepository(lotId) { ReviewResult = new ReviewLayoutOutcome(Review: review) };
+        var check = new FakeCheck(null);
+        var result = await new ReviewLayoutChangeCommandHandler(repo, check)
+            .Handle(new ReviewLayoutChangeCommand(lotId, review.RequestId, Guid.NewGuid(), false, "Bad layout"), CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value!.ActiveLayout);
+        Assert.Empty(result.Value.Warnings);
+        Assert.Equal(0, check.Calls);
+    }
+
+    [Fact]
+    public async Task Invalid_review_reason_never_reaches_repository()
+    {
+        var lotId = Guid.NewGuid();
+        var repo = new FakeRepository(lotId);
+        var check = new FakeCheck(null);
+        var result = await new ReviewLayoutChangeCommandHandler(repo, check)
+            .Handle(new ReviewLayoutChangeCommand(lotId, Guid.NewGuid(), Guid.NewGuid(), false, " "), CancellationToken.None);
+        Assert.Equal(LayoutReviewErrors.InvalidDecision, result.Error);
+        Assert.Equal(0, repo.ReviewCalls);
+    }
+
     private static LayoutFloorInput[] ValidLayout() =>
     [
         new LayoutFloorInput(Guid.NewGuid(), "Ground",
@@ -82,6 +139,9 @@ public sealed class OwnerLayoutQuotaWarningTests
     {
         public int SaveCalls { get; private set; }
         public Error? SaveError { get; init; }
+        public LayoutReviewSubmission? PendingReview { get; init; }
+        public ReviewLayoutOutcome ReviewResult { get; init; } = new(LayoutReviewErrors.NotFound);
+        public int ReviewCalls { get; private set; }
 
         public Task<bool> LotExistsAsync(Guid requestedLotId, CancellationToken cancellationToken) =>
             Task.FromResult(requestedLotId == lotId);
@@ -92,11 +152,21 @@ public sealed class OwnerLayoutQuotaWarningTests
         public Task<ParkingLotLayout> ReadAsync(Guid requestedLotId, CancellationToken cancellationToken) =>
             Task.FromResult(new ParkingLotLayout(lotId, 1, []));
 
-        public Task<Error?> SaveAsync(Guid requestedLotId, Guid actorId, int expectedVersion,
+        public Task<SaveLayoutOutcome> SaveAsync(Guid requestedLotId, Guid actorId, int expectedVersion,
             IReadOnlyList<LayoutFloorInput> floors, CancellationToken cancellationToken)
         {
             SaveCalls++;
-            return Task.FromResult(SaveError);
+            return Task.FromResult(new SaveLayoutOutcome(SaveError, PendingReview));
+        }
+
+        public Task<IReadOnlyList<LayoutReviewRequest>> ListPendingReviewsAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<LayoutReviewRequest>>([]);
+
+        public Task<ReviewLayoutOutcome> ReviewAsync(Guid lot, Guid requestId, Guid adminId,
+            bool approve, string? reason, CancellationToken ct)
+        {
+            ReviewCalls++;
+            return Task.FromResult(ReviewResult);
         }
     }
 

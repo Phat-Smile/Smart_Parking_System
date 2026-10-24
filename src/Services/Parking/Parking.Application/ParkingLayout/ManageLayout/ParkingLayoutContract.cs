@@ -18,6 +18,7 @@ public sealed record LayoutFloor(Guid Id, string Name, IReadOnlyList<LayoutZone>
 public sealed record ParkingLotLayout(Guid LotId, int Version, IReadOnlyList<LayoutFloor> Floors)
 {
     public IReadOnlyList<CapacityWarning> Warnings { get; init; } = [];
+    public LayoutReviewSubmission? PendingReview { get; init; }
 }
 
 public static class ParkingLayoutErrors

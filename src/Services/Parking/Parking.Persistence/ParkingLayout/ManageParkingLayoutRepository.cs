@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -49,7 +50,110 @@ internal sealed class ManageParkingLayoutRepository(ParkingDbContext db, IAuditL
         )).ToArray());
     }
 
-    public async Task<Error?> SaveAsync(Guid lotId, Guid actorId, int expectedVersion, IReadOnlyList<LayoutFloorInput> floors, CancellationToken cancellationToken)
+    public async Task<SaveLayoutOutcome> SaveAsync(Guid lotId, Guid actorId, int expectedVersion,
+        IReadOnlyList<LayoutFloorInput> floors, CancellationToken cancellationToken)
+    {
+        // Serializable isolation prevents an approval-status change racing a direct Layout save.
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        try
+        {
+            var lot = await db.ParkingLots.AsNoTracking().SingleOrDefaultAsync(l => l.Id == lotId, cancellationToken);
+            if (lot is null) return new SaveLayoutOutcome(ParkingLayoutErrors.LotNotFound);
+
+            if (lot.ApprovalStatus == ParkingLotApprovalStatus.Approved)
+            {
+                var version = await db.LayoutDocuments.AsNoTracking().Where(d => d.LotId == lotId)
+                    .Select(d => (int?)d.Version).SingleOrDefaultAsync(cancellationToken) ?? 0;
+                if (version != expectedVersion) return new SaveLayoutOutcome(ParkingLayoutErrors.StaleVersion);
+                if (await db.LayoutChangeRequests.AnyAsync(r => r.LotId == lotId &&
+                    r.Status == ParkingLayoutChangeStatus.Pending, cancellationToken))
+                    return new SaveLayoutOutcome(LayoutReviewErrors.PendingAlreadyExists);
+
+                var proposal = ParkingLayoutChangeRequest.Submit(Guid.NewGuid(), lotId, actorId, version,
+                    JsonSerializer.Serialize(floors), clock.UtcNow);
+                db.LayoutChangeRequests.Add(proposal);
+                audit.Record(new AuditEntry(AuditActions.ParkingLayoutReviewSubmitted, actorId, lotId,
+                    nameof(ParkingLayoutChangeRequest), proposal.Id.ToString(), null, clock.UtcNow));
+                await db.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return new SaveLayoutOutcome(PendingReview: ToSummary(proposal));
+            }
+
+            var conflict = await SaveActiveAsync(lotId, actorId, expectedVersion, floors, cancellationToken);
+            if (conflict is not null) return new SaveLayoutOutcome(conflict);
+            await transaction.CommitAsync(cancellationToken);
+            return new SaveLayoutOutcome();
+        }
+        catch (DbUpdateConcurrencyException) { return new SaveLayoutOutcome(LayoutReviewErrors.ConcurrencyConflict); }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        { return new SaveLayoutOutcome(LayoutReviewErrors.PendingAlreadyExists); }
+        catch (PostgresException e) when (e.SqlState is PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected)
+        { return new SaveLayoutOutcome(LayoutReviewErrors.ConcurrencyConflict); }
+    }
+
+    public async Task<IReadOnlyList<LayoutReviewRequest>> ListPendingReviewsAsync(CancellationToken cancellationToken)
+    {
+        var requests = await db.LayoutChangeRequests.AsNoTracking()
+            .Where(r => r.Status == ParkingLayoutChangeStatus.Pending)
+            .OrderBy(r => r.RequestedAtUtc).ToListAsync(cancellationToken);
+        return requests.Select(r => new LayoutReviewRequest(r.Id, r.LotId, r.RequestedBy,
+            r.ExpectedVersion, r.RequestedAtUtc,
+            JsonSerializer.Deserialize<LayoutFloorInput[]>(r.ProposedLayoutJson) ?? [])).ToArray();
+    }
+
+    public async Task<ReviewLayoutOutcome> ReviewAsync(Guid lotId, Guid requestId, Guid adminId,
+        bool approve, string? reason, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        try
+        {
+            var request = await db.LayoutChangeRequests.SingleOrDefaultAsync(r => r.Id == requestId &&
+                r.LotId == lotId, cancellationToken);
+            if (request is null) return new ReviewLayoutOutcome(LayoutReviewErrors.NotFound);
+            if (request.Status != ParkingLayoutChangeStatus.Pending)
+                return new ReviewLayoutOutcome(LayoutReviewErrors.AlreadyReviewed);
+            var lot = await db.ParkingLots.AsNoTracking().SingleOrDefaultAsync(l => l.Id == lotId, cancellationToken);
+            if (lot?.ApprovalStatus != ParkingLotApprovalStatus.Approved)
+                return new ReviewLayoutOutcome(LayoutReviewErrors.LotNotApproved);
+
+            if (approve)
+            {
+                LayoutFloorInput[]? proposed;
+                try { proposed = JsonSerializer.Deserialize<LayoutFloorInput[]>(request.ProposedLayoutJson); }
+                catch (JsonException) { return new ReviewLayoutOutcome(ParkingLayoutErrors.Conflict); }
+                if (ParkingLayoutInputValidator.Validate(proposed) is { } invalid)
+                    return new ReviewLayoutOutcome(invalid);
+                var conflict = await SaveActiveAsync(lotId, adminId, request.ExpectedVersion, proposed!, cancellationToken);
+                if (conflict is not null) return new ReviewLayoutOutcome(conflict);
+                request.Approve(adminId, clock.UtcNow);
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500)
+                    return new ReviewLayoutOutcome(LayoutReviewErrors.InvalidDecision);
+                request.Reject(adminId, reason, clock.UtcNow);
+            }
+
+            audit.Record(new AuditEntry(approve ? AuditActions.ParkingLayoutReviewApproved :
+                AuditActions.ParkingLayoutReviewRejected, adminId, lotId,
+                nameof(ParkingLayoutChangeRequest), request.Id.ToString(), reason, clock.UtcNow));
+            // SaveActiveAsync may have already called SaveChanges; both operations are covered by this transaction.
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new ReviewLayoutOutcome(Review: ToSummary(request));
+        }
+        catch (DbUpdateConcurrencyException) { return new ReviewLayoutOutcome(LayoutReviewErrors.ConcurrencyConflict); }
+        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        { return new ReviewLayoutOutcome(LayoutReviewErrors.ConcurrencyConflict); }
+        catch (PostgresException e) when (e.SqlState is PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected)
+        { return new ReviewLayoutOutcome(LayoutReviewErrors.ConcurrencyConflict); }
+    }
+
+    private static LayoutReviewSubmission ToSummary(ParkingLayoutChangeRequest request) =>
+        new(request.Id, request.LotId, request.ExpectedVersion, request.Status.ToString(), request.RequestedAtUtc);
+
+    private async Task<Error?> SaveActiveAsync(Guid lotId, Guid actorId, int expectedVersion,
+        IReadOnlyList<LayoutFloorInput> floors, CancellationToken cancellationToken)
     {
         // One SaveChanges for operational entities, JSON geometry, version and audit.
         var document = await db.LayoutDocuments.SingleOrDefaultAsync(d => d.LotId == lotId, cancellationToken);

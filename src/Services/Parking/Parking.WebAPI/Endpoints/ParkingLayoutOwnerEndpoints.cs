@@ -35,12 +35,17 @@ internal static class ParkingLayoutOwnerEndpoints
         {
             if (!Guid.TryParse(user.SubjectId, out var accountId)) return Results.Forbid();
             var result = await sender.Send(new SaveParkingLayoutCommand(lotId, accountId, request.ExpectedVersion, request.Floors), cancellationToken);
-            return result.IsSuccess ? Results.Ok(result.Value) : ToProblem(result.Error!, context);
+            return result.IsSuccess
+                ? result.Value!.PendingReview is null
+                    ? Results.Ok(result.Value)
+                    : Results.Json(result.Value, statusCode: StatusCodes.Status202Accepted)
+                : ToProblem(result.Error!, context);
         })
         .RequireAuthorization(ParkingAuthorization.OwnerPolicy)
         .WithName("SaveOwnerParkingLayout")
         .WithSummary("Save a layout without deleting or resetting existing operational slots")
         .Produces<ParkingLotLayout>(StatusCodes.Status200OK)
+        .Produces<ParkingLotLayout>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
