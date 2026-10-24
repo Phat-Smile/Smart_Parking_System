@@ -36,6 +36,7 @@ public static class ParkingLayoutInputValidator
         var zoneIds = new HashSet<Guid>();
         var slotIds = new HashSet<Guid>();
         var floorNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lotZoneCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var lotSlotCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var floor in floors)
@@ -45,17 +46,18 @@ public static class ParkingLayoutInputValidator
                 return Invalid("Each floor requires a unique non-empty ID and name (max 100 characters).");
             if (floor.Zones is null)
                 return Invalid("zones is required for every floor.");
-            var zoneCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var zone in floor.Zones)
             {
                 if (zone is null || zone.Id == Guid.Empty || !zoneIds.Add(zone.Id)
-                    || !ValidName(zone.Code, Zone.CodeMaxLength) || !zoneCodes.Add(zone.Code!.Trim()))
-                    return Invalid("Each zone requires a unique non-empty ID and code within its floor (max 50 characters).");
-                if (zone.Capacity < 0 || !Enum.GetNames<VehicleType>().Contains(zone.VehicleGroup, StringComparer.OrdinalIgnoreCase))
-                    return Invalid("Zone capacity must be >= 0 and vehicleGroup must be Car or Motorbike.");
+                    || !ValidName(zone.Code, Zone.CodeMaxLength) || !lotZoneCodes.Add(zone.Code!.Trim()))
+                    return Invalid("Each zone requires a unique non-empty ID and code within the parking lot (max 50 characters).");
+                if (zone.Capacity < 1 || !Enum.GetNames<VehicleType>().Contains(zone.VehicleGroup, StringComparer.OrdinalIgnoreCase))
+                    return Invalid("Zone capacity must be >= 1 and vehicleGroup must be Car or Motorbike.");
                 if (zone.Slots is null)
                     return Invalid("slots is required for every zone.");
                 var isCar = zone.VehicleGroup!.Equals(nameof(VehicleType.Car), StringComparison.OrdinalIgnoreCase);
+                if (!isCar && zone.HasSlotSensor)
+                    return Invalid("Motorbike zones must not have individual slot sensors.");
                 if (!isCar && zone.Slots.Count != 0)
                     return Invalid("Motorbike zones must not contain individual slots.");
                 if (isCar && zone.Slots.Count > zone.Capacity)
