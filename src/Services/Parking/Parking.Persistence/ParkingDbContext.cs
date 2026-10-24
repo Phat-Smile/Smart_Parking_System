@@ -16,6 +16,8 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
 
     public DbSet<PricingPolicy> PricingPolicies => Set<PricingPolicy>();
 
+    public DbSet<ReservationDepositPolicy> ReservationDepositPolicies => Set<ReservationDepositPolicy>();
+
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
