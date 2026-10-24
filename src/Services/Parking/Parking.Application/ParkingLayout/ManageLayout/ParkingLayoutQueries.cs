@@ -1,5 +1,6 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 
 namespace ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
 
@@ -21,7 +22,8 @@ public sealed class GetParkingLayoutQueryHandler(IManageParkingLayoutRepository 
     }
 }
 
-public sealed class SaveParkingLayoutCommandHandler(IManageParkingLayoutRepository repository)
+public sealed class SaveParkingLayoutCommandHandler(
+    IManageParkingLayoutRepository repository, IHeldQuotaShortageCheck shortageCheck)
     : IRequestHandler<SaveParkingLayoutCommand, Result<ParkingLotLayout>>
 {
     public async Task<Result<ParkingLotLayout>> Handle(SaveParkingLayoutCommand request, CancellationToken cancellationToken)
@@ -36,6 +38,11 @@ public sealed class SaveParkingLayoutCommandHandler(IManageParkingLayoutReposito
         var conflict = await repository.SaveAsync(request.LotId, request.ActorId, request.ExpectedVersion, request.Floors!, cancellationToken);
         if (conflict is not null)
             return Result<ParkingLotLayout>.Failure(conflict);
-        return Result<ParkingLotLayout>.Success(await repository.ReadAsync(request.LotId, cancellationToken));
+        var layout = await repository.ReadAsync(request.LotId, cancellationToken);
+        var warning = await shortageCheck.CheckAsync(request.LotId, cancellationToken);
+        return Result<ParkingLotLayout>.Success(layout with
+        {
+            Warnings = warning is null ? [] : [warning]
+        });
     }
 }

@@ -1,4 +1,5 @@
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
@@ -14,7 +15,10 @@ public sealed record LayoutFloorInput(Guid Id, string? Name, IReadOnlyList<Layou
 public sealed record LayoutSlot(Guid Id, string SlotCode, string? OverrideState, string EffectiveStatus, GridPoint? Position);
 public sealed record LayoutZone(Guid Id, string Code, string VehicleGroup, int Capacity, int CurrentVehicleCount, bool HasSlotSensor, IReadOnlyList<LayoutSlot> Slots, GridBounds? Bounds, IReadOnlyList<GridPoint>? Polygon);
 public sealed record LayoutFloor(Guid Id, string Name, IReadOnlyList<LayoutZone> Zones);
-public sealed record ParkingLotLayout(Guid LotId, int Version, IReadOnlyList<LayoutFloor> Floors);
+public sealed record ParkingLotLayout(Guid LotId, int Version, IReadOnlyList<LayoutFloor> Floors)
+{
+    public IReadOnlyList<CapacityWarning> Warnings { get; init; } = [];
+}
 
 public static class ParkingLayoutErrors
 {
