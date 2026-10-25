@@ -63,6 +63,15 @@ export interface ReviewedParkingLot {
     rejectionReason: string | null;
 }
 
+export interface OwnerApplicationDocument {
+    id: string;
+    type: "BusinessLicense" | "IdentityCard" | "FireSafetyCert" | "PremisesLease" | "Other";
+    name: string;
+    fileUrl: string;
+    fileType: "pdf" | "image";
+    uploadedAtUtc: string;
+}
+
 export interface OwnerApplicationItem {
     accountId: string;
     email: string;
@@ -70,11 +79,14 @@ export interface OwnerApplicationItem {
     fullName?: string | null;
     businessName?: string | null;
     taxCode?: string | null;
+    businessAddress?: string | null;
+    idCardNumber?: string | null;
     status: ApprovalStatus;
     rejectionReason?: string | null;
     reviewedAtUtc?: string | null;
     reviewedBy?: string | null;
     createdAtUtc: string;
+    documents?: OwnerApplicationDocument[];
 }
 
 export interface ListOwnerApplicationsResponse {
@@ -88,4 +100,14 @@ export interface OwnerApplicationActionResult {
     accountId: string;
     status: ApprovalStatus;
     message?: string;
+}
+
+export interface ParkingLotAssignmentMember {
+    lotId: string;
+    accountId: string;
+    role: "Staff" | "Owner";
+    assignedAtUtc?: string;
+    accountEmail?: string;
+    accountFullName?: string;
+    accountPhoneNumber?: string;
 }

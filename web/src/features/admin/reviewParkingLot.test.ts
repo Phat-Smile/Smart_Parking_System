@@ -95,7 +95,7 @@ describe("reviewParkingLot API integration", () => {
     });
 
     describe("approveParkingLot", () => {
-        it("sends PUT to /api/parking/admin/lots/{id}/approve without request body", async () => {
+        it("sends POST to /api/parking/admin/lots/{id}/approve without request body", async () => {
             const lotId = "11111111-1111-1111-1111-111111111111";
             const mockResponse = {
                 parkingLotId: lotId,
@@ -119,13 +119,13 @@ describe("reviewParkingLot API integration", () => {
             expect(String(url)).toBe(
                 `http://localhost:5000/api/parking/admin/lots/${lotId}/approve`,
             );
-            expect(init?.method).toBe("PUT");
+            expect(init?.method).toBe("POST");
             expect(init?.body).toBeUndefined();
         });
     });
 
     describe("rejectParkingLot", () => {
-        it("sends PUT to /api/parking/admin/lots/{id}/reject with reason in json body", async () => {
+        it("sends POST to /api/parking/admin/lots/{id}/reject with reason in json body", async () => {
             const lotId = "11111111-1111-1111-1111-111111111111";
             const reason = "Missing required fire safety documentation";
             const mockResponse = {
@@ -150,7 +150,7 @@ describe("reviewParkingLot API integration", () => {
             expect(String(url)).toBe(
                 `http://localhost:5000/api/parking/admin/lots/${lotId}/reject`,
             );
-            expect(init?.method).toBe("PUT");
+            expect(init?.method).toBe("POST");
             expect(JSON.parse(init?.body as string)).toEqual({ reason });
         });
     });

@@ -56,7 +56,7 @@ describe("ownerApplicationsApi integration", () => {
     });
 
     describe("approveOwnerApplication", () => {
-        it("sends PUT to /api/identity/admin/owner-applications/{id}/approve", async () => {
+        it("sends POST to /api/identity/admin/owner-applications/{id}/approve", async () => {
             const accountId = "55555555-5555-5555-5555-555555555551";
             const mockRes = {
                 accountId,
@@ -80,12 +80,12 @@ describe("ownerApplicationsApi integration", () => {
             expect(String(url)).toBe(
                 `http://localhost:5000/api/identity/admin/owner-applications/${accountId}/approve`,
             );
-            expect(init?.method).toBe("PUT");
+            expect(init?.method).toBe("POST");
         });
     });
 
     describe("rejectOwnerApplication", () => {
-        it("sends PUT to /api/identity/admin/owner-applications/{id}/reject with reason", async () => {
+        it("sends POST to /api/identity/admin/owner-applications/{id}/reject with reason", async () => {
             const accountId = "55555555-5555-5555-5555-555555555551";
             const reason = "Thiếu giấy chứng nhận kinh doanh";
             const mockRes = {
@@ -110,7 +110,7 @@ describe("ownerApplicationsApi integration", () => {
             expect(String(url)).toBe(
                 `http://localhost:5000/api/identity/admin/owner-applications/${accountId}/reject`,
             );
-            expect(init?.method).toBe("PUT");
+            expect(init?.method).toBe("POST");
             expect(JSON.parse(init?.body as string)).toEqual({ reason });
         });
     });

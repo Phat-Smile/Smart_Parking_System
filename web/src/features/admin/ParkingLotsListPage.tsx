@@ -183,8 +183,8 @@ export function ParkingLotsListPage({
                 </div>
             </header>
 
-            {/* Navigation tab bar between Parking Lots and Owner Applications */}
-            <div style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>
+            {/* Navigation tab bar between Parking Lots, Owner Applications, and Assignments */}
+            <div style={{ display: "flex", gap: "10px", marginBottom: "1rem", flexWrap: "wrap" }}>
                 <Link
                     href="/admin/parking-lots/pending"
                     className={`admin-btn ${mode === "pending" ? "admin-btn-dark" : "admin-btn-ghost"}`}
@@ -196,6 +196,12 @@ export function ParkingLotsListPage({
                     className="admin-btn admin-btn-ghost"
                 >
                     👤 Duyệt hồ sơ Chủ bãi
+                </Link>
+                <Link
+                    href="/admin/parking-lots/assignments"
+                    className="admin-btn admin-btn-ghost"
+                >
+                    👥 Phân công nhân viên
                 </Link>
             </div>
 
@@ -328,12 +334,23 @@ export function ParkingLotsListPage({
                                             </Link>
                                         </div>
                                     ) : (
-                                        <Link
-                                            href={`/admin/parking-lots/${lot.id}`}
-                                            className="admin-btn admin-btn-sm admin-btn-ghost"
-                                        >
-                                            Xem
-                                        </Link>
+                                        <div style={{ display: "inline-flex", gap: "6px" }}>
+                                            {lot.status === "Approved" && (
+                                                <Link
+                                                    href="/admin/parking-lots/assignments"
+                                                    className="admin-btn admin-btn-sm admin-btn-ghost"
+                                                    title="Phân công nhân viên trực bãi"
+                                                >
+                                                    👥 Phân công
+                                                </Link>
+                                            )}
+                                            <Link
+                                                href={`/admin/parking-lots/${lot.id}`}
+                                                className="admin-btn admin-btn-sm admin-btn-ghost"
+                                            >
+                                                Xem
+                                            </Link>
+                                        </div>
                                     )}
                                 </td>
                             </tr>

@@ -22,6 +22,11 @@ const links = [
     },
     { href: "/admin/parking-lots", label: "Parking lots", icon: "lots" },
     {
+        href: "/admin/parking-lots/assignments",
+        label: "Phân công nhân viên",
+        icon: "users",
+    },
+    {
         href: "/admin/owner-applications",
         label: "Duyệt hồ sơ Chủ bãi",
         icon: "check",
@@ -47,7 +52,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     const isActive = (href: string) =>
         href === "/admin/parking-lots"
             ? pathname === href ||
-              /^\/admin\/parking-lots\/(?!pending)/.test(pathname)
+              /^\/admin\/parking-lots\/(?!pending|assignments)/.test(pathname)
             : pathname.startsWith(href);
 
     async function signOut() {

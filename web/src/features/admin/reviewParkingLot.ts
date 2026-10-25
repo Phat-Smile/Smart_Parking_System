@@ -119,59 +119,29 @@ export async function getAdminParkingLots(
     }
 }
 
-/** US-ADMIN-002-A: Pending -> Approved. Nút Duyệt gọi PUT /api/parking/admin/lots/{id}/approve (với fallback POST). */
+/** US-ADMIN-002-A: Pending -> Approved. Nút Duyệt gọi thẳng POST /api/parking/admin/lots/{id}/approve. */
 export async function approveParkingLot(
     parkingLotId: string,
 ): Promise<ReviewedParkingLot> {
-    try {
-        return await gatewayFetch<ReviewedParkingLot>(
-            `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/approve`,
-            { method: "PUT" },
-        );
-    } catch (error) {
-        if (
-            error instanceof ApiError &&
-            (error.status === 405 || error.status === 404)
-        ) {
-            return await gatewayFetch<ReviewedParkingLot>(
-                `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/approve`,
-                { method: "POST" },
-            );
-        }
-        throw error;
-    }
+    return await gatewayFetch<ReviewedParkingLot>(
+        `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/approve`,
+        { method: "POST" },
+    );
 }
 
-/** US-ADMIN-002-B: Pending -> Rejected. Nút Từ chối gọi PUT /api/parking/admin/lots/{id}/reject (với fallback POST). */
+/** US-ADMIN-002-B: Pending -> Rejected. Nút Từ chối gọi thẳng POST /api/parking/admin/lots/{id}/reject. */
 export async function rejectParkingLot(
     parkingLotId: string,
     reason: string,
 ): Promise<ReviewedParkingLot> {
-    try {
-        return await gatewayFetch<ReviewedParkingLot>(
-            `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/reject`,
-            {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ reason: reason.trim() }),
-            },
-        );
-    } catch (error) {
-        if (
-            error instanceof ApiError &&
-            (error.status === 405 || error.status === 404)
-        ) {
-            return await gatewayFetch<ReviewedParkingLot>(
-                `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/reject`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ reason: reason.trim() }),
-                },
-            );
-        }
-        throw error;
-    }
+    return await gatewayFetch<ReviewedParkingLot>(
+        `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/reject`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.trim() }),
+        },
+    );
 }
 
 /** Returns a validation message for a rejection reason, or "" when valid. */
