@@ -137,7 +137,11 @@ The five APIs' readiness still depends only on PostgreSQL and RabbitMQ. Gateway 
 
 The five .NET APIs listen for REST on container port `8080` (HTTP/1.1) and internal gRPC on `8081` (HTTP/2 cleartext). The AI service runs FastAPI on `8000` and gRPC on `50051` concurrently. gRPC ports are exposed only to containers on `parking-network`; they are not published to the host. The Gateway remains REST-only.
 
-All six gRPC hosts expose standard `grpc.health.v1.Health`; its empty service name reports `SERVING` while the gRPC listener is running. This technical status is independent of PostgreSQL/RabbitMQ readiness. Development reflection is enabled only in Development and currently lists only standard health/reflection protocol services. No business RPCs are present. See [gRPC communication foundation](../architecture/Grpc.md).
+All six gRPC hosts expose standard `grpc.health.v1.Health`; its empty service name reports `SERVING` while the gRPC listener is running. This technical status is independent of PostgreSQL/RabbitMQ readiness. Development reflection is enabled only in Development. See [gRPC communication foundation](../architecture/Grpc.md).
+
+Business RPCs live in `contracts/grpc/`: `IdentityVehicleContract.LookupVehicle` on Identity, which Parking calls when it opens a session to link the plate to a registered vehicle (see [Identity vehicle lookup](../api/Identity-gRPC-Vehicle-Lookup.md)), and `ParkingAvailabilityContract` on Parking, which Booking calls.
+
+Parking reaches Identity at `IdentityService:GrpcEndpoint` (default `http://identity-api:8081`) with a deadline of `IdentityService:TimeoutSeconds` (default 2). When Identity does not answer, the session is still opened, without an account link. Compose runs Identity with `VehicleLookup__Provider=Database`, so a plate matches only a vehicle added through `POST /api/identity/accounts/me/vehicles`; the Development default `Stub` answers only a few fixed demo plates. Identity's gRPC port is not published to the host: to run Parking on the host against an Identity on the host, set `IdentityService__GrpcEndpoint` to that Identity's gRPC address.
 
 After starting the stack, run the gRPC network smoke test from PowerShell:
 

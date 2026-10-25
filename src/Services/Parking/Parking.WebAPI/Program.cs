@@ -41,6 +41,7 @@ builder.Services.AddSingleton<IMapboxGeoRouting>(_ => new MapboxGeoRoutingClient
     builder.Configuration["Mapbox:AccessToken"] ?? string.Empty));
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ParkingDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>

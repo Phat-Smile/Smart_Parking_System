@@ -331,6 +331,15 @@ public sealed class ArchitectureRulesTests
         Assert.DoesNotContain("UseParkingSystemServiceSecurity(", gateway, StringComparison.Ordinal);
     }
 
+    // Contract 1 (plate -> account and vehicle): the gRPC client is the only implementation of IPlateOwnerLookup, so a
+    // host that forgets this call fails when the first session is opened.
+    [Fact]
+    public void Parking_host_registers_the_identity_plate_lookup_client_once()
+    {
+        var source = File.ReadAllText(ProjectPath("Parking", "Parking.WebAPI").Replace("Parking.WebAPI.csproj", "Program.cs", StringComparison.Ordinal));
+        Assert.Equal(1, CountOccurrences(source, "AddIdentityServiceClient("));
+    }
+
     // Outbox rows are written without checking the registry, so an unregistered event type is only found when the
     // dispatcher fails to resolve it and retries forever (found on the wallet top-up event).
     [Fact]
