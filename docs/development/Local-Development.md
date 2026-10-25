@@ -90,6 +90,10 @@ This builds and starts the Gateway, five .NET APIs, AI HTTP service, IoT simulat
 
 The five business APIs require valid PostgreSQL and RabbitMQ configuration to start. They do not open PostgreSQL during startup and do not apply migrations automatically. MassTransit starts one RabbitMQ AMQP bus per API and uses its built-in reconnect behavior. A temporarily unavailable broker does not prevent the API process from starting.
 
+## Demo data
+
+`scripts/dev/Seed-DemoData.ps1` creates demo accounts for every role, an owner application that goes through the real flow (type, required documents, admin approval), a staff assignment and the four sample parking lots. It runs as a dry run unless `-Apply` and a confirmation token are given, and it only accepts local addresses. Use it on a development or demo database only. See [Demo-Data.md](Demo-Data.md) (in Vietnamese) for the accounts, the lots, the flow mapping and troubleshooting.
+
 ## Local observability
 
 The applications export traces and metrics over OTLP/gRPC to `http://otel-collector:4317` inside Compose. The Collector accepts OTLP/gRPC on `4317` and OTLP/HTTP on `4318`, exports traces to Jaeger, and exposes translated metrics for Prometheus to scrape at `otel-collector:8889`. Applications do not send telemetry directly to Jaeger or Prometheus. There is no OTLP log pipeline; structured JSON console logs remain the application log output.
