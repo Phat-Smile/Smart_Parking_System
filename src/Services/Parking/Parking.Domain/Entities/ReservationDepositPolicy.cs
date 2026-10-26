@@ -4,6 +4,8 @@ namespace ParkingSystem.Parking.Domain.Entities;
 
 public class ReservationDepositPolicy
 {
+    public const decimal DefaultHoldDepositVnd = 20_000m;
+
     public Guid Id { get; private set; }
     public Guid LotId { get; private set; }
     public decimal HoldDepositVnd { get; private set; }

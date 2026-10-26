@@ -14,9 +14,11 @@ public sealed class ConfigureDepositPolicyCommandValidator : AbstractValidator<C
             .WithMessage(ParkingErrors.DepositPolicy.LotIdEmpty.Message);
 
         RuleFor(x => x.HoldDepositVnd)
+            .NotNull()
+            .WithMessage(ParkingErrors.DepositPolicy.DepositRequired.Message)
             .GreaterThanOrEqualTo(0m)
             .WithMessage(ParkingErrors.DepositPolicy.DepositNegative.Message)
-            .Must(amount => amount % 1m == 0m)
+            .Must(amount => amount!.Value % 1m == 0m)
             .WithMessage(ParkingErrors.DepositPolicy.DepositMustBeInteger.Message);
     }
 }

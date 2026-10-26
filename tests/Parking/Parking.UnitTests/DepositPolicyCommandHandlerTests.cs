@@ -134,7 +134,7 @@ public class DepositPolicyCommandHandlerTests
     }
 
     [Fact]
-    public async Task Get_WhenUnconfigured_ShouldReturnIsConfiguredFalseAndNullDeposit()
+    public async Task Get_WhenUnconfigured_ShouldReturnDefaultDepositAndIsConfiguredFalse()
     {
         var lotId = Guid.NewGuid();
         var callerId = Guid.NewGuid();
@@ -146,7 +146,9 @@ public class DepositPolicyCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(lotId, result.Value!.LotId);
         Assert.False(result.Value.IsConfigured);
-        Assert.Null(result.Value.HoldDepositVnd);
+        Assert.Equal(ReservationDepositPolicy.DefaultHoldDepositVnd, result.Value.HoldDepositVnd);
+        Assert.Equal(20000m, result.Value.HoldDepositVnd);
+        Assert.Null(result.Value.UpdatedAtUtc);
     }
 
     [Fact]
@@ -166,6 +168,26 @@ public class DepositPolicyCommandHandlerTests
         Assert.Equal(lotId, result.Value!.LotId);
         Assert.True(result.Value.IsConfigured);
         Assert.Equal(15000m, result.Value.HoldDepositVnd);
+        Assert.NotNull(result.Value.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public async Task Get_WhenConfiguredZero_ShouldReturnZeroDepositAndIsConfiguredTrue()
+    {
+        var lotId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        _lotOwnershipService.SetupLot(lotId, exists: true, isOwner: true);
+
+        var policy = ReservationDepositPolicy.Create(lotId, 0m);
+        _repository.Policies.Add(policy);
+
+        var query = new GetDepositPolicyQuery(lotId, callerId);
+        var result = await _getHandler.Handle(query, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(lotId, result.Value!.LotId);
+        Assert.True(result.Value.IsConfigured);
+        Assert.Equal(0m, result.Value.HoldDepositVnd);
     }
 
     private sealed class FakeLotOwnershipService : ILotOwnershipService

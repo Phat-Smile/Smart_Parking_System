@@ -9,8 +9,19 @@ public class ConfigureDepositPolicyCommandValidatorTests
 {
     private readonly ConfigureDepositPolicyCommandValidator _validator = new();
 
-    private static ConfigureDepositPolicyCommand CreateCommand(Guid? lotId = null, decimal holdDepositVnd = 20000m) =>
+    private static ConfigureDepositPolicyCommand CreateCommand(Guid? lotId = null, decimal? holdDepositVnd = 20000m) =>
         new(lotId ?? Guid.NewGuid(), holdDepositVnd, Guid.NewGuid());
+
+    [Fact]
+    public void Validate_WhenHoldDepositVndIsNull_ShouldFailWithDepositRequiredError()
+    {
+        var command = CreateCommand(holdDepositVnd: null);
+
+        var result = _validator.Validate(command);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == ParkingErrors.DepositPolicy.DepositRequired.Message);
+    }
 
     [Fact]
     public void Validate_WhenLotIdIsEmpty_ShouldFailWithLotIdEmptyError()

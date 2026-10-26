@@ -190,7 +190,7 @@ public sealed class ReservationDepositPolicyIntegrationTests(PostgreSqlContainer
     }
 
     [Fact]
-    public async Task Unconfigured_lot_returns_is_configured_false_and_null_deposit()
+    public async Task Unconfigured_lot_returns_is_configured_false_and_default_20000_deposit()
     {
         var token = TestContext.Current.CancellationToken;
         await using var provider = await NewProviderAsync(token);
@@ -209,7 +209,8 @@ public sealed class ReservationDepositPolicyIntegrationTests(PostgreSqlContainer
 
         Assert.True(result.IsSuccess);
         Assert.False(result.Value!.IsConfigured);
-        Assert.Null(result.Value.HoldDepositVnd);
+        Assert.Equal(20000m, result.Value.HoldDepositVnd);
+        Assert.Null(result.Value.UpdatedAtUtc);
     }
 
     private async Task<ServiceProvider> NewProviderAsync(CancellationToken token)

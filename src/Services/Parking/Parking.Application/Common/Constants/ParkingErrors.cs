@@ -86,5 +86,9 @@ public static class ParkingErrors
         public static readonly Error DepositMustBeInteger = new(
             "parking.deposit_policy.deposit_must_be_integer",
             "Mức cọc phải là số nguyên VND, không được có phần lẻ thập phân.");
+
+        public static readonly Error DepositRequired = new(
+            "parking.deposit_policy.deposit_required",
+            "Mức cọc không được để trống.");
     }
 }

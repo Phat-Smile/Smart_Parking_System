@@ -15,15 +15,12 @@ namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
 public static class DepositPolicyEndpoints
 {
+    private const string RoutePattern = "/api/parking/lots/{lotId:guid}/deposit-policy";
+
     public static IEndpointRouteBuilder MapDepositPolicyEndpoints(this IEndpointRouteBuilder app)
     {
-        // PUT routes (both standard /api/parking/lots/... and /api/v1/parking-lots/...)
-        MapPutEndpoints(app, "/api/parking/lots/{lotId:guid}/deposit-policy");
-        MapPutEndpoints(app, "/api/v1/parking-lots/{lotId:guid}/deposit-policy");
-
-        // GET routes (both standard /api/parking/lots/... and /api/v1/parking-lots/...)
-        MapGetEndpoints(app, "/api/parking/lots/{lotId:guid}/deposit-policy");
-        MapGetEndpoints(app, "/api/v1/parking-lots/{lotId:guid}/deposit-policy");
+        MapPutEndpoints(app, RoutePattern);
+        MapGetEndpoints(app, RoutePattern);
 
         return app;
     }
@@ -42,7 +39,7 @@ public static class DepositPolicyEndpoints
                 return Results.Unauthorized();
             }
 
-            var command = new ConfigureDepositPolicyCommand(lotId, request.HoldDepositVnd, currentUserId);
+            var command = new ConfigureDepositPolicyCommand(lotId, request?.HoldDepositVnd, currentUserId);
             var result = await sender.Send(command, cancellationToken);
 
             if (!result.IsSuccess)
@@ -65,7 +62,8 @@ public static class DepositPolicyEndpoints
                 {
                     lotId = result.Value!.LotId,
                     holdDepositVnd = result.Value.HoldDepositVnd,
-                    isConfigured = result.Value.IsConfigured
+                    isConfigured = result.Value.IsConfigured,
+                    updatedAtUtc = result.Value.UpdatedAtUtc
                 },
                 isSuccess = true,
                 statusCode = StatusCodes.Status200OK,
@@ -73,7 +71,7 @@ public static class DepositPolicyEndpoints
             });
         })
         .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
-        .WithName($"ConfigureDepositPolicy_{pattern.Replace('/', '_').Trim('_')}")
+        .WithName("ConfigureDepositPolicy")
         .WithSummary("Cau hinh muc coc giu cho cho bai xe");
     }
 
@@ -113,7 +111,8 @@ public static class DepositPolicyEndpoints
                 {
                     lotId = result.Value!.LotId,
                     holdDepositVnd = result.Value.HoldDepositVnd,
-                    isConfigured = result.Value.IsConfigured
+                    isConfigured = result.Value.IsConfigured,
+                    updatedAtUtc = result.Value.UpdatedAtUtc
                 },
                 isSuccess = true,
                 statusCode = StatusCodes.Status200OK,
@@ -121,7 +120,7 @@ public static class DepositPolicyEndpoints
             });
         })
         .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
-        .WithName($"GetDepositPolicy_{pattern.Replace('/', '_').Trim('_')}")
+        .WithName("GetDepositPolicy")
         .WithSummary("Lay muc coc giu cho hien tai cua bai xe");
     }
 }

@@ -35,20 +35,24 @@ public sealed class ConfigureDepositPolicyCommandHandler : IRequestHandler<Confi
             return Result<DepositPolicyResponse>.Failure(ParkingErrors.DepositPolicy.NotLotOwner);
         }
 
+        var amount = request.HoldDepositVnd!.Value;
         var existingPolicy = await _repository.GetByLotIdAsync(request.LotId, cancellationToken);
+        DateTime updatedAt;
         if (existingPolicy != null)
         {
-            existingPolicy.Update(request.HoldDepositVnd);
+            existingPolicy.Update(amount);
+            updatedAt = existingPolicy.UpdatedAtUtc;
         }
         else
         {
-            var newPolicy = ReservationDepositPolicy.Create(request.LotId, request.HoldDepositVnd);
+            var newPolicy = ReservationDepositPolicy.Create(request.LotId, amount);
             await _repository.AddAsync(newPolicy, cancellationToken);
+            updatedAt = newPolicy.UpdatedAtUtc;
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
 
         return Result<DepositPolicyResponse>.Success(
-            new DepositPolicyResponse(request.LotId, request.HoldDepositVnd, true));
+            new DepositPolicyResponse(request.LotId, amount, true, updatedAt));
     }
 }

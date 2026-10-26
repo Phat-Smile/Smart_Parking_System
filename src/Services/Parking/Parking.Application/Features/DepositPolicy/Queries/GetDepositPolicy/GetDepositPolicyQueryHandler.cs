@@ -4,6 +4,7 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Parking.Application.Common.Constants;
 using ParkingSystem.Parking.Application.Common.Interfaces;
+using ParkingSystem.Parking.Domain.Entities;
 
 namespace ParkingSystem.Parking.Application.Features.DepositPolicy.Queries.GetDepositPolicy;
 
@@ -38,10 +39,18 @@ public sealed class GetDepositPolicyQueryHandler : IRequestHandler<GetDepositPol
         if (policy == null)
         {
             return Result<DepositPolicyResponse>.Success(
-                new DepositPolicyResponse(request.LotId, null, false));
+                new DepositPolicyResponse(
+                    request.LotId,
+                    ReservationDepositPolicy.DefaultHoldDepositVnd,
+                    false,
+                    null));
         }
 
         return Result<DepositPolicyResponse>.Success(
-            new DepositPolicyResponse(request.LotId, policy.HoldDepositVnd, true));
+            new DepositPolicyResponse(
+                request.LotId,
+                policy.HoldDepositVnd,
+                true,
+                policy.UpdatedAtUtc));
     }
 }

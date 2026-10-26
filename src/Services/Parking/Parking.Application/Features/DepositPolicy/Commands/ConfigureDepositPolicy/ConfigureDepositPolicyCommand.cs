@@ -6,5 +6,5 @@ namespace ParkingSystem.Parking.Application.Features.DepositPolicy.Commands.Conf
 
 public sealed record ConfigureDepositPolicyCommand(
     Guid LotId,
-    decimal HoldDepositVnd,
+    decimal? HoldDepositVnd,
     Guid CallerId) : IRequest<Result<DepositPolicyResponse>>;
