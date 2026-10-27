@@ -63,6 +63,10 @@ public static class ParkingErrors
         public static readonly Error ReasonTooLong = new(
             "parking.pricing_validation_reason_too_long",
             "Lý do thay đổi không được vượt quá 500 ký tự.");
+
+        public static readonly Error PolicyNotFound = new(
+            "parking.pricing_not_found",
+            "Chưa có bảng giá cho loại xe này tại bãi đỗ xe.");
     }
 
     public static class DepositPolicy
