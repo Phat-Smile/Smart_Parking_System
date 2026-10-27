@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 680" fill="none">
+  <rect width="780" height="680" fill="#f1f4f1"/>
+  <path d="M610-70C555 38 586 136 632 224c41 79 103 121 98 222-5 84-64 138-74 236h175V-70H610Z" fill="#a9daf7"/>
+  <path d="M600-50c-52 94-23 191 31 279 47 77 90 129 84 213-6 91-59 153-68 249M647-41c-46 97-20 173 28 254 56 96 95 147 89 235-5 84-45 152-60 243" stroke="#e6f7ff" stroke-width="10"/>
+  <path d="M-40 76 700 620M-70 268 650 669M130-50 745 430M340-40 790 306" stroke="#fff" stroke-width="24"/>
+  <path d="M-40 76 700 620M-70 268 650 669M130-50 745 430M340-40 790 306" stroke="#dbe4e3" stroke-width="2"/>
+  <path d="M-60 575 605-70M86 730 729 17M-90 370 329-70M324 752 775 251" stroke="#fff" stroke-width="21"/>
+  <path d="M-60 575 605-70M86 730 729 17M-90 370 329-70M324 752 775 251" stroke="#dce4e3" stroke-width="2"/>
+  <path d="M27 29 532 549M-8 181 459 670M256-28 734 467M62 605 554 94M178 710 610 260" stroke="#fff" stroke-width="8"/>
+  <path d="M12 132 556 583M95 11 646 475M-20 466 414 710M139 661 645 117" stroke="#fff" stroke-width="7"/>
+  <path d="m77 157 78 53-44 61-79-52 45-62Zm321 198 76 51-70 90-77-54 71-87ZM255 52l85 62-61 74-88-60 64-76Z" fill="#cfead1"/>
+  <path d="m521 57 67 51-51 67-68-51 52-67ZM43 486l69 52-46 58-69-54 46-56Z" fill="#d7ecd7"/>
+  <path d="M558 293 755 368M572 350 780 427" stroke="#fff" stroke-width="13"/>
+  <path d="M558 293 755 368M572 350 780 427" stroke="#d3dfdc" stroke-width="2"/>
+  <g fill="#718190" font-family="Arial,sans-serif" font-size="13" font-weight="700" opacity=".83">
+    <text x="65" y="79" transform="rotate(42 65 79)">LE DUAN</text>
+    <text x="194" y="404" transform="rotate(-45 194 404)">NGUYEN HUE</text>
+    <text x="356" y="213" transform="rotate(42 356 213)">DONG KHOI</text>
+    <text x="67" y="453">BEN THANH</text>
+    <text x="379" y="310">BEN NGHE</text>
+    <text x="629" y="190">THU THIEM</text>
+    <text x="638" y="545" fill="#4b9ac1">SAIGON RIVER</text>
+  </g>
+</svg>
