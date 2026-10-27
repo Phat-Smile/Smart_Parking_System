@@ -121,6 +121,81 @@ export interface TranslationDictionary {
     staffCalculateFee: string;
     staffPaymentQr: string;
     staffCompleteSessionBtn: string;
+
+    // Staff Sessions Management
+    sessionsTitle: string;
+    sessionsSubtitle: string;
+    sessionsSearchPlaceholder: string;
+    sessionsAllTab: string;
+    sessionsGuestTab: string;
+    sessionsRegisteredTab: string;
+    sessionsLicensePlate: string;
+    sessionsCategory: string;
+    sessionsVehicle: string;
+    sessionsSpot: string;
+    sessionsEntryTime: string;
+    sessionsStatus: string;
+    sessionsPaymentStatus: string;
+    sessionsQr: string;
+    sessionsActions: string;
+    sessionsEmpty: string;
+    sessionsGuest: string;
+    sessionsRegistered: string;
+    sessionsDue: string;
+    sessionsViewQr: string;
+    sessionsCancelEntry: string;
+    sessionsCancelTitle: string;
+    sessionsCancelConfirmText: string;
+    sessionsCancelReasonLabel: string;
+    sessionsCancelReasonPlaceholder: string;
+    sessionsGoBack: string;
+    sessionsConfirmCancel: string;
+    sessionsCancelling: string;
+
+    // Status translations
+    statusActive: string;
+    statusPaid: string;
+    statusPending: string;
+    statusCompleted: string;
+    statusCancelled: string;
+
+    // Staff Dashboard
+    dashTitle: string;
+    dashSubtitle: string;
+    dashProcessEntry: string;
+    dashProcessExit: string;
+    dashOccupancy: string;
+    dashFull: string;
+    dashSlots: string;
+    dashCarAvailable: string;
+    dashMotorbikeAvailable: string;
+    dashActiveSessions: string;
+    dashActiveHint: string;
+    dashViewSessions: string;
+    dashNeedsVerif: string;
+    dashNeedsVerifHint: string;
+    dashResolveNow: string;
+    dashGateHealth: string;
+    dashGateSynced: string;
+    dashLatency: string;
+    dashEntryActivity: string;
+    dashExitActivity: string;
+    dashLiveFeed: string;
+    dashNoEntry: string;
+    dashNoExit: string;
+
+    // Staff QR & UI
+    qrTicketTitle: string;
+    qrTicketDesc: string;
+    qrCopy: string;
+    qrCopied: string;
+    qrDone: string;
+
+    // Gate & Barrier
+    barrierStatus: string;
+    gateIn: string;
+    gateOut: string;
+    gateOnline: string;
 }
 
 export const translations: Record<SupportedLanguage, TranslationDictionary> = {
@@ -244,6 +319,81 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         staffCalculateFee: "Tính tiền cước gửi xe",
         staffPaymentQr: "Mã QR thanh toán VietQR",
         staffCompleteSessionBtn: "Xác nhận hoàn tất & Cho xe ra",
+
+        // Staff Sessions Management
+        sessionsTitle: "Quản lý Phiên đỗ xe Khách & Đang gửi",
+        sessionsSubtitle: "Kiểm tra các phương tiện đang đỗ trong bãi, xem vé QR của khách và hủy phiên xe nếu cần.",
+        sessionsSearchPlaceholder: "Tìm kiếm biển số xe, vị trí đỗ, hoặc tên tài xế...",
+        sessionsAllTab: "Tất cả phiên xe",
+        sessionsGuestTab: "Khách vãng lai",
+        sessionsRegisteredTab: "Khách đăng ký App",
+        sessionsLicensePlate: "Biển số xe",
+        sessionsCategory: "Phân loại",
+        sessionsVehicle: "Loại xe",
+        sessionsSpot: "Vị trí",
+        sessionsEntryTime: "Giờ vào",
+        sessionsStatus: "Trạng thái",
+        sessionsPaymentStatus: "Thanh toán",
+        sessionsQr: "Vé mã QR",
+        sessionsActions: "Thao tác",
+        sessionsEmpty: "Không có phiên đỗ xe nào phù hợp với tìm kiếm của bạn.",
+        sessionsGuest: "Vãng lai",
+        sessionsRegistered: "Đã đăng ký",
+        sessionsDue: "Cần thu",
+        sessionsViewQr: "🎟️ Xem vé QR",
+        sessionsCancelEntry: "Hủy phiên vào",
+        sessionsCancelTitle: "Hủy phiên gửi xe",
+        sessionsCancelConfirmText: "Bạn có chắc muốn hủy phiên xe cho biển số",
+        sessionsCancelReasonLabel: "Lý do hủy phiên:",
+        sessionsCancelReasonPlaceholder: "Nhập lý do hủy (ví dụ: Xe quay đầu không vào bãi)...",
+        sessionsGoBack: "Quay lại",
+        sessionsConfirmCancel: "Xác nhận hủy",
+        sessionsCancelling: "Đang xử lý hủy...",
+
+        // Status
+        statusActive: "Đang đỗ",
+        statusPaid: "Đã thanh toán",
+        statusPending: "Chờ thanh toán",
+        statusCompleted: "Đã hoàn tất",
+        statusCancelled: "Đã hủy",
+
+        // Staff Dashboard
+        dashTitle: "Tổng quan ca trực",
+        dashSubtitle: "Theo dõi lưu lượng xe tại cổng, công suất chỗ đỗ thời gian thực và các cảnh báo.",
+        dashProcessEntry: "➕ Tiếp nhận xe vào cổng",
+        dashProcessExit: "⚡ Xử lý xe ra cổng",
+        dashOccupancy: "Công suất bãi đỗ hiện tại",
+        dashFull: "ĐẦY",
+        dashSlots: "chỗ",
+        dashCarAvailable: "Chỗ trống Ô tô:",
+        dashMotorbikeAvailable: "Chỗ trống Xe máy:",
+        dashActiveSessions: "Phiên xe đang gửi",
+        dashActiveHint: "Phương tiện đang đỗ trong bãi",
+        dashViewSessions: "Xem tất cả phiên xe →",
+        dashNeedsVerif: "Cần xác thực OCR",
+        dashNeedsVerifHint: "Cảnh báo OCR biển số & rào chắn",
+        dashResolveNow: "Xử lý sự cố ngay →",
+        dashGateHealth: "Tình trạng Barrier",
+        dashGateSynced: "Cổng 01 & Cổng 02 đồng bộ",
+        dashLatency: "Độ trễ",
+        dashEntryActivity: "Hoạt động vào (Cổng In)",
+        dashExitActivity: "Hoạt động ra (Cổng Out)",
+        dashLiveFeed: "● Trực tiếp",
+        dashNoEntry: "Chưa có lượt xe vào nào gần đây.",
+        dashNoExit: "Chưa có lượt xe ra nào gần đây.",
+
+        // Staff QR & UI
+        qrTicketTitle: "Vé giữ xe điện tử (QR)",
+        qrTicketDesc: "Cung cấp mã QR này cho tài xế khách để xác thực cổng ra và thanh toán tiền gửi xe.",
+        qrCopy: "Sao chép mã",
+        qrCopied: "Đã sao chép!",
+        qrDone: "Hoàn tất / In vé",
+
+        // Gate & Barrier
+        barrierStatus: "TRẠNG THÁI BARRIER",
+        gateIn: "Cổng Vào",
+        gateOut: "Cổng Ra",
+        gateOnline: "Hoạt động",
     },
     en: {
         appName: "ParkWise",
@@ -365,5 +515,80 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         staffCalculateFee: "Calculate Parking Fee",
         staffPaymentQr: "VietQR Payment Code",
         staffCompleteSessionBtn: "Complete Payment & Open Barrier",
+
+        // Staff Sessions Management
+        sessionsTitle: "Guest & Active Session Management",
+        sessionsSubtitle: "Inspect active parked vehicles, view guest QR tickets, and handle cancellations.",
+        sessionsSearchPlaceholder: "Search license plate, slot, or driver name...",
+        sessionsAllTab: "All Sessions",
+        sessionsGuestTab: "Guest Vehicles",
+        sessionsRegisteredTab: "Registered App Users",
+        sessionsLicensePlate: "License Plate",
+        sessionsCategory: "Category",
+        sessionsVehicle: "Vehicle",
+        sessionsSpot: "Spot",
+        sessionsEntryTime: "Entry Time",
+        sessionsStatus: "Session Status",
+        sessionsPaymentStatus: "Payment Status",
+        sessionsQr: "Session QR",
+        sessionsActions: "Actions",
+        sessionsEmpty: "No parking sessions match your search.",
+        sessionsGuest: "Guest",
+        sessionsRegistered: "Registered",
+        sessionsDue: "Due",
+        sessionsViewQr: "🎟️ View QR",
+        sessionsCancelEntry: "Cancel Entry",
+        sessionsCancelTitle: "Cancel Parking Session",
+        sessionsCancelConfirmText: "Are you sure you want to cancel the session for",
+        sessionsCancelReasonLabel: "Reason for cancellation",
+        sessionsCancelReasonPlaceholder: "Enter reason (e.g. driver decided to leave)...",
+        sessionsGoBack: "Go back",
+        sessionsConfirmCancel: "Confirm Cancellation",
+        sessionsCancelling: "Cancelling...",
+
+        // Status
+        statusActive: "Active",
+        statusPaid: "Paid",
+        statusPending: "Pending",
+        statusCompleted: "Completed",
+        statusCancelled: "Cancelled",
+
+        // Staff Dashboard
+        dashTitle: "Staff Dashboard",
+        dashSubtitle: "Real-time gate traffic, slot capacity, and pending verifications.",
+        dashProcessEntry: "➕ Process Vehicle Entry",
+        dashProcessExit: "⚡ Process Vehicle Exit",
+        dashOccupancy: "Current Occupancy",
+        dashFull: "FULL",
+        dashSlots: "Slots",
+        dashCarAvailable: "Car Slots Available:",
+        dashMotorbikeAvailable: "Motorbike Available:",
+        dashActiveSessions: "Active Sessions",
+        dashActiveHint: "Vehicles parked right now",
+        dashViewSessions: "View all active sessions →",
+        dashNeedsVerif: "Needs Verification",
+        dashNeedsVerifHint: "Camera OCR flags & barrier issues",
+        dashResolveNow: "Resolve issues now →",
+        dashGateHealth: "Barrier Gate Health",
+        dashGateSynced: "Gate 01 & Gate 02 Synced",
+        dashLatency: "Latency",
+        dashEntryActivity: "Entry Activity (Gate In)",
+        dashExitActivity: "Exit Activity (Gate Out)",
+        dashLiveFeed: "● Live feed",
+        dashNoEntry: "No recent vehicle entries.",
+        dashNoExit: "No recent vehicle exits.",
+
+        // Staff QR & UI
+        qrTicketTitle: "Guest Parking Ticket (QR)",
+        qrTicketDesc: "Provide this QR code to the guest driver for exit gate verification and fee payment.",
+        qrCopy: "Copy Token",
+        qrCopied: "Copied Token!",
+        qrDone: "Done / Print Ticket",
+
+        // Gate & Barrier
+        barrierStatus: "BARRIER GATE STATUS",
+        gateIn: "Gate In",
+        gateOut: "Gate Out",
+        gateOnline: "Online",
     },
 };

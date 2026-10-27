@@ -141,9 +141,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 )}
                 {children}
             </main>
-
-            {/* Nút chuyển đổi ngôn ngữ cố định góc dưới bên trái */}
-            <LanguageSwitcher variant="floating" />
         </div>
     );
 }

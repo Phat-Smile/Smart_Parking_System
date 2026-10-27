@@ -55,7 +55,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         },
         {
             href: "/staff/verification",
-            label: t("all") === "All" ? "Needs Verification" : "Cần xác thực",
+            label: t("dashNeedsVerif"),
             icon: "⚠️",
             badge: issues.length,
             badgeDanger: issues.length > 0,
@@ -153,16 +153,16 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                     <div className="staff-gate-health-card">
                         <div className="staff-gate-health-title">
                             <span className="staff-pulse-dot green" />
-                            <span>TRẠNG THÁI BARRIER</span>
+                            <span>{t("barrierStatus")}</span>
                         </div>
                         <div className="staff-gate-health-meta">
                             <div className="staff-health-row">
-                                <span>Cổng Vào 01:</span>
-                                <strong className="text-emerald">Online</strong>
+                                <span>{t("gateIn")} 01:</span>
+                                <strong className="text-emerald">{t("gateOnline")}</strong>
                             </div>
                             <div className="staff-health-row">
-                                <span>Cổng Ra 02:</span>
-                                <strong className="text-emerald">Online</strong>
+                                <span>{t("gateOut")} 02:</span>
+                                <strong className="text-emerald">{t("gateOnline")}</strong>
                             </div>
                         </div>
                     </div>
@@ -229,9 +229,6 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
 
                 <main className="staff-main-content">{children}</main>
             </div>
-
-            {/* Nút chuyển đổi ngôn ngữ cố định góc dưới bên trái */}
-            <LanguageSwitcher variant="floating" />
         </div>
     );
 }

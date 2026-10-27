@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { PlateBadge, FormattedTime, formatVnd } from "./StaffUi";
 import { useStaffData } from "./staffData";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffDashboardPage() {
     const {
@@ -12,6 +13,7 @@ export function StaffDashboardPage() {
         assignedLot,
         fetchAssignedLot,
     } = useStaffData();
+    const { t } = useLanguage();
 
     React.useEffect(() => {
         fetchAssignedLot().catch(() => {});
@@ -34,11 +36,10 @@ export function StaffDashboardPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">
-                        Staff Dashboard — {assignedLot.lotName}
+                        {t("dashTitle")} — {assignedLot.lotName}
                     </h1>
                     <p className="staff-subtitle">
-                        Real-time gate traffic, slot capacity, and pending
-                        verifications.
+                        {t("dashSubtitle")}
                     </p>
                 </div>
 
@@ -47,13 +48,13 @@ export function StaffDashboardPage() {
                         href="/staff/entry"
                         className="staff-btn staff-btn-primary"
                     >
-                        ➕ Process Vehicle Entry
+                        {t("dashProcessEntry")}
                     </Link>
                     <Link
                         href="/staff/exit"
                         className="staff-btn staff-btn-secondary"
                     >
-                        ⚡ Process Vehicle Exit
+                        {t("dashProcessExit")}
                     </Link>
                 </div>
             </header>
@@ -63,15 +64,15 @@ export function StaffDashboardPage() {
                 <div className="staff-stat-card occupancy-card">
                     <div className="staff-stat-header">
                         <span className="staff-stat-title">
-                            Current Occupancy
+                            {t("dashOccupancy")}
                         </span>
                         <span className="staff-stat-pill">
-                            {occupancyPercent}% FULL
+                            {occupancyPercent}% {t("dashFull")}
                         </span>
                     </div>
                     <div className="staff-occupancy-value">
                         <strong>{occupancy.occupied}</strong>
-                        <span>/ {occupancy.totalCapacity} Slots</span>
+                        <span>/ {occupancy.totalCapacity} {t("dashSlots")}</span>
                     </div>
 
                     <div className="staff-progress-bar">
@@ -89,33 +90,33 @@ export function StaffDashboardPage() {
 
                     <div className="staff-slot-breakdown">
                         <div className="staff-slot-sub">
-                            <span>Car Slots Available:</span>
+                            <span>{t("dashCarAvailable")}</span>
                             <strong className="text-emerald">
-                                {occupancy.carAvailable} slots
+                                {occupancy.carAvailable} {t("dashSlots")}
                             </strong>
                         </div>
                         <div className="staff-slot-sub">
-                            <span>Motorbike Available:</span>
+                            <span>{t("dashMotorbikeAvailable")}</span>
                             <strong className="text-emerald">
-                                {occupancy.motorbikeAvailable} slots
+                                {occupancy.motorbikeAvailable} {t("dashSlots")}
                             </strong>
                         </div>
                     </div>
                 </div>
 
                 <div className="staff-stat-card">
-                    <span className="staff-stat-title">Active Sessions</span>
+                    <span className="staff-stat-title">{t("dashActiveSessions")}</span>
                     <div className="staff-stat-number">
                         {occupancy.activeSessionsCount}
                     </div>
-                    <p className="staff-stat-hint">Vehicles parked right now</p>
+                    <p className="staff-stat-hint">{t("dashActiveHint")}</p>
                     <Link href="/staff/sessions" className="staff-link">
-                        View all active sessions →
+                        {t("dashViewSessions")}
                     </Link>
                 </div>
 
                 <div className="staff-stat-card">
-                    <span className="staff-stat-title">Needs Verification</span>
+                    <span className="staff-stat-title">{t("dashNeedsVerif")}</span>
                     <div
                         className={`staff-stat-number ${
                             occupancy.needsVerificationCount > 0
@@ -126,24 +127,24 @@ export function StaffDashboardPage() {
                         {occupancy.needsVerificationCount}
                     </div>
                     <p className="staff-stat-hint">
-                        Camera OCR flags & barrier issues
+                        {t("dashNeedsVerifHint")}
                     </p>
                     <Link
                         href="/staff/verification"
                         className="staff-link text-danger"
                     >
-                        Resolve issues now →
+                        {t("dashResolveNow")}
                     </Link>
                 </div>
 
                 <div className="staff-stat-card">
                     <span className="staff-stat-title">
-                        Barrier Gate Health
+                        {t("dashGateHealth")}
                     </span>
-                    <div className="staff-stat-number text-emerald">ONLINE</div>
-                    <p className="staff-stat-hint">Gate 01 & Gate 02 Synced</p>
+                    <div className="staff-stat-number text-emerald">{t("gateOnline").toUpperCase()}</div>
+                    <p className="staff-stat-hint">{t("dashGateSynced")}</p>
                     <span className="staff-pill staff-pill-success">
-                        Latency 24ms
+                        {t("dashLatency")} 24ms
                     </span>
                 </div>
             </section>
@@ -153,14 +154,14 @@ export function StaffDashboardPage() {
                 {/* 3.8 Entry activity */}
                 <div className="staff-card">
                     <div className="staff-card-header">
-                        <h2>Entry Activity (Gate In)</h2>
-                        <span className="staff-feed-live">● Live feed</span>
+                        <h2>{t("dashEntryActivity")}</h2>
+                        <span className="staff-feed-live">{t("dashLiveFeed")}</span>
                     </div>
 
                     <div className="staff-activity-list">
                         {entryActivities.length === 0 ? (
                             <p className="staff-empty">
-                                No recent vehicle entries.
+                                {t("dashNoEntry")}
                             </p>
                         ) : (
                             entryActivities.map((act) => (
@@ -172,8 +173,13 @@ export function StaffDashboardPage() {
                                     <div className="staff-act-info">
                                         <PlateBadge plate={act.plateNumber} />
                                         <span className="staff-act-meta">
-                                            {act.vehicleType} ·{" "}
-                                            {act.customerType}
+                                            {act.vehicleType === "Car"
+                                                ? t("staffCar")
+                                                : t("staffMotorbike")}{" "}
+                                            ·{" "}
+                                            {act.customerType === "Guest"
+                                                ? t("sessionsGuest")
+                                                : t("sessionsRegistered")}
                                             {act.slotCode &&
                                                 ` · Slot ${act.slotCode}`}
                                         </span>
@@ -190,14 +196,14 @@ export function StaffDashboardPage() {
                 {/* 3.8 Exit activity */}
                 <div className="staff-card">
                     <div className="staff-card-header">
-                        <h2>Exit Activity (Gate Out)</h2>
-                        <span className="staff-feed-live">● Live feed</span>
+                        <h2>{t("dashExitActivity")}</h2>
+                        <span className="staff-feed-live">{t("dashLiveFeed")}</span>
                     </div>
 
                     <div className="staff-activity-list">
                         {exitActivities.length === 0 ? (
                             <p className="staff-empty">
-                                No recent vehicle exits.
+                                {t("dashNoExit")}
                             </p>
                         ) : (
                             exitActivities.map((act) => (
@@ -211,8 +217,13 @@ export function StaffDashboardPage() {
                                     <div className="staff-act-info">
                                         <PlateBadge plate={act.plateNumber} />
                                         <span className="staff-act-meta">
-                                            {act.vehicleType} ·{" "}
-                                            {act.customerType}
+                                            {act.vehicleType === "Car"
+                                                ? t("staffCar")
+                                                : t("staffMotorbike")}{" "}
+                                            ·{" "}
+                                            {act.customerType === "Guest"
+                                                ? t("sessionsGuest")
+                                                : t("sessionsRegistered")}
                                         </span>
                                     </div>
                                     <div className="staff-act-right">

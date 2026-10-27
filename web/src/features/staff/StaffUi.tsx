@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import type { PaymentStatus, SessionStatus, VehicleType } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function formatVnd(amount: number): string {
     return `${amount.toLocaleString("vi-VN")} ₫`;
@@ -69,6 +70,7 @@ export function StatusPill({
 }: {
     status: SessionStatus | PaymentStatus;
 }) {
+    const { t } = useLanguage();
     const cls =
         status === "Active"
             ? "staff-pill-active"
@@ -78,7 +80,14 @@ export function StatusPill({
                 ? "staff-pill-danger"
                 : "staff-pill-warning";
 
-    return <span className={`staff-pill ${cls}`}>{status}</span>;
+    let label: string = status;
+    if (status === "Active") label = t("statusActive");
+    else if (status === "Paid") label = t("statusPaid");
+    else if (status === "Pending") label = t("statusPending");
+    else if (status === "Completed") label = t("statusCompleted");
+    else if (status === "Cancelled") label = t("statusCancelled");
+
+    return <span className={`staff-pill ${cls}`}>{label}</span>;
 }
 
 export function CameraFeedMock({
@@ -148,6 +157,7 @@ export function QrCodeModal({
     entryTime: string;
     onClose: () => void;
 }) {
+    const { t } = useLanguage();
     const [copied, setCopied] = useState(false);
 
     function copy() {
@@ -163,7 +173,7 @@ export function QrCodeModal({
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="staff-modal-head">
-                    <h3>Guest Parking Ticket (QR)</h3>
+                    <h3>{t("qrTicketTitle")}</h3>
                     <button
                         type="button"
                         className="staff-modal-close"
@@ -175,8 +185,7 @@ export function QrCodeModal({
 
                 <div className="staff-qr-body">
                     <p className="staff-qr-desc">
-                        Provide this QR code to the guest driver for exit gate
-                        verification and fee payment.
+                        {t("qrTicketDesc")}
                     </p>
 
                     <div className="staff-qr-box">
@@ -385,15 +394,19 @@ export function QrCodeModal({
 
                     <div className="staff-qr-details">
                         <div className="staff-qr-row">
-                            <span>License Plate</span>
+                            <span>{t("sessionsLicensePlate")}</span>
                             <PlateBadge plate={plateNumber} />
                         </div>
                         <div className="staff-qr-row">
-                            <span>Vehicle Type</span>
-                            <strong>{vehicleType}</strong>
+                            <span>{t("sessionsVehicle")}</span>
+                            <strong>
+                                {vehicleType === "Car"
+                                    ? t("staffCar")
+                                    : t("staffMotorbike")}
+                            </strong>
                         </div>
                         <div className="staff-qr-row">
-                            <span>Entry Time</span>
+                            <span>{t("sessionsEntryTime")}</span>
                             <strong>{formatDateTime(entryTime)}</strong>
                         </div>
                         <div className="staff-qr-row">
@@ -409,14 +422,14 @@ export function QrCodeModal({
                         className="staff-btn staff-btn-secondary"
                         onClick={copy}
                     >
-                        {copied ? "Copied Token!" : "Copy Token"}
+                        {copied ? t("qrCopied") : t("qrCopy")}
                     </button>
                     <button
                         type="button"
                         className="staff-btn staff-btn-primary"
                         onClick={onClose}
                     >
-                        Done / Print Ticket
+                        {t("qrDone")}
                     </button>
                 </div>
             </div>
