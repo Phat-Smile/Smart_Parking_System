@@ -99,6 +99,29 @@ describe("ParkWise Login form", () => {
         });
     });
 
+    it("redirects Staff account to /staff/dashboard", async () => {
+        push.mockClear();
+        loginMock.mockResolvedValue({
+            id: "staff-id",
+            email: "staff@parking.test",
+            phoneNumber: null,
+            status: "Active",
+            role: "Staff",
+        });
+        render(<ParkWiseLoginPage fontClassName="test-font" />);
+        fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+            target: { value: "staff@parking.test" },
+        });
+        fireEvent.change(screen.getByLabelText("Password"), {
+            target: { value: "Test@12345" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+        await waitFor(() => {
+            expect(push).toHaveBeenCalledWith("/staff/dashboard");
+        });
+    });
+
     it("signs in with the Google ID token", async () => {
         googleLoginMock.mockResolvedValue({
             id: "account-id",
