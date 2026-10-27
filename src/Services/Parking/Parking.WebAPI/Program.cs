@@ -84,6 +84,7 @@ app.MapParkingLotAssignmentEndpoints();
 app.MapStaffLotEndpoints();
 app.MapPricingEndpoints();
 app.MapDepositPolicyEndpoints();
+app.MapReservationRatioPolicyEndpoints();
 app.MapParkingLayoutOwnerEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
