@@ -20,6 +20,9 @@ public interface IParkingSessionRepository
     Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
         Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken);
 
+    /// <summary>The Active or Paid session of the plate in the lot, or null (read only). The open-plate unique index allows at most one.</summary>
+    Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken);
+
     void Add(ParkingSession session);
 
     /// <summary>Saves pending changes. Returns false when the plate already has an open session in the lot (unique index).</summary>

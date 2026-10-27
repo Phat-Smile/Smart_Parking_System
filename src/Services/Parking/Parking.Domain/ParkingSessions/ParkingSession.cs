@@ -11,6 +11,9 @@ public sealed class ParkingSession
 
     public const int CancelReasonMaxLength = 500;
 
+    // ERD audit_logs.reason is varchar(500); the reason of a QR reissue or a manual exit check is stored only there.
+    public const int StaffActionReasonMaxLength = 500;
+
     // Statuses that still hold the plate in the lot (BR-11.a).
     public static readonly IReadOnlyList<ParkingSessionStatus> OpenStatuses =
         [ParkingSessionStatus.Active, ParkingSessionStatus.Paid];
@@ -86,6 +89,21 @@ public sealed class ParkingSession
         CancelledBy = cancelledBy;
         CancelReason = reason.Trim();
         CancelledAt = cancelledAt;
+        return true;
+    }
+
+    /// <summary>
+    /// US-STAFF-004 (BR-11.d): staff give a new QR when the customer lost it. The old token is overwritten, so it stops
+    /// matching the session before the new one is handed out. Only an Active session gets a new QR (decision 2026-10-24):
+    /// a Paid session is already at the exit gate, and a closed session's QR is invalid for good (BR-11.e).
+    /// </summary>
+    /// <returns>False when the session is not Active.</returns>
+    public bool ReissueQr(string newQrToken)
+    {
+        if (Status != ParkingSessionStatus.Active)
+            return false;
+
+        QrToken = newQrToken;
         return true;
     }
 

@@ -154,6 +154,9 @@ public sealed class SessionQrTests
             Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public void Add(ParkingSession added) => throw new NotSupportedException();
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

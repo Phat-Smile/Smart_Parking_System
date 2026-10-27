@@ -46,6 +46,13 @@ internal sealed class ParkingSessionRepository(ParkingDbContext dbContext) : IPa
         return (items, totalCount);
     }
 
+    public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
+        dbContext.ParkingSessions.AsNoTracking().FirstOrDefaultAsync(
+            session => session.LotId == lotId
+                       && session.PlateNumber == normalizedPlate
+                       && ParkingSession.OpenStatuses.Contains(session.Status),
+            cancellationToken);
+
     public void Add(ParkingSession session) => dbContext.ParkingSessions.Add(session);
 
     public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)

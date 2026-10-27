@@ -1,5 +1,3 @@
-using System.Buffers.Text;
-using System.Security.Cryptography;
 using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
@@ -132,7 +130,7 @@ public sealed class OpenParkingSessionCommandHandler(
             plate,
             vehicleType,
             clock.UtcNow,
-            NewQrToken(),
+            SessionQrToken.New(),
             owner?.UserId,
             owner?.VehicleId,
             space?.ZoneId);
@@ -161,7 +159,4 @@ public sealed class OpenParkingSessionCommandHandler(
             space?.FloorName,
             space?.AvailableSpaces));
     }
-
-    // BR-11.b: random token with no account id or plate inside, from a cryptographic generator.
-    private static string NewQrToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(ParkingSession.QrTokenByteLength));
 }
