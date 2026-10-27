@@ -2,10 +2,7 @@
 
 import React, { useState } from "react";
 import { CameraFeedMock, PlateBadge, QrCodeModal } from "./StaffUi";
-import {
-    describeStaffError,
-    openParkingSession,
-} from "./staffApi";
+import { describeStaffError, openParkingSession } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
 

@@ -6,12 +6,8 @@ import { PlateBadge, FormattedTime, formatVnd } from "./StaffUi";
 import { useStaffData } from "./staffData";
 
 export function StaffDashboardPage() {
-    const {
-        occupancy,
-        activities,
-        assignedLot,
-        fetchAssignedLot,
-    } = useStaffData();
+    const { occupancy, activities, assignedLot, fetchAssignedLot } =
+        useStaffData();
 
     React.useEffect(() => {
         fetchAssignedLot().catch(() => {});
