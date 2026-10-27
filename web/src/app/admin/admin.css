@@ -509,6 +509,7 @@ a.admin-stat:hover {
     border: 1px solid var(--line);
     border-radius: 99px;
     background: #fff;
+    color: #111827;
     font-weight: 600;
 }
 .admin-select-sm {
