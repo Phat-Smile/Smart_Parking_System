@@ -151,6 +151,9 @@ services:
       VneidApi__BaseUrl: http://vneid-simulator:8000
       # Owner application documents live on a named volume so they survive container re-creation.
       OwnerDocuments__RootPath: /app/data/owner-documents
+      # Parking links a new session to the owner of a registered vehicle through this lookup (contract 1).
+      # Stub answers only for a few fixed demo plates; Database needs the identity.vehicles table (apply the Identity migrations).
+      VehicleLookup__Provider: Database
 
   parking-api:
     build:

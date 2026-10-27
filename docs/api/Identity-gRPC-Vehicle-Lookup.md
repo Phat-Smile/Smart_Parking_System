@@ -28,8 +28,8 @@ Cung cấp khả năng tra cứu tức thời thông tin chủ phương tiện v
 | **Package** | `smartparking.identity.vehicle.v1` |
 | **Service Name** | `IdentityVehicleContract` |
 | **RPC Method** | `LookupVehicle(LookupVehicleRequest) returns (LookupVehicleResponse)` |
-| **Port triển khai** | Nội bộ Cluster (`5001` / gRPC Port) |
-| **Bảo mật** | Internal mTLS / Service-to-Service Network |
+| **Port triển khai** | `8081` (HTTP/2 không TLS), chỉ trong mạng `parking-network`; không publish ra host |
+| **Bảo mật** | Mạng nội bộ; header `X-Service-Key` khi `ServiceAuth:ServiceKey` có giá trị (thiếu hoặc sai khóa: HTTP 403) |
 
 ---
 
@@ -42,43 +42,49 @@ package smartparking.identity.vehicle.v1;
 
 option csharp_namespace = "SmartParking.Contracts.Identity.Vehicle.V1";
 
-// Hợp đồng dịch vụ tra cứu xe của Identity Service
 service IdentityVehicleContract {
-  // Tra cứu thông tin xe và chủ sở hữu dựa trên biển số xe
-  rpc LookupVehicle (LookupVehicleRequest) returns (LookupVehicleResponse);
+  rpc LookupVehicle(LookupVehicleRequest)
+      returns (LookupVehicleResponse);
 }
 
-// Request tra cứu xe
 message LookupVehicleRequest {
-  // Biển số xe quét được từ camera hoặc nhập tay (VD: "51F-123.45" hoặc "51F12345")
+  // Raw plate as read at the gate; Identity normalizes it (trim, uppercase,
+  // remove whitespace, '-' and '.'). Empty or malformed -> INVALID_ARGUMENT.
   string license_plate = 1;
 }
 
-// Loại phương tiện trong hệ thống
-enum VehicleType {
-  VEHICLE_TYPE_UNSPECIFIED = 0;
-  VEHICLE_TYPE_CAR = 1;        // Xe ô tô
-  VEHICLE_TYPE_MOTORBIKE = 2; // Xe máy
-}
-
-// Response thông tin phương tiện
+// Unknown but well-formed plate -> OK with is_registered = false (never NOT_FOUND).
 message LookupVehicleResponse {
-  // Xe đã được đăng ký trong hệ thống hay chưa
   bool is_registered = 1;
 
-  // ID của tài khoản chủ sở hữu xe (Guid định dạng "D" - 36 ký tự)
+  // Canonical lowercase UUID "D" format (36 chars) when registered.
+  // Empty string ("") when is_registered == false.
   string account_id = 2;
 
-  // ID của xe trong cơ sở dữ liệu
+  // Canonical lowercase UUID "D" format (36 chars) when registered.
+  // Empty string ("") when is_registered == false.
   string vehicle_id = 3;
 
-  // Phân loại xe (Ô tô hoặc Xe máy)
-  VehicleType vehicle_type = 4;
+  // Field 4 was owner_full_name; dropped (Parking only needs ids, personal data stays in Identity).
+  reserved 4;
+  reserved "owner_full_name";
 
-  // Trạng thái tài khoản của chủ xe có đang hoạt động hay không
-  bool is_account_active = 5;
+  VehicleType vehicle_type = 5;
+
+  // true only when the owner account status is EmailVerified; false when the
+  // account is PendingEmailVerification, Suspended, Disabled or is_registered == false.
+  // Identity only reports the state; Parking decides what to do with it.
+  bool is_account_active = 6;
+}
+
+enum VehicleType {
+  VEHICLE_TYPE_UNSPECIFIED = 0;
+  VEHICLE_TYPE_CAR = 1;
+  VEHICLE_TYPE_MOTORBIKE = 2;
 }
 ```
+
+Nguồn chuẩn là `contracts/grpc/identity_vehicle.proto`; khi lệch nhau thì file đó đúng.
 
 ---
 
@@ -89,7 +95,7 @@ message LookupVehicleResponse {
 - `account_id`: `"a3bb108e-17d4-4a6c-9f87-2a54e9912345"` (Chuỗi UUID 36 ký tự viết thường)
 - `vehicle_id`: `"c9b578e2-f472-4b2a-8bc2-a1b948f93e12"`
 - `vehicle_type`: `VEHICLE_TYPE_CAR` (1) hoặc `VEHICLE_TYPE_MOTORBIKE` (2)
-- `is_account_active`: `true` nếu tài khoản `EmailVerified`, `false` nếu tài khoản bị `Suspended` / `Disabled`.
+- `is_account_active`: `true` nếu tài khoản `EmailVerified`, `false` nếu tài khoản `PendingEmailVerification`, `Suspended` hoặc `Disabled`.
 
 ### 4.2. Trường Hợp Xe CHƯA ĐĂNG KÝ (Khách vãng lai chưa cài App):
 - `is_registered`: `false`
@@ -103,10 +109,10 @@ message LookupVehicleResponse {
 
 | gRPC Status Code | Mã lỗi nội bộ (`ErrorCode`) | Điều kiện kích hoạt | Xử lý khuyến nghị phía Caller (Parking Service) |
 | :--- | :--- | :--- | :--- |
-| `INVALID_ARGUMENT` (3) | `identity.empty_license_plate` | Tham số `license_plate` gửi lên rỗng hoặc toàn khoảng trắng. | Báo lỗi camera OCR không nhận dạng được chuỗi ký tự. |
-| `INVALID_ARGUMENT` (3) | `identity.invalid_license_plate_format` | Biển số chứa các ký tự đặc biệt không thể chuẩn hóa thành biển số Việt Nam. | Yêu cầu nhân viên bảo vệ chụp lại hoặc nhập tay. |
+| `INVALID_ARGUMENT` (3) | `identity.empty_license_plate` | Tham số `license_plate` gửi lên rỗng hoặc toàn khoảng trắng. | Parking: mở phiên không gắn tài khoản, xem mục 8. |
+| `INVALID_ARGUMENT` (3) | `identity.invalid_license_plate_format` | Biển số chứa các ký tự đặc biệt không thể chuẩn hóa thành biển số Việt Nam. | Parking: mở phiên không gắn tài khoản, xem mục 8. |
 | `CANCELLED` (1) | *N/A* | Timeout / Caller chủ động hủy request do xe đã di chuyển. | Ghi log hủy request. |
-| `INTERNAL` (13) | `identity.vehicle_lookup_failed` | Lỗi kết nối DB hoặc lỗi không xác định trên Identity Service. | Retry với cơ chế Polly Exponential Backoff (3 lần). |
+| `INTERNAL` (13) | `identity.vehicle_lookup_failed` | Lỗi kết nối DB hoặc lỗi không xác định trên Identity Service. | Parking: không retry vì cổng không chờ được; mở phiên không gắn tài khoản, xem mục 8. |
 
 ---
 
@@ -180,3 +186,19 @@ public class ParkingBarrierService(
     }
 }
 ```
+
+---
+
+## 8. Parking client (hợp đồng 1)
+
+Cài đặt thật nằm ở `src/Services/Parking/Parking.WebAPI/Grpc/IdentityVehicleGrpcClient.cs`, gắn vào cổng `IPlateOwnerLookup` của Parking Application. `OpenParkingSessionCommand` gọi nó trước khi mở transaction mở phiên.
+
+| Mục | Hành vi |
+| :--- | :--- |
+| Cấu hình | `IdentityService:GrpcEndpoint` (mặc định `http://identity-api:8081`) và `IdentityService:TimeoutSeconds` (mặc định 2, từ 1 đến 30). Cấu hình sai thì host không khởi động. |
+| Khóa dịch vụ | Gửi header `X-Service-Key` khi `ServiceAuth:ServiceKey` có giá trị. |
+| Khớp | Chỉ khi `is_registered` và `is_account_active` cùng `true` và cả hai mã là UUID khác rỗng. Phiên đỗ được gắn `UserId` và `VehicleId` để ghi lịch sử và tính phí (BR-05.f); đây không phải xác thực. |
+| Không khớp | Biển chưa đăng ký, chủ xe chưa xác thực email, bị khóa hoặc vô hiệu, hoặc phản hồi thiếu mã: phiên đỗ mở không gắn tài khoản (BR-05.e) và nhân viên đưa vé in QR (BR-11.b). |
+| Lỗi | Mọi lỗi gRPC và quá hạn: mở phiên không gắn tài khoản, không retry. Mức log: `INVALID_ARGUMENT` là Information, `UNAVAILABLE` và `DEADLINE_EXCEEDED` là Warning, còn lại là Error (ví dụ `PERMISSION_DENIED` do sai khóa dịch vụ). Phiên đã mở không được gắn lại sau đó. |
+| Hủy | Request bị caller hủy thì use case dừng, không mở phiên. |
+| Dữ liệu cá nhân | Biển số, mã tài khoản và mã xe không được ghi log; chỉ ghi mã trạng thái gRPC. |

@@ -12,6 +12,7 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Grpc.AspNetCore.Server" />
     <PackageReference Include="Grpc.Net.Client" />
     <PackageReference Include="Google.Protobuf" />
     <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
@@ -19,6 +20,8 @@
   <ItemGroup>
     <!-- Compiled as a client the same way Booking will, so the gRPC tests double as a contract test. -->
     <Protobuf Include="..\..\..\contracts\grpc\parking_availability.proto" GrpcServices="Client" Link="Protos\parking_availability.proto" />
+    <!-- Compiled as a server to host a fake Identity; the client under test is the one generated in Parking.WebAPI. -->
+    <Protobuf Include="..\..\..\contracts\grpc\identity_vehicle.proto" GrpcServices="Server" Link="Protos\identity_vehicle.proto" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Services\Parking\Parking.Persistence\Parking.Persistence.csproj" />
