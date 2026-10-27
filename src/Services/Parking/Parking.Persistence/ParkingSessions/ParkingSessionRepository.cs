@@ -28,6 +28,24 @@ internal sealed class ParkingSessionRepository(ParkingDbContext dbContext) : IPa
             session => session.QrToken == qrToken && ParkingSession.OpenStatuses.Contains(session.Status),
             cancellationToken);
 
+    public async Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
+        Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken)
+    {
+        var query = dbContext.ParkingSessions.AsNoTracking().Where(session => session.LotId == lotId);
+        if (status is { } wanted)
+            query = query.Where(session => session.Status == wanted);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        // Id breaks ties so two sessions with the same entry time never swap pages.
+        var items = await query
+            .OrderByDescending(session => session.EntryTime)
+            .ThenBy(session => session.Id)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+        return (items, totalCount);
+    }
+
     public void Add(ParkingSession session) => dbContext.ParkingSessions.Add(session);
 
     public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)

@@ -16,6 +16,10 @@ public interface IParkingSessionRepository
     /// <summary>The Active or Paid session that owns the QR token, or null; a closed session's QR is invalid (read only).</summary>
     Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken);
 
+    /// <summary>One page of the lot's sessions, newest entry first, of one status or of all when null, with the total count (read only).</summary>
+    Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
+        Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken);
+
     void Add(ParkingSession session);
 
     /// <summary>Saves pending changes. Returns false when the plate already has an open session in the lot (unique index).</summary>

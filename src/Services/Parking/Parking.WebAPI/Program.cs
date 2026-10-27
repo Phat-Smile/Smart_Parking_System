@@ -80,6 +80,7 @@ app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
 app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();
+app.MapStaffLotEndpoints();
 app.MapPricingEndpoints();
 app.MapDepositPolicyEndpoints();
 app.MapParkingLayoutOwnerEndpoints();

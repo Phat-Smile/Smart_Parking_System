@@ -7,6 +7,7 @@ using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.FindParkingSessionByQr;
+using ParkingSystem.Parking.Application.ParkingSessions.GetParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -49,7 +50,7 @@ internal static class ParkingSessionEndpoints
                     new OpenParkingSessionCommand(request.LotId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty, actorUserId),
                     cancellationToken);
 
-                // Location points to GET /{id}, which is not built yet (lead decision 2026-10-08, DOC-006).
+                // Location points to GET /{sessionId} (lead task S2 2026-10-27; replaces DOC-006).
                 if (result.IsSuccess)
                     return Results.Created($"{Route}/{result.Value!.SessionId}", result.Value);
 
@@ -151,6 +152,36 @@ internal static class ParkingSessionEndpoints
             .WithSummary("Find the open parking session of a scanned QR")
             .Produces<ParkingSessionByQr>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // Lead task S2. Any signed-in account may call; the handler allows the session's customer (with the QR) or staff
+        // assigned to its lot (without the QR). The guid constraint keeps /me and other named routes on their own.
+        app.MapGet($"{Route}/{{sessionId:guid}}", async (
+                Guid sessionId,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var callerId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new GetParkingSessionQuery(sessionId, callerId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == GetParkingSessionErrors.SessionNotFound
+                    ? StatusCodes.Status404NotFound
+                    : StatusCodes.Status403Forbidden;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthenticatedUser()
+            .WithName("GetParkingSession")
+            .WithSummary("Get one parking session (its customer or staff of its lot)")
+            .Produces<ParkingSessionDetail>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
