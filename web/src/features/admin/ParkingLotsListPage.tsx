@@ -12,6 +12,7 @@ import {
     rejectParkingLot,
 } from "./reviewParkingLot";
 import type { AdminParkingLot, ApprovalStatus } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 type Filter = ApprovalStatus | "All";
 
@@ -27,6 +28,7 @@ export function ParkingLotsListPage({
     initialStatus?: Filter;
 }) {
     const router = useRouter();
+    const { t, language } = useLanguage();
     const [status, setStatus] = useState<Filter>(
         mode === "pending" ? "Pending" : initialStatus,
     );
@@ -162,13 +164,13 @@ export function ParkingLotsListPage({
                 <div>
                     <p className="admin-eyebrow">
                         {mode === "pending"
-                            ? "Hàng đợi xét duyệt"
-                            : "Quản lý hệ thống"}
+                            ? (language === "vi" ? "Hàng đợi xét duyệt" : "Review Queue")
+                            : t("parkingLotsEyebrow")}
                     </p>
                     <h1>
                         {mode === "pending"
-                            ? "Bãi đỗ xe chờ duyệt"
-                            : "Danh sách bãi đỗ xe"}
+                            ? t("adminPendingLots")
+                            : t("parkingLotsTitle")}
                     </h1>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -178,7 +180,7 @@ export function ParkingLotsListPage({
                         className="admin-btn admin-btn-ghost"
                         disabled={loading}
                     >
-                        🔄 Làm mới
+                        🔄 {t("refresh")}
                     </button>
                 </div>
             </header>
@@ -189,19 +191,19 @@ export function ParkingLotsListPage({
                     href="/admin/parking-lots/pending"
                     className={`admin-btn ${mode === "pending" ? "admin-btn-dark" : "admin-btn-ghost"}`}
                 >
-                    🅿️ Bãi xe chờ duyệt
+                    {t("parkingLotsPendingTab")}
                 </Link>
                 <Link
                     href="/admin/owner-applications"
                     className="admin-btn admin-btn-ghost"
                 >
-                    👤 Duyệt hồ sơ Chủ bãi
+                    {t("parkingLotsOwnersTab")}
                 </Link>
                 <Link
                     href="/admin/parking-lots/assignments"
                     className="admin-btn admin-btn-ghost"
                 >
-                    👥 Phân công nhân viên
+                    {t("parkingLotsAssignmentsTab")}
                 </Link>
             </div>
 
@@ -245,7 +247,13 @@ export function ParkingLotsListPage({
                                 aria-selected={status === tab}
                                 onClick={() => setStatus(tab)}
                             >
-                                {tab === "Approved" ? "Active" : tab}
+                                {tab === "All"
+                                    ? t("all")
+                                    : tab === "Pending"
+                                      ? t("pending")
+                                      : tab === "Approved"
+                                        ? t("approved")
+                                        : t("rejected")}
                                 <span>{counts[tab]}</span>
                             </button>
                         ))}
@@ -257,7 +265,7 @@ export function ParkingLotsListPage({
                         id="lots-search"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Tìm tên bãi, chủ bãi, email hoặc địa chỉ..."
+                        placeholder={t("searchLotsPlaceholder")}
                     />
                 </label>
             </div>
@@ -266,16 +274,16 @@ export function ParkingLotsListPage({
                 <table className="admin-table">
                     <thead>
                         <tr>
-                            <th>Bãi đỗ xe</th>
-                            <th>Chủ bãi</th>
-                            <th>Ngày nộp</th>
-                            <th>Sức chứa</th>
-                            <th>Trạng thái</th>
+                            <th>{t("lotNameHeader")}</th>
+                            <th>{t("lotOwnerHeader")}</th>
+                            <th>{language === "vi" ? "Ngày nộp" : "Submitted Date"}</th>
+                            <th>{t("lotCapacityHeader")}</th>
+                            <th>{t("status")}</th>
                             <th
                                 aria-label="Actions"
                                 style={{ textAlign: "right" }}
                             >
-                                Thao tác
+                                {t("actions")}
                             </th>
                         </tr>
                     </thead>
@@ -291,7 +299,7 @@ export function ParkingLotsListPage({
                                     <small>{lot.ownerEmail}</small>
                                 </td>
                                 <td>{formatDate(lot.submittedAtUtc)}</td>
-                                <td>{lot.totalCapacity} chỗ</td>
+                                <td>{lot.totalCapacity} {language === "vi" ? "chỗ" : "slots"}</td>
                                 <td>
                                     <StatusPill status={lot.status} />
                                 </td>
@@ -314,7 +322,7 @@ export function ParkingLotsListPage({
                                                     setReviewAction("approve");
                                                 }}
                                             >
-                                                Duyệt
+                                                {t("approveLot")}
                                             </button>
                                             <button
                                                 type="button"
@@ -324,13 +332,13 @@ export function ParkingLotsListPage({
                                                     setReviewAction("reject");
                                                 }}
                                             >
-                                                Từ chối
+                                                {t("rejectLot")}
                                             </button>
                                             <Link
                                                 href={`/admin/parking-lots/${lot.id}`}
                                                 className="admin-btn admin-btn-sm admin-btn-ghost"
                                             >
-                                                Chi tiết
+                                                {t("details")}
                                             </Link>
                                         </div>
                                     ) : (
@@ -339,16 +347,16 @@ export function ParkingLotsListPage({
                                                 <Link
                                                     href="/admin/parking-lots/assignments"
                                                     className="admin-btn admin-btn-sm admin-btn-ghost"
-                                                    title="Phân công nhân viên trực bãi"
+                                                    title={language === "vi" ? "Phân công nhân viên trực bãi" : "Assign staff to lot"}
                                                 >
-                                                    👥 Phân công
+                                                    {t("assignLot")}
                                                 </Link>
                                             )}
                                             <Link
                                                 href={`/admin/parking-lots/${lot.id}`}
                                                 className="admin-btn admin-btn-sm admin-btn-ghost"
                                             >
-                                                Xem
+                                                {t("view")}
                                             </Link>
                                         </div>
                                     )}
@@ -360,21 +368,22 @@ export function ParkingLotsListPage({
                 {rows.length === 0 && !loading && (
                     <p className="admin-empty">
                         {mode === "pending"
-                            ? "Không có bãi đỗ xe nào đang chờ duyệt."
-                            : "Không tìm thấy bãi đỗ xe nào phù hợp với bộ lọc."}
+                            ? (language === "vi" ? "Không có bãi đỗ xe nào đang chờ duyệt." : "No parking lots pending review.")
+                            : t("noLotsFound")}
                     </p>
                 )}
                 {loading && (
-                    <p className="admin-empty">Đang tải dữ liệu bãi đỗ xe...</p>
+                    <p className="admin-empty">{t("loading")}</p>
                 )}
             </section>
 
             <form className="admin-lookup" onSubmit={openById}>
                 <div>
-                    <strong>Tra cứu bãi đỗ xe theo ID</strong>
+                    <strong>{language === "vi" ? "Tra cứu bãi đỗ xe theo ID" : "Lookup Parking Lot by ID"}</strong>
                     <small>
-                        Dán mã UUID của bãi đỗ xe từ đơn đăng ký để trực tiếp
-                        xét duyệt.
+                        {language === "vi"
+                            ? "Dán mã UUID của bãi đỗ xe từ đơn đăng ký để trực tiếp xét duyệt."
+                            : "Paste parking lot UUID from application to review directly."}
                     </small>
                 </div>
                 <input
@@ -392,7 +401,7 @@ export function ParkingLotsListPage({
                     className="admin-btn admin-btn-dark"
                     id="lots-lookup-open"
                 >
-                    Mở
+                    {t("lookupBtn")}
                 </button>
                 {lookupError && (
                     <p className="admin-field-error" role="alert">
@@ -425,13 +434,17 @@ export function ParkingLotsListPage({
                         </span>
                         <h2>
                             {reviewAction === "approve"
-                                ? `Duyệt bãi đỗ xe ${selectedLot.name}?`
-                                : `Từ chối bãi đỗ xe ${selectedLot.name}?`}
+                                ? (language === "vi" ? `Duyệt bãi đỗ xe ${selectedLot.name}?` : `Approve parking lot ${selectedLot.name}?`)
+                                : (language === "vi" ? `Từ chối bãi đỗ xe ${selectedLot.name}?` : `Reject parking lot ${selectedLot.name}?`)}
                         </h2>
                         <p>
                             {reviewAction === "approve"
-                                ? `Bãi đỗ xe sẽ được chuyển sang trạng thái Hoạt động (Approved) và xuất hiện trên danh mục công khai cho khách hàng.`
-                                : `Vui lòng nhập lý do từ chối để chủ bãi có thể điều chỉnh lại hồ sơ.`}
+                                ? (language === "vi"
+                                    ? `Bãi đỗ xe sẽ được chuyển sang trạng thái Hoạt động (Approved) và xuất hiện trên danh mục công khai cho khách hàng.`
+                                    : `Parking lot will be set to Approved and publicly visible to customers.`)
+                                : (language === "vi"
+                                    ? `Vui lòng nhập lý do từ chối để chủ bãi có thể điều chỉnh lại hồ sơ.`
+                                    : `Please specify the rejection reason so the owner can correct their application.`)}
                         </p>
 
                         {reviewAction === "reject" && (
@@ -439,7 +452,7 @@ export function ParkingLotsListPage({
                                 className="admin-field"
                                 style={{ marginTop: "1rem" }}
                             >
-                                <span>Lý do từ chối:</span>
+                                <span>{t("ownerAppsRejectReasonLabel")}</span>
                                 <textarea
                                     rows={4}
                                     autoFocus
@@ -447,7 +460,7 @@ export function ParkingLotsListPage({
                                     onChange={(e) =>
                                         setRejectReason(e.target.value)
                                     }
-                                    placeholder="Ví dụ: Chưa cung cấp đủ giấy tờ PCCC hoặc sơ đồ bãi xe không hợp lệ."
+                                    placeholder={t("ownerAppsRejectReasonPlaceholder")}
                                     style={{
                                         width: "100%",
                                         padding: "8px",
@@ -471,7 +484,7 @@ export function ParkingLotsListPage({
                                 onClick={() => setReviewAction(null)}
                                 disabled={actionBusy}
                             >
-                                Hủy
+                                {t("cancel")}
                             </button>
                             <button
                                 type="button"
@@ -488,10 +501,10 @@ export function ParkingLotsListPage({
                                 }
                             >
                                 {actionBusy
-                                    ? "Đang lưu..."
+                                    ? t("saving")
                                     : reviewAction === "approve"
-                                      ? "Xác nhận duyệt"
-                                      : "Xác nhận từ chối"}
+                                      ? (language === "vi" ? "Xác nhận duyệt" : "Confirm Approval")
+                                      : (language === "vi" ? "Xác nhận từ chối" : "Confirm Rejection")}
                             </button>
                         </div>
                     </div>

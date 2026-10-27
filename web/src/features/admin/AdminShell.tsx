@@ -12,31 +12,12 @@ import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { AdminIcon } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
 
-const links = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: "grid" },
-    {
-        href: "/admin/parking-lots/pending",
-        label: "Pending review",
-        icon: "clock",
-        badge: true,
-    },
-    { href: "/admin/parking-lots", label: "Parking lots", icon: "lots" },
-    {
-        href: "/admin/parking-lots/assignments",
-        label: "Phân công nhân viên",
-        icon: "users",
-    },
-    {
-        href: "/admin/owner-applications",
-        label: "Duyệt hồ sơ Chủ bãi",
-        icon: "check",
-    },
-    { href: "/admin/users", label: "Users & owners", icon: "users" },
-];
+import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
 export function AdminShell({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
+    const { t } = useLanguage();
     const session = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
@@ -48,6 +29,28 @@ export function AdminShell({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (role && role !== "SystemAdmin") router.replace("/403");
     }, [role, router]);
+
+    const links = [
+        { href: "/admin/dashboard", label: t("adminDashboard"), icon: "grid" },
+        {
+            href: "/admin/parking-lots/pending",
+            label: t("adminPendingLots"),
+            icon: "clock",
+            badge: true,
+        },
+        { href: "/admin/parking-lots", label: t("adminParkingLots"), icon: "lots" },
+        {
+            href: "/admin/parking-lots/assignments",
+            label: t("adminLotAssignments"),
+            icon: "users",
+        },
+        {
+            href: "/admin/owner-applications",
+            label: t("adminOwnerApplications"),
+            icon: "check",
+        },
+        { href: "/admin/users", label: t("adminUsers"), icon: "users" },
+    ];
 
     const isActive = (href: string) =>
         href === "/admin/parking-lots"
@@ -92,6 +95,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
                         </Link>
                     ))}
                 </nav>
+
+                {/* Nút chuyển đổi ngôn ngữ ở góc trái (Language Switcher) */}
+                <div style={{ marginTop: "auto", padding: "8px 0" }}>
+                    <LanguageSwitcher variant="sidebar" />
+                </div>
+
                 <div className="admin-account">
                     <span className="admin-avatar">
                         {(session?.displayName || session?.account.email || "A")
@@ -100,17 +109,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     </span>
                     <div>
                         <strong>
-                            {session?.displayName || "System admin"}
+                            {session?.displayName || t("systemAdmin")}
                         </strong>
                         <small>
-                            {session?.account.email ?? "Not signed in"}
+                            {session?.account.email ?? t("notSignedIn")}
                         </small>
                     </div>
                     {session && (
                         <button
                             type="button"
                             onClick={signOut}
-                            aria-label="Sign out"
+                            aria-label={t("signOut")}
                             id="admin-sign-out"
                         >
                             <AdminIcon name="logout" />
@@ -132,6 +141,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 )}
                 {children}
             </main>
+
+            {/* Nút chuyển đổi ngôn ngữ cố định góc dưới bên trái */}
+            <LanguageSwitcher variant="floating" />
         </div>
     );
 }
