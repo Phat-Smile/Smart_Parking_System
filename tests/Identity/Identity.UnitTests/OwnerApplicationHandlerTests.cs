@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Identity;
@@ -5,6 +6,7 @@ using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Domain.Accounts;
+using ParkingSystem.Identity.Infrastructure.OwnerDocuments;
 using Xunit;
 
 namespace ParkingSystem.Tests.Identity.UnitTests;
@@ -22,7 +24,7 @@ public sealed class OwnerApplicationHandlerTests
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
         var outbox = new FakeOutboxWriter();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
+        var handler = ApproveHandler(accounts, sessions, refreshTokens, new FakeOwnerDocumentRepository(), outbox);
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
 
@@ -39,7 +41,7 @@ public sealed class OwnerApplicationHandlerTests
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
         var outbox = new FakeOutboxWriter();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
+        var handler = ApproveHandler(accounts, sessions, refreshTokens, new FakeOwnerDocumentRepository(), outbox);
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, AdminId), TestContext.Current.CancellationToken);
 
@@ -57,7 +59,7 @@ public sealed class OwnerApplicationHandlerTests
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
         var outbox = new FakeOutboxWriter();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
+        var handler = ApproveHandler(accounts, sessions, refreshTokens, new FakeOwnerDocumentRepository(), outbox);
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
 
@@ -70,11 +72,14 @@ public sealed class OwnerApplicationHandlerTests
     public async Task Approve_pending_application_succeeds_and_revokes_sessions()
     {
         var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        account.SetOwnerType(OwnerType.Individual);
         var accounts = new FakeAccountRepository(account);
         var sessions = new FakeSessionRepository();
         var refreshTokens = new FakeRefreshTokenRepository();
         var outbox = new FakeOutboxWriter();
-        var handler = new ApproveOwnerApplicationCommandHandler(accounts, sessions, refreshTokens, outbox, new FixedClock(Now));
+        var documents = new FakeOwnerDocumentRepository();
+        documents.Add(Document(OwnerId, "PremisesRightProof"));
+        var handler = ApproveHandler(accounts, sessions, refreshTokens, documents, outbox);
 
         var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
 
@@ -94,6 +99,157 @@ public sealed class OwnerApplicationHandlerTests
         Assert.Equal(OwnerId, evt.AccountId);
         Assert.Equal("owner@example.com", evt.Email);
         Assert.Equal(Now, evt.ApprovedAtUtc);
+    }
+
+    // The role is granted only for a complete checklist of the owner type the applicant chose (AGENTS 5.1). Every refusal leaves
+    // the application Pending, the sessions alive and the outbox empty.
+    [Fact]
+    public async Task Approve_without_an_owner_type_returns_OwnerTypeRequired_and_grants_nothing()
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        var sessions = new FakeSessionRepository();
+        var refreshTokens = new FakeRefreshTokenRepository();
+        var outbox = new FakeOutboxWriter();
+        var handler = ApproveHandler(new FakeAccountRepository(account), sessions, refreshTokens, new FakeOwnerDocumentRepository(), outbox);
+
+        var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.OwnerTypeRequired.Code, result.Error!.Code);
+        AssertNothingGranted(account, sessions, refreshTokens, outbox);
+    }
+
+    [Fact]
+    public async Task Approve_with_a_stored_owner_type_that_is_not_defined_returns_OwnerTypeInvalid_and_grants_nothing()
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        // The domain refuses to store such a value, so this is a damaged row. It must not reach the checklist lookup, which throws for it.
+        typeof(Account).GetProperty(nameof(Account.OwnerType))!.SetValue(account, (OwnerType)99);
+        var sessions = new FakeSessionRepository();
+        var refreshTokens = new FakeRefreshTokenRepository();
+        var outbox = new FakeOutboxWriter();
+        var handler = ApproveHandler(new FakeAccountRepository(account), sessions, refreshTokens, new FakeOwnerDocumentRepository(), outbox);
+
+        var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.OwnerTypeInvalid.Code, result.Error!.Code);
+        AssertNothingGranted(account, sessions, refreshTokens, outbox);
+    }
+
+    [Theory]
+    [InlineData(OwnerType.Individual)]
+    [InlineData(OwnerType.HouseholdBusiness)]
+    [InlineData(OwnerType.Enterprise)]
+    public async Task Approve_with_no_document_returns_DocumentsIncomplete_and_grants_nothing(OwnerType ownerType)
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        account.SetOwnerType(ownerType);
+        var sessions = new FakeSessionRepository();
+        var refreshTokens = new FakeRefreshTokenRepository();
+        var outbox = new FakeOutboxWriter();
+        var handler = ApproveHandler(new FakeAccountRepository(account), sessions, refreshTokens, new FakeOwnerDocumentRepository(), outbox);
+
+        var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.DocumentsIncomplete.Code, result.Error!.Code);
+        AssertNothingGranted(account, sessions, refreshTokens, outbox);
+    }
+
+    [Theory]
+    [InlineData(OwnerType.Individual)]
+    [InlineData(OwnerType.HouseholdBusiness)]
+    [InlineData(OwnerType.Enterprise)]
+    public async Task Approve_is_refused_whichever_single_required_document_is_missing(OwnerType ownerType)
+    {
+        var required = RequiredDocumentTypes(ownerType);
+
+        foreach (var missing in required)
+        {
+            var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+            account.SetOwnerType(ownerType);
+            var documents = new FakeOwnerDocumentRepository();
+            foreach (var documentType in required.Where(type => type != missing))
+                documents.Add(Document(OwnerId, documentType));
+            // The optional letter does not make up for a required document.
+            documents.Add(Document(OwnerId, "AuthorizationLetter"));
+            var sessions = new FakeSessionRepository();
+            var refreshTokens = new FakeRefreshTokenRepository();
+            var outbox = new FakeOutboxWriter();
+            var handler = ApproveHandler(new FakeAccountRepository(account), sessions, refreshTokens, documents, outbox);
+
+            var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess, $"approved without {missing}");
+            Assert.Equal(OwnerApplicationErrors.DocumentsIncomplete.Code, result.Error!.Code);
+            AssertNothingGranted(account, sessions, refreshTokens, outbox);
+        }
+    }
+
+    [Fact]
+    public async Task Approve_does_not_count_a_document_that_belongs_to_another_owner_types_checklist()
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        account.SetOwnerType(OwnerType.HouseholdBusiness);
+        var documents = new FakeOwnerDocumentRepository();
+        documents.Add(Document(OwnerId, "EnterpriseRegistration"));
+        documents.Add(Document(OwnerId, "PremisesRightProof"));
+        var sessions = new FakeSessionRepository();
+        var refreshTokens = new FakeRefreshTokenRepository();
+        var outbox = new FakeOutboxWriter();
+        var handler = ApproveHandler(new FakeAccountRepository(account), sessions, refreshTokens, documents, outbox);
+
+        var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.DocumentsIncomplete.Code, result.Error!.Code);
+        AssertNothingGranted(account, sessions, refreshTokens, outbox);
+    }
+
+    [Fact]
+    public async Task Approve_does_not_count_the_documents_of_another_account()
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        account.SetOwnerType(OwnerType.Individual);
+        var documents = new FakeOwnerDocumentRepository();
+        documents.Add(Document(Guid.NewGuid(), "PremisesRightProof"));
+        var sessions = new FakeSessionRepository();
+        var refreshTokens = new FakeRefreshTokenRepository();
+        var outbox = new FakeOutboxWriter();
+        var handler = ApproveHandler(new FakeAccountRepository(account), sessions, refreshTokens, documents, outbox);
+
+        var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.DocumentsIncomplete.Code, result.Error!.Code);
+        AssertNothingGranted(account, sessions, refreshTokens, outbox);
+    }
+
+    [Theory]
+    [InlineData(OwnerType.Individual)]
+    [InlineData(OwnerType.HouseholdBusiness)]
+    [InlineData(OwnerType.Enterprise)]
+    public async Task Approve_with_every_required_document_grants_the_role_for_each_owner_type(OwnerType ownerType)
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
+        account.SetOwnerType(ownerType);
+        var documents = new FakeOwnerDocumentRepository();
+        foreach (var documentType in RequiredDocumentTypes(ownerType))
+            documents.Add(Document(OwnerId, documentType));
+        var sessions = new FakeSessionRepository();
+        var refreshTokens = new FakeRefreshTokenRepository();
+        var outbox = new FakeOutboxWriter();
+        var handler = ApproveHandler(new FakeAccountRepository(account), sessions, refreshTokens, documents, outbox);
+
+        var result = await handler.Handle(new ApproveOwnerApplicationCommand(AdminId, OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess, result.Error?.Code);
+        Assert.Equal(AccountRole.ParkingLotOwner, account.Role);
+        Assert.Equal(OwnerApplicationStatus.Approved, account.OwnerApplicationStatus);
+        Assert.True(sessions.RevokedAll);
+        Assert.True(refreshTokens.RevokedAll);
+        Assert.Single(outbox.EnqueuedEvents);
     }
 
     [Fact]
@@ -256,6 +412,39 @@ public sealed class OwnerApplicationHandlerTests
         Assert.Equal(OwnerApplicationErrors.OwnerTypeInvalid.Code, result.Error!.Code);
         Assert.Null(account.OwnerApplicationStatus);
         Assert.Null(account.OwnerType);
+    }
+
+    private static ConfigurationOwnerDocumentRequirements RealRequirements() =>
+        new(Options.Create(new OwnerDocumentsOptions()));
+
+    private static ApproveOwnerApplicationCommandHandler ApproveHandler(
+        FakeAccountRepository accounts,
+        FakeSessionRepository sessions,
+        FakeRefreshTokenRepository refreshTokens,
+        FakeOwnerDocumentRepository documents,
+        FakeOutboxWriter outbox) =>
+        new(accounts, sessions, refreshTokens, documents, RealRequirements(), outbox, new FixedClock(Now));
+
+    private static List<string> RequiredDocumentTypes(OwnerType ownerType) =>
+        RealRequirements().GetRequirements(ownerType).Where(item => item.Required).Select(item => item.DocumentType).ToList();
+
+    private static OwnerApplicationDocument Document(Guid accountId, string documentType) =>
+        OwnerApplicationDocument.Create(
+            Guid.NewGuid(), accountId, documentType, $"{documentType}.pdf", "application/pdf", 100,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Guid.NewGuid().ToString("N"), Now);
+
+    private static void AssertNothingGranted(
+        Account account,
+        FakeSessionRepository sessions,
+        FakeRefreshTokenRepository refreshTokens,
+        FakeOutboxWriter outbox)
+    {
+        Assert.Equal(OwnerApplicationStatus.Pending, account.OwnerApplicationStatus);
+        Assert.NotEqual(AccountRole.ParkingLotOwner, account.Role);
+        Assert.Null(account.OwnerReviewedAtUtc);
+        Assert.False(sessions.RevokedAll);
+        Assert.False(refreshTokens.RevokedAll);
+        Assert.Empty(outbox.EnqueuedEvents);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : IClock
