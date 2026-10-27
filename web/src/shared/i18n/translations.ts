@@ -60,6 +60,23 @@ export interface TranslationDictionary {
     assignLot: string;
     viewLot: string;
 
+    // Admin Dashboard
+    adminDashEyebrow: string;
+    adminDashTitle: string;
+    adminDashReviewQueueBtn: string;
+    adminDashWaitingReview: string;
+    adminDashActiveLots: string;
+    adminDashRejectedLots: string;
+    adminDashApprovedCapacity: string;
+    adminDashSlotsOpen: string;
+    adminDashOldestPending: string;
+    adminDashSeeAll: string;
+    adminDashNothingToReview: string;
+    adminDashRecentDecisions: string;
+    adminDashNoDecisions: string;
+    adminDashSubmittedAt: string;
+    adminDashReviewBtn: string;
+
     // Admin Owner Applications Page
     ownerAppsTitle: string;
     ownerAppsEyebrow: string;
@@ -79,6 +96,30 @@ export interface TranslationDictionary {
     ownerAppsRejectReasonLabel: string;
     ownerAppsRejectReasonPlaceholder: string;
     ownerAppsEmpty: string;
+    ownerAppsApplicant: string;
+    ownerAppsBusiness: string;
+    ownerAppsLegalDocs: string;
+    ownerAppsSubmittedAt: string;
+    ownerAppsSearchPlaceholder: string;
+    ownerAppsInspectDocsModalTitle: string;
+    ownerAppsApproveModalTitle: string;
+    ownerAppsRepresentative: string;
+    ownerAppsIdCardNumber: string;
+    ownerAppsRegisteredAddress: string;
+    ownerAppsAttachedDocs: string;
+    ownerAppsNoDocsWarning: string;
+    ownerAppsSelectAllChecklist: string;
+    ownerAppsDeselectAllChecklist: string;
+    ownerAppsRejectMissingDocsBtn: string;
+    ownerAppsRejectConfirmTitle: string;
+    ownerAppsRejectConfirmDesc: string;
+    ownerAppsConfirmRejectBtn: string;
+    ownerAppsOpenNewTab: string;
+    ownerAppsPendingEmpty: string;
+    ownerAppsFilterEmpty: string;
+    ownerAppsLoading: string;
+    ownerAppsNotUpdated: string;
+    ownerAppsMissingDocsAlert: string;
 
     // Admin Staff Assignments Page
     assignmentsTitle: string;
@@ -95,6 +136,36 @@ export interface TranslationDictionary {
     assignBtn: string;
     removeStaffBtn: string;
     noStaffAssigned: string;
+    assignmentsColStaff: string;
+    assignmentsColContact: string;
+    assignmentsColRole: string;
+    assignmentsLoadingLots: string;
+    assignmentsLoadingAssignments: string;
+    assignmentsAssigning: string;
+    assignmentsRemoveConfirm: string;
+    assignmentsBackToLots: string;
+    assignmentsOwnerAppsLink: string;
+    assignmentsDefaultStaffName: string;
+
+    // Admin Users Page
+    adminUsersEyebrow: string;
+    adminUsersTitle: string;
+    adminUsersSearchPlaceholder: string;
+    adminUsersAllRoles: string;
+    adminUsersAllStatuses: string;
+    adminUsersColAccount: string;
+    adminUsersColRole: string;
+    adminUsersColStatus: string;
+    adminUsersColCreated: string;
+    adminUsersColActions: string;
+    adminUsersSuspend: string;
+    adminUsersActivate: string;
+    adminUsersUnlock: string;
+    adminUsersChangeRole: string;
+    adminUsersEmpty: string;
+    adminUsersPrevious: string;
+    adminUsersNext: string;
+    adminUsersPageOf: string;
 
     // Staff Portal & Sidebar
     staffStation: string;
@@ -372,6 +443,23 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         assignLot: "👥 Phân công",
         viewLot: "Xem",
 
+        // Admin Dashboard
+        adminDashEyebrow: "Tổng quan hệ thống",
+        adminDashTitle: "Bảng điều khiển",
+        adminDashReviewQueueBtn: "Hàng đợi duyệt",
+        adminDashWaitingReview: "Đang chờ duyệt",
+        adminDashActiveLots: "Bãi xe đang hoạt động",
+        adminDashRejectedLots: "Hồ sơ bị từ chối",
+        adminDashApprovedCapacity: "Sức chứa đã duyệt",
+        adminDashSlotsOpen: "chỗ đỗ sẵn sàng phục vụ",
+        adminDashOldestPending: "Chờ duyệt lâu nhất",
+        adminDashSeeAll: "Xem tất cả",
+        adminDashNothingToReview: "Không có hồ sơ nào cần duyệt. Tuyệt vời!",
+        adminDashRecentDecisions: "Quyết định gần đây",
+        adminDashNoDecisions: "Chưa có quyết định nào.",
+        adminDashSubmittedAt: "gửi lúc",
+        adminDashReviewBtn: "Duyệt",
+
         // Admin Owner Applications
         ownerAppsTitle: "Duyệt hồ sơ Chủ bãi",
         ownerAppsEyebrow: "Xác thực đối tác",
@@ -391,22 +479,76 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsRejectReasonLabel: "Lý do từ chối (bắt buộc):",
         ownerAppsRejectReasonPlaceholder: "Ví dụ: Hồ sơ chưa đủ điều kiện: Thiếu giấy phép PCCC và Hợp đồng bãi đỗ.",
         ownerAppsEmpty: "Không có hồ sơ chủ bãi nào phù hợp.",
+        ownerAppsApplicant: "Họ và tên / Tài khoản",
+        ownerAppsBusiness: "Doanh nghiệp / MST",
+        ownerAppsLegalDocs: "Giấy tờ pháp lý",
+        ownerAppsSubmittedAt: "Ngày nộp",
+        ownerAppsSearchPlaceholder: "Tìm tên, email, MST, SĐT hoặc doanh nghiệp...",
+        ownerAppsInspectDocsModalTitle: "Hồ sơ & Giấy tờ pháp lý Chủ bãi",
+        ownerAppsApproveModalTitle: "Thẩm định giấy tờ & Phê duyệt hồ sơ Chủ bãi",
+        ownerAppsRepresentative: "Người đại diện:",
+        ownerAppsIdCardNumber: "Số CCCD:",
+        ownerAppsRegisteredAddress: "Địa chỉ ĐKKD:",
+        ownerAppsAttachedDocs: "Tài liệu đính kèm",
+        ownerAppsNoDocsWarning: "⚠️ Đối tác chưa tải lên tài liệu pháp lý nào.",
+        ownerAppsSelectAllChecklist: "Chọn tất cả",
+        ownerAppsDeselectAllChecklist: "Bỏ chọn tất cả",
+        ownerAppsRejectMissingDocsBtn: "Hồ sơ thiếu giấy tờ ➔ Từ chối",
+        ownerAppsRejectConfirmTitle: "Từ chối hồ sơ Chủ bãi?",
+        ownerAppsRejectConfirmDesc: "Vui lòng nhập lý do từ chối để thông báo cho đối tác",
+        ownerAppsConfirmRejectBtn: "Xác nhận từ chối",
+        ownerAppsOpenNewTab: "Mở tab mới ↗",
+        ownerAppsPendingEmpty: "Không có hồ sơ chủ bãi nào đang chờ duyệt.",
+        ownerAppsFilterEmpty: "Không tìm thấy hồ sơ phù hợp với bộ lọc.",
+        ownerAppsLoading: "Đang tải danh sách hồ sơ chủ bãi...",
+        ownerAppsNotUpdated: "Chưa cập nhật",
+        ownerAppsMissingDocsAlert: "Cần xác nhận đủ 4 mục giấy tờ pháp lý hợp lệ trước khi duyệt hồ sơ.",
 
         // Admin Staff Assignments
         assignmentsTitle: "Phân công Nhân viên trực bãi",
         assignmentsEyebrow: "Quản trị vận hành",
         selectLotTitle: "Chọn bãi đỗ xe",
-        staffAtLotTitle: "Nhân viên trực tại bãi",
-        staffAtLotSubtitle: "Quản lý danh sách nhân sự được phân quyền kiểm soát cổng vào / cổng ra (Staff Portal).",
+        staffAtLotTitle: "Nhân viên trực tại",
+        staffAtLotSubtitle: "Quản lý danh sách nhân sự được phân quyền kiểm soát cổng vào / cổng ra (Staff Portal) tại bãi này.",
         assignStaffTitle: "Phân công thêm nhân sự vào bãi",
         selectStaffLabel: "Chọn nhân viên:",
         selectStaffDefault: "-- Chọn nhân viên từ hệ thống --",
         assignRoleLabel: "Vai trò tại bãi:",
         roleStaff: "Nhân viên trực (Staff)",
-        roleOwner: "Quản lý bãi (Owner)",
+        roleOwner: "Chủ bãi (Owner)",
         assignBtn: "Gán vào bãi",
         removeStaffBtn: "Gỡ khỏi bãi",
-        noStaffAssigned: "Chưa có nhân viên nào được phân công vào bãi đỗ xe này.",
+        noStaffAssigned: "Chưa có nhân viên nào được phân công vào bãi đỗ xe này. Hãy thêm nhân viên ở biểu mẫu bên dưới.",
+        assignmentsColStaff: "Nhân viên / Họ tên",
+        assignmentsColContact: "Email & Số điện thoại",
+        assignmentsColRole: "Vai trò tại bãi",
+        assignmentsLoadingLots: "Đang tải danh sách bãi...",
+        assignmentsLoadingAssignments: "Đang tải danh sách phân công...",
+        assignmentsAssigning: "Đang gán...",
+        assignmentsRemoveConfirm: "Bạn có chắc muốn gỡ {name} khỏi bãi đỗ xe này?",
+        assignmentsBackToLots: "← Danh sách bãi xe",
+        assignmentsOwnerAppsLink: "Duyệt hồ sơ Chủ bãi",
+        assignmentsDefaultStaffName: "Nhân viên trực bãi",
+
+        // Admin Users Page
+        adminUsersEyebrow: "Định danh & Tài khoản",
+        adminUsersTitle: "Người dùng & Đối tác",
+        adminUsersSearchPlaceholder: "Tìm theo email hoặc họ tên",
+        adminUsersAllRoles: "Tất cả vai trò",
+        adminUsersAllStatuses: "Tất cả trạng thái",
+        adminUsersColAccount: "Tài khoản",
+        adminUsersColRole: "Vai trò",
+        adminUsersColStatus: "Trạng thái",
+        adminUsersColCreated: "Ngày tạo",
+        adminUsersColActions: "Thao tác",
+        adminUsersSuspend: "Khóa",
+        adminUsersActivate: "Kích hoạt",
+        adminUsersUnlock: "Mở khóa",
+        adminUsersChangeRole: "Đổi vai trò",
+        adminUsersEmpty: "Không tìm thấy tài khoản nào.",
+        adminUsersPrevious: "Trang trước",
+        adminUsersNext: "Trang sau",
+        adminUsersPageOf: "Trang",
 
         // Staff Portal
         staffStation: "TRẠM NHÂN VIÊN",
@@ -682,6 +824,23 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         assignLot: "👥 Assign",
         viewLot: "View",
 
+        // Admin Dashboard
+        adminDashEyebrow: "System overview",
+        adminDashTitle: "Dashboard",
+        adminDashReviewQueueBtn: "Review queue",
+        adminDashWaitingReview: "Waiting for review",
+        adminDashActiveLots: "Active parking lots",
+        adminDashRejectedLots: "Rejected applications",
+        adminDashApprovedCapacity: "Approved capacity",
+        adminDashSlotsOpen: "slots open to drivers",
+        adminDashOldestPending: "Oldest pending first",
+        adminDashSeeAll: "See all",
+        adminDashNothingToReview: "Nothing to review. Nice work.",
+        adminDashRecentDecisions: "Recent decisions",
+        adminDashNoDecisions: "No decisions yet.",
+        adminDashSubmittedAt: "submitted",
+        adminDashReviewBtn: "Review",
+
         // Admin Owner Applications
         ownerAppsTitle: "Owner Applications",
         ownerAppsEyebrow: "Partner Verification",
@@ -701,12 +860,36 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsRejectReasonLabel: "Rejection Reason (required):",
         ownerAppsRejectReasonPlaceholder: "Example: Missing fire safety documentation or invalid premises lease.",
         ownerAppsEmpty: "No owner applications found.",
+        ownerAppsApplicant: "Applicant / Account",
+        ownerAppsBusiness: "Business / Tax ID",
+        ownerAppsLegalDocs: "Legal Documents",
+        ownerAppsSubmittedAt: "Submitted Date",
+        ownerAppsSearchPlaceholder: "Search by name, email, tax code, phone or business...",
+        ownerAppsInspectDocsModalTitle: "Owner Application Legal Documents",
+        ownerAppsApproveModalTitle: "Document Review & Application Approval",
+        ownerAppsRepresentative: "Legal Representative:",
+        ownerAppsIdCardNumber: "Citizen ID (CCCD):",
+        ownerAppsRegisteredAddress: "Registered Address:",
+        ownerAppsAttachedDocs: "Attached Documents",
+        ownerAppsNoDocsWarning: "⚠️ Applicant has not uploaded any legal documents.",
+        ownerAppsSelectAllChecklist: "Select All",
+        ownerAppsDeselectAllChecklist: "Deselect All",
+        ownerAppsRejectMissingDocsBtn: "Missing Documents ➔ Reject",
+        ownerAppsRejectConfirmTitle: "Reject Owner Application?",
+        ownerAppsRejectConfirmDesc: "Please enter a reason for rejection to notify the applicant",
+        ownerAppsConfirmRejectBtn: "Confirm Rejection",
+        ownerAppsOpenNewTab: "Open in new tab ↗",
+        ownerAppsPendingEmpty: "No pending owner applications.",
+        ownerAppsFilterEmpty: "No owner applications match this filter.",
+        ownerAppsLoading: "Loading owner applications...",
+        ownerAppsNotUpdated: "Not updated",
+        ownerAppsMissingDocsAlert: "All 4 legal requirements must be verified before approval.",
 
         // Admin Staff Assignments
         assignmentsTitle: "Staff Lot Assignments",
         assignmentsEyebrow: "Operations Management",
         selectLotTitle: "Select Parking Lot",
-        staffAtLotTitle: "Assigned Staff at Lot",
+        staffAtLotTitle: "Assigned Staff at",
         staffAtLotSubtitle: "Manage staff accounts authorized for gate check-in/check-out at this parking lot.",
         assignStaffTitle: "Assign New Member to Lot",
         selectStaffLabel: "Select Staff Account:",
@@ -716,7 +899,37 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         roleOwner: "Lot Manager (Owner)",
         assignBtn: "Assign to Lot",
         removeStaffBtn: "Remove",
-        noStaffAssigned: "No staff assigned to this parking lot yet.",
+        noStaffAssigned: "No staff assigned to this parking lot yet. Use the form below to assign staff.",
+        assignmentsColStaff: "Staff Member / Name",
+        assignmentsColContact: "Email & Phone Number",
+        assignmentsColRole: "Role at Lot",
+        assignmentsLoadingLots: "Loading parking lots...",
+        assignmentsLoadingAssignments: "Loading staff assignments...",
+        assignmentsAssigning: "Assigning...",
+        assignmentsRemoveConfirm: "Are you sure you want to remove {name} from this parking lot?",
+        assignmentsBackToLots: "← Parking Lots",
+        assignmentsOwnerAppsLink: "Owner Applications",
+        assignmentsDefaultStaffName: "On-site Staff",
+
+        // Admin Users Page
+        adminUsersEyebrow: "Identity & Accounts",
+        adminUsersTitle: "Users & Owners",
+        adminUsersSearchPlaceholder: "Search email or name",
+        adminUsersAllRoles: "All roles",
+        adminUsersAllStatuses: "All statuses",
+        adminUsersColAccount: "Account",
+        adminUsersColRole: "Role",
+        adminUsersColStatus: "Status",
+        adminUsersColCreated: "Created",
+        adminUsersColActions: "Actions",
+        adminUsersSuspend: "Suspend",
+        adminUsersActivate: "Activate",
+        adminUsersUnlock: "Unlock",
+        adminUsersChangeRole: "Change role",
+        adminUsersEmpty: "No accounts found.",
+        adminUsersPrevious: "Previous",
+        adminUsersNext: "Next",
+        adminUsersPageOf: "Page",
 
         // Staff Portal
         staffStation: "STAFF STATION",

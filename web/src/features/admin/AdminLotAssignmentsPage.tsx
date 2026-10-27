@@ -13,8 +13,10 @@ import {
     type StaffAccountOption,
 } from "./lotAssignmentsApi";
 import type { AdminParkingLot, ParkingLotAssignmentMember } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function AdminLotAssignmentsPage() {
+    const { t } = useLanguage();
     const [lots, setLots] = useState<AdminParkingLot[]>([]);
     const [selectedLotId, setSelectedLotId] = useState<string>("");
     const [assignments, setAssignments] = useState<ParkingLotAssignmentMember[]>([]);
@@ -130,7 +132,7 @@ export function AdminLotAssignmentsPage() {
         try {
             await assignLotMember(selectedLotId, selectedAccountId, selectedRole);
             const staff = availableStaff.find((s) => s.accountId === selectedAccountId);
-            setToast(`Đã gán ${staff?.fullName || "tài khoản"} vào bãi ${activeLot?.name || ""}.`);
+            setToast(`${t("approved")}: ${staff?.fullName || "staff"} ➔ ${activeLot?.name || ""}`);
             setSelectedAccountId("");
             await loadAssignments(selectedLotId);
         } catch (err) {
@@ -142,13 +144,14 @@ export function AdminLotAssignmentsPage() {
 
     // Xử lý gỡ nhân viên (DELETE)
     async function handleRemoveMember(accountId: string, memberName: string) {
-        if (!confirm(`Bạn có chắc muốn gỡ ${memberName} khỏi bãi đỗ xe này?`)) return;
+        const confirmText = t("assignmentsRemoveConfirm").replace("{name}", memberName);
+        if (!confirm(confirmText)) return;
 
         setActionBusy(true);
         setErrorMsg("");
         try {
             await removeLotMember(selectedLotId, accountId);
-            setToast(`Đã gỡ ${memberName} khỏi bãi ${activeLot?.name || ""}.`);
+            setToast(`${t("removeStaffBtn")}: ${memberName} (${activeLot?.name || ""})`);
             await loadAssignments(selectedLotId);
         } catch (err) {
             setErrorMsg(describeAssignmentError(err));
@@ -161,21 +164,21 @@ export function AdminLotAssignmentsPage() {
         <>
             <header className="admin-heading">
                 <div>
-                    <p className="admin-eyebrow">Quản trị vận hành</p>
-                    <h1>Phân công Nhân viên trực bãi</h1>
+                    <p className="admin-eyebrow">{t("assignmentsEyebrow")}</p>
+                    <h1>{t("assignmentsTitle")}</h1>
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     <Link
                         href="/admin/parking-lots"
                         className="admin-btn admin-btn-ghost"
                     >
-                        ← Danh sách bãi xe
+                        {t("assignmentsBackToLots")}
                     </Link>
                     <Link
                         href="/admin/owner-applications"
                         className="admin-btn admin-btn-ghost"
                     >
-                        Duyệt hồ sơ Chủ bãi
+                        {t("assignmentsOwnerAppsLink")}
                     </Link>
                     <button
                         type="button"
@@ -186,7 +189,7 @@ export function AdminLotAssignmentsPage() {
                         className="admin-btn admin-btn-ghost"
                         disabled={loadingLots || loadingAssignments}
                     >
-                        🔄 Làm mới
+                        🔄 {t("refresh")}
                     </button>
                 </div>
             </header>
@@ -230,11 +233,11 @@ export function AdminLotAssignmentsPage() {
                 {/* Cột trái: Chọn bãi đỗ xe */}
                 <section className="admin-card" style={{ padding: "16px" }}>
                     <h2 style={{ fontSize: "1rem", margin: "0 0 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span>🏢</span> Chọn bãi đỗ xe
+                        <span>🏢</span> {t("selectLotTitle")}
                     </h2>
 
                     {loadingLots ? (
-                        <p className="admin-empty">Đang tải danh sách bãi...</p>
+                        <p className="admin-empty">{t("assignmentsLoadingLots")}</p>
                     ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "65vh", overflowY: "auto" }}>
                             {lots.map((lot) => {
@@ -259,7 +262,7 @@ export function AdminLotAssignmentsPage() {
                                             {lot.name}
                                         </div>
                                         <div style={{ fontSize: "0.8rem", color: "var(--staff-text-muted, #94a3b8)", marginTop: "4px" }}>
-                                            Chủ bãi: {lot.ownerName}
+                                            {t("lotOwnerHeader")}: {lot.ownerName}
                                         </div>
                                         <div style={{ fontSize: "0.75rem", color: "var(--staff-text-muted, #94a3b8)" }}>
                                             {lot.address || lot.city}
@@ -277,27 +280,27 @@ export function AdminLotAssignmentsPage() {
                     <section className="admin-card admin-table-card">
                         <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                             <h2 style={{ fontSize: "1.1rem", margin: 0 }}>
-                                Nhân viên trực tại: {activeLot ? activeLot.name : "..."}
+                                {t("staffAtLotTitle")}: {activeLot ? activeLot.name : "..."}
                             </h2>
                             <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--staff-text-muted, #94a3b8)" }}>
-                                Quản lý danh sách nhân sự được phân quyền kiểm soát cổng vào / cổng ra (Staff Portal) tại bãi này.
+                                {t("staffAtLotSubtitle")}
                             </p>
                         </div>
 
                         <table className="admin-table">
                             <thead>
                                 <tr>
-                                    <th>Nhân viên / Họ tên</th>
-                                    <th>Email & Số điện thoại</th>
-                                    <th>Vai trò tại bãi</th>
-                                    <th style={{ textAlign: "right" }}>Thao tác</th>
+                                    <th>{t("assignmentsColStaff")}</th>
+                                    <th>{t("assignmentsColContact")}</th>
+                                    <th>{t("assignmentsColRole")}</th>
+                                    <th style={{ textAlign: "right" }}>{t("actions")}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {assignments.map((member) => (
                                     <tr key={member.accountId}>
                                         <td>
-                                            <strong>{member.accountFullName || "Nhân viên trực bãi"}</strong>
+                                            <strong>{member.accountFullName || t("assignmentsDefaultStaffName")}</strong>
                                             <small style={{ fontFamily: "monospace", opacity: 0.7 }}>
                                                 ID: {member.accountId.slice(0, 8)}...
                                             </small>
@@ -319,7 +322,7 @@ export function AdminLotAssignmentsPage() {
                                                     border: `1px solid ${member.role === "Owner" ? "rgba(168, 85, 247, 0.3)" : "rgba(59, 130, 246, 0.3)"}`,
                                                 }}
                                             >
-                                                {member.role === "Owner" ? "Chủ bãi (Owner)" : "Nhân viên trực (Staff)"}
+                                                {member.role === "Owner" ? t("roleOwner") : t("roleStaff")}
                                             </span>
                                         </td>
                                         <td style={{ textAlign: "right" }}>
@@ -329,13 +332,13 @@ export function AdminLotAssignmentsPage() {
                                                 onClick={() =>
                                                     handleRemoveMember(
                                                         member.accountId,
-                                                        member.accountFullName || member.accountEmail || "nhân viên",
+                                                        member.accountFullName || member.accountEmail || "staff",
                                                     )
                                                 }
                                                 disabled={actionBusy}
-                                                title="Gỡ nhân viên khỏi bãi đỗ xe này"
+                                                title={t("removeStaffBtn")}
                                             >
-                                                Gỡ khỏi bãi
+                                                {t("removeStaffBtn")}
                                             </button>
                                         </td>
                                     </tr>
@@ -345,24 +348,24 @@ export function AdminLotAssignmentsPage() {
 
                         {assignments.length === 0 && !loadingAssignments && (
                             <p className="admin-empty">
-                                Chưa có nhân viên nào được phân công vào bãi đỗ xe này. Hãy thêm nhân viên ở biểu mẫu bên dưới.
+                                {t("noStaffAssigned")}
                             </p>
                         )}
 
                         {loadingAssignments && (
-                            <p className="admin-empty">Đang tải danh sách phân công...</p>
+                            <p className="admin-empty">{t("assignmentsLoadingAssignments")}</p>
                         )}
                     </section>
 
-                    {/* Biểu mẫu gán nhân viên mới vào bãi xe (PUT /api/parking/admin/lots/{lotId}/assignments/{accountId}) */}
+                    {/* Biểu mẫu gán nhân viên mới vào bãi xe */}
                     <section className="admin-card" style={{ padding: "20px" }}>
                         <h3 style={{ fontSize: "1rem", margin: "0 0 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span>➕</span> Phân công thêm nhân sự vào bãi
+                            <span>➕</span> {t("assignStaffTitle")}
                         </h3>
 
                         <form onSubmit={handleAssignMember} style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: "12px", alignItems: "end" }}>
                             <label className="admin-field" style={{ margin: 0 }}>
-                                <span>Chọn nhân viên:</span>
+                                <span>{t("selectStaffLabel")}</span>
                                 <select
                                     value={selectedAccountId}
                                     onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -376,7 +379,7 @@ export function AdminLotAssignmentsPage() {
                                         border: "1px solid rgba(255, 255, 255, 0.15)",
                                     }}
                                 >
-                                    <option value="">-- Chọn nhân viên từ hệ thống --</option>
+                                    <option value="">{t("selectStaffDefault")}</option>
                                     {assignableStaff.map((staff) => (
                                         <option key={staff.accountId} value={staff.accountId}>
                                             {staff.fullName} ({staff.email})
@@ -386,7 +389,7 @@ export function AdminLotAssignmentsPage() {
                             </label>
 
                             <label className="admin-field" style={{ margin: 0 }}>
-                                <span>Vai trò tại bãi:</span>
+                                <span>{t("assignRoleLabel")}</span>
                                 <select
                                     value={selectedRole}
                                     onChange={(e) => setSelectedRole(e.target.value as "Staff" | "Owner")}
@@ -399,8 +402,8 @@ export function AdminLotAssignmentsPage() {
                                         border: "1px solid rgba(255, 255, 255, 0.15)",
                                     }}
                                 >
-                                    <option value="Staff">Nhân viên trực (Staff)</option>
-                                    <option value="Owner">Quản lý bãi (Owner)</option>
+                                    <option value="Staff">{t("roleStaff")}</option>
+                                    <option value="Owner">{t("roleOwner")}</option>
                                 </select>
                             </label>
 
@@ -410,7 +413,7 @@ export function AdminLotAssignmentsPage() {
                                 disabled={actionBusy || !selectedAccountId || !selectedLotId}
                                 style={{ height: "40px" }}
                             >
-                                {actionBusy ? "Đang gán..." : "Gán vào bãi"}
+                                {actionBusy ? t("assignmentsAssigning") : t("assignBtn")}
                             </button>
                         </form>
                     </section>
@@ -425,3 +428,4 @@ export function AdminLotAssignmentsPage() {
         </>
     );
 }
+

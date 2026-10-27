@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { AdminIcon, SampleDataNote, StatusPill, formatDate } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function AdminDashboardPage() {
+    const { t } = useLanguage();
     const lots = useAdminLots();
     const counts = countByStatus(lots);
     const total = lots.length || 1;
@@ -24,19 +26,19 @@ export function AdminDashboardPage() {
     const cards = [
         {
             key: "Pending",
-            label: "Waiting for review",
+            label: t("adminDashWaitingReview"),
             value: counts.Pending,
             href: "/admin/parking-lots/pending",
         },
         {
             key: "Approved",
-            label: "Active parking lots",
+            label: t("adminDashActiveLots"),
             value: counts.Approved,
             href: "/admin/parking-lots?status=Approved",
         },
         {
             key: "Rejected",
-            label: "Rejected applications",
+            label: t("adminDashRejectedLots"),
             value: counts.Rejected,
             href: "/admin/parking-lots?status=Rejected",
         },
@@ -46,15 +48,15 @@ export function AdminDashboardPage() {
         <>
             <header className="admin-heading">
                 <div>
-                    <p className="admin-eyebrow">System overview</p>
-                    <h1>Dashboard</h1>
+                    <p className="admin-eyebrow">{t("adminDashEyebrow")}</p>
+                    <h1>{t("adminDashTitle")}</h1>
                 </div>
                 <Link
                     href="/admin/parking-lots/pending"
                     className="admin-btn admin-btn-dark"
                     id="dashboard-review-queue"
                 >
-                    Review queue <AdminIcon name="arrow" size={16} />
+                    {t("adminDashReviewQueueBtn")} <AdminIcon name="arrow" size={16} />
                 </Link>
             </header>
             <SampleDataNote />
@@ -78,21 +80,21 @@ export function AdminDashboardPage() {
                     </Link>
                 ))}
                 <div className="admin-stat admin-stat-capacity">
-                    <span>Approved capacity</span>
+                    <span>{t("adminDashApprovedCapacity")}</span>
                     <strong>{capacity.toLocaleString("en-US")}</strong>
-                    <small>slots open to drivers</small>
+                    <small>{t("adminDashSlotsOpen")}</small>
                 </div>
             </section>
 
             <div className="admin-columns">
                 <section className="admin-card">
                     <div className="admin-card-head">
-                        <h2>Oldest pending first</h2>
-                        <Link href="/admin/parking-lots/pending">See all</Link>
+                        <h2>{t("adminDashOldestPending")}</h2>
+                        <Link href="/admin/parking-lots/pending">{t("adminDashSeeAll")}</Link>
                     </div>
                     {queue.length === 0 ? (
                         <p className="admin-empty">
-                            Nothing to review. Nice work.
+                            {t("adminDashNothingToReview")}
                         </p>
                     ) : (
                         <ul className="admin-list">
@@ -101,7 +103,7 @@ export function AdminDashboardPage() {
                                     <div>
                                         <strong>{lot.name}</strong>
                                         <small>
-                                            {lot.ownerName} · submitted{" "}
+                                            {lot.ownerName} · {t("adminDashSubmittedAt")}{" "}
                                             {formatDate(lot.submittedAtUtc)}
                                         </small>
                                     </div>
@@ -109,7 +111,7 @@ export function AdminDashboardPage() {
                                         href={`/admin/parking-lots/${lot.id}`}
                                         className="admin-btn admin-btn-lime admin-btn-sm"
                                     >
-                                        Review
+                                        {t("adminDashReviewBtn")}
                                     </Link>
                                 </li>
                             ))}
@@ -118,10 +120,10 @@ export function AdminDashboardPage() {
                 </section>
                 <section className="admin-card">
                     <div className="admin-card-head">
-                        <h2>Recent decisions</h2>
+                        <h2>{t("adminDashRecentDecisions")}</h2>
                     </div>
                     {recent.length === 0 ? (
-                        <p className="admin-empty">No decisions yet.</p>
+                        <p className="admin-empty">{t("adminDashNoDecisions")}</p>
                     ) : (
                         <ul className="admin-list">
                             {recent.map((lot) => (
@@ -142,3 +144,4 @@ export function AdminDashboardPage() {
         </>
     );
 }
+

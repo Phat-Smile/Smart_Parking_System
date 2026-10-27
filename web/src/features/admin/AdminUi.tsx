@@ -1,5 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import type { ApprovalStatus } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function AdminIcon({
     name,
@@ -69,17 +72,18 @@ export function AdminIcon({
     );
 }
 
-const statusLabel: Record<ApprovalStatus, string> = {
-    Pending: "Pending",
-    Approved: "Active",
-    Rejected: "Rejected",
-};
-
 export function StatusPill({ status }: { status: ApprovalStatus }) {
+    const { t } = useLanguage();
+    const label =
+        status === "Pending"
+            ? t("pending")
+            : status === "Approved"
+              ? t("approved")
+              : t("rejected");
     return (
         <span className={`admin-pill admin-pill-${status.toLowerCase()}`}>
             <i aria-hidden="true" />
-            {statusLabel[status]}
+            {label}
         </span>
     );
 }

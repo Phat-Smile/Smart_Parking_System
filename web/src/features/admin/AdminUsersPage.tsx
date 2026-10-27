@@ -18,6 +18,7 @@ import {
     type AccountStatus,
     type AccountSummary,
 } from "./adminAccounts";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 const roles: AccountRole[] = [
     "Customer",
@@ -41,6 +42,7 @@ const PAGE_SIZE = 20;
 
 /** Only actions Identity actually exposes: list, suspend, activate, unlock. */
 export function AdminUsersPage() {
+    const { t } = useLanguage();
     const client = useQueryClient();
     const session = useSyncExternalStore(
         subscribeAuthSession,
@@ -122,8 +124,8 @@ export function AdminUsersPage() {
         <>
             <header className="admin-heading">
                 <div>
-                    <p className="admin-eyebrow">Identity</p>
-                    <h1>Users & owners</h1>
+                    <p className="admin-eyebrow">{t("adminUsersEyebrow")}</p>
+                    <h1>{t("adminUsersTitle")}</h1>
                 </div>
             </header>
 
@@ -134,7 +136,7 @@ export function AdminUsersPage() {
                         id="users-search"
                         value={searchInput}
                         onChange={(e) => setSearchInput(e.target.value)}
-                        placeholder="Search email or name"
+                        placeholder={t("adminUsersSearchPlaceholder")}
                     />
                 </label>
                 <select
@@ -146,7 +148,7 @@ export function AdminUsersPage() {
                         setPage(1);
                     }}
                 >
-                    <option value="">All roles</option>
+                    <option value="">{t("adminUsersAllRoles")}</option>
                     {roles.map((r) => (
                         <option key={r} value={r}>
                             {roleLabel[r]}
@@ -162,7 +164,7 @@ export function AdminUsersPage() {
                         setPage(1);
                     }}
                 >
-                    <option value="">All statuses</option>
+                    <option value="">{t("adminUsersAllStatuses")}</option>
                     {statuses.map((s) => (
                         <option key={s} value={s}>
                             {s}
@@ -180,20 +182,19 @@ export function AdminUsersPage() {
             <section className="admin-card admin-table-card">
                 {!session ? (
                     <p className="admin-empty">
-                        Sign in as a SystemAdmin to load accounts.
+                        {t("notSignedIn")}
                     </p>
                 ) : query.isPending ? (
-                    <p className="admin-empty">Loading accounts…</p>
+                    <p className="admin-empty">{t("loading")}</p>
                 ) : query.isError || !data ? (
                     <p className="admin-empty">
-                        Couldn&apos;t load accounts.{" "}
                         {describeAccountError(query.error)}{" "}
                         <button
                             type="button"
                             className="admin-link"
                             onClick={() => query.refetch()}
                         >
-                            Retry
+                            {t("refresh")}
                         </button>
                     </p>
                 ) : (
@@ -201,11 +202,11 @@ export function AdminUsersPage() {
                         <table className="admin-table">
                             <thead>
                                 <tr>
-                                    <th>Account</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                    <th>Created</th>
-                                    <th aria-label="Actions" />
+                                    <th>{t("adminUsersColAccount")}</th>
+                                    <th>{t("adminUsersColRole")}</th>
+                                    <th>{t("adminUsersColStatus")}</th>
+                                    <th>{t("adminUsersColCreated")}</th>
+                                    <th aria-label={t("adminUsersColActions")} />
                                 </tr>
                             </thead>
                             <tbody>
@@ -293,7 +294,7 @@ export function AdminUsersPage() {
                                                             )
                                                         }
                                                     >
-                                                        Unlock
+                                                        {t("adminUsersUnlock")}
                                                     </button>
                                                 )}
                                                 {!self &&
@@ -314,7 +315,7 @@ export function AdminUsersPage() {
                                                                 )
                                                             }
                                                         >
-                                                            Suspend
+                                                            {t("adminUsersSuspend")}
                                                         </button>
                                                     )}
                                                 {!self &&
@@ -334,7 +335,7 @@ export function AdminUsersPage() {
                                                                 )
                                                             }
                                                         >
-                                                            Activate
+                                                            {t("adminUsersActivate")}
                                                         </button>
                                                     )}
                                             </td>
@@ -345,7 +346,7 @@ export function AdminUsersPage() {
                         </table>
                         {data.items.length === 0 && (
                             <p className="admin-empty">
-                                No accounts match your filters.
+                                {t("adminUsersEmpty")}
                             </p>
                         )}
                         <div className="admin-pager">
@@ -356,7 +357,7 @@ export function AdminUsersPage() {
                                 disabled={page <= 1}
                                 onClick={() => setPage(page - 1)}
                             >
-                                Previous
+                                {t("adminUsersPrevious")}
                             </button>
                             <span>
                                 {page} / {pages}
@@ -367,7 +368,7 @@ export function AdminUsersPage() {
                                 disabled={page >= pages}
                                 onClick={() => setPage(page + 1)}
                             >
-                                Next
+                                {t("adminUsersNext")}
                             </button>
                         </div>
                     </>

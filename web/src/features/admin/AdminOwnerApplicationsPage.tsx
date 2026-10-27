@@ -14,6 +14,7 @@ import type {
     OwnerApplicationDocument,
     OwnerApplicationItem,
 } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 type Filter = ApprovalStatus | "All";
 
@@ -32,6 +33,7 @@ const DEFAULT_CHECKLIST: VerificationChecklist = {
 };
 
 export function AdminOwnerApplicationsPage() {
+    const { t } = useLanguage();
     const [status, setStatus] = useState<Filter>("Pending");
     const [applications, setApplications] = useState<OwnerApplicationItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -127,14 +129,14 @@ export function AdminOwnerApplicationsPage() {
     async function handleConfirmApprove() {
         if (!activeApp) return;
         if (!isAllVerified) {
-            setErrorMsg("Cần xác nhận đủ 4 mục giấy tờ pháp lý hợp lệ trước khi duyệt hồ sơ.");
+            setErrorMsg(t("ownerAppsMissingDocsAlert"));
             return;
         }
 
         setActionBusy(true);
         try {
             await approveOwnerApplication(activeApp.accountId);
-            setToast(`Đã duyệt hồ sơ chủ bãi cho ${activeApp.fullName || activeApp.email}.`);
+            setToast(`${t("approved")}: ${activeApp.fullName || activeApp.email}`);
             setModalAction(null);
             setActiveApp(null);
             await loadData();
@@ -150,7 +152,7 @@ export function AdminOwnerApplicationsPage() {
         setActionBusy(true);
         try {
             await rejectOwnerApplication(activeApp.accountId, rejectReason.trim());
-            setToast(`Đã từ chối hồ sơ của ${activeApp.fullName || activeApp.email}.`);
+            setToast(`${t("rejected")}: ${activeApp.fullName || activeApp.email}`);
             setModalAction(null);
             setActiveApp(null);
             setRejectReason("");
@@ -165,14 +167,14 @@ export function AdminOwnerApplicationsPage() {
     function handleRejectMissingDocs() {
         if (!activeApp) return;
         const missing: string[] = [];
-        if (!checklist.license) missing.push("Giấy chứng nhận ĐKKD / MST");
-        if (!checklist.idCard) missing.push("CCCD người đại diện pháp luật");
-        if (!checklist.fireSafety) missing.push("Giấy chứng nhận thẩm duyệt PCCC");
-        if (!checklist.lease) missing.push("Hợp đồng thuê mặt bằng / quyền sử dụng bãi");
+        if (!checklist.license) missing.push(t("ownerAppsChecklistRule1"));
+        if (!checklist.idCard) missing.push(t("ownerAppsChecklistRule2"));
+        if (!checklist.fireSafety) missing.push(t("ownerAppsChecklistRule3"));
+        if (!checklist.lease) missing.push(t("ownerAppsChecklistRule4"));
 
         const generatedReason = missing.length > 0
-            ? `Hồ sơ chưa đủ điều kiện duyệt: Thiếu hoặc chưa hợp lệ các giấy tờ (${missing.join(", ")}). Vui lòng cập nhật và nộp lại.`
-            : "Hồ sơ giấy tờ chưa đạt yêu cầu pháp lý theo quy định.";
+            ? `${t("ownerAppsRejectReasonPlaceholder")}: (${missing.join(", ")}).`
+            : t("ownerAppsChecklistWarning");
 
         setRejectReason(generatedReason);
         setModalAction("reject");
@@ -184,21 +186,21 @@ export function AdminOwnerApplicationsPage() {
         <>
             <header className="admin-heading">
                 <div>
-                    <p className="admin-eyebrow">Xác thực đối tác</p>
-                    <h1>Duyệt hồ sơ Chủ bãi</h1>
+                    <p className="admin-eyebrow">{t("ownerAppsEyebrow")}</p>
+                    <h1>{t("ownerAppsTitle")}</h1>
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     <Link
                         href="/admin/parking-lots/assignments"
                         className="admin-btn admin-btn-ghost"
                     >
-                        👥 Phân công nhân viên
+                        👥 {t("assignmentsTitle")}
                     </Link>
                     <Link
                         href="/admin/parking-lots/pending"
                         className="admin-btn admin-btn-ghost"
                     >
-                        ← Bãi xe chờ duyệt
+                        {t("parkingLotsPendingTab")}
                     </Link>
                     <button
                         type="button"
@@ -206,7 +208,7 @@ export function AdminOwnerApplicationsPage() {
                         className="admin-btn admin-btn-ghost"
                         disabled={loading}
                     >
-                        🔄 Làm mới
+                        🔄 {t("refresh")}
                     </button>
                 </div>
             </header>
@@ -251,12 +253,12 @@ export function AdminOwnerApplicationsPage() {
                             onClick={() => setStatus(tab)}
                         >
                             {tab === "Pending"
-                                ? "Chờ duyệt"
+                                ? t("pending")
                                 : tab === "Approved"
-                                  ? "Đã duyệt"
+                                  ? t("approved")
                                   : tab === "Rejected"
-                                    ? "Từ chối"
-                                    : "Tất cả"}
+                                    ? t("rejected")
+                                    : t("all")}
                             <span>{counts[tab]}</span>
                         </button>
                     ))}
@@ -268,7 +270,7 @@ export function AdminOwnerApplicationsPage() {
                         id="owner-apps-search"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Tìm tên, email, MST, SĐT hoặc doanh nghiệp..."
+                        placeholder={t("ownerAppsSearchPlaceholder")}
                     />
                 </label>
             </div>
@@ -277,12 +279,12 @@ export function AdminOwnerApplicationsPage() {
                 <table className="admin-table">
                     <thead>
                         <tr>
-                            <th>Họ và tên / Tài khoản</th>
-                            <th>Doanh nghiệp / MST</th>
-                            <th>Giấy tờ pháp lý</th>
-                            <th>Ngày nộp</th>
-                            <th>Trạng thái</th>
-                            <th style={{ textAlign: "right" }}>Thao tác</th>
+                            <th>{t("ownerAppsApplicant")}</th>
+                            <th>{t("ownerAppsBusiness")}</th>
+                            <th>{t("ownerAppsLegalDocs")}</th>
+                            <th>{t("ownerAppsSubmittedAt")}</th>
+                            <th>{t("status")}</th>
+                            <th style={{ textAlign: "right" }}>{t("actions")}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -290,13 +292,13 @@ export function AdminOwnerApplicationsPage() {
                             <tr key={app.accountId}>
                                 <td>
                                     <strong>
-                                        {app.fullName || "Chưa cập nhật"}
+                                        {app.fullName || t("ownerAppsNotUpdated")}
                                     </strong>
                                     <small>{app.email}</small>
                                 </td>
                                 <td>
                                     <strong>{app.businessName || "—"}</strong>
-                                    <small>MST: {app.taxCode || "—"}</small>
+                                    <small>{t("ownerAppsTaxCode")}: {app.taxCode || "—"}</small>
                                 </td>
                                 <td>
                                     <button
@@ -305,7 +307,7 @@ export function AdminOwnerApplicationsPage() {
                                         style={{ fontSize: "12px", padding: "4px 8px" }}
                                         onClick={() => openReviewModal(app, "inspect")}
                                     >
-                                        📑 Xem giấy tờ ({app.documents?.length || 0})
+                                        📑 {t("ownerAppsInspectDocs")} ({app.documents?.length || 0})
                                     </button>
                                 </td>
                                 <td>{formatDate(app.createdAtUtc)}</td>
@@ -326,17 +328,17 @@ export function AdminOwnerApplicationsPage() {
                                             <button
                                                 type="button"
                                                 className="admin-btn admin-btn-sm admin-btn-lime"
-                                                title="Kiểm tra giấy tờ và duyệt"
+                                                title={t("ownerAppsVerifyAndApprove")}
                                                 onClick={() => openReviewModal(app, "approve")}
                                             >
-                                                Kiểm tra & Duyệt
+                                                {t("ownerAppsVerifyAndApprove")}
                                             </button>
                                             <button
                                                 type="button"
                                                 className="admin-btn admin-btn-sm admin-btn-danger-ghost"
                                                 onClick={() => openReviewModal(app, "reject")}
                                             >
-                                                Từ chối
+                                                {t("ownerAppsReject")}
                                             </button>
                                         </div>
                                     ) : (
@@ -345,7 +347,7 @@ export function AdminOwnerApplicationsPage() {
                                             className="admin-btn admin-btn-xs admin-btn-ghost"
                                             onClick={() => openReviewModal(app, "inspect")}
                                         >
-                                            Chi tiết hồ sơ
+                                            {t("details")}
                                         </button>
                                     )}
                                 </td>
@@ -357,19 +359,19 @@ export function AdminOwnerApplicationsPage() {
                 {filtered.length === 0 && !loading && (
                     <p className="admin-empty">
                         {status === "Pending"
-                            ? "Không có hồ sơ chủ bãi nào đang chờ duyệt."
-                            : "Không tìm thấy hồ sơ phù hợp với bộ lọc."}
+                            ? t("ownerAppsPendingEmpty")
+                            : t("ownerAppsFilterEmpty")}
                     </p>
                 )}
 
                 {loading && (
                     <p className="admin-empty">
-                        Đang tải danh sách hồ sơ chủ bãi...
+                        {t("ownerAppsLoading")}
                     </p>
                 )}
             </section>
 
-            {/* Modal Thẩm định giấy tờ & Duyệt hồ sơ (Yêu cầu 3) */}
+            {/* Modal Thẩm định giấy tờ & Duyệt hồ sơ */}
             {(modalAction === "approve" || modalAction === "inspect") && activeApp && (
                 <div
                     className="admin-modal-backdrop"
@@ -386,8 +388,8 @@ export function AdminOwnerApplicationsPage() {
                             <div>
                                 <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
                                     {modalAction === "approve"
-                                        ? "Thẩm định giấy tờ & Phê duyệt hồ sơ Chủ bãi"
-                                        : "Hồ sơ & Giấy tờ pháp lý Chủ bãi"}
+                                        ? t("ownerAppsApproveModalTitle")
+                                        : t("ownerAppsInspectDocsModalTitle")}
                                 </h2>
                                 <p style={{ margin: "4px 0 0", color: "var(--staff-text-muted, #94a3b8)", fontSize: "0.875rem" }}>
                                     {activeApp.businessName || activeApp.fullName} ({activeApp.email})
@@ -417,30 +419,30 @@ export function AdminOwnerApplicationsPage() {
                             }}
                         >
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>Người đại diện: </span>
+                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsRepresentative")} </span>
                                 <strong>{activeApp.fullName || "—"}</strong>
                             </div>
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>Mã số thuế: </span>
+                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsTaxCode")}: </span>
                                 <strong>{activeApp.taxCode || "—"}</strong>
                             </div>
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>Số CCCD: </span>
+                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsIdCardNumber")} </span>
                                 <strong>{activeApp.idCardNumber || "—"}</strong>
                             </div>
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>Điện thoại: </span>
+                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("phone")}: </span>
                                 <strong>{activeApp.phoneNumber || "—"}</strong>
                             </div>
                             <div style={{ gridColumn: "1 / -1" }}>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>Địa chỉ ĐKKD: </span>
-                                <span>{activeApp.businessAddress || "Chưa cập nhật"}</span>
+                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsRegisteredAddress")} </span>
+                                <span>{activeApp.businessAddress || t("ownerAppsNotUpdated")}</span>
                             </div>
                         </div>
 
                         {/* Danh sách tài liệu đính kèm */}
                         <h3 style={{ fontSize: "1rem", margin: "1rem 0 0.5rem" }}>
-                            Tài liệu đính kèm ({activeApp.documents?.length || 0})
+                            {t("ownerAppsAttachedDocs")} ({activeApp.documents?.length || 0})
                         </h3>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "10px", marginBottom: "1.5rem" }}>
                             {(activeApp.documents && activeApp.documents.length > 0) ? (
@@ -488,20 +490,20 @@ export function AdminOwnerApplicationsPage() {
                                             type="button"
                                             className="admin-btn admin-btn-xs admin-btn-ghost"
                                             onClick={() => setPreviewDoc(doc)}
-                                            title="Xem tài liệu"
+                                            title={t("view")}
                                         >
-                                            👁 Xem
+                                            👁 {t("view")}
                                         </button>
                                     </div>
                                 ))
                             ) : (
                                 <p style={{ color: "#ef4444", fontSize: "0.875rem", gridColumn: "1 / -1" }}>
-                                    ⚠️ Đối tác chưa tải lên tài liệu pháp lý nào.
+                                    {t("ownerAppsNoDocsWarning")}
                                 </p>
                             )}
                         </div>
 
-                        {/* Checklist thẩm định - Bắt buộc đủ giấy tờ mới cho duyệt */}
+                        {/* Checklist thẩm định */}
                         {modalAction === "approve" && (
                             <div
                                 style={{
@@ -514,7 +516,7 @@ export function AdminOwnerApplicationsPage() {
                             >
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                                     <strong style={{ fontSize: "0.9rem", color: isAllVerified ? "#4ade80" : "#facc15" }}>
-                                        📋 Checklist kiểm tra điều kiện pháp lý (Yêu cầu đủ 4 mục):
+                                        {t("ownerAppsChecklistTitle")}
                                     </strong>
                                     <button
                                         type="button"
@@ -528,7 +530,7 @@ export function AdminOwnerApplicationsPage() {
                                             })
                                         }
                                     >
-                                        {isAllVerified ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                        {isAllVerified ? t("ownerAppsDeselectAllChecklist") : t("ownerAppsSelectAllChecklist")}
                                     </button>
                                 </div>
 
@@ -539,7 +541,7 @@ export function AdminOwnerApplicationsPage() {
                                             checked={checklist.license}
                                             onChange={(e) => setChecklist((prev) => ({ ...prev, license: e.target.checked }))}
                                         />
-                                        <span>1. Giấy phép ĐKKD & Mã số thuế hợp lệ trên cổng quốc gia</span>
+                                        <span>{t("ownerAppsChecklistRule1")}</span>
                                     </label>
                                     <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
                                         <input
@@ -547,7 +549,7 @@ export function AdminOwnerApplicationsPage() {
                                             checked={checklist.idCard}
                                             onChange={(e) => setChecklist((prev) => ({ ...prev, idCard: e.target.checked }))}
                                         />
-                                        <span>2. Căn cước công dân người đại diện pháp luật hợp lệ, rõ nét</span>
+                                        <span>{t("ownerAppsChecklistRule2")}</span>
                                     </label>
                                     <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
                                         <input
@@ -555,7 +557,7 @@ export function AdminOwnerApplicationsPage() {
                                             checked={checklist.fireSafety}
                                             onChange={(e) => setChecklist((prev) => ({ ...prev, fireSafety: e.target.checked }))}
                                         />
-                                        <span>3. Giấy chứng nhận thẩm duyệt thiết kế / đủ điều kiện PCCC</span>
+                                        <span>{t("ownerAppsChecklistRule3")}</span>
                                     </label>
                                     <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
                                         <input
@@ -563,13 +565,13 @@ export function AdminOwnerApplicationsPage() {
                                             checked={checklist.lease}
                                             onChange={(e) => setChecklist((prev) => ({ ...prev, lease: e.target.checked }))}
                                         />
-                                        <span>4. Hợp đồng thuê mặt bằng hoặc quyền sử dụng bãi xe hợp pháp</span>
+                                        <span>{t("ownerAppsChecklistRule4")}</span>
                                     </label>
                                 </div>
 
                                 {!isAllVerified && (
                                     <p style={{ margin: "8px 0 0", color: "#facc15", fontSize: "0.8rem" }}>
-                                        ⚠️ Chỉ có thể duyệt khi kiểm tra và đánh dấu đủ cả 4 mục giấy tờ trên.
+                                        {t("ownerAppsChecklistWarning")}
                                     </p>
                                 )}
                             </div>
@@ -585,7 +587,7 @@ export function AdminOwnerApplicationsPage() {
                                         onClick={handleRejectMissingDocs}
                                         disabled={actionBusy}
                                     >
-                                        Hồ sơ thiếu giấy tờ ➔ Từ chối
+                                        {t("ownerAppsRejectMissingDocsBtn")}
                                     </button>
                                     <div style={{ display: "flex", gap: "8px" }}>
                                         <button
@@ -594,16 +596,16 @@ export function AdminOwnerApplicationsPage() {
                                             onClick={() => setModalAction(null)}
                                             disabled={actionBusy}
                                         >
-                                            Hủy
+                                            {t("cancel")}
                                         </button>
                                         <button
                                             type="button"
                                             className="admin-btn admin-btn-lime"
                                             onClick={handleConfirmApprove}
                                             disabled={actionBusy || !isAllVerified}
-                                            title={isAllVerified ? "Xác nhận duyệt hồ sơ" : "Vui lòng kiểm tra và xác nhận đủ giấy tờ"}
+                                            title={isAllVerified ? t("ownerAppsConfirmApprove") : t("ownerAppsChecklistWarning")}
                                         >
-                                            {actionBusy ? "Đang lưu..." : "✓ Xác nhận đủ giấy tờ & Duyệt"}
+                                            {actionBusy ? t("saving") : t("ownerAppsConfirmApprove")}
                                         </button>
                                     </div>
                                 </>
@@ -614,7 +616,7 @@ export function AdminOwnerApplicationsPage() {
                                     style={{ marginLeft: "auto" }}
                                     onClick={() => setModalAction(null)}
                                 >
-                                    Đóng
+                                    {t("close")}
                                 </button>
                             )}
                         </div>
@@ -622,7 +624,7 @@ export function AdminOwnerApplicationsPage() {
                 </div>
             )}
 
-            {/* Modal Từ chối hồ sơ (Yêu cầu 1: POST /api/identity/admin/owner-applications/{id}/reject) */}
+            {/* Modal Từ chối hồ sơ */}
             {modalAction === "reject" && activeApp && (
                 <div
                     className="admin-modal-backdrop"
@@ -637,19 +639,19 @@ export function AdminOwnerApplicationsPage() {
                         <span className="admin-modal-icon reject">
                             <AdminIcon name="close" size={22} />
                         </span>
-                        <h2>Từ chối hồ sơ Chủ bãi?</h2>
+                        <h2>{t("ownerAppsRejectConfirmTitle")}</h2>
                         <p>
-                            Vui lòng nhập lý do từ chối để thông báo cho đối tác {activeApp.fullName || activeApp.email}.
+                            {t("ownerAppsRejectConfirmDesc")} {activeApp.fullName || activeApp.email}.
                         </p>
 
                         <label className="admin-field" style={{ marginTop: "1rem" }}>
-                            <span>Lý do từ chối (bắt buộc):</span>
+                            <span>{t("ownerAppsRejectReasonLabel")}</span>
                             <textarea
                                 rows={4}
                                 autoFocus
                                 value={rejectReason}
                                 onChange={(e) => setRejectReason(e.target.value)}
-                                placeholder="Ví dụ: Hồ sơ chưa đủ điều kiện: Thiếu giấy phép PCCC và Hợp đồng bãi đỗ."
+                                placeholder={t("ownerAppsRejectReasonPlaceholder")}
                                 style={{
                                     width: "100%",
                                     padding: "8px",
@@ -668,7 +670,7 @@ export function AdminOwnerApplicationsPage() {
                                 onClick={() => setModalAction(null)}
                                 disabled={actionBusy}
                             >
-                                Hủy
+                                {t("cancel")}
                             </button>
                             <button
                                 type="button"
@@ -676,7 +678,7 @@ export function AdminOwnerApplicationsPage() {
                                 onClick={handleConfirmReject}
                                 disabled={actionBusy || !rejectReason.trim()}
                             >
-                                {actionBusy ? "Đang lưu..." : "Xác nhận từ chối"}
+                                {actionBusy ? t("saving") : t("ownerAppsConfirmRejectBtn")}
                             </button>
                         </div>
                     </div>
@@ -720,7 +722,7 @@ export function AdminOwnerApplicationsPage() {
                                 rel="noreferrer"
                                 className="admin-btn admin-btn-sm admin-btn-ghost"
                             >
-                                Mở tab mới ↗
+                                {t("ownerAppsOpenNewTab")}
                             </a>
                         </div>
                     </div>
@@ -735,3 +737,4 @@ export function AdminOwnerApplicationsPage() {
         </>
     );
 }
+
