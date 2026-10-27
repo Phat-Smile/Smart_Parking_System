@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import { PlateBadge, FormattedTime } from "./StaffUi";
 import { useStaffData } from "./staffData";
 import type { VerificationIssue } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffVerificationPage() {
     const { issues, resolveIssue } = useStaffData();
+    const { t, language } = useLanguage();
     const [actionMsg, setActionMsg] = useState("");
     const [resolvingId, setResolvingId] = useState("");
 
@@ -15,9 +17,11 @@ export function StaffVerificationPage() {
         setTimeout(() => {
             resolveIssue(issue.id);
             setResolvingId("");
-            setActionMsg(
-                `Issue #${issue.id} for ${issue.plateNumber} resolved: ${action}.`,
-            );
+            const msg =
+                language === "vi"
+                    ? `Sự cố #${issue.id} cho xe ${issue.plateNumber} đã được xử lý: ${action}.`
+                    : `Issue #${issue.id} for ${issue.plateNumber} resolved: ${action}.`;
+            setActionMsg(msg);
             setTimeout(() => setActionMsg(""), 4000);
         }, 500);
     }
@@ -26,10 +30,9 @@ export function StaffVerificationPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">Needs Verification Queue</h1>
+                    <h1 className="staff-title">{t("verifTitle")}</h1>
                     <p className="staff-subtitle">
-                        Exceptional gate cases requiring manual operator
-                        confirmation, OCR overrides, and barrier interventions.
+                        {t("verifSubtitle")}
                     </p>
                 </div>
             </header>
@@ -44,21 +47,20 @@ export function StaffVerificationPage() {
                 <table className="staff-table">
                     <thead>
                         <tr>
-                            <th>Spot / Gate</th>
-                            <th>Problem</th>
-                            <th>Detected Plate</th>
-                            <th>OCR Conf.</th>
-                            <th>Current State</th>
-                            <th>Reported At</th>
-                            <th className="text-right">Verification Action</th>
+                            <th>{t("verifColSpot")}</th>
+                            <th>{t("verifColProblem")}</th>
+                            <th>{t("verifColDetectedPlate")}</th>
+                            <th>{t("verifColConf")}</th>
+                            <th>{t("verifColState")}</th>
+                            <th>{t("verifColReportedAt")}</th>
+                            <th className="text-right">{t("verifColAction")}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {issues.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="staff-empty">
-                                    🎉 No issues currently pending operator
-                                    verification!
+                                    {t("verifEmpty")}
                                 </td>
                             </tr>
                         ) : (
@@ -116,11 +118,13 @@ export function StaffVerificationPage() {
                                                 onClick={() =>
                                                     handleResolve(
                                                         issue,
-                                                        "Manual barrier override granted",
+                                                        language === "vi"
+                                                            ? "Đã cho phép mở barrier thủ công"
+                                                            : "Manual barrier override granted",
                                                     )
                                                 }
                                             >
-                                                Approve Barrier
+                                                {t("verifApproveBarrier")}
                                             </button>
                                             <button
                                                 type="button"
@@ -131,11 +135,13 @@ export function StaffVerificationPage() {
                                                 onClick={() =>
                                                     handleResolve(
                                                         issue,
-                                                        "Dismissed as cleared",
+                                                        language === "vi"
+                                                            ? "Đã bỏ qua sự cố"
+                                                            : "Dismissed as cleared",
                                                     )
                                                 }
                                             >
-                                                Dismiss
+                                                {t("verifDismiss")}
                                             </button>
                                         </div>
                                     </td>

@@ -196,6 +196,120 @@ export interface TranslationDictionary {
     gateIn: string;
     gateOut: string;
     gateOnline: string;
+
+    // Staff Check-in (Entry)
+    entryPageTitle: string;
+    entryPageSubtitle: string;
+    entryClearBtn: string;
+    entrySimulateLabel: string;
+    entryPresetRegCar: string;
+    entryPresetGuestBike: string;
+    entryPresetLowConf: string;
+    entryCameraTitle: string;
+    entryPlateVerifTitle: string;
+    entryConfidence: string;
+    entryLowConfWarning: string;
+    entryHighConfHint: string;
+    entryPlateLabel: string;
+    entryConfirmPlateBtn: string;
+    entryVehicleTypeLabel: string;
+    entryCustCategoryLabel: string;
+    entryRegOption: string;
+    entryGuestOption: string;
+    entryFlowRegTitle: string;
+    entryFlowGuestTitle: string;
+    entryStep1: string;
+    entryStep2: string;
+    entryStep3Reg: string;
+    entryStep3Guest: string;
+    entryStep4: string;
+    entryStep5: string;
+    entrySummaryPlate: string;
+    entrySummaryType: string;
+    entrySummaryCap: string;
+    entrySummaryAccount: string;
+    entryAccountLinked: string;
+    entryAccountGuest: string;
+    entryQrTokenLabel: string;
+    entryMotorbikeSlotsLeft: string;
+    entryCarSlotsLeft: string;
+    entryBarrierRaised: string;
+    entryBarrierHint: string;
+    entryProcessing: string;
+    entryBtnGuest: string;
+    entryBtnReg: string;
+    entryViewQrBtn: string;
+    entryNextVehicleBtn: string;
+
+    // Staff Check-out (Exit)
+    exitPageTitle: string;
+    exitPageSubtitle: string;
+    exitClearBtn: string;
+    exitSimulateLabel: string;
+    exitPresetGuestUnpaid: string;
+    exitPresetRegPrepaid: string;
+    exitPresetMismatch: string;
+    exitCameraTitle: string;
+    exitQrVerifTitle: string;
+    exitScannerReady: string;
+    exitScanQrLabel: string;
+    exitVerifyQrBtn: string;
+    exitVerifying: string;
+    exitCameraPlateLabel: string;
+    exitChecklistTitle: string;
+    exitAuthorized: string;
+    exitDenied: string;
+    exitCheckQr: string;
+    exitCheckQrScanned: string;
+    exitCheckQrNone: string;
+    exitCheckPlate: string;
+    exitCheckPlateCam: string;
+    exitCheckPlateSession: string;
+    exitCheckSession: string;
+    exitCheckSessionActive: string;
+    exitCheckSessionClosed: string;
+    exitCheckPayment: string;
+    exitCheckPaymentSettled: string;
+    exitCheckPaymentPending: string;
+    exitFeeTitle: string;
+    exitTotalFee: string;
+    exitPrepaidWallet: string;
+    exitAmountDue: string;
+    exitCollectWarning: string;
+    exitCollectCash: string;
+    exitVnPayQr: string;
+    exitBarrierRaised: string;
+    exitBarrierHint: string;
+    exitAuthorizeBtn: string;
+    exitBlockedBtn: string;
+    exitDoneBtn: string;
+    exitCashModalTitle: string;
+    exitVnPayModalTitle: string;
+    exitModalSub: string;
+    exitPlateLabel: string;
+    exitSpotLabel: string;
+    exitAmountDueLabel: string;
+    exitCashReceivedLabel: string;
+    exitCashHint: string;
+    exitChangeDue: string;
+    exitExactCash: string;
+    exitConfirmCashPayment: string;
+    exitSimulateVnPaySuccess: string;
+    exitClose: string;
+
+    // Staff Verification Queue
+    verifTitle: string;
+    verifSubtitle: string;
+    verifColSpot: string;
+    verifColProblem: string;
+    verifColDetectedPlate: string;
+    verifColConf: string;
+    verifColState: string;
+    verifColReportedAt: string;
+    verifColAction: string;
+    verifEmpty: string;
+    verifApproveBarrier: string;
+    verifDismiss: string;
 }
 
 export const translations: Record<SupportedLanguage, TranslationDictionary> = {
@@ -394,6 +508,120 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         gateIn: "Cổng Vào",
         gateOut: "Cổng Ra",
         gateOnline: "Hoạt động",
+
+        // Staff Check-in (Entry)
+        entryPageTitle: "Cổng Vào — Kiểm Soát Xe Vào Bãi",
+        entryPageSubtitle: "Tự động nhận diện biển số (ANPR), hiệu chỉnh biển số và khởi tạo phiên gửi xe.",
+        entryClearBtn: "🔄 Xóa / Tiếp nhận xe tiếp theo",
+        entrySimulateLabel: "Mô phỏng xe vào cổng:",
+        entryPresetRegCar: "🚙 Ô tô đăng ký (97% OCR)",
+        entryPresetGuestBike: "🛵 Xe máy vãng lai (99% OCR)",
+        entryPresetLowConf: "⚠️ OCR độ tin cậy thấp (62%)",
+        entryCameraTitle: "Cổng Vào 01 · Camera ANPR HD",
+        entryPlateVerifTitle: "Xác Thực Biển Số Xe",
+        entryConfidence: "Độ tin cậy:",
+        entryLowConfWarning: "⚠️ Độ tin cậy OCR của camera dưới ngưỡng (80%). Vui lòng kiểm tra và chỉnh sửa biển số trước khi mở rào chắn.",
+        entryHighConfHint: "Nhận diện biển số khớp độ tin cậy cao. Nhân viên vẫn có thể sửa thủ công nếu cần.",
+        entryPlateLabel: "Biển số xe",
+        entryConfirmPlateBtn: "Xác nhận biển số",
+        entryVehicleTypeLabel: "Loại phương tiện",
+        entryCustCategoryLabel: "Phân loại khách hàng",
+        entryRegOption: "Đã đăng ký (Tài khoản App)",
+        entryGuestOption: "Khách vãng lai",
+        entryFlowRegTitle: "Quy Trình Tiếp Nhận Xe Đã Đăng Ký",
+        entryFlowGuestTitle: "Quy Trình Tiếp Nhận Xe Vãng Lai",
+        entryStep1: "Camera nhận diện",
+        entryStep2: "Biển số & Loại xe",
+        entryStep3Reg: "Tài khoản / Đặt chỗ",
+        entryStep3Guest: "Kiểm tra chỗ trống",
+        entryStep4: "Tạo phiên xe",
+        entryStep5: "Cho xe vào bãi",
+        entrySummaryPlate: "Biển số xác nhận:",
+        entrySummaryType: "Loại xe:",
+        entrySummaryCap: "Chỗ trống bãi xe:",
+        entrySummaryAccount: "Trạng thái tài khoản:",
+        entryAccountLinked: "✓ Đã liên kết: Nguyễn Văn An (Ví khả dụng)",
+        entryAccountGuest: "Khách vãng lai (Cấp vé mã QR)",
+        entryQrTokenLabel: "Mã QR phiên gửi xe:",
+        entryMotorbikeSlotsLeft: "Số chỗ xe máy còn trống:",
+        entryCarSlotsLeft: "Số chỗ ô tô còn trống:",
+        entryBarrierRaised: "RÀO CHẮN ĐÃ NÂNG — CHO XE VÀO BÃI",
+        entryBarrierHint: "Phương tiện được phép tiến vào bãi và đỗ xe.",
+        entryProcessing: "Đang xử lý vào bãi...",
+        entryBtnGuest: "Tạo phiên & Cấp vé QR (Cho xe vào)",
+        entryBtnReg: "Xác thực & Mở rào chắn",
+        entryViewQrBtn: "Xem vé QR của khách",
+        entryNextVehicleBtn: "Tiếp nhận xe tiếp theo",
+
+        // Staff Check-out (Exit)
+        exitPageTitle: "Cổng Ra — Xác Thực & Thu Phí",
+        exitPageSubtitle: "Quét QR, đối chiếu biển số, xử lý cước phí gửi xe và giải phóng vị trí đỗ.",
+        exitClearBtn: "🔄 Xóa / Reset Cổng Ra",
+        exitSimulateLabel: "Mô phỏng xe tại cổng ra:",
+        exitPresetGuestUnpaid: "Ô tô vãng lai (Chưa trả: 60.000₫)",
+        exitPresetRegPrepaid: "Ô tô đăng ký (Trả trước: 0₫)",
+        exitPresetMismatch: "Thử nghiệm lệch biển số",
+        exitCameraTitle: "Cổng Ra 02 · Camera ANPR",
+        exitQrVerifTitle: "Xác Thực Vé QR / Vé Khách",
+        exitScannerReady: "Máy quét sẵn sàng",
+        exitScanQrLabel: "Quét mã QR hoặc nhập chuỗi ký tự vé QR",
+        exitVerifyQrBtn: "Kiểm tra QR",
+        exitVerifying: "Đang kiểm tra...",
+        exitCameraPlateLabel: "Biển số camera cổng ra đọc được",
+        exitChecklistTitle: "Danh Mục Kiểm Tra Xuất Bãi",
+        exitAuthorized: "CHO PHÉP XUẤT BÃI",
+        exitDenied: "TỪ CHỐI XUẤT BÃI",
+        exitCheckQr: "Vé QR phiên xe hợp lệ",
+        exitCheckQrScanned: "Đã quét:",
+        exitCheckQrNone: "Chưa kiểm tra mã QR",
+        exitCheckPlate: "Khớp biển số vào - ra",
+        exitCheckPlateCam: "Camera:",
+        exitCheckPlateSession: "Phiên xe:",
+        exitCheckSession: "Trạng thái phiên xe",
+        exitCheckSessionActive: "Phiên đang hoạt động",
+        exitCheckSessionClosed: "Không hợp lệ / Đã đóng",
+        exitCheckPayment: "Thanh toán đầy đủ",
+        exitCheckPaymentSettled: "Đã thanh toán đủ cước phí",
+        exitCheckPaymentPending: "Cước phí còn nợ:",
+        exitFeeTitle: "Tính Tiền Cước Gửi Xe",
+        exitTotalFee: "Tổng tiền cước gửi xe:",
+        exitPrepaidWallet: "Đã trừ qua Ví App:",
+        exitAmountDue: "Tiền cần thu tại cổng:",
+        exitCollectWarning: "⚠️ Còn tiền cước chưa trả. Thu phí trước khi cho xe ra.",
+        exitCollectCash: "💵 Thu tiền mặt",
+        exitVnPayQr: "📱 Quét mã VNPay QR",
+        exitBarrierRaised: "ĐÃ ĐÓNG PHIÊN & NÂNG RÀO CHẮN",
+        exitBarrierHint: "Vị trí đỗ đã được giải phóng. Cập nhật sức chứa thành công.",
+        exitAuthorizeBtn: "Xác nhận ra & Mở rào chắn",
+        exitBlockedBtn: "Chặn cổng (Chưa đủ điều kiện)",
+        exitDoneBtn: "Hoàn tất / Tiếp nhận xe tiếp theo",
+        exitCashModalTitle: "💵 Thu Phí Tiền Mặt",
+        exitVnPayModalTitle: "📱 Thanh Toán VNPay QR",
+        exitModalSub: "Xác nhận giao dịch thanh toán tại bốt trước khi mở barrier",
+        exitPlateLabel: "Biển số phương tiện:",
+        exitSpotLabel: "Vị trí đỗ:",
+        exitAmountDueLabel: "Tổng cước còn lại:",
+        exitCashReceivedLabel: "Tiền khách đưa (VND)",
+        exitCashHint: "Nhập hoặc chọn nhanh",
+        exitChangeDue: "Tiền thối lại cho khách:",
+        exitExactCash: "Đủ tiền",
+        exitConfirmCashPayment: "✓ Xác nhận đã nhận tiền mặt",
+        exitSimulateVnPaySuccess: "✓ Mô phỏng khách thanh toán VNPay thành công",
+        exitClose: "Đóng",
+
+        // Staff Verification Queue
+        verifTitle: "Hàng Đợi Xác Thực Sự Cố Cổng",
+        verifSubtitle: "Các trường hợp bất thường tại cổng yêu cầu nhân viên can thiệp thủ công, xác minh OCR và xử lý rào chắn.",
+        verifColSpot: "Vị trí / Cổng",
+        verifColProblem: "Sự cố",
+        verifColDetectedPlate: "Biển số camera",
+        verifColConf: "Độ tin cậy",
+        verifColState: "Trạng thái hiện tại",
+        verifColReportedAt: "Thời gian báo",
+        verifColAction: "Thao tác xử lý",
+        verifEmpty: "🎉 Không có sự cố nào đang chờ nhân viên xác thực!",
+        verifApproveBarrier: "Mở Barrier",
+        verifDismiss: "Bỏ qua",
     },
     en: {
         appName: "ParkWise",
@@ -590,5 +818,119 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         gateIn: "Gate In",
         gateOut: "Gate Out",
         gateOnline: "Online",
+
+        // Staff Check-in (Entry)
+        entryPageTitle: "Gate In — Vehicle Entry Control",
+        entryPageSubtitle: "Automated ANPR camera detection, plate correction, and session opening.",
+        entryClearBtn: "🔄 Clear / Scan Next Vehicle",
+        entrySimulateLabel: "Simulate incoming vehicle:",
+        entryPresetRegCar: "🚙 Registered Car (97% OCR)",
+        entryPresetGuestBike: "🛵 Guest Motorbike (99% OCR)",
+        entryPresetLowConf: "⚠️ Low Confidence OCR (62%)",
+        entryCameraTitle: "Gate In 01 · HD ANPR Camera",
+        entryPlateVerifTitle: "License Plate Verification",
+        entryConfidence: "Confidence:",
+        entryLowConfWarning: "⚠️ Camera OCR confidence is below threshold (80%). Please review and correct the license plate before opening the gate.",
+        entryHighConfHint: "High confidence match detected. Staff can still edit manually if needed.",
+        entryPlateLabel: "License plate",
+        entryConfirmPlateBtn: "Confirm Plate",
+        entryVehicleTypeLabel: "Vehicle Type",
+        entryCustCategoryLabel: "Customer Category",
+        entryRegOption: "Registered (App account)",
+        entryGuestOption: "Guest",
+        entryFlowRegTitle: "Registered Vehicle Entry Flow",
+        entryFlowGuestTitle: "Guest Vehicle Entry Flow",
+        entryStep1: "Camera Detect",
+        entryStep2: "Plate & Type",
+        entryStep3Reg: "Account / Reservation",
+        entryStep3Guest: "Capacity Check",
+        entryStep4: "Open Session",
+        entryStep5: "Allow Entry",
+        entrySummaryPlate: "Plate to Authorize:",
+        entrySummaryType: "Vehicle Type:",
+        entrySummaryCap: "Lot Capacity Available:",
+        entrySummaryAccount: "Account Status:",
+        entryAccountLinked: "✓ Linked: Nguyễn Văn An (Wallet Active)",
+        entryAccountGuest: "Guest (No account needed · QR Issued)",
+        entryQrTokenLabel: "Parking Session QR Token:",
+        entryMotorbikeSlotsLeft: "Motorbike slots available:",
+        entryCarSlotsLeft: "Car slots available:",
+        entryBarrierRaised: "BARRIER RAISED — ALLOW ENTRY",
+        entryBarrierHint: "Vehicle is clear to enter zone and park.",
+        entryProcessing: "Processing Entry...",
+        entryBtnGuest: "Create Session & Issue QR (Allow Entry)",
+        entryBtnReg: "Verify & Allow Entry",
+        entryViewQrBtn: "View Guest QR Ticket",
+        entryNextVehicleBtn: "Process Next Vehicle",
+
+        // Staff Check-out (Exit)
+        exitPageTitle: "Gate Out — Exit Verification & Payment",
+        exitPageSubtitle: "Scan QR, cross-check license plate, process parking fee, and release spot.",
+        exitClearBtn: "🔄 Clear Exit Gate",
+        exitSimulateLabel: "Simulate vehicle at exit:",
+        exitPresetGuestUnpaid: "Guest Car (Unpaid: 60,000₫)",
+        exitPresetRegPrepaid: "Registered Car (Prepaid: 0₫ Due)",
+        exitPresetMismatch: "Plate Mismatch Test",
+        exitCameraTitle: "Gate Out 02 · Exit ANPR Camera",
+        exitQrVerifTitle: "Guest QR / Ticket Verification",
+        exitScannerReady: "Scanner Ready",
+        exitScanQrLabel: "Scan QR Barcode or Enter QR Token",
+        exitVerifyQrBtn: "Verify QR",
+        exitVerifying: "Verifying...",
+        exitCameraPlateLabel: "Exit Camera Detected Plate",
+        exitChecklistTitle: "Exit Verification Checklist",
+        exitAuthorized: "EXIT AUTHORIZED",
+        exitDenied: "EXIT DENIED",
+        exitCheckQr: "Valid Session QR",
+        exitCheckQrScanned: "Scanned:",
+        exitCheckQrNone: "No QR verified yet",
+        exitCheckPlate: "License Plate Match",
+        exitCheckPlateCam: "Camera:",
+        exitCheckPlateSession: "Session:",
+        exitCheckSession: "Session Status",
+        exitCheckSessionActive: "Session is Active",
+        exitCheckSessionClosed: "Invalid / already closed",
+        exitCheckPayment: "Payment Completed",
+        exitCheckPaymentSettled: "Payment settled in full",
+        exitCheckPaymentPending: "Outstanding amount:",
+        exitFeeTitle: "Parking Fee Calculation",
+        exitTotalFee: "Total Parking Fee:",
+        exitPrepaidWallet: "Prepaid via App Wallet:",
+        exitAmountDue: "Amount Due at Exit:",
+        exitCollectWarning: "⚠️ Amount Due > 0. Collect payment before allowing vehicle exit.",
+        exitCollectCash: "💵 Collect Cash",
+        exitVnPayQr: "📱 VNPay QR Payment",
+        exitBarrierRaised: "SESSION CLOSED & BARRIER RAISED",
+        exitBarrierHint: "Spot is now released. Capacity updated.",
+        exitAuthorizeBtn: "Authorize Exit & Raise Barrier",
+        exitBlockedBtn: "Exit Blocked (Requirements Unmet)",
+        exitDoneBtn: "Done / Process Next Vehicle",
+        exitCashModalTitle: "💵 Cash Payment",
+        exitVnPayModalTitle: "📱 VNPay QR Payment",
+        exitModalSub: "Confirm payment transaction at kiosk before raising barrier",
+        exitPlateLabel: "License Plate:",
+        exitSpotLabel: "Parking Spot:",
+        exitAmountDueLabel: "Remaining Due:",
+        exitCashReceivedLabel: "Cash Received (VND)",
+        exitCashHint: "Type or select quickly",
+        exitChangeDue: "Change Due to Customer:",
+        exitExactCash: "Exact",
+        exitConfirmCashPayment: "✓ Confirm Cash Collected",
+        exitSimulateVnPaySuccess: "✓ Simulate VNPay Success",
+        exitClose: "Close",
+
+        // Staff Verification Queue
+        verifTitle: "Needs Verification Queue",
+        verifSubtitle: "Exceptional gate cases requiring manual operator confirmation, OCR overrides, and barrier interventions.",
+        verifColSpot: "Spot / Gate",
+        verifColProblem: "Problem",
+        verifColDetectedPlate: "Detected Plate",
+        verifColConf: "OCR Conf.",
+        verifColState: "Current State",
+        verifColReportedAt: "Reported At",
+        verifColAction: "Verification Action",
+        verifEmpty: "🎉 No issues currently pending operator verification!",
+        verifApproveBarrier: "Approve Barrier",
+        verifDismiss: "Dismiss",
     },
 };

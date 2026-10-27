@@ -8,10 +8,12 @@ import {
 } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffEntryPage() {
     const { addSession, occupancy, assignedLot, fetchAssignedLot } =
         useStaffData();
+    const { t } = useLanguage();
 
     // Load assigned lot on mount
     React.useEffect(() => {
@@ -136,11 +138,10 @@ export function StaffEntryPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">
-                        Gate In — Vehicle Entry Control
+                        {t("entryPageTitle")}
                     </h1>
                     <p className="staff-subtitle">
-                        Automated ANPR camera detection, plate correction, and
-                        session opening.
+                        {t("entryPageSubtitle")}
                     </p>
                 </div>
 
@@ -150,7 +151,7 @@ export function StaffEntryPage() {
                         className="staff-btn staff-btn-secondary"
                         onClick={resetForNextVehicle}
                     >
-                        🔄 Clear / Scan Next Vehicle
+                        {t("entryClearBtn")}
                     </button>
                 </div>
             </header>
@@ -167,7 +168,7 @@ export function StaffEntryPage() {
             {/* Top quick simulation bar */}
             <div className="staff-presets-bar">
                 <span className="staff-presets-label">
-                    Simulate incoming vehicle:
+                    {t("entrySimulateLabel")}
                 </span>
                 <button
                     type="button"
@@ -176,7 +177,7 @@ export function StaffEntryPage() {
                         loadPreset("51F-994.28", "Car", "Registered", 0.97)
                     }
                 >
-                    🚙 Registered Car (97% OCR)
+                    {t("entryPresetRegCar")}
                 </button>
                 <button
                     type="button"
@@ -185,7 +186,7 @@ export function StaffEntryPage() {
                         loadPreset("59T2-771.04", "Motorbike", "Guest", 0.99)
                     }
                 >
-                    🛵 Guest Motorbike (99% OCR)
+                    {t("entryPresetGuestBike")}
                 </button>
                 <button
                     type="button"
@@ -194,7 +195,7 @@ export function StaffEntryPage() {
                         loadPreset("51K-892.4?", "Car", "Guest", 0.62)
                     }
                 >
-                    ⚠️ Low Confidence OCR (62%)
+                    {t("entryPresetLowConf")}
                 </button>
             </div>
 
@@ -202,7 +203,7 @@ export function StaffEntryPage() {
                 {/* Left column: ANPR Camera & Detection Feed */}
                 <div className="staff-col">
                     <CameraFeedMock
-                        title="Gate In 01 · HD ANPR Camera"
+                        title={t("entryCameraTitle")}
                         detectedPlate={
                             isEditingPlate ? editedPlate : plateNumber
                         }
@@ -213,7 +214,7 @@ export function StaffEntryPage() {
                     {/* License Plate Verification (When confidence is low) */}
                     <div className="staff-card staff-plate-editor">
                         <div className="staff-card-header">
-                            <h3>License Plate Verification</h3>
+                            <h3>{t("entryPlateVerifTitle")}</h3>
                             <span
                                 className={`staff-pill ${
                                     ocrConfidence >= 0.8
@@ -221,26 +222,23 @@ export function StaffEntryPage() {
                                         : "staff-pill-warning"
                                 }`}
                             >
-                                Confidence: {(ocrConfidence * 100).toFixed(0)}%
+                                {t("entryConfidence")} {(ocrConfidence * 100).toFixed(0)}%
                             </span>
                         </div>
 
                         {ocrConfidence < 0.8 ? (
                             <p className="staff-warning-box">
-                                ⚠️ Camera OCR confidence is below threshold
-                                (80%). Please review and correct the license
-                                plate before opening the gate.
+                                {t("entryLowConfWarning")}
                             </p>
                         ) : (
                             <p className="staff-card-hint">
-                                High confidence match detected. Staff can still
-                                edit manually if needed.
+                                {t("entryHighConfHint")}
                             </p>
                         )}
 
                         <div className="staff-form-group">
                             <label htmlFor="staff-edit-plate">
-                                License plate
+                                {t("entryPlateLabel")}
                             </label>
                             <div className="staff-input-group">
                                 <input
@@ -264,7 +262,7 @@ export function StaffEntryPage() {
                                             setIsEditingPlate(false);
                                         }}
                                     >
-                                        Confirm Plate
+                                        {t("entryConfirmPlateBtn")}
                                     </button>
                                 )}
                             </div>
@@ -272,7 +270,7 @@ export function StaffEntryPage() {
 
                         <div className="staff-form-row">
                             <div className="staff-form-group">
-                                <label>Vehicle Type</label>
+                                <label>{t("entryVehicleTypeLabel")}</label>
                                 <select
                                     className="staff-select"
                                     value={vehicleType}
@@ -282,15 +280,15 @@ export function StaffEntryPage() {
                                         )
                                     }
                                 >
-                                    <option value="Car">Car (Ô tô)</option>
+                                    <option value="Car">{t("staffCar")}</option>
                                     <option value="Motorbike">
-                                        Motorbike (Xe máy)
+                                        {t("staffMotorbike")}
                                     </option>
                                 </select>
                             </div>
 
                             <div className="staff-form-group">
-                                <label>Customer Category</label>
+                                <label>{t("entryCustCategoryLabel")}</label>
                                 <select
                                     className="staff-select"
                                     value={entryType}
@@ -301,10 +299,10 @@ export function StaffEntryPage() {
                                     }
                                 >
                                     <option value="Registered">
-                                        Registered (App account)
+                                        {t("entryRegOption")}
                                     </option>
                                     <option value="Guest">
-                                        Guest (Vãng lai)
+                                        {t("entryGuestOption")}
                                     </option>
                                 </select>
                             </div>
@@ -318,11 +316,11 @@ export function StaffEntryPage() {
                         <div className="staff-card-header">
                             <h2>
                                 {entryType === "Registered"
-                                    ? "Registered Vehicle Entry Flow"
-                                    : "Guest Vehicle Entry Flow"}
+                                    ? t("entryFlowRegTitle")
+                                    : t("entryFlowGuestTitle")}
                             </h2>
                             <span className="staff-pill staff-pill-active">
-                                {entryType}
+                                {entryType === "Registered" ? t("sessionsRegistered") : t("sessionsGuest")}
                             </span>
                         </div>
 
@@ -330,7 +328,7 @@ export function StaffEntryPage() {
                         <div className="staff-stepper">
                             <div className="staff-step done">
                                 <span className="step-num">1</span>
-                                <span className="step-text">Camera Detect</span>
+                                <span className="step-text">{t("entryStep1")}</span>
                             </div>
                             <div
                                 className={`staff-step ${
@@ -338,7 +336,7 @@ export function StaffEntryPage() {
                                 }`}
                             >
                                 <span className="step-num">2</span>
-                                <span className="step-text">Plate & Type</span>
+                                <span className="step-text">{t("entryStep2")}</span>
                             </div>
                             <div
                                 className={`staff-step ${
@@ -353,8 +351,8 @@ export function StaffEntryPage() {
                                 <span className="step-num">3</span>
                                 <span className="step-text">
                                     {entryType === "Registered"
-                                        ? "Account / Reservation"
-                                        : "Capacity Check"}
+                                        ? t("entryStep3Reg")
+                                        : t("entryStep3Guest")}
                                 </span>
                             </div>
                             <div
@@ -367,7 +365,7 @@ export function StaffEntryPage() {
                                 }`}
                             >
                                 <span className="step-num">4</span>
-                                <span className="step-text">Open Session</span>
+                                <span className="step-text">{t("entryStep4")}</span>
                             </div>
                             <div
                                 className={`staff-step ${
@@ -377,14 +375,14 @@ export function StaffEntryPage() {
                                 }`}
                             >
                                 <span className="step-num">5</span>
-                                <span className="step-text">Allow Entry</span>
+                                <span className="step-text">{t("entryStep5")}</span>
                             </div>
                         </div>
 
                         {/* Verification details summary */}
                         <div className="staff-entry-summary">
                             <div className="staff-summary-row">
-                                <span>Plate to Authorize:</span>
+                                <span>{t("entrySummaryPlate")}</span>
                                 <PlateBadge
                                     plate={
                                         isEditingPlate
@@ -394,26 +392,26 @@ export function StaffEntryPage() {
                                 />
                             </div>
                             <div className="staff-summary-row">
-                                <span>Vehicle Type:</span>
-                                <strong>{vehicleType}</strong>
+                                <span>{t("entrySummaryType")}</span>
+                                <strong>{vehicleType === "Car" ? t("staffCar") : t("staffMotorbike")}</strong>
                             </div>
                             <div className="staff-summary-row">
-                                <span>Lot Capacity Available:</span>
+                                <span>{t("entrySummaryCap")}</span>
                                 <strong className="text-emerald">
                                     {vehicleType === "Car"
-                                        ? `${occupancy.carAvailable} car slots`
-                                        : `${occupancy.motorbikeAvailable} bike slots`}
+                                        ? `${occupancy.carAvailable} ${t("dashSlots")}`
+                                        : `${occupancy.motorbikeAvailable} ${t("dashSlots")}`}
                                 </strong>
                             </div>
                             <div className="staff-summary-row">
-                                <span>Account Status:</span>
+                                <span>{t("entrySummaryAccount")}</span>
                                 {entryType === "Registered" ? (
                                     <span className="text-emerald">
-                                        ✓ Linked: Nguyễn Văn An (Wallet Active)
+                                        {t("entryAccountLinked")}
                                     </span>
                                 ) : (
                                     <span className="text-amber">
-                                        Guest (No account needed · QR Issued)
+                                        {t("entryAccountGuest")}
                                     </span>
                                 )}
                             </div>
@@ -445,7 +443,7 @@ export function StaffEntryPage() {
                                             color: "var(--staff-text-muted)",
                                         }}
                                     >
-                                        QR Token phiên gửi xe:
+                                        {t("entryQrTokenLabel")}
                                     </span>
                                     <code
                                         style={{
@@ -473,7 +471,7 @@ export function StaffEntryPage() {
                                             color: "var(--staff-text-muted)",
                                         }}
                                     >
-                                        Số chỗ xe máy còn trống:
+                                        {vehicleType === "Car" ? t("entryCarSlotsLeft") : t("entryMotorbikeSlotsLeft")}
                                     </span>
                                     <strong
                                         style={{
@@ -481,9 +479,10 @@ export function StaffEntryPage() {
                                             color: "#10b981",
                                         }}
                                     >
-                                        {lastOpened.availableMotorbikeSlots ??
-                                            occupancy.motorbikeAvailable}{" "}
-                                        chỗ
+                                        {(vehicleType === "Car"
+                                            ? occupancy.carAvailable
+                                            : (lastOpened.availableMotorbikeSlots ?? occupancy.motorbikeAvailable))}{" "}
+                                        {t("dashSlots")}
                                     </strong>
                                 </div>
                             </div>
@@ -494,10 +493,10 @@ export function StaffEntryPage() {
                                 <div className="barrier-icon">🟢</div>
                                 <div className="barrier-content">
                                     <strong>
-                                        BARRIER RAISED — ALLOW ENTRY
+                                        {t("entryBarrierRaised")}
                                     </strong>
                                     <p>
-                                        Vehicle is clear to enter zone and park.
+                                        {t("entryBarrierHint")}
                                     </p>
                                 </div>
                             </div>
@@ -513,10 +512,10 @@ export function StaffEntryPage() {
                                     onClick={handleConfirmEntry}
                                 >
                                     {loading
-                                        ? "Processing Entry..."
+                                        ? t("entryProcessing")
                                         : entryType === "Guest"
-                                          ? "Create Session & Issue QR (Allow Entry)"
-                                          : "Verify & Allow Entry"}
+                                          ? t("entryBtnGuest")
+                                          : t("entryBtnReg")}
                                 </button>
                             ) : (
                                 <div className="staff-done-actions">
@@ -529,7 +528,7 @@ export function StaffEntryPage() {
                                                     setShowQrModal(true)
                                                 }
                                             >
-                                                View Guest QR Ticket
+                                                {t("entryViewQrBtn")}
                                             </button>
                                         )}
                                     <button
@@ -537,7 +536,7 @@ export function StaffEntryPage() {
                                         className="staff-btn staff-btn-primary"
                                         onClick={resetForNextVehicle}
                                     >
-                                        Process Next Vehicle
+                                        {t("entryNextVehicleBtn")}
                                     </button>
                                 </div>
                             )}
