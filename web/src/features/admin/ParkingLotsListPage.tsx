@@ -164,7 +164,9 @@ export function ParkingLotsListPage({
                 <div>
                     <p className="admin-eyebrow">
                         {mode === "pending"
-                            ? (language === "vi" ? "Hàng đợi xét duyệt" : "Review Queue")
+                            ? language === "vi"
+                                ? "Hàng đợi xét duyệt"
+                                : "Review Queue"
                             : t("parkingLotsEyebrow")}
                     </p>
                     <h1>
@@ -186,7 +188,14 @@ export function ParkingLotsListPage({
             </header>
 
             {/* Navigation tab bar between Parking Lots, Owner Applications, and Assignments */}
-            <div style={{ display: "flex", gap: "10px", marginBottom: "1rem", flexWrap: "wrap" }}>
+            <div
+                style={{
+                    display: "flex",
+                    gap: "10px",
+                    marginBottom: "1rem",
+                    flexWrap: "wrap",
+                }}
+            >
                 <Link
                     href="/admin/parking-lots/pending"
                     className={`admin-btn ${mode === "pending" ? "admin-btn-dark" : "admin-btn-ghost"}`}
@@ -276,7 +285,11 @@ export function ParkingLotsListPage({
                         <tr>
                             <th>{t("lotNameHeader")}</th>
                             <th>{t("lotOwnerHeader")}</th>
-                            <th>{language === "vi" ? "Ngày nộp" : "Submitted Date"}</th>
+                            <th>
+                                {language === "vi"
+                                    ? "Ngày nộp"
+                                    : "Submitted Date"}
+                            </th>
                             <th>{t("lotCapacityHeader")}</th>
                             <th>{t("status")}</th>
                             <th
@@ -299,7 +312,10 @@ export function ParkingLotsListPage({
                                     <small>{lot.ownerEmail}</small>
                                 </td>
                                 <td>{formatDate(lot.submittedAtUtc)}</td>
-                                <td>{lot.totalCapacity} {language === "vi" ? "chỗ" : "slots"}</td>
+                                <td>
+                                    {lot.totalCapacity}{" "}
+                                    {language === "vi" ? "chỗ" : "slots"}
+                                </td>
                                 <td>
                                     <StatusPill status={lot.status} />
                                 </td>
@@ -342,12 +358,21 @@ export function ParkingLotsListPage({
                                             </Link>
                                         </div>
                                     ) : (
-                                        <div style={{ display: "inline-flex", gap: "6px" }}>
+                                        <div
+                                            style={{
+                                                display: "inline-flex",
+                                                gap: "6px",
+                                            }}
+                                        >
                                             {lot.status === "Approved" && (
                                                 <Link
                                                     href="/admin/parking-lots/assignments"
                                                     className="admin-btn admin-btn-sm admin-btn-ghost"
-                                                    title={language === "vi" ? "Phân công nhân viên trực bãi" : "Assign staff to lot"}
+                                                    title={
+                                                        language === "vi"
+                                                            ? "Phân công nhân viên trực bãi"
+                                                            : "Assign staff to lot"
+                                                    }
                                                 >
                                                     {t("assignLot")}
                                                 </Link>
@@ -368,18 +393,22 @@ export function ParkingLotsListPage({
                 {rows.length === 0 && !loading && (
                     <p className="admin-empty">
                         {mode === "pending"
-                            ? (language === "vi" ? "Không có bãi đỗ xe nào đang chờ duyệt." : "No parking lots pending review.")
+                            ? language === "vi"
+                                ? "Không có bãi đỗ xe nào đang chờ duyệt."
+                                : "No parking lots pending review."
                             : t("noLotsFound")}
                     </p>
                 )}
-                {loading && (
-                    <p className="admin-empty">{t("loading")}</p>
-                )}
+                {loading && <p className="admin-empty">{t("loading")}</p>}
             </section>
 
             <form className="admin-lookup" onSubmit={openById}>
                 <div>
-                    <strong>{language === "vi" ? "Tra cứu bãi đỗ xe theo ID" : "Lookup Parking Lot by ID"}</strong>
+                    <strong>
+                        {language === "vi"
+                            ? "Tra cứu bãi đỗ xe theo ID"
+                            : "Lookup Parking Lot by ID"}
+                    </strong>
                     <small>
                         {language === "vi"
                             ? "Dán mã UUID của bãi đỗ xe từ đơn đăng ký để trực tiếp xét duyệt."
@@ -434,17 +463,21 @@ export function ParkingLotsListPage({
                         </span>
                         <h2>
                             {reviewAction === "approve"
-                                ? (language === "vi" ? `Duyệt bãi đỗ xe ${selectedLot.name}?` : `Approve parking lot ${selectedLot.name}?`)
-                                : (language === "vi" ? `Từ chối bãi đỗ xe ${selectedLot.name}?` : `Reject parking lot ${selectedLot.name}?`)}
+                                ? language === "vi"
+                                    ? `Duyệt bãi đỗ xe ${selectedLot.name}?`
+                                    : `Approve parking lot ${selectedLot.name}?`
+                                : language === "vi"
+                                  ? `Từ chối bãi đỗ xe ${selectedLot.name}?`
+                                  : `Reject parking lot ${selectedLot.name}?`}
                         </h2>
                         <p>
                             {reviewAction === "approve"
-                                ? (language === "vi"
+                                ? language === "vi"
                                     ? `Bãi đỗ xe sẽ được chuyển sang trạng thái Hoạt động (Approved) và xuất hiện trên danh mục công khai cho khách hàng.`
-                                    : `Parking lot will be set to Approved and publicly visible to customers.`)
-                                : (language === "vi"
-                                    ? `Vui lòng nhập lý do từ chối để chủ bãi có thể điều chỉnh lại hồ sơ.`
-                                    : `Please specify the rejection reason so the owner can correct their application.`)}
+                                    : `Parking lot will be set to Approved and publicly visible to customers.`
+                                : language === "vi"
+                                  ? `Vui lòng nhập lý do từ chối để chủ bãi có thể điều chỉnh lại hồ sơ.`
+                                  : `Please specify the rejection reason so the owner can correct their application.`}
                         </p>
 
                         {reviewAction === "reject" && (
@@ -460,7 +493,9 @@ export function ParkingLotsListPage({
                                     onChange={(e) =>
                                         setRejectReason(e.target.value)
                                     }
-                                    placeholder={t("ownerAppsRejectReasonPlaceholder")}
+                                    placeholder={t(
+                                        "ownerAppsRejectReasonPlaceholder",
+                                    )}
                                     style={{
                                         width: "100%",
                                         padding: "8px",
@@ -503,8 +538,12 @@ export function ParkingLotsListPage({
                                 {actionBusy
                                     ? t("saving")
                                     : reviewAction === "approve"
-                                      ? (language === "vi" ? "Xác nhận duyệt" : "Confirm Approval")
-                                      : (language === "vi" ? "Xác nhận từ chối" : "Confirm Rejection")}
+                                      ? language === "vi"
+                                          ? "Xác nhận duyệt"
+                                          : "Confirm Approval"
+                                      : language === "vi"
+                                        ? "Xác nhận từ chối"
+                                        : "Confirm Rejection"}
                             </button>
                         </div>
                     </div>

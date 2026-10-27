@@ -29,7 +29,9 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 function getInitialLanguage(): SupportedLanguage {
     if (typeof window === "undefined") return "vi";
     try {
-        const saved = localStorage.getItem(STORAGE_KEY) as SupportedLanguage | null;
+        const saved = localStorage.getItem(
+            STORAGE_KEY,
+        ) as SupportedLanguage | null;
         if (saved === "vi" || saved === "en") return saved;
     } catch {
         // Ignore
@@ -46,7 +48,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         () => false,
     );
 
-    const [languageState, setLanguageState] = useState<SupportedLanguage>(getInitialLanguage);
+    const [languageState, setLanguageState] =
+        useState<SupportedLanguage>(getInitialLanguage);
 
     // During SSR and initial hydration, language is always "vi" to match server render.
     // As soon as hydration completes, isClient becomes true and the stored preference takes effect.
@@ -57,7 +60,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         document.documentElement.lang = language;
 
         const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === STORAGE_KEY && (e.newValue === "vi" || e.newValue === "en")) {
+            if (
+                e.key === STORAGE_KEY &&
+                (e.newValue === "vi" || e.newValue === "en")
+            ) {
                 setLanguageState(e.newValue as SupportedLanguage);
                 document.documentElement.lang = e.newValue;
             }
@@ -151,7 +157,10 @@ export function LanguageSwitcher({
                     type="button"
                     onClick={() => setLanguage("vi")}
                     style={{
-                        background: language === "vi" ? "var(--admin-lime, #a3e635)" : "transparent",
+                        background:
+                            language === "vi"
+                                ? "var(--admin-lime, #a3e635)"
+                                : "transparent",
                         color: language === "vi" ? "#000" : "inherit",
                         fontWeight: language === "vi" ? 700 : 500,
                         border: "none",
@@ -170,7 +179,10 @@ export function LanguageSwitcher({
                     type="button"
                     onClick={() => setLanguage("en")}
                     style={{
-                        background: language === "en" ? "var(--admin-lime, #a3e635)" : "transparent",
+                        background:
+                            language === "en"
+                                ? "var(--admin-lime, #a3e635)"
+                                : "transparent",
                         color: language === "en" ? "#000" : "inherit",
                         fontWeight: language === "en" ? 700 : 500,
                         border: "none",
@@ -214,7 +226,10 @@ export function LanguageSwitcher({
                     type="button"
                     onClick={() => setLanguage("vi")}
                     style={{
-                        background: language === "vi" ? "var(--admin-lime, #a3e635)" : "transparent",
+                        background:
+                            language === "vi"
+                                ? "var(--admin-lime, #a3e635)"
+                                : "transparent",
                         color: language === "vi" ? "#090d16" : "#cbd5e1",
                         fontWeight: language === "vi" ? 700 : 500,
                         border: "none",
@@ -230,7 +245,10 @@ export function LanguageSwitcher({
                     type="button"
                     onClick={() => setLanguage("en")}
                     style={{
-                        background: language === "en" ? "var(--admin-lime, #a3e635)" : "transparent",
+                        background:
+                            language === "en"
+                                ? "var(--admin-lime, #a3e635)"
+                                : "transparent",
                         color: language === "en" ? "#090d16" : "#cbd5e1",
                         fontWeight: language === "en" ? 700 : 500,
                         border: "none",
@@ -300,8 +318,14 @@ export function LanguageSwitcher({
                         border: "none",
                         fontSize: "11.5px",
                         fontWeight: language === "vi" ? 700 : 500,
-                        background: language === "vi" ? "var(--admin-lime, #a3e635)" : "transparent",
-                        color: language === "vi" ? "#090d16" : "rgba(255, 255, 255, 0.75)",
+                        background:
+                            language === "vi"
+                                ? "var(--admin-lime, #a3e635)"
+                                : "transparent",
+                        color:
+                            language === "vi"
+                                ? "#090d16"
+                                : "rgba(255, 255, 255, 0.75)",
                         cursor: "pointer",
                         transition: "all 0.15s ease",
                     }}
@@ -322,8 +346,14 @@ export function LanguageSwitcher({
                         border: "none",
                         fontSize: "11.5px",
                         fontWeight: language === "en" ? 700 : 500,
-                        background: language === "en" ? "var(--admin-lime, #a3e635)" : "transparent",
-                        color: language === "en" ? "#090d16" : "rgba(255, 255, 255, 0.75)",
+                        background:
+                            language === "en"
+                                ? "var(--admin-lime, #a3e635)"
+                                : "transparent",
+                        color:
+                            language === "en"
+                                ? "#090d16"
+                                : "rgba(255, 255, 255, 0.75)",
                         cursor: "pointer",
                         transition: "all 0.15s ease",
                     }}

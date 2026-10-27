@@ -184,9 +184,7 @@ export function QrCodeModal({
                 </div>
 
                 <div className="staff-qr-body">
-                    <p className="staff-qr-desc">
-                        {t("qrTicketDesc")}
-                    </p>
+                    <p className="staff-qr-desc">{t("qrTicketDesc")}</p>
 
                     <div className="staff-qr-box">
                         <svg

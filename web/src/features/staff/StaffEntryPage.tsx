@@ -2,10 +2,7 @@
 
 import React, { useState } from "react";
 import { CameraFeedMock, PlateBadge, QrCodeModal } from "./StaffUi";
-import {
-    describeStaffError,
-    openParkingSession,
-} from "./staffApi";
+import { describeStaffError, openParkingSession } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
@@ -137,12 +134,8 @@ export function StaffEntryPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">
-                        {t("entryPageTitle")}
-                    </h1>
-                    <p className="staff-subtitle">
-                        {t("entryPageSubtitle")}
-                    </p>
+                    <h1 className="staff-title">{t("entryPageTitle")}</h1>
+                    <p className="staff-subtitle">{t("entryPageSubtitle")}</p>
                 </div>
 
                 <div className="staff-header-actions">
@@ -222,7 +215,8 @@ export function StaffEntryPage() {
                                         : "staff-pill-warning"
                                 }`}
                             >
-                                {t("entryConfidence")} {(ocrConfidence * 100).toFixed(0)}%
+                                {t("entryConfidence")}{" "}
+                                {(ocrConfidence * 100).toFixed(0)}%
                             </span>
                         </div>
 
@@ -320,7 +314,9 @@ export function StaffEntryPage() {
                                     : t("entryFlowGuestTitle")}
                             </h2>
                             <span className="staff-pill staff-pill-active">
-                                {entryType === "Registered" ? t("sessionsRegistered") : t("sessionsGuest")}
+                                {entryType === "Registered"
+                                    ? t("sessionsRegistered")
+                                    : t("sessionsGuest")}
                             </span>
                         </div>
 
@@ -328,7 +324,9 @@ export function StaffEntryPage() {
                         <div className="staff-stepper">
                             <div className="staff-step done">
                                 <span className="step-num">1</span>
-                                <span className="step-text">{t("entryStep1")}</span>
+                                <span className="step-text">
+                                    {t("entryStep1")}
+                                </span>
                             </div>
                             <div
                                 className={`staff-step ${
@@ -336,7 +334,9 @@ export function StaffEntryPage() {
                                 }`}
                             >
                                 <span className="step-num">2</span>
-                                <span className="step-text">{t("entryStep2")}</span>
+                                <span className="step-text">
+                                    {t("entryStep2")}
+                                </span>
                             </div>
                             <div
                                 className={`staff-step ${
@@ -365,7 +365,9 @@ export function StaffEntryPage() {
                                 }`}
                             >
                                 <span className="step-num">4</span>
-                                <span className="step-text">{t("entryStep4")}</span>
+                                <span className="step-text">
+                                    {t("entryStep4")}
+                                </span>
                             </div>
                             <div
                                 className={`staff-step ${
@@ -375,7 +377,9 @@ export function StaffEntryPage() {
                                 }`}
                             >
                                 <span className="step-num">5</span>
-                                <span className="step-text">{t("entryStep5")}</span>
+                                <span className="step-text">
+                                    {t("entryStep5")}
+                                </span>
                             </div>
                         </div>
 
@@ -393,7 +397,11 @@ export function StaffEntryPage() {
                             </div>
                             <div className="staff-summary-row">
                                 <span>{t("entrySummaryType")}</span>
-                                <strong>{vehicleType === "Car" ? t("staffCar") : t("staffMotorbike")}</strong>
+                                <strong>
+                                    {vehicleType === "Car"
+                                        ? t("staffCar")
+                                        : t("staffMotorbike")}
+                                </strong>
                             </div>
                             <div className="staff-summary-row">
                                 <span>{t("entrySummaryCap")}</span>
@@ -471,7 +479,9 @@ export function StaffEntryPage() {
                                             color: "var(--staff-text-muted)",
                                         }}
                                     >
-                                        {vehicleType === "Car" ? t("entryCarSlotsLeft") : t("entryMotorbikeSlotsLeft")}
+                                        {vehicleType === "Car"
+                                            ? t("entryCarSlotsLeft")
+                                            : t("entryMotorbikeSlotsLeft")}
                                     </span>
                                     <strong
                                         style={{
@@ -479,9 +489,10 @@ export function StaffEntryPage() {
                                             color: "#10b981",
                                         }}
                                     >
-                                        {(vehicleType === "Car"
+                                        {vehicleType === "Car"
                                             ? occupancy.carAvailable
-                                            : (lastOpened.availableMotorbikeSlots ?? occupancy.motorbikeAvailable))}{" "}
+                                            : (lastOpened.availableMotorbikeSlots ??
+                                              occupancy.motorbikeAvailable)}{" "}
                                         {t("dashSlots")}
                                     </strong>
                                 </div>
@@ -492,12 +503,8 @@ export function StaffEntryPage() {
                             <div className="staff-barrier-open-alert">
                                 <div className="barrier-icon">🟢</div>
                                 <div className="barrier-content">
-                                    <strong>
-                                        {t("entryBarrierRaised")}
-                                    </strong>
-                                    <p>
-                                        {t("entryBarrierHint")}
-                                    </p>
+                                    <strong>{t("entryBarrierRaised")}</strong>
+                                    <p>{t("entryBarrierHint")}</p>
                                 </div>
                             </div>
                         )}

@@ -19,8 +19,12 @@ export function AdminLotAssignmentsPage() {
     const { t } = useLanguage();
     const [lots, setLots] = useState<AdminParkingLot[]>([]);
     const [selectedLotId, setSelectedLotId] = useState<string>("");
-    const [assignments, setAssignments] = useState<ParkingLotAssignmentMember[]>([]);
-    const [availableStaff, setAvailableStaff] = useState<StaffAccountOption[]>([]);
+    const [assignments, setAssignments] = useState<
+        ParkingLotAssignmentMember[]
+    >([]);
+    const [availableStaff, setAvailableStaff] = useState<StaffAccountOption[]>(
+        [],
+    );
 
     const [loadingLots, setLoadingLots] = useState(false);
     const [loadingAssignments, setLoadingAssignments] = useState(false);
@@ -28,7 +32,9 @@ export function AdminLotAssignmentsPage() {
 
     // Form gán nhân viên mới
     const [selectedAccountId, setSelectedAccountId] = useState("");
-    const [selectedRole, setSelectedRole] = useState<"Staff" | "Owner">("Staff");
+    const [selectedRole, setSelectedRole] = useState<"Staff" | "Owner">(
+        "Staff",
+    );
 
     const [errorMsg, setErrorMsg] = useState("");
     const [toast, setToast] = useState<string | null>(null);
@@ -70,10 +76,7 @@ export function AdminLotAssignmentsPage() {
 
     useEffect(() => {
         let active = true;
-        Promise.all([
-            getAdminParkingLots("All"),
-            getAvailableStaffAccounts(),
-        ])
+        Promise.all([getAdminParkingLots("All"), getAvailableStaffAccounts()])
             .then(([lotList, staffList]) => {
                 if (!active) return;
                 setLots(lotList);
@@ -130,9 +133,17 @@ export function AdminLotAssignmentsPage() {
         setActionBusy(true);
         setErrorMsg("");
         try {
-            await assignLotMember(selectedLotId, selectedAccountId, selectedRole);
-            const staff = availableStaff.find((s) => s.accountId === selectedAccountId);
-            setToast(`${t("approved")}: ${staff?.fullName || "staff"} ➔ ${activeLot?.name || ""}`);
+            await assignLotMember(
+                selectedLotId,
+                selectedAccountId,
+                selectedRole,
+            );
+            const staff = availableStaff.find(
+                (s) => s.accountId === selectedAccountId,
+            );
+            setToast(
+                `${t("approved")}: ${staff?.fullName || "staff"} ➔ ${activeLot?.name || ""}`,
+            );
             setSelectedAccountId("");
             await loadAssignments(selectedLotId);
         } catch (err) {
@@ -144,14 +155,19 @@ export function AdminLotAssignmentsPage() {
 
     // Xử lý gỡ nhân viên (DELETE)
     async function handleRemoveMember(accountId: string, memberName: string) {
-        const confirmText = t("assignmentsRemoveConfirm").replace("{name}", memberName);
+        const confirmText = t("assignmentsRemoveConfirm").replace(
+            "{name}",
+            memberName,
+        );
         if (!confirm(confirmText)) return;
 
         setActionBusy(true);
         setErrorMsg("");
         try {
             await removeLotMember(selectedLotId, accountId);
-            setToast(`${t("removeStaffBtn")}: ${memberName} (${activeLot?.name || ""})`);
+            setToast(
+                `${t("removeStaffBtn")}: ${memberName} (${activeLot?.name || ""})`,
+            );
             await loadAssignments(selectedLotId);
         } catch (err) {
             setErrorMsg(describeAssignmentError(err));
@@ -232,14 +248,32 @@ export function AdminLotAssignmentsPage() {
             >
                 {/* Cột trái: Chọn bãi đỗ xe */}
                 <section className="admin-card" style={{ padding: "16px" }}>
-                    <h2 style={{ fontSize: "1rem", margin: "0 0 12px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <h2
+                        style={{
+                            fontSize: "1rem",
+                            margin: "0 0 12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                        }}
+                    >
                         <span>🏢</span> {t("selectLotTitle")}
                     </h2>
 
                     {loadingLots ? (
-                        <p className="admin-empty">{t("assignmentsLoadingLots")}</p>
+                        <p className="admin-empty">
+                            {t("assignmentsLoadingLots")}
+                        </p>
                     ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "65vh", overflowY: "auto" }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "8px",
+                                maxHeight: "65vh",
+                                overflowY: "auto",
+                            }}
+                        >
                             {lots.map((lot) => {
                                 const isSelected = lot.id === selectedLotId;
                                 return (
@@ -252,19 +286,39 @@ export function AdminLotAssignmentsPage() {
                                             padding: "12px",
                                             borderRadius: "8px",
                                             border: `1px solid ${isSelected ? "var(--admin-lime, #a3e635)" : "#e5e7eb"}`,
-                                            background: isSelected ? "rgba(163, 230, 53, 0.15)" : "#ffffff",
+                                            background: isSelected
+                                                ? "rgba(163, 230, 53, 0.15)"
+                                                : "#ffffff",
                                             color: "#111827",
                                             cursor: "pointer",
                                             transition: "all 0.15s ease",
                                         }}
                                     >
-                                        <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#111827" }}>
+                                        <div
+                                            style={{
+                                                fontWeight: 600,
+                                                fontSize: "0.95rem",
+                                                color: "#111827",
+                                            }}
+                                        >
                                             {lot.name}
                                         </div>
-                                        <div style={{ fontSize: "0.8rem", color: "#4b5563", marginTop: "4px" }}>
-                                            {t("lotOwnerHeader")}: {lot.ownerName}
+                                        <div
+                                            style={{
+                                                fontSize: "0.8rem",
+                                                color: "#4b5563",
+                                                marginTop: "4px",
+                                            }}
+                                        >
+                                            {t("lotOwnerHeader")}:{" "}
+                                            {lot.ownerName}
                                         </div>
-                                        <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                                        <div
+                                            style={{
+                                                fontSize: "0.75rem",
+                                                color: "#6b7280",
+                                            }}
+                                        >
                                             {lot.address || lot.city}
                                         </div>
                                     </button>
@@ -275,14 +329,33 @@ export function AdminLotAssignmentsPage() {
                 </section>
 
                 {/* Cột phải: Quản lý nhân viên của bãi đã chọn */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "20px",
+                    }}
+                >
                     {/* Bảng phân công hiện tại */}
                     <section className="admin-card admin-table-card">
-                        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                        <div
+                            style={{
+                                padding: "16px 20px",
+                                borderBottom:
+                                    "1px solid rgba(255,255,255,0.08)",
+                            }}
+                        >
                             <h2 style={{ fontSize: "1.1rem", margin: 0 }}>
-                                {t("staffAtLotTitle")}: {activeLot ? activeLot.name : "..."}
+                                {t("staffAtLotTitle")}:{" "}
+                                {activeLot ? activeLot.name : "..."}
                             </h2>
-                            <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--staff-text-muted, #94a3b8)" }}>
+                            <p
+                                style={{
+                                    margin: "4px 0 0",
+                                    fontSize: "0.85rem",
+                                    color: "var(--staff-text-muted, #94a3b8)",
+                                }}
+                            >
                                 {t("staffAtLotSubtitle")}
                             </p>
                         </div>
@@ -293,21 +366,40 @@ export function AdminLotAssignmentsPage() {
                                     <th>{t("assignmentsColStaff")}</th>
                                     <th>{t("assignmentsColContact")}</th>
                                     <th>{t("assignmentsColRole")}</th>
-                                    <th style={{ textAlign: "right" }}>{t("actions")}</th>
+                                    <th style={{ textAlign: "right" }}>
+                                        {t("actions")}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {assignments.map((member) => (
                                     <tr key={member.accountId}>
                                         <td>
-                                            <strong>{member.accountFullName || t("assignmentsDefaultStaffName")}</strong>
-                                            <small style={{ fontFamily: "monospace", opacity: 0.7 }}>
-                                                ID: {member.accountId.slice(0, 8)}...
+                                            <strong>
+                                                {member.accountFullName ||
+                                                    t(
+                                                        "assignmentsDefaultStaffName",
+                                                    )}
+                                            </strong>
+                                            <small
+                                                style={{
+                                                    fontFamily: "monospace",
+                                                    opacity: 0.7,
+                                                }}
+                                            >
+                                                ID:{" "}
+                                                {member.accountId.slice(0, 8)}
+                                                ...
                                             </small>
                                         </td>
                                         <td>
-                                            <div>{member.accountEmail || "—"}</div>
-                                            <small>{member.accountPhoneNumber || "—"}</small>
+                                            <div>
+                                                {member.accountEmail || "—"}
+                                            </div>
+                                            <small>
+                                                {member.accountPhoneNumber ||
+                                                    "—"}
+                                            </small>
                                         </td>
                                         <td>
                                             <span
@@ -317,12 +409,20 @@ export function AdminLotAssignmentsPage() {
                                                     borderRadius: "4px",
                                                     fontSize: "0.75rem",
                                                     fontWeight: 600,
-                                                    background: member.role === "Owner" ? "rgba(168, 85, 247, 0.15)" : "rgba(59, 130, 246, 0.15)",
-                                                    color: member.role === "Owner" ? "#c084fc" : "#60a5fa",
+                                                    background:
+                                                        member.role === "Owner"
+                                                            ? "rgba(168, 85, 247, 0.15)"
+                                                            : "rgba(59, 130, 246, 0.15)",
+                                                    color:
+                                                        member.role === "Owner"
+                                                            ? "#c084fc"
+                                                            : "#60a5fa",
                                                     border: `1px solid ${member.role === "Owner" ? "rgba(168, 85, 247, 0.3)" : "rgba(59, 130, 246, 0.3)"}`,
                                                 }}
                                             >
-                                                {member.role === "Owner" ? t("roleOwner") : t("roleStaff")}
+                                                {member.role === "Owner"
+                                                    ? t("roleOwner")
+                                                    : t("roleStaff")}
                                             </span>
                                         </td>
                                         <td style={{ textAlign: "right" }}>
@@ -332,7 +432,9 @@ export function AdminLotAssignmentsPage() {
                                                 onClick={() =>
                                                     handleRemoveMember(
                                                         member.accountId,
-                                                        member.accountFullName || member.accountEmail || "staff",
+                                                        member.accountFullName ||
+                                                            member.accountEmail ||
+                                                            "staff",
                                                     )
                                                 }
                                                 disabled={actionBusy}
@@ -353,22 +455,54 @@ export function AdminLotAssignmentsPage() {
                         )}
 
                         {loadingAssignments && (
-                            <p className="admin-empty">{t("assignmentsLoadingAssignments")}</p>
+                            <p className="admin-empty">
+                                {t("assignmentsLoadingAssignments")}
+                            </p>
                         )}
                     </section>
 
                     {/* Biểu mẫu gán nhân viên mới vào bãi xe */}
                     <section className="admin-card" style={{ padding: "20px" }}>
-                        <h3 style={{ fontSize: "1rem", margin: "0 0 12px", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <h3
+                            style={{
+                                fontSize: "1rem",
+                                margin: "0 0 12px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                            }}
+                        >
                             <span>➕</span> {t("assignStaffTitle")}
                         </h3>
 
-                        <form onSubmit={handleAssignMember} style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: "12px", alignItems: "end" }}>
-                            <label className="admin-field" style={{ margin: 0 }}>
-                                <span style={{ fontWeight: 600, color: "#111827", marginBottom: "4px", display: "block" }}>{t("selectStaffLabel")}</span>
+                        <form
+                            onSubmit={handleAssignMember}
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 180px auto",
+                                gap: "12px",
+                                alignItems: "end",
+                            }}
+                        >
+                            <label
+                                className="admin-field"
+                                style={{ margin: 0 }}
+                            >
+                                <span
+                                    style={{
+                                        fontWeight: 600,
+                                        color: "#111827",
+                                        marginBottom: "4px",
+                                        display: "block",
+                                    }}
+                                >
+                                    {t("selectStaffLabel")}
+                                </span>
                                 <select
                                     value={selectedAccountId}
-                                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                                    onChange={(e) =>
+                                        setSelectedAccountId(e.target.value)
+                                    }
                                     required
                                     style={{
                                         width: "100%",
@@ -382,20 +516,51 @@ export function AdminLotAssignmentsPage() {
                                         outline: "none",
                                     }}
                                 >
-                                    <option value="" style={{ background: "#ffffff", color: "#111827" }}>{t("selectStaffDefault")}</option>
+                                    <option
+                                        value=""
+                                        style={{
+                                            background: "#ffffff",
+                                            color: "#111827",
+                                        }}
+                                    >
+                                        {t("selectStaffDefault")}
+                                    </option>
                                     {assignableStaff.map((staff) => (
-                                        <option key={staff.accountId} value={staff.accountId} style={{ background: "#ffffff", color: "#111827" }}>
+                                        <option
+                                            key={staff.accountId}
+                                            value={staff.accountId}
+                                            style={{
+                                                background: "#ffffff",
+                                                color: "#111827",
+                                            }}
+                                        >
                                             {staff.fullName} ({staff.email})
                                         </option>
                                     ))}
                                 </select>
                             </label>
 
-                            <label className="admin-field" style={{ margin: 0 }}>
-                                <span style={{ fontWeight: 600, color: "#111827", marginBottom: "4px", display: "block" }}>{t("assignRoleLabel")}</span>
+                            <label
+                                className="admin-field"
+                                style={{ margin: 0 }}
+                            >
+                                <span
+                                    style={{
+                                        fontWeight: 600,
+                                        color: "#111827",
+                                        marginBottom: "4px",
+                                        display: "block",
+                                    }}
+                                >
+                                    {t("assignRoleLabel")}
+                                </span>
                                 <select
                                     value={selectedRole}
-                                    onChange={(e) => setSelectedRole(e.target.value as "Staff" | "Owner")}
+                                    onChange={(e) =>
+                                        setSelectedRole(
+                                            e.target.value as "Staff" | "Owner",
+                                        )
+                                    }
                                     style={{
                                         width: "100%",
                                         height: "42px",
@@ -408,18 +573,40 @@ export function AdminLotAssignmentsPage() {
                                         outline: "none",
                                     }}
                                 >
-                                    <option value="Staff" style={{ background: "#ffffff", color: "#111827" }}>{t("roleStaff")}</option>
-                                    <option value="Owner" style={{ background: "#ffffff", color: "#111827" }}>{t("roleOwner")}</option>
+                                    <option
+                                        value="Staff"
+                                        style={{
+                                            background: "#ffffff",
+                                            color: "#111827",
+                                        }}
+                                    >
+                                        {t("roleStaff")}
+                                    </option>
+                                    <option
+                                        value="Owner"
+                                        style={{
+                                            background: "#ffffff",
+                                            color: "#111827",
+                                        }}
+                                    >
+                                        {t("roleOwner")}
+                                    </option>
                                 </select>
                             </label>
 
                             <button
                                 type="submit"
                                 className="admin-btn admin-btn-lime"
-                                disabled={actionBusy || !selectedAccountId || !selectedLotId}
+                                disabled={
+                                    actionBusy ||
+                                    !selectedAccountId ||
+                                    !selectedLotId
+                                }
                                 style={{ height: "42px", fontWeight: 600 }}
                             >
-                                {actionBusy ? t("assignmentsAssigning") : t("assignBtn")}
+                                {actionBusy
+                                    ? t("assignmentsAssigning")
+                                    : t("assignBtn")}
                             </button>
                         </form>
                     </section>
@@ -434,4 +621,3 @@ export function AdminLotAssignmentsPage() {
         </>
     );
 }
-

@@ -38,7 +38,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
             icon: "clock",
             badge: true,
         },
-        { href: "/admin/parking-lots", label: t("adminParkingLots"), icon: "lots" },
+        {
+            href: "/admin/parking-lots",
+            label: t("adminParkingLots"),
+            icon: "lots",
+        },
         {
             href: "/admin/parking-lots/assignments",
             label: t("adminLotAssignments"),

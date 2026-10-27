@@ -32,9 +32,7 @@ export function Providers({
 
     return (
         <QueryClientProvider client={queryClient}>
-            <LanguageProvider>
-                {children}
-            </LanguageProvider>
+            <LanguageProvider>{children}</LanguageProvider>
         </QueryClientProvider>
     );
 }

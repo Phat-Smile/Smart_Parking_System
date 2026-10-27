@@ -65,7 +65,12 @@ export interface ReviewedParkingLot {
 
 export interface OwnerApplicationDocument {
     id: string;
-    type: "BusinessLicense" | "IdentityCard" | "FireSafetyCert" | "PremisesLease" | "Other";
+    type:
+        | "BusinessLicense"
+        | "IdentityCard"
+        | "FireSafetyCert"
+        | "PremisesLease"
+        | "Other";
     name: string;
     fileUrl: string;
     fileType: "pdf" | "image";

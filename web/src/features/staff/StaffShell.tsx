@@ -113,7 +113,10 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                     <span className="staff-nav-icon">
                                         {item.icon}
                                     </span>
-                                    <span className="staff-nav-label" suppressHydrationWarning>
+                                    <span
+                                        className="staff-nav-label"
+                                        suppressHydrationWarning
+                                    >
                                         {item.label}
                                     </span>
                                 </div>
@@ -160,11 +163,15 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         <div className="staff-gate-health-meta">
                             <div className="staff-health-row">
                                 <span>{t("gateIn")} 01:</span>
-                                <strong className="text-emerald">{t("gateOnline")}</strong>
+                                <strong className="text-emerald">
+                                    {t("gateOnline")}
+                                </strong>
                             </div>
                             <div className="staff-health-row">
                                 <span>{t("gateOut")} 02:</span>
-                                <strong className="text-emerald">{t("gateOnline")}</strong>
+                                <strong className="text-emerald">
+                                    {t("gateOnline")}
+                                </strong>
                             </div>
                         </div>
                     </div>

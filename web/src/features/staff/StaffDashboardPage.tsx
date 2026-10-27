@@ -7,12 +7,8 @@ import { useStaffData } from "./staffData";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffDashboardPage() {
-    const {
-        occupancy,
-        activities,
-        assignedLot,
-        fetchAssignedLot,
-    } = useStaffData();
+    const { occupancy, activities, assignedLot, fetchAssignedLot } =
+        useStaffData();
     const { t } = useLanguage();
 
     React.useEffect(() => {
@@ -38,9 +34,7 @@ export function StaffDashboardPage() {
                     <h1 className="staff-title">
                         {t("dashTitle")} — {assignedLot.lotName}
                     </h1>
-                    <p className="staff-subtitle">
-                        {t("dashSubtitle")}
-                    </p>
+                    <p className="staff-subtitle">{t("dashSubtitle")}</p>
                 </div>
 
                 <div className="staff-header-actions">
@@ -72,7 +66,9 @@ export function StaffDashboardPage() {
                     </div>
                     <div className="staff-occupancy-value">
                         <strong>{occupancy.occupied}</strong>
-                        <span>/ {occupancy.totalCapacity} {t("dashSlots")}</span>
+                        <span>
+                            / {occupancy.totalCapacity} {t("dashSlots")}
+                        </span>
                     </div>
 
                     <div className="staff-progress-bar">
@@ -105,7 +101,9 @@ export function StaffDashboardPage() {
                 </div>
 
                 <div className="staff-stat-card">
-                    <span className="staff-stat-title">{t("dashActiveSessions")}</span>
+                    <span className="staff-stat-title">
+                        {t("dashActiveSessions")}
+                    </span>
                     <div className="staff-stat-number">
                         {occupancy.activeSessionsCount}
                     </div>
@@ -116,7 +114,9 @@ export function StaffDashboardPage() {
                 </div>
 
                 <div className="staff-stat-card">
-                    <span className="staff-stat-title">{t("dashNeedsVerif")}</span>
+                    <span className="staff-stat-title">
+                        {t("dashNeedsVerif")}
+                    </span>
                     <div
                         className={`staff-stat-number ${
                             occupancy.needsVerificationCount > 0
@@ -126,9 +126,7 @@ export function StaffDashboardPage() {
                     >
                         {occupancy.needsVerificationCount}
                     </div>
-                    <p className="staff-stat-hint">
-                        {t("dashNeedsVerifHint")}
-                    </p>
+                    <p className="staff-stat-hint">{t("dashNeedsVerifHint")}</p>
                     <Link
                         href="/staff/verification"
                         className="staff-link text-danger"
@@ -141,7 +139,9 @@ export function StaffDashboardPage() {
                     <span className="staff-stat-title">
                         {t("dashGateHealth")}
                     </span>
-                    <div className="staff-stat-number text-emerald">{t("gateOnline").toUpperCase()}</div>
+                    <div className="staff-stat-number text-emerald">
+                        {t("gateOnline").toUpperCase()}
+                    </div>
                     <p className="staff-stat-hint">{t("dashGateSynced")}</p>
                     <span className="staff-pill staff-pill-success">
                         {t("dashLatency")} 24ms
@@ -155,14 +155,14 @@ export function StaffDashboardPage() {
                 <div className="staff-card">
                     <div className="staff-card-header">
                         <h2>{t("dashEntryActivity")}</h2>
-                        <span className="staff-feed-live">{t("dashLiveFeed")}</span>
+                        <span className="staff-feed-live">
+                            {t("dashLiveFeed")}
+                        </span>
                     </div>
 
                     <div className="staff-activity-list">
                         {entryActivities.length === 0 ? (
-                            <p className="staff-empty">
-                                {t("dashNoEntry")}
-                            </p>
+                            <p className="staff-empty">{t("dashNoEntry")}</p>
                         ) : (
                             entryActivities.map((act) => (
                                 <div
@@ -197,14 +197,14 @@ export function StaffDashboardPage() {
                 <div className="staff-card">
                     <div className="staff-card-header">
                         <h2>{t("dashExitActivity")}</h2>
-                        <span className="staff-feed-live">{t("dashLiveFeed")}</span>
+                        <span className="staff-feed-live">
+                            {t("dashLiveFeed")}
+                        </span>
                     </div>
 
                     <div className="staff-activity-list">
                         {exitActivities.length === 0 ? (
-                            <p className="staff-empty">
-                                {t("dashNoExit")}
-                            </p>
+                            <p className="staff-empty">{t("dashNoExit")}</p>
                         ) : (
                             exitActivities.map((act) => (
                                 <div

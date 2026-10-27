@@ -181,9 +181,7 @@ export function AdminUsersPage() {
 
             <section className="admin-card admin-table-card">
                 {!session ? (
-                    <p className="admin-empty">
-                        {t("notSignedIn")}
-                    </p>
+                    <p className="admin-empty">{t("notSignedIn")}</p>
                 ) : query.isPending ? (
                     <p className="admin-empty">{t("loading")}</p>
                 ) : query.isError || !data ? (
@@ -206,7 +204,9 @@ export function AdminUsersPage() {
                                     <th>{t("adminUsersColRole")}</th>
                                     <th>{t("adminUsersColStatus")}</th>
                                     <th>{t("adminUsersColCreated")}</th>
-                                    <th aria-label={t("adminUsersColActions")} />
+                                    <th
+                                        aria-label={t("adminUsersColActions")}
+                                    />
                                 </tr>
                             </thead>
                             <tbody>
@@ -315,7 +315,9 @@ export function AdminUsersPage() {
                                                                 )
                                                             }
                                                         >
-                                                            {t("adminUsersSuspend")}
+                                                            {t(
+                                                                "adminUsersSuspend",
+                                                            )}
                                                         </button>
                                                     )}
                                                 {!self &&
@@ -335,7 +337,9 @@ export function AdminUsersPage() {
                                                                 )
                                                             }
                                                         >
-                                                            {t("adminUsersActivate")}
+                                                            {t(
+                                                                "adminUsersActivate",
+                                                            )}
                                                         </button>
                                                     )}
                                             </td>

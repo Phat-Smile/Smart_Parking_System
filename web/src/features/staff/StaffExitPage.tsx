@@ -149,12 +149,8 @@ export function StaffExitPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">
-                        {t("exitPageTitle")}
-                    </h1>
-                    <p className="staff-subtitle">
-                        {t("exitPageSubtitle")}
-                    </p>
+                    <h1 className="staff-title">{t("exitPageTitle")}</h1>
+                    <p className="staff-subtitle">{t("exitPageSubtitle")}</p>
                 </div>
 
                 <div className="staff-header-actions">
@@ -252,7 +248,9 @@ export function StaffExitPage() {
                                     disabled={loading || !qrInput.trim()}
                                     onClick={handleVerifyQr}
                                 >
-                                    {loading ? t("exitVerifying") : t("exitVerifyQrBtn")}
+                                    {loading
+                                        ? t("exitVerifying")
+                                        : t("exitVerifyQrBtn")}
                                 </button>
                             </div>
                         </div>
@@ -359,7 +357,10 @@ export function StaffExitPage() {
                             <div className="staff-fee-box">
                                 <div className="staff-fee-header">
                                     <h3>{t("exitFeeTitle")}</h3>
-                                    <span>{t("sessionsSpot")} {scannedSession.slotCode}</span>
+                                    <span>
+                                        {t("sessionsSpot")}{" "}
+                                        {scannedSession.slotCode}
+                                    </span>
                                 </div>
 
                                 <div className="staff-fee-rows">
@@ -439,12 +440,8 @@ export function StaffExitPage() {
                             <div className="staff-barrier-open-alert">
                                 <div className="barrier-icon">🟢</div>
                                 <div className="barrier-content">
-                                    <strong>
-                                        {t("exitBarrierRaised")}
-                                    </strong>
-                                    <p>
-                                        {t("exitBarrierHint")}
-                                    </p>
+                                    <strong>{t("exitBarrierRaised")}</strong>
+                                    <p>{t("exitBarrierHint")}</p>
                                 </div>
                             </div>
                         )}
@@ -524,7 +521,8 @@ export function StaffExitPage() {
                                         {t("exitSpotLabel")}
                                     </span>
                                     <span className="staff-slot-code">
-                                        {t("sessionsSpot")} {scannedSession.slotCode}
+                                        {t("sessionsSpot")}{" "}
+                                        {scannedSession.slotCode}
                                     </span>
                                 </div>
                                 <div className="staff-summary-row staff-summary-due-row">
@@ -600,7 +598,9 @@ export function StaffExitPage() {
                                                         }
                                                     >
                                                         {preset.toLocaleString(
-                                                            language === "vi" ? "vi-VN" : "en-US",
+                                                            language === "vi"
+                                                                ? "vi-VN"
+                                                                : "en-US",
                                                         )}
                                                         ₫
                                                     </button>
@@ -617,8 +617,12 @@ export function StaffExitPage() {
                                             <span className="staff-change-sub">
                                                 {cashGiven >=
                                                 scannedSession.amountDueVnd
-                                                    ? (language === "vi" ? "Khách đã trả đủ tiền mặt" : "Sufficient cash received")
-                                                    : (language === "vi" ? "⚠️ Chưa đủ số tiền cước" : "⚠️ Insufficient cash")}
+                                                    ? language === "vi"
+                                                        ? "Khách đã trả đủ tiền mặt"
+                                                        : "Sufficient cash received"
+                                                    : language === "vi"
+                                                      ? "⚠️ Chưa đủ số tiền cước"
+                                                      : "⚠️ Insufficient cash"}
                                             </span>
                                         </div>
                                         <strong className="staff-change-val">
@@ -664,7 +668,9 @@ export function StaffExitPage() {
                                     </p>
                                     <div className="staff-vnpay-qr">
                                         <div className="staff-vnpay-badge">
-                                            {language === "vi" ? "VNPay QR Cổng Ra" : "Gate Out VietQR / VNPay"}
+                                            {language === "vi"
+                                                ? "VNPay QR Cổng Ra"
+                                                : "Gate Out VietQR / VNPay"}
                                         </div>
                                         <div className="staff-vnpay-code">
                                             🅿️ PARKWISE GATE 02 ·{" "}

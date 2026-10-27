@@ -111,7 +111,9 @@ export async function assignLotMember(
         );
 
         // Update local memory
-        const staff = sampleStaffAccounts.find((s) => s.accountId === accountId);
+        const staff = sampleStaffAccounts.find(
+            (s) => s.accountId === accountId,
+        );
         const item: ParkingLotAssignmentMember = {
             lotId,
             accountId,
@@ -128,7 +130,9 @@ export async function assignLotMember(
         return res || item;
     } catch {
         // Fallback for offline/demo if BE is offline
-        const staff = sampleStaffAccounts.find((s) => s.accountId === accountId);
+        const staff = sampleStaffAccounts.find(
+            (s) => s.accountId === accountId,
+        );
         const item: ParkingLotAssignmentMember = {
             lotId,
             accountId,
@@ -192,7 +196,9 @@ export async function getLotAssignments(
 /**
  * Lấy danh sách nhân viên có sẵn trong hệ thống để chọn phân công.
  */
-export async function getAvailableStaffAccounts(): Promise<StaffAccountOption[]> {
+export async function getAvailableStaffAccounts(): Promise<
+    StaffAccountOption[]
+> {
     try {
         const res = await gatewayFetch<StaffAccountOption[]>(
             `/api/identity/admin/accounts?role=Staff`,
@@ -215,5 +221,8 @@ export function describeAssignmentError(error: unknown): string {
     if (error.status === 403) {
         return "Chỉ quản trị viên hệ thống (SystemAdmin) mới có quyền phân công nhân viên.";
     }
-    return error.problem?.detail || "Không thể thực hiện phân công. Vui lòng thử lại.";
+    return (
+        error.problem?.detail ||
+        "Không thể thực hiện phân công. Vui lòng thử lại."
+    );
 }

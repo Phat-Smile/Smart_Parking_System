@@ -31,9 +31,7 @@ export function StaffVerificationPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">{t("verifTitle")}</h1>
-                    <p className="staff-subtitle">
-                        {t("verifSubtitle")}
-                    </p>
+                    <p className="staff-subtitle">{t("verifSubtitle")}</p>
                 </div>
             </header>
 
@@ -53,7 +51,9 @@ export function StaffVerificationPage() {
                             <th>{t("verifColConf")}</th>
                             <th>{t("verifColState")}</th>
                             <th>{t("verifColReportedAt")}</th>
-                            <th className="text-right">{t("verifColAction")}</th>
+                            <th className="text-right">
+                                {t("verifColAction")}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>

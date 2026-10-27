@@ -35,21 +35,29 @@ const DEFAULT_CHECKLIST: VerificationChecklist = {
 export function AdminOwnerApplicationsPage() {
     const { t } = useLanguage();
     const [status, setStatus] = useState<Filter>("Pending");
-    const [applications, setApplications] = useState<OwnerApplicationItem[]>([]);
+    const [applications, setApplications] = useState<OwnerApplicationItem[]>(
+        [],
+    );
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [search, setSearch] = useState("");
 
     // Modal state for approve / reject / inspect
-    const [activeApp, setActiveApp] = useState<OwnerApplicationItem | null>(null);
-    const [modalAction, setModalAction] = useState<"approve" | "reject" | "inspect" | null>(null);
+    const [activeApp, setActiveApp] = useState<OwnerApplicationItem | null>(
+        null,
+    );
+    const [modalAction, setModalAction] = useState<
+        "approve" | "reject" | "inspect" | null
+    >(null);
     const [rejectReason, setRejectReason] = useState("");
     const [actionBusy, setActionBusy] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
 
     // Document inspection and checklist
-    const [checklist, setChecklist] = useState<VerificationChecklist>(DEFAULT_CHECKLIST);
-    const [previewDoc, setPreviewDoc] = useState<OwnerApplicationDocument | null>(null);
+    const [checklist, setChecklist] =
+        useState<VerificationChecklist>(DEFAULT_CHECKLIST);
+    const [previewDoc, setPreviewDoc] =
+        useState<OwnerApplicationDocument | null>(null);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -97,8 +105,10 @@ export function AdminOwnerApplicationsPage() {
             return (
                 (app.fullName && app.fullName.toLowerCase().includes(term)) ||
                 (app.email && app.email.toLowerCase().includes(term)) ||
-                (app.phoneNumber && app.phoneNumber.toLowerCase().includes(term)) ||
-                (app.businessName && app.businessName.toLowerCase().includes(term)) ||
+                (app.phoneNumber &&
+                    app.phoneNumber.toLowerCase().includes(term)) ||
+                (app.businessName &&
+                    app.businessName.toLowerCase().includes(term)) ||
                 (app.taxCode && app.taxCode.toLowerCase().includes(term))
             );
         });
@@ -108,8 +118,10 @@ export function AdminOwnerApplicationsPage() {
         return {
             All: applications.length,
             Pending: applications.filter((a) => a.status === "Pending").length,
-            Approved: applications.filter((a) => a.status === "Approved").length,
-            Rejected: applications.filter((a) => a.status === "Rejected").length,
+            Approved: applications.filter((a) => a.status === "Approved")
+                .length,
+            Rejected: applications.filter((a) => a.status === "Rejected")
+                .length,
         };
     }, [applications]);
 
@@ -119,7 +131,10 @@ export function AdminOwnerApplicationsPage() {
         checklist.fireSafety &&
         checklist.lease;
 
-    function openReviewModal(app: OwnerApplicationItem, action: "approve" | "inspect" | "reject") {
+    function openReviewModal(
+        app: OwnerApplicationItem,
+        action: "approve" | "inspect" | "reject",
+    ) {
         setActiveApp(app);
         setModalAction(action);
         setChecklist(DEFAULT_CHECKLIST);
@@ -136,7 +151,9 @@ export function AdminOwnerApplicationsPage() {
         setActionBusy(true);
         try {
             await approveOwnerApplication(activeApp.accountId);
-            setToast(`${t("approved")}: ${activeApp.fullName || activeApp.email}`);
+            setToast(
+                `${t("approved")}: ${activeApp.fullName || activeApp.email}`,
+            );
             setModalAction(null);
             setActiveApp(null);
             await loadData();
@@ -151,8 +168,13 @@ export function AdminOwnerApplicationsPage() {
         if (!activeApp || !rejectReason.trim()) return;
         setActionBusy(true);
         try {
-            await rejectOwnerApplication(activeApp.accountId, rejectReason.trim());
-            setToast(`${t("rejected")}: ${activeApp.fullName || activeApp.email}`);
+            await rejectOwnerApplication(
+                activeApp.accountId,
+                rejectReason.trim(),
+            );
+            setToast(
+                `${t("rejected")}: ${activeApp.fullName || activeApp.email}`,
+            );
             setModalAction(null);
             setActiveApp(null);
             setRejectReason("");
@@ -172,9 +194,10 @@ export function AdminOwnerApplicationsPage() {
         if (!checklist.fireSafety) missing.push(t("ownerAppsChecklistRule3"));
         if (!checklist.lease) missing.push(t("ownerAppsChecklistRule4"));
 
-        const generatedReason = missing.length > 0
-            ? `${t("ownerAppsRejectReasonPlaceholder")}: (${missing.join(", ")}).`
-            : t("ownerAppsChecklistWarning");
+        const generatedReason =
+            missing.length > 0
+                ? `${t("ownerAppsRejectReasonPlaceholder")}: (${missing.join(", ")}).`
+                : t("ownerAppsChecklistWarning");
 
         setRejectReason(generatedReason);
         setModalAction("reject");
@@ -284,7 +307,9 @@ export function AdminOwnerApplicationsPage() {
                             <th>{t("ownerAppsLegalDocs")}</th>
                             <th>{t("ownerAppsSubmittedAt")}</th>
                             <th>{t("status")}</th>
-                            <th style={{ textAlign: "right" }}>{t("actions")}</th>
+                            <th style={{ textAlign: "right" }}>
+                                {t("actions")}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -292,22 +317,32 @@ export function AdminOwnerApplicationsPage() {
                             <tr key={app.accountId}>
                                 <td>
                                     <strong>
-                                        {app.fullName || t("ownerAppsNotUpdated")}
+                                        {app.fullName ||
+                                            t("ownerAppsNotUpdated")}
                                     </strong>
                                     <small>{app.email}</small>
                                 </td>
                                 <td>
                                     <strong>{app.businessName || "—"}</strong>
-                                    <small>{t("ownerAppsTaxCode")}: {app.taxCode || "—"}</small>
+                                    <small>
+                                        {t("ownerAppsTaxCode")}:{" "}
+                                        {app.taxCode || "—"}
+                                    </small>
                                 </td>
                                 <td>
                                     <button
                                         type="button"
                                         className="admin-btn admin-btn-xs admin-btn-ghost"
-                                        style={{ fontSize: "12px", padding: "4px 8px" }}
-                                        onClick={() => openReviewModal(app, "inspect")}
+                                        style={{
+                                            fontSize: "12px",
+                                            padding: "4px 8px",
+                                        }}
+                                        onClick={() =>
+                                            openReviewModal(app, "inspect")
+                                        }
                                     >
-                                        📑 {t("ownerAppsInspectDocs")} ({app.documents?.length || 0})
+                                        📑 {t("ownerAppsInspectDocs")} (
+                                        {app.documents?.length || 0})
                                     </button>
                                 </td>
                                 <td>{formatDate(app.createdAtUtc)}</td>
@@ -328,15 +363,27 @@ export function AdminOwnerApplicationsPage() {
                                             <button
                                                 type="button"
                                                 className="admin-btn admin-btn-sm admin-btn-lime"
-                                                title={t("ownerAppsVerifyAndApprove")}
-                                                onClick={() => openReviewModal(app, "approve")}
+                                                title={t(
+                                                    "ownerAppsVerifyAndApprove",
+                                                )}
+                                                onClick={() =>
+                                                    openReviewModal(
+                                                        app,
+                                                        "approve",
+                                                    )
+                                                }
                                             >
                                                 {t("ownerAppsVerifyAndApprove")}
                                             </button>
                                             <button
                                                 type="button"
                                                 className="admin-btn admin-btn-sm admin-btn-danger-ghost"
-                                                onClick={() => openReviewModal(app, "reject")}
+                                                onClick={() =>
+                                                    openReviewModal(
+                                                        app,
+                                                        "reject",
+                                                    )
+                                                }
                                             >
                                                 {t("ownerAppsReject")}
                                             </button>
@@ -345,7 +392,9 @@ export function AdminOwnerApplicationsPage() {
                                         <button
                                             type="button"
                                             className="admin-btn admin-btn-xs admin-btn-ghost"
-                                            onClick={() => openReviewModal(app, "inspect")}
+                                            onClick={() =>
+                                                openReviewModal(app, "inspect")
+                                            }
                                         >
                                             {t("details")}
                                         </button>
@@ -365,266 +414,488 @@ export function AdminOwnerApplicationsPage() {
                 )}
 
                 {loading && (
-                    <p className="admin-empty">
-                        {t("ownerAppsLoading")}
-                    </p>
+                    <p className="admin-empty">{t("ownerAppsLoading")}</p>
                 )}
             </section>
 
             {/* Modal Thẩm định giấy tờ & Duyệt hồ sơ */}
-            {(modalAction === "approve" || modalAction === "inspect") && activeApp && (
-                <div
-                    className="admin-modal-backdrop"
-                    onClick={() => !actionBusy && setModalAction(null)}
-                >
+            {(modalAction === "approve" || modalAction === "inspect") &&
+                activeApp && (
                     <div
-                        className="admin-modal"
-                        role="dialog"
-                        aria-modal="true"
-                        style={{ maxWidth: "720px", width: "95%", textAlign: "left" }}
-                        onClick={(e) => e.stopPropagation()}
+                        className="admin-modal-backdrop"
+                        onClick={() => !actionBusy && setModalAction(null)}
                     >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-                            <div>
-                                <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
-                                    {modalAction === "approve"
-                                        ? t("ownerAppsApproveModalTitle")
-                                        : t("ownerAppsInspectDocsModalTitle")}
-                                </h2>
-                                <p style={{ margin: "4px 0 0", color: "var(--staff-text-muted, #94a3b8)", fontSize: "0.875rem" }}>
-                                    {activeApp.businessName || activeApp.fullName} ({activeApp.email})
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setModalAction(null)}
-                                style={{ background: "none", border: "none", color: "inherit", fontSize: "1.25rem", cursor: "pointer" }}
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        {/* Thông tin đối tác */}
                         <div
+                            className="admin-modal"
+                            role="dialog"
+                            aria-modal="true"
                             style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                                gap: "10px",
-                                padding: "14px",
-                                borderRadius: "8px",
-                                background: "#f9fafb",
-                                border: "1px solid #e5e7eb",
-                                marginBottom: "1rem",
-                                fontSize: "0.875rem",
-                                color: "#111827",
+                                maxWidth: "720px",
+                                width: "95%",
+                                textAlign: "left",
                             }}
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            <div>
-                                <span style={{ color: "#4b5563" }}>{t("ownerAppsRepresentative")} </span>
-                                <strong>{activeApp.fullName || "—"}</strong>
-                            </div>
-                            <div>
-                                <span style={{ color: "#4b5563" }}>{t("ownerAppsTaxCode")}: </span>
-                                <strong>{activeApp.taxCode || "—"}</strong>
-                            </div>
-                            <div>
-                                <span style={{ color: "#4b5563" }}>{t("ownerAppsIdCardNumber")} </span>
-                                <strong>{activeApp.idCardNumber || "—"}</strong>
-                            </div>
-                            <div>
-                                <span style={{ color: "#4b5563" }}>{t("phone")}: </span>
-                                <strong>{activeApp.phoneNumber || "—"}</strong>
-                            </div>
-                            <div style={{ gridColumn: "1 / -1" }}>
-                                <span style={{ color: "#4b5563" }}>{t("ownerAppsRegisteredAddress")} </span>
-                                <span>{activeApp.businessAddress || t("ownerAppsNotUpdated")}</span>
-                            </div>
-                        </div>
-
-                        {/* Danh sách tài liệu đính kèm */}
-                        <h3 style={{ fontSize: "1rem", margin: "1rem 0 0.5rem" }}>
-                            {t("ownerAppsAttachedDocs")} ({activeApp.documents?.length || 0})
-                        </h3>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "10px", marginBottom: "1.5rem" }}>
-                            {(activeApp.documents && activeApp.documents.length > 0) ? (
-                                activeApp.documents.map((doc) => (
-                                    <div
-                                        key={doc.id}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "10px",
-                                            padding: "10px",
-                                            borderRadius: "6px",
-                                            background: "#f9fafb",
-                                            border: "1px solid #e5e7eb",
-                                            color: "#111827",
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                width: "48px",
-                                                height: "48px",
-                                                borderRadius: "4px",
-                                                overflow: "hidden",
-                                                background: "#111",
-                                                flexShrink: 0,
-                                                cursor: "pointer",
-                                            }}
-                                            onClick={() => setPreviewDoc(doc)}
-                                        >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={doc.fileUrl}
-                                                alt={doc.name}
-                                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                            />
-                                        </div>
-                                        <div style={{ overflow: "hidden", flex: 1 }}>
-                                            <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                                                {doc.name}
-                                            </p>
-                                            <small style={{ color: "var(--staff-text-muted, #94a3b8)", fontSize: "0.75rem" }}>
-                                                {formatDate(doc.uploadedAtUtc)}
-                                            </small>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="admin-btn admin-btn-xs admin-btn-ghost"
-                                            onClick={() => setPreviewDoc(doc)}
-                                            title={t("view")}
-                                        >
-                                            👁 {t("view")}
-                                        </button>
-                                    </div>
-                                ))
-                            ) : (
-                                <p style={{ color: "#ef4444", fontSize: "0.875rem", gridColumn: "1 / -1" }}>
-                                    {t("ownerAppsNoDocsWarning")}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Checklist thẩm định */}
-                        {modalAction === "approve" && (
                             <div
                                 style={{
-                                    padding: "14px",
-                                    borderRadius: "8px",
-                                    background: isAllVerified ? "rgba(34, 197, 94, 0.08)" : "rgba(234, 179, 8, 0.08)",
-                                    border: `1px solid ${isAllVerified ? "rgba(34, 197, 94, 0.3)" : "rgba(234, 179, 8, 0.3)"}`,
-                                    marginBottom: "1.25rem",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "flex-start",
+                                    marginBottom: "1rem",
                                 }}
                             >
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                                    <strong style={{ fontSize: "0.9rem", color: isAllVerified ? "#4ade80" : "#facc15" }}>
-                                        {t("ownerAppsChecklistTitle")}
-                                    </strong>
-                                    <button
-                                        type="button"
-                                        className="admin-btn admin-btn-xs admin-btn-ghost"
-                                        onClick={() =>
-                                            setChecklist({
-                                                license: !isAllVerified,
-                                                idCard: !isAllVerified,
-                                                fireSafety: !isAllVerified,
-                                                lease: !isAllVerified,
-                                            })
-                                        }
+                                <div>
+                                    <h2
+                                        style={{
+                                            margin: 0,
+                                            fontSize: "1.25rem",
+                                        }}
                                     >
-                                        {isAllVerified ? t("ownerAppsDeselectAllChecklist") : t("ownerAppsSelectAllChecklist")}
-                                    </button>
+                                        {modalAction === "approve"
+                                            ? t("ownerAppsApproveModalTitle")
+                                            : t(
+                                                  "ownerAppsInspectDocsModalTitle",
+                                              )}
+                                    </h2>
+                                    <p
+                                        style={{
+                                            margin: "4px 0 0",
+                                            color: "var(--staff-text-muted, #94a3b8)",
+                                            fontSize: "0.875rem",
+                                        }}
+                                    >
+                                        {activeApp.businessName ||
+                                            activeApp.fullName}{" "}
+                                        ({activeApp.email})
+                                    </p>
                                 </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setModalAction(null)}
+                                    style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: "inherit",
+                                        fontSize: "1.25rem",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
 
-                                <div style={{ display: "grid", gap: "8px", fontSize: "0.85rem" }}>
-                                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={checklist.license}
-                                            onChange={(e) => setChecklist((prev) => ({ ...prev, license: e.target.checked }))}
-                                        />
-                                        <span>{t("ownerAppsChecklistRule1")}</span>
-                                    </label>
-                                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={checklist.idCard}
-                                            onChange={(e) => setChecklist((prev) => ({ ...prev, idCard: e.target.checked }))}
-                                        />
-                                        <span>{t("ownerAppsChecklistRule2")}</span>
-                                    </label>
-                                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={checklist.fireSafety}
-                                            onChange={(e) => setChecklist((prev) => ({ ...prev, fireSafety: e.target.checked }))}
-                                        />
-                                        <span>{t("ownerAppsChecklistRule3")}</span>
-                                    </label>
-                                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={checklist.lease}
-                                            onChange={(e) => setChecklist((prev) => ({ ...prev, lease: e.target.checked }))}
-                                        />
-                                        <span>{t("ownerAppsChecklistRule4")}</span>
-                                    </label>
+                            {/* Thông tin đối tác */}
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns:
+                                        "repeat(auto-fit, minmax(200px, 1fr))",
+                                    gap: "10px",
+                                    padding: "14px",
+                                    borderRadius: "8px",
+                                    background: "#f9fafb",
+                                    border: "1px solid #e5e7eb",
+                                    marginBottom: "1rem",
+                                    fontSize: "0.875rem",
+                                    color: "#111827",
+                                }}
+                            >
+                                <div>
+                                    <span style={{ color: "#4b5563" }}>
+                                        {t("ownerAppsRepresentative")}{" "}
+                                    </span>
+                                    <strong>{activeApp.fullName || "—"}</strong>
                                 </div>
+                                <div>
+                                    <span style={{ color: "#4b5563" }}>
+                                        {t("ownerAppsTaxCode")}:{" "}
+                                    </span>
+                                    <strong>{activeApp.taxCode || "—"}</strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: "#4b5563" }}>
+                                        {t("ownerAppsIdCardNumber")}{" "}
+                                    </span>
+                                    <strong>
+                                        {activeApp.idCardNumber || "—"}
+                                    </strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: "#4b5563" }}>
+                                        {t("phone")}:{" "}
+                                    </span>
+                                    <strong>
+                                        {activeApp.phoneNumber || "—"}
+                                    </strong>
+                                </div>
+                                <div style={{ gridColumn: "1 / -1" }}>
+                                    <span style={{ color: "#4b5563" }}>
+                                        {t("ownerAppsRegisteredAddress")}{" "}
+                                    </span>
+                                    <span>
+                                        {activeApp.businessAddress ||
+                                            t("ownerAppsNotUpdated")}
+                                    </span>
+                                </div>
+                            </div>
 
-                                {!isAllVerified && (
-                                    <p style={{ margin: "8px 0 0", color: "#facc15", fontSize: "0.8rem" }}>
-                                        {t("ownerAppsChecklistWarning")}
+                            {/* Danh sách tài liệu đính kèm */}
+                            <h3
+                                style={{
+                                    fontSize: "1rem",
+                                    margin: "1rem 0 0.5rem",
+                                }}
+                            >
+                                {t("ownerAppsAttachedDocs")} (
+                                {activeApp.documents?.length || 0})
+                            </h3>
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns:
+                                        "repeat(auto-fit, minmax(280px, 1fr))",
+                                    gap: "10px",
+                                    marginBottom: "1.5rem",
+                                }}
+                            >
+                                {activeApp.documents &&
+                                activeApp.documents.length > 0 ? (
+                                    activeApp.documents.map((doc) => (
+                                        <div
+                                            key={doc.id}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "10px",
+                                                padding: "10px",
+                                                borderRadius: "6px",
+                                                background: "#f9fafb",
+                                                border: "1px solid #e5e7eb",
+                                                color: "#111827",
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: "48px",
+                                                    height: "48px",
+                                                    borderRadius: "4px",
+                                                    overflow: "hidden",
+                                                    background: "#111",
+                                                    flexShrink: 0,
+                                                    cursor: "pointer",
+                                                }}
+                                                onClick={() =>
+                                                    setPreviewDoc(doc)
+                                                }
+                                            >
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={doc.fileUrl}
+                                                    alt={doc.name}
+                                                    style={{
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        objectFit: "cover",
+                                                    }}
+                                                />
+                                            </div>
+                                            <div
+                                                style={{
+                                                    overflow: "hidden",
+                                                    flex: 1,
+                                                }}
+                                            >
+                                                <p
+                                                    style={{
+                                                        margin: 0,
+                                                        fontSize: "0.85rem",
+                                                        fontWeight: 600,
+                                                        textOverflow:
+                                                            "ellipsis",
+                                                        overflow: "hidden",
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {doc.name}
+                                                </p>
+                                                <small
+                                                    style={{
+                                                        color: "var(--staff-text-muted, #94a3b8)",
+                                                        fontSize: "0.75rem",
+                                                    }}
+                                                >
+                                                    {formatDate(
+                                                        doc.uploadedAtUtc,
+                                                    )}
+                                                </small>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-xs admin-btn-ghost"
+                                                onClick={() =>
+                                                    setPreviewDoc(doc)
+                                                }
+                                                title={t("view")}
+                                            >
+                                                👁 {t("view")}
+                                            </button>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p
+                                        style={{
+                                            color: "#ef4444",
+                                            fontSize: "0.875rem",
+                                            gridColumn: "1 / -1",
+                                        }}
+                                    >
+                                        {t("ownerAppsNoDocsWarning")}
                                     </p>
                                 )}
                             </div>
-                        )}
 
-                        {/* Modal actions */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "1rem" }}>
-                            {modalAction === "approve" ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="admin-btn admin-btn-danger-ghost"
-                                        onClick={handleRejectMissingDocs}
-                                        disabled={actionBusy}
+                            {/* Checklist thẩm định */}
+                            {modalAction === "approve" && (
+                                <div
+                                    style={{
+                                        padding: "14px",
+                                        borderRadius: "8px",
+                                        background: isAllVerified
+                                            ? "rgba(34, 197, 94, 0.08)"
+                                            : "rgba(234, 179, 8, 0.08)",
+                                        border: `1px solid ${isAllVerified ? "rgba(34, 197, 94, 0.3)" : "rgba(234, 179, 8, 0.3)"}`,
+                                        marginBottom: "1.25rem",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            marginBottom: "8px",
+                                        }}
                                     >
-                                        {t("ownerAppsRejectMissingDocsBtn")}
-                                    </button>
-                                    <div style={{ display: "flex", gap: "8px" }}>
+                                        <strong
+                                            style={{
+                                                fontSize: "0.9rem",
+                                                color: isAllVerified
+                                                    ? "#4ade80"
+                                                    : "#facc15",
+                                            }}
+                                        >
+                                            {t("ownerAppsChecklistTitle")}
+                                        </strong>
                                         <button
                                             type="button"
-                                            className="admin-btn admin-btn-ghost"
-                                            onClick={() => setModalAction(null)}
-                                            disabled={actionBusy}
+                                            className="admin-btn admin-btn-xs admin-btn-ghost"
+                                            onClick={() =>
+                                                setChecklist({
+                                                    license: !isAllVerified,
+                                                    idCard: !isAllVerified,
+                                                    fireSafety: !isAllVerified,
+                                                    lease: !isAllVerified,
+                                                })
+                                            }
                                         >
-                                            {t("cancel")}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="admin-btn admin-btn-lime"
-                                            onClick={handleConfirmApprove}
-                                            disabled={actionBusy || !isAllVerified}
-                                            title={isAllVerified ? t("ownerAppsConfirmApprove") : t("ownerAppsChecklistWarning")}
-                                        >
-                                            {actionBusy ? t("saving") : t("ownerAppsConfirmApprove")}
+                                            {isAllVerified
+                                                ? t(
+                                                      "ownerAppsDeselectAllChecklist",
+                                                  )
+                                                : t(
+                                                      "ownerAppsSelectAllChecklist",
+                                                  )}
                                         </button>
                                     </div>
-                                </>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="admin-btn admin-btn-ghost"
-                                    style={{ marginLeft: "auto" }}
-                                    onClick={() => setModalAction(null)}
-                                >
-                                    {t("close")}
-                                </button>
+
+                                    <div
+                                        style={{
+                                            display: "grid",
+                                            gap: "8px",
+                                            fontSize: "0.85rem",
+                                        }}
+                                    >
+                                        <label
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checklist.license}
+                                                onChange={(e) =>
+                                                    setChecklist((prev) => ({
+                                                        ...prev,
+                                                        license:
+                                                            e.target.checked,
+                                                    }))
+                                                }
+                                            />
+                                            <span>
+                                                {t("ownerAppsChecklistRule1")}
+                                            </span>
+                                        </label>
+                                        <label
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checklist.idCard}
+                                                onChange={(e) =>
+                                                    setChecklist((prev) => ({
+                                                        ...prev,
+                                                        idCard: e.target
+                                                            .checked,
+                                                    }))
+                                                }
+                                            />
+                                            <span>
+                                                {t("ownerAppsChecklistRule2")}
+                                            </span>
+                                        </label>
+                                        <label
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checklist.fireSafety}
+                                                onChange={(e) =>
+                                                    setChecklist((prev) => ({
+                                                        ...prev,
+                                                        fireSafety:
+                                                            e.target.checked,
+                                                    }))
+                                                }
+                                            />
+                                            <span>
+                                                {t("ownerAppsChecklistRule3")}
+                                            </span>
+                                        </label>
+                                        <label
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checklist.lease}
+                                                onChange={(e) =>
+                                                    setChecklist((prev) => ({
+                                                        ...prev,
+                                                        lease: e.target.checked,
+                                                    }))
+                                                }
+                                            />
+                                            <span>
+                                                {t("ownerAppsChecklistRule4")}
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {!isAllVerified && (
+                                        <p
+                                            style={{
+                                                margin: "8px 0 0",
+                                                color: "#facc15",
+                                                fontSize: "0.8rem",
+                                            }}
+                                        >
+                                            {t("ownerAppsChecklistWarning")}
+                                        </p>
+                                    )}
+                                </div>
                             )}
+
+                            {/* Modal actions */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    marginTop: "1rem",
+                                }}
+                            >
+                                {modalAction === "approve" ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="admin-btn admin-btn-danger-ghost"
+                                            onClick={handleRejectMissingDocs}
+                                            disabled={actionBusy}
+                                        >
+                                            {t("ownerAppsRejectMissingDocsBtn")}
+                                        </button>
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                gap: "8px",
+                                            }}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-ghost"
+                                                onClick={() =>
+                                                    setModalAction(null)
+                                                }
+                                                disabled={actionBusy}
+                                            >
+                                                {t("cancel")}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="admin-btn admin-btn-lime"
+                                                onClick={handleConfirmApprove}
+                                                disabled={
+                                                    actionBusy || !isAllVerified
+                                                }
+                                                title={
+                                                    isAllVerified
+                                                        ? t(
+                                                              "ownerAppsConfirmApprove",
+                                                          )
+                                                        : t(
+                                                              "ownerAppsChecklistWarning",
+                                                          )
+                                                }
+                                            >
+                                                {actionBusy
+                                                    ? t("saving")
+                                                    : t(
+                                                          "ownerAppsConfirmApprove",
+                                                      )}
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="admin-btn admin-btn-ghost"
+                                        style={{ marginLeft: "auto" }}
+                                        onClick={() => setModalAction(null)}
+                                    >
+                                        {t("close")}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
             {/* Modal Từ chối hồ sơ */}
             {modalAction === "reject" && activeApp && (
@@ -643,17 +914,25 @@ export function AdminOwnerApplicationsPage() {
                         </span>
                         <h2>{t("ownerAppsRejectConfirmTitle")}</h2>
                         <p>
-                            {t("ownerAppsRejectConfirmDesc")} {activeApp.fullName || activeApp.email}.
+                            {t("ownerAppsRejectConfirmDesc")}{" "}
+                            {activeApp.fullName || activeApp.email}.
                         </p>
 
-                        <label className="admin-field" style={{ marginTop: "1rem" }}>
+                        <label
+                            className="admin-field"
+                            style={{ marginTop: "1rem" }}
+                        >
                             <span>{t("ownerAppsRejectReasonLabel")}</span>
                             <textarea
                                 rows={4}
                                 autoFocus
                                 value={rejectReason}
-                                onChange={(e) => setRejectReason(e.target.value)}
-                                placeholder={t("ownerAppsRejectReasonPlaceholder")}
+                                onChange={(e) =>
+                                    setRejectReason(e.target.value)
+                                }
+                                placeholder={t(
+                                    "ownerAppsRejectReasonPlaceholder",
+                                )}
                                 style={{
                                     width: "100%",
                                     padding: "10px 12px",
@@ -666,7 +945,10 @@ export function AdminOwnerApplicationsPage() {
                             />
                         </label>
 
-                        <div className="admin-modal-actions" style={{ marginTop: "1.5rem" }}>
+                        <div
+                            className="admin-modal-actions"
+                            style={{ marginTop: "1.5rem" }}
+                        >
                             <button
                                 type="button"
                                 className="admin-btn admin-btn-ghost"
@@ -681,7 +963,9 @@ export function AdminOwnerApplicationsPage() {
                                 onClick={handleConfirmReject}
                                 disabled={actionBusy || !rejectReason.trim()}
                             >
-                                {actionBusy ? t("saving") : t("ownerAppsConfirmRejectBtn")}
+                                {actionBusy
+                                    ? t("saving")
+                                    : t("ownerAppsConfirmRejectBtn")}
                             </button>
                         </div>
                     </div>
@@ -697,25 +981,55 @@ export function AdminOwnerApplicationsPage() {
                 >
                     <div
                         className="admin-modal"
-                        style={{ maxWidth: "800px", width: "95%", textAlign: "center", padding: "16px" }}
+                        style={{
+                            maxWidth: "800px",
+                            width: "95%",
+                            textAlign: "center",
+                            padding: "16px",
+                        }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                            <strong style={{ fontSize: "1rem" }}>{previewDoc.name}</strong>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                marginBottom: "12px",
+                            }}
+                        >
+                            <strong style={{ fontSize: "1rem" }}>
+                                {previewDoc.name}
+                            </strong>
                             <button
                                 type="button"
                                 onClick={() => setPreviewDoc(null)}
-                                style={{ background: "none", border: "none", color: "inherit", fontSize: "1.25rem", cursor: "pointer" }}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "inherit",
+                                    fontSize: "1.25rem",
+                                    cursor: "pointer",
+                                }}
                             >
                                 ✕
                             </button>
                         </div>
-                        <div style={{ maxHeight: "70vh", overflow: "auto", borderRadius: "8px" }}>
+                        <div
+                            style={{
+                                maxHeight: "70vh",
+                                overflow: "auto",
+                                borderRadius: "8px",
+                            }}
+                        >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={previewDoc.fileUrl}
                                 alt={previewDoc.name}
-                                style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: "6px" }}
+                                style={{
+                                    maxWidth: "100%",
+                                    maxHeight: "65vh",
+                                    objectFit: "contain",
+                                    borderRadius: "6px",
+                                }}
                             />
                         </div>
                         <div style={{ marginTop: "12px", textAlign: "right" }}>
@@ -740,4 +1054,3 @@ export function AdminOwnerApplicationsPage() {
         </>
     );
 }
-

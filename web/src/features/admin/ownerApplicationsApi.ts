@@ -15,7 +15,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
         fullName: "Lê Thành Công",
         businessName: "Công ty TNHH Vận Tải & Dịch Vụ Đỗ Xe Sài Gòn",
         taxCode: "0316789123",
-        businessAddress: "Số 123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+        businessAddress:
+            "Số 123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
         idCardNumber: "079088001234",
         status: "Pending",
         rejectionReason: null,
@@ -27,7 +28,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-101",
                 type: "BusinessLicense",
                 name: "Giấy chứng nhận đăng ký doanh nghiệp",
-                fileUrl: "https://images.unsplash.com/photo-1554415707-9e49017aed81?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1554415707-9e49017aed81?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-21T09:10:00Z",
             },
@@ -35,7 +37,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-102",
                 type: "IdentityCard",
                 name: "Căn cước công dân người đại diện pháp luật (2 mặt)",
-                fileUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-21T09:11:00Z",
             },
@@ -43,7 +46,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-103",
                 type: "FireSafetyCert",
                 name: "Giấy chứng nhận thẩm duyệt thiết kế PCCC",
-                fileUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-21T09:12:00Z",
             },
@@ -51,7 +55,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-104",
                 type: "PremisesLease",
                 name: "Hợp đồng thuê mặt bằng bãi đỗ xe",
-                fileUrl: "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-21T09:13:00Z",
             },
@@ -76,7 +81,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-201",
                 type: "BusinessLicense",
                 name: "Giấy chứng nhận đăng ký hộ kinh doanh cá thể",
-                fileUrl: "https://images.unsplash.com/photo-1554415707-9e49017aed81?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1554415707-9e49017aed81?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-22T03:30:00Z",
             },
@@ -84,7 +90,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-202",
                 type: "IdentityCard",
                 name: "CCCD chủ hộ kinh doanh",
-                fileUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-22T03:32:00Z",
             },
@@ -109,7 +116,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-301",
                 type: "BusinessLicense",
                 name: "Giấy chứng nhận ĐKKD công ty CP",
-                fileUrl: "https://images.unsplash.com/photo-1554415707-9e49017aed81?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1554415707-9e49017aed81?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-19T07:50:00Z",
             },
@@ -117,7 +125,8 @@ const sampleOwnerApplications: OwnerApplicationItem[] = [
                 id: "doc-302",
                 type: "FireSafetyCert",
                 name: "Giấy nghiệm thu an toàn PCCC",
-                fileUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80",
+                fileUrl:
+                    "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80",
                 fileType: "image",
                 uploadedAtUtc: "2026-10-19T07:55:00Z",
             },

@@ -469,23 +469,32 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsInspectDocs: "📑 Xem giấy tờ",
         ownerAppsVerifyAndApprove: "Kiểm tra & Duyệt",
         ownerAppsReject: "Từ chối",
-        ownerAppsChecklistTitle: "📋 Checklist kiểm tra điều kiện pháp lý (Yêu cầu đủ 4 mục):",
-        ownerAppsChecklistRule1: "1. Giấy phép ĐKKD & Mã số thuế hợp lệ trên cổng quốc gia",
-        ownerAppsChecklistRule2: "2. Căn cước công dân người đại diện pháp luật hợp lệ, rõ nét",
-        ownerAppsChecklistRule3: "3. Giấy chứng nhận thẩm duyệt thiết kế / đủ điều kiện PCCC",
-        ownerAppsChecklistRule4: "4. Hợp đồng thuê mặt bằng hoặc quyền sử dụng bãi xe hợp pháp",
-        ownerAppsChecklistWarning: "⚠️ Chỉ có thể duyệt khi kiểm tra và đánh dấu đủ cả 4 mục giấy tờ trên.",
+        ownerAppsChecklistTitle:
+            "📋 Checklist kiểm tra điều kiện pháp lý (Yêu cầu đủ 4 mục):",
+        ownerAppsChecklistRule1:
+            "1. Giấy phép ĐKKD & Mã số thuế hợp lệ trên cổng quốc gia",
+        ownerAppsChecklistRule2:
+            "2. Căn cước công dân người đại diện pháp luật hợp lệ, rõ nét",
+        ownerAppsChecklistRule3:
+            "3. Giấy chứng nhận thẩm duyệt thiết kế / đủ điều kiện PCCC",
+        ownerAppsChecklistRule4:
+            "4. Hợp đồng thuê mặt bằng hoặc quyền sử dụng bãi xe hợp pháp",
+        ownerAppsChecklistWarning:
+            "⚠️ Chỉ có thể duyệt khi kiểm tra và đánh dấu đủ cả 4 mục giấy tờ trên.",
         ownerAppsConfirmApprove: "✓ Xác nhận đủ giấy tờ & Duyệt",
         ownerAppsRejectReasonLabel: "Lý do từ chối (bắt buộc):",
-        ownerAppsRejectReasonPlaceholder: "Ví dụ: Hồ sơ chưa đủ điều kiện: Thiếu giấy phép PCCC và Hợp đồng bãi đỗ.",
+        ownerAppsRejectReasonPlaceholder:
+            "Ví dụ: Hồ sơ chưa đủ điều kiện: Thiếu giấy phép PCCC và Hợp đồng bãi đỗ.",
         ownerAppsEmpty: "Không có hồ sơ chủ bãi nào phù hợp.",
         ownerAppsApplicant: "Họ và tên / Tài khoản",
         ownerAppsBusiness: "Doanh nghiệp / MST",
         ownerAppsLegalDocs: "Giấy tờ pháp lý",
         ownerAppsSubmittedAt: "Ngày nộp",
-        ownerAppsSearchPlaceholder: "Tìm tên, email, MST, SĐT hoặc doanh nghiệp...",
+        ownerAppsSearchPlaceholder:
+            "Tìm tên, email, MST, SĐT hoặc doanh nghiệp...",
         ownerAppsInspectDocsModalTitle: "Hồ sơ & Giấy tờ pháp lý Chủ bãi",
-        ownerAppsApproveModalTitle: "Thẩm định giấy tờ & Phê duyệt hồ sơ Chủ bãi",
+        ownerAppsApproveModalTitle:
+            "Thẩm định giấy tờ & Phê duyệt hồ sơ Chủ bãi",
         ownerAppsRepresentative: "Người đại diện:",
         ownerAppsIdCardNumber: "Số CCCD:",
         ownerAppsRegisteredAddress: "Địa chỉ ĐKKD:",
@@ -495,21 +504,24 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsDeselectAllChecklist: "Bỏ chọn tất cả",
         ownerAppsRejectMissingDocsBtn: "Hồ sơ thiếu giấy tờ ➔ Từ chối",
         ownerAppsRejectConfirmTitle: "Từ chối hồ sơ Chủ bãi?",
-        ownerAppsRejectConfirmDesc: "Vui lòng nhập lý do từ chối để thông báo cho đối tác",
+        ownerAppsRejectConfirmDesc:
+            "Vui lòng nhập lý do từ chối để thông báo cho đối tác",
         ownerAppsConfirmRejectBtn: "Xác nhận từ chối",
         ownerAppsOpenNewTab: "Mở tab mới ↗",
         ownerAppsPendingEmpty: "Không có hồ sơ chủ bãi nào đang chờ duyệt.",
         ownerAppsFilterEmpty: "Không tìm thấy hồ sơ phù hợp với bộ lọc.",
         ownerAppsLoading: "Đang tải danh sách hồ sơ chủ bãi...",
         ownerAppsNotUpdated: "Chưa cập nhật",
-        ownerAppsMissingDocsAlert: "Cần xác nhận đủ 4 mục giấy tờ pháp lý hợp lệ trước khi duyệt hồ sơ.",
+        ownerAppsMissingDocsAlert:
+            "Cần xác nhận đủ 4 mục giấy tờ pháp lý hợp lệ trước khi duyệt hồ sơ.",
 
         // Admin Staff Assignments
         assignmentsTitle: "Phân công Nhân viên trực bãi",
         assignmentsEyebrow: "Quản trị vận hành",
         selectLotTitle: "Chọn bãi đỗ xe",
         staffAtLotTitle: "Nhân viên trực tại",
-        staffAtLotSubtitle: "Quản lý danh sách nhân sự được phân quyền kiểm soát cổng vào / cổng ra (Staff Portal) tại bãi này.",
+        staffAtLotSubtitle:
+            "Quản lý danh sách nhân sự được phân quyền kiểm soát cổng vào / cổng ra (Staff Portal) tại bãi này.",
         assignStaffTitle: "Phân công thêm nhân sự vào bãi",
         selectStaffLabel: "Chọn nhân viên:",
         selectStaffDefault: "-- Chọn nhân viên từ hệ thống --",
@@ -518,14 +530,16 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         roleOwner: "Chủ bãi (Owner)",
         assignBtn: "Gán vào bãi",
         removeStaffBtn: "Gỡ khỏi bãi",
-        noStaffAssigned: "Chưa có nhân viên nào được phân công vào bãi đỗ xe này. Hãy thêm nhân viên ở biểu mẫu bên dưới.",
+        noStaffAssigned:
+            "Chưa có nhân viên nào được phân công vào bãi đỗ xe này. Hãy thêm nhân viên ở biểu mẫu bên dưới.",
         assignmentsColStaff: "Nhân viên / Họ tên",
         assignmentsColContact: "Email & Số điện thoại",
         assignmentsColRole: "Vai trò tại bãi",
         assignmentsLoadingLots: "Đang tải danh sách bãi...",
         assignmentsLoadingAssignments: "Đang tải danh sách phân công...",
         assignmentsAssigning: "Đang gán...",
-        assignmentsRemoveConfirm: "Bạn có chắc muốn gỡ {name} khỏi bãi đỗ xe này?",
+        assignmentsRemoveConfirm:
+            "Bạn có chắc muốn gỡ {name} khỏi bãi đỗ xe này?",
         assignmentsBackToLots: "← Danh sách bãi xe",
         assignmentsOwnerAppsLink: "Duyệt hồ sơ Chủ bãi",
         assignmentsDefaultStaffName: "Nhân viên trực bãi",
@@ -578,8 +592,10 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Sessions Management
         sessionsTitle: "Quản lý Phiên đỗ xe Khách & Đang gửi",
-        sessionsSubtitle: "Kiểm tra các phương tiện đang đỗ trong bãi, xem vé QR của khách và hủy phiên xe nếu cần.",
-        sessionsSearchPlaceholder: "Tìm kiếm biển số xe, vị trí đỗ, hoặc tên tài xế...",
+        sessionsSubtitle:
+            "Kiểm tra các phương tiện đang đỗ trong bãi, xem vé QR của khách và hủy phiên xe nếu cần.",
+        sessionsSearchPlaceholder:
+            "Tìm kiếm biển số xe, vị trí đỗ, hoặc tên tài xế...",
         sessionsAllTab: "Tất cả phiên xe",
         sessionsGuestTab: "Khách vãng lai",
         sessionsRegisteredTab: "Khách đăng ký App",
@@ -601,7 +617,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         sessionsCancelTitle: "Hủy phiên gửi xe",
         sessionsCancelConfirmText: "Bạn có chắc muốn hủy phiên xe cho biển số",
         sessionsCancelReasonLabel: "Lý do hủy phiên:",
-        sessionsCancelReasonPlaceholder: "Nhập lý do hủy (ví dụ: Xe quay đầu không vào bãi)...",
+        sessionsCancelReasonPlaceholder:
+            "Nhập lý do hủy (ví dụ: Xe quay đầu không vào bãi)...",
         sessionsGoBack: "Quay lại",
         sessionsConfirmCancel: "Xác nhận hủy",
         sessionsCancelling: "Đang xử lý hủy...",
@@ -615,7 +632,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Dashboard
         dashTitle: "Tổng quan ca trực",
-        dashSubtitle: "Theo dõi lưu lượng xe tại cổng, công suất chỗ đỗ thời gian thực và các cảnh báo.",
+        dashSubtitle:
+            "Theo dõi lưu lượng xe tại cổng, công suất chỗ đỗ thời gian thực và các cảnh báo.",
         dashProcessEntry: "➕ Tiếp nhận xe vào cổng",
         dashProcessExit: "⚡ Xử lý xe ra cổng",
         dashOccupancy: "Công suất bãi đỗ hiện tại",
@@ -640,7 +658,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff QR & UI
         qrTicketTitle: "Vé giữ xe điện tử (QR)",
-        qrTicketDesc: "Cung cấp mã QR này cho tài xế khách để xác thực cổng ra và thanh toán tiền gửi xe.",
+        qrTicketDesc:
+            "Cung cấp mã QR này cho tài xế khách để xác thực cổng ra và thanh toán tiền gửi xe.",
         qrCopy: "Sao chép mã",
         qrCopied: "Đã sao chép!",
         qrDone: "Hoàn tất / In vé",
@@ -653,7 +672,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Check-in (Entry)
         entryPageTitle: "Cổng Vào — Kiểm Soát Xe Vào Bãi",
-        entryPageSubtitle: "Tự động nhận diện biển số (ANPR), hiệu chỉnh biển số và khởi tạo phiên gửi xe.",
+        entryPageSubtitle:
+            "Tự động nhận diện biển số (ANPR), hiệu chỉnh biển số và khởi tạo phiên gửi xe.",
         entryClearBtn: "🔄 Xóa / Tiếp nhận xe tiếp theo",
         entrySimulateLabel: "Mô phỏng xe vào cổng:",
         entryPresetRegCar: "🚙 Ô tô đăng ký (97% OCR)",
@@ -662,8 +682,10 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entryCameraTitle: "Cổng Vào 01 · Camera ANPR HD",
         entryPlateVerifTitle: "Xác Thực Biển Số Xe",
         entryConfidence: "Độ tin cậy:",
-        entryLowConfWarning: "⚠️ Độ tin cậy OCR của camera dưới ngưỡng (80%). Vui lòng kiểm tra và chỉnh sửa biển số trước khi mở rào chắn.",
-        entryHighConfHint: "Nhận diện biển số khớp độ tin cậy cao. Nhân viên vẫn có thể sửa thủ công nếu cần.",
+        entryLowConfWarning:
+            "⚠️ Độ tin cậy OCR của camera dưới ngưỡng (80%). Vui lòng kiểm tra và chỉnh sửa biển số trước khi mở rào chắn.",
+        entryHighConfHint:
+            "Nhận diện biển số khớp độ tin cậy cao. Nhân viên vẫn có thể sửa thủ công nếu cần.",
         entryPlateLabel: "Biển số xe",
         entryConfirmPlateBtn: "Xác nhận biển số",
         entryVehicleTypeLabel: "Loại phương tiện",
@@ -697,7 +719,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Check-out (Exit)
         exitPageTitle: "Cổng Ra — Xác Thực & Thu Phí",
-        exitPageSubtitle: "Quét QR, đối chiếu biển số, xử lý cước phí gửi xe và giải phóng vị trí đỗ.",
+        exitPageSubtitle:
+            "Quét QR, đối chiếu biển số, xử lý cước phí gửi xe và giải phóng vị trí đỗ.",
         exitClearBtn: "🔄 Xóa / Reset Cổng Ra",
         exitSimulateLabel: "Mô phỏng xe tại cổng ra:",
         exitPresetGuestUnpaid: "Ô tô vãng lai (Chưa trả: 60.000₫)",
@@ -729,17 +752,20 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitTotalFee: "Tổng tiền cước gửi xe:",
         exitPrepaidWallet: "Đã trừ qua Ví App:",
         exitAmountDue: "Tiền cần thu tại cổng:",
-        exitCollectWarning: "⚠️ Còn tiền cước chưa trả. Thu phí trước khi cho xe ra.",
+        exitCollectWarning:
+            "⚠️ Còn tiền cước chưa trả. Thu phí trước khi cho xe ra.",
         exitCollectCash: "💵 Thu tiền mặt",
         exitVnPayQr: "📱 Quét mã VNPay QR",
         exitBarrierRaised: "ĐÃ ĐÓNG PHIÊN & NÂNG RÀO CHẮN",
-        exitBarrierHint: "Vị trí đỗ đã được giải phóng. Cập nhật sức chứa thành công.",
+        exitBarrierHint:
+            "Vị trí đỗ đã được giải phóng. Cập nhật sức chứa thành công.",
         exitAuthorizeBtn: "Xác nhận ra & Mở rào chắn",
         exitBlockedBtn: "Chặn cổng (Chưa đủ điều kiện)",
         exitDoneBtn: "Hoàn tất / Tiếp nhận xe tiếp theo",
         exitCashModalTitle: "💵 Thu Phí Tiền Mặt",
         exitVnPayModalTitle: "📱 Thanh Toán VNPay QR",
-        exitModalSub: "Xác nhận giao dịch thanh toán tại bốt trước khi mở barrier",
+        exitModalSub:
+            "Xác nhận giao dịch thanh toán tại bốt trước khi mở barrier",
         exitPlateLabel: "Biển số phương tiện:",
         exitSpotLabel: "Vị trí đỗ:",
         exitAmountDueLabel: "Tổng cước còn lại:",
@@ -748,12 +774,14 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitChangeDue: "Tiền thối lại cho khách:",
         exitExactCash: "Đủ tiền",
         exitConfirmCashPayment: "✓ Xác nhận đã nhận tiền mặt",
-        exitSimulateVnPaySuccess: "✓ Mô phỏng khách thanh toán VNPay thành công",
+        exitSimulateVnPaySuccess:
+            "✓ Mô phỏng khách thanh toán VNPay thành công",
         exitClose: "Đóng",
 
         // Staff Verification Queue
         verifTitle: "Hàng Đợi Xác Thực Sự Cố Cổng",
-        verifSubtitle: "Các trường hợp bất thường tại cổng yêu cầu nhân viên can thiệp thủ công, xác minh OCR và xử lý rào chắn.",
+        verifSubtitle:
+            "Các trường hợp bất thường tại cổng yêu cầu nhân viên can thiệp thủ công, xác minh OCR và xử lý rào chắn.",
         verifColSpot: "Vị trí / Cổng",
         verifColProblem: "Sự cố",
         verifColDetectedPlate: "Biển số camera",
@@ -850,47 +878,58 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsInspectDocs: "📑 View Documents",
         ownerAppsVerifyAndApprove: "Inspect & Approve",
         ownerAppsReject: "Reject",
-        ownerAppsChecklistTitle: "📋 Legal Verification Checklist (All 4 required):",
-        ownerAppsChecklistRule1: "1. Valid Business Registration & Tax Code on national registry",
-        ownerAppsChecklistRule2: "2. Clear and valid Citizen ID card of legal representative",
+        ownerAppsChecklistTitle:
+            "📋 Legal Verification Checklist (All 4 required):",
+        ownerAppsChecklistRule1:
+            "1. Valid Business Registration & Tax Code on national registry",
+        ownerAppsChecklistRule2:
+            "2. Clear and valid Citizen ID card of legal representative",
         ownerAppsChecklistRule3: "3. Fire safety design approval / certificate",
-        ownerAppsChecklistRule4: "4. Valid premises lease agreement or land ownership title",
-        ownerAppsChecklistWarning: "⚠️ Approval is only allowed after verifying all 4 legal criteria above.",
+        ownerAppsChecklistRule4:
+            "4. Valid premises lease agreement or land ownership title",
+        ownerAppsChecklistWarning:
+            "⚠️ Approval is only allowed after verifying all 4 legal criteria above.",
         ownerAppsConfirmApprove: "✓ Verified All Docs & Approve",
         ownerAppsRejectReasonLabel: "Rejection Reason (required):",
-        ownerAppsRejectReasonPlaceholder: "Example: Missing fire safety documentation or invalid premises lease.",
+        ownerAppsRejectReasonPlaceholder:
+            "Example: Missing fire safety documentation or invalid premises lease.",
         ownerAppsEmpty: "No owner applications found.",
         ownerAppsApplicant: "Applicant / Account",
         ownerAppsBusiness: "Business / Tax ID",
         ownerAppsLegalDocs: "Legal Documents",
         ownerAppsSubmittedAt: "Submitted Date",
-        ownerAppsSearchPlaceholder: "Search by name, email, tax code, phone or business...",
+        ownerAppsSearchPlaceholder:
+            "Search by name, email, tax code, phone or business...",
         ownerAppsInspectDocsModalTitle: "Owner Application Legal Documents",
         ownerAppsApproveModalTitle: "Document Review & Application Approval",
         ownerAppsRepresentative: "Legal Representative:",
         ownerAppsIdCardNumber: "Citizen ID (CCCD):",
         ownerAppsRegisteredAddress: "Registered Address:",
         ownerAppsAttachedDocs: "Attached Documents",
-        ownerAppsNoDocsWarning: "⚠️ Applicant has not uploaded any legal documents.",
+        ownerAppsNoDocsWarning:
+            "⚠️ Applicant has not uploaded any legal documents.",
         ownerAppsSelectAllChecklist: "Select All",
         ownerAppsDeselectAllChecklist: "Deselect All",
         ownerAppsRejectMissingDocsBtn: "Missing Documents ➔ Reject",
         ownerAppsRejectConfirmTitle: "Reject Owner Application?",
-        ownerAppsRejectConfirmDesc: "Please enter a reason for rejection to notify the applicant",
+        ownerAppsRejectConfirmDesc:
+            "Please enter a reason for rejection to notify the applicant",
         ownerAppsConfirmRejectBtn: "Confirm Rejection",
         ownerAppsOpenNewTab: "Open in new tab ↗",
         ownerAppsPendingEmpty: "No pending owner applications.",
         ownerAppsFilterEmpty: "No owner applications match this filter.",
         ownerAppsLoading: "Loading owner applications...",
         ownerAppsNotUpdated: "Not updated",
-        ownerAppsMissingDocsAlert: "All 4 legal requirements must be verified before approval.",
+        ownerAppsMissingDocsAlert:
+            "All 4 legal requirements must be verified before approval.",
 
         // Admin Staff Assignments
         assignmentsTitle: "Staff Lot Assignments",
         assignmentsEyebrow: "Operations Management",
         selectLotTitle: "Select Parking Lot",
         staffAtLotTitle: "Assigned Staff at",
-        staffAtLotSubtitle: "Manage staff accounts authorized for gate check-in/check-out at this parking lot.",
+        staffAtLotSubtitle:
+            "Manage staff accounts authorized for gate check-in/check-out at this parking lot.",
         assignStaffTitle: "Assign New Member to Lot",
         selectStaffLabel: "Select Staff Account:",
         selectStaffDefault: "-- Choose staff member --",
@@ -899,14 +938,16 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         roleOwner: "Lot Manager (Owner)",
         assignBtn: "Assign to Lot",
         removeStaffBtn: "Remove",
-        noStaffAssigned: "No staff assigned to this parking lot yet. Use the form below to assign staff.",
+        noStaffAssigned:
+            "No staff assigned to this parking lot yet. Use the form below to assign staff.",
         assignmentsColStaff: "Staff Member / Name",
         assignmentsColContact: "Email & Phone Number",
         assignmentsColRole: "Role at Lot",
         assignmentsLoadingLots: "Loading parking lots...",
         assignmentsLoadingAssignments: "Loading staff assignments...",
         assignmentsAssigning: "Assigning...",
-        assignmentsRemoveConfirm: "Are you sure you want to remove {name} from this parking lot?",
+        assignmentsRemoveConfirm:
+            "Are you sure you want to remove {name} from this parking lot?",
         assignmentsBackToLots: "← Parking Lots",
         assignmentsOwnerAppsLink: "Owner Applications",
         assignmentsDefaultStaffName: "On-site Staff",
@@ -945,7 +986,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         staffCarSlots: "Car Available",
         staffMotorbikeSlots: "Motorbike Available",
         staffCheckinTitle: "Entry Gate Check-in",
-        staffCheckinSubtitle: "Record incoming vehicles and issue digital QR tickets",
+        staffCheckinSubtitle:
+            "Record incoming vehicles and issue digital QR tickets",
         staffPlateNumber: "License Plate",
         staffVehicleType: "Vehicle Type",
         staffCar: "Car",
@@ -959,8 +1001,10 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Sessions Management
         sessionsTitle: "Guest & Active Session Management",
-        sessionsSubtitle: "Inspect active parked vehicles, view guest QR tickets, and handle cancellations.",
-        sessionsSearchPlaceholder: "Search license plate, slot, or driver name...",
+        sessionsSubtitle:
+            "Inspect active parked vehicles, view guest QR tickets, and handle cancellations.",
+        sessionsSearchPlaceholder:
+            "Search license plate, slot, or driver name...",
         sessionsAllTab: "All Sessions",
         sessionsGuestTab: "Guest Vehicles",
         sessionsRegisteredTab: "Registered App Users",
@@ -980,9 +1024,11 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         sessionsViewQr: "🎟️ View QR",
         sessionsCancelEntry: "Cancel Entry",
         sessionsCancelTitle: "Cancel Parking Session",
-        sessionsCancelConfirmText: "Are you sure you want to cancel the session for",
+        sessionsCancelConfirmText:
+            "Are you sure you want to cancel the session for",
         sessionsCancelReasonLabel: "Reason for cancellation",
-        sessionsCancelReasonPlaceholder: "Enter reason (e.g. driver decided to leave)...",
+        sessionsCancelReasonPlaceholder:
+            "Enter reason (e.g. driver decided to leave)...",
         sessionsGoBack: "Go back",
         sessionsConfirmCancel: "Confirm Cancellation",
         sessionsCancelling: "Cancelling...",
@@ -996,7 +1042,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Dashboard
         dashTitle: "Staff Dashboard",
-        dashSubtitle: "Real-time gate traffic, slot capacity, and pending verifications.",
+        dashSubtitle:
+            "Real-time gate traffic, slot capacity, and pending verifications.",
         dashProcessEntry: "➕ Process Vehicle Entry",
         dashProcessExit: "⚡ Process Vehicle Exit",
         dashOccupancy: "Current Occupancy",
@@ -1021,7 +1068,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff QR & UI
         qrTicketTitle: "Guest Parking Ticket (QR)",
-        qrTicketDesc: "Provide this QR code to the guest driver for exit gate verification and fee payment.",
+        qrTicketDesc:
+            "Provide this QR code to the guest driver for exit gate verification and fee payment.",
         qrCopy: "Copy Token",
         qrCopied: "Copied Token!",
         qrDone: "Done / Print Ticket",
@@ -1034,7 +1082,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Check-in (Entry)
         entryPageTitle: "Gate In — Vehicle Entry Control",
-        entryPageSubtitle: "Automated ANPR camera detection, plate correction, and session opening.",
+        entryPageSubtitle:
+            "Automated ANPR camera detection, plate correction, and session opening.",
         entryClearBtn: "🔄 Clear / Scan Next Vehicle",
         entrySimulateLabel: "Simulate incoming vehicle:",
         entryPresetRegCar: "🚙 Registered Car (97% OCR)",
@@ -1043,8 +1092,10 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entryCameraTitle: "Gate In 01 · HD ANPR Camera",
         entryPlateVerifTitle: "License Plate Verification",
         entryConfidence: "Confidence:",
-        entryLowConfWarning: "⚠️ Camera OCR confidence is below threshold (80%). Please review and correct the license plate before opening the gate.",
-        entryHighConfHint: "High confidence match detected. Staff can still edit manually if needed.",
+        entryLowConfWarning:
+            "⚠️ Camera OCR confidence is below threshold (80%). Please review and correct the license plate before opening the gate.",
+        entryHighConfHint:
+            "High confidence match detected. Staff can still edit manually if needed.",
         entryPlateLabel: "License plate",
         entryConfirmPlateBtn: "Confirm Plate",
         entryVehicleTypeLabel: "Vehicle Type",
@@ -1078,7 +1129,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Check-out (Exit)
         exitPageTitle: "Gate Out — Exit Verification & Payment",
-        exitPageSubtitle: "Scan QR, cross-check license plate, process parking fee, and release spot.",
+        exitPageSubtitle:
+            "Scan QR, cross-check license plate, process parking fee, and release spot.",
         exitClearBtn: "🔄 Clear Exit Gate",
         exitSimulateLabel: "Simulate vehicle at exit:",
         exitPresetGuestUnpaid: "Guest Car (Unpaid: 60,000₫)",
@@ -1110,7 +1162,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitTotalFee: "Total Parking Fee:",
         exitPrepaidWallet: "Prepaid via App Wallet:",
         exitAmountDue: "Amount Due at Exit:",
-        exitCollectWarning: "⚠️ Amount Due > 0. Collect payment before allowing vehicle exit.",
+        exitCollectWarning:
+            "⚠️ Amount Due > 0. Collect payment before allowing vehicle exit.",
         exitCollectCash: "💵 Collect Cash",
         exitVnPayQr: "📱 VNPay QR Payment",
         exitBarrierRaised: "SESSION CLOSED & BARRIER RAISED",
@@ -1120,7 +1173,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitDoneBtn: "Done / Process Next Vehicle",
         exitCashModalTitle: "💵 Cash Payment",
         exitVnPayModalTitle: "📱 VNPay QR Payment",
-        exitModalSub: "Confirm payment transaction at kiosk before raising barrier",
+        exitModalSub:
+            "Confirm payment transaction at kiosk before raising barrier",
         exitPlateLabel: "License Plate:",
         exitSpotLabel: "Parking Spot:",
         exitAmountDueLabel: "Remaining Due:",
@@ -1134,7 +1188,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
 
         // Staff Verification Queue
         verifTitle: "Needs Verification Queue",
-        verifSubtitle: "Exceptional gate cases requiring manual operator confirmation, OCR overrides, and barrier interventions.",
+        verifSubtitle:
+            "Exceptional gate cases requiring manual operator confirmation, OCR overrides, and barrier interventions.",
         verifColSpot: "Spot / Gate",
         verifColProblem: "Problem",
         verifColDetectedPlate: "Detected Plate",

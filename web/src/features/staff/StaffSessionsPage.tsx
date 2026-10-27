@@ -71,12 +71,8 @@ export function StaffSessionsPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">
-                        {t("sessionsTitle")}
-                    </h1>
-                    <p className="staff-subtitle">
-                        {t("sessionsSubtitle")}
-                    </p>
+                    <h1 className="staff-title">{t("sessionsTitle")}</h1>
+                    <p className="staff-subtitle">{t("sessionsSubtitle")}</p>
                 </div>
             </header>
 
@@ -133,7 +129,9 @@ export function StaffSessionsPage() {
                             <th>{t("sessionsStatus")}</th>
                             <th>{t("sessionsPaymentStatus")}</th>
                             <th>{t("sessionsQr")}</th>
-                            <th className="text-right">{t("sessionsActions")}</th>
+                            <th className="text-right">
+                                {t("sessionsActions")}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -185,7 +183,8 @@ export function StaffSessionsPage() {
                                         <StatusPill status={s.paymentStatus} />
                                         {s.amountDueVnd > 0 && (
                                             <small className="staff-due-badge">
-                                                {t("sessionsDue")}: {formatVnd(s.amountDueVnd)}
+                                                {t("sessionsDue")}:{" "}
+                                                {formatVnd(s.amountDueVnd)}
                                             </small>
                                         )}
                                     </td>
@@ -271,7 +270,9 @@ export function StaffSessionsPage() {
                                     onChange={(e) =>
                                         setCancelReason(e.target.value)
                                     }
-                                    placeholder={t("sessionsCancelReasonPlaceholder")}
+                                    placeholder={t(
+                                        "sessionsCancelReasonPlaceholder",
+                                    )}
                                 />
                             </div>
 

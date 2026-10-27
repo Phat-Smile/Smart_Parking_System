@@ -56,7 +56,8 @@ export function AdminDashboardPage() {
                     className="admin-btn admin-btn-dark"
                     id="dashboard-review-queue"
                 >
-                    {t("adminDashReviewQueueBtn")} <AdminIcon name="arrow" size={16} />
+                    {t("adminDashReviewQueueBtn")}{" "}
+                    <AdminIcon name="arrow" size={16} />
                 </Link>
             </header>
             <SampleDataNote />
@@ -90,7 +91,9 @@ export function AdminDashboardPage() {
                 <section className="admin-card">
                     <div className="admin-card-head">
                         <h2>{t("adminDashOldestPending")}</h2>
-                        <Link href="/admin/parking-lots/pending">{t("adminDashSeeAll")}</Link>
+                        <Link href="/admin/parking-lots/pending">
+                            {t("adminDashSeeAll")}
+                        </Link>
                     </div>
                     {queue.length === 0 ? (
                         <p className="admin-empty">
@@ -103,7 +106,8 @@ export function AdminDashboardPage() {
                                     <div>
                                         <strong>{lot.name}</strong>
                                         <small>
-                                            {lot.ownerName} · {t("adminDashSubmittedAt")}{" "}
+                                            {lot.ownerName} ·{" "}
+                                            {t("adminDashSubmittedAt")}{" "}
                                             {formatDate(lot.submittedAtUtc)}
                                         </small>
                                     </div>
@@ -123,7 +127,9 @@ export function AdminDashboardPage() {
                         <h2>{t("adminDashRecentDecisions")}</h2>
                     </div>
                     {recent.length === 0 ? (
-                        <p className="admin-empty">{t("adminDashNoDecisions")}</p>
+                        <p className="admin-empty">
+                            {t("adminDashNoDecisions")}
+                        </p>
                     ) : (
                         <ul className="admin-list">
                             {recent.map((lot) => (
@@ -144,4 +150,3 @@ export function AdminDashboardPage() {
         </>
     );
 }
-
