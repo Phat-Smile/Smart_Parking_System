@@ -865,6 +865,11 @@ a.admin-stat:hover {
     border: 1px solid var(--line);
     border-radius: 10px;
     font: inherit;
+    background: #ffffff;
+    color: #111827;
+}
+.admin-field textarea::placeholder {
+    color: #9ca3af;
 }
 .admin-field textarea[aria-invalid="true"] {
     border-color: var(--red);

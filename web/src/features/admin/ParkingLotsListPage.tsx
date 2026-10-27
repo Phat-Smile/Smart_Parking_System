@@ -516,12 +516,12 @@ export function ParkingLotsListPage({
                                     )}
                                     style={{
                                         width: "100%",
-                                        padding: "8px",
-                                        borderRadius: "6px",
-                                        background:
-                                            "var(--admin-bg-subtle, #1a1e24)",
-                                        color: "inherit",
-                                        border: "1px solid rgba(255,255,255,0.15)",
+                                        padding: "10px 12px",
+                                        borderRadius: "8px",
+                                        background: "#ffffff",
+                                        color: "#111827",
+                                        border: "1px solid #d1d5db",
+                                        fontSize: "0.875rem",
                                     }}
                                 />
                             </label>
