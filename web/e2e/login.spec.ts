@@ -54,15 +54,12 @@ test("Login validates locally and never sends credentials in the URL", async ({
         .getByLabel("Password", { exact: true })
         .fill("ValidPassword123!");
     await page.getByRole("button", { name: "Log in", exact: true }).click();
-    await expect(
-        page.getByText(/Signed in as driver@example.com/),
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/customer\/complete-profile$/);
+    await expect(page.getByText("driver@example.com").first()).toBeVisible();
     expect(loginBody).toEqual({
         email: "driver@example.com",
         password: "ValidPassword123!",
     });
-    await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
-    await expect(page).toHaveURL(/\/login$/);
     expect(page.url()).not.toContain("driver@example.com");
     expect(page.url()).not.toContain("ValidPassword123");
     expect(

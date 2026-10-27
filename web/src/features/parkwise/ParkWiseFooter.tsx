@@ -54,7 +54,10 @@ export function ParkWiseFooter() {
                     </div>
                 </div>
                 <div className="parkwise-footer-bottom">
-                    <p>© {new Date().getFullYear()} ParkWise</p>
+                    <p>
+                        © {new Date().getFullYear()} ParkWise | Developed for
+                        educational purposes only.
+                    </p>
                     <div>
                         <Link href="/privacy-policy">Privacy Policy</Link>
                         <Link href="/terms-and-conditions">
