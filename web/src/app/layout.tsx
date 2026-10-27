@@ -25,15 +25,6 @@ const jetbrainsMono = JetBrains_Mono({
     display: "swap",
 });
 
-const initializeTheme = `
-    let theme = "dark";
-    try {
-        if (localStorage.getItem("smart-parking-theme") === "light") theme = "light";
-    } catch {}
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.dataset.theme = theme;
-`;
-
 export const metadata: Metadata = {
     title: "ParkWise - Find parking before you arrive",
     description: "ParkWise web application",
@@ -46,17 +37,11 @@ export default function RootLayout({
     return (
         <html
             lang="en"
+            data-theme="dark"
             data-scroll-behavior="smooth"
-            className={`${plusJakartaSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+            className={`dark ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
             suppressHydrationWarning
         >
-            <head>
-                <script
-                    id="smart-parking-theme-init"
-                    dangerouslySetInnerHTML={{ __html: initializeTheme }}
-                    suppressHydrationWarning
-                />
-            </head>
             <body>
                 <Providers>{children}</Providers>
             </body>
