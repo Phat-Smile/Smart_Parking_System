@@ -98,6 +98,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 <nav
                     className="staff-vertical-nav"
                     aria-label="Staff Station Navigation"
+                    suppressHydrationWarning
                 >
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
@@ -106,12 +107,13 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                 key={item.href}
                                 href={item.href}
                                 className={`staff-vertical-nav-item ${isActive ? "active" : ""}`}
+                                suppressHydrationWarning
                             >
                                 <div className="staff-nav-item-left">
                                     <span className="staff-nav-icon">
                                         {item.icon}
                                     </span>
-                                    <span className="staff-nav-label">
+                                    <span className="staff-nav-label" suppressHydrationWarning>
                                         {item.label}
                                     </span>
                                 </div>

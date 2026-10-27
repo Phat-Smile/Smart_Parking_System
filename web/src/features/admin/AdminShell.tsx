@@ -80,7 +80,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     />
                     <span>Admin</span>
                 </Link>
-                <nav aria-label="Admin navigation">
+                <nav aria-label="Admin navigation" suppressHydrationWarning>
                     {links.map((link) => (
                         <Link
                             key={link.href}
@@ -88,6 +88,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                             className={
                                 isActive(link.href) ? "active" : undefined
                             }
+                            suppressHydrationWarning
                         >
                             <AdminIcon name={link.icon} />
                             {link.label}

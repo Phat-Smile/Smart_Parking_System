@@ -7,6 +7,7 @@ import React, {
     useEffect,
     useMemo,
     useState,
+    useSyncExternalStore,
 } from "react";
 import {
     translations,
@@ -36,8 +37,20 @@ function getInitialLanguage(): SupportedLanguage {
     return "vi";
 }
 
+const emptySubscribe = () => () => {};
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-    const [language, setLanguageState] = useState<SupportedLanguage>(getInitialLanguage);
+    const isClient = useSyncExternalStore(
+        emptySubscribe,
+        () => true,
+        () => false,
+    );
+
+    const [languageState, setLanguageState] = useState<SupportedLanguage>(getInitialLanguage);
+
+    // During SSR and initial hydration, language is always "vi" to match server render.
+    // As soon as hydration completes, isClient becomes true and the stored preference takes effect.
+    const language: SupportedLanguage = isClient ? languageState : "vi";
 
     // Sync document element lang and listen for cross-tab storage changes
     useEffect(() => {
