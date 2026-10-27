@@ -16,7 +16,7 @@ import type { AdminParkingLot, ParkingLotAssignmentMember } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function AdminLotAssignmentsPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [lots, setLots] = useState<AdminParkingLot[]>([]);
     const [selectedLotId, setSelectedLotId] = useState<string>("");
     const [assignments, setAssignments] = useState<
@@ -36,13 +36,19 @@ export function AdminLotAssignmentsPage() {
         "Staff",
     );
 
-    const [errorMsg, setErrorMsg] = useState("");
+    const [rawError, setRawError] = useState<unknown>(null);
     const [toast, setToast] = useState<string | null>(null);
+
+    const errorMsg = useMemo(() => {
+        if (!rawError) return "";
+        if (typeof rawError === "string") return rawError;
+        return describeAssignmentError(rawError, language);
+    }, [rawError, language]);
 
     // Load danh sách bãi xe và nhân viên
     const loadInitialData = useCallback(async () => {
         setLoadingLots(true);
-        setErrorMsg("");
+        setRawError(null);
         try {
             const [lotList, staffList] = await Promise.all([
                 getAdminParkingLots("All"),
@@ -54,7 +60,7 @@ export function AdminLotAssignmentsPage() {
                 setSelectedLotId(lotList[0].id);
             }
         } catch (err) {
-            setErrorMsg(describeAssignmentError(err));
+            setRawError(err);
         } finally {
             setLoadingLots(false);
         }
@@ -68,7 +74,7 @@ export function AdminLotAssignmentsPage() {
             const data = await getLotAssignments(lotId);
             setAssignments(data);
         } catch (err) {
-            setErrorMsg(describeAssignmentError(err));
+            setRawError(err);
         } finally {
             setLoadingAssignments(false);
         }
@@ -86,7 +92,7 @@ export function AdminLotAssignmentsPage() {
                 }
             })
             .catch((err) => {
-                if (active) setErrorMsg(describeAssignmentError(err));
+                if (active) setRawError(err);
             });
         return () => {
             active = false;
@@ -101,7 +107,7 @@ export function AdminLotAssignmentsPage() {
                 if (active) setAssignments(data);
             })
             .catch((err) => {
-                if (active) setErrorMsg(describeAssignmentError(err));
+                if (active) setRawError(err);
             });
         return () => {
             active = false;
@@ -131,7 +137,7 @@ export function AdminLotAssignmentsPage() {
         if (!selectedLotId || !selectedAccountId) return;
 
         setActionBusy(true);
-        setErrorMsg("");
+        setRawError(null);
         try {
             await assignLotMember(
                 selectedLotId,
@@ -147,7 +153,7 @@ export function AdminLotAssignmentsPage() {
             setSelectedAccountId("");
             await loadAssignments(selectedLotId);
         } catch (err) {
-            setErrorMsg(describeAssignmentError(err));
+            setRawError(err);
         } finally {
             setActionBusy(false);
         }
@@ -162,7 +168,7 @@ export function AdminLotAssignmentsPage() {
         if (!confirm(confirmText)) return;
 
         setActionBusy(true);
-        setErrorMsg("");
+        setRawError(null);
         try {
             await removeLotMember(selectedLotId, accountId);
             setToast(
@@ -170,7 +176,7 @@ export function AdminLotAssignmentsPage() {
             );
             await loadAssignments(selectedLotId);
         } catch (err) {
-            setErrorMsg(describeAssignmentError(err));
+            setRawError(err);
         } finally {
             setActionBusy(false);
         }
@@ -224,7 +230,7 @@ export function AdminLotAssignmentsPage() {
                     <span>{errorMsg}</span>
                     <button
                         type="button"
-                        onClick={() => setErrorMsg("")}
+                        onClick={() => setRawError(null)}
                         style={{
                             marginLeft: "auto",
                             background: "none",

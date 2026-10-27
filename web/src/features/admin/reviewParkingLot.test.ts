@@ -197,5 +197,11 @@ describe("reviewParkingLot API integration", () => {
                 "couldn't reach the server",
             );
         });
+
+        it("handles Vietnamese localization when language is vi", () => {
+            expect(
+                describeReviewError(new Error("network failure"), "vi"),
+            ).toContain("Không thể kết nối đến máy chủ");
+        });
     });
 });

@@ -34,10 +34,16 @@ export function ParkingLotsListPage({
     );
     const [lots, setLots] = useState<AdminParkingLot[]>([]);
     const [loading, setLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState("");
+    const [rawError, setRawError] = useState<unknown>(null);
     const [search, setSearch] = useState("");
     const [lookupId, setLookupId] = useState("");
     const [lookupError, setLookupError] = useState("");
+
+    const errorMsg = useMemo(() => {
+        if (!rawError) return "";
+        if (typeof rawError === "string") return rawError;
+        return describeReviewError(rawError, language);
+    }, [rawError, language]);
 
     // Quick review modal
     const [selectedLot, setSelectedLot] = useState<AdminParkingLot | null>(
@@ -52,14 +58,14 @@ export function ParkingLotsListPage({
 
     const loadLots = useCallback(async () => {
         setLoading(true);
-        setErrorMsg("");
+        setRawError(null);
         try {
             const data = await getAdminParkingLots(
                 mode === "pending" ? "Pending" : status,
             );
             setLots(data);
         } catch (err) {
-            setErrorMsg(describeReviewError(err));
+            setRawError(err);
         } finally {
             setLoading(false);
         }
@@ -76,7 +82,7 @@ export function ParkingLotsListPage({
             })
             .catch((err) => {
                 if (active) {
-                    setErrorMsg(describeReviewError(err));
+                    setRawError(err);
                     setLoading(false);
                 }
             });
@@ -117,7 +123,11 @@ export function ParkingLotsListPage({
     function openById(event: React.FormEvent) {
         event.preventDefault();
         if (!isParkingLotId(lookupId)) {
-            setLookupError("Enter a valid parking lot UUID.");
+            setLookupError(
+                language === "vi"
+                    ? "Vui lòng nhập mã UUID bãi xe hợp lệ."
+                    : "Enter a valid parking lot UUID.",
+            );
             return;
         }
         router.push(`/admin/parking-lots/${lookupId.trim()}`);
@@ -128,12 +138,16 @@ export function ParkingLotsListPage({
         setActionBusy(true);
         try {
             await approveParkingLot(selectedLot.id);
-            setToast(`Đã duyệt bãi đỗ xe ${selectedLot.name}.`);
+            setToast(
+                language === "vi"
+                    ? `Đã duyệt bãi đỗ xe "${selectedLot.name}".`
+                    : `Approved parking lot "${selectedLot.name}".`,
+            );
             setSelectedLot(null);
             setReviewAction(null);
             await loadLots();
         } catch (err) {
-            setErrorMsg(describeReviewError(err));
+            setRawError(err);
         } finally {
             setActionBusy(false);
         }
@@ -144,13 +158,17 @@ export function ParkingLotsListPage({
         setActionBusy(true);
         try {
             await rejectParkingLot(selectedLot.id, rejectReason.trim());
-            setToast(`Đã từ chối bãi đỗ xe ${selectedLot.name}.`);
+            setToast(
+                language === "vi"
+                    ? `Đã từ chối bãi đỗ xe "${selectedLot.name}".`
+                    : `Rejected parking lot "${selectedLot.name}".`,
+            );
             setSelectedLot(null);
             setReviewAction(null);
             setRejectReason("");
             await loadLots();
         } catch (err) {
-            setErrorMsg(describeReviewError(err));
+            setRawError(err);
         } finally {
             setActionBusy(false);
         }
@@ -230,7 +248,7 @@ export function ParkingLotsListPage({
                     <span>{errorMsg}</span>
                     <button
                         type="button"
-                        onClick={() => setErrorMsg("")}
+                        onClick={() => setRawError(null)}
                         style={{
                             marginLeft: "auto",
                             background: "none",

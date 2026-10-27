@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ApiError } from "@/shared/errors/api-error";
 import { AdminIcon, StatusPill, formatDate, vnd } from "./AdminUi";
@@ -18,6 +18,7 @@ import type {
     LotFloorLayout,
     ReviewedParkingLot,
 } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 type Dialog = "approve" | "reject" | null;
 
@@ -168,6 +169,7 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
 }
 
 export function ParkingLotReviewPage({ id }: { id: string }) {
+    const { t, language } = useLanguage();
     const lots = useAdminLots();
     const sample = findLot(lots, id);
     const [backendResult, setBackendResult] =
@@ -175,9 +177,15 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
     const [dialog, setDialog] = useState<Dialog>(null);
     const [reason, setReason] = useState("");
     const [reasonError, setReasonError] = useState("");
-    const [submitError, setSubmitError] = useState("");
+    const [rawSubmitError, setRawSubmitError] = useState<unknown>(null);
     const [submitting, setSubmitting] = useState(false);
     const [toast, setToast] = useState("");
+
+    const submitError = useMemo(() => {
+        if (!rawSubmitError) return "";
+        if (typeof rawSubmitError === "string") return rawSubmitError;
+        return describeReviewError(rawSubmitError, language);
+    }, [rawSubmitError, language]);
 
     useEffect(() => {
         if (!toast) return;
@@ -196,13 +204,23 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
     if (!isParkingLotId(id)) {
         return (
             <section className="admin-card admin-empty-state">
-                <h1>Invalid parking lot ID</h1>
-                <p>The address must contain a parking lot UUID.</p>
+                <h1>
+                    {language === "vi"
+                        ? "Mã bãi đỗ xe không hợp lệ"
+                        : "Invalid parking lot ID"}
+                </h1>
+                <p>
+                    {language === "vi"
+                        ? "Đường dẫn phải chứa mã UUID hợp lệ của bãi xe."
+                        : "The address must contain a parking lot UUID."}
+                </p>
                 <Link
                     href="/admin/parking-lots"
                     className="admin-btn admin-btn-dark"
                 >
-                    Back to parking lots
+                    {language === "vi"
+                        ? "Quay lại danh sách bãi xe"
+                        : "Back to parking lots"}
                 </Link>
             </section>
         );
@@ -212,25 +230,26 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
     const rejectionReason =
         sample?.rejectionReason ?? backendResult?.rejectionReason ?? null;
     const reviewed = status !== "Pending";
-    const name = sample?.name ?? "Parking lot";
+    const name =
+        sample?.name ?? (language === "vi" ? "Bãi đỗ xe" : "Parking lot");
 
     function open(kind: Dialog) {
         setDialog(kind);
-        setSubmitError("");
+        setRawSubmitError(null);
         setReasonError("");
         if (kind === "reject") setReason("");
     }
 
     async function confirm() {
         if (dialog === "reject") {
-            const message = validateRejectionReason(reason);
+            const message = validateRejectionReason(reason, language);
             if (message) {
                 setReasonError(message);
                 return;
             }
         }
         setSubmitting(true);
-        setSubmitError("");
+        setRawSubmitError(null);
         try {
             const result =
                 dialog === "approve"
@@ -241,8 +260,12 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
             setDialog(null);
             setToast(
                 result.approvalStatus === "Approved"
-                    ? `${name} is now active and visible to drivers.`
-                    : `${name} was rejected. The owner will see the reason.`,
+                    ? language === "vi"
+                        ? `${name} đã được duyệt và hiển thị công khai cho tài xế.`
+                        : `${name} is now active and visible to drivers.`
+                    : language === "vi"
+                      ? `${name} đã bị từ chối. Chủ bãi sẽ thấy lý do chi tiết.`
+                      : `${name} was rejected. The owner will see the reason.`,
             );
         } catch (error) {
             // When backend is offline and inspecting sample lot, fallback to local decision overlay for UI preview
@@ -258,12 +281,16 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                 setDialog(null);
                 setToast(
                     fallbackResult.approvalStatus === "Approved"
-                        ? `${name} is now active and visible to drivers (preview mode).`
-                        : `${name} was rejected (preview mode).`,
+                        ? language === "vi"
+                            ? `${name} đã được duyệt và hiển thị công khai (chế độ xem trước).`
+                            : `${name} is now active and visible to drivers (preview mode).`
+                        : language === "vi"
+                          ? `${name} đã bị từ chối (chế độ xem trước).`
+                          : `${name} was rejected (preview mode).`,
                 );
                 return;
             }
-            setSubmitError(describeReviewError(error));
+            setRawSubmitError(error);
         } finally {
             setSubmitting(false);
         }

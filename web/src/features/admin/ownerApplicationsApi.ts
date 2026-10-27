@@ -217,20 +217,35 @@ export async function rejectOwnerApplication(
     );
 }
 
-export function describeOwnerAppError(error: unknown): string {
+export function describeOwnerAppError(
+    error: unknown,
+    language: string = "vi",
+): string {
+    const isVi = language === "vi";
     if (!(error instanceof ApiError)) {
-        return "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.";
+        return isVi
+            ? "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại sau."
+            : "We couldn't reach the server. Check your connection and try again.";
     }
     if (error.problem?.errorCode === "identity.owner_application_not_pending") {
-        return "Hồ sơ này không ở trạng thái Chờ duyệt hoặc đã được xử lý.";
+        return isVi
+            ? "Hồ sơ này không ở trạng thái Chờ duyệt hoặc đã được xử lý."
+            : "This application is not pending or has already been reviewed.";
     }
     if (error.problem?.errorCode === "identity.owner_application_not_found") {
-        return "Không tìm thấy hồ sơ đăng ký chủ bãi.";
+        return isVi
+            ? "Không tìm thấy hồ sơ đăng ký chủ bãi."
+            : "Owner application not found.";
     }
     if (error.status === 403) {
-        return "Chỉ quản trị viên hệ thống (SystemAdmin) mới có quyền duyệt hồ sơ.";
+        return isVi
+            ? "Chỉ quản trị viên hệ thống (SystemAdmin) mới có quyền duyệt hồ sơ."
+            : "Only SystemAdmin accounts can review owner applications.";
     }
     return (
-        error.problem?.detail || "Không thể xử lý yêu cầu. Vui lòng thử lại."
+        error.problem?.detail ||
+        (isVi
+            ? "Không thể xử lý yêu cầu. Vui lòng thử lại."
+            : "Could not process request. Please try again.")
     );
 }

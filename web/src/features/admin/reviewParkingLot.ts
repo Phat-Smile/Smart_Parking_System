@@ -145,28 +145,53 @@ export async function rejectParkingLot(
 }
 
 /** Returns a validation message for a rejection reason, or "" when valid. */
-export function validateRejectionReason(reason: string) {
+export function validateRejectionReason(
+    reason: string,
+    language: string = "en",
+) {
     const trimmed = reason.trim();
-    if (!trimmed) return "Enter a reason so the owner knows what to fix.";
-    if (trimmed.length > MAX_REJECTION_REASON)
-        return `The reason can be at most ${MAX_REJECTION_REASON} characters.`;
+    if (!trimmed) {
+        return language === "vi"
+            ? "Vui lòng nhập lý do từ chối để chủ bãi nắm thông tin chỉnh sửa."
+            : "Enter a reason so the owner knows what to fix.";
+    }
+    if (trimmed.length > MAX_REJECTION_REASON) {
+        return language === "vi"
+            ? `Lý do không được vượt quá ${MAX_REJECTION_REASON} ký tự.`
+            : `The reason can be at most ${MAX_REJECTION_REASON} characters.`;
+    }
     return "";
 }
 
 /** Maps the documented 400/401/403/404/409 failures to admin-facing copy. */
-export function describeReviewError(error: unknown) {
+export function describeReviewError(error: unknown, language: string = "en") {
+    const isVi = language === "vi";
     if (!(error instanceof ApiError))
-        return "We couldn't reach the server. Check your connection and try again.";
+        return isVi
+            ? "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại."
+            : "We couldn't reach the server. Check your connection and try again.";
     const code = error.problem?.errorCode;
     if (code === "parking.lot_already_reviewed" || error.status === 409)
-        return "This parking lot was already reviewed (possibly by another administrator). Refresh to see the final decision.";
+        return isVi
+            ? "Bãi đỗ xe này đã được xử lý (có thể bởi một quản trị viên khác). Vui lòng tải lại trang để xem quyết định cuối cùng."
+            : "This parking lot was already reviewed (possibly by another administrator). Refresh to see the final decision.";
     if (code === "parking.lot_not_found" || error.status === 404)
-        return "This parking lot no longer exists.";
+        return isVi
+            ? "Bãi đỗ xe này không còn tồn tại trên hệ thống."
+            : "This parking lot no longer exists.";
     if (error.status === 400)
-        return "The decision was rejected as invalid. Check the rejection reason (1–500 characters) and try again.";
+        return isVi
+            ? "Quyết định bị từ chối do không hợp lệ. Vui lòng kiểm tra lại lý do từ chối (1–500 ký tự) và thử lại."
+            : "The decision was rejected as invalid. Check the rejection reason (1–500 characters) and try again.";
     if (error.status === 401)
-        return "Your session expired. Sign in again to continue.";
+        return isVi
+            ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục."
+            : "Your session expired. Sign in again to continue.";
     if (error.status === 403)
-        return "Only SystemAdmin accounts can review parking lots.";
-    return "The decision could not be saved. Please try again.";
+        return isVi
+            ? "Chỉ tài khoản Quản trị hệ thống (SystemAdmin) mới có quyền xét duyệt bãi đỗ xe."
+            : "Only SystemAdmin accounts can review parking lots.";
+    return isVi
+        ? "Không thể lưu quyết định. Vui lòng thử lại."
+        : "The decision could not be saved. Please try again.";
 }

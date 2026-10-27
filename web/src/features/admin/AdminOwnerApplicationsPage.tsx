@@ -33,14 +33,21 @@ const DEFAULT_CHECKLIST: VerificationChecklist = {
 };
 
 export function AdminOwnerApplicationsPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [status, setStatus] = useState<Filter>("Pending");
     const [applications, setApplications] = useState<OwnerApplicationItem[]>(
         [],
     );
     const [loading, setLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState("");
+    const [rawError, setRawError] = useState<unknown>(null);
     const [search, setSearch] = useState("");
+
+    const errorMsg = useMemo(() => {
+        if (!rawError) return "";
+        if (rawError === "missing_docs") return t("ownerAppsMissingDocsAlert");
+        if (typeof rawError === "string") return rawError;
+        return describeOwnerAppError(rawError, language);
+    }, [rawError, language, t]);
 
     // Modal state for approve / reject / inspect
     const [activeApp, setActiveApp] = useState<OwnerApplicationItem | null>(
@@ -61,12 +68,12 @@ export function AdminOwnerApplicationsPage() {
 
     const loadData = useCallback(async () => {
         setLoading(true);
-        setErrorMsg("");
+        setRawError(null);
         try {
             const res = await getOwnerApplications({ status });
             setApplications(res.items);
         } catch (err) {
-            setErrorMsg(describeOwnerAppError(err));
+            setRawError(err);
         } finally {
             setLoading(false);
         }
@@ -83,7 +90,7 @@ export function AdminOwnerApplicationsPage() {
             })
             .catch((err) => {
                 if (active) {
-                    setErrorMsg(describeOwnerAppError(err));
+                    setRawError(err);
                     setLoading(false);
                 }
             });
@@ -144,7 +151,7 @@ export function AdminOwnerApplicationsPage() {
     async function handleConfirmApprove() {
         if (!activeApp) return;
         if (!isAllVerified) {
-            setErrorMsg(t("ownerAppsMissingDocsAlert"));
+            setRawError("missing_docs");
             return;
         }
 
@@ -158,7 +165,7 @@ export function AdminOwnerApplicationsPage() {
             setActiveApp(null);
             await loadData();
         } catch (err) {
-            setErrorMsg(describeOwnerAppError(err));
+            setRawError(err);
         } finally {
             setActionBusy(false);
         }
@@ -180,7 +187,7 @@ export function AdminOwnerApplicationsPage() {
             setRejectReason("");
             await loadData();
         } catch (err) {
-            setErrorMsg(describeOwnerAppError(err));
+            setRawError(err);
         } finally {
             setActionBusy(false);
         }
@@ -250,7 +257,7 @@ export function AdminOwnerApplicationsPage() {
                     <span>{errorMsg}</span>
                     <button
                         type="button"
-                        onClick={() => setErrorMsg("")}
+                        onClick={() => setRawError(null)}
                         style={{
                             marginLeft: "auto",
                             background: "none",

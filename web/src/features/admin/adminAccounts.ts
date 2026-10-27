@@ -70,27 +70,50 @@ export function changeAccountRole(accountId: string, role: AccountRole) {
     });
 }
 
-export function describeAccountError(error: unknown) {
+export function describeAccountError(error: unknown, language: string = "en") {
+    const isVi = language === "vi";
     if (!(error instanceof ApiError))
-        return "We couldn't reach the server. Try again.";
+        return isVi
+            ? "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại."
+            : "We couldn't reach the server. Try again.";
     switch (error.problem?.errorCode) {
         case "identity.cannot_change_own_role":
-            return "You cannot change your own role.";
+            return isVi
+                ? "Bạn không thể tự thay đổi vai trò của chính mình."
+                : "You cannot change your own role.";
         case "identity.cannot_change_own_status":
-            return "You can't change your own account status.";
+            return isVi
+                ? "Bạn không thể tự thay đổi trạng thái tài khoản của chính mình."
+                : "You can't change your own account status.";
         case "identity.cannot_change_admin_status":
-            return "Another administrator's account can't be suspended.";
+            return isVi
+                ? "Không thể khóa tài khoản của một Quản trị viên khác."
+                : "Another administrator's account can't be suspended.";
         case "identity.account_not_verified":
-            return "This account hasn't verified its email yet.";
+            return isVi
+                ? "Tài khoản này chưa hoàn tất xác thực email."
+                : "This account hasn't verified its email yet.";
         case "identity.account_not_found":
-            return "This account no longer exists. The list was refreshed.";
+            return isVi
+                ? "Tài khoản này không còn tồn tại. Danh sách đã được làm mới."
+                : "This account no longer exists. The list was refreshed.";
     }
     if (error.status === 400)
         return (
             error.problem?.detail ||
-            "The request was invalid. Check the role and try again."
+            (isVi
+                ? "Yêu cầu không hợp lệ. Vui lòng kiểm tra lại vai trò và thử lại."
+                : "The request was invalid. Check the role and try again.")
         );
-    if (error.status === 401) return "Your session expired. Sign in again.";
-    if (error.status === 403) return "You don't have permission to do that.";
-    return "The change could not be saved. Please try again.";
+    if (error.status === 401)
+        return isVi
+            ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+            : "Your session expired. Sign in again.";
+    if (error.status === 403)
+        return isVi
+            ? "Bạn không có quyền thực hiện thao tác này."
+            : "You don't have permission to do that.";
+    return isVi
+        ? "Không thể lưu thay đổi. Vui lòng thử lại."
+        : "The change could not be saved. Please try again.";
 }

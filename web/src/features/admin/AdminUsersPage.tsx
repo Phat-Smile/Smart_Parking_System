@@ -42,7 +42,7 @@ const PAGE_SIZE = 20;
 
 /** Only actions Identity actually exposes: list, suspend, activate, unlock. */
 export function AdminUsersPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const client = useQueryClient();
     const session = useSyncExternalStore(
         subscribeAuthSession,
@@ -90,7 +90,10 @@ export function AdminUsersPage() {
                 text: `${account.email}: ${action === "unlock" ? "unlocked" : action === "suspend" ? "suspended" : "activated"}.`,
             });
         } catch (error) {
-            setMessage({ kind: "error", text: describeAccountError(error) });
+            setMessage({
+                kind: "error",
+                text: describeAccountError(error, language),
+            });
         } finally {
             setBusyId("");
             await client.invalidateQueries({ queryKey: ["admin-accounts"] });
@@ -108,7 +111,10 @@ export function AdminUsersPage() {
                 text: `${account.email}: role changed to ${roleLabel[newRole]}.`,
             });
         } catch (error) {
-            setMessage({ kind: "error", text: describeAccountError(error) });
+            setMessage({
+                kind: "error",
+                text: describeAccountError(error, language),
+            });
         } finally {
             setBusyId("");
             await client.invalidateQueries({ queryKey: ["admin-accounts"] });
@@ -186,7 +192,7 @@ export function AdminUsersPage() {
                     <p className="admin-empty">{t("loading")}</p>
                 ) : query.isError || !data ? (
                     <p className="admin-empty">
-                        {describeAccountError(query.error)}{" "}
+                        {describeAccountError(query.error, language)}{" "}
                         <button
                             type="button"
                             className="admin-link"

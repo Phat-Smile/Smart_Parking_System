@@ -211,18 +211,30 @@ export async function getAvailableStaffAccounts(): Promise<
     return sampleStaffAccounts;
 }
 
-export function describeAssignmentError(error: unknown): string {
+export function describeAssignmentError(
+    error: unknown,
+    language: string = "vi",
+): string {
+    const isVi = language === "vi";
     if (!(error instanceof ApiError)) {
-        return "Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.";
+        return isVi
+            ? "Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng."
+            : "We couldn't reach the server. Check your connection and try again.";
     }
     if (error.status === 404) {
-        return "Không tìm thấy bãi đỗ xe hoặc tài khoản nhân viên được chỉ định.";
+        return isVi
+            ? "Không tìm thấy bãi đỗ xe hoặc tài khoản nhân viên được chỉ định."
+            : "Parking lot or staff account not found.";
     }
     if (error.status === 403) {
-        return "Chỉ quản trị viên hệ thống (SystemAdmin) mới có quyền phân công nhân viên.";
+        return isVi
+            ? "Chỉ quản trị viên hệ thống (SystemAdmin) mới có quyền phân công nhân viên."
+            : "Only SystemAdmin accounts can manage staff assignments.";
     }
     return (
         error.problem?.detail ||
-        "Không thể thực hiện phân công. Vui lòng thử lại."
+        (isVi
+            ? "Không thể thực hiện phân công. Vui lòng thử lại."
+            : "Could not perform assignment. Please try again.")
     );
 }
