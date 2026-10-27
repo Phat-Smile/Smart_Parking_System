@@ -410,32 +410,33 @@ export function AdminOwnerApplicationsPage() {
                                 display: "grid",
                                 gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                                 gap: "10px",
-                                padding: "12px",
+                                padding: "14px",
                                 borderRadius: "8px",
-                                background: "rgba(255, 255, 255, 0.03)",
-                                border: "1px solid rgba(255, 255, 255, 0.08)",
+                                background: "#f9fafb",
+                                border: "1px solid #e5e7eb",
                                 marginBottom: "1rem",
                                 fontSize: "0.875rem",
+                                color: "#111827",
                             }}
                         >
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsRepresentative")} </span>
+                                <span style={{ color: "#4b5563" }}>{t("ownerAppsRepresentative")} </span>
                                 <strong>{activeApp.fullName || "—"}</strong>
                             </div>
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsTaxCode")}: </span>
+                                <span style={{ color: "#4b5563" }}>{t("ownerAppsTaxCode")}: </span>
                                 <strong>{activeApp.taxCode || "—"}</strong>
                             </div>
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsIdCardNumber")} </span>
+                                <span style={{ color: "#4b5563" }}>{t("ownerAppsIdCardNumber")} </span>
                                 <strong>{activeApp.idCardNumber || "—"}</strong>
                             </div>
                             <div>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("phone")}: </span>
+                                <span style={{ color: "#4b5563" }}>{t("phone")}: </span>
                                 <strong>{activeApp.phoneNumber || "—"}</strong>
                             </div>
                             <div style={{ gridColumn: "1 / -1" }}>
-                                <span style={{ color: "var(--staff-text-muted, #94a3b8)" }}>{t("ownerAppsRegisteredAddress")} </span>
+                                <span style={{ color: "#4b5563" }}>{t("ownerAppsRegisteredAddress")} </span>
                                 <span>{activeApp.businessAddress || t("ownerAppsNotUpdated")}</span>
                             </div>
                         </div>
@@ -455,8 +456,9 @@ export function AdminOwnerApplicationsPage() {
                                             gap: "10px",
                                             padding: "10px",
                                             borderRadius: "6px",
-                                            background: "rgba(255, 255, 255, 0.04)",
-                                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                                            background: "#f9fafb",
+                                            border: "1px solid #e5e7eb",
+                                            color: "#111827",
                                         }}
                                     >
                                         <div
@@ -654,11 +656,12 @@ export function AdminOwnerApplicationsPage() {
                                 placeholder={t("ownerAppsRejectReasonPlaceholder")}
                                 style={{
                                     width: "100%",
-                                    padding: "8px",
-                                    borderRadius: "6px",
-                                    background: "var(--admin-bg-subtle, #1a1e24)",
-                                    color: "inherit",
-                                    border: "1px solid rgba(255,255,255,0.15)",
+                                    padding: "10px 12px",
+                                    borderRadius: "8px",
+                                    background: "#ffffff",
+                                    color: "#111827",
+                                    border: "1px solid #d1d5db",
+                                    fontSize: "0.875rem",
                                 }}
                             />
                         </label>

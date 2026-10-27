@@ -251,20 +251,20 @@ export function AdminLotAssignmentsPage() {
                                             textAlign: "left",
                                             padding: "12px",
                                             borderRadius: "8px",
-                                            border: `1px solid ${isSelected ? "var(--admin-lime, #a3e635)" : "rgba(255, 255, 255, 0.08)"}`,
-                                            background: isSelected ? "rgba(163, 230, 53, 0.1)" : "rgba(255, 255, 255, 0.02)",
-                                            color: "inherit",
+                                            border: `1px solid ${isSelected ? "var(--admin-lime, #a3e635)" : "#e5e7eb"}`,
+                                            background: isSelected ? "rgba(163, 230, 53, 0.15)" : "#ffffff",
+                                            color: "#111827",
                                             cursor: "pointer",
                                             transition: "all 0.15s ease",
                                         }}
                                     >
-                                        <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                                        <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#111827" }}>
                                             {lot.name}
                                         </div>
-                                        <div style={{ fontSize: "0.8rem", color: "var(--staff-text-muted, #94a3b8)", marginTop: "4px" }}>
+                                        <div style={{ fontSize: "0.8rem", color: "#4b5563", marginTop: "4px" }}>
                                             {t("lotOwnerHeader")}: {lot.ownerName}
                                         </div>
-                                        <div style={{ fontSize: "0.75rem", color: "var(--staff-text-muted, #94a3b8)" }}>
+                                        <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>
                                             {lot.address || lot.city}
                                         </div>
                                     </button>
@@ -365,23 +365,26 @@ export function AdminLotAssignmentsPage() {
 
                         <form onSubmit={handleAssignMember} style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: "12px", alignItems: "end" }}>
                             <label className="admin-field" style={{ margin: 0 }}>
-                                <span>{t("selectStaffLabel")}</span>
+                                <span style={{ fontWeight: 600, color: "#111827", marginBottom: "4px", display: "block" }}>{t("selectStaffLabel")}</span>
                                 <select
                                     value={selectedAccountId}
                                     onChange={(e) => setSelectedAccountId(e.target.value)}
                                     required
                                     style={{
                                         width: "100%",
+                                        height: "42px",
                                         padding: "8px 12px",
-                                        borderRadius: "6px",
-                                        background: "var(--admin-bg-subtle, #1a1e24)",
-                                        color: "inherit",
-                                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                                        borderRadius: "8px",
+                                        background: "#ffffff",
+                                        color: "#111827",
+                                        border: "1px solid #d1d5db",
+                                        fontSize: "0.875rem",
+                                        outline: "none",
                                     }}
                                 >
-                                    <option value="">{t("selectStaffDefault")}</option>
+                                    <option value="" style={{ background: "#ffffff", color: "#111827" }}>{t("selectStaffDefault")}</option>
                                     {assignableStaff.map((staff) => (
-                                        <option key={staff.accountId} value={staff.accountId}>
+                                        <option key={staff.accountId} value={staff.accountId} style={{ background: "#ffffff", color: "#111827" }}>
                                             {staff.fullName} ({staff.email})
                                         </option>
                                     ))}
@@ -389,21 +392,24 @@ export function AdminLotAssignmentsPage() {
                             </label>
 
                             <label className="admin-field" style={{ margin: 0 }}>
-                                <span>{t("assignRoleLabel")}</span>
+                                <span style={{ fontWeight: 600, color: "#111827", marginBottom: "4px", display: "block" }}>{t("assignRoleLabel")}</span>
                                 <select
                                     value={selectedRole}
                                     onChange={(e) => setSelectedRole(e.target.value as "Staff" | "Owner")}
                                     style={{
                                         width: "100%",
+                                        height: "42px",
                                         padding: "8px 12px",
-                                        borderRadius: "6px",
-                                        background: "var(--admin-bg-subtle, #1a1e24)",
-                                        color: "inherit",
-                                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                                        borderRadius: "8px",
+                                        background: "#ffffff",
+                                        color: "#111827",
+                                        border: "1px solid #d1d5db",
+                                        fontSize: "0.875rem",
+                                        outline: "none",
                                     }}
                                 >
-                                    <option value="Staff">{t("roleStaff")}</option>
-                                    <option value="Owner">{t("roleOwner")}</option>
+                                    <option value="Staff" style={{ background: "#ffffff", color: "#111827" }}>{t("roleStaff")}</option>
+                                    <option value="Owner" style={{ background: "#ffffff", color: "#111827" }}>{t("roleOwner")}</option>
                                 </select>
                             </label>
 
@@ -411,7 +417,7 @@ export function AdminLotAssignmentsPage() {
                                 type="submit"
                                 className="admin-btn admin-btn-lime"
                                 disabled={actionBusy || !selectedAccountId || !selectedLotId}
-                                style={{ height: "40px" }}
+                                style={{ height: "42px", fontWeight: 600 }}
                             >
                                 {actionBusy ? t("assignmentsAssigning") : t("assignBtn")}
                             </button>
