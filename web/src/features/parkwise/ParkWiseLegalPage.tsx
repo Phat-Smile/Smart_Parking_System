@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Manrope } from "next/font/google";
 import { ParkWiseFooter } from "./ParkWiseFooter";
+import { ParkWiseLegalBackLink } from "./ParkWiseLegalBackLink";
 import { ParkWiseNavbar } from "./ParkWiseNavbar";
 import { getLegalDocumentInfo, LegalDocument } from "./legal/LegalDocument";
 
@@ -9,9 +9,11 @@ const manrope = Manrope({ subsets: ["latin"], display: "swap" });
 export function ParkWiseLegalPage({
     title,
     markdown,
+    fromProfile = false,
 }: {
     title: string;
     markdown: string;
+    fromProfile?: boolean;
 }) {
     const { effectiveDate, lastUpdated, sections } =
         getLegalDocumentInfo(markdown);
@@ -102,9 +104,10 @@ export function ParkWiseLegalPage({
                     </aside>
                     <div className="parkwise-legal-reading-column">
                         <LegalDocument markdown={markdown} />
-                        <Link href="/" className="parkwise-legal-home-link">
-                            <span aria-hidden="true">←</span> Back to home
-                        </Link>
+                        <ParkWiseLegalBackLink
+                            fromProfile={fromProfile}
+                            className="parkwise-legal-home-link"
+                        />
                     </div>
                 </div>
             </main>

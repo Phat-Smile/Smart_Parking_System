@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
 import { MyVehiclesPage } from "@/features/customer/MyVehiclesPage";
+import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
+import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
 import "../../parkwise.css";
+import "@/features/customer/customer-shell.css";
 import "./vehicles-v2.css";
-
-const manrope = Manrope({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
     title: "My Vehicles | ParkWise",
@@ -12,5 +12,9 @@ export const metadata: Metadata = {
 };
 
 export default function VehiclesRoute() {
-    return <MyVehiclesPage fontClassName={manrope.className} />;
+    return (
+        <CustomerAccessGuard>
+            <MyVehiclesPage fontClassName={parkwiseFont.className} />
+        </CustomerAccessGuard>
+    );
 }

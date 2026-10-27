@@ -8,11 +8,17 @@ export const metadata: Metadata = {
     description: "ParkWise Terms & Conditions page",
 };
 
-export default function TermsAndConditionsPage() {
+export default async function TermsAndConditionsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ from?: string | string[] }>;
+}) {
+    const fromProfile = (await searchParams).from === "complete-profile";
     return (
         <ParkWiseLegalPage
             title="Terms & Conditions"
             markdown={termsAndConditionsMarkdown}
+            fromProfile={fromProfile}
         />
     );
 }

@@ -14,17 +14,6 @@ export const metadata: Metadata = {
     icons: { icon: "/images/parkwise/logo.png" },
 };
 
-export default async function ResetPasswordRoute({
-    searchParams,
-}: {
-    searchParams: Promise<{ email?: string | string[] }>;
-}) {
-    const params = await searchParams;
-    const email = typeof params.email === "string" ? params.email.trim() : "";
-    return (
-        <ParkWiseResetPasswordPage
-            fontClassName={manrope.className}
-            email={email}
-        />
-    );
+export default function ResetPasswordRoute() {
+    return <ParkWiseResetPasswordPage fontClassName={manrope.className} />;
 }

@@ -58,6 +58,9 @@ test("Sign Up validates fields and posts the documented registration contract", 
         .fill("ValidPassword123!");
     await page.getByRole("button", { name: "Create Account" }).click();
     await expect(page).toHaveURL(/\/verify-otp$/);
+    await expect(page.getByRole("timer")).toContainText(
+        /Code expires in 0[45]:\d\d/,
+    );
     expect(registrationBody).toEqual({
         fullName: "Jane Doe",
         email: "jane@example.com",
