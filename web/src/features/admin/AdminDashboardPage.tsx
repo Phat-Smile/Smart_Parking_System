@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AdminIcon, SampleDataNote, StatusPill, formatDate } from "./AdminUi";
+import { AdminIcon, StatusPill, formatDate } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
@@ -60,7 +60,6 @@ export function AdminDashboardPage() {
                     <AdminIcon name="arrow" size={16} />
                 </Link>
             </header>
-            <SampleDataNote />
 
             <section className="admin-stats" aria-label="Parking lot summary">
                 {cards.map((card) => (

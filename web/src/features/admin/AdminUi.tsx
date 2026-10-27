@@ -100,13 +100,3 @@ export const formatDate = (iso: string | null) =>
               minute: "2-digit",
           })
         : "—";
-
-export function SampleDataNote() {
-    return (
-        <p className="admin-sample-note">
-            <AdminIcon name="alert" size={15} />
-            Lot list and details are sample data until Parking exposes admin
-            list/detail endpoints. Approve and Reject call the real API.
-        </p>
-    );
-}
