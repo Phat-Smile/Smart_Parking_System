@@ -73,6 +73,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IManageParkingLayoutRepository, ManageParkingLayoutRepository>();
         services.AddScoped<IOwnerParkingLotReader, OwnerParkingLotReader>();
         services.AddScoped<IAdminParkingLotReader, AdminParkingLotReader>();
+        services.AddScoped<IAdminParkingLotDetailReader, AdminParkingLotDetailReader>();
         return services;
     }
 }
