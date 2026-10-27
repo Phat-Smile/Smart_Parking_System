@@ -64,4 +64,31 @@ public static class ParkingErrors
             "parking.pricing_validation_reason_too_long",
             "Lý do thay đổi không được vượt quá 500 ký tự.");
     }
+
+    public static class DepositPolicy
+    {
+        public static readonly Error LotNotFound = new(
+            "parking.deposit_policy.lot_not_found",
+            "Không tìm thấy bãi đỗ xe này trong hệ thống.");
+
+        public static readonly Error NotLotOwner = new(
+            "parking.deposit_policy.not_lot_owner",
+            "Bạn không có quyền cấu hình mức cọc của bãi đỗ xe này.");
+
+        public static readonly Error LotIdEmpty = new(
+            "parking.deposit_policy.lot_id_empty",
+            "LotId không được để trống.");
+
+        public static readonly Error DepositNegative = new(
+            "parking.deposit_policy.deposit_negative",
+            "Mức cọc không được là số âm.");
+
+        public static readonly Error DepositMustBeInteger = new(
+            "parking.deposit_policy.deposit_must_be_integer",
+            "Mức cọc phải là số nguyên VND, không được có phần lẻ thập phân.");
+
+        public static readonly Error DepositRequired = new(
+            "parking.deposit_policy.deposit_required",
+            "Mức cọc không được để trống.");
+    }
 }
