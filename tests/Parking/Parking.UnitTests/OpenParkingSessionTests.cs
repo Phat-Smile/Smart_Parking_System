@@ -279,6 +279,9 @@ public sealed class OpenParkingSessionTests
             Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(Added.FirstOrDefault(session => session.Id == sessionId));
 
