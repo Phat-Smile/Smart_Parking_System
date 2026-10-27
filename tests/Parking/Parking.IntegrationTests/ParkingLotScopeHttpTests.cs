@@ -199,6 +199,7 @@ public sealed class ParkingLotScopeHttpTests
         public Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
             Task.FromResult<ParkingSession?>(ParkingSession.Open(Guid.NewGuid(), Guid.NewGuid(), "51A-123.45", VehicleType.Car, DateTimeOffset.UtcNow, qrToken, null, null));
+        public Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public void Add(ParkingSession session) => throw new InvalidOperationException();
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }
