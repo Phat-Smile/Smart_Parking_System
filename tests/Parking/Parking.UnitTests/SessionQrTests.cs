@@ -150,6 +150,10 @@ public sealed class SessionQrTests
         public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
             Task.FromResult(session?.QrToken == qrToken ? session : null);
 
+        public Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
+            Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public void Add(ParkingSession added) => throw new NotSupportedException();
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

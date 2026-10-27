@@ -275,6 +275,10 @@ public sealed class OpenParkingSessionTests
         public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
+            Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(Added.FirstOrDefault(session => session.Id == sessionId));
 
