@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +10,11 @@ import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
 import { ParkWiseRecoveryAside } from "./ParkWiseRecoveryAside";
 import { requestPasswordReset } from "./requestPasswordReset";
 import { ApiError } from "@/shared/errors/api-error";
+import { SegmentedOtpInput } from "./SegmentedOtpInput";
+import {
+    clearPendingPasswordReset,
+    rememberPendingPasswordReset,
+} from "./pendingPasswordReset";
 
 const forgotPasswordSchema = z.object({
     email: z
@@ -36,13 +42,24 @@ function resetRequestErrorMessage(error: unknown): string {
     return "We couldn't connect. Check your connection and try again.";
 }
 
+function resetCodeDeadline(expiresInSeconds: number): number {
+    return Date.now() + Math.max(0, expiresInSeconds) * 1000;
+}
+
 export function ParkWiseForgotPasswordPage({
     fontClassName,
 }: {
     fontClassName: string;
 }) {
+    const router = useRouter();
     const [submitError, setSubmitError] = useState("");
     const [submittedEmail, setSubmittedEmail] = useState("");
+    const [otpDigits, setOtpDigits] = useState<string[]>(() =>
+        Array(6).fill(""),
+    );
+    const [otpError, setOtpError] = useState("");
+    const [expiresAt, setExpiresAt] = useState(0);
+    const [expiresIn, setExpiresIn] = useState(0);
     const [requestInFlight, setRequestInFlight] = useState(false);
     const [resendError, setResendError] = useState("");
     const [resendNotice, setResendNotice] = useState("");
@@ -57,6 +74,16 @@ export function ParkWiseForgotPasswordPage({
         );
         return () => window.clearTimeout(timer);
     }, [cooldown]);
+    useEffect(() => {
+        if (!expiresAt) return;
+        const update = () =>
+            setExpiresIn(
+                Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)),
+            );
+        update();
+        const timer = window.setInterval(update, 1000);
+        return () => window.clearInterval(timer);
+    }, [expiresAt]);
     const {
         register,
         handleSubmit,
@@ -72,8 +99,10 @@ export function ParkWiseForgotPasswordPage({
         setSubmitError("");
         try {
             const result = await requestPasswordReset(email);
+            clearPendingPasswordReset();
             setSubmittedEmail(email);
             setCooldown(Math.max(0, result.cooldownSeconds));
+            setExpiresAt(resetCodeDeadline(result.expiresInSeconds));
         } catch (error) {
             if (error instanceof ApiError && error.retryAfterSeconds)
                 setCooldown(error.retryAfterSeconds);
@@ -90,7 +119,11 @@ export function ParkWiseForgotPasswordPage({
         setResendNotice("");
         try {
             const result = await requestPasswordReset(submittedEmail);
+            clearPendingPasswordReset();
+            setOtpDigits(Array(6).fill(""));
+            setOtpError("");
             setCooldown(Math.max(0, result.cooldownSeconds));
+            setExpiresAt(resetCodeDeadline(result.expiresInSeconds));
             setResendNotice("If an account exists, a new code is on its way.");
         } catch (error) {
             if (error instanceof ApiError && error.retryAfterSeconds)
@@ -98,6 +131,26 @@ export function ParkWiseForgotPasswordPage({
             setResendError(resetRequestErrorMessage(error));
         } finally {
             setResendInFlight(false);
+        }
+    }
+
+    function onContinue() {
+        const otpCode = otpDigits.join("");
+        if (!/^[0-9]{6}$/.test(otpCode)) {
+            setOtpError("Enter the six-digit code from your email.");
+            return;
+        }
+        if (expiresIn <= 0) {
+            setOtpError("This code has expired. Request a new code.");
+            return;
+        }
+        try {
+            rememberPendingPasswordReset(submittedEmail, otpCode, expiresAt);
+            router.push("/reset-password");
+        } catch {
+            setOtpError(
+                "We couldn't continue. Allow session storage and try again.",
+            );
         }
     }
 
@@ -110,26 +163,52 @@ export function ParkWiseForgotPasswordPage({
 
             <div className="parkwise-login-form-panel parkwise-forgot-form-panel">
                 {submittedEmail ? (
-                    <div
-                        className="parkwise-forgot-success"
-                        role="status"
-                        aria-live="polite"
-                    >
+                    <div className="parkwise-forgot-success">
                         <h2>Check your email</h2>
                         <p>
                             If this account exists, a password reset code has
                             been sent.
                         </p>
                         <p>
-                            Check your inbox, then enter the six-digit code to
-                            create a new password.
+                            Enter the six-digit code sent to{" "}
+                            <strong>{submittedEmail}</strong>.
                         </p>
-                        <Link
-                            href={`/reset-password?email=${encodeURIComponent(submittedEmail)}`}
-                            className="parkwise-login-submit parkwise-forgot-login-link"
+                        <p role="timer" aria-live="off">
+                            {expiresIn > 0
+                                ? `Code expires in ${String(Math.floor(expiresIn / 60)).padStart(2, "0")}:${String(expiresIn % 60).padStart(2, "0")}`
+                                : "Code expired. Request a new code."}
+                        </p>
+                        <div className="parkwise-forgot-code-field">
+                            <span id="parkwise-forgot-code-label">
+                                Six-digit code
+                            </span>
+                            <SegmentedOtpInput
+                                value={otpDigits}
+                                onChange={(digits) => {
+                                    setOtpDigits(digits);
+                                    setOtpError("");
+                                }}
+                                error={otpError}
+                                labelId="parkwise-forgot-code-label"
+                                errorId="parkwise-forgot-code-error"
+                                disabled={expiresIn <= 0}
+                            />
+                            {otpError && (
+                                <p id="parkwise-forgot-code-error" role="alert">
+                                    {otpError}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onContinue}
+                            className="parkwise-login-submit"
+                            disabled={
+                                expiresIn <= 0 || !otpDigits.every(Boolean)
+                            }
                         >
-                            Enter Reset Code
-                        </Link>
+                            Continue
+                        </button>
                         <p className="parkwise-forgot-resend-row">
                             Didn&apos;t receive the email?{" "}
                             <button

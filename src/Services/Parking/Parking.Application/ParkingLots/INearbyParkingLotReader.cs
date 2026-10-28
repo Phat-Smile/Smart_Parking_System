@@ -1,0 +1,20 @@
+namespace ParkingSystem.Parking.Application.ParkingLots;
+
+public interface INearbyParkingLotReader
+{
+    Task<IReadOnlyList<NearbyParkingLotItem>> SearchAsync(
+        decimal latitude,
+        decimal longitude,
+        double radiusKm,
+        int limit,
+        CancellationToken cancellationToken);
+}
+
+public sealed record NearbyParkingLotItem(
+    Guid Id,
+    string Name,
+    string Address,
+    decimal Latitude,
+    decimal Longitude,
+    string Type,
+    double DistanceKm);

@@ -11,14 +11,13 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
     getAuthSessionSnapshot,
     subscribeAuthSession,
 } from "@/features/auth/authSession";
-import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
+import { CustomerAccountMenu } from "./CustomerShell";
 
 type IdType = "citizenId" | "driverLicense";
 type DocumentSide = "front" | "back";
@@ -309,17 +308,6 @@ function migrateDateValue(value: string | undefined) {
     return match ? value : "";
 }
 
-function makeInitials(name: string) {
-    const initials = name
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(-2)
-        .map((part) => part[0])
-        .join("");
-    return initials.toUpperCase();
-}
-
 function localDateIso() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -330,14 +318,11 @@ export function CompleteProfilePage({
 }: {
     fontClassName: string;
 }) {
-    const router = useRouter();
     const authSession = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
         () => null,
     );
-    const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-    const [loggingOut, setLoggingOut] = useState(false);
     const [authorityOther, setAuthorityOther] = useState(false);
     const [idType, setIdType] = useState<IdType | null>(null);
     const [includeDocument, setIncludeDocument] = useState(false);
@@ -367,10 +352,7 @@ export function CompleteProfilePage({
     const profilePhotoInput = useRef<HTMLInputElement>(null);
     const birthDatePickerRef = useRef<HTMLInputElement>(null);
     const issueDatePickerRef = useRef<HTMLInputElement>(null);
-    const accountMenuRef = useRef<HTMLDivElement>(null);
     const accountEmail = authSession?.account.email ?? "";
-    const accountName =
-        authSession?.displayName || accountEmail || "Sign in required";
     const emailVerified = authSession?.account.status === "EmailVerified";
     const today = localDateIso();
 
@@ -383,23 +365,6 @@ export function CompleteProfilePage({
             );
         });
     }, [authSession]);
-
-    useEffect(() => {
-        if (!accountMenuOpen) return;
-        function onPointerDown(event: PointerEvent) {
-            if (!accountMenuRef.current?.contains(event.target as Node))
-                setAccountMenuOpen(false);
-        }
-        function onKeyDown(event: KeyboardEvent) {
-            if (event.key === "Escape") setAccountMenuOpen(false);
-        }
-        document.addEventListener("pointerdown", onPointerDown);
-        document.addEventListener("keydown", onKeyDown);
-        return () => {
-            document.removeEventListener("pointerdown", onPointerDown);
-            document.removeEventListener("keydown", onKeyDown);
-        };
-    }, [accountMenuOpen]);
 
     useEffect(() => {
         if (!notice) return;
@@ -631,116 +596,19 @@ export function CompleteProfilePage({
         }
     }
 
-    async function handleLogout() {
-        setError("");
-        setLoggingOut(true);
-        try {
-            await logoutParkWiseAccount();
-            router.replace("/login");
-        } catch {
-            setError("We couldn't sign you out. Please try again.");
-        } finally {
-            setLoggingOut(false);
-        }
-    }
-
-    const documentLabel = idType === "citizenId" ? "CCCD" : "GPLX";
-
     return (
         <div
             lang="en"
             className={`parkwise-page parkwise-profile-page ${fontClassName}`}
         >
             <ParkWiseNavbar
-                variant="login"
+                variant="customer"
+                navigationMode="customer"
                 accountControl={
-                    <div
-                        className="parkwise-profile-account-menu"
-                        ref={accountMenuRef}
-                    >
-                        <button
-                            className="parkwise-profile-account"
-                            type="button"
-                            aria-expanded={accountMenuOpen}
-                            aria-haspopup="menu"
-                            aria-controls="profile-account-dropdown"
-                            onClick={() => setAccountMenuOpen((open) => !open)}
-                        >
-                            <span
-                                className="parkwise-profile-account-avatar"
-                                aria-hidden="true"
-                            >
-                                {profilePhoto?.previewUrl ? (
-                                    <Image
-                                        src={profilePhoto.previewUrl}
-                                        alt=""
-                                        width={38}
-                                        height={38}
-                                        unoptimized
-                                    />
-                                ) : authSession?.displayName ? (
-                                    makeInitials(authSession.displayName)
-                                ) : (
-                                    <ProfileIcon />
-                                )}
-                            </span>
-                            <span className="parkwise-profile-account-name">
-                                {accountName}
-                                <small>
-                                    {emailVerified
-                                        ? "Email verified"
-                                        : accountEmail || "Not signed in"}
-                                </small>
-                            </span>
-                            <span className="parkwise-profile-account-chevron">
-                                <ChevronDownIcon />
-                            </span>
-                        </button>
-                        {accountMenuOpen && (
-                            <div
-                                id="profile-account-dropdown"
-                                className="parkwise-profile-account-dropdown"
-                                role="menu"
-                            >
-                                <div className="parkwise-profile-dropdown-identity">
-                                    <strong>{accountName}</strong>
-                                    <small>
-                                        {accountEmail ||
-                                            "No account email available"}
-                                    </small>
-                                </div>
-                                <Link
-                                    href="/customer/complete-profile"
-                                    role="menuitem"
-                                    onClick={() => setAccountMenuOpen(false)}
-                                >
-                                    Complete Profile
-                                </Link>
-                                {authSession ? (
-                                    <button
-                                        type="button"
-                                        role="menuitem"
-                                        onClick={handleLogout}
-                                        disabled={loggingOut}
-                                    >
-                                        {loggingOut
-                                            ? "Signing out…"
-                                            : "Log out"}
-                                    </button>
-                                ) : (
-                                    <Link
-                                        href="/login"
-                                        role="menuitem"
-                                        onClick={() =>
-                                            setAccountMenuOpen(false)
-                                        }
-                                    >
-                                        Log in
-                                    </Link>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    <CustomerAccountMenu
+                        activeHref="/customer/complete-profile"
+                        profilePhotoUrl={profilePhoto?.previewUrl}
+                    />
                 }
             />
 
@@ -978,11 +846,6 @@ export function CompleteProfilePage({
                                             readOnly
                                             title={accountEmail}
                                         />
-                                        {emailVerified && (
-                                            <b>
-                                                <CheckIcon /> Verified
-                                            </b>
-                                        )}
                                     </div>
                                     {emailVerified && (
                                         <small>
@@ -1086,7 +949,7 @@ export function CompleteProfilePage({
                                             name="address"
                                             type="text"
                                             autoComplete="street-address"
-                                            placeholder="23 Nguyen Hue Street, Ben Nghe Ward, District 1, Ho Chi Minh City."
+                                            placeholder="e.g. 23 Nguyen Hue, District 1"
                                             value={address}
                                             onChange={(event) =>
                                                 setAddress(event.target.value)
@@ -1198,7 +1061,6 @@ export function CompleteProfilePage({
                                     </div>
                                     {idType && (
                                         <>
-                                            <h4>{documentLabel} details</h4>
                                             <div className="parkwise-profile-fields document-fields">
                                                 <div className="parkwise-profile-field">
                                                     <label htmlFor="document-number">
@@ -1284,37 +1146,43 @@ export function CompleteProfilePage({
                                                     <label htmlFor="document-issued-by">
                                                         Issuing Authority
                                                     </label>
-                                                    <select
-                                                        id="document-issued-by"
-                                                        name="issuedByOption"
-                                                        value={
-                                                            authorityOther
-                                                                ? "other"
-                                                                : ""
-                                                        }
-                                                        onChange={(event) => {
-                                                            setAuthorityOther(
-                                                                event.target
-                                                                    .value ===
-                                                                    "other",
-                                                            );
-                                                            setIssuedBy(
-                                                                event.target
-                                                                    .value ===
-                                                                    "other"
-                                                                    ? issuedBy
-                                                                    : "",
-                                                            );
-                                                        }}
-                                                    >
-                                                        <option value="">
-                                                            Select an authority
-                                                        </option>
-                                                        <option value="other">
-                                                            Other (enter
-                                                            manually)
-                                                        </option>
-                                                    </select>
+                                                    <div className="parkwise-profile-select">
+                                                        <select
+                                                            id="document-issued-by"
+                                                            name="issuedByOption"
+                                                            value={
+                                                                authorityOther
+                                                                    ? "other"
+                                                                    : ""
+                                                            }
+                                                            onChange={(
+                                                                event,
+                                                            ) => {
+                                                                setAuthorityOther(
+                                                                    event.target
+                                                                        .value ===
+                                                                        "other",
+                                                                );
+                                                                setIssuedBy(
+                                                                    event.target
+                                                                        .value ===
+                                                                        "other"
+                                                                        ? issuedBy
+                                                                        : "",
+                                                                );
+                                                            }}
+                                                        >
+                                                            <option value="">
+                                                                Select an
+                                                                authority
+                                                            </option>
+                                                            <option value="other">
+                                                                Other (enter
+                                                                manually)
+                                                            </option>
+                                                        </select>
+                                                        <ChevronDownIcon />
+                                                    </div>
                                                     {authorityOther && (
                                                         <input
                                                             aria-label="Enter issuing authority"
@@ -1436,8 +1304,9 @@ export function CompleteProfilePage({
                                 </section>
                             )}
 
-                            <label className="parkwise-profile-consent">
+                            <div className="parkwise-profile-consent">
                                 <input
+                                    id="profile-consent"
                                     type="checkbox"
                                     name="consent"
                                     checked={consent}
@@ -1446,23 +1315,27 @@ export function CompleteProfilePage({
                                     }
                                 />
                                 <span>
-                                    I agree to the{" "}
-                                    <span
-                                        className="parkwise-profile-unavailable-link"
-                                        aria-disabled="true"
+                                    <label htmlFor="profile-consent">
+                                        I agree to the
+                                    </label>{" "}
+                                    <Link
+                                        href="/terms-and-conditions?from=complete-profile"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                     >
-                                        Terms of Service
-                                    </span>{" "}
+                                        Terms &amp; Conditions
+                                    </Link>{" "}
                                     and{" "}
-                                    <span
-                                        className="parkwise-profile-unavailable-link"
-                                        aria-disabled="true"
+                                    <Link
+                                        href="/privacy-policy?from=complete-profile"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                     >
                                         Privacy Policy
-                                    </span>{" "}
+                                    </Link>{" "}
                                     of ParkWise.
                                 </span>
-                            </label>
+                            </div>
                             {error && (
                                 <p
                                     className="parkwise-profile-feedback error"

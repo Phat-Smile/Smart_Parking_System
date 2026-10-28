@@ -18,14 +18,16 @@ public sealed record RegisterAccountCommand(
     string? FullName,
     string Email,
     string Password,
-    string? PhoneNumber) : IRequest<Result<RegisteredAccount>>;
+    string? PhoneNumber,
+    string? AccountType = null) : IRequest<Result<RegisteredAccount>>;
 
 public sealed record RegisteredAccount(
     Guid AccountId,
     string Email,
     string? FullName,
     string Status,
-    string Message);
+    string Message,
+    string? OwnerApplicationStatus = null);
 
 public static class RegisterAccountErrors
 {
@@ -71,6 +73,12 @@ public sealed partial class RegisterAccountCommandValidator : AbstractValidator<
             .Matches(@"^\s*(0|\+84)[35789][0-9]{8}\s*$")
             .WithMessage("Số điện thoại phải là số di động Việt Nam: 0xxxxxxxxx (10 chữ số) hoặc +84xxxxxxxxx, chữ số sau 0/+84 là 3, 5, 7, 8 hoặc 9.")
             .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
+
+        RuleFor(command => command.AccountType)
+            .Must(type => type is null
+                || string.Equals(type.Trim(), "Customer", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type.Trim(), "ParkingLotOwner", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("Loại tài khoản không hợp lệ, chỉ chấp nhận Customer hoặc ParkingLotOwner.");
     }
 
     [GeneratedRegex(@"^[\p{L}]+(?:[ '-][\p{L}]+)*$")]
@@ -99,12 +107,14 @@ public sealed class RegisterAccountCommandHandler(
                 : RegisterAccountErrors.EmailAlreadyRegistered);
 
         var now = clock.UtcNow;
+        var isOwner = string.Equals(request.AccountType?.Trim(), "ParkingLotOwner", StringComparison.OrdinalIgnoreCase);
         var account = Account.Register(
             Guid.NewGuid(),
             email,
             passwordHasher.Hash(request.Password),
             request.PhoneNumber,
-            now);
+            now,
+            applyAsParkingLotOwner: isOwner);
         accounts.Add(account);
 
         // Without a name the profile is created later on the profile screen; never store a placeholder name.
@@ -134,6 +144,12 @@ public sealed class RegisterAccountCommandHandler(
         if (saveResult == SaveAccountResult.DuplicateEmailConflict)
             return Result<RegisteredAccount>.Failure(RegisterAccountErrors.EmailAlreadyRegistered);
 
-        return Result<RegisteredAccount>.Success(new RegisteredAccount(account.Id, account.Email, profile?.FullName, account.Status.ToString(), RegisterAccountErrors.SuccessMessage(account.Email)));
+        return Result<RegisteredAccount>.Success(new RegisteredAccount(
+            account.Id,
+            account.Email,
+            profile?.FullName,
+            account.Status.ToString(),
+            RegisterAccountErrors.SuccessMessage(account.Email),
+            account.OwnerApplicationStatus?.ToString()));
     }
 }

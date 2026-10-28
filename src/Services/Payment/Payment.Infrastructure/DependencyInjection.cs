@@ -6,6 +6,9 @@ using Microsoft.Extensions.Options;
 using ParkingSystem.Payment.Infrastructure.Messaging;
 using ParkingSystem.Payment.Infrastructure.Messaging.Outbox;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Infrastructure.Gateways;
+using ParkingSystem.Contracts.Events.Payment;
 
 namespace ParkingSystem.Payment.Infrastructure;
 
@@ -39,6 +42,8 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddIntegrationEventRegistry();
+        services.AddIntegrationEvent<WalletTopUpCompletedIntegrationEvent>(
+            "payment.wallet-topup-completed.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()
@@ -58,6 +63,7 @@ public static class DependencyInjection
             });
         });
 
+        services.AddScoped<IPaymentGateway, VnpayPaymentGateway>();
         return services;
     }
 }

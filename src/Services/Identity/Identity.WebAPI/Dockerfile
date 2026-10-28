@@ -27,6 +27,9 @@ WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=
 EXPOSE 8080 8081
 COPY --from=build /app/publish .
+# Owner application documents are written here. /app belongs to root and the container runs as $APP_UID,
+# so the directory is created for that user; a named volume mounted on it inherits this ownership.
+RUN mkdir -p /app/data/owner-documents && chown $APP_UID /app/data/owner-documents
 USER $APP_UID
 ENTRYPOINT ["dotnet", "Identity.WebAPI.dll"]
 

@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ParkWiseFooter } from "./ParkWiseFooter";
 import { ParkWiseGridInfo } from "./ParkWiseGridInfo";
@@ -22,12 +21,43 @@ import {
 export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
     const router = useRouter();
     const [address, setAddress] = useState("");
+    const [locationBusy, setLocationBusy] = useState(false);
+    const [locationMessage, setLocationMessage] = useState<string | null>(null);
     const pageRef = useRef<HTMLDivElement>(null);
     const destinationScroll = useMemo(
         () => new DestinationScrollController(),
         [],
     );
     useParkWiseLandingMotion(pageRef, destinationScroll);
+
+    function useCurrentLocation() {
+        if (typeof window === "undefined" || !navigator.geolocation) {
+            setLocationMessage(
+                "Location is not supported by your browser. Please enter an address.",
+            );
+            return;
+        }
+        setLocationBusy(true);
+        setLocationMessage("Detecting current location…");
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => {
+                setAddress("Current location");
+                setLocationBusy(false);
+                setLocationMessage(
+                    `Current location selected (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}).`,
+                );
+            },
+            (error) => {
+                setLocationBusy(false);
+                setLocationMessage(
+                    error.code === 1
+                        ? "Location permission was denied. Please enter an address."
+                        : "Unable to retrieve your location. Please enter an address.",
+                );
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+        );
+    }
 
     function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -69,8 +99,15 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                             </p>
                         </div>
                         <div className="parkwise-search-card">
-                            <div className="parkwise-search-tabs">
-                                <span>Where do you want to park?</span>
+                            <div className="parkwise-search-heading">
+                                <span className="parkwise-search-eyebrow">
+                                    FIND A SPOT
+                                </span>
+                                <h2>Where do you want to park?</h2>
+                                <p>
+                                    Enter a destination to start your parking
+                                    search.
+                                </p>
                             </div>
                             <form onSubmit={handleSearch}>
                                 <div className="parkwise-search-field">
@@ -83,12 +120,67 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                                     <input
                                         type="text"
                                         value={address}
-                                        onChange={(event) =>
-                                            setAddress(event.target.value)
-                                        }
-                                        placeholder="Enter your destination"
+                                        onChange={(event) => {
+                                            setAddress(event.target.value);
+                                            if (locationMessage)
+                                                setLocationMessage(null);
+                                        }}
+                                        placeholder="Street, landmark, or district"
                                         aria-label="Destination"
+                                        required
                                     />
+                                    <button
+                                        type="button"
+                                        className={`parkwise-search-locate ${locationBusy ? "is-loading" : ""}`}
+                                        onClick={useCurrentLocation}
+                                        disabled={locationBusy}
+                                        aria-label="Use my current location"
+                                        title="Use my current location"
+                                    >
+                                        <svg
+                                            width={19}
+                                            height={19}
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            aria-hidden="true"
+                                        >
+                                            <circle cx="12" cy="12" r="7" />
+                                            <line
+                                                x1="12"
+                                                y1="2"
+                                                x2="12"
+                                                y2="5"
+                                            />
+                                            <line
+                                                x1="12"
+                                                y1="19"
+                                                x2="12"
+                                                y2="22"
+                                            />
+                                            <line
+                                                x1="2"
+                                                y1="12"
+                                                x2="5"
+                                                y2="12"
+                                            />
+                                            <line
+                                                x1="19"
+                                                y1="12"
+                                                x2="22"
+                                                y2="12"
+                                            />
+                                            <circle
+                                                cx="12"
+                                                cy="12"
+                                                r="2"
+                                                fill="currentColor"
+                                            />
+                                        </svg>
+                                    </button>
                                 </div>
                                 <button
                                     className="parkwise-button parkwise-search-button"
@@ -97,34 +189,31 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                                     Search
                                 </button>
                             </form>
-                            <p className="parkwise-search-hint">
-                                Sign in to search for parking.
-                            </p>
+                            {locationMessage ? (
+                                <p
+                                    className="parkwise-search-hint parkwise-search-location-hint"
+                                    role="status"
+                                >
+                                    {locationMessage}
+                                </p>
+                            ) : (
+                                <p className="parkwise-search-hint">
+                                    Sign in to see nearby parking and
+                                    availability.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </section>
 
                 <ParkWiseHowItWorks />
 
-                {/* Guest preview only: parking search requires an account. */}
                 <section id="nearby-parking" className="parkwise-nearby">
                     <DestinationParkingExperience signal={destinationScroll} />
                     <div className="parkwise-container">
                         <div className="parkwise-section-title">
                             <p>Find parking near</p>
                             <h2>your destination</h2>
-                        </div>
-                        <div className="parkwise-nearby-message">
-                            <p>
-                                Sign in to explore parking near your
-                                destination.
-                            </p>
-                            <Link
-                                href="/login"
-                                className="parkwise-button parkwise-nearby-login"
-                            >
-                                Log in to search
-                            </Link>
                         </div>
                     </div>
                 </section>
@@ -140,7 +229,6 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                     </div>
                 </section>
 
-                {/* Account invitation: newsletter delivery is not implemented. */}
                 <section id="newsletter" className="parkwise-newsletter">
                     <Image
                         src="/images/parkwise/patern.svg"
@@ -151,15 +239,9 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                         className="parkwise-newsletter-pattern"
                     />
                     <div className="parkwise-container">
-                        <p>JOIN PARKWISE</p>
                         <h2>
                             Ready for a smarter <br /> parking experience?
                         </h2>
-                        <div className="parkwise-newsletter-input">
-                            <Link href="/sign-up" className="parkwise-button">
-                                Create an account
-                            </Link>
-                        </div>
                     </div>
                 </section>
             </main>

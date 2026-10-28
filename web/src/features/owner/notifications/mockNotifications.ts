@@ -1,0 +1,58 @@
+import { OwnerNotification } from "./notificationTypes";
+
+export const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
+    {
+        id: "ntf-1",
+        category: "lots",
+        title: "Bãi xe Nguyễn Huệ sắp đầy",
+        body: "Tỷ lệ lấp đầy hiện tại đạt 85% (425/500 ô).",
+        createdAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+        read: false,
+        href: "/owner/parking-lots",
+    },
+    {
+        id: "ntf-2",
+        category: "reservations",
+        title: "Đặt chỗ mới #RES-8921",
+        body: "Khách hàng vừa đặt chỗ cho xe 51H-100.31 lúc 14:00 hôm nay.",
+        createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+        read: false,
+        href: "/owner/reservations",
+    },
+    {
+        id: "ntf-3",
+        category: "sessions",
+        title: "Xe kết thúc phiên đỗ",
+        body: "Xe 51A-455.34 đã rời bãi xe Nguyễn Huệ, thanh toán 50.000 đ thành công.",
+        createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+        read: false,
+        href: "/owner/sessions",
+    },
+    {
+        id: "ntf-4",
+        category: "layout",
+        title: "Cập nhật sơ đồ Tầng 2",
+        body: "2 vị trí đỗ tại khu B tầng 2 đã được chuyển sang trạng thái bảo trì.",
+        createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+        read: false,
+        href: "/owner/layout/2d",
+    },
+    {
+        id: "ntf-5",
+        category: "reports",
+        title: "Báo cáo doanh thu hoàn tất",
+        body: "Báo cáo tổng kết tuần vừa qua đã sẵn sàng để xuất file Excel.",
+        createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+        read: false,
+        href: "/owner/reports",
+    },
+    {
+        id: "ntf-6",
+        category: "system",
+        title: "Thông báo hệ thống",
+        body: "Hệ thống camera AI bảo trì định kỳ lúc 02:00 sáng mai.",
+        createdAt: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
+        read: true,
+        href: "/owner/dashboard",
+    },
+];

@@ -9,7 +9,7 @@ const manrope = Manrope({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
     title: "Forgot Password | ParkWise",
-    description: "Request a ParkWise password reset link.",
+    description: "Request a ParkWise password reset code.",
     icons: { icon: "/images/parkwise/logo.png" },
 };
 

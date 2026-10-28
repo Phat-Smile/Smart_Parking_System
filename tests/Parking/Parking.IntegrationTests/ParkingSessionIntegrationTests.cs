@@ -7,6 +7,7 @@ using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
+using ParkingSystem.Parking.Application.ParkingSessions.ReissueParkingSessionQr;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Persistence;
@@ -108,6 +109,53 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
         Assert.True(await SaveNewSessionAsync(serviceProvider, lotId, cancellationToken));
     }
 
+    // US-STAFF-004: staff find the session by plate, then the reissued QR replaces the old one in the database (BR-11.d).
+    [Fact]
+    public async Task Reissued_qr_is_saved_with_its_audit_entry_and_the_old_qr_stops_working()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var lotId = await CreateApprovedLotAsync(serviceProvider, cancellationToken);
+        await AssignStaffAsync(serviceProvider, lotId, cancellationToken);
+        Assert.True(await SaveNewSessionAsync(serviceProvider, lotId, cancellationToken));
+
+        ParkingSession found;
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+            found = (await sessions.FindOpenByPlateAsync(lotId, Plate, cancellationToken))!;
+            Assert.NotNull(found);
+            Assert.Null(await sessions.FindOpenByPlateAsync(lotId, "99Z-999.99", cancellationToken));
+        }
+
+        string newQrToken;
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var handler = new ReissueParkingSessionQrCommandHandler(
+                scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>(),
+                scope.ServiceProvider.GetRequiredService<IParkingLotAccess>(),
+                scope.ServiceProvider.GetRequiredService<IAuditLog>(),
+                scope.ServiceProvider.GetRequiredService<IClock>());
+
+            var result = await handler.Handle(new ReissueParkingSessionQrCommand(found.Id, "Customer lost the QR", StaffId), cancellationToken);
+
+            Assert.True(result.IsSuccess);
+            newQrToken = result.Value!.QrToken;
+        }
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+            Assert.Null(await sessions.FindOpenByQrTokenAsync(found.QrToken, cancellationToken));
+            Assert.Equal(found.Id, (await sessions.FindOpenByQrTokenAsync(newQrToken, cancellationToken))!.Id);
+
+            var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            var entry = await dbContext.AuditLogEntries.AsNoTracking().SingleAsync(entry => entry.TargetId == found.Id.ToString(), cancellationToken);
+            Assert.Equal(AuditActions.SessionQrReissued, entry.Action);
+            Assert.Equal("Customer lost the QR", entry.Reason);
+        }
+    }
+
     private async Task<ServiceProvider> CreateMigratedServiceProviderAsync(CancellationToken cancellationToken)
     {
         var services = new ServiceCollection();
@@ -117,6 +165,38 @@ public sealed class ParkingSessionIntegrationTests(PostgreSqlContainerFixture po
         await using var scope = serviceProvider.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().Database.MigrateAsync(cancellationToken);
         return serviceProvider;
+    }
+
+    [Fact]
+    public async Task Qr_and_user_queries_return_only_open_sessions()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var userId = Guid.NewGuid();
+        var lotId = await CreateApprovedLotAsync(serviceProvider, cancellationToken);
+        var open = ParkingSession.Open(Guid.NewGuid(), lotId, "29A-111.11", VehicleType.Car, DateTimeOffset.UtcNow, "qr-open-" + Guid.NewGuid().ToString("N")[..8], userId, Guid.NewGuid());
+        var closed = ParkingSession.Open(Guid.NewGuid(), lotId, "29A-222.22", VehicleType.Car, DateTimeOffset.UtcNow.AddMinutes(-5), "qr-closed-" + Guid.NewGuid().ToString("N")[..8], userId, Guid.NewGuid());
+        closed.Cancel(StaffId, "Vehicle did not enter", DateTimeOffset.UtcNow);
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+            sessions.Add(open);
+            sessions.Add(closed);
+            Assert.True(await sessions.TrySaveChangesAsync(cancellationToken));
+        }
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var sessions = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+
+            var mine = await sessions.ListOpenByUserAsync(userId, cancellationToken);
+            Assert.Equal(open.Id, Assert.Single(mine).Id);
+
+            Assert.Equal(open.Id, (await sessions.FindOpenByQrTokenAsync(open.QrToken, cancellationToken))!.Id);
+            // BR-11.e: the QR of a closed session is no longer valid.
+            Assert.Null(await sessions.FindOpenByQrTokenAsync(closed.QrToken, cancellationToken));
+        }
     }
 
     [Fact]

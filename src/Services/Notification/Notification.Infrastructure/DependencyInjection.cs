@@ -62,12 +62,16 @@ public static class DependencyInjection
         }
         services.AddIdempotentConsumer<UserVerificationOtpIssuedConsumer>("notification.user-verification-otp-issued.v1");
         services.AddIdempotentConsumer<PasswordResetOtpIssuedConsumer>("notification.password-reset-otp-issued.v1");
+        services.AddIdempotentConsumer<OwnerApplicationApprovedConsumer>("notification.owner-application-approved.v1");
+        services.AddIdempotentConsumer<OwnerApplicationRejectedConsumer>("notification.owner-application-rejected.v1");
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>
         {
             bus.AddConsumer<UserVerificationOtpIssuedConsumer>();
             bus.AddConsumer<PasswordResetOtpIssuedConsumer>();
+            bus.AddConsumer<OwnerApplicationApprovedConsumer>();
+            bus.AddConsumer<OwnerApplicationRejectedConsumer>();
             configureConsumers?.Invoke(bus);
             bus.UsingRabbitMq((context, rabbit) =>
             {

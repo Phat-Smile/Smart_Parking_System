@@ -3,12 +3,16 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Mapbox;
+using ParkingSystem.Parking.Infrastructure.Mapbox;
 using ParkingSystem.Parking.Infrastructure;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
 using ParkingSystem.Parking.WebAPI.OpenApi;
 using ParkingSystem.Parking.WebAPI.Grpc;
 using ParkingSystem.Parking.WebAPI.Security;
+using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.WebAPI.Geocoding;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
@@ -16,8 +20,28 @@ builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("parking-api");
 builder.Services.AddParkingAuthorization();
 builder.Services.AddApplicationServices();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<NominatimRequestGate>();
+builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
+{
+    var endpoint = builder.Configuration["Nominatim:BaseUrl"]
+        ?? "https://nominatim.openstreetmap.org/";
+    client.BaseAddress = new Uri(
+        endpoint.EndsWith('/') ? endpoint : endpoint + "/");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        builder.Configuration["Nominatim:UserAgent"]
+        ?? "ParkWise-OJT/1.0 (+https://github.com/Phat-Smile/Smart_Parking_System)");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
+// Mapbox client is opt-in: no token is required until a provider method is invoked.
+// A singleton raw HttpClient avoids HttpClientFactory URL logging of the query-string token.
+builder.Services.AddSingleton<IMapboxGeoRouting>(_ => new MapboxGeoRoutingClient(
+    new HttpClient { Timeout = TimeSpan.FromSeconds(6), MaxResponseContentBufferSize = 1024 * 1024 },
+    builder.Configuration["Mapbox:AccessToken"] ?? string.Empty));
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ParkingDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>
@@ -32,7 +56,7 @@ builder.Services.AddParkingSwagger();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
-app.UseParkingSystemAuthentication();
+app.UseParkingSystemServiceSecurity();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -53,7 +77,14 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
+app.MapParkingLotAddressSearchEndpoints();
+app.MapParkingLotOpeningHoursEndpoints();
+app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();
+app.MapStaffLotEndpoints();
+app.MapPricingEndpoints();
+app.MapDepositPolicyEndpoints();
+app.MapParkingLayoutOwnerEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)

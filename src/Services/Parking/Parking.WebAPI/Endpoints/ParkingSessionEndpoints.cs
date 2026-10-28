@@ -3,9 +3,16 @@ using System.ComponentModel.DataAnnotations;
 using MediatR;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
+using ParkingSystem.Parking.Application.ParkingSessions.FindOpenParkingSessionByPlate;
+using ParkingSystem.Parking.Application.ParkingSessions.FindParkingSessionByQr;
+using ParkingSystem.Parking.Application.ParkingSessions.GetParkingSession;
+using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
+using ParkingSystem.Parking.Application.ParkingSessions.ReissueParkingSessionQr;
+using ParkingSystem.Parking.Application.ParkingSessions.VerifyParkingSessionExit;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.WebAPI.Security;
 
@@ -27,6 +34,10 @@ internal static class ParkingSessionEndpoints
     public sealed record CancelParkingSessionRequest(
         [property: Required, StringLength(ParkingSession.CancelReasonMaxLength, MinimumLength = 1)] string? Reason);
 
+    // US-STAFF-004: the reason of a QR reissue or a manual exit check goes to the audit log (NFR-16).
+    public sealed record StaffActionReasonRequest(
+        [property: Required, StringLength(ParkingSession.StaffActionReasonMaxLength, MinimumLength = 1)] string? Reason);
+
     public static IEndpointRouteBuilder MapParkingSessionEndpoints(this IEndpointRouteBuilder app)
     {
         // US-PARK-003. Staff or gate only; 401 without a token, 403 without the Staff role or for a lot the caller is not assigned to.
@@ -46,7 +57,7 @@ internal static class ParkingSessionEndpoints
                     new OpenParkingSessionCommand(request.LotId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty, actorUserId),
                     cancellationToken);
 
-                // Location points to GET /{id}, which is not built yet (lead decision 2026-10-08, DOC-006).
+                // Location points to GET /{sessionId} (lead task S2 2026-10-27; replaces DOC-006).
                 if (result.IsSuccess)
                     return Results.Created($"{Route}/{result.Value!.SessionId}", result.Value);
 
@@ -99,6 +110,189 @@ internal static class ParkingSessionEndpoints
             .WithName("CancelParkingSession")
             .WithSummary("Cancel a parking session when the vehicle did not enter")
             .Produces<CancelledParkingSession>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        // US-PARK-009. A signed-in customer sees the QR of their own open sessions (BR-05.f).
+        app.MapGet($"{Route}/me", async (ICurrentUser currentUser, ISender sender, CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var userId))
+                    return Results.Forbid();
+
+                return Results.Ok(await sender.Send(new ListMyParkingSessionsQuery(userId), cancellationToken));
+            })
+            .RequireAuthenticatedUser()
+            .WithName("ListMyParkingSessions")
+            .WithSummary("List my open parking sessions with their QR")
+            .Produces<IReadOnlyList<MyParkingSession>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // US-PARK-009. Staff or the exit gate scan a session QR; unknown and expired QR codes both return 404 (BR-11.e).
+        app.MapGet($"{Route}/by-qr/{{qrToken}}", async (
+                string qrToken,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                // TECH-12: the caller must be assigned to the lot of the scanned session.
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new FindParkingSessionByQrQuery(qrToken, actorUserId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == ParkingLotAccessErrors.AccessDenied
+                    ? StatusCodes.Status403Forbidden
+                    : StatusCodes.Status404NotFound;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("FindParkingSessionByQr")
+            .WithSummary("Find the open parking session of a scanned QR")
+            .Produces<ParkingSessionByQr>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // Lead task S2. Any signed-in account may call; the handler allows the session's customer (with the QR) or staff
+        // assigned to its lot (without the QR). The guid constraint keeps /me and other named routes on their own.
+        app.MapGet($"{Route}/{{sessionId:guid}}", async (
+                Guid sessionId,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var callerId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new GetParkingSessionQuery(sessionId, callerId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == GetParkingSessionErrors.SessionNotFound
+                    ? StatusCodes.Status404NotFound
+                    : StatusCodes.Status403Forbidden;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthenticatedUser()
+            .WithName("GetParkingSession")
+            .WithSummary("Get one parking session (its customer or staff of its lot)")
+            .Produces<ParkingSessionDetail>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // US-STAFF-004. At the exit gate the QR is lost or does not match, so staff find the session by plate (BR-11.d).
+        app.MapGet($"{Route}/open", async (
+                [Required] Guid? lotId,
+                [Required] string? plateNumber,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(
+                    new FindOpenParkingSessionByPlateQuery(lotId ?? Guid.Empty, plateNumber ?? string.Empty, actorUserId),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == ParkingLotAccessErrors.AccessDenied
+                    ? StatusCodes.Status403Forbidden
+                    : StatusCodes.Status404NotFound;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("FindOpenParkingSessionByPlate")
+            .WithSummary("Find the open parking session of a plate in a lot")
+            .Produces<OpenParkingSessionByPlate>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // US-STAFF-004. The customer lost the QR: the old QR stops working and a new one is returned (BR-11.d).
+        app.MapPost($"{Route}/{{sessionId:guid}}/reissue-qr", async (
+                Guid sessionId,
+                StaffActionReasonRequest request,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(
+                    new ReissueParkingSessionQrCommand(sessionId, request.Reason ?? string.Empty, actorUserId),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == ReissueParkingSessionQrErrors.SessionNotFound
+                    ? StatusCodes.Status404NotFound
+                    : result.Error == ParkingLotAccessErrors.AccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : StatusCodes.Status409Conflict;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("ReissueParkingSessionQr")
+            .WithSummary("Reissue the QR of an Active parking session")
+            .Produces<ReissuedParkingSessionQr>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        // US-STAFF-004. Staff checked the vehicle in person at the exit gate; canExit still requires full payment (BR-11.c).
+        app.MapPost($"{Route}/{{sessionId:guid}}/manual-verify", async (
+                Guid sessionId,
+                StaffActionReasonRequest request,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(
+                    new VerifyParkingSessionExitCommand(sessionId, request.Reason ?? string.Empty, actorUserId),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == VerifyParkingSessionExitErrors.SessionNotFound
+                    ? StatusCodes.Status404NotFound
+                    : result.Error == ParkingLotAccessErrors.AccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : StatusCodes.Status409Conflict;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("VerifyParkingSessionExit")
+            .WithSummary("Record a manual exit check and tell whether the vehicle may leave")
+            .Produces<VerifiedParkingSessionExit>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
