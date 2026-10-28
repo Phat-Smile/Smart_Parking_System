@@ -134,10 +134,73 @@ export function LanguageSwitcher({
     variant = "sidebar",
     className = "",
 }: {
-    variant?: "sidebar" | "floating" | "compact";
+    variant?: "sidebar" | "floating" | "compact" | "header";
     className?: string;
 }) {
     const { language, setLanguage } = useLanguage();
+
+    if (variant === "header") {
+        return (
+            <div
+                className={`language-switcher header ${className}`}
+                style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    background: "#ffffff",
+                    padding: "4px 6px",
+                    borderRadius: "10px",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                }}
+            >
+                <span
+                    style={{ fontSize: "14px", padding: "0 2px" }}
+                    aria-hidden="true"
+                >
+                    🌐
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setLanguage("vi")}
+                    style={{
+                        background:
+                            language === "vi" ? "#111827" : "transparent",
+                        color: language === "vi" ? "#ffffff" : "#4b5563",
+                        fontWeight: language === "vi" ? 700 : 500,
+                        border: "none",
+                        borderRadius: "7px",
+                        padding: "5px 10px",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                    }}
+                    title="Tiếng Việt"
+                >
+                    Tiếng Việt
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setLanguage("en")}
+                    style={{
+                        background:
+                            language === "en" ? "#111827" : "transparent",
+                        color: language === "en" ? "#ffffff" : "#4b5563",
+                        fontWeight: language === "en" ? 700 : 500,
+                        border: "none",
+                        borderRadius: "7px",
+                        padding: "5px 10px",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                    }}
+                    title="English"
+                >
+                    English
+                </button>
+            </div>
+        );
+    }
 
     if (variant === "compact") {
         return (

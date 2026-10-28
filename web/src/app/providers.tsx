@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { LanguageProvider } from "@/shared/i18n/LanguageContext";
 
 export function Providers({
     children,
@@ -17,7 +18,7 @@ export function Providers({
 
     return (
         <QueryClientProvider client={queryClient}>
-            {children}
+            <LanguageProvider>{children}</LanguageProvider>
         </QueryClientProvider>
     );
 }

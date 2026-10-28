@@ -81,11 +81,17 @@ export interface VerificationIssue {
     id: string;
     sessionId?: string;
     spot: string;
+    spotVi?: string;
+    spotEn?: string;
     plateNumber: string;
     problem: string;
+    problemVi?: string;
+    problemEn?: string;
     detectedPlate: string;
     confidence: number;
     currentState: string;
+    currentStateVi?: string;
+    currentStateEn?: string;
     createdAt: string;
     status: "Pending" | "Resolved";
 }

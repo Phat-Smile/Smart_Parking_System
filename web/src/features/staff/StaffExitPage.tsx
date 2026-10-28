@@ -410,61 +410,174 @@ export function StaffExitPage() {
 
                         {/* Checklist items */}
                         <div className="staff-checklist">
-                            <div className="staff-check-item">
-                                <span className="check-icon">
-                                    {qrValid ? "✅" : "❌"}
-                                </span>
+                            <div
+                                className={`staff-check-item ${
+                                    qrValid ? "passed" : "failed"
+                                }`}
+                            >
+                                <div className="check-icon-wrap">
+                                    <span className="check-icon">
+                                        {qrValid ? "✓" : "✕"}
+                                    </span>
+                                </div>
                                 <div className="check-meta">
-                                    <strong>{t("exitCheckQr")}</strong>
-                                    <span>
+                                    <div className="check-title">
+                                        {t("exitCheckQr")}
+                                    </div>
+                                    <div className="check-desc">
+                                        {qrValid ? (
+                                            <>
+                                                <span>
+                                                    {t("exitCheckQrScanned")}
+                                                </span>
+                                                <code className="staff-code-pill">
+                                                    {scannedSession?.qrToken}
+                                                </code>
+                                            </>
+                                        ) : (
+                                            <span>{t("exitCheckQrNone")}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="check-badge-wrap">
+                                    <span
+                                        className={`staff-check-badge ${
+                                            qrValid ? "badge-pass" : "badge-fail"
+                                        }`}
+                                    >
                                         {qrValid
-                                            ? `${t("exitCheckQrScanned")} ${scannedSession?.qrToken}`
-                                            : t("exitCheckQrNone")}
+                                            ? t("exitStatusPassed")
+                                            : t("exitStatusFailed")}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="staff-check-item">
-                                <span className="check-icon">
-                                    {plateMatch ? "✅" : "❌"}
-                                </span>
+                            <div
+                                className={`staff-check-item ${
+                                    plateMatch ? "passed" : "failed"
+                                }`}
+                            >
+                                <div className="check-icon-wrap">
+                                    <span className="check-icon">
+                                        {plateMatch ? "✓" : "✕"}
+                                    </span>
+                                </div>
                                 <div className="check-meta">
-                                    <strong>{t("exitCheckPlate")}</strong>
-                                    <span>
-                                        {t("exitCheckPlateCam")}{" "}
-                                        <code>{detectedExitPlate || "—"}</code>{" "}
-                                        vs {t("exitCheckPlateSession")}{" "}
-                                        <code>
+                                    <div className="check-title">
+                                        {t("exitCheckPlate")}
+                                    </div>
+                                    <div className="check-desc">
+                                        <span>{t("exitCheckPlateCam")}</span>{" "}
+                                        <code className="staff-code-pill">
+                                            {detectedExitPlate || "—"}
+                                        </code>{" "}
+                                        <span className="check-desc-sep">
+                                            vs
+                                        </span>{" "}
+                                        <span>
+                                            {t("exitCheckPlateSession")}
+                                        </span>{" "}
+                                        <code className="staff-code-pill">
                                             {scannedSession?.plateNumber || "—"}
                                         </code>
+                                    </div>
+                                </div>
+                                <div className="check-badge-wrap">
+                                    <span
+                                        className={`staff-check-badge ${
+                                            plateMatch
+                                                ? "badge-pass"
+                                                : "badge-fail"
+                                        }`}
+                                    >
+                                        {plateMatch
+                                            ? t("exitStatusPassed")
+                                            : t("exitStatusFailed")}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="staff-check-item">
-                                <span className="check-icon">
-                                    {sessionActive ? "✅" : "❌"}
-                                </span>
+                            <div
+                                className={`staff-check-item ${
+                                    sessionActive ? "passed" : "failed"
+                                }`}
+                            >
+                                <div className="check-icon-wrap">
+                                    <span className="check-icon">
+                                        {sessionActive ? "✓" : "✕"}
+                                    </span>
+                                </div>
                                 <div className="check-meta">
-                                    <strong>{t("exitCheckSession")}</strong>
-                                    <span>
+                                    <div className="check-title">
+                                        {t("exitCheckSession")}
+                                    </div>
+                                    <div className="check-desc">
+                                        <span>
+                                            {sessionActive
+                                                ? t("exitCheckSessionActive")
+                                                : t("exitCheckSessionClosed")}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="check-badge-wrap">
+                                    <span
+                                        className={`staff-check-badge ${
+                                            sessionActive
+                                                ? "badge-pass"
+                                                : "badge-fail"
+                                        }`}
+                                    >
                                         {sessionActive
-                                            ? t("exitCheckSessionActive")
-                                            : t("exitCheckSessionClosed")}
+                                            ? t("exitStatusPassed")
+                                            : t("exitStatusFailed")}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="staff-check-item">
-                                <span className="check-icon">
-                                    {paymentCompleted ? "✅" : "⚠️"}
-                                </span>
+                            <div
+                                className={`staff-check-item ${
+                                    paymentCompleted ? "passed" : "warning"
+                                }`}
+                            >
+                                <div className="check-icon-wrap">
+                                    <span className="check-icon">
+                                        {paymentCompleted ? "✓" : "!"}
+                                    </span>
+                                </div>
                                 <div className="check-meta">
-                                    <strong>{t("exitCheckPayment")}</strong>
-                                    <span>
+                                    <div className="check-title">
+                                        {t("exitCheckPayment")}
+                                    </div>
+                                    <div className="check-desc">
+                                        {paymentCompleted ? (
+                                            <span>
+                                                {t("exitCheckPaymentSettled")}
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <span>
+                                                    {t(
+                                                        "exitCheckPaymentPending",
+                                                    )}
+                                                </span>
+                                                <span className="check-due-amount">
+                                                    {formatVnd(amountDue)}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="check-badge-wrap">
+                                    <span
+                                        className={`staff-check-badge ${
+                                            paymentCompleted
+                                                ? "badge-pass"
+                                                : "badge-warn"
+                                        }`}
+                                    >
                                         {paymentCompleted
-                                            ? t("exitCheckPaymentSettled")
-                                            : `${t("exitCheckPaymentPending")} ${formatVnd(amountDue)}`}
+                                            ? t("exitStatusPassed")
+                                            : t("exitStatusWarning")}
                                     </span>
                                 </div>
                             </div>

@@ -32,6 +32,13 @@ export const DEFAULT_STAFF_LOT_ID = "10000000-0000-0000-0000-000000000002";
  * Lấy danh sách các bãi đỗ mà nhân viên được phân công trực (D04.2 / #129)
  * Endpoint: GET /api/parking/staff/lots
  */
+function sanitizeLotName(name: string): string {
+    return name
+        .replace(/\s*\(Demo[^)]*\)/gi, "")
+        .replace(/Ngoài trời\s*/gi, "")
+        .trim();
+}
+
 export async function getStaffLots(): Promise<StaffLotItem[]> {
     try {
         const res = await gatewayFetch<StaffLotItem[] | AssignedLotResponse>(
@@ -41,7 +48,7 @@ export async function getStaffLots(): Promise<StaffLotItem[]> {
         if (Array.isArray(res) && res.length > 0) {
             return res.map((item) => ({
                 id: (item as unknown as { id?: string; lotId?: string }).id || (item as unknown as { lotId?: string }).lotId || "",
-                name: (item as unknown as { name?: string; lotName?: string }).name || (item as unknown as { lotName?: string }).lotName || "",
+                name: sanitizeLotName((item as unknown as { name?: string; lotName?: string }).name || (item as unknown as { lotName?: string }).lotName || ""),
                 address: item.address || "",
                 type: (item as unknown as { type?: string }).type || "Outdoor",
             }));
@@ -52,13 +59,13 @@ export async function getStaffLots(): Promise<StaffLotItem[]> {
     return [
         {
             id: "10000000-0000-0000-0000-000000000002",
-            name: "Bãi đỗ Ngoài trời B (Demo Lot 2)",
+            name: "Bãi đỗ xe B",
             address: "02 Đường Mẫu, TP. Hồ Chí Minh",
             type: "Outdoor",
         },
         {
             id: "10000000-0000-0000-0000-000000000001",
-            name: "Vincom Central Tower (Lot 1)",
+            name: "Vincom Central Tower",
             address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
             type: "Indoor",
         },
@@ -76,7 +83,7 @@ export async function getAssignedLot(): Promise<AssignedLotResponse> {
         if (chosen) {
             return {
                 lotId: chosen.id,
-                lotName: chosen.name,
+                lotName: sanitizeLotName(chosen.name),
                 address: chosen.address,
                 availableMotorbikeSlots: 20,
                 availableCarSlots: 50,
@@ -90,7 +97,7 @@ export async function getAssignedLot(): Promise<AssignedLotResponse> {
 
     return {
         lotId: DEFAULT_STAFF_LOT_ID,
-        lotName: "Bãi đỗ Ngoài trời B (Demo Lot 2)",
+        lotName: "Bãi đỗ xe B",
         address: "02 Đường Mẫu, TP. Hồ Chí Minh",
         availableMotorbikeSlots: 20,
         availableCarSlots: 50,

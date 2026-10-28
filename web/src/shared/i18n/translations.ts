@@ -342,6 +342,9 @@ export interface TranslationDictionary {
     exitCheckPayment: string;
     exitCheckPaymentSettled: string;
     exitCheckPaymentPending: string;
+    exitStatusPassed: string;
+    exitStatusFailed: string;
+    exitStatusWarning: string;
     exitFeeTitle: string;
     exitTotalFee: string;
     exitPrepaidWallet: string;
@@ -748,6 +751,9 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitCheckPayment: "Thanh toán đầy đủ",
         exitCheckPaymentSettled: "Đã thanh toán đủ cước phí",
         exitCheckPaymentPending: "Cước phí còn nợ:",
+        exitStatusPassed: "Hợp lệ",
+        exitStatusFailed: "Chưa đạt",
+        exitStatusWarning: "Chờ thanh toán",
         exitFeeTitle: "Tính Tiền Cước Gửi Xe",
         exitTotalFee: "Tổng tiền cước gửi xe:",
         exitPrepaidWallet: "Đã trừ qua Ví App:",
@@ -1013,9 +1019,9 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         sessionsVehicle: "Vehicle",
         sessionsSpot: "Spot",
         sessionsEntryTime: "Entry Time",
-        sessionsStatus: "Session Status",
-        sessionsPaymentStatus: "Payment Status",
-        sessionsQr: "Session QR",
+        sessionsStatus: "Status",
+        sessionsPaymentStatus: "Payment",
+        sessionsQr: "QR Ticket",
         sessionsActions: "Actions",
         sessionsEmpty: "No parking sessions match your search.",
         sessionsGuest: "Guest",
@@ -1158,6 +1164,9 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitCheckPayment: "Payment Completed",
         exitCheckPaymentSettled: "Payment settled in full",
         exitCheckPaymentPending: "Outstanding amount:",
+        exitStatusPassed: "Passed",
+        exitStatusFailed: "Unmet",
+        exitStatusWarning: "Pending",
         exitFeeTitle: "Parking Fee Calculation",
         exitTotalFee: "Total Parking Fee:",
         exitPrepaidWallet: "Prepaid via App Wallet:",

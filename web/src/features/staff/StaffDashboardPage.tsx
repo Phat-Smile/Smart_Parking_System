@@ -31,25 +31,8 @@ export function StaffDashboardPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">
-                        {t("dashTitle")} — {assignedLot.lotName}
-                    </h1>
+                    <h1 className="staff-title">{t("dashTitle")}</h1>
                     <p className="staff-subtitle">{t("dashSubtitle")}</p>
-                </div>
-
-                <div className="staff-header-actions">
-                    <Link
-                        href="/staff/entry"
-                        className="staff-btn staff-btn-primary"
-                    >
-                        {t("dashProcessEntry")}
-                    </Link>
-                    <Link
-                        href="/staff/exit"
-                        className="staff-btn staff-btn-secondary"
-                    >
-                        {t("dashProcessExit")}
-                    </Link>
                 </div>
             </header>
 

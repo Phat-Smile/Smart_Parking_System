@@ -180,13 +180,15 @@ export function StaffSessionsPage() {
                                         <StatusPill status={s.status} />
                                     </td>
                                     <td>
-                                        <StatusPill status={s.paymentStatus} />
-                                        {s.amountDueVnd > 0 && (
-                                            <small className="staff-due-badge">
-                                                {t("sessionsDue")}:{" "}
-                                                {formatVnd(s.amountDueVnd)}
-                                            </small>
-                                        )}
+                                        <div className="staff-payment-cell">
+                                            <StatusPill status={s.paymentStatus} />
+                                            {s.amountDueVnd > 0 && (
+                                                <small className="staff-due-badge">
+                                                    {t("sessionsDue")}:{" "}
+                                                    {formatVnd(s.amountDueVnd)}
+                                                </small>
+                                            )}
+                                        </div>
                                     </td>
                                     <td>
                                         <button

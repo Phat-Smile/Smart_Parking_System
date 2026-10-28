@@ -243,7 +243,7 @@ export function StaffEntryPage() {
                             <label htmlFor="staff-edit-plate">
                                 {t("entryPlateLabel")}
                             </label>
-                            <div className="staff-input-group">
+                            <div className="staff-plate-edit-wrap">
                                 <input
                                     id="staff-edit-plate"
                                     type="text"
@@ -273,8 +273,11 @@ export function StaffEntryPage() {
 
                         <div className="staff-form-row">
                             <div className="staff-form-group">
-                                <label>{t("entryVehicleTypeLabel")}</label>
+                                <label htmlFor="staff-vehicle-type">
+                                    {t("entryVehicleTypeLabel")}
+                                </label>
                                 <select
+                                    id="staff-vehicle-type"
                                     className="staff-select"
                                     value={vehicleType}
                                     onChange={(e) =>
@@ -291,8 +294,11 @@ export function StaffEntryPage() {
                             </div>
 
                             <div className="staff-form-group">
-                                <label>{t("entryCustCategoryLabel")}</label>
+                                <label htmlFor="staff-cust-category">
+                                    {t("entryCustCategoryLabel")}
+                                </label>
                                 <select
+                                    id="staff-cust-category"
                                     className="staff-select"
                                     value={entryType}
                                     onChange={(e) =>

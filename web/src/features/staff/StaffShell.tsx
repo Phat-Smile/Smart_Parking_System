@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStaffData } from "./staffData";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
+import { StaffNotifications } from "./StaffNotifications";
 
 export function StaffShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -75,8 +76,8 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         <Image
                             src="/images/parkwise/logo.png"
                             alt="ParkWise"
-                            width={112}
-                            height={36}
+                            width={707}
+                            height={353}
                             className="staff-brand-img"
                             priority
                         />
@@ -138,11 +139,6 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 </nav>
 
                 <div className="staff-sidebar-footer">
-                    {/* Language Switcher in Staff Sidebar (Góc trái) */}
-                    <div style={{ marginBottom: "12px" }}>
-                        <LanguageSwitcher variant="sidebar" />
-                    </div>
-
                     <div className="staff-operator-card">
                         <div className="staff-operator-avatar">👤</div>
                         <div className="staff-operator-info">
@@ -233,6 +229,9 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                 02
                             </span>
                         </div>
+
+                        <StaffNotifications />
+                        <LanguageSwitcher variant="header" />
                     </div>
                 </header>
 
