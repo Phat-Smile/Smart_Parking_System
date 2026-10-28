@@ -931,3 +931,55 @@ th {
     padding: 4px 8px !important;
     color: #6a7491 !important;
 }
+
+/* ==========================================================================
+   OV2 EXTENSIONS (Sections A, B, C, D, E)
+   ========================================================================== */
+
+.ov2-header-mobile-bell {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .ov2-header-mobile-bell {
+        display: flex;
+        align-items: center;
+    }
+}
+
+.ov2-user-active {
+    background: var(--pw-lime-soft, rgba(227, 242, 141, 0.15)) !important;
+    border-radius: 12px;
+    outline: 2px solid var(--pw-lime, #e3f28d);
+}
+
+.ov2-header-search-box:focus-within {
+    border-color: #2563eb !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+@keyframes ov2SlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ov2-notif-list::-webkit-scrollbar {
+    width: 6px;
+}
+.ov2-notif-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.ov2-notif-list::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 999px;
+}
+.ov2-notif-list::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
