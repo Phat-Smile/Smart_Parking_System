@@ -9,6 +9,7 @@ using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Infrastructure.Gateways;
 using ParkingSystem.Contracts.Events.Payment;
+using ParkingSystem.Payment.Infrastructure.Adapters.Parking;
 
 namespace ParkingSystem.Payment.Infrastructure;
 
@@ -64,6 +65,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IPaymentGateway, VnpayPaymentGateway>();
+        services.AddScoped<IParkingSessionGateway, StubParkingSessionGateway>();
         return services;
     }
 }
