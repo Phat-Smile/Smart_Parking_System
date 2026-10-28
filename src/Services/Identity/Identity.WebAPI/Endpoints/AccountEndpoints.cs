@@ -262,7 +262,8 @@ internal static class AccountEndpoints
         [GoogleLoginErrors.GoogleLoginUnavailable.Code] = StatusCodes.Status503ServiceUnavailable,
         [ChangePasswordErrors.InvalidCurrentPassword.Code] = StatusCodes.Status400BadRequest,
         [UnlockAccountErrors.AccountNotFound.Code] = StatusCodes.Status404NotFound,
-        [ChangeAccountRoleErrors.CannotChangeOwnRole.Code] = StatusCodes.Status403Forbidden
+        [ChangeAccountRoleErrors.CannotChangeOwnRole.Code] = StatusCodes.Status403Forbidden,
+        [ChangeAccountRoleErrors.OwnerRoleRequiresApplication.Code] = StatusCodes.Status409Conflict
     };
 
     // 423 and 429 errors carry the seconds to wait; clients read them from the standard header.
@@ -664,7 +665,8 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
 
         // US-PROFILE-001: Get current user's account and profile data.
         app.MapGet("/api/identity/accounts/me", async (
