@@ -22,19 +22,18 @@ describe("staffApi integration", () => {
     });
 
     describe("getAssignedLot", () => {
-        it("sends GET to /api/parking/staff/assigned-lot", async () => {
-            const mockLot = {
-                lotId: "22222222-2222-2222-2222-222222222222",
-                lotName: "Bitexco Financial Tower Parking",
-                address: "2 Hải Triều, Bến Nghé, Quận 1",
-                availableMotorbikeSlots: 45,
-                availableCarSlots: 80,
-                totalCapacity: 200,
-                occupiedSlots: 75,
-            };
+        it("sends GET to /api/parking/staff/lots", async () => {
+            const mockLots = [
+                {
+                    id: "22222222-2222-2222-2222-222222222222",
+                    name: "Bitexco Financial Tower Parking",
+                    address: "2 Hải Triều, Bến Nghé, Quận 1",
+                    type: "Outdoor",
+                },
+            ];
 
             const fetchMock = vi.fn().mockResolvedValue(
-                new Response(JSON.stringify(mockLot), {
+                new Response(JSON.stringify(mockLots), {
                     status: 200,
                     headers: { "Content-Type": "application/json" },
                 }),
@@ -42,12 +41,13 @@ describe("staffApi integration", () => {
             vi.stubGlobal("fetch", fetchMock);
 
             const result = await getAssignedLot();
-            expect(result).toEqual(mockLot);
+            expect(result.lotId).toBe("22222222-2222-2222-2222-222222222222");
+            expect(result.lotName).toBe("Bitexco Financial Tower Parking");
             expect(fetchMock).toHaveBeenCalledTimes(1);
 
             const [url, init] = fetchMock.mock.calls[0];
             expect(String(url)).toBe(
-                "http://localhost:5000/api/parking/staff/assigned-lot",
+                "http://localhost:5000/api/parking/staff/lots",
             );
             expect(init?.method).toBe("GET");
         });

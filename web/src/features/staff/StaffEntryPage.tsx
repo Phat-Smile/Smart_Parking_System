@@ -167,19 +167,28 @@ export function StaffEntryPage() {
                     type="button"
                     className="staff-preset-chip"
                     onClick={() =>
-                        loadPreset("51F-994.28", "Car", "Registered", 0.97)
+                        loadPreset("59X1-234.56", "Motorbike", "Registered", 0.99)
                     }
                 >
-                    {t("entryPresetRegCar")}
+                    🛵 {t("staffMotorbike")}: 59X1-234.56 (Demo A)
                 </button>
                 <button
                     type="button"
                     className="staff-preset-chip"
                     onClick={() =>
-                        loadPreset("59T2-771.04", "Motorbike", "Guest", 0.99)
+                        loadPreset("51A-123.45", "Car", "Registered", 0.98)
                     }
                 >
-                    {t("entryPresetGuestBike")}
+                    🚗 {t("staffCar")}: 51A-123.45 (Demo A)
+                </button>
+                <button
+                    type="button"
+                    className="staff-preset-chip"
+                    onClick={() =>
+                        loadPreset("51F-994.28", "Car", "Registered", 0.97)
+                    }
+                >
+                    {t("entryPresetRegCar")}
                 </button>
                 <button
                     type="button"

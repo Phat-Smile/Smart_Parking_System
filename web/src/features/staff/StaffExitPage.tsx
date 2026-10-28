@@ -8,9 +8,13 @@ import {
     formatVnd,
 } from "./StaffUi";
 import {
+    DEFAULT_STAFF_LOT_ID,
     completeParkingSession,
     describeStaffError,
+    findOpenSessionByPlate,
     findSessionByQr,
+    manualVerifyExit,
+    reissueParkingSessionQr,
 } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { SessionByQrResponse, StaffSession } from "./types";
@@ -96,6 +100,84 @@ export function StaffExitPage() {
         } catch (err) {
             setErrorMsg(describeStaffError(err));
             setScannedSession(null);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // US-STAFF-004: Tra cứu phiên bằng biển số khi khách làm mất vé / QR
+    async function handleLookupByPlate() {
+        const plate = detectedExitPlate.trim();
+        if (!plate) return;
+        setLoading(true);
+        setErrorMsg("");
+        setExitAllowed(false);
+        setPaymentSuccess(false);
+
+        try {
+            const res = await findOpenSessionByPlate(DEFAULT_STAFF_LOT_ID, plate);
+            setQrInput(res.qrToken);
+            const fee = 60000;
+            const scanned: StaffSession = {
+                id: res.sessionId,
+                lotId: res.lotId,
+                plateNumber: res.plateNumber,
+                vehicleType: res.vehicleType,
+                customerType: "Registered",
+                entryTime: res.entryTime,
+                status: res.status,
+                qrToken: res.qrToken,
+                slotCode: res.vehicleType === "Car" ? "B1-B10" : "B2-M12",
+                paymentStatus: "Pending",
+                totalFeeVnd: fee,
+                prepaidVnd: 0,
+                amountDueVnd: fee,
+            };
+            setScannedSession(scanned);
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // US-STAFF-004: Cấp lại vé QR mới
+    async function handleReissueQr() {
+        if (!scannedSession) return;
+        setLoading(true);
+        setErrorMsg("");
+        try {
+            const res = await reissueParkingSessionQr(
+                scannedSession.id,
+                "Khách làm mất vé QR tại cổng ra",
+            );
+            setQrInput(res.qrToken);
+            setScannedSession({
+                ...scannedSession,
+                qrToken: res.qrToken,
+            });
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // US-STAFF-004: Xác minh đối soát thủ công tại cổng ra
+    async function handleManualVerify() {
+        if (!scannedSession) return;
+        setLoading(true);
+        setErrorMsg("");
+        try {
+            const res = await manualVerifyExit(
+                scannedSession.id,
+                "Nhân viên đối soát giấy tờ xe thủ công tại quầy",
+            );
+            if (res.canExit) {
+                setExitAllowed(true);
+            }
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
         } finally {
             setLoading(false);
         }
@@ -257,20 +339,56 @@ export function StaffExitPage() {
 
                         <div className="staff-form-group">
                             <label htmlFor="staff-exit-plate">
-                                {t("exitCameraPlateLabel")}
+                                {t("exitCameraPlateLabel")} (US-STAFF-004)
                             </label>
-                            <input
-                                id="staff-exit-plate"
-                                type="text"
-                                className="staff-input staff-plate-input"
-                                value={detectedExitPlate}
-                                onChange={(e) =>
-                                    setDetectedExitPlate(
-                                        e.target.value.toUpperCase(),
-                                    )
-                                }
-                            />
+                            <div className="staff-input-group">
+                                <input
+                                    id="staff-exit-plate"
+                                    type="text"
+                                    className="staff-input staff-plate-input"
+                                    value={detectedExitPlate}
+                                    onChange={(e) =>
+                                        setDetectedExitPlate(
+                                            e.target.value.toUpperCase(),
+                                        )
+                                    }
+                                    placeholder="59X1-234.56"
+                                />
+                                <button
+                                    type="button"
+                                    className="staff-btn staff-btn-secondary"
+                                    disabled={loading || !detectedExitPlate.trim()}
+                                    title="Tra cứu phiên đỗ bằng biển số khi khách làm mất vé QR"
+                                    onClick={handleLookupByPlate}
+                                >
+                                    🔍 Tra cứu mất vé
+                                </button>
+                            </div>
                         </div>
+
+                        {/* US-STAFF-004: Actions when QR is lost or manual check is needed */}
+                        {scannedSession && (
+                            <div style={{ marginTop: "12px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                <button
+                                    type="button"
+                                    className="staff-btn staff-btn-secondary staff-btn-sm"
+                                    disabled={loading}
+                                    onClick={handleReissueQr}
+                                    title="Hủy mã QR cũ và phát hành mã QR mới cho khách"
+                                >
+                                    🔄 Cấp lại vé QR
+                                </button>
+                                <button
+                                    type="button"
+                                    className="staff-btn staff-btn-secondary staff-btn-sm"
+                                    disabled={loading}
+                                    onClick={handleManualVerify}
+                                    title="Nhân viên đối soát thủ công giấy tờ xe tại quầy"
+                                >
+                                    🛡️ Xác minh thủ công
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 

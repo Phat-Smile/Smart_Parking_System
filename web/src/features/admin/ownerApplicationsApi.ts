@@ -217,6 +217,35 @@ export async function rejectOwnerApplication(
     );
 }
 
+export interface OwnerApplicationDocumentsResponse {
+    accountId: string;
+    status: string;
+    ownerType?: string;
+    isComplete: boolean;
+    missingDocumentTypes: string[];
+    documents: Array<{
+        id: string;
+        documentType: string;
+        originalFileName: string;
+        contentType: string;
+        sizeBytes: number;
+        uploadedAtUtc: string;
+    }>;
+}
+
+/**
+ * Lấy danh sách giấy tờ và kết quả đối chiếu checklist của hồ sơ chủ bãi (PR #121)
+ * Endpoint: GET /api/identity/admin/owner-applications/{id}/documents
+ */
+export async function getOwnerApplicationDocuments(
+    accountId: string,
+): Promise<OwnerApplicationDocumentsResponse> {
+    return await gatewayFetch<OwnerApplicationDocumentsResponse>(
+        `/api/identity/admin/owner-applications/${encodeURIComponent(accountId)}/documents`,
+        { method: "GET" },
+    );
+}
+
 export function describeOwnerAppError(
     error: unknown,
     language: string = "vi",

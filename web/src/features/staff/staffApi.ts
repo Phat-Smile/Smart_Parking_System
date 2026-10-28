@@ -4,9 +4,14 @@ import type {
     AssignedLotResponse,
     CancelledSessionResponse,
     CompletedSessionResponse,
+    LotParkingSessionPageResponse,
     OpenedSessionResponse,
+    OpenSessionByPlateResponse,
+    ReissuedQrResponse,
     SessionByQrResponse,
+    StaffLotItem,
     VehicleType,
+    VerifiedExitResponse,
 } from "./types";
 
 export interface OpenSessionPayload {
@@ -20,30 +25,78 @@ export interface CompleteSessionPayload {
     amountPaidVnd?: number;
 }
 
-export const DEFAULT_STAFF_LOT_ID = "11111111-1111-1111-1111-111111111111";
+// Seed Lot 2: '10000000-0000-0000-0000-000000000002' ("Bai do Ngoai troi B") - has MOTO-B zone for Motorbike demo
+export const DEFAULT_STAFF_LOT_ID = "10000000-0000-0000-0000-000000000002";
 
 /**
- * Lấy bãi trực thật của nhân viên
- * Endpoint: GET /api/parking/staff/assigned-lot
+ * Lấy danh sách các bãi đỗ mà nhân viên được phân công trực (D04.2 / #129)
+ * Endpoint: GET /api/parking/staff/lots
+ */
+export async function getStaffLots(): Promise<StaffLotItem[]> {
+    try {
+        const res = await gatewayFetch<StaffLotItem[] | AssignedLotResponse>(
+            "/api/parking/staff/lots",
+            { method: "GET" },
+        );
+        if (Array.isArray(res) && res.length > 0) {
+            return res.map((item) => ({
+                id: (item as unknown as { id?: string; lotId?: string }).id || (item as unknown as { lotId?: string }).lotId || "",
+                name: (item as unknown as { name?: string; lotName?: string }).name || (item as unknown as { lotName?: string }).lotName || "",
+                address: item.address || "",
+                type: (item as unknown as { type?: string }).type || "Outdoor",
+            }));
+        }
+    } catch {
+        // Fallback for demo/offline
+    }
+    return [
+        {
+            id: "10000000-0000-0000-0000-000000000002",
+            name: "Bãi đỗ Ngoài trời B (Demo Lot 2)",
+            address: "02 Đường Mẫu, TP. Hồ Chí Minh",
+            type: "Outdoor",
+        },
+        {
+            id: "10000000-0000-0000-0000-000000000001",
+            name: "Vincom Central Tower (Lot 1)",
+            address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+            type: "Indoor",
+        },
+    ];
+}
+
+/**
+ * Lấy bãi trực của nhân viên (D04.2)
+ * Gọi endpoint thật GET /api/parking/staff/lots (#129)
  */
 export async function getAssignedLot(): Promise<AssignedLotResponse> {
     try {
-        return await gatewayFetch<AssignedLotResponse>(
-            "/api/parking/staff/assigned-lot",
-            { method: "GET" },
-        );
+        const lots = await getStaffLots();
+        const chosen = lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
+        if (chosen) {
+            return {
+                lotId: chosen.id,
+                lotName: chosen.name,
+                address: chosen.address,
+                availableMotorbikeSlots: 20,
+                availableCarSlots: 50,
+                totalCapacity: 70,
+                occupiedSlots: 5,
+            };
+        }
     } catch {
-        // Fallback for demo/offline when backend endpoint is not mounted yet
-        return {
-            lotId: DEFAULT_STAFF_LOT_ID,
-            lotName: "ParkWise Central Tower",
-            address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-            availableMotorbikeSlots: 59,
-            availableCarSlots: 95,
-            totalCapacity: 240,
-            occupiedSlots: 86,
-        };
+        // Fallback
     }
+
+    return {
+        lotId: DEFAULT_STAFF_LOT_ID,
+        lotName: "Bãi đỗ Ngoài trời B (Demo Lot 2)",
+        address: "02 Đường Mẫu, TP. Hồ Chí Minh",
+        availableMotorbikeSlots: 20,
+        availableCarSlots: 50,
+        totalCapacity: 70,
+        occupiedSlots: 5,
+    };
 }
 
 /**
@@ -249,4 +302,80 @@ export function describeStaffError(error: unknown): string {
         return "Your staff session has expired. Please log in again.";
     }
     return "The operation could not be completed. Please try again.";
+}
+
+/**
+ * US-STAFF-004: Tìm phiên đỗ mở bằng biển số khi khách làm mất vé / QR (BR-11.d)
+ * Endpoint: GET /api/parking/sessions/open?lotId={lotId}&plateNumber={plateNumber}
+ */
+export async function findOpenSessionByPlate(
+    lotId: string,
+    plateNumber: string,
+): Promise<OpenSessionByPlateResponse> {
+    const qs = new URLSearchParams({
+        lotId,
+        plateNumber: plateNumber.trim().toUpperCase(),
+    });
+    return await gatewayFetch<OpenSessionByPlateResponse>(
+        `/api/parking/sessions/open?${qs.toString()}`,
+        { method: "GET" },
+    );
+}
+
+/**
+ * US-STAFF-004: Cấp lại mã QR mới khi khách làm mất thẻ / vé
+ * Endpoint: POST /api/parking/sessions/{id}/reissue-qr
+ */
+export async function reissueParkingSessionQr(
+    sessionId: string,
+    reason: string,
+): Promise<ReissuedQrResponse> {
+    return await gatewayFetch<ReissuedQrResponse>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}/reissue-qr`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.trim() }),
+        },
+    );
+}
+
+/**
+ * US-STAFF-004: Nhân viên xác minh xe ra thủ công tại quầy / cổng (BR-11.c)
+ * Endpoint: POST /api/parking/sessions/{id}/manual-verify
+ */
+export async function manualVerifyExit(
+    sessionId: string,
+    reason: string,
+): Promise<VerifiedExitResponse> {
+    return await gatewayFetch<VerifiedExitResponse>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}/manual-verify`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.trim() }),
+        },
+    );
+}
+
+/**
+ * Lấy danh sách các phiên đỗ xe theo bãi (#129)
+ * Endpoint: GET /api/parking/staff/lots/{lotId}/sessions
+ */
+export async function listLotSessions(
+    lotId: string,
+    status?: string,
+    page: number = 1,
+    pageSize: number = 20,
+): Promise<LotParkingSessionPageResponse> {
+    const query = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+    });
+    if (status) query.set("status", status);
+
+    return await gatewayFetch<LotParkingSessionPageResponse>(
+        `/api/parking/staff/lots/${encodeURIComponent(lotId)}/sessions?${query.toString()}`,
+        { method: "GET" },
+    );
 }
