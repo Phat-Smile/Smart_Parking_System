@@ -30,9 +30,11 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(account => account.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(32).HasDefaultValue(AccountRole.Customer).IsRequired();
         builder.Property(account => account.OwnerApplicationStatus).HasColumnName("owner_application_status").HasConversion<string>().HasMaxLength(32);
         builder.Property(account => account.OwnerTaxCode).HasColumnName("owner_tax_code").HasMaxLength(32);
+        // A tax code belongs to one application in force, that is Pending or Approved. A rejected application keeps the code
+        // in its record, to fill the form again, but does not hold it against other accounts.
         builder.HasIndex(account => account.OwnerTaxCode)
             .IsUnique()
-            .HasFilter("owner_tax_code IS NOT NULL")
+            .HasFilter("owner_tax_code IS NOT NULL AND owner_application_status IN ('Pending', 'Approved')")
             .HasDatabaseName(OwnerTaxCodeIndexName);
         builder.Property(account => account.OwnerBusinessName).HasColumnName("owner_business_name").HasMaxLength(200);
         builder.Property(account => account.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(30);
