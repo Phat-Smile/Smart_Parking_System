@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AdminIcon, StatusPill, formatDate } from "./AdminUi";
+import { StatusPill, formatDate } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
@@ -51,14 +51,6 @@ export function AdminDashboardPage() {
                     <p className="admin-eyebrow">{t("adminDashEyebrow")}</p>
                     <h1>{t("adminDashTitle")}</h1>
                 </div>
-                <Link
-                    href="/admin/parking-lots/pending"
-                    className="admin-btn admin-btn-dark"
-                    id="dashboard-review-queue"
-                >
-                    {t("adminDashReviewQueueBtn")}{" "}
-                    <AdminIcon name="arrow" size={16} />
-                </Link>
             </header>
 
             <section className="admin-stats" aria-label="Parking lot summary">
