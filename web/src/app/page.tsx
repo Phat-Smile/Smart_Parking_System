@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
 import { ParkWiseLanding } from "@/features/parkwise/ParkWiseLanding";
+import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
 import "./parkwise.css";
 import "./parkwise-motion.css";
-
-const manrope = Manrope({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
     title: "ParkWise | Find Convenient and Affordable Parking",
@@ -14,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-    return <ParkWiseLanding fontClassName={manrope.className} />;
+    return <ParkWiseLanding fontClassName={parkwiseFont.className} />;
 }

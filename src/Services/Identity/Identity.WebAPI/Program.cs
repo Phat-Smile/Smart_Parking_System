@@ -50,7 +50,7 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment() && VehicleLookupRegistration.IsStubConfigured(builder.Configuration))
     app.Logger.LogWarning("VehicleLookup uses the Stub provider outside Development: vehicle lookups return demo data.");
 app.UseParkingSystemWebFoundation();
-app.UseParkingSystemAuthentication();
+app.UseParkingSystemServiceSecurity();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -71,6 +71,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 app.MapAccountEndpoints();
+app.MapOwnerDocumentEndpoints();
 app.MapGrpcService<IdentityVehicleGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)

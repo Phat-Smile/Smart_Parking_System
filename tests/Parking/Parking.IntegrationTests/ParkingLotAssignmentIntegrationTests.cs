@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Auditing;
+using ParkingSystem.Parking.Application.Common.Interfaces;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.AssignLotMember;
 using ParkingSystem.Parking.Application.ParkingLots.RemoveLotMember;
@@ -87,6 +88,25 @@ public sealed class ParkingLotAssignmentIntegrationTests(PostgreSqlContainerFixt
         assignments.Add(ParkingLotAssignment.Create(Guid.NewGuid(), Guid.NewGuid(), ParkingLotMemberRole.Staff, AdminId, DateTimeOffset.UtcNow));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => assignments.SaveChangesAsync(cancellationToken));
+    }
+
+    [Fact]
+    public async Task Staff_assigned_to_lot_is_not_considered_lot_owner()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(cancellationToken);
+        var lot = await CreateLotAsync(provider, "Approved", cancellationToken);
+        var staffId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+
+        Assert.True((await AssignAsync(provider, lot, staffId, "Staff", cancellationToken)).IsSuccess);
+        Assert.True((await AssignAsync(provider, lot, ownerId, "Owner", cancellationToken)).IsSuccess);
+
+        await using var scope = provider.CreateAsyncScope();
+        var lotOwnershipService = scope.ServiceProvider.GetRequiredService<ILotOwnershipService>();
+
+        Assert.False(await lotOwnershipService.IsLotOwnerAsync(lot, staffId));
+        Assert.True(await lotOwnershipService.IsLotOwnerAsync(lot, ownerId));
     }
 
     private async Task<ServiceProvider> CreateProviderAsync(CancellationToken cancellationToken)

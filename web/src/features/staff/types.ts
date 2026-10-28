@@ -98,3 +98,47 @@ export interface OccupancyStats {
     activeSessionsCount: number;
     needsVerificationCount: number;
 }
+
+export interface StaffLotItem {
+    id: string;
+    name: string;
+    address: string;
+    type: string;
+}
+
+export interface ReissuedQrResponse {
+    sessionId: string;
+    qrToken: string;
+}
+
+export interface VerifiedExitResponse {
+    sessionId: string;
+    canExit: boolean;
+    reason?: string;
+}
+
+export interface OpenSessionByPlateResponse {
+    sessionId: string;
+    lotId: string;
+    plateNumber: string;
+    vehicleType: VehicleType;
+    entryTime: string;
+    status: SessionStatus;
+    qrToken: string;
+}
+
+export interface LotParkingSessionItem {
+    sessionId: string;
+    plateNumber: string;
+    vehicleType: string;
+    status: string;
+    entryTime: string;
+    slotCode: string | null;
+}
+
+export interface LotParkingSessionPageResponse {
+    items: LotParkingSessionItem[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+}

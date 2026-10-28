@@ -21,7 +21,125 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                 .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking", "cancel_reason", new[] { "customer_cancelled", "payment_failed", "no_show", "no_suitable_slot" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking", "prepaid_outcome", new[] { "applied", "refunded", "forfeited" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking", "reservation_status", new[] { "temporary_hold", "confirmed", "used", "cancelled", "expired" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking", "reservation_type", new[] { "hold_while_driving", "scheduled" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking", "vehicle_group", new[] { "car", "motorbike" });
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("ParkingSystem.Booking.Domain.Reservations.Reservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AppointmentTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("appointment_time");
+
+                    b.Property<int?>("CancelReason")
+                        .HasColumnType("booking.cancel_reason")
+                        .HasColumnName("cancel_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<bool>("IsNoShow")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_no_show");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<string>("PlateNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("plate_number");
+
+                    b.Property<decimal>("PrepaidAmount")
+                        .HasPrecision(12)
+                        .HasColumnType("numeric(12,0)")
+                        .HasColumnName("prepaid_amount");
+
+                    b.Property<int?>("PrepaidOutcome")
+                        .HasColumnType("booking.prepaid_outcome")
+                        .HasColumnName("prepaid_outcome");
+
+                    b.Property<string>("PriceSnapshot")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("price_snapshot");
+
+                    b.Property<int>("ReservationType")
+                        .HasColumnType("booking.reservation_type")
+                        .HasColumnName("reservation_type");
+
+                    b.Property<int>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("booking.reservation_status")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("TempHoldExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("temp_hold_expires_at");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("VehicleGroup")
+                        .HasColumnType("booking.vehicle_group")
+                        .HasColumnName("vehicle_group");
+
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vehicle_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reservations");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_reservations_user_id");
+
+                    b.HasIndex("LotId", "Status")
+                        .HasDatabaseName("ix_reservations_lot_id_status");
+
+                    b.HasIndex("Status", "TempHoldExpiresAt")
+                        .HasDatabaseName("ix_reservations_status_temp_hold_expires_at");
+
+                    b.ToTable("reservations", "booking");
+                });
 
             modelBuilder.Entity("ParkingSystem.Booking.Persistence.Inbox.InboxMessage", b =>
                 {

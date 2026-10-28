@@ -22,6 +22,12 @@ public sealed record AuditEntry(
 public static class AuditActions
 {
     public const string SessionCancelled = "session.cancelled";
+    public const string SessionQrReissued = "session.qr_reissued";
+    public const string SessionExitManuallyVerified = "session.exit_manually_verified";
     public const string LotMemberAssigned = "lot.member_assigned";
     public const string LotMemberRemoved = "lot.member_removed";
+    public const string ParkingLotApproved = "parking_lot.approved";
+    public const string ParkingLotRejected = "parking_lot.rejected";
+    public const string ParkingLotOpeningHoursUpdated = "parking_lot.opening_hours_updated";
+    public const string ParkingLayoutUpdated = "parking.layout.updated";
 }

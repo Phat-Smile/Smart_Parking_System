@@ -62,8 +62,10 @@ public sealed class OutboxDispatcherIntegrationTests(
                 "accounts",
                 "auth_sessions",
                 "email_verifications",
+                "owner_application_documents",
                 "refresh_tokens",
-                "profiles");
+                "profiles",
+                "vehicles");
             dbContext.OutboxMessages.AddRange(
                 Message(validId, eventType, """{"Value":"first"}""", correlationId, causationId),
                 Message(secondValidId, eventType, """{"Value":"second"}""", null, null),

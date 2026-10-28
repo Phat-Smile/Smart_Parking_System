@@ -49,6 +49,11 @@ public sealed class JwtTokenIssuer : IJwtTokenIssuer, IDisposable
             ["exp"] = exp
         };
 
+        if (account.OwnerApplicationStatus.HasValue)
+        {
+            payload["owner_status"] = account.OwnerApplicationStatus.Value.ToString();
+        }
+
         var payloadJson = JsonSerializer.Serialize(payload);
         var payloadBase64 = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
 

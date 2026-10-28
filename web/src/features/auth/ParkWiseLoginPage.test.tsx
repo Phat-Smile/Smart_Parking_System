@@ -76,6 +76,29 @@ describe("ParkWise Login form", () => {
         expect(screen.getByLabelText("Password")).toHaveValue("");
     });
 
+    it("redirects SystemAdmin account to /admin/dashboard", async () => {
+        push.mockClear();
+        loginMock.mockResolvedValue({
+            id: "admin-id",
+            email: "admin@parking.test",
+            phoneNumber: null,
+            status: "Active",
+            role: "SystemAdmin",
+        });
+        render(<ParkWiseLoginPage fontClassName="test-font" />);
+        fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+            target: { value: "admin@parking.test" },
+        });
+        fireEvent.change(screen.getByLabelText("Password"), {
+            target: { value: "Test@12345" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+        await waitFor(() => {
+            expect(push).toHaveBeenCalledWith("/admin/dashboard");
+        });
+    });
+
     it("redirects Staff account to /staff/dashboard", async () => {
         push.mockClear();
         loginMock.mockResolvedValue({

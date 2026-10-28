@@ -17,6 +17,42 @@ internal sealed class ParkingSessionRepository(ParkingDbContext dbContext) : IPa
     public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
         dbContext.ParkingSessions.FirstOrDefaultAsync(session => session.Id == sessionId, cancellationToken);
 
+    public async Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        await dbContext.ParkingSessions.AsNoTracking()
+            .Where(session => session.UserId == userId && ParkingSession.OpenStatuses.Contains(session.Status))
+            .OrderByDescending(session => session.EntryTime)
+            .ToListAsync(cancellationToken);
+
+    public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
+        dbContext.ParkingSessions.AsNoTracking().FirstOrDefaultAsync(
+            session => session.QrToken == qrToken && ParkingSession.OpenStatuses.Contains(session.Status),
+            cancellationToken);
+
+    public async Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
+        Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken)
+    {
+        var query = dbContext.ParkingSessions.AsNoTracking().Where(session => session.LotId == lotId);
+        if (status is { } wanted)
+            query = query.Where(session => session.Status == wanted);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        // Id breaks ties so two sessions with the same entry time never swap pages.
+        var items = await query
+            .OrderByDescending(session => session.EntryTime)
+            .ThenBy(session => session.Id)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+        return (items, totalCount);
+    }
+
+    public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
+        dbContext.ParkingSessions.AsNoTracking().FirstOrDefaultAsync(
+            session => session.LotId == lotId
+                       && session.PlateNumber == normalizedPlate
+                       && ParkingSession.OpenStatuses.Contains(session.Status),
+            cancellationToken);
+
     public void Add(ParkingSession session) => dbContext.ParkingSessions.Add(session);
 
     public async Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)

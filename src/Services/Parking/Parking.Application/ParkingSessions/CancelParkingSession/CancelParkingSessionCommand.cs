@@ -24,6 +24,11 @@ public static class CancelParkingSessionErrors
 
     public static readonly Error SessionNotActive =
         new("parking.session.not_active", "Only an Active parking session can be cancelled.");
+
+    // US-PARK-008 (team decision 2026-10-16): a motorbike ticket is bought at the lot, so once the QR is printed
+    // the rider must pay and scan out; the session is never cancelled.
+    public static readonly Error CancelNotAllowed =
+        new("parking.session.cancel_not_allowed", "A motorbike parking session cannot be cancelled.");
 }
 
 public sealed class CancelParkingSessionCommandValidator : AbstractValidator<CancelParkingSessionCommand>
@@ -54,6 +59,9 @@ public sealed class CancelParkingSessionCommandHandler(
         // TECH-12: bãi lấy từ phiên, không tin bãi do client gửi.
         if (!await lotAccess.CanOperateAsync(request.ActorUserId, session.LotId, cancellationToken))
             return Result<CancelledParkingSession>.Failure(ParkingLotAccessErrors.AccessDenied);
+
+        if (session.VehicleType == VehicleType.Motorbike)
+            return Result<CancelledParkingSession>.Failure(CancelParkingSessionErrors.CancelNotAllowed);
 
         var previousStatus = session.Status;
         var now = clock.UtcNow;

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStaffData } from "./staffData";
+import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
 export function StaffShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -28,31 +29,33 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         return () => clearInterval(timer);
     }, [fetchAssignedLot]);
 
+    const { t } = useLanguage();
+
     const navItems = [
         {
             href: "/staff/dashboard",
-            label: "Dashboard",
+            label: t("staffDashboard"),
             icon: "📊",
         },
         {
             href: "/staff/entry",
-            label: "Gate In",
+            label: t("staffEntryGate"),
             icon: "🚗",
         },
         {
             href: "/staff/exit",
-            label: "Gate Out",
+            label: t("staffExitGate"),
             icon: "💳",
         },
         {
             href: "/staff/sessions",
-            label: "Guest & Sessions",
+            label: t("staffSessions"),
             icon: "📋",
             badge: occupancy.activeSessionsCount,
         },
         {
             href: "/staff/verification",
-            label: "Needs Verification",
+            label: t("dashNeedsVerif"),
             icon: "⚠️",
             badge: issues.length,
             badgeDanger: issues.length > 0,
@@ -80,7 +83,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                     </Link>
                     <div className="staff-sidebar-tag-wrap">
                         <span className="staff-brand-station-tag">
-                            STAFF STATION
+                            {t("staffStation")}
                         </span>
                         <span className="staff-brand-gate-id">
                             GATE 01 · ZONE B1/B2
@@ -89,12 +92,13 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 </div>
 
                 <div className="staff-sidebar-section-title">
-                    CHỨC NĂNG VẬN HÀNH
+                    {t("staffOperations")}
                 </div>
 
                 <nav
                     className="staff-vertical-nav"
                     aria-label="Staff Station Navigation"
+                    suppressHydrationWarning
                 >
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
@@ -103,12 +107,16 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                 key={item.href}
                                 href={item.href}
                                 className={`staff-vertical-nav-item ${isActive ? "active" : ""}`}
+                                suppressHydrationWarning
                             >
                                 <div className="staff-nav-item-left">
                                     <span className="staff-nav-icon">
                                         {item.icon}
                                     </span>
-                                    <span className="staff-nav-label">
+                                    <span
+                                        className="staff-nav-label"
+                                        suppressHydrationWarning
+                                    >
                                         {item.label}
                                     </span>
                                 </div>
@@ -130,11 +138,16 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 </nav>
 
                 <div className="staff-sidebar-footer">
+                    {/* Language Switcher in Staff Sidebar (Góc trái) */}
+                    <div style={{ marginBottom: "12px" }}>
+                        <LanguageSwitcher variant="sidebar" />
+                    </div>
+
                     <div className="staff-operator-card">
                         <div className="staff-operator-avatar">👤</div>
                         <div className="staff-operator-info">
                             <span className="staff-operator-shift">
-                                Ca #2 · Sáng
+                                {t("staffShift")}
                             </span>
                             <strong className="staff-operator-name">
                                 Nguyễn Văn Hải
@@ -145,16 +158,20 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                     <div className="staff-gate-health-card">
                         <div className="staff-gate-health-title">
                             <span className="staff-pulse-dot green" />
-                            <span>TRẠNG THÁI BARRIER</span>
+                            <span>{t("barrierStatus")}</span>
                         </div>
                         <div className="staff-gate-health-meta">
                             <div className="staff-health-row">
-                                <span>Cổng Vào 01:</span>
-                                <strong className="text-emerald">Online</strong>
+                                <span>{t("gateIn")} 01:</span>
+                                <strong className="text-emerald">
+                                    {t("gateOnline")}
+                                </strong>
                             </div>
                             <div className="staff-health-row">
-                                <span>Cổng Ra 02:</span>
-                                <strong className="text-emerald">Online</strong>
+                                <span>{t("gateOut")} 02:</span>
+                                <strong className="text-emerald">
+                                    {t("gateOnline")}
+                                </strong>
                             </div>
                         </div>
                     </div>
@@ -164,7 +181,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         className="staff-btn staff-btn-exit-sidebar"
                         title="Return to ParkWise Home"
                     >
-                        <span>Thoát Trạm</span>
+                        <span>{t("signOut")}</span>
                         <span>⎋</span>
                     </Link>
                 </div>

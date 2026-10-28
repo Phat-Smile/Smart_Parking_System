@@ -76,4 +76,18 @@ public sealed class ParkingSlot
             return SlotEffectiveStatus.Occupied;
         return SlotEffectiveStatus.Available;
     }
+    // Layout may change labels/declared override only when no live operation owns the slot.
+    // Sensor and dispatch layers must never be overwritten by an Owner's design payload.
+    public bool Reconfigure(string slotCode, OverrideState? declaredOverride)
+    {
+        var normalized = NormalizeSlotCode(slotCode);
+        if (SlotCode == normalized && OverrideState == declaredOverride) return false;
+        if (AssignedSessionId is not null || DispatchState is not null || SensorState == ParkingLayout.SensorState.Occupied)
+            throw new InvalidOperationException("An active slot cannot be edited in the layout.");
+        SlotCode = normalized;
+        OverrideState = declaredOverride;
+        EffectiveStatus = ComputeEffectiveStatus(SensorState, OverrideState, DispatchState);
+        RowVersion++;
+        return true;
+    }
 }

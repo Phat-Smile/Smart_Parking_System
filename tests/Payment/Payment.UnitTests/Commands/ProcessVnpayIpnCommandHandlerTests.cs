@@ -1,0 +1,341 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Application.Common.Messaging.Outbox;
+using ParkingSystem.Payment.Application.Features.Vnpay.Commands.ProcessVnpayIpn;
+using ParkingSystem.Payment.Domain.Entities;
+using ParkingSystem.Payment.Domain.Enums;
+using Xunit;
+
+namespace ParkingSystem.Tests.Payment.UnitTests.Commands;
+
+public class ProcessVnpayIpnCommandHandlerTests
+{
+    private class FakePaymentGateway : IPaymentGateway
+    {
+        public bool IsSignatureValid { get; set; } = true;
+
+        public string CreatePaymentUrl(string txnRef, decimal amount, DateTimeOffset expiresAtUtc, string clientIp)
+        {
+            return "https://sandbox.vnpayment.vn";
+        }
+
+        public bool VerifyIpnSignature(IReadOnlyDictionary<string, string> queryParameters)
+        {
+            return IsSignatureValid;
+        }
+    }
+
+    private class FakeVnpayTransactionRepository : IVnpayTransactionRepository
+    {
+        private readonly Dictionary<string, VnpayTransaction> _txns = new();
+        public bool SaveChangesCalled { get; private set; }
+
+        public void SeedTransaction(VnpayTransaction tx)
+        {
+            _txns[tx.TxnRef] = tx;
+        }
+
+        public Task<VnpayTransaction?> GetByTxnRefAsync(string txnRef, CancellationToken cancellationToken)
+        {
+            _txns.TryGetValue(txnRef, out var tx);
+            return Task.FromResult(tx);
+        }
+
+        public Task<VnpayTransaction?> GetByWalletIdAndRequestKeyAsync(Guid walletId, string clientRequestKey, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<VnpayTransaction?>(null);
+        }
+
+        public Task AddAsync(VnpayTransaction transaction, CancellationToken cancellationToken)
+        {
+            _txns[transaction.TxnRef] = transaction;
+            return Task.CompletedTask;
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken)
+        {
+            SaveChangesCalled = true;
+            return Task.CompletedTask;
+        }
+
+        public Task<VnpayTransaction?> GetTopupByTxnRefAndUserIdAsync(string txnRef, Guid userId, CancellationToken cancellationToken)
+        {
+            _txns.TryGetValue(txnRef, out var tx);
+            return Task.FromResult(tx);
+        }
+    }
+
+    private class FakeWalletRepository : IWalletRepository
+    {
+        private readonly Dictionary<Guid, Wallet> _wallets = new();
+
+        public void SeedWallet(Wallet wallet)
+        {
+            _wallets[wallet.Id] = wallet;
+        }
+
+        public Task<Wallet?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+        {
+            _wallets.TryGetValue(id, out var wallet);
+            return Task.FromResult(wallet);
+        }
+
+        public Task<Wallet?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<Wallet?>(null);
+        }
+
+        public Task<Wallet> GetOrCreateByUserIdAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Wallet.Create(userId));
+        }
+
+        public Task AddAsync(Wallet wallet, CancellationToken cancellationToken)
+        {
+            _wallets[wallet.Id] = wallet;
+            return Task.CompletedTask;
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private class FakeOutboxWriter : IOutboxWriter
+    {
+        public List<(object Event, string EventType, int EventVersion)> Enqueued { get; } = new();
+
+        public void Enqueue<TEvent>(
+            TEvent integrationEvent,
+            string eventType,
+            int eventVersion,
+            Guid? correlationId = null,
+            Guid? causationId = null) where TEvent : class
+        {
+            Enqueued.Add((integrationEvent, eventType, eventVersion));
+        }
+    }
+
+    private readonly FakePaymentGateway _paymentGateway = new();
+    private readonly FakeVnpayTransactionRepository _txnRepository = new();
+    private readonly FakeWalletRepository _walletRepository = new();
+    private readonly FakeOutboxWriter _outboxWriter = new();
+    private readonly ProcessVnpayIpnCommandHandler _handler;
+
+    public ProcessVnpayIpnCommandHandlerTests()
+    {
+        var topupHandler = new WalletTopUpResultHandler(
+            _walletRepository,
+            _txnRepository,
+            _outboxWriter,
+            NullLogger<WalletTopUpResultHandler>.Instance);
+
+        _handler = new ProcessVnpayIpnCommandHandler(
+            _paymentGateway,
+            _txnRepository,
+            new[] { topupHandler },
+            NullLogger<ProcessVnpayIpnCommandHandler>.Instance);
+    }
+
+    [Fact]
+    public async Task TC_IPN_01_ValidSuccessIpn_CreditsWalletAndReturns00()
+    {
+        // Arrange
+        var wallet = Wallet.Create(Guid.NewGuid());
+        _walletRepository.SeedWallet(wallet);
+
+        var txn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            "01234567890123456789012345678901",
+            wallet.Id,
+            50_000m,
+            "req_key_123456",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "5000000", // 50,000 * 100
+            ["vnp_ResponseCode"] = "00",
+            ["vnp_TransactionStatus"] = "00",
+            ["vnp_TransactionNo"] = "1456789",
+            ["vnp_BankCode"] = "NCB"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(VnpayIpnResponseDto.Messages.Success, result.Message);
+        Assert.Equal(VnpayTransactionStatus.Success, txn.Status);
+        Assert.Equal(50_000m, wallet.Balance);
+        Assert.Single(wallet.LedgerEntries);
+        Assert.True(_txnRepository.SaveChangesCalled);
+    }
+
+    [Fact]
+    public async Task TC_IPN_02_DuplicateIpn_Returns02AndDoesNotCreditAgain()
+    {
+        // Arrange
+        var wallet = Wallet.Create(Guid.NewGuid());
+        _walletRepository.SeedWallet(wallet);
+
+        var txn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            "01234567890123456789012345678901",
+            wallet.Id,
+            50_000m,
+            "req_key_123456",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+        txn.MarkAsSuccess("1456789", "NCB", "00", DateTimeOffset.UtcNow);
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "5000000",
+            ["vnp_ResponseCode"] = "00",
+            ["vnp_TransactionStatus"] = "00"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.AlreadyConfirmed, result.RspCode);
+        Assert.Equal(VnpayIpnResponseDto.Messages.AlreadyConfirmed, result.Message);
+        Assert.Equal(0m, wallet.Balance); // Số dư không bị cộng lần 2
+    }
+
+    [Fact]
+    public async Task TC_IPN_03_InvalidSignature_Returns97()
+    {
+        // Arrange
+        _paymentGateway.IsSignatureValid = false;
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = "ref123"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.InvalidSignature, result.RspCode);
+    }
+
+    [Fact]
+    public async Task TC_IPN_04_AmountMismatch_Returns04()
+    {
+        // Arrange
+        var txn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            "01234567890123456789012345678901",
+            Guid.NewGuid(),
+            50_000m,
+            "req_key_123456",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "10000000" // 100,000 VND (lệch với 50,000 VND)
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.InvalidAmount, result.RspCode);
+        Assert.Equal(VnpayTransactionStatus.Pending, txn.Status);
+    }
+
+    [Fact]
+    public async Task TC_IPN_05_UnknownTransaction_Returns01()
+    {
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = "non_existent_ref"
+        };
+
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+        Assert.Equal(VnpayIpnResponseDto.Codes.OrderNotFound, result.RspCode);
+    }
+
+    [Fact]
+    public async Task TC_IPN_06_PaymentFailedAtGateway_MarksFailedAndDoesNotCredit()
+    {
+        // Arrange
+        var wallet = Wallet.Create(Guid.NewGuid());
+        _walletRepository.SeedWallet(wallet);
+
+        var txn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            "01234567890123456789012345678901",
+            wallet.Id,
+            50_000m,
+            "req_key_123456",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "5000000",
+            ["vnp_ResponseCode"] = "24", // Khách hủy giao dịch
+            ["vnp_TransactionStatus"] = "02"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(VnpayTransactionStatus.Failed, txn.Status);
+        Assert.Equal(0m, wallet.Balance);
+        Assert.Empty(wallet.LedgerEntries);
+    }
+
+    [Fact]
+    public async Task TC_IPN_07_LateIpnAfterExpiry_StillCreditsWalletNormally()
+    {
+        // Arrange (BR-12.d: IPN báo thành công sau khi hết hạn vẫn được cộng tiền)
+        var wallet = Wallet.Create(Guid.NewGuid());
+        _walletRepository.SeedWallet(wallet);
+
+        var expiredTime = DateTimeOffset.UtcNow.AddMinutes(-30);
+        var txn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            "01234567890123456789012345678901",
+            wallet.Id,
+            20_000m,
+            "req_key_123456",
+            expiredTime.AddMinutes(-15),
+            expiredTime);
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "2000000",
+            ["vnp_ResponseCode"] = "00",
+            ["vnp_TransactionStatus"] = "00"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(VnpayTransactionStatus.Success, txn.Status);
+        Assert.Equal(20_000m, wallet.Balance);
+    }
+}

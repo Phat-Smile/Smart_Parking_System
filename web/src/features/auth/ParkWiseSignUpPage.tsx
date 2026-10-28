@@ -16,7 +16,10 @@ import {
 import { passwordSchema } from "./passwordSchema";
 import { registerParkWiseAccount } from "./registerParkWiseAccount";
 import { rememberRegisteredProfileName } from "./authSession";
-import { rememberPendingVerification } from "./pendingVerification";
+import {
+    rememberPendingVerification,
+    VERIFICATION_CODE_LIFETIME_SECONDS,
+} from "./pendingVerification";
 import { ApiError } from "@/shared/errors/api-error";
 
 const signUpSchema = z
@@ -120,13 +123,30 @@ export function ParkWiseSignUpPage({
         },
     });
     const password = useWatch({ control, name: "password" }) || "";
-    const passwordChecks = [
-        [password.length >= 8, "At least 8 characters"],
-        [/[A-Z]/.test(password), "One uppercase letter"],
-        [/[a-z]/.test(password), "One lowercase letter"],
-        [/[0-9]/.test(password), "One number"],
-        [/[^A-Za-z0-9]/.test(password), "One special character"],
-    ] as const;
+    const passwordMeetsRequirements =
+        passwordSchema.safeParse(password).success;
+    const passwordCharacterGroups = [
+        /[A-Z]/.test(password),
+        /[a-z]/.test(password),
+        /[0-9]/.test(password),
+        /[^A-Za-z0-9]/.test(password),
+    ].filter(Boolean).length;
+    const passwordStrength = !password
+        ? 0
+        : passwordMeetsRequirements
+          ? password.length >= 12
+              ? 4
+              : 3
+          : password.length >= 8 && passwordCharacterGroups >= 3
+            ? 2
+            : 1;
+    const passwordStrengthLabel = [
+        "Not entered",
+        "Weak",
+        "Fair",
+        "Good",
+        "Strong",
+    ][passwordStrength];
 
     async function onSubmit(values: SignUpValues) {
         setNotice("");
@@ -142,7 +162,13 @@ export function ParkWiseSignUpPage({
                 phoneNumber: values.phone.trim() || null,
             });
             rememberRegisteredProfileName(account.email, account.fullName);
-            if (!rememberPendingVerification(account.email, 60)) {
+            if (
+                !rememberPendingVerification(
+                    account.email,
+                    60,
+                    VERIFICATION_CODE_LIFETIME_SECONDS,
+                )
+            ) {
                 setSubmitError(
                     "Registration was accepted, but this browser could not open email verification. Please enable session storage and try again.",
                 );
@@ -183,9 +209,11 @@ export function ParkWiseSignUpPage({
         setSubmitError("");
         try {
             const account = await googleLoginParkWiseAccount(idToken);
-            setNotice(
-                `Signed in with Google as ${account.email}. Persistent sign-in is not available until session management is connected.`,
-            );
+            if (account.role === "Customer") {
+                router.replace("/customer/complete-profile");
+            } else {
+                setNotice(`Signed in with Google as ${account.email}.`);
+            }
         } catch (error) {
             if (
                 error instanceof ApiError &&
@@ -358,8 +386,8 @@ export function ParkWiseSignUpPage({
                                     aria-invalid={Boolean(errors.password)}
                                     aria-describedby={
                                         errors.password
-                                            ? "parkwise-signup-password-error"
-                                            : undefined
+                                            ? "parkwise-signup-password-error parkwise-signup-password-strength parkwise-signup-password-help"
+                                            : "parkwise-signup-password-strength parkwise-signup-password-help"
                                     }
                                     {...register("password")}
                                 />
@@ -385,16 +413,6 @@ export function ParkWiseSignUpPage({
                                     {errors.password.message}
                                 </p>
                             )}
-                            <ul
-                                className="parkwise-password-checklist"
-                                aria-label="Password requirements"
-                            >
-                                {passwordChecks.map(([met, label]) => (
-                                    <li key={label} data-met={met}>
-                                        {met ? "✓" : "○"} {label}
-                                    </li>
-                                ))}
-                            </ul>
                         </div>
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-signup-confirm-password">
@@ -447,6 +465,52 @@ export function ParkWiseSignUpPage({
                             )}
                         </div>
                     </div>
+
+                    <div
+                        id="parkwise-signup-password-strength"
+                        className="parkwise-signup-password-strength"
+                        data-strength={passwordStrength}
+                        role="meter"
+                        aria-label="Password strength"
+                        aria-valuemin={0}
+                        aria-valuemax={4}
+                        aria-valuenow={passwordStrength}
+                        aria-valuetext={passwordStrengthLabel}
+                    >
+                        <div
+                            className="parkwise-signup-password-strength-track"
+                            aria-hidden="true"
+                        >
+                            {[1, 2, 3, 4].map((segment) => (
+                                <span
+                                    key={segment}
+                                    className={
+                                        segment <= passwordStrength
+                                            ? "filled"
+                                            : ""
+                                    }
+                                />
+                            ))}
+                        </div>
+                        <span
+                            className="parkwise-signup-password-strength-label"
+                            aria-live="polite"
+                        >
+                            {password
+                                ? `Password strength: ${passwordStrengthLabel}`
+                                : "Password strength"}
+                        </span>
+                    </div>
+                    <p
+                        id="parkwise-signup-password-help"
+                        className="parkwise-signup-password-help"
+                        data-met={passwordMeetsRequirements}
+                        aria-live="polite"
+                    >
+                        {passwordMeetsRequirements
+                            ? "Password meets the requirements."
+                            : "Use 8+ characters with uppercase, lowercase, a number, and a symbol."}
+                    </p>
 
                     <button
                         className="parkwise-login-submit"

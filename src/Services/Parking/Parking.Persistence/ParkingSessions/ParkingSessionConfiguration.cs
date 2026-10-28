@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
@@ -55,6 +56,14 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
         builder.Property(session => session.UserId).HasColumnName("user_id");
         builder.Property(session => session.VehicleId).HasColumnName("vehicle_id");
         builder.Property(session => session.ReservationId).HasColumnName("reservation_id");
+        // ERD: zone_id NOT NULL; kept nullable until car sessions get their zone in US-PARK-004/007 (team decision 2026-10-16).
+        builder.Property(session => session.ZoneId).HasColumnName("zone_id");
+        builder.HasOne<Zone>()
+            .WithMany()
+            .HasForeignKey(session => session.ZoneId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_parking_sessions_zones_zone_id");
+        builder.HasIndex(session => session.ZoneId).HasDatabaseName("ix_parking_sessions_zone_id");
         builder.Property(session => session.CancelledAt).HasColumnName("cancelled_at");
         builder.Property(session => session.CancelledBy).HasColumnName("cancelled_by");
         builder.Property(session => session.CancelReason)
@@ -65,6 +74,11 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
         builder.HasIndex(session => session.QrToken)
             .IsUnique()
             .HasDatabaseName("ux_parking_sessions_qr_token");
+
+        // US-PARK-009: a customer lists their own open sessions.
+        builder.HasIndex(session => session.UserId)
+            .HasFilter("user_id IS NOT NULL")
+            .HasDatabaseName("ix_parking_sessions_user_id");
 
         // At most one Active or Paid session per plate in a lot (ASSUMPTION, see OpenParkingSessionErrors).
         builder.HasIndex(session => new { session.LotId, session.PlateNumber })

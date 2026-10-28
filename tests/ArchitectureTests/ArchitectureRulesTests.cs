@@ -317,6 +317,91 @@ public sealed class ArchitectureRulesTests
         }
     }
 
+    [Fact]
+    public void Every_service_host_enforces_the_service_key_and_the_gateway_does_not()
+    {
+        foreach (var (service, project) in new[] { ("Identity", "Identity.WebAPI"), ("Parking", "Parking.WebAPI"), ("Booking", "Booking.WebAPI"), ("Payment", "Payment.WebAPI"), ("Notification", "Notification.WebAPI") })
+        {
+            var source = File.ReadAllText(ProjectPath(service, project).Replace($"{project}.csproj", "Program.cs", StringComparison.Ordinal));
+            Assert.Equal(1, CountOccurrences(source, "UseParkingSystemServiceSecurity("));
+            Assert.DoesNotContain("UseParkingSystemAuthentication(", source, StringComparison.Ordinal);
+        }
+
+        var gateway = File.ReadAllText(Path.Combine(Root, "src", "Gateway", "Program.cs"));
+        Assert.DoesNotContain("UseParkingSystemServiceSecurity(", gateway, StringComparison.Ordinal);
+    }
+
+    // Contract 1 (plate -> account and vehicle): the gRPC client is the only implementation of IPlateOwnerLookup, so a
+    // host that forgets this call fails when the first session is opened.
+    [Fact]
+    public void Parking_host_registers_the_identity_plate_lookup_client_once()
+    {
+        var source = File.ReadAllText(ProjectPath("Parking", "Parking.WebAPI").Replace("Parking.WebAPI.csproj", "Program.cs", StringComparison.Ordinal));
+        Assert.Equal(1, CountOccurrences(source, "AddIdentityServiceClient("));
+    }
+
+    // Outbox rows are written without checking the registry, so an unregistered event type is only found when the
+    // dispatcher fails to resolve it and retries forever (found on the wallet top-up event).
+    [Fact]
+    public void Every_integration_event_type_enqueued_by_a_service_is_registered_by_its_infrastructure()
+    {
+        var eventType = new System.Text.RegularExpressions.Regex(
+            @"""(?:identity|parking|booking|payment|notification)\.[a-z0-9-]+\.v[0-9]+""");
+        foreach (var service in Services)
+        {
+            var serviceRoot = Path.Combine(Root, "src", "Services", service);
+            var infrastructure = string.Join("\n", SourceFiles(Path.Combine(serviceRoot, $"{service}.Infrastructure")).Select(File.ReadAllText));
+            var enqueued = SourceFiles(Path.Combine(serviceRoot, $"{service}.Application"))
+                .SelectMany(path => eventType.Matches(File.ReadAllText(path)).Select(match => match.Value))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            var missing = enqueued.Where(literal => !infrastructure.Contains(literal, StringComparison.Ordinal)).ToArray();
+            Assert.True(
+                missing.Length == 0,
+                $"{service}.Application enqueues integration event types that {service}.Infrastructure never registers: {string.Join(", ", missing)}.");
+        }
+    }
+
+    // A project that references files under contracts/ builds locally but fails in docker build unless the Dockerfile copies them.
+    [Fact]
+    public void Every_service_dockerfile_copies_the_contract_files_its_projects_reference()
+    {
+        var contractsRoot = Path.Combine(Root, "contracts") + Path.DirectorySeparatorChar;
+        foreach (var service in Services)
+        {
+            var serviceRoot = Path.Combine(Root, "src", "Services", service);
+            var dockerfile = File.ReadAllText(Path.Combine(serviceRoot, $"{service}.WebAPI", "Dockerfile"));
+            var references = Directory.EnumerateFiles(serviceRoot, "*.csproj", SearchOption.AllDirectories)
+                .SelectMany(project => XDocument.Load(project).Descendants()
+                    .Where(element => element.Name.LocalName is "ProjectReference" or "Protobuf")
+                    .Select(element => (string?)element.Attribute("Include"))
+                    .Where(include => !string.IsNullOrWhiteSpace(include))
+                    .Select(include => (Project: project, Full: Path.GetFullPath(Path.Combine(
+                        Path.GetDirectoryName(project)!, NormalizeProjectReference(include!))))))
+                .Where(reference => reference.Full.StartsWith(contractsRoot, StringComparison.Ordinal))
+                .ToArray();
+
+            foreach (var reference in references)
+            {
+                var relative = Path.GetRelativePath(Root, reference.Full).Replace(Path.DirectorySeparatorChar, '/');
+                var contractDirectory = relative.Split('/')[1];
+                Assert.True(
+                    dockerfile.Contains($"COPY contracts/{contractDirectory}/ contracts/{contractDirectory}/", StringComparison.Ordinal),
+                    $"{service}.WebAPI/Dockerfile must copy contracts/{contractDirectory}/ because {Path.GetFileName(reference.Project)} references {relative}.");
+                if (reference.Full.EndsWith(".csproj", StringComparison.Ordinal))
+                    Assert.True(
+                        dockerfile.Contains($"COPY {relative} ", StringComparison.Ordinal),
+                        $"{service}.WebAPI/Dockerfile must copy {relative} before dotnet restore.");
+            }
+        }
+    }
+
+    private static IEnumerable<string> SourceFiles(string projectDirectory) =>
+        Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+
     private static int CountOccurrences(string source, string value)
     {
         var count = 0;

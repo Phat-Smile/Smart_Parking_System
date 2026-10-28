@@ -23,6 +23,274 @@ namespace ParkingSystem.Payment.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ParkingLotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Seq")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Seq"));
+
+                    b.Property<Guid>("SourceEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceService")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TargetId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionType", "OccurredAtUtc")
+                        .HasDatabaseName("ix_audit_action");
+
+                    b.HasIndex("ActorId", "OccurredAtUtc")
+                        .HasDatabaseName("ix_audit_actor");
+
+                    b.HasIndex("OccurredAtUtc", "Seq")
+                        .HasDatabaseName("ix_audit_occurred");
+
+                    b.HasIndex("ParkingLotId", "OccurredAtUtc")
+                        .HasDatabaseName("ix_audit_lot");
+
+                    b.HasIndex("SourceService", "SourceEntryId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_audit_source_entry");
+
+                    b.ToTable("audit_logs", "payment");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.VnpayTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(12,0)");
+
+                    b.Property<string>("ClientRequestKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TxnRef")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("VnpayBankCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("VnpayResponseCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("VnpayTransactionNo")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("WalletId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TxnRef")
+                        .IsUnique();
+
+                    b.HasIndex("WalletId", "ClientRequestKey")
+                        .IsUnique();
+
+                    b.ToTable("vnpay_transactions", "payment");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.Wallet", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Balance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(12,0)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("LastSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("wallets", "payment", t =>
+                        {
+                            t.HasCheckConstraint("ck_wallets_balance_non_negative", "\"Balance\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.WalletLedgerEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(12,0)");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("numeric(12,0)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ReferenceId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ReferenceType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("ReversalOfEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("WalletId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReversalOfEntryId");
+
+                    b.HasIndex("WalletId", "Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ledger_wallet_sequence");
+
+                    b.HasIndex("WalletId", "EntryType", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("\"IdempotencyKey\" IS NOT NULL");
+
+                    b.ToTable("wallet_ledger_entries", "payment", t =>
+                        {
+                            t.HasCheckConstraint("ck_wallet_ledger_entries_balance_after_non_negative", "\"BalanceAfter\" >= 0");
+                        });
+                });
+
             modelBuilder.Entity("ParkingSystem.Payment.Persistence.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
@@ -116,6 +384,34 @@ namespace ParkingSystem.Payment.Persistence.Migrations
                         .HasFilter("processed_at_utc IS NULL");
 
                     b.ToTable("outbox_messages", "payment");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.VnpayTransaction", b =>
+                {
+                    b.HasOne("ParkingSystem.Payment.Domain.Entities.Wallet", null)
+                        .WithMany()
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.WalletLedgerEntry", b =>
+                {
+                    b.HasOne("ParkingSystem.Payment.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReversalOfEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ParkingSystem.Payment.Domain.Entities.Wallet", null)
+                        .WithMany("LedgerEntries")
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.Wallet", b =>
+                {
+                    b.Navigation("LedgerEntries");
                 });
 #pragma warning restore 612, 618
         }

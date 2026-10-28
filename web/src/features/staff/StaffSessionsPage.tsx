@@ -11,9 +11,11 @@ import {
 import { cancelParkingSession, describeStaffError } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, StaffSession } from "./types";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffSessionsPage() {
     const { sessions, cancelSession } = useStaffData();
+    const { t } = useLanguage();
 
     const [filterType, setFilterType] = useState<CustomerType | "All">("All");
     const [search, setSearch] = useState("");
@@ -69,13 +71,8 @@ export function StaffSessionsPage() {
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">
-                        Guest &amp; Active Session Management
-                    </h1>
-                    <p className="staff-subtitle">
-                        Inspect active parked vehicles, view guest QR tickets,
-                        and handle cancellations.
-                    </p>
+                    <h1 className="staff-title">{t("sessionsTitle")}</h1>
+                    <p className="staff-subtitle">{t("sessionsSubtitle")}</p>
                 </div>
             </header>
 
@@ -95,7 +92,7 @@ export function StaffSessionsPage() {
                     <input
                         type="text"
                         className="staff-input staff-search-input"
-                        placeholder="Search license plate, slot, or driver name..."
+                        placeholder={t("sessionsSearchPlaceholder")}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -110,10 +107,10 @@ export function StaffSessionsPage() {
                             onClick={() => setFilterType(tab)}
                         >
                             {tab === "Guest"
-                                ? "Guest Vehicles"
+                                ? t("sessionsGuestTab")
                                 : tab === "Registered"
-                                  ? "Registered App Users"
-                                  : "All Sessions"}
+                                  ? t("sessionsRegisteredTab")
+                                  : t("sessionsAllTab")}
                         </button>
                     ))}
                 </div>
@@ -124,22 +121,24 @@ export function StaffSessionsPage() {
                 <table className="staff-table">
                     <thead>
                         <tr>
-                            <th>License Plate</th>
-                            <th>Category</th>
-                            <th>Vehicle</th>
-                            <th>Spot</th>
-                            <th>Entry Time</th>
-                            <th>Session Status</th>
-                            <th>Payment Status</th>
-                            <th>Session QR</th>
-                            <th className="text-right">Actions</th>
+                            <th>{t("sessionsLicensePlate")}</th>
+                            <th>{t("sessionsCategory")}</th>
+                            <th>{t("sessionsVehicle")}</th>
+                            <th>{t("sessionsSpot")}</th>
+                            <th>{t("sessionsEntryTime")}</th>
+                            <th>{t("sessionsStatus")}</th>
+                            <th>{t("sessionsPaymentStatus")}</th>
+                            <th>{t("sessionsQr")}</th>
+                            <th className="text-right">
+                                {t("sessionsActions")}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.length === 0 ? (
                             <tr>
                                 <td colSpan={9} className="staff-empty">
-                                    No parking sessions match your search.
+                                    {t("sessionsEmpty")}
                                 </td>
                             </tr>
                         ) : (
@@ -156,10 +155,16 @@ export function StaffSessionsPage() {
                                                     : "type-reg"
                                             }`}
                                         >
-                                            {s.customerType}
+                                            {s.customerType === "Guest"
+                                                ? t("sessionsGuest")
+                                                : t("sessionsRegistered")}
                                         </span>
                                     </td>
-                                    <td>{s.vehicleType}</td>
+                                    <td>
+                                        {s.vehicleType === "Car"
+                                            ? t("staffCar")
+                                            : t("staffMotorbike")}
+                                    </td>
                                     <td>
                                         <span className="staff-slot-code">
                                             {s.slotCode}
@@ -178,7 +183,8 @@ export function StaffSessionsPage() {
                                         <StatusPill status={s.paymentStatus} />
                                         {s.amountDueVnd > 0 && (
                                             <small className="staff-due-badge">
-                                                Due: {formatVnd(s.amountDueVnd)}
+                                                {t("sessionsDue")}:{" "}
+                                                {formatVnd(s.amountDueVnd)}
                                             </small>
                                         )}
                                     </td>
@@ -190,7 +196,7 @@ export function StaffSessionsPage() {
                                                 setSelectedQrSession(s)
                                             }
                                         >
-                                            🎟️ View QR
+                                            {t("sessionsViewQr")}
                                         </button>
                                     </td>
                                     <td className="text-right">
@@ -202,7 +208,7 @@ export function StaffSessionsPage() {
                                                     setCancellingSession(s)
                                                 }
                                             >
-                                                Cancel Entry
+                                                {t("sessionsCancelEntry")}
                                             </button>
                                         )}
                                     </td>
@@ -235,7 +241,7 @@ export function StaffSessionsPage() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="staff-modal-head">
-                            <h3>Cancel Parking Session</h3>
+                            <h3>{t("sessionsCancelTitle")}</h3>
                             <button
                                 type="button"
                                 className="staff-modal-close"
@@ -247,15 +253,14 @@ export function StaffSessionsPage() {
 
                         <div className="staff-modal-body">
                             <p>
-                                Are you sure you want to cancel the session for{" "}
+                                {t("sessionsCancelConfirmText")}{" "}
                                 <strong>{cancellingSession.plateNumber}</strong>
-                                ? Use this when the barrier was opened but the
-                                vehicle did not enter.
+                                ?
                             </p>
 
                             <div className="staff-form-group">
                                 <label htmlFor="cancel-reason">
-                                    Reason for cancellation
+                                    {t("sessionsCancelReasonLabel")}
                                 </label>
                                 <textarea
                                     id="cancel-reason"
@@ -265,7 +270,9 @@ export function StaffSessionsPage() {
                                     onChange={(e) =>
                                         setCancelReason(e.target.value)
                                     }
-                                    placeholder="Enter reason..."
+                                    placeholder={t(
+                                        "sessionsCancelReasonPlaceholder",
+                                    )}
                                 />
                             </div>
 
@@ -275,7 +282,7 @@ export function StaffSessionsPage() {
                                     className="staff-btn staff-btn-secondary"
                                     onClick={() => setCancellingSession(null)}
                                 >
-                                    Go back
+                                    {t("sessionsGoBack")}
                                 </button>
                                 <button
                                     type="button"
@@ -286,8 +293,8 @@ export function StaffSessionsPage() {
                                     onClick={handleConfirmCancel}
                                 >
                                     {cancelBusy
-                                        ? "Cancelling..."
-                                        : "Confirm Cancellation"}
+                                        ? t("sessionsCancelling")
+                                        : t("sessionsConfirmCancel")}
                                 </button>
                             </div>
                         </div>
