@@ -118,4 +118,23 @@ public static class ParkingErrors
             "parking.reservation_ratio_policy.ratio_out_of_range",
             "Tỷ lệ suất đặt trước phải là số nguyên từ 0 đến 100.");
     }
+
+    public static class ReservationAvailabilityPolicy
+    {
+        public static readonly Error LotNotFound = new(
+            "parking.reservation_availability_policy.lot_not_found",
+            "Không tìm thấy bãi đỗ xe này trong hệ thống.");
+
+        public static readonly Error NotLotOwner = new(
+            "parking.reservation_availability_policy.not_lot_owner",
+            "Bạn không có quyền cấu hình trạng thái nhận đặt chỗ của bãi đỗ xe này.");
+
+        public static readonly Error LotIdEmpty = new(
+            "parking.reservation_availability_policy.lot_id_empty",
+            "LotId không được để trống.");
+
+        public static readonly Error ReservationEnabledRequired = new(
+            "parking.reservation_availability_policy.reservation_enabled_required",
+            "Trạng thái nhận đặt chỗ không được để trống.");
+    }
 }

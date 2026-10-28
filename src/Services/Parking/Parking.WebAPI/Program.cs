@@ -85,9 +85,29 @@ app.MapStaffLotEndpoints();
 app.MapPricingEndpoints();
 app.MapDepositPolicyEndpoints();
 app.MapReservationRatioPolicyEndpoints();
+app.MapReservationAvailabilityPolicyEndpoints();
 app.MapParkingLayoutOwnerEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
+
+var seedingEnabled = app.Configuration.GetValue<bool>("Seeding:Enabled");
+if (seedingEnabled)
+{
+    if (app.Environment.IsDevelopment())
+    {
+        var reset = app.Configuration.GetValue<bool>("Seeding:Reset");
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ParkingSystem.Parking.Persistence.ParkingDbContext>();
+        var logger = scope.ServiceProvider.GetService<ILogger<ParkingSystem.Parking.Persistence.ParkingDbContext>>();
+        await ParkingSystem.Parking.Persistence.Seeding.ParkingDataSeeder.SeedAsync(db, reset, logger);
+    }
+    else
+    {
+        var logger = app.Services.GetService<ILogger<ParkingSystem.Parking.Persistence.ParkingDbContext>>();
+        logger?.LogWarning("Seeding is enabled in configuration but bypassed because environment is not Development.");
+    }
+}
+
 app.Run();
