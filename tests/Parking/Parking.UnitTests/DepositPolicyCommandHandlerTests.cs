@@ -204,6 +204,9 @@ public class DepositPolicyCommandHandlerTests
 
         public Task<bool> IsLotOwnerAsync(Guid lotId, Guid callerId) =>
             Task.FromResult(_lots.TryGetValue(lotId, out var lot) && lot.IsOwner);
+
+        public Task<bool> IsLotApprovedAsync(Guid lotId) =>
+            Task.FromResult(_lots.TryGetValue(lotId, out var lot) && lot.Exists);
     }
 
     private sealed class FakeReservationDepositPolicyRepository : IReservationDepositPolicyRepository

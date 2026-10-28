@@ -3,21 +3,19 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
-import {
-    loginParkWiseAccount,
-    type LoginResponse,
-} from "./loginParkWiseAccount";
+import { loginParkWiseAccount } from "./loginParkWiseAccount";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import {
     describeGoogleSignInError,
     googleLoginParkWiseAccount,
 } from "./googleSignIn";
 import { rememberPendingVerification } from "./pendingVerification";
+import { resolvePostLoginRedirect } from "./roleRedirect";
 import { ApiError } from "@/shared/errors/api-error";
 
 const loginSchema = z.object({
@@ -44,6 +42,12 @@ export function ParkWiseLoginPage({
     fontClassName: string;
 }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const explicitRedirect =
+        searchParams?.get?.("redirect") ||
+        searchParams?.get?.("returnUrl") ||
+        null;
+
     const [notice, setNotice] = useState("");
     const [submitError, setSubmitError] = useState("");
     const [authenticatedEmail, setAuthenticatedEmail] = useState("");
@@ -69,14 +73,6 @@ export function ParkWiseLoginPage({
         defaultValues: { email: "", password: "" },
     });
 
-    function finishSignIn(account: LoginResponse["account"]) {
-        if (account.role === "Customer") {
-            router.replace("/customer/complete-profile");
-            return;
-        }
-        setAuthenticatedEmail(account.email);
-    }
-
     async function onSubmit(values: LoginValues) {
         setNotice("");
         setSubmitError("");
@@ -87,7 +83,12 @@ export function ParkWiseLoginPage({
                 values.password,
             );
             resetField("password");
-            finishSignIn(account);
+            setAuthenticatedEmail(account.email);
+            const destination = resolvePostLoginRedirect(
+                account,
+                explicitRedirect,
+            );
+            router.push(destination);
         } catch (error) {
             if (error instanceof ApiError) {
                 const code = error.problem?.errorCode;
@@ -118,7 +119,11 @@ export function ParkWiseLoginPage({
                 ) {
                     setLockSeconds(error.retryAfterSeconds ?? 900);
                 }
-                setSubmitError(message);
+                setSubmitError(
+                    error.correlationId
+                        ? `${message} Support ID: ${error.correlationId}`
+                        : message,
+                );
             } else {
                 setSubmitError(
                     "We couldn't connect. Check your connection and try again.",
@@ -134,7 +139,12 @@ export function ParkWiseLoginPage({
         setAuthenticatedEmail("");
         try {
             const account = await googleLoginParkWiseAccount(idToken);
-            finishSignIn(account);
+            setAuthenticatedEmail(account.email);
+            const destination = resolvePostLoginRedirect(
+                account,
+                explicitRedirect,
+            );
+            router.push(destination);
         } catch (error) {
             if (
                 error instanceof ApiError &&
