@@ -2,18 +2,16 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
+import { ParkWiseAuthAside, ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
 import { SegmentedOtpInput } from "./SegmentedOtpInput";
 import {
     clearPendingVerification,
     readPendingVerification,
     readPendingVerificationCooldown,
-    readPendingVerificationExpiration,
     rememberPendingVerificationCooldown,
-    rememberPendingVerificationExpiration,
+    readPendingRole,
 } from "./pendingVerification";
 import { resendParkWiseOtp, verifyParkWiseEmail } from "./emailVerificationApi";
 import { ApiError } from "@/shared/errors/api-error";
@@ -22,16 +20,14 @@ import { ApiError } from "@/shared/errors/api-error";
 const OTP_LENGTH = 6;
 const subscribePendingVerification = () => () => {};
 
-function formatRemaining(seconds: number) {
-    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
 export function ParkWiseOtpPage({
     fontClassName,
     initialEmail = "",
+    role = "",
 }: {
     fontClassName: string;
     initialEmail?: string;
+    role?: string;
 }) {
     const router = useRouter();
     const lastSubmittedCode = useRef("");
@@ -51,42 +47,94 @@ export function ParkWiseOtpPage({
     const [verifying, setVerifying] = useState(false);
     const [resending, setResending] = useState(false);
     const [cooldown, setCooldown] = useState(0);
-    const [expirationSeconds, setExpirationSeconds] = useState<number | null>(
-        null,
-    );
     const [verified, setVerified] = useState(false);
-    const [redirectSeconds, setRedirectSeconds] = useState(5);
     const [locked, setLocked] = useState(false);
     const [resetKey, setResetKey] = useState(0);
     const [shaking, setShaking] = useState(false);
+    const [detectedOtp, setDetectedOtp] = useState<string | null>(null);
+    const [showPrompt, setShowPrompt] = useState(false);
     const complete = digits.every(Boolean);
-    const expired = expirationSeconds === 0;
+
+    // Auto-detect OTP in local environment (Google-style smart prompt)
+    useEffect(() => {
+        if (!email || verified) return;
+        let cancelled = false;
+
+        async function detectOtp() {
+            try {
+                const res = await fetch(`/api/dev-otp?email=${encodeURIComponent(email)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!cancelled && data?.found && data?.otpCode && /^[0-9]{6}$/.test(data.otpCode)) {
+                    setDetectedOtp(data.otpCode);
+                    setShowPrompt(true);
+                }
+            } catch {
+                // Ignore dev helper errors
+            }
+        }
+
+        const timer = window.setTimeout(detectOtp, 400);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [email, verified]);
 
     useEffect(() => {
-        const updateTimers = () => {
-            setCooldown(readPendingVerificationCooldown());
-            setExpirationSeconds(readPendingVerificationExpiration());
-        };
-        const firstTick = window.setTimeout(updateTimers, 0);
-        const interval = window.setInterval(updateTimers, 1000);
-        return () => {
-            window.clearTimeout(firstTick);
-            window.clearInterval(interval);
-        };
+        const timer = window.setTimeout(
+            () => setCooldown(readPendingVerificationCooldown()),
+            0,
+        );
+        return () => window.clearTimeout(timer);
     }, []);
 
     useEffect(() => {
-        if (!verified) return;
-        if (redirectSeconds === 0) {
-            router.replace("/login");
-            return;
-        }
+        if (cooldown <= 0) return;
         const timer = window.setTimeout(
-            () => setRedirectSeconds((seconds) => seconds - 1),
+            () => setCooldown((value) => value - 1),
             1000,
         );
         return () => window.clearTimeout(timer);
-    }, [verified, redirectSeconds, router]);
+    }, [cooldown]);
+
+    const [clientRole, setClientRole] = useState(role);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRole = urlParams.get("role");
+        const storedRole = readPendingRole();
+        const resolved = (urlRole || role || storedRole || "").toLowerCase();
+        if (resolved) {
+            setClientRole(resolved);
+        }
+    }, [role]);
+
+    const isOwner = clientRole === "owner" || clientRole === "parkinglotowner" || role === "owner";
+
+    useEffect(() => {
+        if (!verified) return;
+        if (isOwner) {
+            try {
+                window.localStorage.removeItem("parkwise_demo_owner_app");
+                window.localStorage.removeItem("parkwise_demo_owner_docs");
+            } catch {
+                // ignore
+            }
+        }
+        const targetUrl = isOwner ? "/owner/onboarding" : "/login";
+        const timer = window.setTimeout(() => router.replace(targetUrl), 1500);
+        return () => window.clearTimeout(timer);
+    }, [verified, router, isOwner]);
+
+    function handleApplyDetectedOtp() {
+        if (!detectedOtp) return;
+        setShowPrompt(false);
+        const chars = detectedOtp.split("");
+        setDigits(chars);
+        void verify(detectedOtp);
+    }
 
     async function verify(code: string) {
         setError("");
@@ -97,6 +145,14 @@ export function ParkWiseOtpPage({
             if (!result.isVerified)
                 throw new Error("Verification was not confirmed.");
             clearPendingVerification();
+            if (isOwner) {
+                try {
+                    window.localStorage.removeItem("parkwise_demo_owner_app");
+                    window.localStorage.removeItem("parkwise_demo_owner_docs");
+                } catch {
+                    // ignore
+                }
+            }
             setVerified(true);
         } catch (failure) {
             const code =
@@ -105,20 +161,15 @@ export function ParkWiseOtpPage({
                     : undefined;
             setError(
                 code === "identity.invalid_otp_code"
-                    ? "Incorrect code. Check the latest email and try again."
+                    ? "Incorrect code. Please check it and try again."
                     : code === "identity.otp_max_attempts_exceeded"
-                      ? "This code was locked after 3 incorrect attempts. Request a new code below to continue."
+                      ? "Too many attempts. Request a new code."
                       : code === "identity.otp_expired"
-                        ? "This code has expired or was replaced. Request a new code to continue."
+                        ? "This code has expired. Request a new code."
                         : "We couldn't verify this code. Please try again.",
             );
             if (code === "identity.otp_max_attempts_exceeded") {
                 setLocked(true);
-                setDigits(Array(OTP_LENGTH).fill(""));
-                setResetKey((value) => value + 1);
-            } else if (code === "identity.otp_expired") {
-                rememberPendingVerificationExpiration(0);
-                setExpirationSeconds(0);
             } else if (code === "identity.invalid_otp_code") {
                 lastSubmittedCode.current = "";
                 setDigits(Array(OTP_LENGTH).fill(""));
@@ -138,7 +189,6 @@ export function ParkWiseOtpPage({
         if (
             email &&
             !locked &&
-            !expired &&
             !verifying &&
             !verified &&
             /^[0-9]{6}$/.test(code) &&
@@ -157,7 +207,6 @@ export function ParkWiseOtpPage({
             !email ||
             verifying ||
             locked ||
-            expired ||
             code === lastSubmittedCode.current
         )
             return;
@@ -183,10 +232,21 @@ export function ParkWiseOtpPage({
             const seconds = Math.max(0, result.cooldownSeconds);
             setCooldown(seconds);
             rememberPendingVerificationCooldown(seconds);
-            const expiration = Math.max(0, result.expiresInSeconds);
-            setExpirationSeconds(expiration);
-            rememberPendingVerificationExpiration(expiration);
             setNotice("A new code has been sent to your email.");
+            // Re-detect new OTP code after resend
+            window.setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/dev-otp?email=${encodeURIComponent(email)}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (data?.found && data?.otpCode && /^[0-9]{6}$/.test(data.otpCode)) {
+                        setDetectedOtp(data.otpCode);
+                        setShowPrompt(true);
+                    }
+                } catch {
+                    // Ignore dev helper errors
+                }
+            }, 1200);
         } catch (failure) {
             const code =
                 failure instanceof ApiError
@@ -215,92 +275,188 @@ export function ParkWiseOtpPage({
             fontClassName={fontClassName}
             className="parkwise-otp-page"
         >
-            <aside className="parkwise-login-aside parkwise-otp-aside">
-                <div className="parkwise-welcome">
-                    <h1>Almost there!</h1>
-                    <p className="parkwise-login-description">
-                        Verify your email to start your smarter parking journey.
-                    </p>
-                </div>
-                <Image
-                    src="/images/parkwise/login-parking-illustration.png"
-                    alt="Car beside a parking availability map"
-                    width={1536}
-                    height={1024}
-                    sizes="(max-width: 767px) 90vw, 480px"
-                    className="parkwise-login-illustration"
-                />
-            </aside>
+            <ParkWiseAuthAside
+                description={
+                    isOwner
+                        ? "Nhập mã xác thực 6 chữ số để kích hoạt tài khoản Đối tác ParkWise."
+                        : "Enter your verification code to finish creating your account."
+                }
+                afterWelcome={
+                    <div className="parkwise-aside-box parkwise-otp-back-box">
+                        <p>
+                            {isOwner
+                                ? "Cần sử dụng email khác?"
+                                : "Need to use a different email?"}
+                        </p>
+                        <Link
+                            href={isOwner ? "/owner/register" : "/sign-up"}
+                            className="parkwise-otp-back-link"
+                        >
+                            {isOwner
+                                ? "Quay lại Đăng ký Đối tác"
+                                : "Back to Sign Up"}
+                        </Link>
+                    </div>
+                }
+            />
 
             <div className="parkwise-login-form-panel parkwise-otp-form-panel">
                 {verified ? (
                     <div className="parkwise-otp-verified" role="status">
-                        <h2>Email verified</h2>
-                        <p>Your email is verified. You can now log in.</p>
-                        <p role="timer">
-                            Redirecting to Login in {redirectSeconds} seconds...
-                        </p>
-                        <Link href="/login" className="parkwise-login-submit">
-                            Go to Login
-                        </Link>
-                    </div>
-                ) : !email ? (
-                    <div className="parkwise-otp-empty" role="status">
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            aria-hidden="true"
-                        >
-                            <rect x="3" y="5" width="18" height="14" rx="2" />
-                            <path d="m3 7 9 6 9-6M16 16l5 5m0-5-5 5" />
-                        </svg>
-                        <h2>No verification request found</h2>
+                        <h2>{isOwner ? "Xác thực email thành công" : "Email verified"}</h2>
                         <p>
-                            Please complete sign up to receive your verification
-                            code.
+                            {isOwner
+                                ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang hồ sơ pháp lý..."
+                                : "Account activated. Redirecting to login..."}
                         </p>
-                        <Link href="/sign-up" className="parkwise-login-submit">
-                            Back to Sign Up
-                        </Link>
+                        {isOwner ? (
+                            <Link
+                                href="/owner/onboarding"
+                                className="parkwise-login-submit"
+                                style={{
+                                    display: "inline-block",
+                                    textAlign: "center",
+                                    textDecoration: "none",
+                                    lineHeight: "44px",
+                                    marginTop: "16px",
+                                    background: "#E6F85E",
+                                    color: "#09090B",
+                                    fontWeight: 700,
+                                }}
+                            >
+                                Tiếp tục: Nhập hồ sơ pháp lý đối tác →
+                            </Link>
+                        ) : (
+                            <Link href="/login" className="parkwise-login-submit">
+                                Go to Login
+                            </Link>
+                        )}
                     </div>
                 ) : (
                     <form noValidate onSubmit={onSubmit}>
-                        <h2>Verify Your Email</h2>
-                        <p className="parkwise-otp-instruction">
-                            Enter the 6-digit code sent to{" "}
-                            <strong>{email}</strong>.
-                        </p>
-                        <p
-                            className={`parkwise-otp-expiry${expired ? " is-expired" : ""}`}
-                            role="timer"
-                            aria-live="off"
+                        <h2>{isOwner ? "Xác thực Email Đối tác" : "Verify Your Email"}</h2>
+                        <div
+                            className="parkwise-otp-session-note"
+                            role="status"
                         >
-                            {expirationSeconds === null ? (
-                                "Codes are valid for 5 minutes. Request a new code if yours has expired."
-                            ) : expired ? (
-                                "Code expired. Request a new code to continue."
+                            {email ? (
+                                <p>
+                                    {isOwner
+                                        ? `Mã xác thực 6 chữ số đã được gửi đến ${email}.`
+                                        : `Enter the verification code for ${email}.`}
+                                </p>
                             ) : (
                                 <>
-                                    Code expires in{" "}
-                                    <strong>
-                                        {formatRemaining(expirationSeconds)}
-                                    </strong>
+                                    <p>
+                                        {isOwner
+                                            ? "Không tìm thấy yêu cầu xác thực nào."
+                                            : "No active verification request was found."}
+                                    </p>
+                                    <p>
+                                        {isOwner
+                                            ? "Vui lòng đăng ký lại để nhận mã xác thực mới."
+                                            : "Complete sign up to receive a code by email."}
+                                    </p>
                                 </>
                             )}
-                        </p>
+                        </div>
+                        {showPrompt && detectedOtp && (
+                            <div
+                                style={{
+                                    background: "#111113",
+                                    border: "1px solid #27272A",
+                                    borderRadius: "14px",
+                                    padding: "14px 16px",
+                                    marginBottom: "18px",
+                                    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "10px",
+                                    animation: "fadeIn 0.25s ease-out",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: "8px",
+                                    }}
+                                >
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                        <span style={{ fontSize: "16px" }}>⚡</span>
+                                        <span style={{ fontWeight: 700, fontSize: "13px", color: "#E6F85E" }}>
+                                            {isOwner ? "Mã xác thực từ Backend (Chế độ phát triển)" : "Dev OTP Detected from Backend"}
+                                        </span>
+                                    </div>
+                                    <span
+                                        style={{
+                                            background: "#1C1C1F",
+                                            border: "1px solid #27272A",
+                                            color: "#E6F85E",
+                                            padding: "2px 8px",
+                                            borderRadius: "6px",
+                                            fontSize: "13px",
+                                            fontWeight: 800,
+                                            letterSpacing: "1.5px",
+                                        }}
+                                    >
+                                        {detectedOtp}
+                                    </span>
+                                </div>
+                                <p style={{ margin: 0, fontSize: "12.5px", color: "#A1A1AA", lineHeight: 1.45 }}>
+                                    {isOwner
+                                        ? <>Hệ thống Backend (Notification Service) đã khởi tạo mã <strong>{detectedOtp}</strong> cho <strong>{email}</strong>. Bạn có thể bấm để tự động dán hoặc nhập mã nhận được qua email thật.</>
+                                        : <>Backend Notification Service recorded code <strong>{detectedOtp}</strong> for <strong>{email}</strong>. Click below to autofill or enter code from real email.</>}
+                                </p>
+                                <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleApplyDetectedOtp}
+                                        style={{
+                                            flex: 1,
+                                            background: "#E6F85E",
+                                            border: "1px solid #E6F85E",
+                                            color: "#09090B",
+                                            padding: "8px 14px",
+                                            borderRadius: "8px",
+                                            fontWeight: 700,
+                                            fontSize: "13px",
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        ✓ {isOwner ? "Tự động dán mã" : "Autofill Code"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPrompt(false)}
+                                        style={{
+                                            background: "#1C1C1F",
+                                            border: "1px solid #27272A",
+                                            color: "#A1A1AA",
+                                            padding: "8px 14px",
+                                            borderRadius: "8px",
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        {isOwner ? "Tự nhập" : "Enter manually"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <label
-                            className="parkwise-visually-hidden"
+                            className="parkwise-otp-label"
                             id="parkwise-otp-label"
                         >
-                            6-digit verification code
+                            {isOwner ? "Mã xác thực (6 chữ số)" : "Verification code"}
                         </label>
                         <SegmentedOtpInput
                             value={digits}
                             onChange={onDigitsChange}
                             error={error}
-                            disabled={verifying || locked || expired}
+                            disabled={verifying || locked}
                             resetKey={resetKey}
                             shaking={shaking}
                         />
@@ -318,25 +474,62 @@ export function ParkWiseOtpPage({
                             className="parkwise-login-submit"
                             type="submit"
                             disabled={
-                                !complete || verifying || locked || expired
+                                !complete || !email || verifying || locked
                             }
                         >
-                            {verifying ? "Verifying..." : "Verify Code"}
+                            {verifying
+                                ? (isOwner ? "Đang xác thực..." : "Verifying...")
+                                : (isOwner ? "Xác thực & Kích hoạt" : "Verify Code")}
                         </button>
                         <p className="parkwise-otp-help">
-                            Need a new code?{" "}
-                            <button
-                                type="button"
-                                onClick={onResend}
-                                disabled={resending || cooldown > 0}
-                            >
-                                {resending
-                                    ? "Sending..."
-                                    : cooldown > 0
-                                      ? `Resend in ${cooldown}s`
-                                      : "Resend code"}
-                            </button>
+                            {isOwner ? "Chưa nhận được mã? " : "Need a new code? "}
+                            {email ? (
+                                <button
+                                    type="button"
+                                    onClick={onResend}
+                                    disabled={resending || cooldown > 0}
+                                >
+                                    {resending
+                                        ? (isOwner ? "Đang gửi..." : "Sending...")
+                                        : cooldown > 0
+                                          ? (isOwner ? `Gửi lại sau ${cooldown}s` : `Resend in ${cooldown}s`)
+                                          : (isOwner ? "Gửi lại mã" : "Resend code")}
+                                </button>
+                            ) : (
+                                <Link href={isOwner ? "/owner/register" : "/sign-up"}>
+                                    {isOwner ? "Quay lại đăng ký" : "Return to sign up"}
+                                </Link>
+                            )}
                         </p>
+                        <div
+                            style={{
+                                marginTop: "16px",
+                                padding: "12px 14px",
+                                background: "#F4F4F5",
+                                border: "1px solid #E4E4E7",
+                                borderRadius: "10px",
+                                display: "flex",
+                                gap: "10px",
+                                alignItems: "flex-start",
+                                fontSize: "12px",
+                                color: "#52525B",
+                                lineHeight: 1.5,
+                                textAlign: "left",
+                            }}
+                        >
+                            <span style={{ fontSize: "15px", flexShrink: 0, marginTop: "1px" }}>💡</span>
+                            <div>
+                                {isOwner ? (
+                                    <>
+                                        Mã OTP được gửi trực tiếp từ máy chủ Backend về hòm thư của bạn. Vui lòng kiểm tra thêm mục <strong>Thư rác (Spam)</strong>. Đối với môi trường dev, có thể cấu hình tài khoản SMTP trong file <code>.env</code> để nhận thư thật.
+                                    </>
+                                ) : (
+                                    <>
+                                        The OTP code is dispatched by the backend notification service. Please check your <strong>Spam folder</strong> if not found in Inbox.
+                                    </>
+                                )}
+                            </div>
+                        </div>
                         {notice && (
                             <p className="parkwise-login-notice" role="status">
                                 {notice}
