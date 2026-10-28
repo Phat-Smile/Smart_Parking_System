@@ -147,7 +147,22 @@
     min-width: 0;
     max-width: 1240px;
     width: 100%;
-    padding: 30px 36px 60px;
+    padding: 24px 36px 60px;
+}
+.admin-topbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.admin-topbar-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+.admin-notifications-btn:hover {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
 }
 .admin-banner {
     display: flex;

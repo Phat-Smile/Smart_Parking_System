@@ -11,7 +11,7 @@ import {
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { AdminIcon } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
-
+import { AdminNotifications } from "./AdminNotifications";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -101,11 +101,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     ))}
                 </nav>
 
-                {/* Nút chuyển đổi ngôn ngữ ở góc trái (Language Switcher) */}
-                <div style={{ marginTop: "auto", padding: "8px 0" }}>
-                    <LanguageSwitcher variant="sidebar" />
-                </div>
-
                 <div className="admin-account">
                     <span className="admin-avatar">
                         {(session?.displayName || session?.account.email || "A")
@@ -133,6 +128,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </div>
             </aside>
             <main className="admin-main">
+                {/* Top Action Bar: Notifications & Language Switcher (lên trên Review queue) */}
+                <div className="admin-topbar">
+                    <div className="admin-topbar-right">
+                        <AdminNotifications />
+                        <LanguageSwitcher variant="header" />
+                    </div>
+                </div>
+
                 {!session && (
                     <div className="admin-banner" role="status">
                         <AdminIcon name="alert" size={16} />
