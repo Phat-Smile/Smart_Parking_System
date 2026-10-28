@@ -13,7 +13,13 @@ const ParkingScene3DViewer = dynamic(
     { ssr: false },
 );
 
+import {
+    registerParkingLotApi,
+    ParkingLotTypeEnum,
+} from "@/features/owner/api/ownerApi";
+
 interface WizardData {
+    type?: ParkingLotTypeEnum;
     name: string;
     addr: string;
     gps: string;
@@ -95,7 +101,26 @@ export default function NewParkingLotPage() {
         }
     };
 
-    const handleConfirmSend = () => {
+    const handleConfirmSend = async () => {
+        const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
+        const latitude = Number(latStr) || 10.7769;
+        const longitude = Number(lngStr) || 106.7009;
+
+        try {
+            await registerParkingLotApi({
+                name: data.name,
+                address: data.addr,
+                latitude,
+                longitude,
+                type: data.type || "MultiStorey",
+            });
+        } catch (err: unknown) {
+            console.warn(
+                "Backend API registration call skipped or offline, falling back to local store:",
+                err,
+            );
+        }
+
         addLot({
             id: (Date.now() % 100000) + 10,
             name: data.name,
