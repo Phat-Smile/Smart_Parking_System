@@ -167,7 +167,12 @@ export function StaffEntryPage() {
                     type="button"
                     className="staff-preset-chip"
                     onClick={() =>
-                        loadPreset("59X1-234.56", "Motorbike", "Registered", 0.99)
+                        loadPreset(
+                            "59X1-234.56",
+                            "Motorbike",
+                            "Registered",
+                            0.99,
+                        )
                     }
                 >
                     🛵 {t("staffMotorbike")}: 59X1-234.56 (Demo A)

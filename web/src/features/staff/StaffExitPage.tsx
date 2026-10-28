@@ -115,7 +115,10 @@ export function StaffExitPage() {
         setPaymentSuccess(false);
 
         try {
-            const res = await findOpenSessionByPlate(DEFAULT_STAFF_LOT_ID, plate);
+            const res = await findOpenSessionByPlate(
+                DEFAULT_STAFF_LOT_ID,
+                plate,
+            );
             setQrInput(res.qrToken);
             const fee = 60000;
             const scanned: StaffSession = {
@@ -357,7 +360,9 @@ export function StaffExitPage() {
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-secondary"
-                                    disabled={loading || !detectedExitPlate.trim()}
+                                    disabled={
+                                        loading || !detectedExitPlate.trim()
+                                    }
                                     title="Tra cứu phiên đỗ bằng biển số khi khách làm mất vé QR"
                                     onClick={handleLookupByPlate}
                                 >
@@ -368,7 +373,14 @@ export function StaffExitPage() {
 
                         {/* US-STAFF-004: Actions when QR is lost or manual check is needed */}
                         {scannedSession && (
-                            <div style={{ marginTop: "12px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    marginTop: "12px",
+                                    display: "flex",
+                                    gap: "8px",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-secondary staff-btn-sm"
@@ -442,7 +454,9 @@ export function StaffExitPage() {
                                 <div className="check-badge-wrap">
                                     <span
                                         className={`staff-check-badge ${
-                                            qrValid ? "badge-pass" : "badge-fail"
+                                            qrValid
+                                                ? "badge-pass"
+                                                : "badge-fail"
                                         }`}
                                     >
                                         {qrValid
