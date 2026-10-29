@@ -66,6 +66,30 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                     b.ToTable("pricing_policies", "parking");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationAvailabilityPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ReservationEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservation_availability_policies_lot_id");
+
+                    b.ToTable("reservation_availability_policies", "parking");
+                });
+
             modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationDepositPolicy", b =>
                 {
                     b.Property<Guid>("Id")
@@ -88,6 +112,30 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasDatabaseName("ux_reservation_deposit_policies_lot_id");
 
                     b.ToTable("reservation_deposit_policies", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationRatioPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReservationRatioPercent")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservation_ratio_policies_lot_id");
+
+                    b.ToTable("reservation_ratio_policies", "parking");
                 });
 
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>

@@ -47,8 +47,16 @@ export async function getStaffLots(): Promise<StaffLotItem[]> {
         );
         if (Array.isArray(res) && res.length > 0) {
             return res.map((item) => ({
-                id: (item as unknown as { id?: string; lotId?: string }).id || (item as unknown as { lotId?: string }).lotId || "",
-                name: sanitizeLotName((item as unknown as { name?: string; lotName?: string }).name || (item as unknown as { lotName?: string }).lotName || ""),
+                id:
+                    (item as unknown as { id?: string; lotId?: string }).id ||
+                    (item as unknown as { lotId?: string }).lotId ||
+                    "",
+                name: sanitizeLotName(
+                    (item as unknown as { name?: string; lotName?: string })
+                        .name ||
+                        (item as unknown as { lotName?: string }).lotName ||
+                        "",
+                ),
                 address: item.address || "",
                 type: (item as unknown as { type?: string }).type || "Outdoor",
             }));
@@ -79,7 +87,8 @@ export async function getStaffLots(): Promise<StaffLotItem[]> {
 export async function getAssignedLot(): Promise<AssignedLotResponse> {
     try {
         const lots = await getStaffLots();
-        const chosen = lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
+        const chosen =
+            lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
         if (chosen) {
             return {
                 lotId: chosen.id,

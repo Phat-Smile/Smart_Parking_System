@@ -90,4 +90,27 @@ public sealed class ParkingSlot
         RowVersion++;
         return true;
     }
+
+    public void UpdateSensorState(SensorState? sensorState)
+    {
+        SensorState = sensorState;
+        EffectiveStatus = ComputeEffectiveStatus(SensorState, OverrideState, DispatchState);
+        RowVersion++;
+    }
+
+    public void AssignSession(Guid sessionId, DateTimeOffset assignedAt)
+    {
+        DispatchState = ParkingLayout.DispatchState.Assigned;
+        AssignedSessionId = sessionId;
+        AssignedAt = assignedAt;
+        EffectiveStatus = ComputeEffectiveStatus(SensorState, OverrideState, DispatchState);
+        RowVersion++;
+    }
+
+    public void MarkNeedsVerification()
+    {
+        DispatchState = ParkingLayout.DispatchState.NeedsVerification;
+        EffectiveStatus = ComputeEffectiveStatus(SensorState, OverrideState, DispatchState);
+        RowVersion++;
+    }
 }

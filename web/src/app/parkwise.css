@@ -361,6 +361,46 @@
 .parkwise-auth-signup:focus-visible .parkwise-auth-label-fill {
     clip-path: inset(0 0 0 0);
 }
+.parkwise-auth-owner {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-color: #2563eb !important;
+    background-color: transparent !important;
+    color: #2563eb !important;
+    font-weight: 700;
+}
+.parkwise-navbar-dark .parkwise-auth-owner {
+    border-color: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+.parkwise-auth-owner::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 650ms ease-out;
+    background: #2563eb;
+}
+.parkwise-navbar-dark .parkwise-auth-owner::before {
+    background: #38bdf8;
+}
+.parkwise-auth-owner .parkwise-auth-label-fill {
+    color: var(--parkwise-white);
+}
+.parkwise-navbar-dark .parkwise-auth-owner .parkwise-auth-label-fill {
+    color: #0f172a;
+}
+.parkwise-auth-owner:hover::before,
+.parkwise-auth-owner:focus-visible::before {
+    transform: scaleX(1);
+}
+.parkwise-auth-owner:hover .parkwise-auth-label-fill,
+.parkwise-auth-owner:focus-visible .parkwise-auth-label-fill {
+    clip-path: inset(0 0 0 0);
+}
 .parkwise-menu-button {
     display: none;
     width: 34px;

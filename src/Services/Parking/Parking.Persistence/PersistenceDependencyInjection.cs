@@ -64,6 +64,8 @@ public static class PersistenceDependencyInjection
             provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
         services.AddScoped<IPricingPolicyRepository, PricingPolicyRepository>();
         services.AddScoped<IReservationDepositPolicyRepository, ReservationDepositPolicyRepository>();
+        services.AddScoped<IReservationRatioPolicyRepository, ReservationRatioPolicyRepository>();
+        services.AddScoped<IReservationAvailabilityPolicyRepository, ReservationAvailabilityPolicyRepository>();
         services.AddScoped<ILotOwnershipService, LotOwnershipService>();
         services.AddScoped<IParkingUnitOfWork, ParkingUnitOfWork>();
         services.AddParkingLayout(configuration);
@@ -71,6 +73,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IManageParkingLayoutRepository, ManageParkingLayoutRepository>();
         services.AddScoped<IOwnerParkingLotReader, OwnerParkingLotReader>();
         services.AddScoped<IAdminParkingLotReader, AdminParkingLotReader>();
+        services.AddScoped<IAdminParkingLotDetailReader, AdminParkingLotDetailReader>();
         return services;
     }
 }

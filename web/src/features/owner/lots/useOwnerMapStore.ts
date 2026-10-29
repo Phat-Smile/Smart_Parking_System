@@ -141,8 +141,14 @@ export function useAllLots(): ParkingLot[] {
     const storeLots = useOwnerStore((s) => s.lots);
     const overlayLots = useOwnerMapStore((s) => s.overlayLots);
 
-    if (overlayLots && overlayLots.length > 0) {
-        return overlayLots;
+    const map = new Map<number, ParkingLot>();
+    for (const lot of overlayLots) {
+        map.set(lot.id, lot);
     }
-    return storeLots;
+    for (const lot of storeLots) {
+        if (!map.has(lot.id)) {
+            map.set(lot.id, lot);
+        }
+    }
+    return Array.from(map.values());
 }

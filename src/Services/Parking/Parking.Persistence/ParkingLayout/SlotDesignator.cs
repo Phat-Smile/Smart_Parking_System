@@ -1,10 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Parking.Application.ParkingLayout;
+using ParkingSystem.Parking.Domain.ParkingLayout;
+using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Persistence.ParkingLayout;
 
 internal sealed class SlotDesignator(ParkingDbContext dbContext) : ISlotDesignator
 {
+    private const string CarEntryLockPrefix = "parking.car-entry:";
+
     public async Task<DesignatedSlot?> DesignateCarSlotAsync(
         Guid lotId,
         Guid sessionId,
@@ -41,6 +45,35 @@ internal sealed class SlotDesignator(ParkingDbContext dbContext) : ISlotDesignat
         return designated.Count == 0
             ? null
             : new DesignatedSlot(designated[0].SlotId, designated[0].ZoneId, designated[0].SlotCode);
+    }
+
+    public async Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken)
+    {
+        // Transaction-level advisory lock: released by PostgreSQL itself at commit or rollback, so an error cannot leave
+        // the lot locked. The key is a hash of the lot id with a prefix, so it does not mix with other advisory locks.
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({CarEntryLockPrefix + lotId}, 0))", cancellationToken);
+
+        // Counted after the lock, so a car admitted by the previous holder is already seen.
+        return await (from slot in dbContext.ParkingSlots
+                      join zone in dbContext.Zones on slot.ZoneId equals zone.Id
+                      where slot.LotId == lotId
+                            && slot.EffectiveStatus == SlotEffectiveStatus.Available
+                            && zone.VehicleGroup == VehicleType.Car
+                      select slot.Id)
+            .CountAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(
+        IReadOnlyCollection<Guid> sessionIds,
+        CancellationToken cancellationToken)
+    {
+        if (sessionIds.Count == 0)
+            return new Dictionary<Guid, string>();
+
+        return await dbContext.ParkingSlots.AsNoTracking()
+            .Where(slot => slot.AssignedSessionId != null && sessionIds.Contains(slot.AssignedSessionId.Value))
+            .ToDictionaryAsync(slot => slot.AssignedSessionId!.Value, slot => slot.SlotCode, cancellationToken);
     }
 
     public async Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken)

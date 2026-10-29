@@ -52,4 +52,10 @@ public sealed class Zone
         HasSlotSensor = hasSlotSensor;
         return true;
     }
+
+    public void UpdateCurrentVehicleCount(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        CurrentVehicleCount = count;
+    }
 }

@@ -9,7 +9,9 @@ import { useLanguage } from "@/shared/i18n/LanguageContext";
 function getSpotText(issue: VerificationIssue, isVi: boolean): string {
     if (isVi) {
         if (issue.spotVi) return issue.spotVi;
-        return issue.spot.replace("Gate In", "Cổng Vào").replace("Gate Out", "Cổng Ra");
+        return issue.spot
+            .replace("Gate In", "Cổng Vào")
+            .replace("Gate Out", "Cổng Ra");
     }
     return issue.spotEn || issue.spot;
 }
@@ -18,7 +20,10 @@ function getProblemText(issue: VerificationIssue, isVi: boolean): string {
     if (isVi) {
         if (issue.problemVi) return issue.problemVi;
         if (issue.problem.includes("Low Camera OCR Confidence")) {
-            return issue.problem.replace("Low Camera OCR Confidence", "Độ tin cậy OCR camera thấp");
+            return issue.problem.replace(
+                "Low Camera OCR Confidence",
+                "Độ tin cậy OCR camera thấp",
+            );
         }
         if (issue.problem.includes("QR Damaged / Unreadable on Guest Phone")) {
             return "Mã QR mờ / hỏng trên điện thoại khách";
@@ -30,8 +35,10 @@ function getProblemText(issue: VerificationIssue, isVi: boolean): string {
 function getStateText(issue: VerificationIssue, isVi: boolean): string {
     if (isVi) {
         if (issue.currentStateVi) return issue.currentStateVi;
-        if (issue.currentState.includes("Waiting for staff confirmation")) return "Chờ nhân viên xác nhận";
-        if (issue.currentState.includes("Vehicle waiting at barrier")) return "Xe chờ tại rào chắn";
+        if (issue.currentState.includes("Waiting for staff confirmation"))
+            return "Chờ nhân viên xác nhận";
+        if (issue.currentState.includes("Vehicle waiting at barrier"))
+            return "Xe chờ tại rào chắn";
     }
     return issue.currentStateEn || issue.currentState;
 }
@@ -75,13 +82,26 @@ export function StaffVerificationPage() {
                 <table className="staff-table staff-table-verif">
                     <thead>
                         <tr>
-                            <th style={{ width: "120px" }}>{t("verifColSpot")}</th>
+                            <th style={{ width: "120px" }}>
+                                {t("verifColSpot")}
+                            </th>
                             <th>{t("verifColProblem")}</th>
-                            <th style={{ width: "140px" }}>{t("verifColDetectedPlate")}</th>
-                            <th style={{ width: "85px" }}>{t("verifColConf")}</th>
-                            <th style={{ width: "190px" }}>{t("verifColState")}</th>
-                            <th style={{ width: "150px" }}>{t("verifColReportedAt")}</th>
-                            <th className="text-right" style={{ width: "180px" }}>
+                            <th style={{ width: "140px" }}>
+                                {t("verifColDetectedPlate")}
+                            </th>
+                            <th style={{ width: "85px" }}>
+                                {t("verifColConf")}
+                            </th>
+                            <th style={{ width: "190px" }}>
+                                {t("verifColState")}
+                            </th>
+                            <th style={{ width: "150px" }}>
+                                {t("verifColReportedAt")}
+                            </th>
+                            <th
+                                className="text-right"
+                                style={{ width: "180px" }}
+                            >
                                 {t("verifColAction")}
                             </th>
                         </tr>
@@ -103,10 +123,15 @@ export function StaffVerificationPage() {
                                     </td>
                                     <td className="cell-wrap">
                                         <div className="staff-issue-prob">
-                                            <span className="issue-icon" aria-hidden="true">
+                                            <span
+                                                className="issue-icon"
+                                                aria-hidden="true"
+                                            >
                                                 ⚠️
                                             </span>
-                                            <span>{getProblemText(issue, isVi)}</span>
+                                            <span>
+                                                {getProblemText(issue, isVi)}
+                                            </span>
                                         </div>
                                     </td>
                                     <td>

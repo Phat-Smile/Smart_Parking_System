@@ -245,17 +245,14 @@ export function useParkWiseLandingMotion(
                                     start: "top 82%",
                                     once: true,
                                 },
-                            }).from(
-                                all(".parkwise-newsletter h2"),
-                                {
-                                    autoAlpha: 0,
-                                    y: 14,
-                                    duration: 0.7,
-                                    stagger: 0.14,
-                                    ease: "power2.out",
-                                    clearProps: "all",
-                                },
-                            );
+                            }).from(all(".parkwise-newsletter h2"), {
+                                autoAlpha: 0,
+                                y: 14,
+                                duration: 0.7,
+                                stagger: 0.14,
+                                ease: "power2.out",
+                                clearProps: "all",
+                            });
 
                             const pattern = one(".parkwise-newsletter-pattern");
                             if (pattern) {
