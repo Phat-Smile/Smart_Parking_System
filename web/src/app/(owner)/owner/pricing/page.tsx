@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
+import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 import {
     configurePricingApi,
     configureDepositPolicyApi,
@@ -37,29 +38,25 @@ export default function OwnerPricingManagementPage() {
     const [successMessage, setSuccessMessage] = useState<string>("");
 
     const currentLot = lots.find((l) => l.id === selectedLotId) || lots[0];
+    // Parking keys lots by GUID; a design lot without one cannot be saved.
+    const lotKey = backendLotId(currentLot);
 
     // Load deposit policy whenever lotId changes
     useEffect(() => {
         async function loadDeposit() {
-            if (!selectedLotId) return;
+            if (!lotKey) return;
             setIsLoadingDeposit(true);
             try {
-                const res = await getDepositPolicyApi(selectedLotId);
-                if (
-                    res &&
-                    res.depositAmount !== null &&
-                    res.depositAmount !== undefined
-                ) {
-                    setDeposit(res.depositAmount);
-                }
+                const res = await getDepositPolicyApi(lotKey);
+                if (res.isConfigured) setDeposit(res.holdDepositVnd);
             } catch {
-                // Fallback default
+                setErrorMessage("Không tải được mức cọc hiện tại của bãi này.");
             } finally {
                 setIsLoadingDeposit(false);
             }
         }
         loadDeposit();
-    }, [selectedLotId]);
+    }, [lotKey]);
 
     // Calculate estimated price
     const calculatePreviewPrice = () => {
@@ -78,16 +75,22 @@ export default function OwnerPricingManagementPage() {
     };
 
     const handleSave = async () => {
-        setIsSubmitting(true);
         setErrorMessage("");
         setSuccessMessage("");
+        if (!lotKey) {
+            setErrorMessage(
+                "Bãi này chưa có trên hệ thống nên không lưu được. Hãy chọn một bãi bạn đã đăng ký.",
+            );
+            return;
+        }
+        setIsSubmitting(true);
 
         const billingMode = pricingType === "block" ? "Block" : "PerEntry";
         const blockMins = pricingType === "block" ? blockDuration : null;
 
         try {
             // 1. Configure pricing for Car (PUT /api/parking/lots/{lotId}/pricing/CAR)
-            await configurePricingApi(selectedLotId, "CAR", {
+            await configurePricingApi(lotKey, "CAR", {
                 billingMode,
                 price: carHourly,
                 blockMinutes: blockMins,
@@ -96,7 +99,7 @@ export default function OwnerPricingManagementPage() {
             });
 
             // 2. Configure pricing for Motorbike (PUT /api/parking/lots/{lotId}/pricing/MOTORBIKE)
-            await configurePricingApi(selectedLotId, "MOTORBIKE", {
+            await configurePricingApi(lotKey, "MOTORBIKE", {
                 billingMode,
                 price: motoHourly,
                 blockMinutes: blockMins,
@@ -104,9 +107,9 @@ export default function OwnerPricingManagementPage() {
                 reason: "Chủ bãi cập nhật biểu giá xe máy",
             });
 
-            // 3. Configure deposit policy (PUT /api/v1/parking-lots/{lotId}/deposit-policy)
-            await configureDepositPolicyApi(selectedLotId, {
-                depositAmount: deposit,
+            // 3. Configure deposit policy (PUT /api/parking/lots/{lotId}/deposit-policy)
+            await configureDepositPolicyApi(lotKey, {
+                holdDepositVnd: deposit,
             });
 
             setSuccessMessage(
@@ -117,8 +120,9 @@ export default function OwnerPricingManagementPage() {
             if (err instanceof ApiError) {
                 setErrorMessage(`Lỗi từ máy chủ: ${err.message}`);
             } else {
-                setSuccessMessage("Đã lưu cấu hình biểu giá thành công!");
-                setTimeout(() => setSuccessMessage(""), 3000);
+                setErrorMessage(
+                    "Không kết nối được máy chủ. Biểu giá chưa được lưu.",
+                );
             }
         } finally {
             setIsSubmitting(false);

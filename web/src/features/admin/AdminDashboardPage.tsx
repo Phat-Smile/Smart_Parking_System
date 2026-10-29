@@ -10,9 +10,6 @@ export function AdminDashboardPage() {
     const lots = useAdminLots();
     const counts = countByStatus(lots);
     const total = lots.length || 1;
-    const capacity = lots
-        .filter((lot) => lot.status === "Approved")
-        .reduce((sum, lot) => sum + (lot.totalCapacity ?? 0), 0);
     const queue = lots
         .filter((lot) => lot.status === "Pending")
         .sort((a, b) =>
@@ -73,11 +70,7 @@ export function AdminDashboardPage() {
                         </div>
                     </Link>
                 ))}
-                <div className="admin-stat admin-stat-capacity">
-                    <span>{t("adminDashApprovedCapacity")}</span>
-                    <strong>{capacity.toLocaleString("en-US")}</strong>
-                    <small>{t("adminDashSlotsOpen")}</small>
-                </div>
+                {/* The admin lot list has no capacity, so the dashboard shows counts only. */}
             </section>
 
             <div className="admin-columns">

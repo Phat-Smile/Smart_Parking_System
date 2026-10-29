@@ -2,45 +2,38 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ApiError } from "@/shared/errors/api-error";
-import { AdminIcon, StatusPill, formatDate, vnd } from "./AdminUi";
-import { findLot, recordDecision, useAdminLots } from "./adminLotsData";
+import { AdminIcon, StatusPill, vnd } from "./AdminUi";
+import { refreshAdminLots } from "./adminLotsData";
 import {
     MAX_REJECTION_REASON,
     approveParkingLot,
     describeReviewError,
+    getAdminParkingLotDetail,
+    getAdminParkingLotLayout,
+    getAdminParkingLotPricing,
     isParkingLotId,
     rejectParkingLot,
     validateRejectionReason,
 } from "./reviewParkingLot";
 import type {
-    AdminParkingLot,
-    LotFloorLayout,
+    AdminLotLayout,
+    AdminLotPricing,
+    AdminParkingLotDetail,
     ReviewedParkingLot,
 } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 type Dialog = "approve" | "reject" | null;
 
-function FloorPlan({ floor }: { floor: LotFloorLayout }) {
-    const blocked = new Set(floor.blocked);
-    return (
-        <figure className="admin-floor">
-            <figcaption>{floor.name}</figcaption>
-            <div
-                className="admin-floor-grid"
-                style={{ gridTemplateColumns: `repeat(${floor.cols}, 1fr)` }}
-            >
-                {Array.from({ length: floor.rows * floor.cols }, (_, i) => (
-                    <span
-                        key={i}
-                        className={blocked.has(i) ? "aisle" : undefined}
-                    />
-                ))}
-            </div>
-        </figure>
-    );
-}
+// What the admin reviews, read from the #128 admin routes (any approval state).
+type LotReview = {
+    detail: AdminParkingLotDetail;
+    layout: AdminLotLayout;
+    prices: { car: AdminLotPricing | null; motorbike: AdminLotPricing | null };
+};
+
+// .NET DayOfWeek: 0 is Sunday.
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function Row({
     label,
@@ -57,46 +50,65 @@ function Row({
     );
 }
 
-function LotDetails({ lot }: { lot: AdminParkingLot }) {
-    const mapUrl = `https://www.google.com/maps?q=${lot.latitude},${lot.longitude}`;
+function openingHoursText(detail: AdminParkingLotDetail) {
+    if (!detail.openingHours) return "Not set yet";
+    return detail.openingHours.days
+        .map((day) => {
+            const hours = day.isClosed
+                ? "closed"
+                : day.is24Hours
+                  ? "24h"
+                  : `${day.opensAt ?? "?"}–${day.closesAt ?? "?"}`;
+            return `${DAY_NAMES[day.dayOfWeek] ?? day.dayOfWeek} ${hours}`;
+        })
+        .join(" · ");
+}
+
+function PriceRows({ price }: { price: AdminLotPricing | null }) {
+    if (!price) return <Row label="Price">Not set yet</Row>;
+    return (
+        <>
+            <Row label="Billing">
+                {price.billingMode}
+                {price.blockMinutes ? ` · ${price.blockMinutes} min block` : ""}
+            </Row>
+            <Row label="Price">{vnd(price.price)}</Row>
+            <Row label="Overnight">{vnd(price.overnightFee)}</Row>
+            <Row label="Version">v{price.version}</Row>
+        </>
+    );
+}
+
+function LotDetails({ review }: { review: LotReview }) {
+    const { detail, layout, prices } = review;
+    const mapUrl = `https://www.google.com/maps?q=${detail.latitude},${detail.longitude}`;
+    const zones = layout.floors.flatMap((floor) =>
+        floor.zones.map((zone) => ({ floor: floor.name, ...zone })),
+    );
     return (
         <div className="admin-detail-grid">
             <section className="admin-card">
                 <h2>Parking information</h2>
                 <dl>
-                    <Row label="Name">{lot.name}</Row>
-                    <Row label="Owner">
-                        {lot.ownerName ?? lot.ownerUserId ?? "-"} ·{" "}
-                        {lot.ownerEmail ?? ""}
+                    <Row label="Name">{detail.name}</Row>
+                    <Row label="Owner account">
+                        <code>{detail.ownerUserId ?? "-"}</code>
                     </Row>
-                    <Row label="Submitted">
-                        {formatDate(lot.submittedAtUtc ?? null)}
-                    </Row>
+                    <Row label="Type">{detail.type}</Row>
                     <Row label="Operating hours">
-                        {lot.is24h
-                            ? "Open 24/7"
-                            : `${lot.openTime} – ${lot.closeTime}`}
-                    </Row>
-                    <Row label="Vehicle types">
-                        <span className="admin-chips">
-                            {(lot.vehicleTypes ?? [lot.type]).map((t) => (
-                                <span key={t}>{t}</span>
-                            ))}
-                        </span>
-                    </Row>
-                    <Row label="Total capacity">
-                        {lot.totalCapacity ?? "-"} slots
+                        {openingHoursText(detail)}
                     </Row>
                 </dl>
             </section>
             <section className="admin-card">
                 <h2>Address & GPS</h2>
                 <p className="admin-address">
-                    <AdminIcon name="pin" size={16} /> {lot.address}, {lot.city}
+                    <AdminIcon name="pin" size={16} /> {detail.address}
                 </p>
                 <div className="admin-coords">
                     <code>
-                        {lot.latitude.toFixed(5)}, {lot.longitude.toFixed(5)}
+                        {Number(detail.latitude).toFixed(5)},{" "}
+                        {Number(detail.longitude).toFixed(5)}
                     </code>
                     <a href={mapUrl} target="_blank" rel="noreferrer">
                         Open in Maps ↗
@@ -104,82 +116,47 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
                 </div>
             </section>
             <section className="admin-card admin-span-2">
-                <h2>Zones</h2>
-                <table className="admin-table admin-table-compact">
-                    <thead>
-                        <tr>
-                            <th>Zone</th>
-                            <th>Vehicle</th>
-                            <th>Slots</th>
-                            <th>Hourly price</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {(lot.zones ?? []).map((zone) => (
-                            <tr key={zone.id}>
-                                <td>
-                                    <strong>{zone.name}</strong>
-                                </td>
-                                <td>{zone.vehicleType}</td>
-                                <td>{zone.slots}</td>
-                                <td>{vnd(zone.pricePerHourVnd)}</td>
+                <h2>Layout (version {layout.version})</h2>
+                {zones.length === 0 ? (
+                    <p>The owner has not saved a layout yet.</p>
+                ) : (
+                    <table className="admin-table admin-table-compact">
+                        <thead>
+                            <tr>
+                                <th>Floor</th>
+                                <th>Zone</th>
+                                <th>Vehicle</th>
+                                <th>Capacity</th>
+                                <th>Slots</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {zones.map((zone) => (
+                                <tr key={zone.id}>
+                                    <td>{zone.floor}</td>
+                                    <td>
+                                        <strong>{zone.code}</strong>
+                                    </td>
+                                    <td>{zone.vehicleGroup}</td>
+                                    <td>{zone.capacity}</td>
+                                    <td>{zone.slots.length}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </section>
             <section className="admin-card">
-                <h2>Pricing</h2>
+                <h2>Car price</h2>
                 <dl>
-                    <Row label="First hour">
-                        {lot.pricing ? vnd(lot.pricing.firstHourVnd) : "-"}
-                    </Row>
-                    <Row label="Each extra hour">
-                        {lot.pricing ? vnd(lot.pricing.extraHourVnd) : "-"}
-                    </Row>
-                    <Row label="Daily cap">
-                        {lot.pricing ? vnd(lot.pricing.dailyCapVnd) : "-"}
-                    </Row>
-                    <Row label="Overnight">
-                        {lot.pricing ? vnd(lot.pricing.overnightVnd) : "-"}
-                    </Row>
+                    <PriceRows price={prices.car} />
                 </dl>
             </section>
             <section className="admin-card">
-                <h2>Hold deposit & reservation policy</h2>
+                <h2>Motorbike price</h2>
                 <dl>
-                    <Row label="Hold deposit">
-                        {lot.holdDepositVnd !== undefined
-                            ? vnd(lot.holdDepositVnd)
-                            : "-"}
-                    </Row>
-                    <Row label="Hold window">
-                        {lot.reservation
-                            ? `${lot.reservation.holdMinutes} min`
-                            : "-"}
-                    </Row>
-                    <Row label="Free cancellation">
-                        {lot.reservation
-                            ? `first ${lot.reservation.freeCancelMinutes} min`
-                            : "-"}
-                    </Row>
-                    <Row label="No-show">
-                        {lot.reservation?.noShowRule ?? "-"}
-                    </Row>
+                    <PriceRows price={prices.motorbike} />
                 </dl>
-            </section>
-            <section className="admin-card admin-span-2">
-                <div className="admin-card-head">
-                    <h2>2D layout</h2>
-                    <span className="admin-legend">
-                        <i /> Slot <i className="aisle" /> Aisle
-                    </span>
-                </div>
-                <div className="admin-floors">
-                    {(lot.layout ?? []).map((floor) => (
-                        <FloorPlan key={floor.name} floor={floor} />
-                    ))}
-                </div>
             </section>
         </div>
     );
@@ -187,8 +164,8 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
 
 export function ParkingLotReviewPage({ id }: { id: string }) {
     const { t, language } = useLanguage();
-    const lots = useAdminLots();
-    const sample = findLot(lots, id);
+    const [review, setReview] = useState<LotReview | null>(null);
+    const [loadError, setLoadError] = useState<unknown>(null);
     const [backendResult, setBackendResult] =
         useState<ReviewedParkingLot | null>(null);
     const [dialog, setDialog] = useState<Dialog>(null);
@@ -203,6 +180,27 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
         if (typeof rawSubmitError === "string") return rawSubmitError;
         return describeReviewError(rawSubmitError, language);
     }, [rawSubmitError, language]);
+
+    useEffect(() => {
+        if (!isParkingLotId(id)) return;
+        let active = true;
+        Promise.all([
+            getAdminParkingLotDetail(id),
+            getAdminParkingLotLayout(id),
+            getAdminParkingLotPricing(id, "Car"),
+            getAdminParkingLotPricing(id, "Motorbike"),
+        ])
+            .then(([detail, layout, car, motorbike]) => {
+                if (active)
+                    setReview({ detail, layout, prices: { car, motorbike } });
+            })
+            .catch((error: unknown) => {
+                if (active) setLoadError(error);
+            });
+        return () => {
+            active = false;
+        };
+    }, [id]);
 
     useEffect(() => {
         if (!toast) return;
@@ -243,12 +241,18 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
         );
     }
 
-    const status = sample?.status ?? backendResult?.approvalStatus ?? "Pending";
+    const status =
+        backendResult?.approvalStatus ??
+        review?.detail.approvalStatus ??
+        "Pending";
     const rejectionReason =
-        sample?.rejectionReason ?? backendResult?.rejectionReason ?? null;
+        backendResult?.rejectionReason ??
+        review?.detail.rejectionReason ??
+        null;
     const reviewed = status !== "Pending";
     const name =
-        sample?.name ?? (language === "vi" ? "Bãi đỗ xe" : "Parking lot");
+        review?.detail.name ??
+        (language === "vi" ? "Bãi đỗ xe" : "Parking lot");
 
     function open(kind: Dialog) {
         setDialog(kind);
@@ -272,8 +276,8 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                 dialog === "approve"
                     ? await approveParkingLot(id)
                     : await rejectParkingLot(id, reason);
-            recordDecision(result);
             setBackendResult(result);
+            void refreshAdminLots();
             setDialog(null);
             setToast(
                 result.approvalStatus === "Approved"
@@ -285,28 +289,6 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                       : `${name} was rejected. The owner will see the reason.`,
             );
         } catch (error) {
-            // When backend is offline and inspecting sample lot, fallback to local decision overlay for UI preview
-            if (sample && !(error instanceof ApiError)) {
-                const fallbackResult: ReviewedParkingLot = {
-                    parkingLotId: id,
-                    approvalStatus:
-                        dialog === "approve" ? "Approved" : "Rejected",
-                    rejectionReason: dialog === "reject" ? reason.trim() : null,
-                };
-                recordDecision(fallbackResult);
-                setBackendResult(fallbackResult);
-                setDialog(null);
-                setToast(
-                    fallbackResult.approvalStatus === "Approved"
-                        ? language === "vi"
-                            ? `${name} đã được duyệt và hiển thị công khai (chế độ xem trước).`
-                            : `${name} is now active and visible to drivers (preview mode).`
-                        : language === "vi"
-                          ? `${name} đã bị từ chối (chế độ xem trước).`
-                          : `${name} was rejected (preview mode).`,
-                );
-                return;
-            }
             setRawSubmitError(error);
         } finally {
             setSubmitting(false);
@@ -329,12 +311,13 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                 <StatusPill status={status} />
             </header>
 
-            {!sample && (
-                <p className="admin-sample-note">
+            {!review && !loadError && (
+                <p className="admin-sample-note">Loading…</p>
+            )}
+            {loadError !== null && (
+                <p className="admin-sample-note" role="alert">
                     <AdminIcon name="alert" size={15} />
-                    Details for this ID aren&apos;t available yet (no admin
-                    detail endpoint). You can still record a decision; the
-                    backend validates that the lot exists and is Pending.
+                    {describeReviewError(loadError, language)}
                 </p>
             )}
 
@@ -353,7 +336,7 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                 </div>
             )}
 
-            {sample && <LotDetails lot={sample} />}
+            {review && <LotDetails review={review} />}
 
             <div className={`admin-decision ${reviewed ? "is-final" : ""}`}>
                 <div>
@@ -362,11 +345,11 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
                     </strong>
                     <small>
                         {reviewed
-                            ? `Reviewed ${formatDate(sample?.reviewedAtUtc ?? null)}. Decisions are final.`
+                            ? "Decisions are final."
                             : "Approving makes the lot active for drivers. Rejecting requires a reason."}
                     </small>
                 </div>
-                {!reviewed && (
+                {!reviewed && review && (
                     <div className="admin-decision-actions">
                         <button
                             type="button"
