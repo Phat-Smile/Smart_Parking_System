@@ -282,6 +282,8 @@ const accountLinks: {
     { href: "/customer/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/search", label: "Find Parking", icon: "location" },
     { href: "/customer/vehicles", label: "My Vehicles", icon: "car" },
+    { href: "/customer/sessions", label: "My Sessions", icon: "clock" },
+    { href: "/customer/wallet", label: "Wallet", icon: "price" },
 ];
 
 function initials(name: string) {

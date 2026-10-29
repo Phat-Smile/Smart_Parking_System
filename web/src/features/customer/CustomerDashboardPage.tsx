@@ -10,26 +10,13 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import QRCode from "react-qr-code";
-import { gatewayFetch } from "@/shared/api/client";
 import {
     getAuthSessionSnapshot,
     subscribeAuthSession,
 } from "@/features/auth/authSession";
 
-interface CustomerParkingSession {
-    sessionId: string;
-    lotId: string;
-    lotName: string;
-    lotAddress: string;
-    plateNumber: string;
-    vehicleType: string;
-    status: string;
-    entryTime: string;
-    slotCode?: string | null;
-    qrToken: string;
-}
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
+import { ActiveSessionCard } from "./CustomerSessions";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { dashboardPreviewData } from "./dashboardPreviewData";
 
@@ -121,30 +108,6 @@ export function CustomerDashboardPage({
         "idle" | "loading" | "ready" | "unavailable"
     >("idle");
     const displayName = session?.displayName?.trim();
-
-    const [activeSession, setActiveSession] =
-        useState<CustomerParkingSession | null>(null);
-
-    useEffect(() => {
-        if (!session) return;
-        let cancelled = false;
-        gatewayFetch<CustomerParkingSession[]>("/api/parking/sessions/me")
-            .then((sessions) => {
-                if (
-                    !cancelled &&
-                    Array.isArray(sessions) &&
-                    sessions.length > 0
-                ) {
-                    setActiveSession(sessions[0]);
-                }
-            })
-            .catch(() => {
-                // Expected when no active session
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [session]);
 
     const locateCurrentPosition = useCallback(() => {
         if (!navigator.geolocation) {
@@ -571,135 +534,14 @@ export function CustomerDashboardPage({
                                     <h2 id="dashboard-session-title">
                                         Active Parking Session
                                     </h2>
-                                    <span
-                                        className={`dashboard-status ${activeSession ? "green" : "blue"}`}
-                                    >
-                                        {activeSession
-                                            ? "Live Session"
-                                            : "Demo preview"}
-                                    </span>
                                 </div>
-                                <Link href="/search">
-                                    Find a spot{" "}
+                                <Link href="/customer/sessions">
+                                    My sessions{" "}
                                     <CustomerIcon name="arrow" size={17} />
                                 </Link>
                             </div>
                             <div className="dashboard-session-body">
-                                <div className="dashboard-session-image">
-                                    <Image
-                                        src="/images/parkwise/dashboard-parking-garage.webp"
-                                        alt="Covered parking garage entrance"
-                                        fill
-                                        sizes="(max-width: 700px) 100vw, 250px"
-                                    />
-                                </div>
-                                <div className="dashboard-session-description">
-                                    <div>
-                                        <h3>
-                                            {activeSession
-                                                ? activeSession.lotName
-                                                : dashboardPreviewData.session
-                                                      .lotName}
-                                        </h3>
-                                        <p>
-                                            {activeSession
-                                                ? activeSession.lotAddress
-                                                : dashboardPreviewData.session
-                                                      .location}
-                                        </p>
-                                    </div>
-                                    <div className="dashboard-session-facts">
-                                        <span>
-                                            <CustomerIcon
-                                                name="clock"
-                                                size={21}
-                                            />
-                                            <span>
-                                                <small>Entry time</small>
-                                                <strong>
-                                                    {activeSession
-                                                        ? new Date(
-                                                              activeSession.entryTime,
-                                                          ).toLocaleTimeString(
-                                                              "vi-VN",
-                                                              {
-                                                                  hour: "2-digit",
-                                                                  minute: "2-digit",
-                                                              },
-                                                          )
-                                                        : dashboardPreviewData
-                                                              .session
-                                                              .entryTime}
-                                                </strong>
-                                            </span>
-                                        </span>
-                                        <span>
-                                            <CustomerIcon
-                                                name="history"
-                                                size={21}
-                                            />
-                                            <span>
-                                                <small>
-                                                    {activeSession
-                                                        ? "Slot"
-                                                        : "Duration"}
-                                                </small>
-                                                <strong>
-                                                    {activeSession
-                                                        ? (activeSession.slotCode ??
-                                                          "Zone")
-                                                        : dashboardPreviewData
-                                                              .session.duration}
-                                                </strong>
-                                            </span>
-                                        </span>
-                                        <span>
-                                            <CustomerIcon
-                                                name="car"
-                                                size={21}
-                                            />
-                                            <span>
-                                                <small>Vehicle</small>
-                                                <strong>
-                                                    {activeSession
-                                                        ? `${activeSession.vehicleType} • ${activeSession.plateNumber}`
-                                                        : dashboardPreviewData
-                                                              .session.vehicle}
-                                                </strong>
-                                            </span>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="dashboard-session-qr">
-                                    {activeSession?.qrToken ? (
-                                        <div className="flex flex-col items-center gap-1 p-2 bg-white rounded-xl shadow-sm">
-                                            <QRCode
-                                                value={activeSession.qrToken}
-                                                size={100}
-                                                style={{
-                                                    height: "auto",
-                                                    maxWidth: "100%",
-                                                    width: "100%",
-                                                }}
-                                                viewBox="0 0 100 100"
-                                            />
-                                            <small className="text-[10px] text-gray-700 font-medium text-center">
-                                                Mã check-out
-                                            </small>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <CustomerIcon
-                                                name="dashboard"
-                                                size={42}
-                                            />
-                                            <small>
-                                                Live session QR appears after
-                                                check-in
-                                            </small>
-                                        </>
-                                    )}
-                                </div>
+                                <ActiveSessionCard />
                             </div>
                         </section>
                         <section
