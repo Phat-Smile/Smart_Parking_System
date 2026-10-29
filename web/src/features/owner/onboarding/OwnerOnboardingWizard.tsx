@@ -14,12 +14,14 @@ import {
     getOwnerDocumentRequirements,
     getMyOwnerDocuments,
     getMyOwnerApplication,
+    updateOwnerType,
     uploadOwnerDocument,
     deleteOwnerDocument,
     applyForOwnerApplication,
     resubmitOwnerApplication,
     FALLBACK_REQUIREMENTS,
 } from "@/features/owner/api/ownerLegalApi";
+import { ApiError } from "@/shared/errors/api-error";
 import "./onboarding.css";
 
 // SVG Icons
@@ -213,6 +215,7 @@ export function OwnerOnboardingWizard({
         async function loadData() {
             try {
                 const app = await getMyOwnerApplication();
+                const docs = await getMyOwnerDocuments().catch(() => []);
                 const urlParams =
                     typeof window !== "undefined"
                         ? new URLSearchParams(window.location.search)
@@ -221,12 +224,14 @@ export function OwnerOnboardingWizard({
                     urlParams?.get("step") === "1" ||
                     urlParams?.get("fresh") === "1";
 
-                if (
+                const isAlreadySubmitted =
                     !forceStep1 &&
-                    (app.status === "Pending" ||
-                        app.status === "Approved" ||
-                        app.status === "Rejected")
-                ) {
+                    (app.status === "Approved" ||
+                        app.status === "Rejected" ||
+                        (app.status === "Pending" &&
+                            (Boolean(app.ownerType) || docs.length > 0)));
+
+                if (isAlreadySubmitted) {
                     setApplicationStatus(app.status);
                     setRejectionReason(app.rejectionReason || null);
                     setBusinessName(app.businessName || "");
@@ -259,6 +264,7 @@ export function OwnerOnboardingWizard({
                     setSubmittedAt(
                         app.reviewedAtUtc || new Date().toISOString(),
                     );
+                    setUploadedDocuments(docs);
                     setStep(4);
                     return;
                 }
@@ -298,8 +304,6 @@ export function OwnerOnboardingWizard({
                 );
                 setRequirements(reqs.documents);
 
-                // Load existing uploaded documents
-                const docs = await getMyOwnerDocuments();
                 setUploadedDocuments(docs);
 
                 const initialDocNums: Record<string, string> = {
@@ -317,10 +321,19 @@ export function OwnerOnboardingWizard({
                         initialVerifs[d.documentType] = d.verificationData;
                     }
                 });
+
                 setDocNumbers(initialDocNums);
                 setDocVerifications(initialVerifs);
             } catch (err) {
-                // Continue with default values
+                if (err instanceof ApiError && err.status === 401) {
+                    router.replace("/login?redirect=%2Fowner%2Fonboarding&role=owner");
+                    return;
+                }
+                setErrorMsg(
+                    err instanceof Error
+                        ? err.message
+                        : "Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.",
+                );
             } finally {
                 setLoadingInitial(false);
             }
@@ -385,7 +398,7 @@ export function OwnerOnboardingWizard({
     }
 
     // Handle Step 1 Validation & Next
-    function handleNextToStep2() {
+    async function handleNextToStep2() {
         setErrorMsg("");
         if (!businessName.trim()) {
             setErrorMsg(
@@ -411,6 +424,18 @@ export function OwnerOnboardingWizard({
                 );
                 return;
             }
+        }
+
+        // Persist ownerType to backend before proceeding to Step 2
+        try {
+            await updateOwnerType(ownerType);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "";
+            setErrorMsg(
+                message ||
+                    "Không thể lưu loại hình hoạt động lên hệ thống. Vui lòng thử lại.",
+            );
+            return;
         }
 
         // Auto-prefill document numbers for Step 2 if not yet set
@@ -630,6 +655,9 @@ export function OwnerOnboardingWizard({
                     taxCode: taxCode.trim() || undefined,
                     businessName: businessName.trim() || undefined,
                 });
+            } else if (applicationStatus === "Pending") {
+                // Ensure ownerType is saved
+                await updateOwnerType(ownerType);
             } else {
                 await applyForOwnerApplication({
                     taxCode: taxCode.trim() || undefined,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import {
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { AdminIcon } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
+import { getOwnerApplications } from "./ownerApplicationsApi";
 import { AdminNotifications } from "./AdminNotifications";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
@@ -24,7 +25,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
         () => null,
     );
     const pending = countByStatus(useAdminLots()).Pending;
+    const [pendingOwnerApps, setPendingOwnerApps] = useState<number>(0);
     const role = session?.account.role;
+
+    useEffect(() => {
+        if (!session || session.account.role !== "SystemAdmin") return;
+        let active = true;
+        getOwnerApplications({ status: "Pending" })
+            .then((res) => {
+                if (active) {
+                    setPendingOwnerApps(res.totalCount ?? res.items.length);
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            active = false;
+        };
+    }, [session, pathname]);
 
     useEffect(() => {
         if (role && role !== "SystemAdmin") router.replace("/403");
@@ -52,6 +69,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             href: "/admin/owner-applications",
             label: t("adminOwnerApplications"),
             icon: "check",
+            badgeCount: pendingOwnerApps,
         },
         { href: "/admin/users", label: t("adminUsers"), icon: "users" },
     ];
@@ -97,6 +115,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                             <AdminIcon name={link.icon} />
                             {link.label}
                             {link.badge && pending > 0 && <b>{pending}</b>}
+                            {link.badgeCount !== undefined && link.badgeCount > 0 && <b>{link.badgeCount}</b>}
                         </Link>
                     ))}
                 </nav>

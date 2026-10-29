@@ -117,6 +117,8 @@ export function ParkWiseOtpPage({
     const isOwner =
         effectiveRole === "owner" || effectiveRole === "parkinglotowner";
 
+    const ownerLoginRedirectUrl = `/login?redirect=${encodeURIComponent("/owner/onboarding")}&role=owner&verified=1${email ? `&email=${encodeURIComponent(email)}` : ""}`;
+
     useEffect(() => {
         if (!verified) return;
         if (isOwner) {
@@ -127,10 +129,10 @@ export function ParkWiseOtpPage({
                 // ignore
             }
         }
-        const targetUrl = isOwner ? "/owner/onboarding" : "/login";
-        const timer = window.setTimeout(() => router.replace(targetUrl), 1500);
+        const targetUrl = isOwner ? ownerLoginRedirectUrl : "/login";
+        const timer = window.setTimeout(() => router.replace(targetUrl), 1800);
         return () => window.clearTimeout(timer);
-    }, [verified, router, isOwner]);
+    }, [verified, router, isOwner, ownerLoginRedirectUrl]);
 
     function handleApplyDetectedOtp() {
         if (!detectedOtp) return;
@@ -320,12 +322,12 @@ export function ParkWiseOtpPage({
                         </h2>
                         <p>
                             {isOwner
-                                ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang hồ sơ pháp lý..."
+                                ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang đăng nhập để hoàn tất hồ sơ đối tác..."
                                 : "Account activated. Redirecting to login..."}
                         </p>
                         {isOwner ? (
                             <Link
-                                href="/owner/onboarding"
+                                href={ownerLoginRedirectUrl}
                                 className="parkwise-login-submit"
                                 style={{
                                     display: "inline-block",
@@ -338,7 +340,7 @@ export function ParkWiseOtpPage({
                                     fontWeight: 700,
                                 }}
                             >
-                                Tiếp tục: Nhập hồ sơ pháp lý đối tác →
+                                Tiếp tục: Đăng nhập để hoàn tất hồ sơ đối tác →
                             </Link>
                         ) : (
                             <Link

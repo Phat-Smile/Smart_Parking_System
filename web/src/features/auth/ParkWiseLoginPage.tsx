@@ -47,8 +47,18 @@ export function ParkWiseLoginPage({
         searchParams?.get?.("redirect") ||
         searchParams?.get?.("returnUrl") ||
         null;
+    const emailParam = searchParams?.get?.("email") || "";
+    const isVerifiedParam = searchParams?.get?.("verified") === "1";
+    const roleParam = searchParams?.get?.("role") || "";
 
-    const [notice, setNotice] = useState("");
+    const [notice, setNotice] = useState(() => {
+        if (isVerifiedParam) {
+            return roleParam === "owner"
+                ? "Xác thực email thành công! Vui lòng đăng nhập để tiếp tục hoàn thiện hồ sơ Chủ bãi."
+                : "Xác thực email thành công! Vui lòng đăng nhập để tiếp tục.";
+        }
+        return "";
+    });
     const [submitError, setSubmitError] = useState("");
     const [authenticatedEmail, setAuthenticatedEmail] = useState("");
     const [lockSeconds, setLockSeconds] = useState(0);
@@ -70,7 +80,7 @@ export function ParkWiseLoginPage({
         formState: { errors, isSubmitting },
     } = useForm<LoginValues>({
         resolver: zodResolver(loginSchema),
-        defaultValues: { email: "", password: "" },
+        defaultValues: { email: emailParam, password: "" },
     });
 
     async function onSubmit(values: LoginValues) {
@@ -195,6 +205,29 @@ export function ParkWiseLoginPage({
             <div className="parkwise-login-form-panel">
                 <form noValidate onSubmit={handleSubmit(onSubmit)}>
                     <h2>Log in to your account</h2>
+                    {notice && (
+                        <div
+                            className="parkwise-login-notice"
+                            role="status"
+                            aria-live="polite"
+                            style={{
+                                background: "#ecfdf5",
+                                color: "#065f46",
+                                border: "1px solid #a7f3d0",
+                                borderRadius: "8px",
+                                padding: "10px 14px",
+                                marginBottom: "16px",
+                                fontSize: "14px",
+                                fontWeight: 500,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                            }}
+                        >
+                            <span>✓</span>
+                            <span>{notice}</span>
+                        </div>
+                    )}
 
                     <div className="parkwise-login-field">
                         <label htmlFor="parkwise-login-email">Email</label>
@@ -294,15 +327,7 @@ export function ParkWiseLoginPage({
                             Verifying your Google account...
                         </p>
                     )}
-                    {notice && (
-                        <p
-                            className="parkwise-login-notice"
-                            role="status"
-                            aria-live="polite"
-                        >
-                            {notice}
-                        </p>
-                    )}
+
 
                     <p className="parkwise-login-signup">
                         Don&apos;t have an account?{" "}

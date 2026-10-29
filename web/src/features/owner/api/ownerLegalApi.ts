@@ -621,50 +621,6 @@ export const FALLBACK_REQUIREMENTS: Record<
     ],
 };
 
-const LOCAL_STORAGE_KEY_DOCS = "parkwise_demo_owner_docs";
-const LOCAL_STORAGE_KEY_APP = "parkwise_demo_owner_app";
-
-function getLocalDocuments(): OwnerDocumentDto[] {
-    if (typeof window === "undefined") return [];
-    try {
-        const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY_DOCS);
-        return raw ? JSON.parse(raw) : [];
-    } catch {
-        return [];
-    }
-}
-
-function saveLocalDocuments(docs: OwnerDocumentDto[]) {
-    if (typeof window === "undefined") return;
-    try {
-        window.localStorage.setItem(
-            LOCAL_STORAGE_KEY_DOCS,
-            JSON.stringify(docs),
-        );
-    } catch {
-        // ignore
-    }
-}
-
-function getLocalApplication(): Partial<MyOwnerApplicationDto> {
-    if (typeof window === "undefined") return {};
-    try {
-        const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY_APP);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
-}
-
-function saveLocalApplication(app: Partial<MyOwnerApplicationDto>) {
-    if (typeof window === "undefined") return;
-    try {
-        window.localStorage.setItem(LOCAL_STORAGE_KEY_APP, JSON.stringify(app));
-    } catch {
-        // ignore
-    }
-}
-
 export async function getOwnerDocumentRequirements(
     ownerType: OwnerType,
 ): Promise<OwnerDocumentRequirementsDto> {
@@ -688,49 +644,33 @@ export async function getMyOwnerApplication(): Promise<MyOwnerApplicationDto> {
             "/api/identity/accounts/me/owner-application",
         );
     } catch (err) {
-        const local = getLocalApplication();
-        return {
-            accountId: local.accountId || "demo-owner-id",
-            email: local.email || "partner@parkwise.vn",
-            status: local.status || "None",
-            taxCode: local.taxCode || null,
-            businessName: local.businessName || null,
-            rejectionReason: local.rejectionReason || null,
-            reviewedAtUtc: local.reviewedAtUtc || null,
-            ownerType: local.ownerType || null,
-        };
+        if (err instanceof ApiError && err.status === 404) {
+            return {
+                accountId: "",
+                email: "",
+                status: "None",
+                taxCode: null,
+                businessName: null,
+                rejectionReason: null,
+                reviewedAtUtc: null,
+                ownerType: null,
+            };
+        }
+        throw err;
     }
 }
 
 export async function updateOwnerType(
     ownerType: OwnerType,
 ): Promise<MyOwnerApplicationDto> {
-    try {
-        const res = await gatewayFetch<MyOwnerApplicationDto>(
-            "/api/identity/accounts/me/owner-application",
-            {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ownerType }),
-            },
-        );
-        saveLocalApplication({ ...getLocalApplication(), ownerType });
-        return res;
-    } catch (err) {
-        const local = getLocalApplication();
-        const updated = { ...local, ownerType };
-        saveLocalApplication(updated);
-        return {
-            accountId: local.accountId || "demo-owner-id",
-            email: local.email || "partner@parkwise.vn",
-            status: local.status || "None",
-            taxCode: local.taxCode || null,
-            businessName: local.businessName || null,
-            rejectionReason: null,
-            reviewedAtUtc: null,
-            ownerType,
-        };
-    }
+    return await gatewayFetch<MyOwnerApplicationDto>(
+        "/api/identity/accounts/me/owner-application",
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ownerType }),
+        },
+    );
 }
 
 export async function getMyOwnerDocuments(): Promise<OwnerDocumentDto[]> {
@@ -739,7 +679,10 @@ export async function getMyOwnerDocuments(): Promise<OwnerDocumentDto[]> {
             "/api/identity/accounts/me/owner-application/documents",
         );
     } catch (err) {
-        return getLocalDocuments();
+        if (err instanceof ApiError && err.status === 404) {
+            return [];
+        }
+        throw err;
     }
 }
 
@@ -749,99 +692,41 @@ export async function uploadOwnerDocument(
     documentNumber?: string,
     verificationData?: Record<string, string>,
 ): Promise<OwnerDocumentDto> {
-    try {
-        const formData = new FormData();
-        formData.append("documentType", documentType);
-        formData.append("file", file);
-        if (documentNumber) {
-            formData.append("documentNumber", documentNumber);
-        }
-
-        const doc = await gatewayFetch<OwnerDocumentDto>(
-            "/api/identity/accounts/me/owner-application/documents",
-            {
-                method: "POST",
-                body: formData,
-            },
-        );
-        const docWithNum: OwnerDocumentDto = {
-            ...doc,
-            documentNumber: documentNumber || doc.documentNumber,
-            verificationData: verificationData || doc.verificationData,
-        };
-        const current = getLocalDocuments().filter(
-            (d) => d.documentType !== documentType,
-        );
-        current.push(docWithNum);
-        saveLocalDocuments(current);
-        return docWithNum;
-    } catch (err) {
-        // Demo fallback for presentation reliability
-        const fakeDoc: OwnerDocumentDto = {
-            id: "doc-" + Math.random().toString(36).substring(2, 9),
-            documentType,
-            fileName: file.name,
-            contentType: file.type || "application/pdf",
-            sizeBytes: file.size,
-            uploadedAtUtc: new Date().toISOString(),
-            documentNumber: documentNumber || undefined,
-            verificationData: verificationData || undefined,
-        };
-        const current = getLocalDocuments().filter(
-            (d) => d.documentType !== documentType,
-        );
-        current.push(fakeDoc);
-        saveLocalDocuments(current);
-        return fakeDoc;
+    const formData = new FormData();
+    formData.append("documentType", documentType);
+    formData.append("file", file);
+    if (documentNumber) {
+        formData.append("documentNumber", documentNumber);
     }
+
+    const doc = await gatewayFetch<OwnerDocumentDto>(
+        "/api/identity/accounts/me/owner-application/documents",
+        {
+            method: "POST",
+            body: formData,
+        },
+    );
+    return {
+        ...doc,
+        documentNumber: documentNumber || doc.documentNumber,
+        verificationData: verificationData || doc.verificationData,
+    };
 }
 
 export async function deleteOwnerDocument(documentType: string): Promise<void> {
-    try {
-        await gatewayFetch(
-            `/api/identity/accounts/me/owner-application/documents/${encodeURIComponent(documentType)}`,
-            {
-                method: "DELETE",
-            },
-        );
-    } catch {
-        // ignore
-    }
-    const filtered = getLocalDocuments().filter(
-        (d) => d.documentType !== documentType,
+    await gatewayFetch(
+        `/api/identity/accounts/me/owner-application/documents/${encodeURIComponent(documentType)}`,
+        {
+            method: "DELETE",
+        },
     );
-    saveLocalDocuments(filtered);
 }
 
 export async function applyForOwnerApplication(
     data: ApplyOwnerApplicationRequest,
 ): Promise<OwnerApplicationActionResult> {
-    const applicationPayload = {
-        ...getLocalApplication(),
-        status: "Pending" as const,
-        taxCode: data.taxCode || null,
-        businessName: data.businessName || null,
-        fullName: data.fullName || null,
-        phoneNumber: data.phoneNumber || null,
-        ownerType: data.ownerType || "Enterprise",
-        idCardNumber: data.idCardNumber || null,
-        idCardIssuedDate: data.idCardIssuedDate || null,
-        idCardIssuedPlace: data.idCardIssuedPlace || null,
-        permanentAddress: data.permanentAddress || null,
-        parkingAddress: data.parkingAddress || null,
-        businessLicenseNumber: data.businessLicenseNumber || null,
-        licenseIssuedDate: data.licenseIssuedDate || null,
-        licenseIssuedPlace: data.licenseIssuedPlace || null,
-        representativePosition: data.representativePosition || null,
-        shortName: data.shortName || null,
-        contactEmail: data.contactEmail || null,
-        documentNumbers: data.documentNumbers || {},
-        documentVerifications: data.documentVerifications || {},
-        rejectionReason: null,
-    };
-
     try {
-        const res = await gatewayFetch<OwnerApplicationActionResult>(
+        return await gatewayFetch<OwnerApplicationActionResult>(
             "/api/identity/accounts/me/owner-application/apply",
             {
                 method: "POST",
@@ -849,51 +734,33 @@ export async function applyForOwnerApplication(
                 body: JSON.stringify(data),
             },
         );
-        saveLocalApplication(applicationPayload);
-        return res;
     } catch (err) {
-        saveLocalApplication(applicationPayload);
-        return {
-            accountId: "demo-owner-id",
-            status: "Pending",
-            message:
-                "Yêu cầu đăng ký xét duyệt chủ bãi đã được gửi thành công. Vui lòng chờ quản trị viên phê duyệt.",
-        };
+        if (
+            err instanceof ApiError &&
+            (err.problem?.errorCode ===
+                "identity.owner_application_already_pending" ||
+                err.status === 409)
+        ) {
+            return {
+                accountId: "",
+                status: "Pending",
+                message:
+                    "Hồ sơ xét duyệt Chủ bãi đang trong hàng đợi chờ Ban quản trị phê duyệt.",
+            };
+        }
+        throw err;
     }
 }
 
 export async function resubmitOwnerApplication(
     data: ResubmitOwnerApplicationRequest,
 ): Promise<OwnerApplicationActionResult> {
-    try {
-        const res = await gatewayFetch<OwnerApplicationActionResult>(
-            "/api/identity/accounts/me/owner-application/resubmit",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-            },
-        );
-        saveLocalApplication({
-            ...getLocalApplication(),
-            status: "Pending",
-            taxCode: data.taxCode || null,
-            businessName: data.businessName || null,
-            rejectionReason: null,
-        });
-        return res;
-    } catch (err) {
-        saveLocalApplication({
-            ...getLocalApplication(),
-            status: "Pending",
-            taxCode: data.taxCode || null,
-            businessName: data.businessName || null,
-            rejectionReason: null,
-        });
-        return {
-            accountId: "demo-owner-id",
-            status: "Pending",
-            message: "Đã gửi lại yêu cầu xét duyệt hồ sơ chủ bãi thành công.",
-        };
-    }
+    return await gatewayFetch<OwnerApplicationActionResult>(
+        "/api/identity/accounts/me/owner-application/resubmit",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        },
+    );
 }
