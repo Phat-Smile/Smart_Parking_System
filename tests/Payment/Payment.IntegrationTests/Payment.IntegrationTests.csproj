@@ -5,11 +5,16 @@
     <RootNamespace>ParkingSystem.Tests.Payment.IntegrationTests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Services\Payment\Payment.Persistence\Payment.Persistence.csproj" />
     <ProjectReference Include="..\..\..\src\Services\Payment\Payment.Infrastructure\Payment.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Payment\Payment.WebAPI\Payment.WebAPI.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\ParkingSystem.Testing\ParkingSystem.Testing.csproj" />
   </ItemGroup>
 </Project>

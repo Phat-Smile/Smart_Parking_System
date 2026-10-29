@@ -1,7 +1,6 @@
 using MediatR;
-using ParkingSystem.Payment.Application.Common.Constants;
+using ParkingSystem.AspNetCore;
 using ParkingSystem.Payment.Application.Features.AuditLogs.Queries.GetAuditLogs;
-using ParkingSystem.Payment.WebAPI.Common;
 using ParkingSystem.Payment.WebAPI.Security;
 
 namespace ParkingSystem.Payment.WebAPI.Endpoints;
@@ -22,6 +21,7 @@ internal static class AuditLogEndpoints
         // US-ADMIN-005: Xem nhật ký kiểm toán hệ thống (chỉ dành cho SystemAdmin)
         app.MapGet("/api/payment/admin/audit-logs", async (
                 [AsParameters] GetAuditLogsRequest request,
+                HttpContext httpContext,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
@@ -36,27 +36,19 @@ internal static class AuditLogEndpoints
 
                 var result = await sender.Send(query, cancellationToken);
 
-                if (result.IsSuccess)
-                {
-                    return Results.Ok(ApiResponse<AuditLogsPagedDto>.Success(
-                        result.Value,
-                        AuditLogResponseMessages.GetAuditLogsSuccessfully,
-                        StatusCodes.Status200OK));
-                }
-
-                return Results.BadRequest(ApiResponse<object>.Failure(
-                    result.Error!.Message,
-                    StatusCodes.Status400BadRequest));
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error!);
             })
             .RequireAuthorization(PaymentAuthorization.AdminPolicy)
             .WithTags("Quản trị hệ thống (Administration)")
             .WithName("GetAuditLogs")
             .WithSummary("Xem nhật ký kiểm toán hệ thống")
             .WithDescription("Dành riêng cho Quản trị viên hệ thống để tra cứu, lọc và phân trang nhật ký kiểm toán.")
-            .Produces<ApiResponse<AuditLogsPagedDto>>(StatusCodes.Status200OK)
-            .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden);
+            .Produces<AuditLogsPagedDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return app;
     }
