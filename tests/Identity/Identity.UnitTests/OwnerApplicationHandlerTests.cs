@@ -447,6 +447,134 @@ public sealed class OwnerApplicationHandlerTests
         Assert.Empty(outbox.EnqueuedEvents);
     }
 
+    // R5: the existence check cannot see an application that is not committed yet, so the unique index decides.
+    // The loser gets the business error (409), never an unhandled exception (500).
+    [Fact]
+    public async Task Apply_that_loses_the_unique_index_race_returns_TaxCodeAlreadyRegistered()
+    {
+        var account = Account.Register(OwnerId, "customer@example.com", "hash", null, Now);
+        account.VerifyEmail();
+        var accounts = new FakeAccountRepository(account) { OwnerApplicationSaveWins = false };
+        var handler = new ApplyForOwnerApplicationCommandHandler(accounts, new FakeProfileRepository(), new FixedClock(Now));
+
+        var result = await handler.Handle(new ApplyForOwnerApplicationCommand(OwnerId, TaxCode: "0312345678"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.TaxCodeAlreadyRegistered.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Apply_with_a_tax_code_that_is_already_registered_returns_TaxCodeAlreadyRegistered_and_changes_nothing()
+    {
+        var account = Account.Register(OwnerId, "customer@example.com", "hash", null, Now);
+        account.VerifyEmail();
+        var accounts = new FakeAccountRepository(account) { TaxCodeIsTaken = true };
+        var handler = new ApplyForOwnerApplicationCommandHandler(accounts, new FakeProfileRepository(), new FixedClock(Now));
+
+        var result = await handler.Handle(new ApplyForOwnerApplicationCommand(OwnerId, TaxCode: "0312345678"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.TaxCodeAlreadyRegistered.Code, result.Error!.Code);
+        Assert.Null(account.OwnerApplicationStatus);
+        Assert.Null(account.OwnerTaxCode);
+    }
+
+    [Fact]
+    public async Task Resubmit_that_loses_the_unique_index_race_returns_TaxCodeAlreadyRegistered()
+    {
+        var handler = ResubmitHandlerForARejectedOwner(new FakeAccountRepository(RejectedOwner()) { OwnerApplicationSaveWins = false });
+
+        var result = await handler.Handle(new ResubmitOwnerApplicationCommand(OwnerId, TaxCode: "0312345678"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.TaxCodeAlreadyRegistered.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Resubmit_with_a_tax_code_that_is_already_registered_returns_TaxCodeAlreadyRegistered()
+    {
+        var handler = ResubmitHandlerForARejectedOwner(new FakeAccountRepository(RejectedOwner()) { TaxCodeIsTaken = true });
+
+        var result = await handler.Handle(new ResubmitOwnerApplicationCommand(OwnerId, TaxCode: "0312345678"), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.TaxCodeAlreadyRegistered.Code, result.Error!.Code);
+    }
+
+    // R6: a rejected application keeps its tax code only to fill the form again. On resubmit the code it carries is checked
+    // like a new one, because another application may have taken it while this one was rejected.
+    [Fact]
+    public async Task Resubmit_without_a_new_tax_code_checks_the_one_the_application_carries()
+    {
+        var account = RejectedOwner("0312345678");
+        var accounts = new FakeAccountRepository(account) { TaxCodeIsTaken = true };
+        var handler = ResubmitHandlerForARejectedOwner(accounts);
+
+        var result = await handler.Handle(new ResubmitOwnerApplicationCommand(OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(OwnerApplicationErrors.TaxCodeAlreadyRegistered.Code, result.Error!.Code);
+        Assert.Equal("0312345678", accounts.LastCheckedTaxCode);
+        Assert.Equal(OwnerId, accounts.LastExcludedAccountId);
+        Assert.Equal(OwnerApplicationStatus.Rejected, account.OwnerApplicationStatus);
+    }
+
+    [Fact]
+    public async Task Resubmit_without_a_new_tax_code_succeeds_when_the_carried_one_is_free()
+    {
+        var account = RejectedOwner("0312345678");
+        var accounts = new FakeAccountRepository(account);
+        var handler = ResubmitHandlerForARejectedOwner(accounts);
+
+        var result = await handler.Handle(new ResubmitOwnerApplicationCommand(OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("0312345678", accounts.LastCheckedTaxCode);
+        Assert.Equal(OwnerApplicationStatus.Pending, account.OwnerApplicationStatus);
+        Assert.Equal("0312345678", account.OwnerTaxCode);
+    }
+
+    [Fact]
+    public async Task Resubmit_of_an_application_without_any_tax_code_checks_nothing()
+    {
+        var account = RejectedOwner();
+        var accounts = new FakeAccountRepository(account) { TaxCodeIsTaken = true };
+        var handler = ResubmitHandlerForARejectedOwner(accounts);
+
+        var result = await handler.Handle(new ResubmitOwnerApplicationCommand(OwnerId), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(accounts.LastCheckedTaxCode);
+    }
+
+    [Fact]
+    public async Task Resubmit_with_a_new_tax_code_checks_the_new_one_and_not_the_carried_one()
+    {
+        var account = RejectedOwner("0312345678");
+        var accounts = new FakeAccountRepository(account);
+        var handler = ResubmitHandlerForARejectedOwner(accounts);
+
+        var result = await handler.Handle(new ResubmitOwnerApplicationCommand(OwnerId, TaxCode: " 0398765432 "), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("0398765432", accounts.LastCheckedTaxCode);
+    }
+
+    private static Account RejectedOwner(string? taxCode = null)
+    {
+        var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true, taxCode: taxCode);
+        account.SetOwnerType(OwnerType.Individual);
+        account.RejectOwnerApplication(AdminId, "Lý do", Now);
+        return account;
+    }
+
+    private static ResubmitOwnerApplicationCommandHandler ResubmitHandlerForARejectedOwner(FakeAccountRepository accounts)
+    {
+        var docs = new FakeOwnerDocumentRepository();
+        docs.Add(OwnerApplicationDocument.Create(Guid.NewGuid(), OwnerId, "PremisesRightProof", "mb.pdf", "application/pdf", 100, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "stored/mb.pdf", Now));
+        return new ResubmitOwnerApplicationCommandHandler(accounts, docs, new FakeRequirements(), new FixedClock(Now));
+    }
+
     private sealed class FixedClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow => now;
@@ -480,6 +608,25 @@ public sealed class OwnerApplicationHandlerTests
 
     private sealed class FakeAccountRepository(Account? account) : IAccountRepository
     {
+        // Both default to the answers of an empty database, so the existing tests keep their meaning.
+        public bool TaxCodeIsTaken { get; init; }
+
+        public bool OwnerApplicationSaveWins { get; init; } = true;
+
+        public string? LastCheckedTaxCode { get; private set; }
+
+        public Guid? LastExcludedAccountId { get; private set; }
+
+        public Task<bool> OwnerTaxCodeExistsAsync(string taxCode, Guid? excludeAccountId, CancellationToken cancellationToken)
+        {
+            LastCheckedTaxCode = taxCode;
+            LastExcludedAccountId = excludeAccountId;
+            return Task.FromResult(TaxCodeIsTaken);
+        }
+
+        public Task<bool> TrySaveOwnerApplicationAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(OwnerApplicationSaveWins);
+
         public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(account is not null && account.Id == id ? account : null);
 
