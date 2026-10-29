@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import {
+    getAuthSessionSnapshot,
+    subscribeAuthSession,
+} from "@/features/auth/authSession";
+import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 
 const IC: Record<string, string> = {
     grid: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
@@ -117,8 +122,22 @@ function ParkWiseLogoBadge() {
 
 export function OwnerSidebar() {
     const pathname = usePathname();
-
     const router = useRouter();
+    const session = useSyncExternalStore(
+        subscribeAuthSession,
+        getAuthSessionSnapshot,
+        () => null,
+    );
+
+    const displayName =
+        session?.displayName ||
+        (session?.account?.email ? session.account.email.split("@")[0] : "Chủ bãi");
+    const initial = (displayName.charAt(0) || "M").toUpperCase();
+
+    async function handleLogout() {
+        await logoutParkWiseAccount().catch(() => undefined);
+        router.push("/login");
+    }
 
     // Submenu "Sơ đồ 2D / 3D" tự mở khi đang ở /owner/layout/*
     const isLayoutActive = pathname.startsWith("/owner/layout");
@@ -131,46 +150,6 @@ export function OwnerSidebar() {
                 <ParkWiseLogoBadge />
                 <span>
                     Park<span style={{ color: "var(--pw-lime)" }}>Wise</span>
-                </span>
-            </Link>
-
-            {/* Shortcut vào Chế độ Mô phỏng / Sandbox */}
-            <Link
-                href="/owner/simulation"
-                className={pathname === "/owner/simulation" ? "on" : ""}
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    background:
-                        pathname === "/owner/simulation"
-                            ? "rgba(234, 179, 8, 0.22)"
-                            : "rgba(234, 179, 8, 0.08)",
-                    border: "1px solid rgba(234, 179, 8, 0.35)",
-                    color: "#facc15",
-                    borderRadius: 10,
-                    padding: "8px 12px",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    marginBottom: 10,
-                    textDecoration: "none",
-                    transition: "all 0.15s ease",
-                }}
-            >
-                <span style={{ fontSize: 16 }}>🎮</span>
-                <span style={{ flex: 1 }}>Bản mô phỏng</span>
-                <span
-                    style={{
-                        fontSize: 9.5,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        background: "#ca8a04",
-                        color: "#fff",
-                        textTransform: "uppercase",
-                        fontWeight: 800,
-                    }}
-                >
-                    Sandbox
                 </span>
             </Link>
 
@@ -240,22 +219,75 @@ export function OwnerSidebar() {
                 );
             })}
 
-            {/* User profile card */}
-            <div className="user">
-                <span className="av">M</span>
-                <div>
-                    <div className="uname">Minh</div>
+            {/* Khu vực tiện ích: Chế độ mô phỏng Sandbox */}
+            <div style={{ marginTop: 12, marginBottom: 8, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 10 }}>
+                <Link
+                    href="/owner/simulation"
+                    className={pathname === "/owner/simulation" ? "on" : ""}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        background:
+                            pathname === "/owner/simulation"
+                                ? "rgba(234, 179, 8, 0.22)"
+                                : "rgba(255, 255, 255, 0.04)",
+                        border: "1px solid rgba(234, 179, 8, 0.3)",
+                        color: pathname === "/owner/simulation" ? "#facc15" : "var(--pw-dark-muted)",
+                        borderRadius: 10,
+                        padding: "8px 12px",
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        transition: "all 0.15s ease",
+                    }}
+                >
+                    <span style={{ fontSize: 15 }}>🎮</span>
+                    <span style={{ flex: 1 }}>Bản mô phỏng</span>
+                    <span
+                        style={{
+                            fontSize: 9,
+                            padding: "2px 5px",
+                            borderRadius: 4,
+                            background: pathname === "/owner/simulation" ? "#ca8a04" : "rgba(255,255,255,0.12)",
+                            color: "#fff",
+                            textTransform: "uppercase",
+                            fontWeight: 800,
+                        }}
+                    >
+                        Sandbox
+                    </span>
+                </Link>
+            </div>
+
+            {/* User profile card - liên kết trực tiếp tới /owner/profile */}
+            <Link
+                href="/owner/profile"
+                className={`user ${pathname === "/owner/profile" ? "on" : ""}`}
+                style={{ textDecoration: "none", cursor: "pointer" }}
+                title="Xem hồ sơ chủ bãi"
+            >
+                <span className="av">{initial}</span>
+                <div style={{ minWidth: 0, overflow: "hidden" }}>
+                    <div
+                        className="uname"
+                        style={{
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        {displayName}
+                    </div>
                     <div className="urole">Chủ bãi</div>
                 </div>
-            </div>
+            </Link>
 
             {/* Nút Đăng xuất */}
             <button
                 type="button"
                 className="logout-btn"
-                onClick={() => {
-                    router.push("/guest");
-                }}
+                onClick={handleLogout}
                 aria-label="Đăng xuất"
             >
                 <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />

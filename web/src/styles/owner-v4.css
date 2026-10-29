@@ -138,6 +138,13 @@ body {
     border-radius: 12px;
     background: var(--pw-dark-2);
     color: var(--pw-dark-text);
+    transition: all 0.15s ease;
+}
+
+.user:hover,
+.user.on {
+    border-color: rgba(230, 248, 94, 0.4);
+    background: var(--pw-dark-3);
 }
 
 .user .uname {
