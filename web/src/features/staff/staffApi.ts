@@ -47,10 +47,19 @@ export async function getStaffLots(): Promise<StaffLotItem[]> {
         );
         if (Array.isArray(res) && res.length > 0) {
             return res.map((item) => ({
-                id: (item as unknown as { id?: string; lotId?: string }).id || (item as unknown as { lotId?: string }).lotId || "",
-                name: sanitizeLotName((item as unknown as { name?: string; lotName?: string }).name || (item as unknown as { lotName?: string }).lotName || ""),
+                id:
+                    (item as unknown as { id?: string; lotId?: string }).id ||
+                    (item as unknown as { lotId?: string }).lotId ||
+                    "",
+                name: sanitizeLotName(
+                    (item as unknown as { name?: string; lotName?: string })
+                        .name ||
+                        (item as unknown as { lotName?: string }).lotName ||
+                        "",
+                ),
                 address: item.address || "",
-                type: (item as unknown as { type?: string }).type || "Outdoor",
+                type:
+                    (item as unknown as { type?: string }).type || "Outdoor",
             }));
         }
     } catch {
@@ -74,18 +83,34 @@ export async function getStaffLots(): Promise<StaffLotItem[]> {
 
 /**
  * Lấy bãi trực của nhân viên (D04.2)
- * Gọi endpoint thật GET /api/parking/staff/lots (#129)
+ * Gọi endpoint thật GET /api/parking/staff/lots (#129) và GET /api/parking/lots/{id}/motorbike-availability
  */
 export async function getAssignedLot(): Promise<AssignedLotResponse> {
     try {
         const lots = await getStaffLots();
-        const chosen = lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
+        const chosen =
+            lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
         if (chosen) {
+            let motoAvailable = 20;
+            try {
+                const motoRes = await gatewayFetch<{
+                    availableSpaces?: number;
+                    totalCapacity?: number;
+                }>(
+                    `/api/parking/lots/${encodeURIComponent(chosen.id)}/motorbike-availability`,
+                    { method: "GET" },
+                );
+                if (typeof motoRes?.availableSpaces === "number") {
+                    motoAvailable = motoRes.availableSpaces;
+                }
+            } catch {
+                // Keep default motorbike availability
+            }
             return {
                 lotId: chosen.id,
                 lotName: sanitizeLotName(chosen.name),
                 address: chosen.address,
-                availableMotorbikeSlots: 20,
+                availableMotorbikeSlots: motoAvailable,
                 availableCarSlots: 50,
                 totalCapacity: 70,
                 occupiedSlots: 5,
@@ -135,21 +160,23 @@ export async function openParkingSession(
     payload: OpenSessionPayload,
 ): Promise<OpenedSessionResponse> {
     try {
-        const res = await gatewayFetch<OpenedSessionResponse>(
-            "/api/parking/sessions",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    lotId: payload.lotId,
-                    plateNumber: payload.plateNumber.trim().toUpperCase(),
-                    vehicleType: payload.vehicleType,
-                }),
-            },
-        );
+        const res = await gatewayFetch<
+            OpenedSessionResponse & { availableMotorbikeSpaces?: number }
+        >("/api/parking/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                lotId: payload.lotId,
+                plateNumber: payload.plateNumber.trim().toUpperCase(),
+                vehicleType: payload.vehicleType,
+            }),
+        });
         return {
             ...res,
-            availableMotorbikeSlots: res.availableMotorbikeSlots ?? 58,
+            availableMotorbikeSlots:
+                res.availableMotorbikeSlots ??
+                res.availableMotorbikeSpaces ??
+                58,
         };
     } catch (error) {
         // Fallback for offline preview/demo

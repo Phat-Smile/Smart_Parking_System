@@ -21,7 +21,7 @@ import type { SessionByQrResponse, StaffSession } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffExitPage() {
-    const { completeExit } = useStaffData();
+    const { assignedLot, completeExit } = useStaffData();
     const { t, language } = useLanguage();
 
     // Inputs
@@ -115,7 +115,10 @@ export function StaffExitPage() {
         setPaymentSuccess(false);
 
         try {
-            const res = await findOpenSessionByPlate(DEFAULT_STAFF_LOT_ID, plate);
+            const res = await findOpenSessionByPlate(
+                assignedLot?.lotId || DEFAULT_STAFF_LOT_ID,
+                plate,
+            );
             setQrInput(res.qrToken);
             const fee = 60000;
             const scanned: StaffSession = {

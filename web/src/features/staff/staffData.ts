@@ -4,10 +4,17 @@ import { useSyncExternalStore } from "react";
 import type {
     AssignedLotResponse,
     OccupancyStats,
+    SessionStatus,
     StaffSession,
+    VehicleType,
     VerificationIssue,
 } from "./types";
-import { DEFAULT_STAFF_LOT_ID, getAssignedLot } from "./staffApi";
+import {
+    calculateParkingFee,
+    DEFAULT_STAFF_LOT_ID,
+    getAssignedLot,
+    listLotSessions,
+} from "./staffApi";
 
 const initialSessions: StaffSession[] = [
     {
@@ -190,6 +197,43 @@ export const staffStore = {
     fetchAssignedLot: async () => {
         const lot = await getAssignedLot();
         assignedLotState = lot;
+        try {
+            const page = await listLotSessions(lot.lotId, undefined, 1, 50);
+            if (page && Array.isArray(page.items) && page.items.length > 0) {
+                sessionsState = page.items.map((item): StaffSession => {
+                    const vType: VehicleType =
+                        item.vehicleType === "Motorbike" ? "Motorbike" : "Car";
+                    const sStatus: SessionStatus =
+                        item.status === "Completed"
+                            ? "Completed"
+                            : item.status === "Cancelled"
+                              ? "Cancelled"
+                              : "Active";
+                    const fees = calculateParkingFee(item.entryTime, vType);
+                    const isCompleted = sStatus === "Completed";
+                    return {
+                        id: item.sessionId,
+                        lotId: lot.lotId,
+                        plateNumber: item.plateNumber,
+                        vehicleType: vType,
+                        customerType: "Guest",
+                        driverName: "Khách gửi xe",
+                        entryTime: item.entryTime,
+                        status: sStatus,
+                        qrToken: `QR-${item.sessionId}`,
+                        slotCode:
+                            item.slotCode ||
+                            (vType === "Car" ? "CAR-A" : "MOTO-B"),
+                        paymentStatus: isCompleted ? "Paid" : "Pending",
+                        totalFeeVnd: fees.totalFeeVnd,
+                        prepaidVnd: isCompleted ? fees.totalFeeVnd : 0,
+                        amountDueVnd: isCompleted ? 0 : fees.amountDueVnd,
+                    };
+                });
+            }
+        } catch {
+            // Keep current sessionsState on error
+        }
         notify();
         return lot;
     },
