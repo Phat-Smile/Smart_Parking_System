@@ -24,17 +24,19 @@
     width: 100%;
     border-radius: 12px;
     padding: 11px 18px;
-    background: #1C1C1F;
-    border: 1px solid #27272A;
-    color: #F4F4F5 !important;
+    background: #1c1c1f;
+    border: 1px solid #27272a;
+    color: #f4f4f5 !important;
     font-weight: 600;
     text-align: center;
-    transition: background-color 0.2s, border-color 0.2s;
+    transition:
+        background-color 0.2s,
+        border-color 0.2s;
 }
 .parkwise-otp-back-link:hover {
-    background: #27272A;
-    color: #FFFFFF !important;
-    border-color: #3F3F46;
+    background: #27272a;
+    color: #ffffff !important;
+    border-color: #3f3f46;
 }
 .parkwise-otp-page .parkwise-support {
     margin-bottom: 16px;
@@ -46,16 +48,16 @@
 .parkwise-otp-session-note {
     padding: 16px;
     border-radius: 12px;
-    background: #F4F4F5;
-    border: 1px solid #E4E4E7;
-    color: #18181B;
+    background: #f4f4f5;
+    border: 1px solid #e4e4e7;
+    color: #18181b;
     text-align: center;
 }
 .parkwise-otp-session-note p + p {
     margin-top: 4px;
 }
 .parkwise-otp-label {
-    color: #18181B;
+    color: #18181b;
     font-weight: 600;
 }
 .parkwise-otp-digits {
@@ -67,10 +69,10 @@
 .parkwise-otp-digits input {
     width: 100%;
     height: 56px;
-    border: 1px solid #E4E4E7;
+    border: 1px solid #e4e4e7;
     border-radius: 12px;
     background: #fff;
-    color: #09090B;
+    color: #09090b;
     font-size: 24px;
     font-weight: 700;
     text-align: center;
@@ -81,10 +83,10 @@
         background-color 0.2s;
 }
 .parkwise-otp-digits input[data-filled="true"] {
-    border-color: #71717A;
+    border-color: #71717a;
 }
 .parkwise-otp-digits input:focus {
-    border-color: #09090B !important;
+    border-color: #09090b !important;
     box-shadow: 0 0 0 2px rgba(9, 9, 11, 0.15) !important;
 }
 .parkwise-otp-digits input[aria-invalid="true"] {
@@ -96,28 +98,28 @@
     color: #9ca3af;
 }
 .parkwise-otp-page .parkwise-login-submit {
-    background: #E6F85E;
-    color: #09090B;
+    background: #e6f85e;
+    color: #09090b;
     font-weight: 700;
     border-radius: 12px;
 }
 .parkwise-otp-page .parkwise-login-submit:hover:not(:disabled) {
-    background: #D9EB4E;
+    background: #d9eb4e;
 }
 .parkwise-otp-page .parkwise-login-submit:disabled {
     cursor: not-allowed;
-    background: #F4F4F5;
-    color: #A1A1AA;
+    background: #f4f4f5;
+    color: #a1a1aa;
 }
 .parkwise-otp-help a,
 .parkwise-otp-help button {
-    color: #09090B;
+    color: #09090b;
     font-weight: 700;
     text-decoration: underline;
 }
 .parkwise-otp-page .parkwise-login-card {
     border-radius: 16px;
-    border: 1px solid #E4E4E7;
+    border: 1px solid #e4e4e7;
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
 }
 .parkwise-otp-help {

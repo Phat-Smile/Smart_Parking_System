@@ -5,11 +5,12 @@ import { OwnerOnboardingWizard } from "@/features/owner/onboarding/OwnerOnboardi
 const manrope = Manrope({ subsets: ["latin", "vietnamese"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Hoàn tất Hồ sơ Đối tác Chủ bãi đỗ xe | ParkWise Partner",
-  description: "Cung cấp thông tin pháp lý và giấy tờ bãi đỗ xe để kích hoạt tài khoản đối tác ParkWise.",
-  icons: { icon: "/images/parkwise/logo.png" },
+    title: "Hoàn tất Hồ sơ Đối tác Chủ bãi đỗ xe | ParkWise Partner",
+    description:
+        "Cung cấp thông tin pháp lý và giấy tờ bãi đỗ xe để kích hoạt tài khoản đối tác ParkWise.",
+    icons: { icon: "/images/parkwise/logo.png" },
 };
 
 export default function OwnerOnboardingRoute() {
-  return <OwnerOnboardingWizard fontClassName={manrope.className} />;
+    return <OwnerOnboardingWizard fontClassName={manrope.className} />;
 }

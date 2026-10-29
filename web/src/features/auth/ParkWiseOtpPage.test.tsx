@@ -41,7 +41,7 @@ describe("ParkWiseOtpPage", () => {
             Promise.resolve({
                 ok: false,
                 json: () => Promise.resolve({}),
-            })
+            }),
         );
     });
 
@@ -58,7 +58,9 @@ describe("ParkWiseOtpPage", () => {
             screen.getByRole("heading", { name: "Xác thực Email Đối tác" }),
         ).toBeInTheDocument();
         expect(
-            screen.getByText(/Mã xác thực 6 chữ số đã được gửi đến owner@example.com/),
+            screen.getByText(
+                /Mã xác thực 6 chữ số đã được gửi đến owner@example.com/,
+            ),
         ).toBeInTheDocument();
         expect(
             screen.getByRole("link", { name: "Quay lại Đăng ký Đối tác" }),
@@ -83,7 +85,9 @@ describe("ParkWiseOtpPage", () => {
             screen.getByRole("heading", { name: "Verify Your Email" }),
         ).toBeInTheDocument();
         expect(
-            screen.getByText(/Enter the verification code for driver@example.com/),
+            screen.getByText(
+                /Enter the verification code for driver@example.com/,
+            ),
         ).toBeInTheDocument();
         expect(
             screen.getByRole("link", { name: "Back to Sign Up" }),
@@ -119,14 +123,21 @@ describe("ParkWiseOtpPage", () => {
         }
 
         await waitFor(() => {
-            expect(verifyMock).toHaveBeenCalledWith("owner@example.com", "123456");
+            expect(verifyMock).toHaveBeenCalledWith(
+                "owner@example.com",
+                "123456",
+            );
         });
 
         expect(
-            await screen.findByRole("heading", { name: "Xác thực email thành công" }),
+            await screen.findByRole("heading", {
+                name: "Xác thực email thành công",
+            }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole("link", { name: /Tiếp tục: Nhập hồ sơ pháp lý đối tác/i }),
+            screen.getByRole("link", {
+                name: /Tiếp tục: Nhập hồ sơ pháp lý đối tác/i,
+            }),
         ).toHaveAttribute("href", "/owner/onboarding");
     });
 
@@ -170,10 +181,15 @@ describe("ParkWiseOtpPage", () => {
         ).toBeInTheDocument();
 
         // Click autofill button
-        fireEvent.click(screen.getByRole("button", { name: "✓ Tự động dán mã" }));
+        fireEvent.click(
+            screen.getByRole("button", { name: "✓ Tự động dán mã" }),
+        );
 
         await waitFor(() => {
-            expect(verifyMock).toHaveBeenCalledWith("owner@example.com", "654321");
+            expect(verifyMock).toHaveBeenCalledWith(
+                "owner@example.com",
+                "654321",
+            );
         });
     });
 });

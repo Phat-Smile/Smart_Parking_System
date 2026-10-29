@@ -155,7 +155,15 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                         <h2>
                             Ready for a smarter <br /> parking experience?
                         </h2>
-                        <div className="parkwise-newsletter-input" style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <div
+                            className="parkwise-newsletter-input"
+                            style={{
+                                display: "flex",
+                                gap: "14px",
+                                flexWrap: "wrap",
+                                justifyContent: "center",
+                            }}
+                        >
                             <Link href="/sign-up" className="parkwise-button">
                                 Đăng ký Lái xe
                             </Link>
@@ -163,9 +171,9 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                                 href="/owner/register"
                                 className="parkwise-button"
                                 style={{
-                                    backgroundColor: '#2563eb',
-                                    borderColor: '#2563eb',
-                                    color: '#ffffff',
+                                    backgroundColor: "#2563eb",
+                                    borderColor: "#2563eb",
+                                    color: "#ffffff",
                                 }}
                             >
                                 Register as Lot Owner

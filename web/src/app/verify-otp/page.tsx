@@ -18,10 +18,15 @@ export const dynamic = "force-dynamic";
 export default async function VerifyOtpRoute({
     searchParams,
 }: {
-    searchParams: Promise<{ email?: string | string[]; role?: string | string[] }>;
+    searchParams: Promise<{
+        email?: string | string[];
+        role?: string | string[];
+    }>;
 }) {
     const params = await searchParams;
-    const rawEmail = Array.isArray(params?.email) ? params.email[0] : params?.email;
+    const rawEmail = Array.isArray(params?.email)
+        ? params.email[0]
+        : params?.email;
     const rawRole = Array.isArray(params?.role) ? params.role[0] : params?.role;
     const email = typeof rawEmail === "string" ? rawEmail.trim() : "";
     const role = typeof rawRole === "string" ? rawRole.trim() : "";

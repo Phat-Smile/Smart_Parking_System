@@ -268,21 +268,30 @@ export function ParkWiseSignUpPage({
                     onSubmit={handleSubmit(onSubmit)}
                 >
                     <h2>Create your account</h2>
-                    <div style={{
-                        background: '#eff6ff',
-                        border: '1px solid #bfdbfe',
-                        borderRadius: '10px',
-                        padding: '10px 14px',
-                        fontSize: '13px',
-                        color: '#1e40af',
-                        marginBottom: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '8px',
-                    }}>
+                    <div
+                        style={{
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            borderRadius: "10px",
+                            padding: "10px 14px",
+                            fontSize: "13px",
+                            color: "#1e40af",
+                            marginBottom: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "8px",
+                        }}
+                    >
                         <span>Want to manage a parking lot?</span>
-                        <Link href="/owner/register" style={{ fontWeight: 700, textDecoration: 'underline', color: '#1d4ed8' }}>
+                        <Link
+                            href="/owner/register"
+                            style={{
+                                fontWeight: 700,
+                                textDecoration: "underline",
+                                color: "#1d4ed8",
+                            }}
+                        >
                             Register as Lot Owner →
                         </Link>
                     </div>

@@ -8,7 +8,8 @@ const manrope = Manrope({ subsets: ["latin", "vietnamese"], display: "swap" });
 
 export const metadata: Metadata = {
     title: "Đăng ký Đối tác Chủ bãi đỗ xe | ParkWise Partner",
-    description: "Đăng ký tài khoản Đối tác Chủ bãi đỗ xe ParkWise để tối ưu công suất và doanh thu với sơ đồ 2D/3D thông minh.",
+    description:
+        "Đăng ký tài khoản Đối tác Chủ bãi đỗ xe ParkWise để tối ưu công suất và doanh thu với sơ đồ 2D/3D thông minh.",
     icons: { icon: "/images/parkwise/logo.png" },
 };
 

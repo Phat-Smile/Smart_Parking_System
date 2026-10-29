@@ -62,10 +62,17 @@ export function ParkWiseOtpPage({
 
         async function detectOtp() {
             try {
-                const res = await fetch(`/api/dev-otp?email=${encodeURIComponent(email)}`);
+                const res = await fetch(
+                    `/api/dev-otp?email=${encodeURIComponent(email)}`,
+                );
                 if (!res.ok) return;
                 const data = await res.json();
-                if (!cancelled && data?.found && data?.otpCode && /^[0-9]{6}$/.test(data.otpCode)) {
+                if (
+                    !cancelled &&
+                    data?.found &&
+                    data?.otpCode &&
+                    /^[0-9]{6}$/.test(data.otpCode)
+                ) {
                     setDetectedOtp(data.otpCode);
                     setShowPrompt(true);
                 }
@@ -111,7 +118,10 @@ export function ParkWiseOtpPage({
         }
     }, [role]);
 
-    const isOwner = clientRole === "owner" || clientRole === "parkinglotowner" || role === "owner";
+    const isOwner =
+        clientRole === "owner" ||
+        clientRole === "parkinglotowner" ||
+        role === "owner";
 
     useEffect(() => {
         if (!verified) return;
@@ -236,10 +246,16 @@ export function ParkWiseOtpPage({
             // Re-detect new OTP code after resend
             window.setTimeout(async () => {
                 try {
-                    const res = await fetch(`/api/dev-otp?email=${encodeURIComponent(email)}`);
+                    const res = await fetch(
+                        `/api/dev-otp?email=${encodeURIComponent(email)}`,
+                    );
                     if (!res.ok) return;
                     const data = await res.json();
-                    if (data?.found && data?.otpCode && /^[0-9]{6}$/.test(data.otpCode)) {
+                    if (
+                        data?.found &&
+                        data?.otpCode &&
+                        /^[0-9]{6}$/.test(data.otpCode)
+                    ) {
                         setDetectedOtp(data.otpCode);
                         setShowPrompt(true);
                     }
@@ -303,7 +319,11 @@ export function ParkWiseOtpPage({
             <div className="parkwise-login-form-panel parkwise-otp-form-panel">
                 {verified ? (
                     <div className="parkwise-otp-verified" role="status">
-                        <h2>{isOwner ? "Xác thực email thành công" : "Email verified"}</h2>
+                        <h2>
+                            {isOwner
+                                ? "Xác thực email thành công"
+                                : "Email verified"}
+                        </h2>
                         <p>
                             {isOwner
                                 ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang hồ sơ pháp lý..."
@@ -327,14 +347,21 @@ export function ParkWiseOtpPage({
                                 Tiếp tục: Nhập hồ sơ pháp lý đối tác →
                             </Link>
                         ) : (
-                            <Link href="/login" className="parkwise-login-submit">
+                            <Link
+                                href="/login"
+                                className="parkwise-login-submit"
+                            >
                                 Go to Login
                             </Link>
                         )}
                     </div>
                 ) : (
                     <form noValidate onSubmit={onSubmit}>
-                        <h2>{isOwner ? "Xác thực Email Đối tác" : "Verify Your Email"}</h2>
+                        <h2>
+                            {isOwner
+                                ? "Xác thực Email Đối tác"
+                                : "Verify Your Email"}
+                        </h2>
                         <div
                             className="parkwise-otp-session-note"
                             role="status"
@@ -368,7 +395,8 @@ export function ParkWiseOtpPage({
                                     borderRadius: "14px",
                                     padding: "14px 16px",
                                     marginBottom: "18px",
-                                    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
+                                    boxShadow:
+                                        "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
                                     display: "flex",
                                     flexDirection: "column",
                                     gap: "10px",
@@ -383,10 +411,26 @@ export function ParkWiseOtpPage({
                                         gap: "8px",
                                     }}
                                 >
-                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                        <span style={{ fontSize: "16px" }}>⚡</span>
-                                        <span style={{ fontWeight: 700, fontSize: "13px", color: "#E6F85E" }}>
-                                            {isOwner ? "Mã xác thực từ Backend (Chế độ phát triển)" : "Dev OTP Detected from Backend"}
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                        }}
+                                    >
+                                        <span style={{ fontSize: "16px" }}>
+                                            ⚡
+                                        </span>
+                                        <span
+                                            style={{
+                                                fontWeight: 700,
+                                                fontSize: "13px",
+                                                color: "#E6F85E",
+                                            }}
+                                        >
+                                            {isOwner
+                                                ? "Mã xác thực từ Backend (Chế độ phát triển)"
+                                                : "Dev OTP Detected from Backend"}
                                         </span>
                                     </div>
                                     <span
@@ -404,12 +448,41 @@ export function ParkWiseOtpPage({
                                         {detectedOtp}
                                     </span>
                                 </div>
-                                <p style={{ margin: 0, fontSize: "12.5px", color: "#A1A1AA", lineHeight: 1.45 }}>
-                                    {isOwner
-                                        ? <>Hệ thống Backend (Notification Service) đã khởi tạo mã <strong>{detectedOtp}</strong> cho <strong>{email}</strong>. Bạn có thể bấm để tự động dán hoặc nhập mã nhận được qua email thật.</>
-                                        : <>Backend Notification Service recorded code <strong>{detectedOtp}</strong> for <strong>{email}</strong>. Click below to autofill or enter code from real email.</>}
+                                <p
+                                    style={{
+                                        margin: 0,
+                                        fontSize: "12.5px",
+                                        color: "#A1A1AA",
+                                        lineHeight: 1.45,
+                                    }}
+                                >
+                                    {isOwner ? (
+                                        <>
+                                            Hệ thống Backend (Notification
+                                            Service) đã khởi tạo mã{" "}
+                                            <strong>{detectedOtp}</strong> cho{" "}
+                                            <strong>{email}</strong>. Bạn có thể
+                                            bấm để tự động dán hoặc nhập mã nhận
+                                            được qua email thật.
+                                        </>
+                                    ) : (
+                                        <>
+                                            Backend Notification Service
+                                            recorded code{" "}
+                                            <strong>{detectedOtp}</strong> for{" "}
+                                            <strong>{email}</strong>. Click
+                                            below to autofill or enter code from
+                                            real email.
+                                        </>
+                                    )}
                                 </p>
-                                <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: "10px",
+                                        marginTop: "2px",
+                                    }}
+                                >
                                     <button
                                         type="button"
                                         onClick={handleApplyDetectedOtp}
@@ -425,7 +498,10 @@ export function ParkWiseOtpPage({
                                             cursor: "pointer",
                                         }}
                                     >
-                                        ✓ {isOwner ? "Tự động dán mã" : "Autofill Code"}
+                                        ✓{" "}
+                                        {isOwner
+                                            ? "Tự động dán mã"
+                                            : "Autofill Code"}
                                     </button>
                                     <button
                                         type="button"
@@ -450,7 +526,9 @@ export function ParkWiseOtpPage({
                             className="parkwise-otp-label"
                             id="parkwise-otp-label"
                         >
-                            {isOwner ? "Mã xác thực (6 chữ số)" : "Verification code"}
+                            {isOwner
+                                ? "Mã xác thực (6 chữ số)"
+                                : "Verification code"}
                         </label>
                         <SegmentedOtpInput
                             value={digits}
@@ -478,11 +556,17 @@ export function ParkWiseOtpPage({
                             }
                         >
                             {verifying
-                                ? (isOwner ? "Đang xác thực..." : "Verifying...")
-                                : (isOwner ? "Xác thực & Kích hoạt" : "Verify Code")}
+                                ? isOwner
+                                    ? "Đang xác thực..."
+                                    : "Verifying..."
+                                : isOwner
+                                  ? "Xác thực & Kích hoạt"
+                                  : "Verify Code"}
                         </button>
                         <p className="parkwise-otp-help">
-                            {isOwner ? "Chưa nhận được mã? " : "Need a new code? "}
+                            {isOwner
+                                ? "Chưa nhận được mã? "
+                                : "Need a new code? "}
                             {email ? (
                                 <button
                                     type="button"
@@ -490,14 +574,26 @@ export function ParkWiseOtpPage({
                                     disabled={resending || cooldown > 0}
                                 >
                                     {resending
-                                        ? (isOwner ? "Đang gửi..." : "Sending...")
+                                        ? isOwner
+                                            ? "Đang gửi..."
+                                            : "Sending..."
                                         : cooldown > 0
-                                          ? (isOwner ? `Gửi lại sau ${cooldown}s` : `Resend in ${cooldown}s`)
-                                          : (isOwner ? "Gửi lại mã" : "Resend code")}
+                                          ? isOwner
+                                              ? `Gửi lại sau ${cooldown}s`
+                                              : `Resend in ${cooldown}s`
+                                          : isOwner
+                                            ? "Gửi lại mã"
+                                            : "Resend code"}
                                 </button>
                             ) : (
-                                <Link href={isOwner ? "/owner/register" : "/sign-up"}>
-                                    {isOwner ? "Quay lại đăng ký" : "Return to sign up"}
+                                <Link
+                                    href={
+                                        isOwner ? "/owner/register" : "/sign-up"
+                                    }
+                                >
+                                    {isOwner
+                                        ? "Quay lại đăng ký"
+                                        : "Return to sign up"}
                                 </Link>
                             )}
                         </p>
@@ -517,15 +613,32 @@ export function ParkWiseOtpPage({
                                 textAlign: "left",
                             }}
                         >
-                            <span style={{ fontSize: "15px", flexShrink: 0, marginTop: "1px" }}>💡</span>
+                            <span
+                                style={{
+                                    fontSize: "15px",
+                                    flexShrink: 0,
+                                    marginTop: "1px",
+                                }}
+                            >
+                                💡
+                            </span>
                             <div>
                                 {isOwner ? (
                                     <>
-                                        Mã OTP được gửi trực tiếp từ máy chủ Backend về hòm thư của bạn. Vui lòng kiểm tra thêm mục <strong>Thư rác (Spam)</strong>. Đối với môi trường dev, có thể cấu hình tài khoản SMTP trong file <code>.env</code> để nhận thư thật.
+                                        Mã OTP được gửi trực tiếp từ máy chủ
+                                        Backend về hòm thư của bạn. Vui lòng
+                                        kiểm tra thêm mục{" "}
+                                        <strong>Thư rác (Spam)</strong>. Đối với
+                                        môi trường dev, có thể cấu hình tài
+                                        khoản SMTP trong file <code>.env</code>{" "}
+                                        để nhận thư thật.
                                     </>
                                 ) : (
                                     <>
-                                        The OTP code is dispatched by the backend notification service. Please check your <strong>Spam folder</strong> if not found in Inbox.
+                                        The OTP code is dispatched by the
+                                        backend notification service. Please
+                                        check your <strong>Spam folder</strong>{" "}
+                                        if not found in Inbox.
                                     </>
                                 )}
                             </div>

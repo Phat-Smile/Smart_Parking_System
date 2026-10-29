@@ -1,419 +1,420 @@
 /* ParkWise Owner Portal - Simulation & Sandbox Styles */
 
 .pw-sim-wrapper {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding-bottom: 60px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-bottom: 60px;
 }
 
 /* Simulation Top Sticky Banner */
 .pw-sim-banner {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fef9c3 100%);
-  border: 1.5px solid #fde68a;
-  border-radius: 18px;
-  padding: 20px 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 18px -2px rgba(217, 119, 6, 0.12);
-  position: relative;
-  overflow: hidden;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fef9c3 100%);
+    border: 1.5px solid #fde68a;
+    border-radius: 18px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 18px -2px rgba(217, 119, 6, 0.12);
+    position: relative;
+    overflow: hidden;
 }
 
 .pw-sim-banner::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 6px;
-  height: 100%;
-  background: #d97706;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+    background: #d97706;
 }
 
 .pw-sim-banner-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
 }
 
 .pw-sim-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: #fef3c7;
-  border: 1px solid #f59e0b;
-  color: #b45309;
-  font-size: 12px;
-  font-weight: 800;
-  padding: 4px 12px;
-  border-radius: 9999px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .pw-sim-badge-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #d97706;
-  animation: pwSimPulse 1.8s infinite;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d97706;
+    animation: pwSimPulse 1.8s infinite;
 }
 
 @keyframes pwSimPulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.4);
-    opacity: 0.5;
-  }
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.4);
+        opacity: 0.5;
+    }
 }
 
 .pw-sim-banner-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #92400e;
-  margin: 0 0 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #92400e;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .pw-sim-banner-desc {
-  font-size: 13.5px;
-  color: #78350f;
-  margin: 0;
-  line-height: 1.55;
-  max-width: 900px;
+    font-size: 13.5px;
+    color: #78350f;
+    margin: 0;
+    line-height: 1.55;
+    max-width: 900px;
 }
 
 .pw-sim-banner-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .pw-sim-btn-rollback {
-  background: #ffffff;
-  border: 1.5px solid #d97706;
-  color: #b45309;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 8px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    background: #ffffff;
+    border: 1.5px solid #d97706;
+    color: #b45309;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .pw-sim-btn-rollback:hover {
-  background: #d97706;
-  color: #ffffff;
-  transform: translateY(-1px);
+    background: #d97706;
+    color: #ffffff;
+    transform: translateY(-1px);
 }
 
 .pw-sim-btn-info {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid #fcd34d;
-  color: #92400e;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .pw-sim-btn-info:hover {
-  background: #ffffff;
-  color: #78350f;
+    background: #ffffff;
+    color: #78350f;
 }
 
 .pw-sim-btn-back {
-  background: #09090b;
-  border: 1px solid #09090b;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 8px 16px;
-  border-radius: 10px;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
+    background: #09090b;
+    border: 1px solid #09090b;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 10px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
 }
 
 .pw-sim-btn-back:hover {
-  background: #27272a;
-  border-color: #27272a;
-  transform: translateY(-1px);
+    background: #27272a;
+    border-color: #27272a;
+    transform: translateY(-1px);
 }
 
 /* Tab Navigation */
 .pw-sim-tabs {
-  display: flex;
-  gap: 8px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 6px;
-  margin-bottom: 24px;
-  overflow-x: auto;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    display: flex;
+    gap: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 6px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .pw-sim-tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border-radius: 10px;
-  border: 0;
-  background: transparent;
-  color: #64748b;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .pw-sim-tab-btn:hover {
-  color: #0f172a;
-  background: #f1f5f9;
+    color: #0f172a;
+    background: #f1f5f9;
 }
 
 .pw-sim-tab-btn.active {
-  background: #09090b;
-  color: #e6f85e;
-  box-shadow: 0 2px 8px rgba(9, 9, 11, 0.2);
+    background: #09090b;
+    color: #e6f85e;
+    box-shadow: 0 2px 8px rgba(9, 9, 11, 0.2);
 }
 
 /* Configuration Card */
 .pw-sim-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 26px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 26px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
 .pw-sim-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  gap: 16px;
-  flex-wrap: wrap;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 16px;
+    flex-wrap: wrap;
 }
 
 .pw-sim-card-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 6px;
 }
 
 .pw-sim-card-desc {
-  font-size: 13px;
-  color: #64748b;
-  margin: 0;
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
 }
 
 /* Simulation Spot Grid */
 .pw-sim-spot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
 }
 
 .pw-sim-spot-item {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 14px 10px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  user-select: none;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    user-select: none;
 }
 
 .pw-sim-spot-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .pw-sim-spot-item.available {
-  background: #f0fdf4;
-  border-color: #86efac;
-  color: #15803d;
+    background: #f0fdf4;
+    border-color: #86efac;
+    color: #15803d;
 }
 
 .pw-sim-spot-item.reserved {
-  background: #fefce8;
-  border-color: #fde047;
-  color: #a16207;
+    background: #fefce8;
+    border-color: #fde047;
+    color: #a16207;
 }
 
 .pw-sim-spot-item.occupied {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #b91c1c;
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #b91c1c;
 }
 
 .pw-sim-spot-name {
-  font-size: 14px;
-  font-weight: 800;
-  margin-bottom: 4px;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 4px;
 }
 
 .pw-sim-spot-status {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
 }
 
 .pw-sim-spot-hint {
-  font-size: 10px;
-  color: #94a3b8;
-  margin-top: 4px;
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 4px;
 }
 
 /* Toast Message */
 .pw-sim-toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: #0f172a;
-  color: #ffffff;
-  padding: 14px 22px;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 9999;
-  animation: pwSimToastSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #0f172a;
+    color: #ffffff;
+    padding: 14px 22px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 9999;
+    animation: pwSimToastSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @keyframes pwSimToastSlide {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Modal Backdrop & Dialog */
 .pw-sim-modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  padding: 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
 }
 
 .pw-sim-modal-dialog {
-  background: #ffffff;
-  border-radius: 20px;
-  max-width: 580px;
-  width: 100%;
-  padding: 28px;
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
-  position: relative;
-  animation: pwSimModalIn 0.25s ease;
+    background: #ffffff;
+    border-radius: 20px;
+    max-width: 580px;
+    width: 100%;
+    padding: 28px;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+    position: relative;
+    animation: pwSimModalIn 0.25s ease;
 }
 
 @keyframes pwSimModalIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .pw-sim-modal-title {
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .pw-sim-modal-body p {
-  font-size: 14px;
-  color: #475569;
-  line-height: 1.6;
-  margin: 0 0 12px;
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.6;
+    margin: 0 0 12px;
 }
 
 .pw-sim-modal-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
 }
 
 .pw-sim-modal-box h4 {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 4px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 4px;
 }
 
 .pw-sim-modal-box p {
-  font-size: 12.5px;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.5;
+    font-size: 12.5px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
 }
 
 .pw-sim-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
 }
 
 .pw-sim-modal-close-btn {
-  background: #09090b;
-  color: #ffffff;
-  border: 0;
-  padding: 10px 22px;
-  border-radius: 10px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
+    background: #09090b;
+    color: #ffffff;
+    border: 0;
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .pw-sim-modal-close-btn:hover {
-  background: #27272a;
+    background: #27272a;
 }
