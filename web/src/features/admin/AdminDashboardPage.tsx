@@ -12,10 +12,12 @@ export function AdminDashboardPage() {
     const total = lots.length || 1;
     const capacity = lots
         .filter((lot) => lot.status === "Approved")
-        .reduce((sum, lot) => sum + lot.totalCapacity, 0);
+        .reduce((sum, lot) => sum + (lot.totalCapacity ?? 0), 0);
     const queue = lots
         .filter((lot) => lot.status === "Pending")
-        .sort((a, b) => a.submittedAtUtc.localeCompare(b.submittedAtUtc));
+        .sort((a, b) =>
+            (a.submittedAtUtc ?? "").localeCompare(b.submittedAtUtc ?? ""),
+        );
     const recent = lots
         .filter((lot) => lot.reviewedAtUtc)
         .sort((a, b) =>
@@ -97,9 +99,13 @@ export function AdminDashboardPage() {
                                     <div>
                                         <strong>{lot.name}</strong>
                                         <small>
-                                            {lot.ownerName} ·{" "}
-                                            {t("adminDashSubmittedAt")}{" "}
-                                            {formatDate(lot.submittedAtUtc)}
+                                            {lot.ownerName ??
+                                                lot.ownerUserId ??
+                                                "-"}{" "}
+                                            · {t("adminDashSubmittedAt")}{" "}
+                                            {formatDate(
+                                                lot.submittedAtUtc ?? null,
+                                            )}
                                         </small>
                                     </div>
                                     <Link
@@ -128,7 +134,9 @@ export function AdminDashboardPage() {
                                     <div>
                                         <strong>{lot.name}</strong>
                                         <small>
-                                            {formatDate(lot.reviewedAtUtc)}
+                                            {formatDate(
+                                                lot.reviewedAtUtc ?? null,
+                                            )}
                                         </small>
                                     </div>
                                     <StatusPill status={lot.status} />

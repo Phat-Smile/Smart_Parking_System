@@ -66,10 +66,11 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
                 <dl>
                     <Row label="Name">{lot.name}</Row>
                     <Row label="Owner">
-                        {lot.ownerName} · {lot.ownerEmail}
+                        {lot.ownerName ?? lot.ownerUserId ?? "-"} ·{" "}
+                        {lot.ownerEmail ?? ""}
                     </Row>
                     <Row label="Submitted">
-                        {formatDate(lot.submittedAtUtc)}
+                        {formatDate(lot.submittedAtUtc ?? null)}
                     </Row>
                     <Row label="Operating hours">
                         {lot.is24h
@@ -78,12 +79,14 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
                     </Row>
                     <Row label="Vehicle types">
                         <span className="admin-chips">
-                            {lot.vehicleTypes.map((t) => (
+                            {(lot.vehicleTypes ?? [lot.type]).map((t) => (
                                 <span key={t}>{t}</span>
                             ))}
                         </span>
                     </Row>
-                    <Row label="Total capacity">{lot.totalCapacity} slots</Row>
+                    <Row label="Total capacity">
+                        {lot.totalCapacity ?? "-"} slots
+                    </Row>
                 </dl>
             </section>
             <section className="admin-card">
@@ -112,7 +115,7 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {lot.zones.map((zone) => (
+                        {(lot.zones ?? []).map((zone) => (
                             <tr key={zone.id}>
                                 <td>
                                     <strong>{zone.name}</strong>
@@ -129,26 +132,40 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
                 <h2>Pricing</h2>
                 <dl>
                     <Row label="First hour">
-                        {vnd(lot.pricing.firstHourVnd)}
+                        {lot.pricing ? vnd(lot.pricing.firstHourVnd) : "-"}
                     </Row>
                     <Row label="Each extra hour">
-                        {vnd(lot.pricing.extraHourVnd)}
+                        {lot.pricing ? vnd(lot.pricing.extraHourVnd) : "-"}
                     </Row>
-                    <Row label="Daily cap">{vnd(lot.pricing.dailyCapVnd)}</Row>
-                    <Row label="Overnight">{vnd(lot.pricing.overnightVnd)}</Row>
+                    <Row label="Daily cap">
+                        {lot.pricing ? vnd(lot.pricing.dailyCapVnd) : "-"}
+                    </Row>
+                    <Row label="Overnight">
+                        {lot.pricing ? vnd(lot.pricing.overnightVnd) : "-"}
+                    </Row>
                 </dl>
             </section>
             <section className="admin-card">
                 <h2>Hold deposit & reservation policy</h2>
                 <dl>
-                    <Row label="Hold deposit">{vnd(lot.holdDepositVnd)}</Row>
+                    <Row label="Hold deposit">
+                        {lot.holdDepositVnd !== undefined
+                            ? vnd(lot.holdDepositVnd)
+                            : "-"}
+                    </Row>
                     <Row label="Hold window">
-                        {lot.reservation.holdMinutes} min
+                        {lot.reservation
+                            ? `${lot.reservation.holdMinutes} min`
+                            : "-"}
                     </Row>
                     <Row label="Free cancellation">
-                        first {lot.reservation.freeCancelMinutes} min
+                        {lot.reservation
+                            ? `first ${lot.reservation.freeCancelMinutes} min`
+                            : "-"}
                     </Row>
-                    <Row label="No-show">{lot.reservation.noShowRule}</Row>
+                    <Row label="No-show">
+                        {lot.reservation?.noShowRule ?? "-"}
+                    </Row>
                 </dl>
             </section>
             <section className="admin-card admin-span-2">
@@ -159,7 +176,7 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
                     </span>
                 </div>
                 <div className="admin-floors">
-                    {lot.layout.map((floor) => (
+                    {(lot.layout ?? []).map((floor) => (
                         <FloorPlan key={floor.name} floor={floor} />
                     ))}
                 </div>

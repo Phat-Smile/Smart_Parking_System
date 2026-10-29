@@ -24,6 +24,8 @@ export const sampleLots: AdminParkingLot[] = [
     {
         id: "11111111-1111-1111-1111-111111111111",
         name: "Vincom Center Basement",
+        type: "Underground",
+        ownerUserId: null,
         ownerName: "Nguyễn Minh Khoa",
         ownerEmail: "owner@parking.test",
         submittedAtUtc: "2026-10-15T02:30:00Z",
@@ -83,6 +85,8 @@ export const sampleLots: AdminParkingLot[] = [
     {
         id: "22222222-2222-2222-2222-222222222222",
         name: "Thảo Điền Riverside Parking",
+        type: "Outdoor",
+        ownerUserId: null,
         ownerName: "Trần Thu Hà",
         ownerEmail: "ha.tran@parkwise.vn",
         submittedAtUtc: "2026-10-16T08:10:00Z",
@@ -142,6 +146,8 @@ export const sampleLots: AdminParkingLot[] = [
     {
         id: "33333333-3333-3333-3333-333333333333",
         name: "Bitexco Tower Parking",
+        type: "Underground",
+        ownerUserId: null,
         ownerName: "Lê Quốc Bảo",
         ownerEmail: "bao.le@parkwise.vn",
         submittedAtUtc: "2026-10-09T03:00:00Z",
@@ -191,6 +197,8 @@ export const sampleLots: AdminParkingLot[] = [
     {
         id: "44444444-4444-4444-4444-444444444444",
         name: "Bến Thành Market Lot",
+        type: "Outdoor",
+        ownerUserId: null,
         ownerName: "Phạm Gia Huy",
         ownerEmail: "huy.pham@parkwise.vn",
         submittedAtUtc: "2026-10-11T06:45:00Z",
