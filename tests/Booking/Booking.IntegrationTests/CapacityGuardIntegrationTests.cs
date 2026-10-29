@@ -528,6 +528,84 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
     }
 
     // =========================================================================
+    // I6A: TemporaryHold quá hạn (temp_hold_expires_at < now) dù hold_end_at còn xa cũng không chiếm suất
+    // =========================================================================
+    [Fact]
+    public async Task I6A_Expired_temporary_hold_with_future_hold_end_at_does_not_block_new_holds()
+    {
+        var (provider, clock, capacityProvider) = CreateTestEnvironment();
+        await using (provider)
+        {
+            await EnsureMigratedAsync(provider);
+
+            var lotId = Guid.NewGuid();
+            // Ceiling 1, Available slots 5
+            capacityProvider.SetLotCapacity(lotId, validCapacity: 1, ratioPercent: 100, availableSlots: 5);
+
+            var appointment = clock.UtcNow.AddHours(2);
+            await using (var seedScope = provider.CreateAsyncScope())
+            {
+                var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var expiredHold = Reservation.CreateTemporaryHold(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-EXPHOLD", lotId,
+                    VehicleGroup.Car, ReservationType.Scheduled, appointment, 20000m, clock.UtcNow.AddMinutes(-20),
+                    durationMinutes: 60, tempHoldExpiresAt: clock.UtcNow.AddMinutes(-1),
+                    windowStartAt: appointment.AddMinutes(-30), windowEndAt: appointment.AddMinutes(60), holdEndAt: appointment.AddMinutes(15));
+                db.Reservations.Add(expiredHold);
+                await db.SaveChangesAsync();
+            }
+
+            await using var scope = provider.CreateAsyncScope();
+            var sender = scope.ServiceProvider.GetRequiredService<MediatR.ISender>();
+            var res = await sender.Send(new CreateTemporaryHoldCommand(
+                Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-NEWWIN", lotId,
+                VehicleGroup.Car, ReservationType.Scheduled, appointment, 60, 20000m));
+
+            Assert.True(res.IsSuccess);
+        }
+    }
+
+    // =========================================================================
+    // I6B: Reservation Confirmed có temp_hold_expires_at trong quá khứ vẫn được tính còn hiệu lực
+    // =========================================================================
+    [Fact]
+    public async Task I6B_Confirmed_reservation_with_past_temp_hold_expires_at_is_still_counted_active()
+    {
+        var (provider, clock, capacityProvider) = CreateTestEnvironment();
+        await using (provider)
+        {
+            await EnsureMigratedAsync(provider);
+
+            var lotId = Guid.NewGuid();
+            // Ceiling 1, Available slots 5
+            capacityProvider.SetLotCapacity(lotId, validCapacity: 1, ratioPercent: 100, availableSlots: 5);
+
+            var appointment = clock.UtcNow.AddHours(2);
+            await using (var seedScope = provider.CreateAsyncScope())
+            {
+                var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var confirmedRes = Reservation.CreateTemporaryHold(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-CONF", lotId,
+                    VehicleGroup.Car, ReservationType.Scheduled, appointment, 20000m, clock.UtcNow.AddMinutes(-30),
+                    durationMinutes: 60, tempHoldExpiresAt: clock.UtcNow.AddMinutes(-10),
+                    windowStartAt: appointment.AddMinutes(-30), windowEndAt: appointment.AddMinutes(60), holdEndAt: appointment.AddMinutes(15));
+                confirmedRes.Confirm(clock.UtcNow.AddMinutes(-20));
+                db.Reservations.Add(confirmedRes);
+                await db.SaveChangesAsync();
+            }
+
+            await using var scope = provider.CreateAsyncScope();
+            var sender = scope.ServiceProvider.GetRequiredService<MediatR.ISender>();
+            var res = await sender.Send(new CreateTemporaryHoldCommand(
+                Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-TRY", lotId,
+                VehicleGroup.Car, ReservationType.Scheduled, appointment, 60, 20000m));
+
+            Assert.False(res.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.CapacityExceeded.Code, res.Error!.Code);
+        }
+    }
+
+    // =========================================================================
     // I7: Đơn giản hóa BR-02.e: A [0,4), B [4,8), trần 2, C [2,6) giao cả A và B -> BỊ TỪ CHỐI
     // =========================================================================
     [Fact]
@@ -613,6 +691,106 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
             var sender2 = scope2.ServiceProvider.GetRequiredService<MediatR.ISender>();
             var res2 = await sender2.Send(new CreateTemporaryHoldCommand(
                 Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-AVAIL2", lotId,
+                VehicleGroup.Car, ReservationType.HoldWhileDriving, clock.UtcNow.AddMinutes(15), null, 20000m));
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.NoAvailableSlots.Code, res2.Error!.Code);
+        }
+    }
+
+    // =========================================================================
+    // I8A: Điều kiện (ii) - Reservation tương lai không chiếm suất của thời điểm 'now'
+    // =========================================================================
+    [Fact]
+    public async Task I8A_Condition_ii_future_reservation_does_not_consume_current_available_slots()
+    {
+        var (provider, clock, capacityProvider) = CreateTestEnvironment();
+        await using (provider)
+        {
+            await EnsureMigratedAsync(provider);
+
+            var lotId = Guid.NewGuid();
+            // Ceiling 10, AvailableSlotCount = 1
+            capacityProvider.SetLotCapacity(lotId, validCapacity: 10, ratioPercent: 100, availableSlots: 1);
+
+            // Seed 1 Confirmed reservation 3 days in future
+            var futureTime = clock.UtcNow.AddDays(3);
+            await using (var seedScope = provider.CreateAsyncScope())
+            {
+                var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var futureRes = Reservation.CreateTemporaryHold(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51F-FUTURE", lotId,
+                    VehicleGroup.Car, ReservationType.Scheduled, futureTime, 20000m, clock.UtcNow,
+                    durationMinutes: 120, tempHoldExpiresAt: clock.UtcNow.AddMinutes(10),
+                    windowStartAt: futureTime.AddMinutes(-30), windowEndAt: futureTime.AddMinutes(120), holdEndAt: futureTime.AddMinutes(15));
+                futureRes.Confirm(clock.UtcNow);
+                db.Reservations.Add(futureRes);
+                await db.SaveChangesAsync();
+            }
+
+            // New instant reservation at now:
+            // Condition (i): No overlap with future window in 3 days.
+            // Condition (ii): Active holds at now = 0 < availableSlots 1 -> SUCCEEDS!
+            await using var scope = provider.CreateAsyncScope();
+            var sender = scope.ServiceProvider.GetRequiredService<MediatR.ISender>();
+            var res = await sender.Send(new CreateTemporaryHoldCommand(
+                Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-NOW", lotId,
+                VehicleGroup.Car, ReservationType.HoldWhileDriving, clock.UtcNow.AddMinutes(15), null, 20000m));
+
+            Assert.True(res.IsSuccess);
+
+            // Verify in DB that exactly 2 reservations exist (1 future, 1 new hold)
+            await using var verifyScope = provider.CreateAsyncScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var count = await verifyDb.Reservations.CountAsync(r => r.LotId == lotId);
+            Assert.Equal(2, count);
+        }
+    }
+
+    // =========================================================================
+    // I8B: Điều kiện (ii) - Kiểm tra biên window_start_at == now và window_end_at == now
+    // =========================================================================
+    [Fact]
+    public async Task I8B_Condition_ii_boundary_checks_and_active_at_now_counted()
+    {
+        var (provider, clock, capacityProvider) = CreateTestEnvironment();
+        await using (provider)
+        {
+            await EnsureMigratedAsync(provider);
+
+            var lotId = Guid.NewGuid();
+            // Ceiling 10, Available slots = 1
+            capacityProvider.SetLotCapacity(lotId, validCapacity: 10, ratioPercent: 100, availableSlots: 1);
+
+            // Seed ended reservation where window_end_at == now
+            // Half-open [start, end) means at 'now' it has ALREADY ENDED -> not active at now!
+            await using (var seedScope = provider.CreateAsyncScope())
+            {
+                var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var endedRes = Reservation.CreateTemporaryHold(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-ENDED", lotId,
+                    VehicleGroup.Car, ReservationType.Scheduled, clock.UtcNow.AddMinutes(-60), 20000m, clock.UtcNow,
+                    durationMinutes: 60, tempHoldExpiresAt: clock.UtcNow.AddMinutes(-50),
+                    windowStartAt: clock.UtcNow.AddMinutes(-90), windowEndAt: clock.UtcNow, holdEndAt: clock.UtcNow.AddMinutes(-45));
+                endedRes.Confirm(clock.UtcNow.AddMinutes(-50));
+                db.Reservations.Add(endedRes);
+                await db.SaveChangesAsync();
+            }
+
+            // Since endedRes window_end_at == now, it does not occupy available slot at now.
+            // A new instant hold succeeds!
+            await using var scope1 = provider.CreateAsyncScope();
+            var sender1 = scope1.ServiceProvider.GetRequiredService<MediatR.ISender>();
+            var res1 = await sender1.Send(new CreateTemporaryHoldCommand(
+                Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-ACTIVE", lotId,
+                VehicleGroup.Car, ReservationType.HoldWhileDriving, clock.UtcNow.AddMinutes(15), null, 20000m));
+            Assert.True(res1.IsSuccess);
+
+            // Now there is 1 active hold at 'now' (res1).
+            // Another instant request must be REJECTED because active holds (1) >= availableSlots (1)!
+            await using var scope2 = provider.CreateAsyncScope();
+            var sender2 = scope2.ServiceProvider.GetRequiredService<MediatR.ISender>();
+            var res2 = await sender2.Send(new CreateTemporaryHoldCommand(
+                Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A-REJECT", lotId,
                 VehicleGroup.Car, ReservationType.HoldWhileDriving, clock.UtcNow.AddMinutes(15), null, 20000m));
             Assert.False(res2.IsSuccess);
             Assert.Equal(ReservationCapacityErrors.NoAvailableSlots.Code, res2.Error!.Code);

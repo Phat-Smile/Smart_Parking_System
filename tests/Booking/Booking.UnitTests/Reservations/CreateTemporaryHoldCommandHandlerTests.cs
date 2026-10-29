@@ -191,6 +191,63 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
     }
 
     // ==========================================
+    // U9: Cấu hình tùy chỉnh (Options binding verification)
+    // ==========================================
+    [Fact]
+    public async Task U9_CustomOptions_configure_lead_grace_hold_and_lock_timeout_correctly()
+    {
+        var customOptions = new BookingCapacityOptions
+        {
+            LeadTimeMinutes = 45,
+            GracePeriodMinutes = 20,
+            TempHoldDurationMinutes = 15,
+            LockTimeoutSeconds = 8
+        };
+
+        var handler = new CreateTemporaryHoldCommandHandler(
+            _capacityProvider,
+            _coordinator,
+            _clock,
+            NullLogger<CreateTemporaryHoldCommandHandler>.Instance,
+            customOptions);
+
+        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5));
+        Reservation? capturedReservation = null;
+
+        _coordinator.ResultToReturn = r =>
+        {
+            capturedReservation = r;
+            return Result<Reservation>.Success(r);
+        };
+
+        var appointment = Now.AddHours(2);
+        var command = new CreateTemporaryHoldCommand(
+            ReservationId: Guid.NewGuid(),
+            UserId: Guid.NewGuid(),
+            VehicleId: Guid.NewGuid(),
+            PlateNumber: "51F-CUSTOM",
+            LotId: Guid.NewGuid(),
+            VehicleGroup: VehicleGroup.Car,
+            ReservationType: ReservationType.Scheduled,
+            AppointmentTime: appointment,
+            DurationMinutes: 60,
+            PrepaidAmount: 20000m);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(capturedReservation);
+        // Window start = appointment - 45m
+        Assert.Equal(appointment.AddMinutes(-45), capturedReservation.WindowStartAt);
+        // Hold end = appointment + 20m
+        Assert.Equal(appointment.AddMinutes(20), capturedReservation.HoldEndAt);
+        // Temp hold expires = Now + 15m
+        Assert.Equal(Now.AddMinutes(15), capturedReservation.TempHoldExpiresAt);
+        // Lock timeout = 8s
+        Assert.Equal(TimeSpan.FromSeconds(8), _coordinator.LastLockTimeout);
+    }
+
+    // ==========================================
     // Test Doubles / Fakes
     // ==========================================
     private sealed class FakeClock(DateTimeOffset utcNow) : IClock
@@ -216,6 +273,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
         public int CallCount { get; private set; }
         public int LastCeiling { get; private set; }
         public int? LastAvailableSlotCount { get; private set; }
+        public TimeSpan LastLockTimeout { get; private set; }
         public Func<Reservation, Result<Reservation>> ResultToReturn { get; set; } = r => Result<Reservation>.Success(r);
 
         public Task<Result<Reservation>> CreateTemporaryHoldAtomicAsync(
@@ -228,6 +286,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
             CallCount++;
             LastCeiling = ceiling;
             LastAvailableSlotCount = availableSlotCount;
+            LastLockTimeout = lockTimeout;
             OnCall?.Invoke();
             return Task.FromResult(ResultToReturn(reservation));
         }

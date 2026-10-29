@@ -117,7 +117,7 @@ public sealed class ReservationCapacityCoordinator(
                                     (r.Status == ReservationStatus.Confirmed ||
                                      (r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt > now)) &&
                                     r.WindowStartAt <= now &&
-                                    r.HoldEndAt > now)
+                                    r.WindowEndAt > now)
                         .CountAsync(cancellationToken);
 
                     if (currentActiveHolds >= availableSlotCount.Value)
