@@ -9,7 +9,10 @@ public enum GateReadingDecision
     AutoAccepted = 1,
 
     // Anything else (low confidence, wrong format, no plate read): staff must confirm the plate (US-PARK-002).
-    PendingStaff = 2
+    PendingStaff = 2,
+
+    // US-PARK-002: staff looked at the vehicle and confirmed or corrected the plate and vehicle type.
+    StaffConfirmed = 3
 }
 
 /// <summary>
@@ -45,6 +48,30 @@ public sealed class GateReading
 
     // Who sent the reading: the staff account typing it in Sprint 2.
     public Guid RecordedBy { get; private set; }
+
+    // US-PARK-002: set when staff confirm a PendingStaff reading.
+    public Guid? ConfirmedBy { get; private set; }
+    public DateTimeOffset? ConfirmedAt { get; private set; }
+
+    /// <summary>
+    /// US-PARK-002: staff confirm the plate and vehicle type they see, keeping or correcting what the device read.
+    /// Only a PendingStaff reading can be confirmed. Decision 2026-10-29: a corrected plate outside the basic Vietnamese
+    /// format is accepted (staff saw the vehicle; special series are not in the rule yet) and flagged in the audit log.
+    /// </summary>
+    /// <returns>False when the reading is not waiting for staff.</returns>
+    public bool Confirm(string plateNumber, VehicleType vehicleType, Guid confirmedBy, DateTimeOffset confirmedAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(plateNumber);
+        if (Decision != GateReadingDecision.PendingStaff)
+            return false;
+
+        PlateNumber = ParkingSession.NormalizePlate(plateNumber);
+        VehicleType = vehicleType;
+        Decision = GateReadingDecision.StaffConfirmed;
+        ConfirmedBy = confirmedBy;
+        ConfirmedAt = confirmedAt;
+        return true;
+    }
 
     public static GateReading Record(
         Guid id,

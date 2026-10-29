@@ -43,17 +43,22 @@ internal sealed class GateReadingConfiguration : IEntityTypeConfiguration<GateRe
             .HasColumnName("confidence")
             .HasPrecision(4, 3)
             .IsRequired();
+        // Concurrency token: confirming saves "WHERE decision = PendingStaff", so when two staff confirm the same reading at
+        // once only the first save matches; the second fails and is reported as already confirmed (US-PARK-002).
         builder.Property(reading => reading.Decision)
             .HasColumnName("decision")
             .HasConversion<string>()
             .HasMaxLength(32)
-            .IsRequired();
+            .IsRequired()
+            .IsConcurrencyToken();
         builder.Property(reading => reading.ReceivedAt)
             .HasColumnName("received_at")
             .IsRequired();
         builder.Property(reading => reading.RecordedBy)
             .HasColumnName("recorded_by")
             .IsRequired();
+        builder.Property(reading => reading.ConfirmedBy).HasColumnName("confirmed_by");
+        builder.Property(reading => reading.ConfirmedAt).HasColumnName("confirmed_at");
 
         // US-PARK-002 lists the readings of a lot that wait for staff, oldest first.
         builder.HasIndex(reading => new { reading.LotId, reading.Decision, reading.ReceivedAt })

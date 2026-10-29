@@ -149,7 +149,16 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("numeric(4,3)")
                         .HasColumnName("confidence");
 
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<Guid?>("ConfirmedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("confirmed_by");
+
                     b.Property<string>("Decision")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
