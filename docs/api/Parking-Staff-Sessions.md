@@ -66,11 +66,13 @@ should call this instead of `/staff/assigned-lot`, which does not exist.
 
 `status` is `Active`, `Paid`, `Completed` or `Cancelled`. The `Location` header returned when a session is opened points here.
 
+`slotCode` is the slot a walk-in car was given at the gate (US-PARK-007) while the session holds it. It is `null` for
+motorbikes (no slot) and after the slot is released (cancelled session).
+
 **Fields that are always `null` in Sprint 2** (decision 2026-10-27; they will be filled later, not removed):
 
 | Field | Filled by |
 |---|---|
-| `slotCode` | US-PARK-007, once a car is given a slot. Motorbikes have no slot. |
 | `paidAtUtc` | US-PAY-006, once a session is marked Paid. |
 | `graceUntilUtc` | US-PAY-006: `paidAtUtc` + 15 minutes (BR-09.d). |
 

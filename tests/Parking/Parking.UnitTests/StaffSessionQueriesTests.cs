@@ -1,4 +1,5 @@
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.AssignLotMember;
 using ParkingSystem.Parking.Application.ParkingLots.ListLotAssignments;
@@ -25,7 +26,7 @@ public sealed class StaffSessionQueriesTests
     public async Task Session_owner_gets_the_detail_with_the_qr()
     {
         var session = NewSession(CustomerId);
-        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false));
+        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false), new FakeSlotCodes(session.Id, "A-01"));
 
         var result = await handler.Handle(new GetParkingSessionQuery(session.Id, CustomerId), TestContext.Current.CancellationToken);
 
@@ -38,8 +39,9 @@ public sealed class StaffSessionQueriesTests
         Assert.Equal("Active", detail.Status);
         Assert.Equal(EntryTime, detail.EntryTime);
         Assert.Equal("qr-1", detail.QrToken);
-        // Decision 2026-10-27: no data yet in S2.
-        Assert.Null(detail.SlotCode);
+        // US-PARK-007: the slot the car was given.
+        Assert.Equal("A-01", detail.SlotCode);
+        // Decision 2026-10-27: no payment data yet in S2.
         Assert.Null(detail.PaidAtUtc);
         Assert.Null(detail.GraceUntilUtc);
     }
@@ -48,7 +50,7 @@ public sealed class StaffSessionQueriesTests
     public async Task Staff_assigned_to_the_lot_get_the_detail_without_the_qr()
     {
         var session = NewSession(CustomerId);
-        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: true));
+        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: true), new FakeSlotCodes());
 
         var result = await handler.Handle(new GetParkingSessionQuery(session.Id, StaffId), TestContext.Current.CancellationToken);
 
@@ -61,7 +63,7 @@ public sealed class StaffSessionQueriesTests
     {
         var session = NewSession(CustomerId);
         session.Cancel(StaffId, "Vehicle did not enter", EntryTime.AddMinutes(1));
-        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false));
+        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false), new FakeSlotCodes());
 
         var result = await handler.Handle(new GetParkingSessionQuery(session.Id, CustomerId), TestContext.Current.CancellationToken);
 
@@ -72,7 +74,7 @@ public sealed class StaffSessionQueriesTests
     [Fact]
     public async Task Unknown_session_is_not_found()
     {
-        var handler = new GetParkingSessionQueryHandler(new FakeSessions(null), new FakeLotAccess(allowed: true));
+        var handler = new GetParkingSessionQueryHandler(new FakeSessions(null), new FakeLotAccess(allowed: true), new FakeSlotCodes());
 
         var result = await handler.Handle(new GetParkingSessionQuery(Guid.NewGuid(), StaffId), TestContext.Current.CancellationToken);
 
@@ -83,7 +85,7 @@ public sealed class StaffSessionQueriesTests
     public async Task Another_customer_or_unassigned_staff_get_access_denied()
     {
         var session = NewSession(CustomerId);
-        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false));
+        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false), new FakeSlotCodes());
 
         var result = await handler.Handle(new GetParkingSessionQuery(session.Id, StaffId), TestContext.Current.CancellationToken);
 
@@ -94,7 +96,7 @@ public sealed class StaffSessionQueriesTests
     public async Task Session_without_an_account_is_visible_only_to_assigned_staff()
     {
         var session = NewSession(userId: null);
-        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false));
+        var handler = new GetParkingSessionQueryHandler(new FakeSessions(session), new FakeLotAccess(allowed: false), new FakeSlotCodes());
 
         var result = await handler.Handle(new GetParkingSessionQuery(session.Id, CustomerId), TestContext.Current.CancellationToken);
 
@@ -105,7 +107,7 @@ public sealed class StaffSessionQueriesTests
     public async Task Lot_sessions_are_refused_to_staff_not_assigned_to_the_lot()
     {
         var sessions = new FakeSessions(null);
-        var handler = new ListLotParkingSessionsQueryHandler(sessions, new FakeLotAccess(allowed: false));
+        var handler = new ListLotParkingSessionsQueryHandler(sessions, new FakeLotAccess(allowed: false), new FakeSlotCodes());
 
         var result = await handler.Handle(new ListLotParkingSessionsQuery(LotId, null, 1, 20, StaffId), TestContext.Current.CancellationToken);
 
@@ -118,7 +120,7 @@ public sealed class StaffSessionQueriesTests
     {
         var session = NewSession(CustomerId);
         var sessions = new FakeSessions(session) { LotPage = ([session], 41) };
-        var handler = new ListLotParkingSessionsQueryHandler(sessions, new FakeLotAccess(allowed: true));
+        var handler = new ListLotParkingSessionsQueryHandler(sessions, new FakeLotAccess(allowed: true), new FakeSlotCodes(session.Id, "A-02"));
 
         var result = await handler.Handle(new ListLotParkingSessionsQuery(LotId, "active", 3, 20, StaffId), TestContext.Current.CancellationToken);
 
@@ -130,14 +132,14 @@ public sealed class StaffSessionQueriesTests
         var item = Assert.Single(page.Items);
         Assert.Equal(session.Id, item.SessionId);
         Assert.Equal("Active", item.Status);
-        Assert.Null(item.SlotCode);
+        Assert.Equal("A-02", item.SlotCode);
     }
 
     [Fact]
     public async Task Lot_sessions_without_status_ask_for_every_status()
     {
         var sessions = new FakeSessions(null);
-        var handler = new ListLotParkingSessionsQueryHandler(sessions, new FakeLotAccess(allowed: true));
+        var handler = new ListLotParkingSessionsQueryHandler(sessions, new FakeLotAccess(allowed: true), new FakeSlotCodes());
 
         await handler.Handle(new ListLotParkingSessionsQuery(LotId, null, 1, 20, StaffId), TestContext.Current.CancellationToken);
 
@@ -201,6 +203,24 @@ public sealed class StaffSessionQueriesTests
 
     private static ParkingSession NewSession(Guid? userId) =>
         ParkingSession.Open(Guid.NewGuid(), LotId, "51A-123.45", VehicleType.Car, EntryTime, "qr-1", userId, userId is null ? null : Guid.NewGuid());
+
+    private sealed class FakeSlotCodes(Guid? sessionId = null, string? slotCode = null) : ISlotDesignator
+    {
+        public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(
+                sessionId is { } id && slotCode is not null && sessionIds.Contains(id)
+                    ? new Dictionary<Guid, string> { [id] = slotCode }
+                    : new Dictionary<Guid, string>());
+
+        public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
 
     private sealed class FakeLotAccess(bool allowed) : IParkingLotAccess
     {

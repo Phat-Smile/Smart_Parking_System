@@ -3,6 +3,7 @@ namespace ParkingSystem.Payment.WebAPI.Security;
 internal static class PaymentAuthorization
 {
     public const string AdminPolicy = "payment-system-admin";
+    public const string ViewSessionFeePolicy = "payment-view-session-fee";
     public const string RoleClaimType = "role";
     public const string AdminRole = "SystemAdmin";
 
@@ -11,7 +12,10 @@ internal static class PaymentAuthorization
         services.AddAuthorizationBuilder()
             .AddPolicy(AdminPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireClaim(RoleClaimType, AdminRole));
+                .RequireClaim(RoleClaimType, AdminRole))
+            .AddPolicy(ViewSessionFeePolicy, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireClaim(RoleClaimType, "Customer", "Staff", "LotOwner"));
 
         return services;
     }

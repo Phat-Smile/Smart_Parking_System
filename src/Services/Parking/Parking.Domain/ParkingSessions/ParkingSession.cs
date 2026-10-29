@@ -58,7 +58,8 @@ public sealed class ParkingSession
         string qrToken,
         Guid? userId,
         Guid? vehicleId,
-        Guid? zoneId = null)
+        Guid? zoneId = null,
+        Guid? reservationId = null)
     {
         return new ParkingSession
         {
@@ -71,7 +72,8 @@ public sealed class ParkingSession
             QrToken = qrToken,
             UserId = userId,
             VehicleId = vehicleId,
-            ZoneId = zoneId
+            ZoneId = zoneId,
+            ReservationId = reservationId
         };
     }
 
@@ -107,5 +109,18 @@ public sealed class ParkingSession
         return true;
     }
 
+    public bool Complete()
+    {
+        if (Status != ParkingSessionStatus.Active && Status != ParkingSessionStatus.Paid)
+            return false;
+
+        Status = ParkingSessionStatus.Completed;
+        return true;
+    }
+
+    public void LinkReservation(Guid reservationId)
+    {
+        ReservationId = reservationId;
+    }
     public static string NormalizePlate(string plateNumber) => plateNumber.Trim().ToUpperInvariant();
 }
