@@ -1,12 +1,27 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+    type FormEvent,
+    type KeyboardEvent,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CustomerMap } from "./CustomerMap";
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
+import { getApprovedParkingLots, type ParkingLotSummary } from "./parkingLotApi";
+import { previewParkingLots } from "./previewParkingLots";
+import {
+    geocodeDestination,
+    retrieveDestination,
+    suggestDestinations,
+    type DestinationSuggestion,
+    type MapCoordinates,
+} from "./geocodeDestination";
 
 const MAX_PRICE = 50000;
 
@@ -37,48 +52,6 @@ const filterOptions = {
     ],
 };
 
-const parkingExamples = [
-    {
-        id: "parkside",
-        name: "Parkside Parking",
-        image: "/images/parkwise/dashboard-parking-entrance.webp",
-        type: "City parking entrance",
-        area: "District 1",
-        hourlyPrice: 25000,
-        distanceKm: 1.2,
-        spaces: 12,
-        compatible: ["car", "motorbike"],
-        amenities: ["covered", "always-open", "cctv"],
-        prebookable: true,
-    },
-    {
-        id: "sunrise",
-        name: "City parking",
-        image: "/images/parkwise/dashboard-parking-structure.webp",
-        type: "Multi-storey parking",
-        area: "Binh Thanh",
-        hourlyPrice: 15000,
-        distanceKm: 2.4,
-        spaces: 4,
-        compatible: ["motorbike"],
-        amenities: ["always-open", "cctv"],
-        prebookable: false,
-    },
-    {
-        id: "central",
-        name: "Covered garage",
-        image: "/images/parkwise/dashboard-parking-garage.webp",
-        type: "Sheltered spaces",
-        area: "District 3",
-        hourlyPrice: 40000,
-        distanceKm: 4.3,
-        spaces: 0,
-        compatible: ["car"],
-        amenities: ["covered", "ev-charging", "cctv"],
-        prebookable: false,
-    },
-];
-
 export function CustomerFindParkingPage({
     fontClassName,
     initialSearch = { destination: "", date: "", time: "", vehicle: "any" },
@@ -100,10 +73,38 @@ export function CustomerFindParkingPage({
     const [searchMessage, setSearchMessage] = useState("");
     const [submittedDestination, setSubmittedDestination] = useState("");
     const [locationBusy, setLocationBusy] = useState(false);
+    const [searchBusy, setSearchBusy] = useState(false);
+    const searchAbortRef = useRef<AbortController | null>(null);
+    const suggestionAbortRef = useRef<AbortController | null>(null);
+    const suggestionSessionRef = useRef<string | null>(null);
+    const destinationInputRef = useRef<HTMLInputElement>(null);
+    const [suggestions, setSuggestions] = useState<DestinationSuggestion[]>([]);
+    const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+    const [suggestionsBusy, setSuggestionsBusy] = useState(false);
+    const [suggestionsError, setSuggestionsError] = useState(false);
+    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+    const [selectedSuggestion, setSelectedSuggestion] =
+        useState<DestinationSuggestion | null>(null);
+    const [destinationLocation, setDestinationLocation] =
+        useState<MapCoordinates | null>(null);
     const [currentLocation, setCurrentLocation] = useState<{
         longitude: number;
         latitude: number;
     } | null>(null);
+    const [approvedLots, setApprovedLots] = useState<ParkingLotSummary[]>([]);
+    const [catalogState, setCatalogState] = useState<"loading" | "ready" | "error">("loading");
+    useEffect(() => {
+        const controller = new AbortController();
+        getApprovedParkingLots(controller.signal)
+            .then((lots) => {
+                setApprovedLots(lots);
+                setCatalogState("ready");
+            })
+            .catch(() => {
+                if (!controller.signal.aborted) setCatalogState("error");
+            });
+        return () => controller.abort();
+    }, []);
     useEffect(() => {
         const frame = requestAnimationFrame(() => {
             const now = new Date();
@@ -135,6 +136,58 @@ export function CustomerFindParkingPage({
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
         );
     }, [initialSearch.destination]);
+    useEffect(
+        () => () => {
+            searchAbortRef.current?.abort();
+            suggestionAbortRef.current?.abort();
+        },
+        [],
+    );
+    useEffect(() => {
+        const query = destination.trim();
+        const token = getPublicMapboxToken();
+        if (
+            !token ||
+            query.length < 3 ||
+            query === "Current location" ||
+            selectedSuggestion?.name === query
+        ) {
+            return;
+        }
+
+        const controller = new AbortController();
+        suggestionAbortRef.current = controller;
+        const timer = window.setTimeout(async () => {
+            const sessionToken =
+                suggestionSessionRef.current ?? crypto.randomUUID();
+            suggestionSessionRef.current = sessionToken;
+            try {
+                const matches = await suggestDestinations(
+                    query,
+                    token,
+                    sessionToken,
+                    controller.signal,
+                );
+                if (controller.signal.aborted) return;
+                setSuggestions(matches);
+                setActiveSuggestionIndex(-1);
+                setSuggestionsOpen(
+                    document.activeElement === destinationInputRef.current,
+                );
+            } catch {
+                if (controller.signal.aborted) return;
+                setSuggestions([]);
+                setSuggestionsError(true);
+            } finally {
+                if (!controller.signal.aborted) setSuggestionsBusy(false);
+            }
+        }, 300);
+
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [destination, selectedSuggestion]);
     const [filters, setFilters] = useState(initialFilters);
     const activeFilterCount =
         Number(filters.maxPrice < MAX_PRICE) +
@@ -148,7 +201,7 @@ export function CustomerFindParkingPage({
         hasActiveFilters ||
         Boolean(destination.trim() || submittedDestination) ||
         vehicleType !== "any";
-    const visibleParkings = parkingExamples
+    const visibleParkings = previewParkingLots
         .filter((parking) => {
             const query = submittedDestination.toLocaleLowerCase();
             return (
@@ -180,7 +233,7 @@ export function CustomerFindParkingPage({
             if (filters.sort === "name") return a.name.localeCompare(b.name);
             if (filters.sort === "price") return a.hourlyPrice - b.hourlyPrice;
             if (filters.sort === "distance") return a.distanceKm - b.distanceKm;
-            return parkingExamples.indexOf(a) - parkingExamples.indexOf(b);
+            return previewParkingLots.indexOf(a) - previewParkingLots.indexOf(b);
         });
     const activeSelectedId = visibleParkings.some(
         (parking) => parking.id === selectedId,
@@ -189,6 +242,15 @@ export function CustomerFindParkingPage({
         : (visibleParkings[0]?.id ?? "");
 
     function useCurrentLocation() {
+        searchAbortRef.current?.abort();
+        suggestionAbortRef.current?.abort();
+        suggestionSessionRef.current = null;
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        setSuggestions([]);
+        setSelectedSuggestion(null);
+        setSearchBusy(false);
+        setDestinationLocation(null);
         if (!navigator.geolocation) {
             setSearchMessage(
                 "Location is not supported by this browser. Enter an address instead.",
@@ -204,6 +266,7 @@ export function CustomerFindParkingPage({
                     latitude: coords.latitude,
                 });
                 setDestination("Current location");
+                setSubmittedDestination("Current location");
                 setSearchMessage(
                     getPublicMapboxToken()
                         ? "Current location selected and shown on the map."
@@ -223,17 +286,162 @@ export function CustomerFindParkingPage({
         );
     }
 
-    function handleSearch(event: FormEvent<HTMLFormElement>) {
+    async function selectSuggestion(suggestion: DestinationSuggestion) {
+        const token = getPublicMapboxToken();
+        const sessionToken = suggestionSessionRef.current;
+        if (!token || !sessionToken) return;
+
+        suggestionAbortRef.current?.abort();
+        searchAbortRef.current?.abort();
+        setDestination(suggestion.name);
+        setSelectedSuggestion(suggestion);
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        setSuggestions([]);
+        setActiveSuggestionIndex(-1);
+        setSearchBusy(true);
+        setSearchMessage("Locating destination on Mapbox…");
+        destinationInputRef.current?.focus();
+
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        try {
+            const coordinates = await retrieveDestination(
+                suggestion.id,
+                token,
+                sessionToken,
+                controller.signal,
+            );
+            if (controller.signal.aborted) return;
+            if (!coordinates) {
+                setSearchMessage("Destination not found. Try another place.");
+                return;
+            }
+            setCurrentLocation(null);
+            setDestinationLocation(coordinates);
+            setSubmittedDestination("");
+            setSearchMessage(
+                `Map centered on “${suggestion.name}”. Parking locations below are examples, not live search results.`,
+            );
+        } catch {
+            if (!controller.signal.aborted) {
+                setSearchMessage(
+                    "Mapbox destination search is unavailable. Try again later.",
+                );
+            }
+        } finally {
+            if (searchAbortRef.current === controller) {
+                searchAbortRef.current = null;
+                setSearchBusy(false);
+            }
+            if (suggestionSessionRef.current === sessionToken) {
+                suggestionSessionRef.current = null;
+            }
+        }
+    }
+
+    function handleDestinationKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+        if (event.key === "Escape") {
+            setSuggestionsOpen(false);
+            return;
+        }
+        if (!suggestionsOpen || suggestions.length === 0) return;
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setActiveSuggestionIndex(
+                (index) => (index + 1) % suggestions.length,
+            );
+        } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setActiveSuggestionIndex(
+                (index) => (index <= 0 ? suggestions.length : index) - 1,
+            );
+        } else if (event.key === "Enter" && activeSuggestionIndex >= 0) {
+            event.preventDefault();
+            void selectSuggestion(suggestions[activeSuggestionIndex]);
+        }
+    }
+
+    async function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setSubmittedDestination(destination.trim());
-        setSearchMessage(
-            destination.trim()
-                ? `Showing matching example locations for “${destination.trim()}”.`
-                : "Showing all example parking locations.",
-        );
+        searchAbortRef.current?.abort();
+        suggestionAbortRef.current?.abort();
+        suggestionSessionRef.current = null;
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        const query = destination.trim();
+        const token = getPublicMapboxToken();
+
+        if (selectedSuggestion?.name === query && destinationLocation) {
+            setSearchBusy(false);
+            setSearchMessage(
+                `Map centered on “${query}”. Parking locations below are examples, not live search results.`,
+            );
+            return;
+        }
+
+        if (!query || query === "Current location" || !token) {
+            setSearchBusy(false);
+            setDestinationLocation(null);
+            setSubmittedDestination(query);
+            setSearchMessage(
+                query
+                    ? `Showing matching example locations for “${query}”.`
+                    : "Showing all example parking locations.",
+            );
+            return;
+        }
+
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        setSearchBusy(true);
+        setDestinationLocation(null);
+        setSubmittedDestination("");
+        setSearchMessage("Finding destination on Mapbox…");
+        try {
+            const coordinates = await geocodeDestination(
+                query,
+                token,
+                controller.signal,
+            );
+            if (controller.signal.aborted) return;
+            if (!coordinates) {
+                setSearchMessage("Destination not found. Try another address.");
+                return;
+            }
+            setCurrentLocation(null);
+            setDestinationLocation(coordinates);
+            setSubmittedDestination("");
+            setSearchMessage(
+                `Map centered on “${query}”. Parking locations below are examples, not live search results.`,
+            );
+        } catch {
+            if (!controller.signal.aborted) {
+                setSearchMessage(
+                    "Mapbox destination search is unavailable. Try again later.",
+                );
+            }
+        } finally {
+            if (searchAbortRef.current === controller) {
+                searchAbortRef.current = null;
+                setSearchBusy(false);
+            }
+        }
     }
 
     function clearFilters() {
+        searchAbortRef.current?.abort();
+        suggestionAbortRef.current?.abort();
+        suggestionSessionRef.current = null;
+        setSuggestions([]);
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        setSuggestionsError(false);
+        setActiveSuggestionIndex(-1);
+        setSelectedSuggestion(null);
+        setSearchBusy(false);
+        setDestinationLocation(null);
         setFilters(initialFilters);
         setSubmittedDestination("");
         setDestination("");
@@ -288,22 +496,79 @@ export function CustomerFindParkingPage({
                     </p>
                 </div>
                 <form className="customer-search-form" onSubmit={handleSearch}>
-                    <div className="customer-search-field customer-search-destination">
+                    <div
+                        className="customer-search-field customer-search-destination"
+                        onBlur={(event) => {
+                            if (
+                                !event.currentTarget.contains(
+                                    event.relatedTarget as Node | null,
+                                )
+                            ) {
+                                setSuggestionsOpen(false);
+                            }
+                        }}
+                    >
                         <CustomerIcon name="location" size={21} />
                         <span>
                             <label htmlFor="customer-search-destination-input">
                                 Destination
                             </label>
                             <input
+                                ref={destinationInputRef}
                                 id="customer-search-destination-input"
                                 aria-label="Destination"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-expanded={suggestionsOpen}
+                                aria-controls={
+                                    suggestionsOpen
+                                        ? "customer-destination-suggestions"
+                                        : undefined
+                                }
+                                aria-activedescendant={
+                                    suggestionsOpen &&
+                                    activeSuggestionIndex >= 0
+                                        ? `customer-destination-suggestion-${activeSuggestionIndex}`
+                                        : undefined
+                                }
                                 value={destination}
                                 onChange={(event) => {
-                                    setDestination(event.target.value);
+                                    const nextDestination = event.target.value;
+                                    const canSuggest =
+                                        !!getPublicMapboxToken() &&
+                                        nextDestination.trim().length >= 3 &&
+                                        nextDestination.trim() !==
+                                            "Current location";
+                                    searchAbortRef.current?.abort();
+                                    suggestionAbortRef.current?.abort();
+                                    setSearchBusy(false);
+                                    setDestination(nextDestination);
                                     setCurrentLocation(null);
+                                    setDestinationLocation(null);
+                                    setSelectedSuggestion(null);
+                                    setSuggestions([]);
+                                    setSuggestionsOpen(canSuggest);
+                                    setSuggestionsBusy(canSuggest);
+                                    setSuggestionsError(false);
+                                    setActiveSuggestionIndex(-1);
+                                    if (!canSuggest) {
+                                        suggestionSessionRef.current = null;
+                                    }
                                     setSearchMessage("");
                                 }}
+                                onFocus={() => {
+                                    if (
+                                        suggestions.length > 0 ||
+                                        suggestionsBusy ||
+                                        suggestionsError
+                                    ) {
+                                        setSuggestionsOpen(true);
+                                    }
+                                }}
+                                onKeyDown={handleDestinationKeyDown}
+                                maxLength={256}
                                 placeholder="Enter an address or landmark"
+                                autoComplete="off"
                             />
                         </span>
                         <button
@@ -316,6 +581,80 @@ export function CustomerFindParkingPage({
                         >
                             <CustomerIcon name="location" size={19} />
                         </button>
+                        {suggestionsOpen && (
+                            <div
+                                id="customer-destination-suggestions"
+                                className="customer-search-suggestions"
+                                role="listbox"
+                                aria-label="Destination suggestions"
+                            >
+                                {suggestionsBusy ? (
+                                    <p
+                                        className="customer-search-suggestions-state"
+                                        role="status"
+                                    >
+                                        Searching places…
+                                    </p>
+                                ) : suggestionsError ? (
+                                    <p
+                                        className="customer-search-suggestions-state"
+                                        role="status"
+                                    >
+                                        Places are unavailable. Try again
+                                        shortly.
+                                    </p>
+                                ) : suggestions.length === 0 ? (
+                                    <p
+                                        className="customer-search-suggestions-state"
+                                        role="status"
+                                    >
+                                        No matching places found.
+                                    </p>
+                                ) : (
+                                    suggestions.map((suggestion, index) => (
+                                        <button
+                                            key={suggestion.id}
+                                            id={`customer-destination-suggestion-${index}`}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={
+                                                activeSuggestionIndex === index
+                                            }
+                                            className={`customer-search-suggestion ${activeSuggestionIndex === index ? "active" : ""}`}
+                                            onMouseEnter={() =>
+                                                setActiveSuggestionIndex(index)
+                                            }
+                                            onMouseDown={(event) =>
+                                                event.preventDefault()
+                                            }
+                                            onClick={() =>
+                                                void selectSuggestion(
+                                                    suggestion,
+                                                )
+                                            }
+                                        >
+                                            <CustomerIcon
+                                                name="location"
+                                                size={17}
+                                            />
+                                            <span>
+                                                <strong>
+                                                    {suggestion.name}
+                                                </strong>
+                                                {suggestion.place && (
+                                                    <small>
+                                                        {suggestion.place}
+                                                    </small>
+                                                )}
+                                            </span>
+                                        </button>
+                                    ))
+                                )}
+                                <span className="customer-search-suggestions-credit">
+                                    Search by Mapbox
+                                </span>
+                            </div>
+                        )}
                     </div>
                     <label className="customer-search-field">
                         <CustomerIcon name="calendar" size={21} />
@@ -359,9 +698,12 @@ export function CustomerFindParkingPage({
                     <button
                         className="customer-shell-primary customer-search-submit"
                         type="submit"
+                        disabled={searchBusy}
                     >
                         <CustomerIcon name="search" size={21} />
-                        <span>Find Parking</span>
+                        <span>
+                            {searchBusy ? "Searching map…" : "Find Parking"}
+                        </span>
                         <CustomerIcon name="arrow" size={19} />
                     </button>
                 </form>
@@ -370,6 +712,30 @@ export function CustomerFindParkingPage({
                         {searchMessage}
                     </p>
                 )}
+
+                <section className="customer-search-live-lots" aria-labelledby="customer-search-live-title">
+                    <div className="customer-search-live-header">
+                        <div>
+                            <span>APPROVED PARKING LOTS</span>
+                            <h2 id="customer-search-live-title">Explore real parking locations</h2>
+                        </div>
+                        <p>Details are provided by the Parking service.</p>
+                    </div>
+                    {catalogState === "loading" && <p role="status">Loading parking lots…</p>}
+                    {catalogState === "error" && <p role="status">Live parking lots are unavailable right now.</p>}
+                    {catalogState === "ready" && approvedLots.length === 0 && <p>No approved parking lots are available yet.</p>}
+                    {catalogState === "ready" && approvedLots.length > 0 && (
+                        <div className="customer-search-live-list">
+                            {approvedLots.map((lot) => (
+                                <Link key={lot.id} href={`/parking-lots/${lot.id}`} className="customer-search-live-card">
+                                    <span className="customer-search-live-icon"><CustomerIcon name="location" size={21} /></span>
+                                    <span><strong>{lot.name}</strong><small>{lot.address}</small></span>
+                                    <span className="customer-search-live-action">View details <CustomerIcon name="arrow" size={16} /></span>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+                </section>
 
                 <div className="customer-search-toolbar">
                     <div className="customer-search-toolbar-header">
@@ -778,14 +1144,13 @@ export function CustomerFindParkingPage({
                                                         size={15}
                                                     />
                                                 </button>
-                                                <button
-                                                    type="button"
+                                                <Link
+                                                    href={`/parking-lots/preview/${parking.id}`}
                                                     className="customer-shell-primary"
-                                                    disabled
-                                                    title="Booking will be available when live parking data is connected"
                                                 >
-                                                    Book Now
-                                                </button>
+                                                    View details
+                                                    <CustomerIcon name="arrow" size={15} />
+                                                </Link>
                                             </div>
                                         </div>
                                     </div>
@@ -820,6 +1185,7 @@ export function CustomerFindParkingPage({
                             selectedId={activeSelectedId}
                             onSelect={setSelectedId}
                             currentLocation={currentLocation}
+                            destinationLocation={destinationLocation}
                             visibleIds={visibleParkings.map(
                                 (parking) => parking.id,
                             )}

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import type { PreviewParkingPin } from "./CustomerMapScene";
+import type { MapCoordinates } from "./geocodeDestination";
 
 const MapboxScene = dynamic(() => import("./CustomerMapScene"), { ssr: false });
 
@@ -38,11 +39,13 @@ export function CustomerMap({
     selectedId,
     onSelect,
     currentLocation,
+    destinationLocation,
     visibleIds,
 }: {
     selectedId: string;
     onSelect: (id: string) => void;
     currentLocation?: { longitude: number; latitude: number } | null;
+    destinationLocation?: MapCoordinates | null;
     visibleIds?: string[];
 }) {
     const token = getPublicMapboxToken();
@@ -60,6 +63,7 @@ export function CustomerMap({
                     selectedId={selectedId}
                     onSelect={onSelect}
                     currentLocation={currentLocation}
+                    destinationLocation={destinationLocation}
                 />
             ) : (
                 <>

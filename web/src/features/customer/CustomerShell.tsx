@@ -193,11 +193,11 @@ export function CustomerIcon({
     );
 }
 
-export function CustomerHeader({ active }: { active: "home" | "search" }) {
+export function CustomerHeader({ active }: { active: "home" | "search" | "detail" }) {
     return (
         <ParkWiseNavbar
             variant="customer"
-            navigationMode={active === "home" ? "dashboard" : "customer"}
+            navigationMode={active === "home" || active === "detail" ? "dashboard" : "customer"}
             activeHref={active === "home" ? "/customer/dashboard" : "/search"}
             accountControl={
                 active === "home" ? (
