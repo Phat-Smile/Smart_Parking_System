@@ -77,6 +77,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
+app.MapAdminParkingLotReviewEndpoints();
 app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
 app.MapZoneCapacityEndpoints();
