@@ -62,7 +62,9 @@ export function AdminNotifications() {
     const { language } = useLanguage();
     const isVi = language === "vi";
     const [isOpen, setIsOpen] = useState(false);
-    const [items, setItems] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+    const [items, setItems] = useState<NotificationItem[]>(
+        INITIAL_NOTIFICATIONS,
+    );
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const lots = useAdminLots();
@@ -190,7 +192,10 @@ export function AdminNotifications() {
                         }}
                     >
                         <strong style={{ fontSize: "14px", color: "#0f172a" }}>
-                            🔔 {isVi ? "Thông báo hệ thống" : "System Notifications"}
+                            🔔{" "}
+                            {isVi
+                                ? "Thông báo hệ thống"
+                                : "System Notifications"}
                         </strong>
                         {unreadCount > 0 && (
                             <button
@@ -254,7 +259,9 @@ export function AdminNotifications() {
                                         <span
                                             style={{
                                                 fontSize: "13px",
-                                                fontWeight: item.read ? 600 : 700,
+                                                fontWeight: item.read
+                                                    ? 600
+                                                    : 700,
                                                 color: item.read
                                                     ? "#334155"
                                                     : "#0f172a",
@@ -313,7 +320,8 @@ export function AdminNotifications() {
                         >
                             {isVi
                                 ? `Xem hàng chờ duyệt (${pendingLotsCount})`
-                                : `Review queue (${pendingLotsCount})`} →
+                                : `Review queue (${pendingLotsCount})`}{" "}
+                            →
                         </Link>
                     </div>
                 </div>

@@ -181,7 +181,9 @@ export function StaffSessionsPage() {
                                     </td>
                                     <td>
                                         <div className="staff-payment-cell">
-                                            <StatusPill status={s.paymentStatus} />
+                                            <StatusPill
+                                                status={s.paymentStatus}
+                                            />
                                             {s.amountDueVnd > 0 && (
                                                 <small className="staff-due-badge">
                                                     {t("sessionsDue")}:{" "}
