@@ -142,6 +142,12 @@ public sealed class GateReadingTests
             added.Clear();
             return Task.CompletedTask;
         }
+
+        public Task<GateReading?> FindByIdAsync(Guid readingId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GateReading>> ListPendingByLotAsync(Guid lotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FakeLots(bool approved) : IParkingLotDetailReader

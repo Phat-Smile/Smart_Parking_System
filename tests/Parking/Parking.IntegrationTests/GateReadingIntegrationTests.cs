@@ -2,7 +2,12 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Auditing;
+using ParkingSystem.Parking.Application.GateReadings;
+using ParkingSystem.Parking.Application.GateReadings.ConfirmGateReading;
+using ParkingSystem.Parking.Application.GateReadings.ListPendingGateReadings;
 using ParkingSystem.Parking.Application.GateReadings.RecordGateReading;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.GateReadings;
@@ -58,6 +63,77 @@ public sealed class GateReadingIntegrationTests(PostgreSqlContainerFixture postg
         dbContext.GateReadings.Add(GateReading.Record(Guid.NewGuid(), Guid.NewGuid(), "51A-123.45", VehicleType.Car, 0.95m, DateTimeOffset.UtcNow, StaffId));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => dbContext.SaveChangesAsync(cancellationToken));
+    }
+
+    [Fact]
+    public async Task Two_staff_confirming_the_same_reading_at_once_only_one_wins_and_one_audit_entry_is_written()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var lotId = await SeedAssignedApprovedLotAsync(serviceProvider, cancellationToken);
+        var reading = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-123.45", "Car", 0.4m, StaffId), cancellationToken);
+
+        // Both staff load the reading while it is still PendingStaff, then save one after the other: the worst interleaving,
+        // forced here so the test does not depend on thread timing.
+        await using var first = serviceProvider.CreateAsyncScope();
+        await using var second = serviceProvider.CreateAsyncScope();
+        var firstStaff = await LoadAndConfirmAsync(first, reading.ReadingId, "51A-123.45", cancellationToken);
+        var secondStaff = await LoadAndConfirmAsync(second, reading.ReadingId, "51A-123.46", cancellationToken);
+
+        Assert.True(await firstStaff.TrySaveChangesAsync(cancellationToken));
+        Assert.False(await secondStaff.TrySaveChangesAsync(cancellationToken));
+
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        var stored = await dbContext.GateReadings.AsNoTracking().SingleAsync(item => item.Id == reading.ReadingId, cancellationToken);
+        Assert.Equal(GateReadingDecision.StaffConfirmed, stored.Decision);
+        Assert.Equal("51A-123.45", stored.PlateNumber);
+        Assert.Equal(StaffId, stored.ConfirmedBy);
+        Assert.NotNull(stored.ConfirmedAt);
+        // The losing save is rolled back with its audit entry.
+        Assert.Equal(1, await dbContext.AuditLogEntries.CountAsync(
+            entry => entry.TargetId == reading.ReadingId.ToString() && entry.Action == AuditActions.GateReadingConfirmed, cancellationToken));
+
+        // Through the handler, the second staff member then gets 409 not pending.
+        Assert.Equal(ConfirmGateReadingErrors.NotPending, (await ConfirmAsync(serviceProvider, reading.ReadingId, "51A-123.46", cancellationToken)).Error);
+    }
+
+    // What the confirm handler does before saving: load, confirm, add the audit entry.
+    private static async Task<IGateReadingRepository> LoadAndConfirmAsync(
+        AsyncServiceScope scope, Guid readingId, string plate, CancellationToken cancellationToken)
+    {
+        var readings = scope.ServiceProvider.GetRequiredService<IGateReadingRepository>();
+        var reading = await readings.FindByIdAsync(readingId, cancellationToken);
+        Assert.True(reading!.Confirm(plate, VehicleType.Car, StaffId, DateTimeOffset.UtcNow));
+        scope.ServiceProvider.GetRequiredService<IAuditLog>().Record(new AuditEntry(
+            AuditActions.GateReadingConfirmed, StaffId, reading.LotId, nameof(GateReading), reading.Id.ToString(), null, DateTimeOffset.UtcNow));
+        return readings;
+    }
+
+    [Fact]
+    public async Task Pending_queue_lists_only_the_readings_waiting_for_staff_oldest_first()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var lotId = await SeedAssignedApprovedLotAsync(serviceProvider, cancellationToken);
+        var first = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-111.11", "Car", 0.3m, StaffId), cancellationToken);
+        await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-222.22", "Car", 0.99m, StaffId), cancellationToken);
+        var second = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, null, "Motorbike", 0.1m, StaffId), cancellationToken);
+        var confirmed = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-333.33", "Car", 0.2m, StaffId), cancellationToken);
+        Assert.True((await ConfirmAsync(serviceProvider, confirmed.ReadingId, "51A-333.33", cancellationToken)).IsSuccess);
+
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var result = await scope.ServiceProvider.GetRequiredService<ISender>().Send(new ListPendingGateReadingsQuery(lotId, StaffId), cancellationToken);
+
+        Assert.Equal([first.ReadingId, second.ReadingId], result.Value!.Select(item => item.ReadingId));
+    }
+
+    private static async Task<Result<ConfirmedGateReading>> ConfirmAsync(
+        ServiceProvider serviceProvider, Guid readingId, string plate, CancellationToken cancellationToken)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new ConfirmGateReadingCommand(readingId, plate, "Car", StaffId), cancellationToken);
     }
 
     private static async Task<RecordedGateReading> RecordAsync(ServiceProvider serviceProvider, RecordGateReadingCommand command, CancellationToken cancellationToken)

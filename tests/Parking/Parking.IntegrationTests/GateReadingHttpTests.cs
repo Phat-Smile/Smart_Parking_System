@@ -15,6 +15,7 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.GateReadings;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.GateReadings;
@@ -120,6 +121,98 @@ public sealed class GateReadingHttpTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // US-PARK-002.
+
+    [Fact]
+    public async Task Staff_see_a_low_confidence_reading_in_the_queue_and_confirm_it()
+    {
+        await using var app = await CreateAppAsync();
+        using var recorded = await SendAsync(app, "Staff", Reading(AssignedLotId, confidence: 0.5m));
+        var readingId = (await recorded.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("readingId").GetGuid();
+
+        var queue = await GetJsonAsync(app, $"{Route}/pending?lotId={AssignedLotId}", "Staff");
+        Assert.Equal(readingId, Assert.Single(queue.EnumerateArray()).GetProperty("readingId").GetGuid());
+
+        using var confirmed = await PostAsync(app, $"{Route}/{readingId}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
+        var body = await confirmed.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
+        Assert.Equal("StaffConfirmed", body.GetProperty("decision").GetString());
+
+        Assert.Empty((await GetJsonAsync(app, $"{Route}/pending?lotId={AssignedLotId}", "Staff")).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Confirming_an_auto_accepted_reading_returns_409_not_pending()
+    {
+        await using var app = await CreateAppAsync();
+        using var recorded = await SendAsync(app, "Staff", Reading(AssignedLotId, confidence: 0.99m));
+        var readingId = (await recorded.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("readingId").GetGuid();
+
+        using var response = await PostAsync(app, $"{Route}/{readingId}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("parking.gate_reading.not_pending", problem.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task Confirming_an_unknown_reading_returns_404()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var response = await PostAsync(app, $"{Route}/{Guid.NewGuid()}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("parking.gate_reading.not_found", problem.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task Confirming_without_a_plate_returns_400()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var response = await PostAsync(app, $"{Route}/{Guid.NewGuid()}/confirm", "Staff", new { plateNumber = "", vehicleType = "Car" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Queue_of_an_unassigned_lot_returns_403_and_customers_get_403()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var otherLot = await GetAsync(app, $"{Route}/pending?lotId={OtherLotId}", "Staff");
+        using var customer = await GetAsync(app, $"{Route}/pending?lotId={AssignedLotId}", "Customer");
+        using var anonymous = await GetAsync(app, $"{Route}/pending?lotId={AssignedLotId}", role: null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, otherLot.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, customer.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+    }
+
+    private static async Task<HttpResponseMessage> GetAsync(WebApplication app, string route, string? role)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, route);
+        if (role is not null)
+            request.Headers.Add(RoleHeader, role);
+        return await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<JsonElement> GetJsonAsync(WebApplication app, string route, string role)
+    {
+        using var response = await GetAsync(app, route, role);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<HttpResponseMessage> PostAsync(WebApplication app, string route, string role, object body)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = JsonContent.Create(body) };
+        request.Headers.Add(RoleHeader, role);
+        return await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
     private static object Reading(Guid lotId, decimal confidence = 0.95m) =>
         new { lotId, plateNumber = "51A-123.45", vehicleType = "Car", confidence };
 
@@ -146,6 +239,7 @@ public sealed class GateReadingHttpTests
         builder.Services.AddSingleton<IParkingLotDetailReader, KnownLots>();
         builder.Services.AddSingleton<IParkingLotAccess, AssignedLotOnly>();
         builder.Services.AddSingleton<IGateReadingRepository, InMemoryReadings>();
+        builder.Services.AddSingleton<IAuditLog, NoAudit>();
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
@@ -197,12 +291,31 @@ public sealed class GateReadingHttpTests
             Task.FromResult(lotId == AssignedLotId);
     }
 
+    // Readings live for one app instance, so a test can record a reading and then confirm it.
     private sealed class InMemoryReadings : IGateReadingRepository
     {
-        public void Add(GateReading reading)
-        {
-        }
+        private readonly List<GateReading> stored = [];
+
+        public void Add(GateReading reading) => stored.Add(reading);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<GateReading?> FindByIdAsync(Guid readingId, CancellationToken cancellationToken) =>
+            Task.FromResult(stored.FirstOrDefault(reading => reading.Id == readingId));
+
+        public Task<IReadOnlyList<GateReading>> ListPendingByLotAsync(Guid lotId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<GateReading>>(stored
+                .Where(reading => reading.LotId == lotId && reading.Decision == GateReadingDecision.PendingStaff)
+                .OrderBy(reading => reading.ReceivedAt)
+                .ToList());
+
+        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
+    }
+
+    private sealed class NoAudit : IAuditLog
+    {
+        public void Record(AuditEntry entry)
+        {
+        }
     }
 }
