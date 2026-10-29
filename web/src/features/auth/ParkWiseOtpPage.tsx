@@ -105,23 +105,17 @@ export function ParkWiseOtpPage({
         return () => window.clearTimeout(timer);
     }, [cooldown]);
 
-    const [clientRole, setClientRole] = useState(role);
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
+    const [clientRole] = useState(() => {
+        if (typeof window === "undefined") return (role || "").toLowerCase();
         const urlParams = new URLSearchParams(window.location.search);
         const urlRole = urlParams.get("role");
         const storedRole = readPendingRole();
-        const resolved = (urlRole || role || storedRole || "").toLowerCase();
-        if (resolved) {
-            setClientRole(resolved);
-        }
-    }, [role]);
+        return (urlRole || role || storedRole || "").toLowerCase();
+    });
 
+    const effectiveRole = (role || clientRole || "").toLowerCase();
     const isOwner =
-        clientRole === "owner" ||
-        clientRole === "parkinglotowner" ||
-        role === "owner";
+        effectiveRole === "owner" || effectiveRole === "parkinglotowner";
 
     useEffect(() => {
         if (!verified) return;

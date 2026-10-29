@@ -44,7 +44,7 @@ export async function GET(request: Request) {
                 // skip non-json line
             }
         }
-    } catch (err: any) {
+    } catch {
         // Docker command not available in this environment
     }
 

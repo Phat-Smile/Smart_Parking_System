@@ -373,9 +373,10 @@ export function OwnerOnboardingWizard({
                 setBusinessLicenseNumber(clean);
             }
             setSuccessNotice(`Đã tìm thấy thông tin: ${data.name}`);
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "";
             setTaxLookupError(
-                err?.message ||
+                message ||
                     "Không thể tra cứu thông tin mã số thuế. Bạn vẫn có thể nhập thông tin thủ công.",
             );
         } finally {
@@ -562,9 +563,10 @@ export function OwnerOnboardingWizard({
                 return [...filtered, doc];
             });
             setSuccessNotice(`Đã tải lên tệp: ${file.name}`);
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "";
             setErrorMsg(
-                err?.message || "Không thể tải lên tệp tin. Vui lòng thử lại.",
+                message || "Không thể tải lên tệp tin. Vui lòng thử lại.",
             );
         } finally {
             setUploadingDocType(null);
@@ -658,9 +660,10 @@ export function OwnerOnboardingWizard({
             setSubmittedAt(new Date().toISOString());
             setStep(4);
             window.scrollTo({ top: 0, behavior: "smooth" });
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "";
             setErrorMsg(
-                err?.message ||
+                message ||
                     "Không thể gửi hồ sơ lúc này. Vui lòng kiểm tra lại thông tin và thử lại sau.",
             );
         } finally {
