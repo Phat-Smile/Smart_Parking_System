@@ -1,6 +1,7 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
@@ -10,8 +11,8 @@ namespace ParkingSystem.Parking.Application.ParkingSessions.GetParkingSession;
 // (customer QR page) or for staff assigned to its lot.
 public sealed record GetParkingSessionQuery(Guid SessionId, Guid CallerId) : IRequest<Result<ParkingSessionDetail>>;
 
-// Decision 2026-10-27: SlotCode stays null until US-PARK-007 stores the car slot; PaidAtUtc and GraceUntilUtc stay null
-// until US-PAY-006 marks sessions Paid (GraceUntilUtc = PaidAtUtc + 15 minutes, BR-09.d).
+// SlotCode: the slot a walk-in car was given (US-PARK-007) while it still holds it; null for motorbikes and once released.
+// Decision 2026-10-27: PaidAtUtc and GraceUntilUtc stay null until US-PAY-006 marks sessions Paid (GraceUntilUtc = PaidAtUtc + 15 minutes, BR-09.d).
 public sealed record ParkingSessionDetail(
     Guid SessionId,
     Guid LotId,
@@ -30,7 +31,7 @@ public static class GetParkingSessionErrors
         new("parking.session.not_found", "The parking session does not exist.");
 }
 
-public sealed class GetParkingSessionQueryHandler(IParkingSessionRepository sessions, IParkingLotAccess lotAccess)
+public sealed class GetParkingSessionQueryHandler(IParkingSessionRepository sessions, IParkingLotAccess lotAccess, ISlotDesignator slots)
     : IRequestHandler<GetParkingSessionQuery, Result<ParkingSessionDetail>>
 {
     public async Task<Result<ParkingSessionDetail>> Handle(GetParkingSessionQuery request, CancellationToken cancellationToken)
@@ -47,6 +48,8 @@ public sealed class GetParkingSessionQueryHandler(IParkingSessionRepository sess
         // Only the owner gets the QR (BR-11.b), and only while the session is open: a closed session's QR is invalid (BR-11.e).
         var qrToken = isOwner && ParkingSession.OpenStatuses.Contains(session.Status) ? session.QrToken : null;
 
+        var slotCodes = await slots.FindSlotCodesAsync([session.Id], cancellationToken);
+
         return Result<ParkingSessionDetail>.Success(new ParkingSessionDetail(
             session.Id,
             session.LotId,
@@ -54,7 +57,7 @@ public sealed class GetParkingSessionQueryHandler(IParkingSessionRepository sess
             session.VehicleType.ToString(),
             session.Status.ToString(),
             session.EntryTime,
-            SlotCode: null,
+            slotCodes.GetValueOrDefault(session.Id),
             qrToken,
             PaidAtUtc: null,
             GraceUntilUtc: null));
