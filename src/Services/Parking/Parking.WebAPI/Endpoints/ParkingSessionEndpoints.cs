@@ -65,7 +65,9 @@ internal static class ParkingSessionEndpoints
                     ? StatusCodes.Status404NotFound
                     : result.Error == ParkingLotAccessErrors.AccessDenied
                         ? StatusCodes.Status403Forbidden
-                        : StatusCodes.Status409Conflict;
+                        : result.Error == OpenParkingSessionErrors.HeldQuotaUnavailable
+                            ? StatusCodes.Status503ServiceUnavailable
+                            : StatusCodes.Status409Conflict;
                 return BusinessProblem.Create(httpContext, statusCode, result.Error!);
             })
             .RequireAuthorization(ParkingAuthorization.StaffPolicy)
@@ -77,7 +79,8 @@ internal static class ParkingSessionEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         // Staff undo a session when the barrier was opened but the vehicle did not enter (lead decision 2026-10-06).
         app.MapPost($"{Route}/{{sessionId:guid}}/cancel", async (

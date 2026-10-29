@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
@@ -45,7 +46,7 @@ public sealed class ListLotParkingSessionsQueryValidator : AbstractValidator<Lis
     }
 }
 
-public sealed class ListLotParkingSessionsQueryHandler(IParkingSessionRepository sessions, IParkingLotAccess lotAccess)
+public sealed class ListLotParkingSessionsQueryHandler(IParkingSessionRepository sessions, IParkingLotAccess lotAccess, ISlotDesignator slots)
     : IRequestHandler<ListLotParkingSessionsQuery, Result<LotParkingSessionPage>>
 {
     public async Task<Result<LotParkingSessionPage>> Handle(ListLotParkingSessionsQuery request, CancellationToken cancellationToken)
@@ -62,7 +63,9 @@ public sealed class ListLotParkingSessionsQueryHandler(IParkingSessionRepository
         var (items, totalCount) = await sessions.ListByLotAsync(
             request.LotId, status, (request.Page - 1) * request.PageSize, request.PageSize, cancellationToken);
 
-        // SlotCode stays null until US-PARK-007 stores the car slot (decision 2026-10-27).
+        // US-PARK-007: one query for the slots of the whole page.
+        var slotCodes = await slots.FindSlotCodesAsync(items.Select(session => session.Id).ToList(), cancellationToken);
+
         return Result<LotParkingSessionPage>.Success(new LotParkingSessionPage(
             items.Select(session => new LotParkingSessionItem(
                     session.Id,
@@ -70,7 +73,7 @@ public sealed class ListLotParkingSessionsQueryHandler(IParkingSessionRepository
                     session.VehicleType.ToString(),
                     session.Status.ToString(),
                     session.EntryTime,
-                    SlotCode: null))
+                    slotCodes.GetValueOrDefault(session.Id)))
                 .ToList(),
             totalCount,
             request.Page,
