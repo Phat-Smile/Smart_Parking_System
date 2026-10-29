@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import { CustomerFooter, CustomerHeader } from "./CustomerShell";
 import { ParkingLotDetailExperience } from "./ParkingLotDetailExperience";
 import {
+    describeLotAvailability,
+    describeLotPricing,
     getApprovedParkingLot,
     ParkingLotNotFoundError,
     type ParkingLotDetail,
@@ -69,6 +71,8 @@ export function CustomerParkingLotDetailPage({
                     latitude: lot.latitude,
                     longitude: lot.longitude,
                     openingHours: lot.openingHours?.days,
+                    priceText: describeLotPricing(lot.pricing),
+                    spacesText: describeLotAvailability(lot.availability),
                 }}
             />
         );

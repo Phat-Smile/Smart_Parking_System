@@ -1,20 +1,105 @@
 .customer-search-page {
     background: #fbfdff;
 }
-.customer-search-live-lots { margin: 20px 0 24px; padding: 20px !important; border: 1px solid #dce8f2; border-radius: 16px; background: #f3f8fd; }
-.customer-search-live-header { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 15px; }
-.customer-search-live-header span { color: #5b7e9e; font-size: 11px; font-weight: 900; letter-spacing: .12em; }
-.customer-search-live-header h2 { margin-top: 3px !important; color: #1b2b42; font-size: 20px; font-weight: 850; letter-spacing: -.04em; }
-.customer-search-live-header p, .customer-search-live-lots > p { color: #647c95; font-size: 13px; }
-.customer-search-live-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 10px; }
-.customer-search-live-card { display: flex; align-items: center; gap: 11px; min-width: 0; min-height: 72px; padding: 11px; border: 1px solid #e1e9f1; border-radius: 11px; background: #fff; transition: border-color .2s, box-shadow .2s; }
-.customer-search-live-card:hover { border-color: #8bb9ec; box-shadow: 0 4px 14px #28466b16; }
-.customer-search-live-icon { display: grid; place-items: center; width: 41px; height: 41px; flex: none; border-radius: 10px; background: #e9f3ff; color: #1765dd; }
-.customer-search-live-card > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 2px; }
-.customer-search-live-card strong { overflow: hidden; color: #1b2b42; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.customer-search-live-card small { overflow: hidden; color: #6e8199; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.customer-search-live-card > svg { flex: none; color: #3674c7; }
-.customer-search-live-action { display: inline-flex; align-items: center; gap: 4px; flex: none; color: #1764ce; font-size: 12px; font-weight: 850; white-space: nowrap; }
+.customer-search-live-lots {
+    margin: 20px 0 24px;
+    padding: 20px !important;
+    border: 1px solid #dce8f2;
+    border-radius: 16px;
+    background: #f3f8fd;
+}
+.customer-search-live-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 15px;
+}
+.customer-search-live-header span {
+    color: #5b7e9e;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+}
+.customer-search-live-header h2 {
+    margin-top: 3px !important;
+    color: #1b2b42;
+    font-size: 20px;
+    font-weight: 850;
+    letter-spacing: -0.04em;
+}
+.customer-search-live-header p,
+.customer-search-live-lots > p {
+    color: #647c95;
+    font-size: 13px;
+}
+.customer-search-live-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 10px;
+}
+.customer-search-live-card {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    min-height: 72px;
+    padding: 11px;
+    border: 1px solid #e1e9f1;
+    border-radius: 11px;
+    background: #fff;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
+}
+.customer-search-live-card:hover {
+    border-color: #8bb9ec;
+    box-shadow: 0 4px 14px #28466b16;
+}
+.customer-search-live-icon {
+    display: grid;
+    place-items: center;
+    width: 41px;
+    height: 41px;
+    flex: none;
+    border-radius: 10px;
+    background: #e9f3ff;
+    color: #1765dd;
+}
+.customer-search-live-card > span:nth-child(2) {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 2px;
+}
+.customer-search-live-card strong {
+    overflow: hidden;
+    color: #1b2b42;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.customer-search-live-card small {
+    overflow: hidden;
+    color: #6e8199;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.customer-search-live-card > svg {
+    flex: none;
+    color: #3674c7;
+}
+.customer-search-live-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    color: #1764ce;
+    font-size: 12px;
+    font-weight: 850;
+    white-space: nowrap;
+}
 .customer-search-page section {
     padding: 0;
 }
@@ -981,8 +1066,12 @@
     }
 }
 @media (max-width: 620px) {
-    .customer-search-live-header { display: block; }
-    .customer-search-live-header p { margin-top: 5px !important; }
+    .customer-search-live-header {
+        display: block;
+    }
+    .customer-search-live-header p {
+        margin-top: 5px !important;
+    }
     .customer-search-form {
         grid-template-columns: 1fr;
     }
