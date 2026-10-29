@@ -69,7 +69,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
-app.UseParkingSystemAuthentication();
+app.UseParkingSystemServiceSecurity();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

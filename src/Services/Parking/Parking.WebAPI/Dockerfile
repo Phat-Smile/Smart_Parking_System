@@ -12,6 +12,7 @@ COPY src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj src/Services/Park
 RUN dotnet restore src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
+COPY contracts/grpc/ contracts/grpc/
 COPY src/Services/Parking/ src/Services/Parking/
 RUN dotnet publish src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj \
     --configuration Release \

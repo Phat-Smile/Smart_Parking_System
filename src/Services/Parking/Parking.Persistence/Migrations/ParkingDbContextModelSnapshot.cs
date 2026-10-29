@@ -341,8 +341,15 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_parking_lots");
 
+                    b.HasIndex("OwnerUserId")
+                        .HasDatabaseName("ix_parking_lots_owner_user_id");
+
                     b.HasIndex("ApprovalStatus", "Name")
                         .HasDatabaseName("ix_parking_lots_approval_status_name");
+
+                    b.HasIndex("OwnerUserId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_parking_lots_owner_user_id_name");
 
                     b.ToTable("parking_lots", "parking");
                 });

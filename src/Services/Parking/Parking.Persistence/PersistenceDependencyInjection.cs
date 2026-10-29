@@ -55,6 +55,8 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IParkingLotOpeningHoursRepository, ParkingLotOpeningHoursRepository>();
         services.AddScoped<INearbyParkingLotReader, NearbyParkingLotReader>();
         services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
+        services.AddScoped<IRegisterParkingLotRepository, RegisterParkingLotRepository>();
+
         services.AddScoped<ParkingLotAssignmentRepository>();
         services.AddScoped<IParkingLotAssignmentRepository>(
             provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());

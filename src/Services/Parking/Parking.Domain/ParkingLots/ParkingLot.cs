@@ -2,11 +2,16 @@ namespace ParkingSystem.Parking.Domain.ParkingLots;
 
 public sealed class ParkingLot
 {
+    public const int NameMaxLength = 200;
+    public const int AddressMaxLength = 500;
+
     private ParkingLot()
     {
     }
 
     public Guid Id { get; private set; }
+    // Nullable for pre-existing catalog / TECH-02 seeded lots. All newly registered lots have an owner.
+    public Guid? OwnerUserId { get; private set; }
     public string Name { get; private set; } = null!;
     public string Address { get; private set; } = null!;
     public decimal Latitude { get; private set; }
