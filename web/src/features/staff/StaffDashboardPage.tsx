@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { PlateBadge, FormattedTime, formatVnd } from "./StaffUi";
+import { PlateBadge, FormattedTime, countText, formatVnd } from "./StaffUi";
 import { useStaffData } from "./staffData";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
@@ -15,10 +15,13 @@ export function StaffDashboardPage() {
         fetchAssignedLot().catch(() => {});
     }, [fetchAssignedLot]);
 
-    const occupancyPercent = Math.min(
-        100,
-        Math.round((occupancy.occupied / occupancy.totalCapacity) * 100),
-    );
+    // Percent only when Parking gave a capacity (the motorbike zones today).
+    const occupancyPercent = occupancy.totalCapacity
+        ? Math.min(
+              100,
+              Math.round((occupancy.occupied / occupancy.totalCapacity) * 100),
+          )
+        : 0;
 
     const entryActivities = activities
         .filter((a) => a.type === "entry")
@@ -50,7 +53,8 @@ export function StaffDashboardPage() {
                     <div className="staff-occupancy-value">
                         <strong>{occupancy.occupied}</strong>
                         <span>
-                            / {occupancy.totalCapacity} {t("dashSlots")}
+                            / {countText(occupancy.totalCapacity)}{" "}
+                            {t("dashSlots")}
                         </span>
                     </div>
 
@@ -71,13 +75,15 @@ export function StaffDashboardPage() {
                         <div className="staff-slot-sub">
                             <span>{t("dashCarAvailable")}</span>
                             <strong className="text-emerald">
-                                {occupancy.carAvailable} {t("dashSlots")}
+                                {countText(occupancy.carAvailable)}{" "}
+                                {t("dashSlots")}
                             </strong>
                         </div>
                         <div className="staff-slot-sub">
                             <span>{t("dashMotorbikeAvailable")}</span>
                             <strong className="text-emerald">
-                                {occupancy.motorbikeAvailable} {t("dashSlots")}
+                                {countText(occupancy.motorbikeAvailable)}{" "}
+                                {t("dashSlots")}
                             </strong>
                         </div>
                     </div>

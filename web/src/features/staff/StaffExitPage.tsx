@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
     CameraFeedMock,
     PlateBadge,
+    feeText,
     formatDateTime,
     formatVnd,
 } from "./StaffUi";
@@ -13,6 +14,7 @@ import {
     describeStaffError,
     findOpenSessionByPlate,
     findSessionByQr,
+    getParkingSessionFee,
     manualVerifyExit,
     reissueParkingSessionQr,
 } from "./staffApi";
@@ -75,8 +77,6 @@ export function StaffExitPage() {
             const res: SessionByQrResponse = await findSessionByQr(
                 qrInput.trim(),
             );
-            const fee = res.amountDueVnd ?? 60000;
-            const isReg = res.customerType === "Registered";
             const scanned: StaffSession = {
                 id: res.sessionId,
                 lotId: res.lotId,
@@ -86,17 +86,14 @@ export function StaffExitPage() {
                 entryTime: res.entryTime,
                 status: res.status,
                 qrToken: res.qrToken,
-                slotCode: res.vehicleType === "Car" ? "B1-B10" : "B2-M12",
-                paymentStatus: isReg ? "Paid" : fee === 0 ? "Paid" : "Pending",
-                totalFeeVnd: res.totalFeeVnd ?? fee,
-                prepaidVnd: isReg ? fee : 0,
-                amountDueVnd: isReg ? 0 : fee,
+                slotCode: null,
+                // Session payment does not exist before Sprint 3, so nothing is paid yet.
+                paymentStatus: "Pending",
+                totalFeeVnd: res.totalFeeVnd,
+                amountDueVnd: res.amountDueVnd,
             };
             setScannedSession(scanned);
             setDetectedExitPlate(res.plateNumber);
-            if (scanned.amountDueVnd === 0) {
-                setPaymentSuccess(true);
-            }
         } catch (err) {
             setErrorMsg(describeStaffError(err));
             setScannedSession(null);
@@ -120,21 +117,21 @@ export function StaffExitPage() {
                 plate,
             );
             setQrInput(res.qrToken);
-            const fee = 60000;
+            const fee = await getParkingSessionFee(res.sessionId).catch(
+                () => null,
+            );
             const scanned: StaffSession = {
                 id: res.sessionId,
                 lotId: res.lotId,
                 plateNumber: res.plateNumber,
                 vehicleType: res.vehicleType,
-                customerType: "Registered",
                 entryTime: res.entryTime,
                 status: res.status,
                 qrToken: res.qrToken,
-                slotCode: res.vehicleType === "Car" ? "B1-B10" : "B2-M12",
+                slotCode: null,
                 paymentStatus: "Pending",
-                totalFeeVnd: fee,
-                prepaidVnd: 0,
-                amountDueVnd: fee,
+                totalFeeVnd: fee?.totalFee,
+                amountDueVnd: fee?.amountDue,
             };
             setScannedSession(scanned);
         } catch (err) {
@@ -186,16 +183,21 @@ export function StaffExitPage() {
         }
     }
 
+    // Exit payment is Sprint 3 (Demo B): Payment has no session payment yet, so the screen never marks a
+    // session as paid and the gate stays closed.
+    const EXIT_PAYMENT_NOT_READY =
+        "Thanh toán phiên đỗ ở cổng ra chưa có trong Sprint 2. Chưa ghi nhận tiền, chưa mở cổng.";
+
     function handleCompleteCashPayment() {
         if (!scannedSession) return;
-        setPaymentSuccess(true);
         setPaymentModal(null);
+        setErrorMsg(EXIT_PAYMENT_NOT_READY);
     }
 
     function handleCompleteVnPayPayment() {
         if (!scannedSession) return;
-        setPaymentSuccess(true);
         setPaymentModal(null);
+        setErrorMsg(EXIT_PAYMENT_NOT_READY);
     }
 
     // 3.18 Close Parking Session: Call real POST /api/parking/sessions/{id}/complete
@@ -604,7 +606,7 @@ export function StaffExitPage() {
                                     <h3>{t("exitFeeTitle")}</h3>
                                     <span>
                                         {t("sessionsSpot")}{" "}
-                                        {scannedSession.slotCode}
+                                        {scannedSession.slotCode ?? "—"}
                                     </span>
                                 </div>
 
@@ -620,8 +622,9 @@ export function StaffExitPage() {
                                     <div className="fee-row">
                                         <span>{t("exitTotalFee")}</span>
                                         <strong>
-                                            {formatVnd(
+                                            {feeText(
                                                 scannedSession.totalFeeVnd,
+                                                formatVnd,
                                             )}
                                         </strong>
                                     </div>
@@ -629,8 +632,9 @@ export function StaffExitPage() {
                                         <span>{t("exitPrepaidWallet")}</span>
                                         <span className="text-emerald">
                                             -{" "}
-                                            {formatVnd(
+                                            {feeText(
                                                 scannedSession.prepaidVnd,
+                                                formatVnd,
                                             )}
                                         </span>
                                     </div>
@@ -767,7 +771,7 @@ export function StaffExitPage() {
                                     </span>
                                     <span className="staff-slot-code">
                                         {t("sessionsSpot")}{" "}
-                                        {scannedSession.slotCode}
+                                        {scannedSession.slotCode ?? "—"}
                                     </span>
                                 </div>
                                 <div className="staff-summary-row staff-summary-due-row">
@@ -775,7 +779,10 @@ export function StaffExitPage() {
                                         {t("exitAmountDueLabel")}
                                     </span>
                                     <strong className="staff-modal-amount-due">
-                                        {formatVnd(scannedSession.amountDueVnd)}
+                                        {feeText(
+                                            scannedSession.amountDueVnd,
+                                            formatVnd,
+                                        )}
                                     </strong>
                                 </div>
                             </div>
@@ -818,13 +825,15 @@ export function StaffExitPage() {
                                                 className="staff-quick-cash-btn"
                                                 onClick={() =>
                                                     setCashGiven(
-                                                        scannedSession.amountDueVnd,
+                                                        scannedSession.amountDueVnd ??
+                                                            0,
                                                     )
                                                 }
                                             >
                                                 {t("exitExactCash")} (
-                                                {formatVnd(
+                                                {feeText(
                                                     scannedSession.amountDueVnd,
+                                                    formatVnd,
                                                 )}
                                                 )
                                             </button>
@@ -861,7 +870,8 @@ export function StaffExitPage() {
                                             </span>
                                             <span className="staff-change-sub">
                                                 {cashGiven >=
-                                                scannedSession.amountDueVnd
+                                                (scannedSession.amountDueVnd ??
+                                                    0)
                                                     ? language === "vi"
                                                         ? "Khách đã trả đủ tiền mặt"
                                                         : "Sufficient cash received"
@@ -875,7 +885,8 @@ export function StaffExitPage() {
                                                 Math.max(
                                                     0,
                                                     cashGiven -
-                                                        scannedSession.amountDueVnd,
+                                                        (scannedSession.amountDueVnd ??
+                                                            0),
                                                 ),
                                             )}
                                         </strong>
@@ -896,7 +907,8 @@ export function StaffExitPage() {
                                             className="staff-btn staff-btn-primary staff-btn-flex"
                                             disabled={
                                                 cashGiven <
-                                                scannedSession.amountDueVnd
+                                                (scannedSession.amountDueVnd ??
+                                                    0)
                                             }
                                             onClick={handleCompleteCashPayment}
                                         >
@@ -919,8 +931,9 @@ export function StaffExitPage() {
                                         </div>
                                         <div className="staff-vnpay-code">
                                             🅿️ PARKWISE GATE 02 ·{" "}
-                                            {formatVnd(
+                                            {feeText(
                                                 scannedSession.amountDueVnd,
+                                                formatVnd,
                                             )}
                                         </div>
                                     </div>
