@@ -215,6 +215,12 @@ public sealed class CancelParkingSessionTests
         public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken)
         {
             ReleasedSessionIds.Add(sessionId);
