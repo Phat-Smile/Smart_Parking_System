@@ -7,12 +7,6 @@ import type {
     ReviewedParkingLot,
 } from "./types";
 
-/*
- * SAMPLE DATA — Parking.WebAPI does not expose admin list/detail/summary
- * endpoints yet (US-ADMIN-002 only ships approve/reject). Replace
- * `listLots` / `findLot` with real gateway calls when they exist; the pages
- * only depend on these two functions plus `recordDecision`.
- */
 const grid = (name: string, rows: number, cols: number, blocked: number[]) => ({
     name,
     rows,
@@ -232,7 +226,7 @@ export const sampleLots: AdminParkingLot[] = [
     },
 ];
 
-// Decisions confirmed by the backend in this browser tab overlay the sample data.
+// Decisions confirmed by the backend in this browser tab overlay the lot list.
 const STORAGE_KEY = "parkwise-admin-decisions";
 type Decision = {
     status: ApprovalStatus;
@@ -240,14 +234,32 @@ type Decision = {
     reviewedAtUtc: string;
 };
 let decisions: Record<string, Decision> = {};
+let baseLots: AdminParkingLot[] = sampleLots;
 let snapshot: AdminParkingLot[] = sampleLots;
 const listeners = new Set<() => void>();
 
 function rebuild() {
-    snapshot = sampleLots.map((lot) =>
+    snapshot = baseLots.map((lot) =>
         decisions[lot.id] ? { ...lot, ...decisions[lot.id] } : lot,
     );
     for (const listener of listeners) listener();
+}
+
+export function setAdminLotsSnapshot(lots: AdminParkingLot[]) {
+    if (lots.length > 0) {
+        baseLots = lots;
+        rebuild();
+    }
+}
+
+export function mergeAdminLotsSnapshot(lots: AdminParkingLot[]) {
+    if (lots.length === 0) return;
+    const byId = new Map(baseLots.map((l) => [l.id.toLowerCase(), l]));
+    for (const lot of lots) {
+        byId.set(lot.id.toLowerCase(), lot);
+    }
+    baseLots = Array.from(byId.values());
+    rebuild();
 }
 
 let hydrated = false;

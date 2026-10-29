@@ -9,6 +9,7 @@ import {
     MAX_REJECTION_REASON,
     approveParkingLot,
     describeReviewError,
+    getAdminParkingLots,
     isParkingLotId,
     rejectParkingLot,
     validateRejectionReason,
@@ -169,7 +170,7 @@ function LotDetails({ lot }: { lot: AdminParkingLot }) {
 }
 
 export function ParkingLotReviewPage({ id }: { id: string }) {
-    const { t, language } = useLanguage();
+    const { language } = useLanguage();
     const lots = useAdminLots();
     const sample = findLot(lots, id);
     const [backendResult, setBackendResult] =
@@ -180,6 +181,12 @@ export function ParkingLotReviewPage({ id }: { id: string }) {
     const [rawSubmitError, setRawSubmitError] = useState<unknown>(null);
     const [submitting, setSubmitting] = useState(false);
     const [toast, setToast] = useState("");
+
+    useEffect(() => {
+        if (!sample && isParkingLotId(id)) {
+            getAdminParkingLots("All").catch(() => undefined);
+        }
+    }, [id, sample]);
 
     const submitError = useMemo(() => {
         if (!rawSubmitError) return "";

@@ -91,6 +91,10 @@ let localAssignments: ParkingLotAssignmentMember[] = [
     },
 ];
 
+let cachedAccountsMap = new Map<string, StaffAccountOption>(
+    sampleStaffAccounts.map((s) => [s.accountId, s]),
+);
+
 /**
  * Gán tài khoản (Staff/Owner) vào bãi đỗ xe.
  * Endpoint BE: PUT /api/parking/admin/lots/{lotId}/assignments/{accountId}
@@ -110,37 +114,33 @@ export async function assignLotMember(
             },
         );
 
-        // Update local memory
-        const staff = sampleStaffAccounts.find(
-            (s) => s.accountId === accountId,
-        );
+        const known = cachedAccountsMap.get(accountId);
         const item: ParkingLotAssignmentMember = {
             lotId,
             accountId,
             role,
             assignedAtUtc: new Date().toISOString(),
-            accountFullName: staff?.fullName || "Nhân viên trực bãi",
-            accountEmail: staff?.email,
-            accountPhoneNumber: staff?.phoneNumber,
+            accountFullName: known?.fullName || "Nhân viên trực bãi",
+            accountEmail: known?.email,
+            accountPhoneNumber: known?.phoneNumber,
         };
         localAssignments = localAssignments
             .filter((a) => !(a.lotId === lotId && a.accountId === accountId))
             .concat(item);
 
         return res || item;
-    } catch {
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
         // Fallback for offline/demo if BE is offline
-        const staff = sampleStaffAccounts.find(
-            (s) => s.accountId === accountId,
-        );
+        const known = cachedAccountsMap.get(accountId);
         const item: ParkingLotAssignmentMember = {
             lotId,
             accountId,
             role,
             assignedAtUtc: new Date().toISOString(),
-            accountFullName: staff?.fullName || "Nhân viên trực bãi",
-            accountEmail: staff?.email,
-            accountPhoneNumber: staff?.phoneNumber,
+            accountFullName: known?.fullName || "Nhân viên trực bãi",
+            accountEmail: known?.email,
+            accountPhoneNumber: known?.phoneNumber,
         };
         localAssignments = localAssignments
             .filter((a) => !(a.lotId === lotId && a.accountId === accountId))
@@ -167,7 +167,8 @@ export async function removeLotMember(
         localAssignments = localAssignments.filter(
             (a) => !(a.lotId === lotId && a.accountId === accountId),
         );
-    } catch {
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
         // Fallback for offline/demo
         localAssignments = localAssignments.filter(
             (a) => !(a.lotId === lotId && a.accountId === accountId),
@@ -186,9 +187,30 @@ export async function getLotAssignments(
             `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments`,
             { method: "GET" },
         );
-        if (Array.isArray(res) && res.length > 0) return res;
+        if (Array.isArray(res)) {
+            if (cachedAccountsMap.size <= sampleStaffAccounts.length) {
+                await getAvailableStaffAccounts().catch(() => undefined);
+            }
+            return res.map((item) => {
+                const known = cachedAccountsMap.get(item.accountId);
+                return {
+                    lotId: item.lotId || lotId,
+                    accountId: item.accountId,
+                    role: item.role,
+                    assignedAtUtc: item.assignedAtUtc,
+                    accountFullName:
+                        item.accountFullName || known?.fullName || undefined,
+                    accountEmail:
+                        item.accountEmail || known?.email || undefined,
+                    accountPhoneNumber:
+                        item.accountPhoneNumber ||
+                        known?.phoneNumber ||
+                        undefined,
+                };
+            });
+        }
     } catch {
-        // Backend doesn't have GET assignments route yet, use local state
+        // Fallback for offline/demo if BE is offline
     }
     return localAssignments.filter((a) => a.lotId === lotId);
 }
@@ -200,11 +222,79 @@ export async function getAvailableStaffAccounts(): Promise<
     StaffAccountOption[]
 > {
     try {
-        const res = await gatewayFetch<StaffAccountOption[]>(
-            `/api/identity/admin/accounts?role=Staff`,
-            { method: "GET" },
-        );
-        if (Array.isArray(res) && res.length > 0) return res;
+        const [staffRes, ownerRes] = await Promise.all([
+            gatewayFetch<
+                | StaffAccountOption[]
+                | {
+                      items?: Array<{
+                          id?: string;
+                          accountId?: string;
+                          fullName?: string | null;
+                          email: string;
+                          phoneNumber?: string;
+                          role?: string;
+                      }>;
+                  }
+            >(`/api/identity/admin/accounts?role=Staff&pageSize=100`, {
+                method: "GET",
+            }),
+            gatewayFetch<
+                | StaffAccountOption[]
+                | {
+                      items?: Array<{
+                          id?: string;
+                          accountId?: string;
+                          fullName?: string | null;
+                          email: string;
+                          phoneNumber?: string;
+                          role?: string;
+                      }>;
+                  }
+            >(
+                `/api/identity/admin/accounts?role=ParkingLotOwner&pageSize=100`,
+                { method: "GET" },
+            ).catch(() => ({ items: [] })),
+        ]);
+
+        const rawStaff = Array.isArray(staffRes)
+            ? staffRes
+            : Array.isArray(staffRes?.items)
+              ? staffRes.items
+              : [];
+        const rawOwners = Array.isArray(ownerRes)
+            ? ownerRes
+            : Array.isArray(ownerRes?.items)
+              ? ownerRes.items
+              : [];
+
+        const combined = [...rawStaff, ...rawOwners];
+        if (combined.length > 0) {
+            const mapped: StaffAccountOption[] = combined.map((item) => {
+                const raw = item as {
+                    id?: string;
+                    accountId?: string;
+                    fullName?: string | null;
+                    email: string;
+                    phoneNumber?: string;
+                    role?: string;
+                };
+                const id = raw.accountId || raw.id || "";
+                const role: "Staff" | "Owner" =
+                    raw.role === "ParkingLotOwner" || raw.role === "Owner"
+                        ? "Owner"
+                        : "Staff";
+                const option: StaffAccountOption = {
+                    accountId: id,
+                    fullName: raw.fullName || raw.email,
+                    email: raw.email,
+                    phoneNumber: raw.phoneNumber,
+                    role,
+                };
+                cachedAccountsMap.set(id, option);
+                return option;
+            });
+            return mapped;
+        }
     } catch {
         // fallback
     }

@@ -140,7 +140,8 @@ export async function searchAccounts(
             `/api/identity/admin/accounts?${params.toString()}`,
             { method: "GET" },
         );
-    } catch {
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
         // Fallback for offline development / preview
         let filtered = [...sampleAccounts];
         if (query.search?.trim()) {
@@ -179,7 +180,8 @@ async function post(
             `/api/identity/admin/accounts/${encodeURIComponent(accountId)}/${action}`,
             { method: "POST" },
         );
-    } catch {
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
         const item = sampleAccounts.find((a) => a.id === accountId);
         if (item) {
             if (action === "suspend") item.status = "Suspended";
@@ -212,7 +214,8 @@ export async function changeAccountRole(accountId: string, role: AccountRole) {
                 body: JSON.stringify({ role }),
             },
         );
-    } catch {
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
         const item = sampleAccounts.find((a) => a.id === accountId);
         if (item) item.role = role;
         return {

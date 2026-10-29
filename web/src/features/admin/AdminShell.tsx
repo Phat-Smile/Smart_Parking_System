@@ -11,6 +11,7 @@ import {
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { AdminIcon } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
+import { getAdminParkingLots } from "./reviewParkingLot";
 import { AdminNotifications } from "./AdminNotifications";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
@@ -28,6 +29,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (role && role !== "SystemAdmin") router.replace("/403");
+        if (role === "SystemAdmin") {
+            getAdminParkingLots("All").catch(() => undefined);
+        }
     }, [role, router]);
 
     const links = [
@@ -142,6 +146,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                         <span>
                             You&apos;re not signed in. Approve/Reject require a
                             SystemAdmin session (e.g.{" "}
+                            <code>admin@demo.local</code> /{" "}
                             <code>admin@parking.test</code>).
                         </span>
                         <Link href="/login">Sign in</Link>

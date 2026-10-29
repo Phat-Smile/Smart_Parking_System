@@ -1,9 +1,12 @@
+import { getAccessToken } from "@/shared/api/access-token";
 import { gatewayFetch } from "@/shared/api/client";
+import { getGatewayBaseUrl } from "@/shared/config/env";
 import { ApiError } from "@/shared/errors/api-error";
 import type {
     ApprovalStatus,
     ListOwnerApplicationsResponse,
     OwnerApplicationActionResult,
+    OwnerApplicationDocument,
     OwnerApplicationItem,
 } from "./types";
 
@@ -231,6 +234,64 @@ export interface OwnerApplicationDocumentsResponse {
         sizeBytes: number;
         uploadedAtUtc: string;
     }>;
+}
+
+const DOC_LABELS: Record<string, string> = {
+    HouseholdBusinessRegistration: "Giấy chứng nhận đăng ký hộ kinh doanh",
+    EnterpriseRegistration: "Giấy chứng nhận đăng ký doanh nghiệp",
+    PremisesRightProof: "Giấy tờ chứng minh quyền sử dụng mặt bằng bãi xe",
+    FireSafetyCertificate: "Giấy chứng nhận an toàn PCCC",
+    CitizenId: "Căn cước công dân người đại diện",
+};
+
+export function mapBackendDocumentsToUi(
+    accountId: string,
+    docs: OwnerApplicationDocumentsResponse["documents"],
+): OwnerApplicationDocument[] {
+    return docs.map((d) => {
+        let uiType: OwnerApplicationDocument["type"] = "Other";
+        if (
+            d.documentType === "HouseholdBusinessRegistration" ||
+            d.documentType === "EnterpriseRegistration"
+        ) {
+            uiType = "BusinessLicense";
+        } else if (d.documentType === "PremisesRightProof") {
+            uiType = "PremisesLease";
+        } else if (d.documentType === "FireSafetyCertificate") {
+            uiType = "FireSafetyCert";
+        } else if (d.documentType === "CitizenId") {
+            uiType = "IdentityCard";
+        }
+        const label = DOC_LABELS[d.documentType] || d.documentType;
+        return {
+            id: d.id,
+            type: uiType,
+            name: `${label} (${d.originalFileName})`,
+            fileUrl: `/api/identity/admin/owner-applications/${encodeURIComponent(accountId)}/documents/${encodeURIComponent(d.documentType)}`,
+            fileType: d.contentType.includes("pdf") ? "pdf" : "image",
+            uploadedAtUtc: d.uploadedAtUtc,
+        };
+    });
+}
+
+/**
+ * Tải nội dung tài liệu (PDF/Image) từ Gateway kèm Bearer token để hiển thị/mở tab mới.
+ * Endpoint: GET /api/identity/admin/owner-applications/{id}/documents/{documentType}
+ */
+export async function fetchOwnerApplicationDocumentBlobUrl(
+    fileUrl: string,
+): Promise<string> {
+    if (!fileUrl.startsWith("/api/")) return fileUrl;
+    const token = getAccessToken();
+    const res = await fetch(new URL(fileUrl, `${getGatewayBaseUrl()}/`), {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+        throw new Error(`Failed to load document (${res.status})`);
+    }
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
 }
 
 /**

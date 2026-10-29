@@ -6,7 +6,10 @@ import { AdminIcon, StatusPill, formatDate } from "./AdminUi";
 import {
     approveOwnerApplication,
     describeOwnerAppError,
+    fetchOwnerApplicationDocumentBlobUrl,
+    getOwnerApplicationDocuments,
     getOwnerApplications,
+    mapBackendDocumentsToUi,
     rejectOwnerApplication,
 } from "./ownerApplicationsApi";
 import type {
@@ -31,6 +34,33 @@ const DEFAULT_CHECKLIST: VerificationChecklist = {
     fireSafety: false,
     lease: false,
 };
+
+async function enrichWithDocuments(
+    items: OwnerApplicationItem[],
+): Promise<OwnerApplicationItem[]> {
+    return await Promise.all(
+        items.map(async (item) => {
+            if (Array.isArray(item.documents)) return item;
+            try {
+                const docRes = await getOwnerApplicationDocuments(
+                    item.accountId,
+                );
+                if (docRes && Array.isArray(docRes.documents)) {
+                    return {
+                        ...item,
+                        documents: mapBackendDocumentsToUi(
+                            item.accountId,
+                            docRes.documents,
+                        ),
+                    };
+                }
+            } catch {
+                // Ignore if documents endpoint fails for an item
+            }
+            return { ...item, documents: [] };
+        }),
+    );
+}
 
 export function AdminOwnerApplicationsPage() {
     const { t, language } = useLanguage();
@@ -66,12 +96,24 @@ export function AdminOwnerApplicationsPage() {
     const [previewDoc, setPreviewDoc] =
         useState<OwnerApplicationDocument | null>(null);
 
+    async function handleOpenDocPreview(doc: OwnerApplicationDocument) {
+        try {
+            const resolvedUrl = await fetchOwnerApplicationDocumentBlobUrl(
+                doc.fileUrl,
+            );
+            setPreviewDoc({ ...doc, fileUrl: resolvedUrl });
+        } catch (err) {
+            setRawError(err);
+        }
+    }
+
     const loadData = useCallback(async () => {
         setLoading(true);
         setRawError(null);
         try {
             const res = await getOwnerApplications({ status });
-            setApplications(res.items);
+            const enriched = await enrichWithDocuments(res.items);
+            setApplications(enriched);
         } catch (err) {
             setRawError(err);
         } finally {
@@ -82,9 +124,10 @@ export function AdminOwnerApplicationsPage() {
     useEffect(() => {
         let active = true;
         getOwnerApplications({ status })
-            .then((res) => {
+            .then(async (res) => {
+                const enriched = await enrichWithDocuments(res.items);
                 if (active) {
-                    setApplications(res.items);
+                    setApplications(enriched);
                     setLoading(false);
                 }
             })
@@ -588,23 +631,33 @@ export function AdminOwnerApplicationsPage() {
                                                     borderRadius: "4px",
                                                     overflow: "hidden",
                                                     background: "#111",
+                                                    color: "#a3e635",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    fontWeight: 700,
+                                                    fontSize: "0.75rem",
                                                     flexShrink: 0,
                                                     cursor: "pointer",
                                                 }}
                                                 onClick={() =>
-                                                    setPreviewDoc(doc)
+                                                    handleOpenDocPreview(doc)
                                                 }
                                             >
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={doc.fileUrl}
-                                                    alt={doc.name}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "100%",
-                                                        objectFit: "cover",
-                                                    }}
-                                                />
+                                                {doc.fileType === "pdf" ? (
+                                                    <span>PDF</span>
+                                                ) : (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img
+                                                        src={doc.fileUrl}
+                                                        alt={doc.name}
+                                                        style={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            objectFit: "cover",
+                                                        }}
+                                                    />
+                                                )}
                                             </div>
                                             <div
                                                 style={{
@@ -640,7 +693,7 @@ export function AdminOwnerApplicationsPage() {
                                                 type="button"
                                                 className="admin-btn admin-btn-xs admin-btn-ghost"
                                                 onClick={() =>
-                                                    setPreviewDoc(doc)
+                                                    handleOpenDocPreview(doc)
                                                 }
                                                 title={t("view")}
                                             >
@@ -1027,17 +1080,31 @@ export function AdminOwnerApplicationsPage() {
                                 borderRadius: "8px",
                             }}
                         >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={previewDoc.fileUrl}
-                                alt={previewDoc.name}
-                                style={{
-                                    maxWidth: "100%",
-                                    maxHeight: "65vh",
-                                    objectFit: "contain",
-                                    borderRadius: "6px",
-                                }}
-                            />
+                            {previewDoc.fileType === "pdf" ? (
+                                <iframe
+                                    src={previewDoc.fileUrl}
+                                    title={previewDoc.name}
+                                    style={{
+                                        width: "100%",
+                                        height: "65vh",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        background: "#ffffff",
+                                    }}
+                                />
+                            ) : (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                    src={previewDoc.fileUrl}
+                                    alt={previewDoc.name}
+                                    style={{
+                                        maxWidth: "100%",
+                                        maxHeight: "65vh",
+                                        objectFit: "contain",
+                                        borderRadius: "6px",
+                                    }}
+                                />
+                            )}
                         </div>
                         <div style={{ marginTop: "12px", textAlign: "right" }}>
                             <a

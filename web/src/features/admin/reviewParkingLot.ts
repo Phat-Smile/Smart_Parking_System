@@ -1,6 +1,10 @@
 import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
-import { sampleLots } from "./adminLotsData";
+import {
+    mergeAdminLotsSnapshot,
+    sampleLots,
+    setAdminLotsSnapshot,
+} from "./adminLotsData";
 import type {
     AdminParkingLot,
     ApprovalStatus,
@@ -22,7 +26,7 @@ export function isParkingLotId(value: string) {
 }
 
 /**
- * Lấy danh sách bãi chờ duyệt bằng GET /api/parking/admin/lots?status=Pending
+ * Lấy danh sách bãi đỗ xe bằng GET /api/parking/admin/lots
  */
 export async function getAdminParkingLots(
     status?: ApprovalStatus | "All",
@@ -44,29 +48,41 @@ export async function getAdminParkingLots(
               : [];
 
         if (items.length > 0) {
-            return items.map((raw) => {
+            const mapped = items.map((raw) => {
                 const item = raw as unknown as Record<string, unknown>;
+                const rawZones = Array.isArray(item.zones)
+                    ? (item.zones as LotZone[])
+                    : [];
+                const rawLayout = Array.isArray(item.layout)
+                    ? (item.layout as LotFloorLayout[])
+                    : [];
+                const statusVal = (item.status ||
+                    item.approvalStatus ||
+                    "Pending") as ApprovalStatus;
                 return {
                     id: String(item.id || item.parkingLotId || ""),
                     name: String(
                         item.name || item.parkingLotName || "Bãi đỗ xe",
                     ),
                     ownerName: String(
-                        item.ownerName || item.ownerFullName || "Chủ bãi",
+                        item.ownerName ||
+                            item.ownerFullName ||
+                            "Chủ Bãi Demo",
                     ),
-                    ownerEmail: String(item.ownerEmail || ""),
+                    ownerEmail: String(item.ownerEmail || "owner@demo.local"),
                     submittedAtUtc: String(
                         item.submittedAtUtc ||
                             item.createdAtUtc ||
-                            new Date().toISOString(),
+                            "2026-10-29T03:00:00Z",
                     ),
-                    status: (item.status ||
-                        item.approvalStatus ||
-                        "Pending") as ApprovalStatus,
+                    status: statusVal,
                     rejectionReason:
                         (item.rejectionReason as string | null) ?? null,
                     reviewedAtUtc:
-                        (item.reviewedAtUtc as string | null) ?? null,
+                        (item.reviewedAtUtc as string | null) ??
+                        (statusVal !== "Pending"
+                            ? "2026-10-29T04:00:00Z"
+                            : null),
                     address: String(item.address || ""),
                     city: String(item.city || "TP. Hồ Chí Minh"),
                     latitude:
@@ -87,17 +103,35 @@ export async function getAdminParkingLots(
                         typeof item.totalCapacity === "number"
                             ? item.totalCapacity
                             : 100,
-                    zones: (item.zones as LotZone[]) || [],
+                    zones:
+                        rawZones.length > 0
+                            ? rawZones
+                            : [
+                                  {
+                                      id: "CAR-A",
+                                      name: "Tầng 1 · Khu CAR-A",
+                                      vehicleType: "Car",
+                                      slots: 60,
+                                      pricePerHourVnd: 15000,
+                                  },
+                                  {
+                                      id: "MOTO-B",
+                                      name: "Tầng trệt · Khu MOTO-B",
+                                      vehicleType: "Motorbike",
+                                      slots: 40,
+                                      pricePerHourVnd: 5000,
+                                  },
+                              ],
                     pricing: (item.pricing as AdminParkingLot["pricing"]) || {
-                        firstHourVnd: 20000,
+                        firstHourVnd: 15000,
                         extraHourVnd: 15000,
-                        dailyCapVnd: 200000,
-                        overnightVnd: 100000,
+                        dailyCapVnd: 150000,
+                        overnightVnd: 50000,
                     },
                     holdDepositVnd:
                         typeof item.holdDepositVnd === "number"
                             ? item.holdDepositVnd
-                            : 10000,
+                            : 15000,
                     reservation:
                         (item.reservation as AdminParkingLot["reservation"]) || {
                             holdMinutes: 30,
@@ -105,10 +139,30 @@ export async function getAdminParkingLots(
                             noShowRule:
                                 "Deposit is kept after the hold window expires.",
                         },
-                    layout: (item.layout as LotFloorLayout[]) || [],
+                    layout:
+                        rawLayout.length > 0
+                            ? rawLayout
+                            : [
+                                  {
+                                      name: "Tầng 1",
+                                      rows: 5,
+                                      cols: 12,
+                                      blocked: [
+                                          12, 13, 14, 15, 16, 17, 18, 19, 20,
+                                          21, 22, 23,
+                                      ],
+                                  },
+                              ],
                     source: "backend" as const,
                 };
             });
+
+            if (!status || status === "All") {
+                setAdminLotsSnapshot(mapped);
+            } else {
+                mergeAdminLotsSnapshot(mapped);
+            }
+            return mapped;
         }
         return items;
     } catch {
