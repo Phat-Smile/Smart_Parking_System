@@ -3,7 +3,10 @@
 import React, { useState } from "react";
 import { useOwnerMapStore } from "./useOwnerMapStore";
 import { useLotInfoStore } from "./lotInfo";
+import { useOwnerStore } from "@/store/useOwnerStore";
 import { ParkingLot } from "@/types/owner";
+import { registerParkingLotApi } from "@/features/owner/api/ownerApi";
+import { ApiError } from "@/shared/errors/api-error";
 
 export function AddLotModal() {
     const { isAddModalOpen, setAddModalOpen, addOverlayLot } =
@@ -13,15 +16,66 @@ export function AddLotModal() {
     const [addr, setAddr] = useState("");
     const [cc, setCc] = useState(200);
     const [cm, setCm] = useState(100);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
 
     if (!isAddModalOpen) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
 
+        setIsSubmitting(true);
+        setErrorMsg("");
+
+        let registeredId = Date.now();
+
+        try {
+            const res = await registerParkingLotApi({
+                name: name.trim(),
+                address: addr.trim() || "TP.HCM",
+                latitude: 10.7745,
+                longitude: 106.7035,
+                type: "Outdoor",
+            });
+            if (res?.id) {
+                registeredId =
+                    Math.abs(
+                        res.id
+                            .split("")
+                            .reduce(
+                                (acc, char) =>
+                                    (acc << 5) - acc + char.charCodeAt(0),
+                                0,
+                            ) % 100000,
+                    ) + 10;
+            }
+        } catch (err: unknown) {
+            if (err instanceof ApiError) {
+                if (err.status === 409) {
+                    setErrorMsg(
+                        "Tên bãi đỗ xe này đã được đăng ký trước đó. Vui lòng chọn tên khác.",
+                    );
+                    setIsSubmitting(false);
+                    return;
+                }
+                if (err.status === 400) {
+                    setErrorMsg(
+                        err.problem?.detail ||
+                            "Thông tin bãi đỗ xe chưa đúng định dạng.",
+                    );
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+            console.warn(
+                "Backend API registration call skipped or offline:",
+                err,
+            );
+        }
+
         const newLot: ParkingLot = {
-            id: Date.now(),
+            id: registeredId,
             name: name.trim(),
             addr: addr.trim() || "TP.HCM",
             gps: "10.7745, 106.7035",
@@ -44,7 +98,9 @@ export function AddLotModal() {
         };
 
         addOverlayLot(newLot);
-        // Initialize lotInfo with submittedAt = today, rest "Chưa cập nhật"
+        useOwnerStore.getState().addLot(newLot);
+
+        // Initialize lotInfo with submittedAt = today
         const today = new Date().toISOString().split("T")[0];
         useLotInfoStore.getState().setLotInfo(newLot.id, {
             submittedAt: today,
@@ -56,6 +112,8 @@ export function AddLotModal() {
                 reservationDeposit: newLot.dep,
             },
         });
+
+        setIsSubmitting(false);
         setAddModalOpen(false);
         setName("");
         setAddr("");
@@ -121,6 +179,22 @@ export function AddLotModal() {
                         ✕
                     </button>
                 </div>
+
+                {errorMsg && (
+                    <div
+                        style={{
+                            background: "#fef2f2",
+                            border: "1px solid #fecaca",
+                            color: "#991b1b",
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            fontSize: 13,
+                            marginBottom: 14,
+                        }}
+                    >
+                        ⚠️ {errorMsg}
+                    </div>
+                )}
 
                 <form
                     onSubmit={handleSubmit}
@@ -279,18 +353,25 @@ export function AddLotModal() {
                         </button>
                         <button
                             type="submit"
+                            disabled={isSubmitting}
                             style={{
-                                background: "#2563eb",
+                                background: isSubmitting
+                                    ? "#93c5fd"
+                                    : "#2563eb",
                                 border: "none",
                                 borderRadius: 10,
                                 padding: "8px 18px",
                                 fontSize: 13,
                                 fontWeight: 700,
-                                cursor: "pointer",
+                                cursor: isSubmitting
+                                    ? "not-allowed"
+                                    : "pointer",
                                 color: "#fff",
                             }}
                         >
-                            Gửi phê duyệt
+                            {isSubmitting
+                                ? "Đang gửi duyệt..."
+                                : "Gửi phê duyệt"}
                         </button>
                     </div>
                 </form>

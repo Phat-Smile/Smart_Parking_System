@@ -1,6 +1,7 @@
 const KEY = "parkwise.pending-verification-email";
 const COOLDOWN_KEY = "parkwise.pending-verification-resend-at";
 const EXPIRY_KEY = "parkwise.pending-verification-expires-at";
+const ROLE_KEY = "parkwise.pending-verification-role";
 
 // Identity currently issues registration verification codes for five minutes.
 export const VERIFICATION_CODE_LIFETIME_SECONDS = 5 * 60;
@@ -16,6 +17,7 @@ export function rememberPendingVerification(
         if (previousEmail !== email) {
             window.sessionStorage.removeItem(COOLDOWN_KEY);
             window.sessionStorage.removeItem(EXPIRY_KEY);
+            window.sessionStorage.removeItem(ROLE_KEY);
         }
         if (cooldownSeconds > 0) {
             window.sessionStorage.setItem(
@@ -28,6 +30,23 @@ export function rememberPendingVerification(
         return true;
     } catch {
         return false;
+    }
+}
+
+export function rememberPendingRole(role: string): boolean {
+    try {
+        window.sessionStorage.setItem(ROLE_KEY, role);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export function readPendingRole(): string | null {
+    try {
+        return window.sessionStorage.getItem(ROLE_KEY);
+    } catch {
+        return null;
     }
 }
 
@@ -90,6 +109,7 @@ export function clearPendingVerification(): void {
         window.sessionStorage.removeItem(KEY);
         window.sessionStorage.removeItem(COOLDOWN_KEY);
         window.sessionStorage.removeItem(EXPIRY_KEY);
+        window.sessionStorage.removeItem(ROLE_KEY);
     } catch {
         // Verification has already succeeded; storage may be unavailable.
     }

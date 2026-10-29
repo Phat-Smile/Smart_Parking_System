@@ -172,6 +172,22 @@ export function ParkWiseNavbar({
                                         Sign Up
                                     </span>
                                 </Link>
+                                <Link
+                                    href="/owner/register"
+                                    className="parkwise-button parkwise-auth-owner"
+                                    onClick={() => setMenuOpen(false)}
+                                    tabIndex={menuOpen ? 0 : -1}
+                                >
+                                    <span className="parkwise-auth-label">
+                                        For Lot Owners
+                                    </span>
+                                    <span
+                                        className="parkwise-auth-label-fill"
+                                        aria-hidden="true"
+                                    >
+                                        For Lot Owners
+                                    </span>
+                                </Link>
                             </div>
                         )}
                         {session && !isCustomer && (
@@ -254,6 +270,21 @@ export function ParkWiseNavbar({
                                     aria-hidden="true"
                                 >
                                     Sign Up
+                                </span>
+                            </Link>
+                            <Link
+                                href="/owner/register"
+                                className="parkwise-button parkwise-auth-owner"
+                                title="Register as Lot Owner"
+                            >
+                                <span className="parkwise-auth-label">
+                                    For Lot Owners
+                                </span>
+                                <span
+                                    className="parkwise-auth-label-fill"
+                                    aria-hidden="true"
+                                >
+                                    For Lot Owners
                                 </span>
                             </Link>
                         </div>
