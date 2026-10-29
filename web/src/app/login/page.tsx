@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import { ParkWiseLoginPage } from "@/features/auth/ParkWiseLoginPage";
@@ -13,5 +14,11 @@ export const metadata: Metadata = {
 };
 
 export default function LoginRoute() {
-    return <ParkWiseLoginPage fontClassName={manrope.className} />;
+    return (
+        <Suspense
+            fallback={<div className="parkwise-login-loading">Loading...</div>}
+        >
+            <ParkWiseLoginPage fontClassName={manrope.className} />
+        </Suspense>
+    );
 }

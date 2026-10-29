@@ -9,8 +9,8 @@
  * toàn bộ UI đều nhận s.s đã được chuẩn hóa.
  */
 
-import type { SlotStatusKey } from '../types/owner';
-import { K } from '../types/owner';
+import type { SlotStatusKey } from "../types/owner";
+import { K } from "../types/owner";
 
 /** Bật/tắt gộp trạng thái "Cần xác minh" → "Bảo trì" */
 export const MERGE_VERIFY = true;
@@ -21,8 +21,8 @@ export const MERGE_VERIFY = true;
  * Tất cả trường hợp khác giữ nguyên.
  */
 export function mapStatus(s: SlotStatusKey): SlotStatusKey {
-  if (MERGE_VERIFY && s === 'verify') return 'maintenance';
-  return s;
+    if (MERGE_VERIFY && s === "verify") return "maintenance";
+    return s;
 }
 
 /**
@@ -30,5 +30,5 @@ export function mapStatus(s: SlotStatusKey): SlotStatusKey {
  * Bỏ 'verify' khỏi danh sách khi MERGE_VERIFY bật.
  */
 export const K_VISIBLE: SlotStatusKey[] = MERGE_VERIFY
-  ? K.filter((k) => k !== 'verify')
-  : K;
+    ? K.filter((k) => k !== "verify")
+    : K;

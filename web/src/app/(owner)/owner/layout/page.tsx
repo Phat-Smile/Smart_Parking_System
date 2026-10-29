@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
 /**
  * Route /owner/layout → chuyển hướng về /owner/layout/3d.
@@ -7,5 +7,5 @@ import { redirect } from 'next/navigation';
  *   - /owner/layout/2d/page.tsx (Sơ đồ 2D)
  */
 export default function LayoutIndexPage() {
-  redirect('/owner/layout/3d');
+    redirect("/owner/layout/3d");
 }

@@ -23,6 +23,121 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.PricingPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BillingMode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("BlockMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("OvernightFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId", "VehicleType", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ux_pricing_policies_lot_vehicle_version");
+
+                    b.ToTable("pricing_policies", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationAvailabilityPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ReservationEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservation_availability_policies_lot_id");
+
+                    b.ToTable("reservation_availability_policies", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationDepositPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("HoldDepositVnd")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservation_deposit_policies_lot_id");
+
+                    b.ToTable("reservation_deposit_policies", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationRatioPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReservationRatioPercent")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservation_ratio_policies_lot_id");
+
+                    b.ToTable("reservation_ratio_policies", "parking");
+                });
+
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -183,6 +298,7 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnName("address");
 
                     b.Property<string>("ApprovalStatus")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
@@ -202,6 +318,19 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
+
+                    b.Property<string>("OpeningHoursJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("opening_hours");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("rejection_reason");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -314,12 +443,23 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("vehicle_type");
 
+                    b.Property<Guid?>("ZoneId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("zone_id");
+
                     b.HasKey("Id")
                         .HasName("pk_parking_sessions");
 
                     b.HasIndex("QrToken")
                         .IsUnique()
                         .HasDatabaseName("ux_parking_sessions_qr_token");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_parking_sessions_user_id")
+                        .HasFilter("user_id IS NOT NULL");
+
+                    b.HasIndex("ZoneId")
+                        .HasDatabaseName("ix_parking_sessions_zone_id");
 
                     b.HasIndex("LotId", "PlateNumber")
                         .IsUnique()
@@ -481,6 +621,31 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                     b.ToTable("outbox_messages", "parking");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Parking.Persistence.ParkingLayout.ParkingLayoutDocument", b =>
+                {
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<string>("RenderJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("render_json");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("LotId")
+                        .HasName("pk_parking_layout_documents");
+
+                    b.ToTable("parking_layout_documents", "parking", t =>
+                        {
+                            t.HasCheckConstraint("ck_layout_documents_version_positive", "version > 0");
+                        });
+                });
+
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>
                 {
                     b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
@@ -536,6 +701,22 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_parking_sessions_parking_lots_lot_id");
+
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLayout.Zone", null)
+                        .WithMany()
+                        .HasForeignKey("ZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_parking_sessions_zones_zone_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Persistence.ParkingLayout.ParkingLayoutDocument", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_layout_documents_parking_lots_lot_id");
                 });
 #pragma warning restore 612, 618
         }

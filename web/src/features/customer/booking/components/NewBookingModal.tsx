@@ -20,20 +20,22 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
     const maxDate = new Date();
     maxDate.setDate(today.getDate() + 7);
 
-    const todayStr = today.toISOString().split('T')[0];
-    const maxDateStr = maxDate.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split("T")[0];
+    const maxDateStr = maxDate.toISOString().split("T")[0];
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
             <div className="bg-[#0b0c17] border border-white/10 rounded-[2rem] p-6 max-w-md w-full relative shadow-card-dark animate-in fade-in zoom-in duration-200">
-                <button 
+                <button
                     onClick={onClose}
                     className="absolute top-6 right-6 text-[#8790a3] hover:text-white transition-colors"
                 >
                     <X size={24} />
                 </button>
-                
-                <h2 className="text-xl font-bold text-white mb-6">{vi.bookingsPage.newBooking}</h2>
+
+                <h2 className="text-xl font-bold text-white mb-6">
+                    {vi.bookingsPage.newBooking}
+                </h2>
 
                 <div className="space-y-4">
                     {/* Bãi đỗ */}
@@ -41,8 +43,8 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                         <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
                             <MapPin size={16} /> Nhập tên bãi đỗ hoặc địa chỉ
                         </label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             placeholder="VD: Vincom Center Đồng Khởi..."
                             className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors placeholder-[#8790a3]/50"
                         />
@@ -54,17 +56,27 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                             <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
                                 <Car size={16} /> Nhập biển số xe
                             </label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 placeholder="VD: 29A-12345"
                                 className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors placeholder-[#8790a3]/50 uppercase"
                             />
                         </div>
                         <div className="col-span-1">
-                            <label className="block text-sm text-[#8790a3] mb-1.5">Loại xe</label>
+                            <label className="block text-sm text-[#8790a3] mb-1.5">
+                                Loại xe
+                            </label>
                             <select className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors">
-                                <option value="car" className="bg-[#0b0c17]">Ô tô con</option>
-                                <option value="motorcycle" className="bg-[#0b0c17]" disabled>Xe máy</option>
+                                <option value="car" className="bg-[#0b0c17]">
+                                    Ô tô con
+                                </option>
+                                <option
+                                    value="motorcycle"
+                                    className="bg-[#0b0c17]"
+                                    disabled
+                                >
+                                    Xe máy
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -73,10 +85,11 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
-                                <Calendar size={16} /> {vi.bookingsPage.form.date}
+                                <Calendar size={16} />{" "}
+                                {vi.bookingsPage.form.date}
                             </label>
-                            <input 
-                                type="date" 
+                            <input
+                                type="date"
                                 min={todayStr}
                                 max={maxDateStr}
                                 value={date}
@@ -88,7 +101,7 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                             <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
                                 <Clock size={16} /> {vi.bookingsPage.form.time}
                             </label>
-                            <input 
+                            <input
                                 type="time"
                                 value={time}
                                 onChange={(e) => setTime(e.target.value)}
@@ -106,7 +119,7 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                     </ul>
                 </div>
 
-                <button 
+                <button
                     className="w-full mt-6 bg-[#6246ea] text-white py-4 rounded-xl font-bold hover:bg-[#7c5cff] transition-colors shadow-glow-purple disabled:opacity-50"
                     disabled={!date || !time}
                     onClick={() => {

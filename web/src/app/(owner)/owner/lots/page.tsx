@@ -1,3 +1,3 @@
-import ParkingLotsPage from '../parking-lots/page';
+import ParkingLotsPage from "../parking-lots/page";
 
 export default ParkingLotsPage;

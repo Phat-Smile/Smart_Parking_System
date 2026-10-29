@@ -21,6 +21,19 @@ public interface IAccountRepository
 
     Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<bool> OwnerTaxCodeExistsAsync(string taxCode, Guid? excludeAccountId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+    /// <summary>
+    /// Saves an owner application. Returns false when another account took the same tax code between the existence check
+    /// and the save (unique index). The check cannot see an application that is not committed yet, so two applications
+    /// racing for one code must end with one success and one business error, not an unhandled exception.
+    /// </summary>
+    async Task<bool> TrySaveOwnerApplicationAsync(CancellationToken cancellationToken)
+    {
+        await SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     void Add(Account account);
 
     /// <summary>Saves a new account with email uniqueness check. Returns DuplicateEmailConflict when the email index violates unique constraint.</summary>

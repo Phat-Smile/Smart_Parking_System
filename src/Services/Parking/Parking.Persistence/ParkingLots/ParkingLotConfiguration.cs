@@ -28,6 +28,9 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
             .HasColumnName("longitude")
             .HasPrecision(9, 6)
             .IsRequired();
+        builder.Property(parkingLot => parkingLot.OpeningHoursJson)
+            .HasColumnName("opening_hours")
+            .HasColumnType("jsonb");
         builder.Property(parkingLot => parkingLot.Type)
             .HasColumnName("type")
             .HasConversion<string>()
@@ -37,7 +40,12 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
             .HasColumnName("approval_status")
             .HasConversion<string>()
             .HasMaxLength(32)
-            .IsRequired();
+            .IsRequired()
+            // Optimistic concurrency: a second reviewer cannot overwrite the first decision.
+            .IsConcurrencyToken();
+        builder.Property(parkingLot => parkingLot.RejectionReason)
+            .HasColumnName("rejection_reason")
+            .HasMaxLength(ParkingLot.RejectionReasonMaxLength);
 
         builder.HasIndex(parkingLot => new { parkingLot.ApprovalStatus, parkingLot.Name })
             .HasDatabaseName("ix_parking_lots_approval_status_name");

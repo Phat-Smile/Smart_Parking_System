@@ -6,58 +6,65 @@ import { useParkingStore } from "../../store/useParkingStore";
 import { useParkingSlots } from "../../lib/api/owner";
 import { Plan2D } from "./Plan2D";
 
-const ParkingScene = dynamic(() => import("./ParkingScene").then(m => m.ParkingScene), {
-  ssr: false,
-  loading: () => (
-    <div className="absolute inset-0 flex items-center justify-center bg-owner-bg text-owner-text-secondary">
-      Đang tải mô hình 3D...
-    </div>
-  ),
-});
+const ParkingScene = dynamic(
+    () => import("./ParkingScene").then((m) => m.ParkingScene),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="absolute inset-0 flex items-center justify-center bg-owner-bg text-owner-text-secondary">
+                Đang tải mô hình 3D...
+            </div>
+        ),
+    },
+);
 
 export function ParkingViz() {
-  const { viewMode, setViewMode, setSlots } = useParkingStore();
-  
-  // Hardcoded lotId for now based on seed data
-  const { data: slots, isLoading } = useParkingSlots("lot-1");
+    const { viewMode, setViewMode, setSlots } = useParkingStore();
 
-  useEffect(() => {
-    if (slots) {
-      setSlots(slots);
+    // Hardcoded lotId for now based on seed data
+    const { data: slots, isLoading } = useParkingSlots("lot-1");
+
+    useEffect(() => {
+        if (slots) {
+            setSlots(slots);
+        }
+    }, [slots, setSlots]);
+
+    if (isLoading) {
+        return (
+            <div className="absolute inset-0 flex items-center justify-center text-owner-text-secondary bg-white rounded-xl">
+                Đang tải dữ liệu bãi đỗ...
+            </div>
+        );
     }
-  }, [slots, setSlots]);
 
-  if (isLoading) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center text-owner-text-secondary bg-white rounded-xl">
-        Đang tải dữ liệu bãi đỗ...
-      </div>
+        <div className="relative w-full h-full rounded-xl overflow-hidden border border-owner-border">
+            {/* Top right controls */}
+            <div className="absolute top-4 right-4 z-10 flex space-x-2 bg-white/90 backdrop-blur rounded-lg p-1 shadow-sm border border-owner-border">
+                <button
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                        viewMode === "2d"
+                            ? "bg-owner-dark text-white"
+                            : "text-owner-text-secondary hover:text-owner-text-primary hover:bg-gray-100"
+                    }`}
+                    onClick={() => setViewMode("2d")}
+                >
+                    2D
+                </button>
+                <button
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                        viewMode === "3d"
+                            ? "bg-owner-dark text-white"
+                            : "text-owner-text-secondary hover:text-owner-text-primary hover:bg-gray-100"
+                    }`}
+                    onClick={() => setViewMode("3d")}
+                >
+                    3D
+                </button>
+            </div>
+
+            {viewMode === "3d" ? <ParkingScene /> : <Plan2D />}
+        </div>
     );
-  }
-
-  return (
-    <div className="relative w-full h-full rounded-xl overflow-hidden border border-owner-border">
-      {/* Top right controls */}
-      <div className="absolute top-4 right-4 z-10 flex space-x-2 bg-white/90 backdrop-blur rounded-lg p-1 shadow-sm border border-owner-border">
-        <button
-          className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-            viewMode === "2d" ? "bg-owner-dark text-white" : "text-owner-text-secondary hover:text-owner-text-primary hover:bg-gray-100"
-          }`}
-          onClick={() => setViewMode("2d")}
-        >
-          2D
-        </button>
-        <button
-          className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-            viewMode === "3d" ? "bg-owner-dark text-white" : "text-owner-text-secondary hover:text-owner-text-primary hover:bg-gray-100"
-          }`}
-          onClick={() => setViewMode("3d")}
-        >
-          3D
-        </button>
-      </div>
-
-      {viewMode === "3d" ? <ParkingScene /> : <Plan2D />}
-    </div>
-  );
 }

@@ -8,11 +8,17 @@ export const metadata: Metadata = {
     description: "ParkWise Privacy Policy page",
 };
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ from?: string | string[] }>;
+}) {
+    const fromProfile = (await searchParams).from === "complete-profile";
     return (
         <ParkWiseLegalPage
             title="Privacy Policy"
             markdown={privacyPolicyMarkdown}
+            fromProfile={fromProfile}
         />
     );
 }

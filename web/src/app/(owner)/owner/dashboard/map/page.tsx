@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
 export default function OldMapRedirectPage() {
-  redirect('/owner/layout');
+    redirect("/owner/layout");
 }

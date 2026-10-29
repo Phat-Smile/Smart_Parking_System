@@ -1,82 +1,96 @@
-'use client';
+"use client";
 
 /**
  * Plan2DGrid – Lưới sơ đồ mặt bằng 2D thẳng hàng theo dãy như mô hình 3D.
  * Không bị ngắt dòng hay xuống hàng. Hỗ trợ cuộn ngang mượt mà.
  */
 
-import React from 'react';
-import { useOwnerStore } from '../../store/useOwnerStore';
-import { ST, Floor, FLOORS, ParkingSpot } from '../../types/owner';
+import React from "react";
+import { useOwnerStore } from "../../store/useOwnerStore";
+import { ST, Floor, FLOORS, ParkingSpot } from "../../types/owner";
 
 interface Plan2DGridProps {
-  overrideFloor?: Floor | 'all';
-  onSelect?: (spot: ParkingSpot) => void;
-  searchQuery?: string;
+    overrideFloor?: Floor | "all";
+    onSelect?: (spot: ParkingSpot) => void;
+    searchQuery?: string;
 }
 
-export function Plan2DGrid({ overrideFloor, onSelect, searchQuery = '' }: Plan2DGridProps) {
-  const spots = useOwnerStore((s) => s.spots);
-  const storeFloor = useOwnerStore((s) => s.activeFloor);
-  const activeFloor = overrideFloor ?? storeFloor;
-  const selectedId = useOwnerStore((s) => s.selectedId);
-  const selectSpot = useOwnerStore((s) => s.selectSpot);
+export function Plan2DGrid({
+    overrideFloor,
+    onSelect,
+    searchQuery = "",
+}: Plan2DGridProps) {
+    const spots = useOwnerStore((s) => s.spots);
+    const storeFloor = useOwnerStore((s) => s.activeFloor);
+    const activeFloor = overrideFloor ?? storeFloor;
+    const selectedId = useOwnerStore((s) => s.selectedId);
+    const selectSpot = useOwnerStore((s) => s.selectSpot);
 
-  const displayFloors = activeFloor === 'all' ? FLOORS : [activeFloor as Floor];
+    const displayFloors =
+        activeFloor === "all" ? FLOORS : [activeFloor as Floor];
 
-  const handleClick = (s: ParkingSpot) => {
-    selectSpot(s.id);
-    if (onSelect) onSelect(s);
-  };
+    const handleClick = (s: ParkingSpot) => {
+        selectSpot(s.id);
+        if (onSelect) onSelect(s);
+    };
 
-  const renderRow = (f: Floor, r: 'A' | 'B' | 'C' | 'D') => {
-    const rowSpots = spots.filter((s) => s.f === f && s.r === r);
+    const renderRow = (f: Floor, r: "A" | "B" | "C" | "D") => {
+        const rowSpots = spots.filter((s) => s.f === f && s.r === r);
+        return (
+            <div className="pg-row">
+                {rowSpots.map((s) => {
+                    const isSelected = selectedId === s.id;
+                    const statusInfo = ST[s.s];
+                    const isMatchSearch =
+                        searchQuery.trim().length > 0 &&
+                        (s.p
+                            .toLowerCase()
+                            .includes(searchQuery.toLowerCase().trim()) ||
+                            s.id
+                                .toLowerCase()
+                                .includes(searchQuery.toLowerCase().trim()));
+
+                    return (
+                        <button
+                            key={s.id}
+                            type="button"
+                            className={`pg-cell ${isSelected ? "pg-sel" : ""} ${isMatchSearch ? "pg-matched" : ""}`}
+                            style={
+                                { "--c": statusInfo[1] } as React.CSSProperties
+                            }
+                            onClick={() => handleClick(s)}
+                            title={`${s.id} · ${statusInfo[0]}${s.p ? ` · Biển số ${s.p}` : ""}`}
+                            aria-pressed={isSelected}
+                            aria-label={`${s.id}: ${statusInfo[0]}`}
+                        >
+                            <span>
+                                {s.r}
+                                {String(s.n + 1).padStart(2, "0")}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        );
+    };
+
     return (
-      <div className="pg-row">
-        {rowSpots.map((s) => {
-          const isSelected = selectedId === s.id;
-          const statusInfo = ST[s.s];
-          const isMatchSearch =
-            searchQuery.trim().length > 0 &&
-            (s.p.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-              s.id.toLowerCase().includes(searchQuery.toLowerCase().trim()));
+        <div id="plan-grid">
+            {displayFloors.map((f) => (
+                <div key={f} className="pg-floor">
+                    <h4 className="pg-floor-title">Tầng {f[1]}</h4>
+                    <div className="pg-floor-scroll">
+                        {renderRow(f, "A")}
+                        <div className="pg-lane">Lối xe chạy</div>
+                        {renderRow(f, "B")}
+                        {renderRow(f, "C")}
+                        <div className="pg-lane">Lối xe chạy</div>
+                        {renderRow(f, "D")}
+                    </div>
+                </div>
+            ))}
 
-          return (
-            <button
-              key={s.id}
-              type="button"
-              className={`pg-cell ${isSelected ? 'pg-sel' : ''} ${isMatchSearch ? 'pg-matched' : ''}`}
-              style={{ '--c': statusInfo[1] } as React.CSSProperties}
-              onClick={() => handleClick(s)}
-              title={`${s.id} · ${statusInfo[0]}${s.p ? ` · Biển số ${s.p}` : ''}`}
-              aria-pressed={isSelected}
-              aria-label={`${s.id}: ${statusInfo[0]}`}
-            >
-              <span>{s.r}{String(s.n + 1).padStart(2, '0')}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  };
-
-  return (
-    <div id="plan-grid">
-      {displayFloors.map((f) => (
-        <div key={f} className="pg-floor">
-          <h4 className="pg-floor-title">Tầng {f[1]}</h4>
-          <div className="pg-floor-scroll">
-            {renderRow(f, 'A')}
-            <div className="pg-lane">Lối xe chạy</div>
-            {renderRow(f, 'B')}
-            {renderRow(f, 'C')}
-            <div className="pg-lane">Lối xe chạy</div>
-            {renderRow(f, 'D')}
-          </div>
-        </div>
-      ))}
-
-      <style>{`
+            <style>{`
         #plan-grid { width: 100%; }
 
         .pg-floor { margin-bottom: 24px; }
@@ -165,8 +179,8 @@ export function Plan2DGrid({ overrideFloor, onSelect, searchQuery = '' }: Plan2D
           width: 100%;
         }
       `}</style>
-    </div>
-  );
+        </div>
+    );
 }
 
 export default Plan2DGrid;

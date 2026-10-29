@@ -15,4 +15,7 @@ internal sealed class ProfileRepository(IdentityDbContext dbContext) : IProfileR
     {
         return dbContext.Profiles.FirstOrDefaultAsync(p => p.AccountId == accountId, cancellationToken);
     }
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
+        dbContext.SaveChangesAsync(cancellationToken);
 }

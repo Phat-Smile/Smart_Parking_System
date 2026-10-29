@@ -82,6 +82,7 @@
 
 .parkwise-page {
     --parkwise-nav-height: 66px;
+    --parkwise-customer-title-size: clamp(32px, 2.7vw, 38px);
     --parkwise-black: #171717;
     --parkwise-white: #fff;
     --parkwise-green: #eafe89;
@@ -156,6 +157,9 @@
     z-index: 100;
     padding: 7px 0;
     height: var(--parkwise-nav-height);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
     transition: background-color 0.2s;
 }
 .parkwise-navbar-dark {
@@ -165,6 +169,7 @@
 .parkwise-navbar-light {
     background: #fff;
     color: var(--parkwise-black);
+    border-bottom: 1px solid #e6eaf0;
 }
 .parkwise-navbar-inner {
     height: 100%;
@@ -201,7 +206,7 @@
 }
 .parkwise-desktop-nav a,
 .parkwise-desktop-nav > span {
-    font-size: 16px;
+    font-size: inherit;
 }
 .parkwise-mobile-menu nav > a,
 .parkwise-mobile-menu nav > span {
@@ -223,9 +228,16 @@
 }
 .parkwise-desktop-nav a:hover::after,
 .parkwise-desktop-nav a:focus-visible::after,
+.parkwise-desktop-nav a[aria-current="page"]::after,
 .parkwise-mobile-menu nav > a:hover::after,
 .parkwise-mobile-menu nav > a:focus-visible::after {
     transform: scaleX(1);
+}
+.parkwise-navbar-light .parkwise-desktop-nav a[aria-current="page"]::after {
+    background: #b9ed3c;
+}
+.parkwise-navbar-dark .parkwise-desktop-nav a[aria-current="page"]::after {
+    background: var(--parkwise-green);
 }
 .parkwise-desktop-nav a:hover,
 .parkwise-footer-links a:hover {
@@ -240,6 +252,35 @@
     gap: 10px;
     margin-left: auto;
 }
+.parkwise-navbar-account-slot {
+    margin-left: auto;
+}
+.parkwise-customer-account-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 18px;
+    border: 1px solid #dce4ee;
+    border-radius: 99px;
+    background: #fff;
+    color: #1d2b44;
+    font-size: 16px;
+    font-weight: 500;
+    transition:
+        background-color 0.2s,
+        color 0.2s,
+        border-color 0.2s;
+}
+.parkwise-navbar-dark .parkwise-customer-account-link {
+    border-color: rgba(255, 255, 255, 0.4);
+    background: transparent;
+    color: #fff;
+}
+.parkwise-navbar-dark .parkwise-customer-account-link:hover {
+    border-color: var(--parkwise-green);
+    color: var(--parkwise-green);
+    background: rgba(234, 254, 137, 0.1);
+}
 .parkwise-desktop-auth .parkwise-button,
 .parkwise-mobile-auth .parkwise-button {
     display: inline-flex;
@@ -251,6 +292,7 @@
 .parkwise-desktop-auth .parkwise-button {
     min-height: 40px;
     padding: 6px 24px;
+    font-size: inherit;
 }
 .parkwise-mobile-auth .parkwise-button {
     min-height: 44px;
@@ -317,6 +359,46 @@
 .parkwise-auth-login:focus-visible .parkwise-auth-label-fill,
 .parkwise-auth-signup:hover .parkwise-auth-label-fill,
 .parkwise-auth-signup:focus-visible .parkwise-auth-label-fill {
+    clip-path: inset(0 0 0 0);
+}
+.parkwise-auth-owner {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-color: #2563eb !important;
+    background-color: transparent !important;
+    color: #2563eb !important;
+    font-weight: 700;
+}
+.parkwise-navbar-dark .parkwise-auth-owner {
+    border-color: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+.parkwise-auth-owner::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 650ms ease-out;
+    background: #2563eb;
+}
+.parkwise-navbar-dark .parkwise-auth-owner::before {
+    background: #38bdf8;
+}
+.parkwise-auth-owner .parkwise-auth-label-fill {
+    color: var(--parkwise-white);
+}
+.parkwise-navbar-dark .parkwise-auth-owner .parkwise-auth-label-fill {
+    color: #0f172a;
+}
+.parkwise-auth-owner:hover::before,
+.parkwise-auth-owner:focus-visible::before {
+    transform: scaleX(1);
+}
+.parkwise-auth-owner:hover .parkwise-auth-label-fill,
+.parkwise-auth-owner:focus-visible .parkwise-auth-label-fill {
     clip-path: inset(0 0 0 0);
 }
 .parkwise-menu-button {
@@ -406,44 +488,58 @@
     margin-bottom: 16px;
 }
 .parkwise-search-card {
-    background: rgb(0 0 0 / 50%);
-    backdrop-filter: blur(4px);
-    padding: 16px;
-    border-radius: 8px;
-    box-shadow: 0 10px 20px rgb(0 0 0 / 30%);
+    width: 100%;
+    background: rgb(10 12 14 / 76%);
+    backdrop-filter: blur(12px);
+    padding: clamp(24px, 3vw, 36px);
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 20px;
+    box-shadow: 0 16px 38px rgb(0 0 0 / 35%);
 }
-.parkwise-search-tabs {
-    border-bottom: 1px solid #333;
-    display: flex;
-    text-align: center;
-    margin-bottom: 16px;
+.parkwise-search-heading {
+    margin-bottom: 24px;
 }
-.parkwise-search-tabs span {
-    display: inline-block;
-    min-width: 140px;
-    border-bottom: 2px solid var(--parkwise-green);
-    padding: 12px 0;
-    margin-bottom: -1px;
+.parkwise-search-eyebrow {
+    color: var(--parkwise-green);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+}
+.parkwise-search-heading h2 {
+    margin: 10px 0 8px;
+    color: #fff;
+    font-size: clamp(22px, 2vw, 30px);
+    line-height: 1.2;
+}
+.parkwise-search-heading p {
+    color: #d4d4d4;
+    font-size: 14px;
+    line-height: 1.5;
 }
 .parkwise-search-card form {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 12px;
 }
 .parkwise-search-field {
     display: flex;
     align-items: center;
     gap: 8px;
-    width: min(100%, 310px);
-    min-height: 54px;
-    padding: 0 12px;
-    border-radius: 16px;
-    background: #ffffff1a;
+    width: 100%;
+    min-width: 0;
+    min-height: 56px;
+    padding: 0 16px;
+    border: 2px solid rgb(255 255 255 / 24%);
+    border-radius: 12px;
+    background: rgb(255 255 255 / 12%);
     transition: background-color 0.2s;
 }
 .parkwise-search-field:hover {
     background: #ffffff26;
+}
+.parkwise-search-field:focus-within {
+    border-color: var(--parkwise-green);
 }
 .parkwise-search-field > img {
     flex: 0 0 22px;
@@ -451,32 +547,78 @@
 .parkwise-search-field > input {
     width: 100%;
     min-width: 0;
-    height: 54px;
+    height: 56px;
     padding: 0;
     color: #fff;
     background: transparent;
     border: 0;
     box-shadow: none;
     outline: 0;
-    font-size: 14px;
+    font-size: 16px;
+}
+.parkwise-page .parkwise-search-field > input:focus-visible {
+    outline: none;
 }
 .parkwise-search-field > input::placeholder {
     color: #a3a3a3;
 }
+.parkwise-search-locate {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    margin-left: 6px;
+    padding: 0;
+    border: 1px solid rgb(255 255 255 / 18%);
+    border-radius: 9px;
+    background: rgb(255 255 255 / 8%);
+    color: var(--parkwise-green);
+    cursor: pointer;
+    transition:
+        background-color 0.2s,
+        border-color 0.2s,
+        color 0.2s,
+        transform 0.15s;
+}
+.parkwise-search-locate:hover {
+    background: rgb(234 254 137 / 22%);
+    border-color: var(--parkwise-green);
+    color: #fff;
+    transform: scale(1.05);
+}
+.parkwise-search-locate:focus-visible {
+    outline: 2px solid var(--parkwise-green);
+    outline-offset: 2px;
+}
+.parkwise-search-locate:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+.parkwise-search-locate.is-loading svg {
+    animation: parkwise-spin 1s linear infinite;
+}
 .parkwise-search-hint {
-    margin-top: 10px !important;
+    margin-top: 16px !important;
     color: #e5e5e5;
-    font-size: 12px;
+    font-size: 13px;
+}
+.parkwise-search-location-hint {
+    color: var(--parkwise-green) !important;
 }
 .parkwise-search-button {
-    border-color: #171717;
-    color: #fff;
-    background: #171717;
-    min-width: 110px;
+    min-width: 130px;
+    min-height: 56px;
+    border-color: var(--parkwise-green);
+    border-radius: 12px;
+    color: #171717;
+    background: var(--parkwise-green);
     font-size: 16px;
+    font-weight: 700;
 }
 .parkwise-search-button:hover {
-    background: #292929;
+    background: #ddf66f;
 }
 .parkwise-search-button:disabled {
     opacity: 0.75;
@@ -572,8 +714,13 @@
     color: #fff;
     min-height: 310px;
 }
+.parkwise-nearby > .parkwise-container {
+    display: grid;
+    min-height: 310px;
+    place-items: center;
+}
 .parkwise-nearby .parkwise-section-title {
-    margin-bottom: 32px;
+    margin-bottom: 0;
 }
 .parkwise-nearby .parkwise-section-title > p:first-child {
     font-size: 18px;
@@ -582,17 +729,6 @@
     color: #a3a3a3;
     font-size: 16px;
     margin-top: 8px !important;
-}
-.parkwise-nearby-message {
-    text-align: center;
-    padding: 40px 0;
-    font-size: 16px;
-}
-.parkwise-nearby-login {
-    margin-top: 16px;
-    border-color: var(--parkwise-green);
-    background: var(--parkwise-green);
-    color: #171717 !important;
 }
 .parkwise-small-spinner {
     display: block;
@@ -687,6 +823,9 @@
 .parkwise-newsletter {
     position: relative;
     overflow: hidden;
+    display: grid;
+    min-height: 330px;
+    place-items: center;
     background: var(--parkwise-green);
     text-align: center;
 }
@@ -697,48 +836,8 @@
     position: relative;
     z-index: 1;
 }
-.parkwise-newsletter p {
-    font-size: 18px;
-    margin-bottom: 8px;
-}
 .parkwise-newsletter h2 {
-    margin-bottom: 32px;
-}
-.parkwise-newsletter-input {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 40px;
-}
-.parkwise-newsletter-input > div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: min(100%, 335px);
-    height: 54px;
-    padding: 0 12px;
-    border: 1px solid #171717;
-    border-radius: 24px;
-}
-.parkwise-newsletter-input input {
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: #171717;
-    font-size: 14px;
-}
-.parkwise-newsletter-input input::placeholder {
-    color: #525252;
-}
-.parkwise-newsletter-input .parkwise-button {
-    border-color: #171717;
-    background: #171717;
-    color: #fff;
-    font-size: 16px;
+    margin-bottom: 0;
 }
 .parkwise-footer {
     background: #171717;
@@ -1061,10 +1160,15 @@
     align-items: center;
     gap: 10px;
     margin-top: 30px;
+    border: 0;
     border-bottom: 1px solid currentColor;
-    padding-bottom: 4px;
+    padding: 0 0 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     font-size: 16px;
     font-weight: 600;
+    cursor: pointer;
 }
 .parkwise-legal-home-link:hover {
     color: var(--parkwise-blue);
@@ -1338,6 +1442,9 @@
     .parkwise-search-field {
         width: 100%;
     }
+    .parkwise-search-card form {
+        grid-template-columns: 1fr;
+    }
     .parkwise-search-button {
         width: 100%;
     }
@@ -1394,15 +1501,6 @@
     }
     .parkwise-step:last-child {
         border-bottom: 0;
-    }
-    .parkwise-newsletter-input {
-        flex-wrap: wrap;
-    }
-    .parkwise-newsletter-input > div {
-        width: 100%;
-    }
-    .parkwise-newsletter-input .parkwise-button {
-        width: 100%;
     }
     .parkwise-footer-grid {
         column-gap: 20px;

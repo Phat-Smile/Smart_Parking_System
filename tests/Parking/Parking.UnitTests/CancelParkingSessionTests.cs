@@ -141,6 +141,26 @@ public sealed class CancelParkingSessionTests
         Assert.Equal(0, repository.SaveCount);
     }
 
+    [Fact]
+    public async Task Handler_refuses_to_cancel_a_motorbike_session()
+    {
+        var session = ParkingSession.Open(Guid.NewGuid(), LotId, "59X1-234.56", VehicleType.Motorbike, EntryTime, "qr-bike", null, null, Guid.NewGuid());
+        var repository = new FakeRepository(session);
+        var auditLog = new FakeAuditLog();
+        var slots = new FakeSlotDesignator(null);
+        var handler = new CancelParkingSessionCommandHandler(repository, new FakeLotAccess(allowed: true), auditLog, new FixedClock(), slots);
+
+        var result = await handler.Handle(
+            new CancelParkingSessionCommand(session.Id, "Rider changed mind", StaffId),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CancelParkingSessionErrors.CancelNotAllowed, result.Error);
+        Assert.Equal(ParkingSessionStatus.Active, session.Status);
+        Assert.Empty(auditLog.Entries);
+        Assert.Equal(0, repository.SaveCount);
+        Assert.Empty(slots.ReleasedSessionIds);
+    }
+
     private static ParkingSession NewActiveSession() =>
         ParkingSession.Open(Guid.NewGuid(), LotId, "51A-123.45", VehicleType.Car, EntryTime, "qr-token", null, null);
 
@@ -150,6 +170,19 @@ public sealed class CancelParkingSessionTests
 
         public Task<bool> HasOpenSessionAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
             Task.FromResult(false);
+
+        public Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
+            Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(session?.Id == sessionId ? session : null);
@@ -180,6 +213,12 @@ public sealed class CancelParkingSessionTests
         public List<Guid> ReleasedSessionIds { get; } = [];
 
         public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken)

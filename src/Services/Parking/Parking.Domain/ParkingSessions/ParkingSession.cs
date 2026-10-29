@@ -11,6 +11,9 @@ public sealed class ParkingSession
 
     public const int CancelReasonMaxLength = 500;
 
+    // ERD audit_logs.reason is varchar(500); the reason of a QR reissue or a manual exit check is stored only there.
+    public const int StaffActionReasonMaxLength = 500;
+
     // Statuses that still hold the plate in the lot (BR-11.a).
     public static readonly IReadOnlyList<ParkingSessionStatus> OpenStatuses =
         [ParkingSessionStatus.Active, ParkingSessionStatus.Paid];
@@ -37,6 +40,10 @@ public sealed class ParkingSession
     public Guid? VehicleId { get; private set; }
     public Guid? ReservationId { get; private set; }
 
+    // US-PARK-008: the motorbike zone whose space this session took, so the exit flow can give it back.
+    // Null for cars until slot designation (US-PARK-004/007) records their zone.
+    public Guid? ZoneId { get; private set; }
+
     public CustomerType CustomerType =>
         ReservationId is not null ? CustomerType.Booking
         : UserId is not null ? CustomerType.RegisteredWalkIn
@@ -50,7 +57,9 @@ public sealed class ParkingSession
         DateTimeOffset entryTime,
         string qrToken,
         Guid? userId,
-        Guid? vehicleId)
+        Guid? vehicleId,
+        Guid? zoneId = null,
+        Guid? reservationId = null)
     {
         return new ParkingSession
         {
@@ -62,7 +71,9 @@ public sealed class ParkingSession
             EntryTime = entryTime,
             QrToken = qrToken,
             UserId = userId,
-            VehicleId = vehicleId
+            VehicleId = vehicleId,
+            ZoneId = zoneId,
+            ReservationId = reservationId
         };
     }
 
@@ -83,5 +94,33 @@ public sealed class ParkingSession
         return true;
     }
 
+    /// <summary>
+    /// US-STAFF-004 (BR-11.d): staff give a new QR when the customer lost it. The old token is overwritten, so it stops
+    /// matching the session before the new one is handed out. Only an Active session gets a new QR (decision 2026-10-24):
+    /// a Paid session is already at the exit gate, and a closed session's QR is invalid for good (BR-11.e).
+    /// </summary>
+    /// <returns>False when the session is not Active.</returns>
+    public bool ReissueQr(string newQrToken)
+    {
+        if (Status != ParkingSessionStatus.Active)
+            return false;
+
+        QrToken = newQrToken;
+        return true;
+    }
+
+    public bool Complete()
+    {
+        if (Status != ParkingSessionStatus.Active && Status != ParkingSessionStatus.Paid)
+            return false;
+
+        Status = ParkingSessionStatus.Completed;
+        return true;
+    }
+
+    public void LinkReservation(Guid reservationId)
+    {
+        ReservationId = reservationId;
+    }
     public static string NormalizePlate(string plateNumber) => plateNumber.Trim().ToUpperInvariant();
 }

@@ -8,7 +8,6 @@ export async function logoutParkWiseAccount() {
             "/api/identity/accounts/logout",
             {
                 method: "POST",
-                credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 // Current Identity implementation still requires the body token.
                 body: JSON.stringify(
@@ -16,6 +15,20 @@ export async function logoutParkWiseAccount() {
                         ? { refreshToken: session.refreshToken }
                         : {},
                 ),
+            },
+        );
+    } finally {
+        clearAuthSession();
+    }
+}
+
+export async function logoutAllParkWiseAccount() {
+    try {
+        await gatewayFetch<{ message: string }>(
+            "/api/identity/accounts/logout-all",
+            {
+                method: "POST",
+                credentials: "include",
             },
         );
     } finally {

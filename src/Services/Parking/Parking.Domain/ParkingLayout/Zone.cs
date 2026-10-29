@@ -40,4 +40,22 @@ public sealed class Zone
             HasSlotSensor = hasSlotSensor
         };
     }
+    // Vehicle group is immutable once the zone exists, avoiding cross-type changes during operations.
+    public bool Reconfigure(string code, int capacity, bool hasSlotSensor)
+    {
+        if (CurrentVehicleCount > capacity)
+            throw new InvalidOperationException("Capacity cannot be smaller than the current vehicle count.");
+        var normalized = code.Trim();
+        if (Code == normalized && Capacity == capacity && HasSlotSensor == hasSlotSensor) return false;
+        Code = normalized;
+        Capacity = capacity;
+        HasSlotSensor = hasSlotSensor;
+        return true;
+    }
+
+    public void UpdateCurrentVehicleCount(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        CurrentVehicleCount = count;
+    }
 }

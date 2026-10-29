@@ -6,7 +6,41 @@ using ParkingSystem.Notification.Application;
 using ParkingSystem.Notification.Infrastructure;
 using ParkingSystem.Notification.Persistence;
 
+// In local development, automatically load environment variables from the root .env file if available
+try
+{
+    var currentDir = new DirectoryInfo(Directory.GetCurrentDirectory());
+    DirectoryInfo? dir = currentDir;
+    while (dir != null)
+    {
+        var envPath = Path.Combine(dir.FullName, ".env");
+        if (File.Exists(envPath))
+        {
+            foreach (var line in File.ReadAllLines(envPath))
+            {
+                var trimmed = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith('#')) continue;
+                var splitIndex = trimmed.IndexOf('=');
+                if (splitIndex <= 0) continue;
+                var key = trimmed[..splitIndex].Trim();
+                var val = trimmed[(splitIndex + 1)..].Trim();
+                if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+                {
+                    Environment.SetEnvironmentVariable(key, val);
+                }
+            }
+            break;
+        }
+        dir = dir.Parent;
+    }
+}
+catch
+{
+    // Ignore any .env file reading errors
+}
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddEnvironmentVariables();
 
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();

@@ -61,21 +61,27 @@ The 3D scene (`src/components/viz/ParkingScene.tsx`) currently uses procedural p
 1. Obtain `.glb` or `.gltf` files for the cars and the parking structure. Place them in the `public/models` directory.
 2. In `src/components/viz/CarFactory.tsx`, import `useGLTF` from `@react-three/drei`:
    ```tsx
-   import { useGLTF } from '@react-three/drei'
-   
+   import { useGLTF } from "@react-three/drei";
+
    export function CarFactory({ type, position, rotation, color }) {
      // Swap out the switch statement for model loading
      const { scene } = useGLTF(`/models/car-${type}.glb`);
      const clonedScene = useMemo(() => scene.clone(), [scene]);
-     
+
      // Optionally traverse the scene to apply the dynamic `color` to the car body mesh
-     
-     return <primitive object={clonedScene} position={position} rotation={rotation} />
+
+     return (
+       <primitive
+         object={clonedScene}
+         position={position}
+         rotation={rotation}
+       />
+     );
    }
    ```
 3. Do the same for the parking structure inside `src/components/viz/Structure.tsx`. Ensure the bounding boxes and scale of the GLB models match the expected meters (e.g., 4.7m for a sedan).
 
 ## 🎨 Design System
 
-The app utilizes a custom **Light Premium SaaS** design system enforced via Tailwind CSS v4 variables in `src/app/globals.css` and `src/styles/tokens.css`. 
+The app utilizes a custom **Light Premium SaaS** design system enforced via Tailwind CSS v4 variables in `src/app/globals.css` and `src/styles/tokens.css`.
 The primary color is a vibrant lime (`#B8F34A`) paired with a dark forest green (`#19301D`) for strong, accessible contrast.

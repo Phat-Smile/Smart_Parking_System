@@ -90,6 +90,10 @@ This builds and starts the Gateway, five .NET APIs, AI HTTP service, IoT simulat
 
 The five business APIs require valid PostgreSQL and RabbitMQ configuration to start. They do not open PostgreSQL during startup and do not apply migrations automatically. MassTransit starts one RabbitMQ AMQP bus per API and uses its built-in reconnect behavior. A temporarily unavailable broker does not prevent the API process from starting.
 
+## Demo data
+
+`scripts/dev/Seed-DemoData.ps1` creates demo accounts for every role, an owner application that goes through the real flow (type, required documents, admin approval), a staff assignment and the four sample parking lots. It runs as a dry run unless `-Apply` and a confirmation token are given, and it only accepts local addresses. Use it on a development or demo database only. See [Demo-Data.md](Demo-Data.md) (in Vietnamese) for the accounts, the lots, the flow mapping and troubleshooting.
+
 ## Local observability
 
 The applications export traces and metrics over OTLP/gRPC to `http://otel-collector:4317` inside Compose. The Collector accepts OTLP/gRPC on `4317` and OTLP/HTTP on `4318`, exports traces to Jaeger, and exposes translated metrics for Prometheus to scrape at `otel-collector:8889`. Applications do not send telemetry directly to Jaeger or Prometheus. There is no OTLP log pipeline; structured JSON console logs remain the application log output.
@@ -137,7 +141,11 @@ The five APIs' readiness still depends only on PostgreSQL and RabbitMQ. Gateway 
 
 The five .NET APIs listen for REST on container port `8080` (HTTP/1.1) and internal gRPC on `8081` (HTTP/2 cleartext). The AI service runs FastAPI on `8000` and gRPC on `50051` concurrently. gRPC ports are exposed only to containers on `parking-network`; they are not published to the host. The Gateway remains REST-only.
 
-All six gRPC hosts expose standard `grpc.health.v1.Health`; its empty service name reports `SERVING` while the gRPC listener is running. This technical status is independent of PostgreSQL/RabbitMQ readiness. Development reflection is enabled only in Development and currently lists only standard health/reflection protocol services. No business RPCs are present. See [gRPC communication foundation](../architecture/Grpc.md).
+All six gRPC hosts expose standard `grpc.health.v1.Health`; its empty service name reports `SERVING` while the gRPC listener is running. This technical status is independent of PostgreSQL/RabbitMQ readiness. Development reflection is enabled only in Development. See [gRPC communication foundation](../architecture/Grpc.md).
+
+Business RPCs live in `contracts/grpc/`: `IdentityVehicleContract.LookupVehicle` on Identity, which Parking calls when it opens a session to link the plate to a registered vehicle (see [Identity vehicle lookup](../api/Identity-gRPC-Vehicle-Lookup.md)), and `ParkingAvailabilityContract` on Parking, which Booking calls.
+
+Parking reaches Identity at `IdentityService:GrpcEndpoint` (default `http://identity-api:8081`) with a deadline of `IdentityService:TimeoutSeconds` (default 2). When Identity does not answer, the session is still opened, without an account link. Compose runs Identity with `VehicleLookup__Provider=Database`, so a plate matches only a vehicle added through `POST /api/identity/accounts/me/vehicles`; the Development default `Stub` answers only a few fixed demo plates. Identity's gRPC port is not published to the host: to run Parking on the host against an Identity on the host, set `IdentityService__GrpcEndpoint` to that Identity's gRPC address.
 
 After starting the stack, run the gRPC network smoke test from PowerShell:
 
@@ -228,7 +236,7 @@ To intentionally reset local database and broker data, remove the named volumes 
 docker compose down -v
 ```
 
-The reset command deletes the PostgreSQL and RabbitMQ data stored in this Compose stack.
+The reset command deletes the PostgreSQL and RabbitMQ data stored in this Compose stack, and the owner application documents that Identity keeps on the `parking_identity_owner_documents` volume (mounted at `/app/data/owner-documents`, which the Identity image creates for its non-root user).
 
 ## PostgreSQL ownership
 

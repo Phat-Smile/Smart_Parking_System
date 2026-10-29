@@ -35,7 +35,7 @@ export const vi = {
             date: "Ngày",
             time: "Giờ vào",
             submit: "Xác nhận đặt chỗ",
-        }
+        },
     },
     hero: {
         empty: {
@@ -98,7 +98,7 @@ export const vi = {
             refund: "Hoàn tiền",
         },
         explain: "Giải thích",
-        empty: "Chưa có giao dịch nào"
+        empty: "Chưa có giao dịch nào",
     },
     vehicles: {
         title: "Xe của tôi",

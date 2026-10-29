@@ -9,7 +9,7 @@
     --dash-text-muted: #64748b;
     --dash-border: #e2e8f0;
     --dash-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-    
+
     background-color: var(--dash-bg);
     color: var(--dash-text);
 }

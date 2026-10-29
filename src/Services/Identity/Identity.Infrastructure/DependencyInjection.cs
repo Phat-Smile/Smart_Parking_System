@@ -8,6 +8,7 @@ using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Infrastructure.Messaging;
 using ParkingSystem.Identity.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Identity.Infrastructure.Security;
+using ParkingSystem.Identity.Infrastructure.Cccd;
 using ParkingSystem.Identity.Infrastructure.VehicleLookup;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Identity;
@@ -73,6 +74,10 @@ public static class DependencyInjection
             "identity.password-reset-otp-issued.v1", 1);
         services.AddIntegrationEvent<UserVerificationOtpIssuedIntegrationEvent>(
             "identity.user-verification-otp-issued.v1", 1);
+        services.AddIntegrationEvent<OwnerApplicationApprovedIntegrationEvent>(
+            "identity.owner-application-approved.v1", 1);
+        services.AddIntegrationEvent<OwnerApplicationRejectedIntegrationEvent>(
+            "identity.owner-application-rejected.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()
@@ -93,6 +98,11 @@ public static class DependencyInjection
         });
 
         services.AddVehicleLookupReader(configuration);
+        services.AddCccdVerification(configuration);
+
+        services.Configure<OwnerDocuments.OwnerDocumentsOptions>(configuration.GetSection(OwnerDocuments.OwnerDocumentsOptions.SectionName));
+        services.AddSingleton<Application.Accounts.OwnerApplications.IOwnerDocumentRequirements, OwnerDocuments.ConfigurationOwnerDocumentRequirements>();
+        services.AddScoped<Application.Accounts.OwnerApplications.IOwnerDocumentStore, OwnerDocuments.FileSystemOwnerDocumentStore>();
 
         return services;
     }

@@ -4,6 +4,7 @@ WORKDIR /src
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/BuildingBlocks/ParkingSystem.BuildingBlocks.csproj src/BuildingBlocks/
 COPY src/BuildingBlocks/ParkingSystem.AspNetCore/ParkingSystem.AspNetCore.csproj src/BuildingBlocks/ParkingSystem.AspNetCore/
+COPY contracts/events/ParkingSystem.Contracts.Events/ParkingSystem.Contracts.Events.csproj contracts/events/ParkingSystem.Contracts.Events/
 COPY src/Services/Payment/Payment.Domain/Payment.Domain.csproj src/Services/Payment/Payment.Domain/
 COPY src/Services/Payment/Payment.Application/Payment.Application.csproj src/Services/Payment/Payment.Application/
 COPY src/Services/Payment/Payment.Persistence/Payment.Persistence.csproj src/Services/Payment/Payment.Persistence/
@@ -12,6 +13,7 @@ COPY src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj src/Services/Paym
 RUN dotnet restore src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
+COPY contracts/events/ contracts/events/
 COPY src/Services/Payment/ src/Services/Payment/
 RUN dotnet publish src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj \
     --configuration Release \

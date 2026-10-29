@@ -1,24 +1,183 @@
 using MediatR;
+using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Parking.Application.ParkingLots.ReviewParkingLot;
+using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.GetParkingLotDetail;
 using ParkingSystem.Parking.Application.ParkingLots.ListParkingLots;
+using ParkingSystem.Parking.Application.ParkingLots.RegisterParkingLot;
+using ParkingSystem.AspNetCore;
+using ParkingSystem.Parking.Application.ParkingLayout.GetMotorbikeAvailability;
+using ParkingSystem.Parking.WebAPI.Security;
+using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
+using ParkingSystem.Parking.Application.ParkingLots.SearchNearbyParkingLots;
+using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
+using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
+using ParkingSystem.Parking.Application.Common.Paging;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
 internal static class ParkingLotEndpoints
 {
+    public sealed record RegisterParkingLotRequest(
+        string? Name,
+        string? Address,
+        decimal? Latitude,
+        decimal? Longitude,
+        string? Type);
+
+    // Only a status name selects a status: Enum.TryParse also takes numbers and comma lists (see ParkingLotApprovalStatusParser).
+    private static IResult? ParseStatusFilter(string? status, out ParkingLotApprovalStatus? approvalStatus)
+    {
+        approvalStatus = null;
+        if (string.IsNullOrWhiteSpace(status))
+            return null;
+
+        if (!ParkingLotApprovalStatusParser.TryParse(status, out var parsed))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["status"] = ["status must be one of: Pending, Approved, Rejected."]
+            });
+        }
+
+        approvalStatus = parsed;
+        return null;
+    }
+
     public static IEndpointRouteBuilder MapParkingLotEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/parking/lots", async (ISender sender, CancellationToken cancellationToken) =>
+        // US-OWNER-001: role is checked against the Identity JWT; owner_user_id comes from "sub", never from the request.
+        app.MapPost("/api/parking/lots", async (
+                RegisterParkingLotRequest request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
             {
-                var parkingLots = await sender.Send(new ListParkingLotsQuery(), cancellationToken);
+                if (!Guid.TryParse(currentUser.SubjectId, out var ownerUserId) || ownerUserId == Guid.Empty)
+                    return Results.Forbid();
+
+                RegisteredParkingLot registered;
+                try
+                {
+                    registered = await sender.Send(
+                        new RegisterParkingLotCommand(
+                            ownerUserId,
+                            request.Name ?? string.Empty,
+                            request.Address ?? string.Empty,
+                            request.Latitude,
+                            request.Longitude,
+                            request.Type ?? string.Empty),
+                        cancellationToken);
+                }
+                catch (DuplicateParkingLotException)
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status409Conflict,
+                        title: "Parking lot already registered.",
+                        detail: "This owner already has a parking lot with this name.",
+                        extensions: new Dictionary<string, object?>
+                        {
+                            ["errorCode"] = "parking.lot_duplicate"
+                        });
+                }
+
+                // Pending lots are intentionally hidden by GET /api/parking/lots/{id}.
+                // Do not return a Location URL that would respond 404 until admin approval.
+                return Results.Created((string?)null, registered);
+            })
+            .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
+            .WithName("RegisterParkingLot")
+            .WithSummary("Register a parking lot for administrator review")
+            .WithDescription("ParkingLotOwner only. New parking lots start Pending and are not visible in public catalog/detail.")
+            .Produces<RegisteredParkingLot>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // D2-BE-1 / API-PK-01: a page of the lots the caller owns, whatever their approval status (docs/api/Parking-Owner-Admin-Lots.md).
+        app.MapGet("/api/parking/owner/lots", async (
+                string? status,
+                int? page,
+                int? pageSize,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var ownerUserId) || ownerUserId == Guid.Empty)
+                    return Results.Forbid();
+
+                var invalidStatus = ParseStatusFilter(status, out var approvalStatus);
+                if (invalidStatus is not null)
+                    return invalidStatus;
+
+                var lots = await sender.Send(
+                    new GetOwnerParkingLotsQuery(ownerUserId, approvalStatus, page, pageSize),
+                    cancellationToken);
+                return Results.Ok(lots);
+            })
+            .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
+            .WithName("GetOwnerParkingLots")
+            .WithSummary("Get a page of the parking lots owned by the authenticated owner")
+            .Produces<PagedResult<OwnerParkingLotItem>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        app.MapGet("/api/parking/lots", async (
+                DateTimeOffset? arrivalAt,
+                string? vehicleType,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                VehicleType? selectedVehicleType = null;
+                if (vehicleType is not null)
+                {
+                    // Enum.TryParse accepts integer strings (e.g. "1"); allow enum names only.
+                    if (!Enum.GetNames<VehicleType>().Contains(vehicleType, StringComparer.OrdinalIgnoreCase))
+                    {
+                        return Results.ValidationProblem(new Dictionary<string, string[]>
+                        {
+                            ["vehicleType"] = ["vehicleType must be one of: Car, Motorbike."]
+                        });
+                    }
+
+                    selectedVehicleType = Enum.Parse<VehicleType>(vehicleType, ignoreCase: true);
+                }
+
+                var parkingLots = arrivalAt.HasValue
+                    ? await sender.Send(new ListParkingLotsAtArrivalQuery(arrivalAt.Value, selectedVehicleType), cancellationToken)
+                    : await sender.Send(new ListParkingLotsQuery(selectedVehicleType), cancellationToken);
                 return Results.Ok(parkingLots);
             })
             .AllowAnonymous()
             .WithName("ListParkingLots")
-            .WithSummary("List approved parking lots")
-            .WithDescription("Returns only parking lots that have been approved by an administrator. Authentication is not required.")
-            .Produces<IReadOnlyList<ParkingLotCatalogItem>>(StatusCodes.Status200OK);
+            .WithSummary("List approved parking lots, optionally filtered by vehicle type and arrival time")
+            .WithDescription("Returns approved lots only. Optional vehicleType=Car|Motorbike matches a configured zone. Optional arrivalAt (ISO 8601 with offset) keeps only lots open at that time, using configured local opening hours. Without filters the original catalog is returned. Authentication is not required.")
+            .Produces<IReadOnlyList<ParkingLotCatalogItem>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem();
+
+        app.MapGet("/api/parking/lots/nearby", async (
+                decimal latitude,
+                decimal longitude,
+                double? radiusKm,
+                int? limit,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var results = await sender.Send(
+                    new SearchNearbyParkingLotsQuery(latitude, longitude, radiusKm ?? 5, limit ?? 20),
+                    cancellationToken);
+                return Results.Ok(results);
+            })
+            .AllowAnonymous()
+            .WithName("SearchNearbyParkingLots")
+            .WithSummary("Find approved parking lots near coordinates")
+            .WithDescription("Search by latitude/longitude. radiusKm defaults to 5 (max 50); limit defaults to 20 (max 100). Sorted by distance.")
+            .Produces<IReadOnlyList<NearbyParkingLotItem>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/parking/lots/{parkingLotId}", async (
                 Guid parkingLotId,
@@ -41,6 +200,122 @@ internal static class ParkingLotEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // D2-BE-2: Admin gets parking lots, optionally filtered by status (Pending, Approved, Rejected)
+        app.MapGet("/api/parking/admin/lots", async (
+                string? status,
+                int? page,
+                int? pageSize,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var invalidStatus = ParseStatusFilter(status, out var approvalStatus);
+                if (invalidStatus is not null)
+                    return invalidStatus;
+
+                var lots = await sender.Send(new GetAdminParkingLotsQuery(approvalStatus, page, pageSize), cancellationToken);
+                return Results.Ok(lots);
+            })
+            .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
+            .WithName("GetAdminParkingLots")
+            .WithSummary("Get a page of parking lots for administrator review")
+            .Produces<PagedResult<AdminParkingLotItem>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        // US-ADMIN-002: authorized administrators can decide only Pending lots.
+        app.MapPost("/api/parking/admin/lots/{parkingLotId:guid}/approve", async (
+                Guid parkingLotId,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new ReviewParkingLotCommand(
+                    parkingLotId, ParkingLotApprovalStatus.Approved, null, actorId), cancellationToken);
+                return ToReviewResult(result);
+            })
+            .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
+            .WithName("ApproveParkingLot")
+            .WithSummary("Approve a pending parking lot")
+            .Produces<ReviewedParkingLot>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        app.MapPost("/api/parking/admin/lots/{parkingLotId:guid}/reject", async (
+                Guid parkingLotId,
+                RejectParkingLotRequest request,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new ReviewParkingLotCommand(
+                    parkingLotId, ParkingLotApprovalStatus.Rejected, request.Reason, actorId), cancellationToken);
+                return ToReviewResult(result);
+            })
+            .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
+            .WithName("RejectParkingLot")
+            .WithSummary("Reject a pending parking lot with a reason")
+            .Produces<ReviewedParkingLot>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // US-PARK-008. The staff screen reads how many motorbike spaces are left before accepting a motorbike.
+        app.MapGet("/api/parking/lots/{parkingLotId:guid}/motorbike-availability", async (
+                Guid parkingLotId,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                // TECH-12: the caller must be assigned to this lot.
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new GetMotorbikeAvailabilityQuery(parkingLotId, actorUserId), cancellationToken);
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == ParkingLotAccessErrors.AccessDenied
+                    ? StatusCodes.Status403Forbidden
+                    : StatusCodes.Status404NotFound;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("GetMotorbikeAvailability")
+            .WithSummary("Get the motorbike spaces left in a lot")
+            .Produces<MotorbikeAvailabilityResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
+    }
+
+    public sealed record RejectParkingLotRequest(string? Reason);
+
+    private static IResult ToReviewResult(ParkingSystem.BuildingBlocks.Results.Result<ReviewedParkingLot> result)
+    {
+        if (result.IsSuccess)
+            return Results.Ok(result.Value);
+
+        var statusCode = result.Error == ReviewParkingLotErrors.NotFound
+            ? StatusCodes.Status404NotFound
+            : StatusCodes.Status409Conflict;
+        return Results.Problem(
+            statusCode: statusCode,
+            title: result.Error!.Message,
+            extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
     }
 }

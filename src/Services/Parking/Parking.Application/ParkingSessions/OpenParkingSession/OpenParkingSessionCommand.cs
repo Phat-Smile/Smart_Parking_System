@@ -1,11 +1,12 @@
-using System.Buffers.Text;
-using System.Security.Cryptography;
 using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.Common.Persistence;
+using ParkingSystem.Parking.Application.ParkingLayout;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 
@@ -24,7 +25,12 @@ public sealed record OpenedParkingSession(
     DateTimeOffset EntryTime,
     bool IsAccountLinked,
     Guid? ReservationId,
-    string QrToken);
+    string QrToken,
+    Guid? ZoneId,
+    string? ZoneCode,
+    string? FloorName,
+    int? AvailableMotorbikeSpaces,
+    string? SlotCode);
 
 public static class OpenParkingSessionErrors
 {
@@ -35,6 +41,23 @@ public static class OpenParkingSessionErrors
     // Unknown and not-approved lots share one error, like the public lot detail API (PR #31 review).
     public static readonly Error LotNotFound =
         new("parking.lot.not_found", "The parking lot does not exist or is not approved.");
+
+    // US-PARK-008 (BR-07.b): every motorbike zone of the lot has reached its capacity, so the barrier stays closed.
+    public static readonly Error MotorbikeZoneFull =
+        new("parking.motorbike_zone.full", "Every motorbike zone of this lot is full.");
+
+    public static readonly Error MotorbikeZoneNotConfigured =
+        new("parking.motorbike_zone.not_configured", "This lot has no motorbike zone.");
+
+    // US-PARK-007 (BR-04.h): walk-in capacity = max(0, Available car slots - reservations held) is 0, so the barrier stays
+    // closed. The message is the one the gate screen shows.
+    public static readonly Error WalkInFull =
+        new("parking.walk_in.full", "Hết chỗ cho xe không đặt trước.");
+
+    // US-PARK-007 (decision 2026-10-09): Booking did not answer and no answer from the last minute is known, so walk-in
+    // cars are refused rather than risking a slot that belongs to a reservation. Motorbikes are not affected.
+    public static readonly Error HeldQuotaUnavailable =
+        new("parking.held_quota.unavailable", "Cannot read the reservations held for this lot right now. Walk-in cars are not accepted.");
 }
 
 public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenParkingSessionCommand>
@@ -61,9 +84,12 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
 /// <list type="bullet">
 /// <item>The plate is accepted: confidence at least 0.9 and a valid format, or confirmed by staff (BR-05.a).</item>
 /// <item>Car with a booking (MF-08): Booking has moved the booking to Used, and a slot is designated (US-PARK-004).</item>
-/// <item>Walk-in car (MF-09A): walk-in capacity is above 0 and a slot is designated atomically (US-PARK-007).</item>
-/// <item>Motorbike (MF-09B): the zone count has been increased atomically within capacity (US-PARK-008).</item>
 /// </list>
+/// Walk-in cars (MF-09A, US-PARK-007) are admitted here only while walk-in capacity, max(0, Available car slots minus the
+/// reservations Booking holds), is above 0; one slot is then designated atomically and its code returned to tell the driver.
+/// Motorbikes (MF-09B, US-PARK-008) take one space of the lot's motorbike zone with the most free spaces here, atomically
+/// and in the same transaction as the session; the zone and floor are returned so they can be printed with the QR.
+/// The barrier stays closed only when every motorbike zone is full.
 /// Opening the session is the moment the system sends the barrier-open command, so EntryTime is taken from the clock here.
 /// </summary>
 public sealed class OpenParkingSessionCommandHandler(
@@ -71,7 +97,12 @@ public sealed class OpenParkingSessionCommandHandler(
     IParkingLotDetailReader parkingLots,
     IParkingLotAccess lotAccess,
     IPlateOwnerLookup plateOwners,
-    IClock clock) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
+    IClock clock,
+    IMotorbikeZoneCounter motorbikeZones,
+    IParkingUnitOfWork unitOfWork,
+    ISlotDesignator slots,
+    IHeldQuotaProvider heldQuota,
+    IZoneLabelReader zoneLabels) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
     public async Task<Result<OpenedParkingSession>> Handle(OpenParkingSessionCommand request, CancellationToken cancellationToken)
     {
@@ -92,20 +123,71 @@ public sealed class OpenParkingSessionCommandHandler(
         // A plate match links the session for history and fees only; it is not authentication (BR-05.f).
         var owner = await plateOwners.FindByPlateAsync(plate, cancellationToken);
 
+        // US-PARK-007: asked before the transaction, so no lot lock is held while waiting for Booking.
+        // Every car reaching this command is a walk-in until US-PARK-004 adds cars with a booking.
+        int? held = null;
+        if (vehicleType == VehicleType.Car)
+        {
+            held = await heldQuota.GetHeldReservationsAsync(request.LotId, cancellationToken);
+            if (held is null)
+                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.HeldQuotaUnavailable);
+        }
+
+        // Taking the space or slot and saving the session commit together: a failed save gives it back.
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        var sessionId = Guid.NewGuid();
+        var entryTime = clock.UtcNow;
+
+        DesignatedSlot? slot = null;
+        if (vehicleType == VehicleType.Car)
+        {
+            // BR-02.d: slots kept for held reservations are not offered to walk-ins.
+            var available = await slots.LockLotAndCountAvailableCarSlotsAsync(request.LotId, cancellationToken);
+            if (available - held!.Value <= 0)
+                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+
+            // BR-04.a, BR-04.g: one Available slot becomes Assigned to this session in one statement. Null only when a slot
+            // changed state after the count without the lock (for example staff set it to Maintenance).
+            slot = await slots.DesignateCarSlotAsync(request.LotId, sessionId, entryTime, cancellationToken);
+            if (slot is null)
+                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+        }
+
+        MotorbikeSpaceTaken? space = null;
+        if (vehicleType == VehicleType.Motorbike)
+        {
+            // US-PARK-008: check and +1 in one statement, so two gates can never both take the last space.
+            space = await motorbikeZones.TakeSpaceAsync(request.LotId, cancellationToken);
+            if (space is null)
+                return Result<OpenedParkingSession>.Failure(
+                    await motorbikeZones.GetAvailabilityAsync(request.LotId, cancellationToken) is null
+                        ? OpenParkingSessionErrors.MotorbikeZoneNotConfigured
+                        : OpenParkingSessionErrors.MotorbikeZoneFull);
+        }
+
         var session = ParkingSession.Open(
-            Guid.NewGuid(),
+            sessionId,
             request.LotId,
             plate,
             vehicleType,
-            clock.UtcNow,
-            NewQrToken(),
+            entryTime,
+            SessionQrToken.New(),
             owner?.UserId,
-            owner?.VehicleId);
+            owner?.VehicleId,
+            space?.ZoneId ?? slot?.ZoneId);
         sessions.Add(session);
 
         // Two entry requests for the same plate at the same time: the unique index lets only one win.
         if (!await sessions.TrySaveChangesAsync(cancellationToken))
             return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.SessionAlreadyOpen);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        // The driver is told the slot with its zone and floor (BR-04.a), like the motorbike zone printed with the QR.
+        ZoneLabel? slotZone = null;
+        if (slot is not null)
+            (await zoneLabels.GetLabelsAsync([slot.ZoneId], cancellationToken)).TryGetValue(slot.ZoneId, out slotZone);
 
         return Result<OpenedParkingSession>.Success(new OpenedParkingSession(
             session.Id,
@@ -117,9 +199,11 @@ public sealed class OpenParkingSessionCommandHandler(
             session.EntryTime,
             owner is not null,
             session.ReservationId,
-            session.QrToken));
+            session.QrToken,
+            session.ZoneId,
+            space?.ZoneCode ?? slotZone?.ZoneCode,
+            space?.FloorName ?? slotZone?.FloorName,
+            space?.AvailableSpaces,
+            slot?.SlotCode));
     }
-
-    // BR-11.b: random token with no account id or plate inside, from a cryptographic generator.
-    private static string NewQrToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(ParkingSession.QrTokenByteLength));
 }

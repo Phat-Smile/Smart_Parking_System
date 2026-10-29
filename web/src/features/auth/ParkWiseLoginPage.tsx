@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import {
     googleLoginParkWiseAccount,
 } from "./googleSignIn";
 import { rememberPendingVerification } from "./pendingVerification";
+import { resolvePostLoginRedirect } from "./roleRedirect";
 import { ApiError } from "@/shared/errors/api-error";
 
 const loginSchema = z.object({
@@ -41,6 +42,12 @@ export function ParkWiseLoginPage({
     fontClassName: string;
 }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const explicitRedirect =
+        searchParams?.get?.("redirect") ||
+        searchParams?.get?.("returnUrl") ||
+        null;
+
     const [notice, setNotice] = useState("");
     const [submitError, setSubmitError] = useState("");
     const [authenticatedEmail, setAuthenticatedEmail] = useState("");
@@ -77,6 +84,11 @@ export function ParkWiseLoginPage({
             );
             resetField("password");
             setAuthenticatedEmail(account.email);
+            const destination = resolvePostLoginRedirect(
+                account,
+                explicitRedirect,
+            );
+            router.push(destination);
         } catch (error) {
             if (error instanceof ApiError) {
                 const code = error.problem?.errorCode;
@@ -128,6 +140,11 @@ export function ParkWiseLoginPage({
         try {
             const account = await googleLoginParkWiseAccount(idToken);
             setAuthenticatedEmail(account.email);
+            const destination = resolvePostLoginRedirect(
+                account,
+                explicitRedirect,
+            );
+            router.push(destination);
         } catch (error) {
             if (
                 error instanceof ApiError &&

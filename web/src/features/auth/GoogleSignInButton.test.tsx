@@ -65,7 +65,13 @@ describe("GoogleSignInButton", () => {
         );
         expect(renderButton).toHaveBeenCalledWith(
             screen.getByTestId("google-sign-in"),
-            expect.objectContaining({ text: "signup_with", width: 200 }),
+            expect.objectContaining({
+                text: "signup_with",
+                theme: "outline",
+                size: "medium",
+                locale: "en",
+                width: 200,
+            }),
         );
         expect(onCredential).toHaveBeenCalledWith("google-id-token");
     });

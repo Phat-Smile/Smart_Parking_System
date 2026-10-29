@@ -10,6 +10,17 @@ public interface ISlotDesignator
     Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken);
 
     /// <summary>
+    /// US-PARK-007: locks the lot for car entry until the current transaction ends, then counts its Available car slots.
+    /// DesignateCarSlotAsync alone stops two cars taking the same slot, but not two gates both taking the last walk-in
+    /// slot (count, then designate). With this lock the car entries of one lot run one after another.
+    /// Must be called inside an IParkingUnitOfWork transaction.
+    /// </summary>
+    Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken);
+
+    /// <summary>The code of the slot assigned to each session, for the sessions that hold one (read only).</summary>
+    Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Clears the assignment of the slot held by the session, if any, and returns its slot code.
     /// The change is only tracked: it is saved by the caller's next SaveChanges, in the same transaction as the session.
     /// </summary>
