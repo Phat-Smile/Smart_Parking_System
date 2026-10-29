@@ -12,6 +12,7 @@ public static class ApplicationDependencyInjection
         services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(typeof(ApplicationDependencyInjection).Assembly));
         services.AddValidatorsFromAssembly(typeof(ApplicationDependencyInjection).Assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddSingleton(new Reservations.BookingCapacityOptions());
         return services;
     }
 }
