@@ -193,7 +193,6 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
                     b.ToTable("gate_readings", "parking");
                 });
-                });
 
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>
                 {
