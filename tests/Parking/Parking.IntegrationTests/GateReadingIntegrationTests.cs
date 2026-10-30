@@ -5,12 +5,12 @@ using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.Common.Auditing;
-using ParkingSystem.Parking.Application.GateReadings;
 using ParkingSystem.Parking.Application.GateReadings.ConfirmGateReading;
 using ParkingSystem.Parking.Application.GateReadings.ListPendingGateReadings;
 using ParkingSystem.Parking.Application.GateReadings.RecordGateReading;
+using ParkingSystem.Parking.Application.Incidents;
 using ParkingSystem.Parking.Application.ParkingLots;
-using ParkingSystem.Parking.Domain.GateReadings;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Persistence;
@@ -19,48 +19,49 @@ using Xunit;
 
 namespace ParkingSystem.Tests.Parking.IntegrationTests;
 
-// US-PARK-001 on real PostgreSQL: a reading is stored with its decision and read back unchanged.
+// US-PARK-001/002 on real PostgreSQL: a reading staff must confirm is stored in parking.incidents (team ERD).
 public sealed class GateReadingIntegrationTests(PostgreSqlContainerFixture postgres) : IClassFixture<PostgreSqlContainerFixture>
 {
     private static readonly Guid StaffId = Guid.Parse("66666666-6666-6666-6666-666666666666");
 
     [Fact]
-    public async Task Readings_are_stored_with_their_decision_confidence_and_plates()
+    public async Task Only_a_pending_reading_is_stored_as_an_open_low_confidence_plate_incident()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
         var lotId = await SeedAssignedApprovedLotAsync(serviceProvider, cancellationToken);
 
         var accepted = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51a-123.45", "Car", 0.925m, StaffId), cancellationToken);
-        var pending = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, null, "Motorbike", 0.2m, StaffId), cancellationToken);
+        var pending = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51a-123.45", "Motorbike", 0.899m, StaffId), cancellationToken);
+        var noPlate = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, null, "Car", 0.2m, StaffId), cancellationToken);
 
+        Assert.Null(accepted.IncidentId);
         await using var scope = serviceProvider.CreateAsyncScope();
-        var stored = await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().GateReadings.AsNoTracking()
-            .Where(reading => reading.LotId == lotId)
-            .ToDictionaryAsync(reading => reading.Id, cancellationToken);
+        var stored = await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().Incidents.AsNoTracking()
+            .Where(incident => incident.LotId == lotId)
+            .ToDictionaryAsync(incident => incident.Id, cancellationToken);
+        Assert.Equal(2, stored.Count);
 
-        var first = stored[accepted.ReadingId];
-        Assert.Equal(GateReadingDecision.AutoAccepted, first.Decision);
-        Assert.Equal("51a-123.45", first.RawPlate);
-        Assert.Equal("51A-123.45", first.PlateNumber);
-        Assert.Equal(0.925m, first.Confidence);
-        Assert.Equal(VehicleType.Car, first.VehicleType);
-        Assert.Equal(StaffId, first.RecordedBy);
+        var first = stored[pending.IncidentId!.Value];
+        Assert.Equal(IncidentType.LowConfidencePlate, first.IncidentType);
+        Assert.Equal(IncidentStatus.Open, first.Status);
+        Assert.Equal("51A-123.45", first.ObservedPlate);
+        Assert.Equal(0.89m, first.PlateConfidence); // numeric(3,2), rounded down
+        Assert.Equal(VehicleType.Motorbike, first.ObservedVehicleType);
+        Assert.Null(first.SessionId);
+        Assert.Null(first.DeviceId);
 
-        var second = stored[pending.ReadingId];
-        Assert.Equal(GateReadingDecision.PendingStaff, second.Decision);
-        Assert.Equal(string.Empty, second.PlateNumber);
-        Assert.Equal(VehicleType.Motorbike, second.VehicleType);
+        Assert.Null(stored[noPlate.IncidentId!.Value].ObservedPlate);
     }
 
     [Fact]
-    public async Task A_reading_for_a_lot_that_does_not_exist_cannot_be_stored()
+    public async Task An_incident_for_a_lot_that_does_not_exist_cannot_be_stored()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
-        dbContext.GateReadings.Add(GateReading.Record(Guid.NewGuid(), Guid.NewGuid(), "51A-123.45", VehicleType.Car, 0.95m, DateTimeOffset.UtcNow, StaffId));
+        dbContext.Incidents.Add(Incident.OpenLowConfidencePlate(Guid.NewGuid(), Guid.NewGuid(), "51A-123.45", 0.5m, VehicleType.Car, DateTimeOffset.UtcNow));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => dbContext.SaveChangesAsync(cancellationToken));
     }
@@ -72,46 +73,65 @@ public sealed class GateReadingIntegrationTests(PostgreSqlContainerFixture postg
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
         var lotId = await SeedAssignedApprovedLotAsync(serviceProvider, cancellationToken);
         var reading = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-123.45", "Car", 0.4m, StaffId), cancellationToken);
+        var incidentId = reading.IncidentId!.Value;
 
-        // Both staff load the reading while it is still PendingStaff, then save one after the other: the worst interleaving,
+        // Both staff load the incident while it is still Open, then save one after the other: the worst interleaving,
         // forced here so the test does not depend on thread timing.
         await using var first = serviceProvider.CreateAsyncScope();
         await using var second = serviceProvider.CreateAsyncScope();
-        var firstStaff = await LoadAndConfirmAsync(first, reading.ReadingId, "51A-123.45", cancellationToken);
-        var secondStaff = await LoadAndConfirmAsync(second, reading.ReadingId, "51A-123.46", cancellationToken);
+        var firstStaff = await LoadAndResolveAsync(first, incidentId, "first", cancellationToken);
+        var secondStaff = await LoadAndResolveAsync(second, incidentId, "second", cancellationToken);
 
         Assert.True(await firstStaff.TrySaveChangesAsync(cancellationToken));
         Assert.False(await secondStaff.TrySaveChangesAsync(cancellationToken));
 
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
-        var stored = await dbContext.GateReadings.AsNoTracking().SingleAsync(item => item.Id == reading.ReadingId, cancellationToken);
-        Assert.Equal(GateReadingDecision.StaffConfirmed, stored.Decision);
-        Assert.Equal("51A-123.45", stored.PlateNumber);
-        Assert.Equal(StaffId, stored.ConfirmedBy);
-        Assert.NotNull(stored.ConfirmedAt);
+        var stored = await dbContext.Incidents.AsNoTracking().SingleAsync(item => item.Id == incidentId, cancellationToken);
+        Assert.Equal(IncidentStatus.Resolved, stored.Status);
+        Assert.Equal("first", stored.ResolutionReason);
+        Assert.Equal(StaffId, stored.ResolvedBy);
+        Assert.NotNull(stored.ResolvedAt);
         // The losing save is rolled back with its audit entry.
         Assert.Equal(1, await dbContext.AuditLogEntries.CountAsync(
-            entry => entry.TargetId == reading.ReadingId.ToString() && entry.Action == AuditActions.GateReadingConfirmed, cancellationToken));
+            entry => entry.TargetId == incidentId.ToString() && entry.Action == AuditActions.GateReadingConfirmed, cancellationToken));
 
         // Through the handler, the second staff member then gets 409 not pending.
-        Assert.Equal(ConfirmGateReadingErrors.NotPending, (await ConfirmAsync(serviceProvider, reading.ReadingId, "51A-123.46", cancellationToken)).Error);
-    }
-
-    // What the confirm handler does before saving: load, confirm, add the audit entry.
-    private static async Task<IGateReadingRepository> LoadAndConfirmAsync(
-        AsyncServiceScope scope, Guid readingId, string plate, CancellationToken cancellationToken)
-    {
-        var readings = scope.ServiceProvider.GetRequiredService<IGateReadingRepository>();
-        var reading = await readings.FindByIdAsync(readingId, cancellationToken);
-        Assert.True(reading!.Confirm(plate, VehicleType.Car, StaffId, DateTimeOffset.UtcNow));
-        scope.ServiceProvider.GetRequiredService<IAuditLog>().Record(new AuditEntry(
-            AuditActions.GateReadingConfirmed, StaffId, reading.LotId, nameof(GateReading), reading.Id.ToString(), null, DateTimeOffset.UtcNow));
-        return readings;
+        Assert.Equal(ConfirmGateReadingErrors.NotPending, (await ConfirmAsync(serviceProvider, incidentId, "51A-123.46", cancellationToken)).Error);
     }
 
     [Fact]
-    public async Task Pending_queue_lists_only_the_readings_waiting_for_staff_oldest_first()
+    public async Task Confirming_keeps_the_observed_plate_and_writes_the_confirmed_one_in_the_resolution_reason()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var lotId = await SeedAssignedApprovedLotAsync(serviceProvider, cancellationToken);
+        var reading = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-123.4S", "Car", 0.95m, StaffId), cancellationToken);
+
+        var result = await ConfirmAsync(serviceProvider, reading.IncidentId!.Value, "51A-123.45", cancellationToken);
+
+        Assert.True(result.IsSuccess);
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var stored = await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().Incidents.AsNoTracking()
+            .SingleAsync(item => item.Id == reading.IncidentId, cancellationToken);
+        Assert.Equal("51A-123.4S", stored.ObservedPlate);
+        Assert.Contains("51A-123.45", stored.ResolutionReason);
+    }
+
+    // What the confirm handler does before saving: load, resolve, add the audit entry.
+    private static async Task<IIncidentRepository> LoadAndResolveAsync(
+        AsyncServiceScope scope, Guid incidentId, string reason, CancellationToken cancellationToken)
+    {
+        var incidents = scope.ServiceProvider.GetRequiredService<IIncidentRepository>();
+        var incident = await incidents.FindByIdAsync(incidentId, cancellationToken);
+        Assert.True(incident!.Resolve(StaffId, DateTimeOffset.UtcNow, reason));
+        scope.ServiceProvider.GetRequiredService<IAuditLog>().Record(new AuditEntry(
+            AuditActions.GateReadingConfirmed, StaffId, incident.LotId, nameof(Incident), incident.Id.ToString(), null, DateTimeOffset.UtcNow));
+        return incidents;
+    }
+
+    [Fact]
+    public async Task Pending_queue_lists_only_the_open_incidents_oldest_first()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
@@ -120,20 +140,20 @@ public sealed class GateReadingIntegrationTests(PostgreSqlContainerFixture postg
         await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-222.22", "Car", 0.99m, StaffId), cancellationToken);
         var second = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, null, "Motorbike", 0.1m, StaffId), cancellationToken);
         var confirmed = await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-333.33", "Car", 0.2m, StaffId), cancellationToken);
-        Assert.True((await ConfirmAsync(serviceProvider, confirmed.ReadingId, "51A-333.33", cancellationToken)).IsSuccess);
+        Assert.True((await ConfirmAsync(serviceProvider, confirmed.IncidentId!.Value, "51A-333.33", cancellationToken)).IsSuccess);
 
         await using var scope = serviceProvider.CreateAsyncScope();
         var result = await scope.ServiceProvider.GetRequiredService<ISender>().Send(new ListPendingGateReadingsQuery(lotId, StaffId), cancellationToken);
 
-        Assert.Equal([first.ReadingId, second.ReadingId], result.Value!.Select(item => item.ReadingId));
+        Assert.Equal([first.IncidentId!.Value, second.IncidentId!.Value], result.Value!.Select(item => item.IncidentId));
     }
 
     private static async Task<Result<ConfirmedGateReading>> ConfirmAsync(
-        ServiceProvider serviceProvider, Guid readingId, string plate, CancellationToken cancellationToken)
+        ServiceProvider serviceProvider, Guid incidentId, string plate, CancellationToken cancellationToken)
     {
         await using var scope = serviceProvider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new ConfirmGateReadingCommand(readingId, plate, "Car", StaffId), cancellationToken);
+            .Send(new ConfirmGateReadingCommand(incidentId, plate, "Car", StaffId), cancellationToken);
     }
 
     private static async Task<RecordedGateReading> RecordAsync(ServiceProvider serviceProvider, RecordGateReadingCommand command, CancellationToken cancellationToken)

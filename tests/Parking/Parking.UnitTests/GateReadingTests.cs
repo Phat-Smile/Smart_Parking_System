@@ -1,16 +1,17 @@
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.Parking.Application.GateReadings;
 using ParkingSystem.Parking.Application.GateReadings.RecordGateReading;
+using ParkingSystem.Parking.Application.Incidents;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.GateReadings;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using Xunit;
 
 namespace ParkingSystem.Tests.Parking.UnitTests;
 
 // US-PARK-001 (BR-05.a): confidence from 0.9 and a valid Vietnamese plate are recognised automatically; anything else
-// goes to staff (US-PARK-002).
+// opens a LowConfidencePlate incident for staff (US-PARK-002).
 public sealed class GateReadingTests
 {
     private static readonly Guid LotId = Guid.Parse("10000000-0000-0000-0000-000000000001");
@@ -28,21 +29,65 @@ public sealed class GateReadingTests
     [InlineData("ABC-123", 0.99, GateReadingDecision.PendingStaff)] // confident but not a Vietnamese plate
     [InlineData("NG-123-45", 0.99, GateReadingDecision.PendingStaff)] // special series not covered yet: staff decide
     [InlineData("", 0.99, GateReadingDecision.PendingStaff)] // no plate read
-    public void Decision_follows_br_05a(string plate, double confidence, GateReadingDecision expected)
+    public async Task Decision_follows_br_05a(string plate, double confidence, GateReadingDecision expected)
     {
-        var reading = GateReading.Record(Guid.NewGuid(), LotId, plate, VehicleType.Car, (decimal)confidence, Now, StaffId);
+        var incidents = new FakeIncidents();
+        var handler = NewHandler(incidents);
 
-        Assert.Equal(expected, reading.Decision);
+        var result = await handler.Handle(new RecordGateReadingCommand(LotId, plate, "Car", (decimal)confidence, StaffId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected.ToString(), result.Value!.Decision);
+        // Only a reading staff must confirm is stored, as an incident.
+        Assert.Equal(expected == GateReadingDecision.PendingStaff ? 1 : 0, incidents.Saved.Count);
     }
 
     [Fact]
-    public void Reading_keeps_the_raw_plate_and_the_session_form_of_the_plate()
+    public async Task An_auto_accepted_reading_opens_no_incident()
     {
-        var reading = GateReading.Record(Guid.NewGuid(), LotId, "  51a-123.45 ", VehicleType.Car, 0.95m, Now, StaffId);
+        var incidents = new FakeIncidents();
 
-        Assert.Equal("51a-123.45", reading.RawPlate);
+        var result = await NewHandler(incidents).Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "car", 0.93m, StaffId), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value!.IncidentId);
+        Assert.Equal("AutoAccepted", result.Value.Decision);
+        Assert.Equal("Car", result.Value.VehicleType);
+        Assert.Equal(0.93m, result.Value.Confidence);
+        Assert.Equal(Now, result.Value.ReceivedAt);
+        Assert.Empty(incidents.Saved);
+    }
+
+    [Fact]
+    public async Task A_pending_reading_opens_a_low_confidence_plate_incident_as_in_the_erd()
+    {
+        var incidents = new FakeIncidents();
+
+        var result = await NewHandler(incidents).Handle(new RecordGateReadingCommand(LotId, "  51a-123.45 ", "Motorbike", 0.899m, StaffId), TestContext.Current.CancellationToken);
+
+        var incident = Assert.Single(incidents.Saved);
+        Assert.Equal(incident.Id, result.Value!.IncidentId);
+        Assert.Equal("PendingStaff", result.Value.Decision);
+        Assert.Equal(IncidentType.LowConfidencePlate, incident.IncidentType);
+        Assert.Equal(IncidentStatus.Open, incident.Status);
+        Assert.Equal(LotId, incident.LotId);
         // Same normalization as parking sessions, so staff open the session with this exact plate.
-        Assert.Equal(ParkingSession.NormalizePlate("51a-123.45"), reading.PlateNumber);
+        Assert.Equal(ParkingSession.NormalizePlate("51a-123.45"), incident.ObservedPlate);
+        Assert.Equal(VehicleType.Motorbike, incident.ObservedVehicleType);
+        Assert.Equal(Now, incident.OccurredAt);
+        // ERD plate_confidence numeric(3,2): rounded down so it never shows 0.90 for a value below the threshold.
+        Assert.Equal(0.89m, incident.PlateConfidence);
+        // The response keeps the confidence as sent.
+        Assert.Equal(0.899m, result.Value.Confidence);
+    }
+
+    [Fact]
+    public async Task No_plate_read_is_stored_as_a_null_observed_plate()
+    {
+        var incidents = new FakeIncidents();
+
+        await NewHandler(incidents).Handle(new RecordGateReadingCommand(LotId, null, "Car", 0m, StaffId), TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(incidents.Saved).ObservedPlate);
     }
 
     [Theory]
@@ -51,49 +96,31 @@ public sealed class GateReadingTests
     public void Confidence_outside_0_to_1_is_rejected_by_the_domain(double confidence)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            GateReading.Record(Guid.NewGuid(), LotId, "51A-123.45", VehicleType.Car, (decimal)confidence, Now, StaffId));
-    }
-
-    [Fact]
-    public async Task Handler_records_the_reading_with_its_decision()
-    {
-        var readings = new FakeReadings();
-        var handler = new RecordGateReadingCommandHandler(readings, new FakeLots(approved: true), new FakeLotAccess(allowed: true), new FixedClock());
-
-        var result = await handler.Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "car", 0.93m, StaffId), TestContext.Current.CancellationToken);
-
-        Assert.True(result.IsSuccess);
-        var saved = Assert.Single(readings.Saved);
-        Assert.Equal(saved.Id, result.Value!.ReadingId);
-        Assert.Equal("AutoAccepted", result.Value.Decision);
-        Assert.Equal("Car", result.Value.VehicleType);
-        Assert.Equal(0.93m, result.Value.Confidence);
-        Assert.Equal(Now, result.Value.ReceivedAt);
-        Assert.Equal(StaffId, saved.RecordedBy);
+            Incident.OpenLowConfidencePlate(Guid.NewGuid(), LotId, "51A-123.45", (decimal)confidence, VehicleType.Car, Now));
     }
 
     [Fact]
     public async Task Handler_refuses_an_unknown_or_unapproved_lot()
     {
-        var readings = new FakeReadings();
-        var handler = new RecordGateReadingCommandHandler(readings, new FakeLots(approved: false), new FakeLotAccess(allowed: true), new FixedClock());
+        var incidents = new FakeIncidents();
+        var handler = new RecordGateReadingCommandHandler(incidents, new FakeLots(approved: false), new FakeLotAccess(allowed: true), new FixedClock());
 
-        var result = await handler.Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.95m, StaffId), TestContext.Current.CancellationToken);
+        var result = await handler.Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.5m, StaffId), TestContext.Current.CancellationToken);
 
         Assert.Equal(RecordGateReadingErrors.LotNotFound, result.Error);
-        Assert.Empty(readings.Saved);
+        Assert.Empty(incidents.Saved);
     }
 
     [Fact]
     public async Task Handler_refuses_staff_not_assigned_to_the_lot()
     {
-        var readings = new FakeReadings();
-        var handler = new RecordGateReadingCommandHandler(readings, new FakeLots(approved: true), new FakeLotAccess(allowed: false), new FixedClock());
+        var incidents = new FakeIncidents();
+        var handler = new RecordGateReadingCommandHandler(incidents, new FakeLots(approved: true), new FakeLotAccess(allowed: false), new FixedClock());
 
-        var result = await handler.Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.95m, StaffId), TestContext.Current.CancellationToken);
+        var result = await handler.Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.5m, StaffId), TestContext.Current.CancellationToken);
 
         Assert.Equal(ParkingLotAccessErrors.AccessDenied, result.Error);
-        Assert.Empty(readings.Saved);
+        Assert.Empty(incidents.Saved);
     }
 
     [Theory]
@@ -123,18 +150,21 @@ public sealed class GateReadingTests
     }
 
     [Fact]
-    public void Validator_rejects_a_missing_lot_or_a_plate_longer_than_the_limit()
+    public void Validator_rejects_a_missing_lot_or_a_plate_longer_than_the_erd_limit()
     {
         Assert.False(validator.Validate(new RecordGateReadingCommand(Guid.Empty, "51A-123.45", "Car", 0.95m, StaffId)).IsValid);
-        Assert.False(validator.Validate(new RecordGateReadingCommand(LotId, new string('1', GateReading.RawPlateMaxLength + 1), "Car", 0.95m, StaffId)).IsValid);
+        Assert.False(validator.Validate(new RecordGateReadingCommand(LotId, new string('1', ParkingSession.PlateNumberMaxLength + 1), "Car", 0.95m, StaffId)).IsValid);
     }
 
-    private sealed class FakeReadings : IGateReadingRepository
-    {
-        private readonly List<GateReading> added = [];
-        public List<GateReading> Saved { get; } = [];
+    private static RecordGateReadingCommandHandler NewHandler(FakeIncidents incidents) =>
+        new(incidents, new FakeLots(approved: true), new FakeLotAccess(allowed: true), new FixedClock());
 
-        public void Add(GateReading reading) => added.Add(reading);
+    private sealed class FakeIncidents : IIncidentRepository
+    {
+        private readonly List<Incident> added = [];
+        public List<Incident> Saved { get; } = [];
+
+        public void Add(Incident incident) => added.Add(incident);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
@@ -143,9 +173,10 @@ public sealed class GateReadingTests
             return Task.CompletedTask;
         }
 
-        public Task<GateReading?> FindByIdAsync(Guid readingId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<IReadOnlyList<GateReading>> ListPendingByLotAsync(Guid lotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
