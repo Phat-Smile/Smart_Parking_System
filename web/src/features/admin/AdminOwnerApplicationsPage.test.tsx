@@ -89,4 +89,36 @@ describe("AdminOwnerApplicationsPage documents", () => {
             "blob:doc-1",
         );
     });
+
+    it("displays VNeID Level 2 verified badge when applicant CCCD matches national database", async () => {
+        vi.spyOn(api, "getOwnerApplications").mockResolvedValue({
+            items: [
+                {
+                    accountId: ACCOUNT,
+                    email: "owner.flow@demo.local",
+                    fullName: "NGUYỄN VĂN AN",
+                    idCardNumber: "079201234567",
+                    status: "Pending",
+                    createdAtUtc: "2026-10-29T01:00:00Z",
+                },
+            ],
+            totalCount: 1,
+            page: 1,
+            pageSize: 20,
+        });
+
+        const user = userEvent.setup();
+        render(
+            <LanguageProvider>
+                <AdminOwnerApplicationsPage />
+            </LanguageProvider>,
+        );
+
+        await user.click(
+            await screen.findByRole("button", { name: /Xem giấy tờ/i }),
+        );
+
+        expect(await screen.findByTestId("admin-vneid-badge")).toBeInTheDocument();
+        expect(screen.getByText(/VNeID Mức 2/i)).toBeInTheDocument();
+    });
 });
