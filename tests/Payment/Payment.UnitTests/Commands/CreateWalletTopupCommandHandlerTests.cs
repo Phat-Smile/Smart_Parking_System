@@ -64,6 +64,11 @@ public class CreateWalletTopupCommandHandlerTests
             _transactions.Add(tx);
         }
 
+        public void Clear()
+        {
+            _transactions.Clear();
+        }
+
         public Task<VnpayTransaction?> GetByTxnRefAsync(string txnRef, CancellationToken cancellationToken)
         {
             var tx = _transactions.FirstOrDefault(t => t.TxnRef == txnRef);
@@ -104,11 +109,18 @@ public class CreateWalletTopupCommandHandlerTests
             return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
         }
 
-        public Task SaveChangesAsync(CancellationToken cancellationToken)
+        public Func<Task>? OnSaveChangesAsync { get; set; }
+
+        public async Task SaveChangesAsync(CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            if (OnSaveChangesAsync != null)
+            {
+                await OnSaveChangesAsync();
+            }
         }
     }
+
+    private class DbUpdateException : Exception { }
 
     private class FakePaymentGateway : IPaymentGateway
     {
@@ -352,5 +364,45 @@ public class CreateWalletTopupCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("payment.topup_expired", result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenDbUpdateExceptionOccursDueToConcurrentInsert_RecoversAndReturnsReplay()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var handler = CreateHandler();
+        var key = "concurrent-race-key";
+        var wallet = await _walletRepo.GetOrCreateByUserIdAsync(userId, CancellationToken.None);
+
+        // Pre-create the winning transaction that got inserted concurrently
+        var winnerTxn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            Guid.NewGuid().ToString("N"),
+            wallet.Id,
+            50_000m,
+            key,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+
+        // When SaveChangesAsync is called on the duplicate insert, throw simulated DbUpdateException
+        // and concurrently seed the winner transaction into the repository
+        _txRepo.OnSaveChangesAsync = () =>
+        {
+            _txRepo.Clear();
+            _txRepo.SeedTransaction(winnerTxn);
+            throw new DbUpdateException();
+        };
+
+        var command = new CreateWalletTopupCommand(userId, 50_000m, key, "127.0.0.1");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value!.IsReplay);
+        Assert.Equal(winnerTxn.TxnRef, result.Value.TopupId);
+        Assert.NotNull(result.Value.PaymentUrl);
     }
 }
