@@ -62,6 +62,43 @@ describe("staffApi integration", () => {
         });
     });
 
+    describe("customer type from Parking", () => {
+        it.each([
+            ["UnregisteredWalkIn", "Guest"],
+            ["RegisteredWalkIn", "Registered"],
+            ["Booking", "Registered"],
+        ])("maps %s to %s when opening a session", async (wire, expected) => {
+            const mockRes = {
+                sessionId: "ses-ct",
+                lotId: DEFAULT_STAFF_LOT_ID,
+                plateNumber: "51F-123.45",
+                vehicleType: "Car",
+                customerType: wire,
+                status: "Active",
+                entryTime: "2026-10-19T08:00:00Z",
+                isAccountLinked: wire !== "UnregisteredWalkIn",
+                reservationId: null,
+                qrToken: "QR",
+                availableMotorbikeSpaces: null,
+            };
+            vi.stubGlobal(
+                "fetch",
+                vi.fn().mockResolvedValue(
+                    new Response(JSON.stringify(mockRes), {
+                        status: 201,
+                        headers: { "Content-Type": "application/json" },
+                    }),
+                ),
+            );
+            const result = await openParkingSession({
+                lotId: DEFAULT_STAFF_LOT_ID,
+                plateNumber: "51f-123.45",
+                vehicleType: "Car",
+            });
+            expect(result.customerType).toBe(expected);
+        });
+    });
+
     describe("openParkingSession", () => {
         it("sends POST to /api/parking/sessions with uppercase plate and lotId", async () => {
             const mockRes = {

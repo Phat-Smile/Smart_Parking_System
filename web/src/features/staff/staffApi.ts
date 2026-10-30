@@ -1,5 +1,6 @@
 import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
+import { toStaffCustomerType } from "./types";
 import type {
     AssignedLotResponse,
     CancelledSessionResponse,
@@ -134,6 +135,7 @@ export async function openParkingSession(
         });
     return {
         ...res,
+        customerType: toStaffCustomerType(res.customerType),
         availableMotorbikeSlots: availableMotorbikeSpaces ?? null,
     };
 }
@@ -189,6 +191,7 @@ export async function findSessionByQr(
     const fee = await getParkingSessionFee(res.sessionId).catch(() => null);
     return {
         ...res,
+        customerType: toStaffCustomerType(res.customerType),
         qrToken: qrToken.trim(),
         totalFeeVnd: fee?.totalFee,
         amountDueVnd: fee?.amountDue,

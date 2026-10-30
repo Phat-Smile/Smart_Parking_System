@@ -2,6 +2,15 @@ export type VehicleType = "Car" | "Motorbike";
 
 export type CustomerType = "Registered" | "Guest";
 
+/** Parking sends Booking, RegisteredWalkIn or UnregisteredWalkIn; only the last one has no account (guest). */
+export function toStaffCustomerType(
+    wire: string | null | undefined,
+): CustomerType {
+    return wire === "UnregisteredWalkIn" || wire === "Guest"
+        ? "Guest"
+        : "Registered";
+}
+
 export type SessionStatus = "Active" | "Completed" | "Cancelled";
 
 export type PaymentStatus = "Pending" | "Paid" | "Exempt";
