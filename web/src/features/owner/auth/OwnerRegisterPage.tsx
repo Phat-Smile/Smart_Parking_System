@@ -17,6 +17,7 @@ import {
 import { ApiError } from "@/shared/errors/api-error";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
+import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 const ownerSignUpSchema = z
     .object({
@@ -91,6 +92,22 @@ export function OwnerRegisterPage({
     fontClassName?: string;
 }) {
     const router = useRouter();
+    const langContext = useLanguage();
+    const [currentLang, setCurrentLang] = useState<"vi" | "en">(
+        langContext?.language || "vi",
+    );
+
+    function handleSetLanguage(lang: "vi" | "en") {
+        setCurrentLang(lang);
+        try {
+            langContext?.setLanguage?.(lang);
+        } catch {
+            // ignore
+        }
+    }
+
+    const isVi = currentLang === "vi";
+
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
     const [submitError, setSubmitError] = useState("");
@@ -101,6 +118,7 @@ export function OwnerRegisterPage({
         handleSubmit,
         control,
         setError,
+        getValues,
         formState: { errors, isSubmitting },
     } = useForm<OwnerSignUpValues>({
         resolver: zodResolver(ownerSignUpSchema),
@@ -116,19 +134,42 @@ export function OwnerRegisterPage({
 
     const passwordValue = useWatch({ control, name: "password" }) || "";
 
-    const passwordChecks = [
-        { label: "Tối thiểu 8 ký tự", met: passwordValue.length >= 8 },
-        { label: "Ít nhất 1 chữ hoa (A-Z)", met: /[A-Z]/.test(passwordValue) },
-        {
-            label: "Ít nhất 1 chữ thường (a-z)",
-            met: /[a-z]/.test(passwordValue),
-        },
-        { label: "Ít nhất 1 số (0-9)", met: /[0-9]/.test(passwordValue) },
-        {
-            label: "Ít nhất 1 ký tự đặc biệt (!@#$%...)",
-            met: /[^A-Za-z0-9]/.test(passwordValue),
-        },
+    // Tính độ mạnh mật khẩu và nhóm ký tự (như trang Sign Up chuẩn ParkWise)
+    const passwordMeetsRequirements =
+        passwordSchema.safeParse(passwordValue).success;
+    const passwordCharacterGroups = [
+        /[A-Z]/.test(passwordValue),
+        /[a-z]/.test(passwordValue),
+        /[0-9]/.test(passwordValue),
+        /[^A-Za-z0-9]/.test(passwordValue),
+    ].filter(Boolean).length;
+    const passwordStrength = !passwordValue
+        ? 0
+        : passwordMeetsRequirements
+          ? passwordValue.length >= 12
+              ? 4
+              : 3
+          : passwordValue.length >= 8 && passwordCharacterGroups >= 3
+            ? 2
+            : 1;
+
+    const passwordStrengthLabelsVi = [
+        "Chưa nhập",
+        "Yếu",
+        "Trung bình",
+        "Khá",
+        "Mạnh",
     ];
+    const passwordStrengthLabelsEn = [
+        "Not entered",
+        "Weak",
+        "Fair",
+        "Good",
+        "Strong",
+    ];
+    const passwordStrengthLabel = isVi
+        ? passwordStrengthLabelsVi[passwordStrength]
+        : passwordStrengthLabelsEn[passwordStrength];
 
     async function onSubmit(values: OwnerSignUpValues) {
         setSubmitError("");
@@ -153,7 +194,9 @@ export function OwnerRegisterPage({
 
             if (!rememberPendingVerification(account.email, 60)) {
                 setSubmitError(
-                    "Đăng ký thành công nhưng trình duyệt không mở được xác thực. Vui lòng bật Session Storage và thử lại.",
+                    isVi
+                        ? "Đăng ký thành công nhưng trình duyệt không mở được xác thực. Vui lòng bật Session Storage và thử lại."
+                        : "Registration succeeded but browser could not open verification. Please enable session storage and try again.",
                 );
                 return;
             }
@@ -171,52 +214,77 @@ export function OwnerRegisterPage({
             if (code === "identity.email_already_registered") {
                 setEmailConflict(true);
                 setError("email", {
-                    message: "Email này đã được sử dụng.",
+                    message: isVi
+                        ? "Email này đã được sử dụng."
+                        : "This email address is already in use.",
                 });
                 setSubmitError(
-                    "Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng email khác.",
+                    isVi
+                        ? "Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng email khác."
+                        : "This email is already registered. Please log in or use another email.",
                 );
             } else if (code === "identity.email_pending_verification") {
                 setEmailConflict(true);
                 setSubmitError(
-                    "Email này đã được đăng ký và đang chờ xác thực OTP. Vui lòng hoàn tất xác thực hoặc đăng nhập.",
+                    isVi
+                        ? "Email này đã được đăng ký và đang chờ xác thực OTP. Vui lòng hoàn tất xác thực hoặc đăng nhập."
+                        : "This email is awaiting OTP verification. Please verify or log in.",
                 );
             } else if (code === "identity.phone_already_registered") {
                 setError("phone", {
-                    message:
-                        "Số điện thoại này đã được đăng ký cho tài khoản khác.",
+                    message: isVi
+                        ? "Số điện thoại này đã được đăng ký cho tài khoản khác."
+                        : "This phone number is already registered.",
                 });
                 setSubmitError(
-                    "Số điện thoại này đã được sử dụng bởi một tài khoản khác. Vui lòng kiểm tra lại.",
+                    isVi
+                        ? "Số điện thoại này đã được sử dụng bởi một tài khoản khác. Vui lòng kiểm tra lại."
+                        : "This phone number is already in use by another account.",
                 );
             } else if (status === 400) {
                 setSubmitError(
                     problem?.detail ||
-                        "Thông tin đăng ký không hợp lệ. Vui lòng kiểm tra lại các trường thông tin.",
+                        (isVi
+                            ? "Thông tin đăng ký không hợp lệ. Vui lòng kiểm tra lại các trường thông tin."
+                            : "Invalid registration details. Please check the fields and try again."),
                 );
             } else if (status === 409) {
                 const detail = (problem?.detail || "").toLowerCase();
                 if (detail.includes("phone") || detail.includes("điện thoại")) {
                     setError("phone", {
-                        message: "Số điện thoại này đã được sử dụng.",
+                        message: isVi
+                            ? "Số điện thoại này đã được sử dụng."
+                            : "This phone number is already registered.",
                     });
                     setSubmitError(
-                        "Số điện thoại này đã được đăng ký cho một tài khoản khác.",
+                        isVi
+                            ? "Số điện thoại này đã được đăng ký cho một tài khoản khác."
+                            : "This phone number is already registered for another account.",
                     );
                 } else if (detail.includes("email")) {
                     setError("email", {
-                        message: "Email này đã được sử dụng.",
+                        message: isVi
+                            ? "Email này đã được sử dụng."
+                            : "This email is already registered.",
                     });
                     setEmailConflict(true);
-                    setSubmitError("Email này đã được đăng ký trên hệ thống.");
+                    setSubmitError(
+                        isVi
+                            ? "Email này đã được đăng ký trên hệ thống."
+                            : "This email address is already registered.",
+                    );
                 } else {
                     setSubmitError(
-                        "Thông tin Email hoặc Số điện thoại đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.",
+                        isVi
+                            ? "Thông tin Email hoặc Số điện thoại đã tồn tại trên hệ thống. Vui lòng kiểm tra lại."
+                            : "Email or phone already exists in system.",
                     );
                 }
             } else if (status === 500) {
                 setSubmitError(
-                    "Không thể hoàn tất đăng ký: Số điện thoại hoặc Email này có thể đã được đăng ký trong hệ thống. Vui lòng thử số điện thoại khác hoặc kiểm tra lại.",
+                    isVi
+                        ? "Không thể hoàn tất đăng ký: Số điện thoại hoặc Email này có thể đã được đăng ký trong hệ thống. Vui lòng thử số điện thoại khác hoặc kiểm tra lại."
+                        : "Unable to complete registration: Phone number or Email may already exist. Please try another.",
                 );
             } else {
                 setSubmitError(
@@ -224,7 +292,9 @@ export function OwnerRegisterPage({
                         error.message &&
                         error.message !== "An unexpected error occurred."
                         ? error.message
-                        : "Không thể tạo tài khoản đối tác lúc này. Vui lòng kiểm tra lại thông tin và thử lại sau.",
+                        : isVi
+                          ? "Không thể tạo tài khoản đối tác lúc này. Vui lòng kiểm tra lại thông tin và thử lại sau."
+                          : "Cannot create partner account right now. Please try again later.",
                 );
             }
         }
@@ -248,8 +318,8 @@ export function OwnerRegisterPage({
                     flex: 1,
                     width: "100%",
                     maxWidth: "100%",
-                    paddingTop: "76px",
-                    paddingBottom: "52px",
+                    paddingTop: "64px",
+                    paddingBottom: "36px",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -294,7 +364,8 @@ export function OwnerRegisterPage({
                                 padding: "40px 36px",
                                 display: "flex",
                                 flexDirection: "column",
-                                justifyContent: "space-between",
+                                justifyContent: "flex-start",
+                                gap: 24,
                                 position: "relative",
                                 overflow: "hidden",
                             }}
@@ -350,10 +421,21 @@ export function OwnerRegisterPage({
                                         color: "#ffffff",
                                     }}
                                 >
-                                    Hợp tác Vận hành <br />
-                                    <span style={{ color: "#e6f85e" }}>
-                                        Bãi đỗ xe Thông minh
-                                    </span>
+                                    {isVi ? (
+                                        <>
+                                            Hợp tác Vận hành <br />
+                                            <span style={{ color: "#e6f85e" }}>
+                                                Bãi đỗ xe Thông minh
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            Partner to Operate <br />
+                                            <span style={{ color: "#e6f85e" }}>
+                                                Smart Parking Network
+                                            </span>
+                                        </>
+                                    )}
                                 </h1>
 
                                 <p
@@ -364,9 +446,9 @@ export function OwnerRegisterPage({
                                         margin: "0 0 32px",
                                     }}
                                 >
-                                    Gia nhập mạng lưới bãi đỗ xe số 1 Việt Nam.
-                                    Số hóa quy trình quản lý, lấp đầy công suất
-                                    và tăng trưởng doanh thu vượt trội.
+                                    {isVi
+                                        ? "Gia nhập mạng lưới bãi đỗ xe số 1 Việt Nam. Số hóa quy trình quản lý, lấp đầy công suất và tăng trưởng doanh thu vượt trội."
+                                        : "Join Vietnam's leading smart parking network. Digitize operations, maximize lot occupancy, and accelerate revenue growth."}
                                 </p>
 
                                 <div style={{ display: "grid", gap: 18 }}>
@@ -411,7 +493,9 @@ export function OwnerRegisterPage({
                                                     color: "#f4f4f5",
                                                 }}
                                             >
-                                                Sơ đồ 2D & 3D tương tác
+                                                {isVi
+                                                    ? "Sơ đồ 2D & 3D tương tác"
+                                                    : "Interactive 2D & 3D Maps"}
                                             </h2>
                                             <p
                                                 style={{
@@ -421,9 +505,9 @@ export function OwnerRegisterPage({
                                                     lineHeight: 1.45,
                                                 }}
                                             >
-                                                Xem và quản lý từng vị trí ô đỗ,
-                                                trạng thái xe vào/ra trực quan
-                                                theo thời gian thực.
+                                                {isVi
+                                                    ? "Xem và quản lý từng vị trí ô đỗ, trạng thái xe vào/ra trực quan theo thời gian thực."
+                                                    : "View and manage every slot, visual vehicle in/out activity in real time."}
                                             </p>
                                         </div>
                                     </div>
@@ -469,7 +553,9 @@ export function OwnerRegisterPage({
                                                     color: "#f4f4f5",
                                                 }}
                                             >
-                                                Tự động hóa doanh thu & VNPay
+                                                {isVi
+                                                    ? "Tự động hóa doanh thu & VNPay"
+                                                    : "Automated Payments & VNPay"}
                                             </h2>
                                             <p
                                                 style={{
@@ -479,9 +565,9 @@ export function OwnerRegisterPage({
                                                     lineHeight: 1.45,
                                                 }}
                                             >
-                                                Thu phí tự động qua mã QR và ví
-                                                điện tử, không lo thất thoát hay
-                                                sai lệch sổ quỹ.
+                                                {isVi
+                                                    ? "Thu phí tự động qua mã QR và ví điện tử, không lo thất thoát hay sai lệch sổ quỹ."
+                                                    : "Seamless automated fee collection via QR codes and e-wallets."}
                                             </p>
                                         </div>
                                     </div>
@@ -532,7 +618,9 @@ export function OwnerRegisterPage({
                                                     color: "#f4f4f5",
                                                 }}
                                             >
-                                                Tiếp cận hàng triệu tài xế
+                                                {isVi
+                                                    ? "Tiếp cận hàng triệu tài xế"
+                                                    : "Reach Millions of Drivers"}
                                             </h2>
                                             <p
                                                 style={{
@@ -542,113 +630,190 @@ export function OwnerRegisterPage({
                                                     lineHeight: 1.45,
                                                 }}
                                             >
-                                                Bãi xe được xuất hiện nổi bật
-                                                trên ứng dụng tìm kiếm của khách
-                                                hàng có nhu cầu gửi xe.
+                                                {isVi
+                                                    ? "Bãi xe được xuất hiện nổi bật trên ứng dụng tìm kiếm của khách hàng có nhu cầu gửi xe."
+                                                    : "Feature your parking lot directly to drivers actively seeking spots nearby."}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div
-                                style={{
-                                    marginTop: 32,
-                                    paddingTop: 24,
-                                    borderTop: "1px solid #27272a",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    position: "relative",
-                                    zIndex: 1,
-                                }}
-                            >
-                                <div>
-                                    <div
-                                        style={{
-                                            fontSize: 12,
-                                            color: "#71717a",
-                                        }}
-                                    >
-                                        Cần hỗ trợ đăng ký đối tác?
-                                    </div>
-                                    <div
-                                        style={{
-                                            fontSize: 13,
-                                            fontWeight: 600,
-                                            color: "#e4e4e7",
-                                        }}
-                                    >
-                                        Hotline: 1900 6868 (8:00 - 21:00)
-                                    </div>
-                                </div>
-                                <span
-                                    style={{
-                                        fontSize: 11,
-                                        padding: "4px 8px",
-                                        borderRadius: 6,
-                                        background: "#1c1c1f",
-                                        border: "1px solid #27272a",
-                                        color: "#a1a1aa",
-                                    }}
-                                >
-                                    Miễn phí đăng ký
-                                </span>
                             </div>
                         </aside>
 
                         {/* ── Cột phải: Form Đăng ký (Brand Identity Đồng bộ) ── */}
                         <div
                             style={{
-                                padding: "40px 44px",
+                                padding: "36px 40px",
                                 display: "flex",
                                 flexDirection: "column",
                                 justifyContent: "center",
                             }}
                         >
-                            <div style={{ marginBottom: 24 }}>
+                            <div style={{ marginBottom: 20 }}>
                                 <div
                                     style={{
                                         display: "flex",
                                         alignItems: "center",
                                         justifyContent: "space-between",
-                                        marginBottom: 6,
+                                        marginBottom: 8,
+                                        gap: 12,
                                     }}
                                 >
                                     <h2
                                         style={{
-                                            fontSize: 24,
+                                            fontSize: 23,
                                             fontWeight: 800,
                                             color: "#09090b",
                                             margin: 0,
                                         }}
                                     >
-                                        Đăng ký tài khoản Chủ bãi
+                                        {isVi
+                                            ? "Đăng ký tài khoản Chủ bãi"
+                                            : "Register Lot Owner Account"}
                                     </h2>
-                                    <span
+
+                                    {/* Nút chuyển đổi Tiếng Việt / Tiếng Anh */}
+                                    <div
                                         style={{
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            color: "#18181b",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 3,
                                             background: "#f4f4f5",
-                                            border: "1px solid #e4e4e7",
-                                            padding: "4px 10px",
+                                            padding: "3px 4px",
                                             borderRadius: 8,
+                                            border: "1px solid #e4e4e7",
+                                            flexShrink: 0,
                                         }}
                                     >
-                                        Dành cho đối tác
-                                    </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                handleSetLanguage("vi")
+                                            }
+                                            style={{
+                                                background: isVi
+                                                    ? "#09090b"
+                                                    : "transparent",
+                                                color: isVi
+                                                    ? "#ffffff"
+                                                    : "#71717a",
+                                                fontWeight: isVi ? 700 : 500,
+                                                border: "none",
+                                                borderRadius: 6,
+                                                padding: "3px 8px",
+                                                fontSize: 11.5,
+                                                cursor: "pointer",
+                                                transition: "all 0.15s ease",
+                                            }}
+                                            title="Tiếng Việt"
+                                        >
+                                            🇻🇳 VI
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                handleSetLanguage("en")
+                                            }
+                                            style={{
+                                                background: !isVi
+                                                    ? "#09090b"
+                                                    : "transparent",
+                                                color: !isVi
+                                                    ? "#ffffff"
+                                                    : "#71717a",
+                                                fontWeight: !isVi ? 700 : 500,
+                                                border: "none",
+                                                borderRadius: 6,
+                                                padding: "3px 8px",
+                                                fontSize: 11.5,
+                                                cursor: "pointer",
+                                                transition: "all 0.15s ease",
+                                            }}
+                                            title="English"
+                                        >
+                                            🇬🇧 EN
+                                        </button>
+                                    </div>
                                 </div>
-                                <p
+
+                                {/* Tiến trình 2 bước tuần tự trực quan (thay cho dòng Bước 1/2...) */}
+                                <div
                                     style={{
-                                        fontSize: 13.5,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 10,
+                                        fontSize: 13,
                                         color: "#71717a",
-                                        margin: 0,
+                                        padding: "4px 0",
                                     }}
                                 >
-                                    Bước 1/2: Khởi tạo tài khoản quản trị bãi xe
-                                    của bạn.
-                                </p>
+                                    <span
+                                        style={{
+                                            fontWeight: 700,
+                                            color: "#09090b",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 6,
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                width: 20,
+                                                height: 20,
+                                                borderRadius: "50%",
+                                                background: "#09090b",
+                                                color: "#e6f85e",
+                                                fontSize: 11,
+                                                fontWeight: 800,
+                                            }}
+                                        >
+                                            1
+                                        </span>
+                                        {isVi
+                                            ? "Khởi tạo tài khoản"
+                                            : "Create Account"}
+                                    </span>
+                                    <span
+                                        style={{
+                                            color: "#d4d4d8",
+                                            userSelect: "none",
+                                        }}
+                                    >
+                                        →
+                                    </span>
+                                    <span
+                                        style={{
+                                            color: "#a1a1aa",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 6,
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                width: 20,
+                                                height: 20,
+                                                borderRadius: "50%",
+                                                background: "#f4f4f5",
+                                                color: "#71717a",
+                                                fontSize: 11,
+                                                fontWeight: 700,
+                                                border: "1px solid #e4e4e7",
+                                            }}
+                                        >
+                                            2
+                                        </span>
+                                        {isVi
+                                            ? "Xác thực Email"
+                                            : "Verify Email"}
+                                    </span>
+                                </div>
                             </div>
 
                             {/* Banner chuyển sang đăng ký khách nếu nhầm */}
@@ -657,8 +822,8 @@ export function OwnerRegisterPage({
                                     background: "#f4f4f5",
                                     border: "1px solid #e4e4e7",
                                     borderRadius: 10,
-                                    padding: "10px 14px",
-                                    marginBottom: 20,
+                                    padding: "9px 13px",
+                                    marginBottom: 18,
                                     fontSize: 12.5,
                                     color: "#18181b",
                                     display: "flex",
@@ -666,7 +831,11 @@ export function OwnerRegisterPage({
                                     justifyContent: "space-between",
                                 }}
                             >
-                                <span>Bạn là tài xế tìm chỗ đỗ xe?</span>
+                                <span>
+                                    {isVi
+                                        ? "Bạn là tài xế tìm chỗ đỗ xe?"
+                                        : "Are you a driver looking for parking?"}
+                                </span>
                                 <Link
                                     href="/sign-up"
                                     style={{
@@ -675,7 +844,9 @@ export function OwnerRegisterPage({
                                         textDecoration: "underline",
                                     }}
                                 >
-                                    Đăng ký tài khoản khách →
+                                    {isVi
+                                        ? "Đăng ký tài khoản khách →"
+                                        : "Register as guest →"}
                                 </Link>
                             </div>
 
@@ -689,7 +860,7 @@ export function OwnerRegisterPage({
                                         padding: "12px 14px",
                                         color: "#b91c1c",
                                         fontSize: 13,
-                                        marginBottom: 18,
+                                        marginBottom: 16,
                                         display: "flex",
                                         alignItems: "center",
                                         gap: 10,
@@ -713,18 +884,48 @@ export function OwnerRegisterPage({
                                         />
                                     </svg>
                                     <div style={{ flex: 1 }}>
-                                        {submitError}
+                                        <div>{submitError}</div>
                                         {emailConflict && (
-                                            <div style={{ marginTop: 4 }}>
-                                                <Link
-                                                    href="/login"
+                                            <div
+                                                style={{
+                                                    marginTop: 8,
+                                                    paddingTop: 8,
+                                                    borderTop:
+                                                        "1px dashed #fca5a5",
+                                                    fontSize: 12.5,
+                                                }}
+                                            >
+                                                <p
                                                     style={{
-                                                        textDecoration:
-                                                            "underline",
-                                                        fontWeight: 700,
+                                                        margin: "0 0 6px 0",
+                                                        color: "#991b1b",
+                                                        fontWeight: 500,
                                                     }}
                                                 >
-                                                    Đăng nhập tại đây
+                                                    {isVi
+                                                        ? "Bạn đã có tài khoản Chủ bãi. Hãy đăng nhập để tiếp tục hoàn thiện hồ sơ pháp lý:"
+                                                        : "You already have a Partner account. Please log in to complete your legal profile:"}
+                                                </p>
+                                                <Link
+                                                    href={`/login?redirect=${encodeURIComponent("/owner/onboarding")}&role=owner&email=${encodeURIComponent(getValues("email") || "")}`}
+                                                    style={{
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        gap: 6,
+                                                        marginTop: 4,
+                                                        padding: "6px 14px",
+                                                        borderRadius: 6,
+                                                        background: "#b91c1c",
+                                                        color: "#fff",
+                                                        fontWeight: 600,
+                                                        textDecoration: "none",
+                                                        fontSize: 12,
+                                                    }}
+                                                >
+                                                    👉{" "}
+                                                    {isVi
+                                                        ? "Đăng nhập để tiếp tục hoàn thiện hồ sơ →"
+                                                        : "Log in to continue legal profile →"}
                                                 </Link>
                                             </div>
                                         )}
@@ -735,7 +936,7 @@ export function OwnerRegisterPage({
                             <form
                                 onSubmit={handleSubmit(onSubmit)}
                                 noValidate
-                                style={{ display: "grid", gap: 14 }}
+                                style={{ display: "grid", gap: 13 }}
                             >
                                 {/* Họ và tên */}
                                 <div>
@@ -749,7 +950,9 @@ export function OwnerRegisterPage({
                                             marginBottom: 5,
                                         }}
                                     >
-                                        Họ và tên người đại diện{" "}
+                                        {isVi
+                                            ? "Họ và tên người đại diện"
+                                            : "Representative Full Name"}{" "}
                                         <span style={{ color: "#ef4444" }}>
                                             *
                                         </span>
@@ -758,7 +961,11 @@ export function OwnerRegisterPage({
                                         id="owner-fullName"
                                         type="text"
                                         autoComplete="name"
-                                        placeholder="Ví dụ: Nguyễn Văn An"
+                                        placeholder={
+                                            isVi
+                                                ? "Ví dụ: Nguyễn Văn An"
+                                                : "e.g. John Doe"
+                                        }
                                         {...register("fullName")}
                                         className={`owner-reg-input ${errors.fullName ? "has-error" : ""}`}
                                     />
@@ -767,7 +974,6 @@ export function OwnerRegisterPage({
                                             style={{
                                                 color: "#ef4444",
                                                 fontSize: 12,
-                                                marginTop: 4,
                                                 margin: "4px 0 0",
                                             }}
                                         >
@@ -796,7 +1002,9 @@ export function OwnerRegisterPage({
                                                 marginBottom: 5,
                                             }}
                                         >
-                                            Email liên hệ{" "}
+                                            {isVi
+                                                ? "Email liên hệ"
+                                                : "Contact Email"}{" "}
                                             <span style={{ color: "#ef4444" }}>
                                                 *
                                             </span>
@@ -833,7 +1041,9 @@ export function OwnerRegisterPage({
                                                 marginBottom: 5,
                                             }}
                                         >
-                                            Số điện thoại di động{" "}
+                                            {isVi
+                                                ? "Số điện thoại di động"
+                                                : "Mobile Phone"}{" "}
                                             <span style={{ color: "#ef4444" }}>
                                                 *
                                             </span>
@@ -872,7 +1082,9 @@ export function OwnerRegisterPage({
                                             marginBottom: 5,
                                         }}
                                     >
-                                        Mật khẩu bảo mật{" "}
+                                        {isVi
+                                            ? "Mật khẩu bảo mật"
+                                            : "Password"}{" "}
                                         <span style={{ color: "#ef4444" }}>
                                             *
                                         </span>
@@ -886,7 +1098,11 @@ export function OwnerRegisterPage({
                                                     : "password"
                                             }
                                             autoComplete="new-password"
-                                            placeholder="Nhập mật khẩu an toàn"
+                                            placeholder={
+                                                isVi
+                                                    ? "Nhập mật khẩu an toàn"
+                                                    : "Enter secure password"
+                                            }
                                             {...register("password")}
                                             className={`owner-reg-input ${errors.password ? "has-error" : ""}`}
                                             style={{ paddingRight: 38 }}
@@ -909,8 +1125,12 @@ export function OwnerRegisterPage({
                                             }}
                                             aria-label={
                                                 passwordVisible
-                                                    ? "Ẩn mật khẩu"
-                                                    : "Hiện mật khẩu"
+                                                    ? isVi
+                                                        ? "Ẩn mật khẩu"
+                                                        : "Hide password"
+                                                    : isVi
+                                                      ? "Hiện mật khẩu"
+                                                      : "Show password"
                                             }
                                         >
                                             <EyeIcon
@@ -930,35 +1150,92 @@ export function OwnerRegisterPage({
                                         </p>
                                     )}
 
-                                    {/* Checklist mật khẩu trực quan */}
+                                    {/* Thanh đo độ mạnh mật khẩu và gợi ý (giống hệt Hình 3) */}
                                     <div
+                                        id="owner-password-strength"
+                                        role="meter"
+                                        aria-label={
+                                            isVi
+                                                ? "Độ mạnh mật khẩu"
+                                                : "Password strength"
+                                        }
+                                        aria-valuemin={0}
+                                        aria-valuemax={4}
+                                        aria-valuenow={passwordStrength}
+                                        aria-valuetext={passwordStrengthLabel}
+                                        style={{ marginTop: 8 }}
+                                    >
+                                        <div
+                                            style={{
+                                                display: "grid",
+                                                gridTemplateColumns:
+                                                    "repeat(4, minmax(0, 1fr))",
+                                                gap: 5,
+                                                marginBottom: 5,
+                                            }}
+                                            aria-hidden="true"
+                                        >
+                                            {[1, 2, 3, 4].map((seg) => {
+                                                const colors = [
+                                                    "#e5e7eb",
+                                                    "#c2413a",
+                                                    "#c77719",
+                                                    "#78a52a",
+                                                    "#207d46",
+                                                ];
+                                                const fillColor =
+                                                    colors[passwordStrength] ||
+                                                    "#e5e7eb";
+                                                return (
+                                                    <span
+                                                        key={seg}
+                                                        style={{
+                                                            height: 4,
+                                                            borderRadius: 99,
+                                                            background:
+                                                                seg <=
+                                                                passwordStrength
+                                                                    ? fillColor
+                                                                    : "#e5e7eb",
+                                                            transition:
+                                                                "background-color 0.2s ease",
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontSize: 12,
+                                                color: "#52525b",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            {passwordValue
+                                                ? `${isVi ? "Độ mạnh mật khẩu" : "Password strength"}: ${passwordStrengthLabel}`
+                                                : isVi
+                                                  ? "Độ mạnh mật khẩu"
+                                                  : "Password strength"}
+                                        </div>
+                                    </div>
+                                    <p
                                         style={{
-                                            marginTop: 8,
-                                            display: "grid",
-                                            gridTemplateColumns: "1fr 1fr",
-                                            gap: "3px 12px",
-                                            fontSize: 11.5,
+                                            fontSize: 12,
+                                            color: passwordMeetsRequirements
+                                                ? "#207d46"
+                                                : "#71717a",
+                                            margin: "4px 0 0",
+                                            lineHeight: 1.4,
                                         }}
                                     >
-                                        {passwordChecks.map((chk, i) => (
-                                            <div
-                                                key={i}
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: 6,
-                                                    color: chk.met
-                                                        ? "#16a34a"
-                                                        : "#a1a1aa",
-                                                }}
-                                            >
-                                                <span>
-                                                    {chk.met ? "✓" : "○"}
-                                                </span>
-                                                <span>{chk.label}</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                                        {passwordMeetsRequirements
+                                            ? isVi
+                                                ? "Mật khẩu đáp ứng đủ yêu cầu bảo mật."
+                                                : "Password meets the requirements."
+                                            : isVi
+                                              ? "Sử dụng từ 8 ký tự trở lên kết hợp chữ hoa, chữ thường, số và ký tự đặc biệt."
+                                              : "Use 8+ characters with uppercase, lowercase, a number, and a symbol."}
+                                    </p>
                                 </div>
 
                                 {/* Xác nhận mật khẩu */}
@@ -973,7 +1250,9 @@ export function OwnerRegisterPage({
                                             marginBottom: 5,
                                         }}
                                     >
-                                        Xác nhận mật khẩu{" "}
+                                        {isVi
+                                            ? "Xác nhận mật khẩu"
+                                            : "Confirm Password"}{" "}
                                         <span style={{ color: "#ef4444" }}>
                                             *
                                         </span>
@@ -987,7 +1266,11 @@ export function OwnerRegisterPage({
                                                     : "password"
                                             }
                                             autoComplete="new-password"
-                                            placeholder="Nhập lại mật khẩu"
+                                            placeholder={
+                                                isVi
+                                                    ? "Nhập lại mật khẩu"
+                                                    : "Re-enter password"
+                                            }
                                             {...register("confirmPassword")}
                                             className={`owner-reg-input ${errors.confirmPassword ? "has-error" : ""}`}
                                             style={{ paddingRight: 38 }}
@@ -1012,8 +1295,12 @@ export function OwnerRegisterPage({
                                             }}
                                             aria-label={
                                                 confirmPasswordVisible
-                                                    ? "Ẩn mật khẩu"
-                                                    : "Hiện mật khẩu"
+                                                    ? isVi
+                                                        ? "Ẩn mật khẩu"
+                                                        : "Hide password"
+                                                    : isVi
+                                                      ? "Hiện mật khẩu"
+                                                      : "Show password"
                                             }
                                         >
                                             <EyeIcon
@@ -1058,7 +1345,9 @@ export function OwnerRegisterPage({
                                             }}
                                         />
                                         <span>
-                                            Tôi đồng ý với{" "}
+                                            {isVi
+                                                ? "Tôi đồng ý với "
+                                                : "I agree to the "}
                                             <Link
                                                 href="/terms-and-conditions"
                                                 target="_blank"
@@ -1068,9 +1357,11 @@ export function OwnerRegisterPage({
                                                     textDecoration: "underline",
                                                 }}
                                             >
-                                                Điều khoản đối tác bãi xe
+                                                {isVi
+                                                    ? "Điều khoản đối tác bãi xe"
+                                                    : "Partner Terms"}
                                             </Link>{" "}
-                                            và{" "}
+                                            {isVi ? "và " : "and "}
                                             <Link
                                                 href="/privacy-policy"
                                                 target="_blank"
@@ -1080,9 +1371,13 @@ export function OwnerRegisterPage({
                                                     textDecoration: "underline",
                                                 }}
                                             >
-                                                Chính sách bảo mật
+                                                {isVi
+                                                    ? "Chính sách bảo mật"
+                                                    : "Privacy Policy"}
                                             </Link>{" "}
-                                            của ParkWise.
+                                            {isVi
+                                                ? "của ParkWise."
+                                                : "of ParkWise."}
                                         </span>
                                     </label>
                                     {errors.termsAccepted && (
@@ -1098,7 +1393,7 @@ export function OwnerRegisterPage({
                                     )}
                                 </div>
 
-                                {/* Nút Submit: Vàng Chanh Neon #E6F85E chữ đen đậm #09090B */}
+                                {/* Nút Submit: Chữ "Tiếp tục" (Hình 4) */}
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
@@ -1141,23 +1436,29 @@ export function OwnerRegisterPage({
                                                         "spin 0.8s linear infinite",
                                                 }}
                                             />
-                                            Đang xử lý đăng ký...
+                                            {isVi
+                                                ? "Đang xử lý..."
+                                                : "Processing..."}
                                         </>
+                                    ) : isVi ? (
+                                        "Tiếp tục"
                                     ) : (
-                                        "Tiếp tục — Xác thực Email →"
+                                        "Continue"
                                     )}
                                 </button>
                             </form>
 
                             <div
                                 style={{
-                                    marginTop: 24,
+                                    marginTop: 20,
                                     textAlign: "center",
                                     fontSize: 13,
                                     color: "#71717a",
                                 }}
                             >
-                                Đã có tài khoản Đối tác?{" "}
+                                {isVi
+                                    ? "Đã có tài khoản Đối tác?"
+                                    : "Already have a Partner account?"}{" "}
                                 <Link
                                     href="/login"
                                     style={{
@@ -1166,7 +1467,7 @@ export function OwnerRegisterPage({
                                         textDecoration: "underline",
                                     }}
                                 >
-                                    Đăng nhập ngay
+                                    {isVi ? "Đăng nhập ngay" : "Log in now"}
                                 </Link>
                             </div>
                         </div>
@@ -1207,7 +1508,7 @@ export function OwnerRegisterPage({
                     display: flex !important;
                     flex-direction: column !important;
                     align-items: center !important;
-                    justify-content: center !important;
+                    justifyContent: center !important;
                 }
                 .owner-reg-wrapper {
                     width: 100% !important;

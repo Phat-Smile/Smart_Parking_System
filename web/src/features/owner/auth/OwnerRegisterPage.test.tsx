@@ -17,10 +17,11 @@ beforeEach(() => {
     mockedRegister.mockReset();
     push.mockReset();
     window.sessionStorage.clear();
+    window.localStorage.clear();
 });
 
 describe("OwnerRegisterPage", () => {
-    it("renders owner registration fields, terms checkbox and links", () => {
+    it("renders owner registration fields, terms checkbox, language switcher, 2-step indicator and continue button", () => {
         render(<OwnerRegisterPage />);
         expect(
             screen.getByLabelText(/Họ và tên người đại diện/i),
@@ -32,18 +33,54 @@ describe("OwnerRegisterPage", () => {
         expect(screen.getByLabelText(/^Mật khẩu bảo mật/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/Xác nhận mật khẩu/i)).toBeInTheDocument();
         expect(screen.getByRole("checkbox")).toBeInTheDocument();
+
+        // Nút Tiếp tục (Hình 4)
         expect(
-            screen.getByRole("button", { name: /Tiếp tục — Xác thực Email/i }),
+            screen.getByRole("button", { name: /^Tiếp tục$/i }),
         ).toBeInTheDocument();
+
+        // 2 bước tuần tự (Hình 5)
+        expect(screen.getByText("Khởi tạo tài khoản")).toBeInTheDocument();
+        expect(screen.getByText("Xác thực Email")).toBeInTheDocument();
+
+        // Nút chuyển ngôn ngữ VI / EN (Hình 4)
+        expect(screen.getByTitle("Tiếng Việt")).toBeInTheDocument();
+        expect(screen.getByTitle("English")).toBeInTheDocument();
+
+        // Độ mạnh mật khẩu (Hình 3)
+        expect(screen.getByText(/^Độ mạnh mật khẩu/i)).toBeInTheDocument();
+    });
+
+    it("switches language between Vietnamese and English", async () => {
+        const user = userEvent.setup();
+        render(<OwnerRegisterPage />);
+
+        // Chuyển sang tiếng Anh
+        await user.click(screen.getByTitle("English"));
+
+        expect(
+            screen.getByRole("button", { name: /^Continue$/i }),
+        ).toBeInTheDocument();
+        expect(screen.getByText("Create Account")).toBeInTheDocument();
+        expect(screen.getByText("Verify Email")).toBeInTheDocument();
+        expect(
+            screen.getByLabelText(/Representative Full Name/i),
+        ).toBeInTheDocument();
+
+        // Chuyển lại tiếng Việt
+        await user.click(screen.getByTitle("Tiếng Việt"));
+
+        expect(
+            screen.getByRole("button", { name: /^Tiếp tục$/i }),
+        ).toBeInTheDocument();
+        expect(screen.getByText("Khởi tạo tài khoản")).toBeInTheDocument();
     });
 
     it("blocks submission when fields are empty", async () => {
         const user = userEvent.setup();
         render(<OwnerRegisterPage />);
 
-        await user.click(
-            screen.getByRole("button", { name: /Tiếp tục — Xác thực Email/i }),
-        );
+        await user.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
         expect(
             await screen.findByText("Họ và tên phải có ít nhất 2 ký tự"),
@@ -89,9 +126,7 @@ describe("OwnerRegisterPage", () => {
         );
         await user.click(screen.getByRole("checkbox"));
 
-        await user.click(
-            screen.getByRole("button", { name: /Tiếp tục — Xác thực Email/i }),
-        );
+        await user.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
         await vi.waitFor(() => {
             expect(mockedRegister).toHaveBeenCalledWith({
@@ -101,6 +136,9 @@ describe("OwnerRegisterPage", () => {
                 password: "PartnerPass123!",
                 accountType: "ParkingLotOwner",
             });
+        });
+
+        await vi.waitFor(() => {
             expect(push).toHaveBeenCalledWith(
                 expect.stringContaining(
                     "/verify-otp?email=partner%40example.com&role=owner",
@@ -147,9 +185,7 @@ describe("OwnerRegisterPage", () => {
         );
         await user.click(screen.getByRole("checkbox"));
 
-        await user.click(
-            screen.getByRole("button", { name: /Tiếp tục — Xác thực Email/i }),
-        );
+        await user.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
         expect(
             await screen.findByText(
@@ -193,9 +229,7 @@ describe("OwnerRegisterPage", () => {
         );
         await user.click(screen.getByRole("checkbox"));
 
-        await user.click(
-            screen.getByRole("button", { name: /Tiếp tục — Xác thực Email/i }),
-        );
+        await user.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
         expect(
             await screen.findByText(
