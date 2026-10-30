@@ -59,13 +59,47 @@ public class GetMyWalletQueryHandlerTests
         }
     }
 
+    private class FakeVnpayTransactionRepository : IVnpayTransactionRepository
+    {
+        public readonly List<VnpayTransaction> Transactions = [];
+
+        public Task<VnpayTransaction?> GetByTxnRefAsync(string txnRef, CancellationToken cancellationToken) =>
+            Task.FromResult(Transactions.FirstOrDefault(t => t.TxnRef == txnRef));
+
+        public Task<VnpayTransaction?> GetByWalletIdAndRequestKeyAsync(Guid walletId, string clientRequestKey, CancellationToken cancellationToken) =>
+            Task.FromResult(Transactions.FirstOrDefault(t => t.WalletId == walletId && t.ClientRequestKey == clientRequestKey));
+
+        public Task AddAsync(VnpayTransaction transaction, CancellationToken cancellationToken)
+        {
+            Transactions.Add(transaction);
+            return Task.CompletedTask;
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<VnpayTransaction?> GetTopupByTxnRefAndUserIdAsync(string txnRef, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(Transactions.FirstOrDefault(t => t.TxnRef == txnRef));
+
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
+        {
+            var items = Transactions
+                .Where(t => t.WalletId == walletId && t.Status == VnpayTransactionStatus.Pending)
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
+        }
+    }
+
     private readonly FakeWalletRepository _fakeRepository;
+    private readonly FakeVnpayTransactionRepository _fakeTxnRepository;
     private readonly IOptions<WalletOptions> _walletOptions;
     private readonly IOptions<VnpayOptions> _vnpayOptions;
 
     public GetMyWalletQueryHandlerTests()
     {
         _fakeRepository = new FakeWalletRepository();
+        _fakeTxnRepository = new FakeVnpayTransactionRepository();
         _walletOptions = Options.Create(new WalletOptions
         {
             MinTopUpVnd = 10000m,
@@ -78,11 +112,14 @@ public class GetMyWalletQueryHandlerTests
         });
     }
 
+    private GetMyWalletQueryHandler CreateHandler() =>
+        new(_fakeRepository, _fakeTxnRepository, _walletOptions, _vnpayOptions);
+
     [Fact]
     public async Task Handle_WhenCustomerHasNoWallet_ShouldReturnZeroBalanceAndEmptyPendingTopUps()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var userId = Guid.NewGuid();
         var query = new GetMyWalletQuery(userId);
 
@@ -109,7 +146,7 @@ public class GetMyWalletQueryHandlerTests
         wallet.AddEntry(LedgerEntryType.TopUp, 150000m);
         _fakeRepository.SeedWallet(wallet);
 
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var query = new GetMyWalletQuery(userId);
 
         // Act
@@ -127,7 +164,7 @@ public class GetMyWalletQueryHandlerTests
     public async Task Handle_ShouldReturnLimitsAndGatewayModeFromConfiguration()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var userId = Guid.NewGuid();
         var query = new GetMyWalletQuery(userId);
 
@@ -147,7 +184,7 @@ public class GetMyWalletQueryHandlerTests
     public async Task Handle_ShouldAlwaysIncludeNfr11DemoNoticeAndIsDemoTrue()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var userId = Guid.NewGuid();
         var query = new GetMyWalletQuery(userId);
 
@@ -165,7 +202,7 @@ public class GetMyWalletQueryHandlerTests
     public async Task Handle_WhenUserIdIsEmpty_ShouldReturnFailure()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var query = new GetMyWalletQuery(Guid.Empty);
 
         // Act
@@ -175,5 +212,48 @@ public class GetMyWalletQueryHandlerTests
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
         Assert.Equal("payment.invalid_user", result.Error.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCustomerHasPendingTopUps_ShouldReturnRecentPendingTopUps()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var wallet = Wallet.Create(userId);
+        _fakeRepository.SeedWallet(wallet);
+
+        var txn1 = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            Guid.NewGuid().ToString("N"),
+            wallet.Id,
+            50000m,
+            "req-key-1",
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            DateTimeOffset.UtcNow.AddMinutes(10));
+
+        var txn2 = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            Guid.NewGuid().ToString("N"),
+            wallet.Id,
+            100000m,
+            "req-key-2",
+            DateTimeOffset.UtcNow.AddMinutes(-2),
+            DateTimeOffset.UtcNow.AddMinutes(13));
+
+        _fakeTxnRepository.Transactions.Add(txn1);
+        _fakeTxnRepository.Transactions.Add(txn2);
+
+        var handler = CreateHandler();
+        var query = new GetMyWalletQuery(userId);
+
+        // Act
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(2, result.Value.PendingTopUps.Count);
+        Assert.Equal(txn2.TxnRef, result.Value.PendingTopUps[0].TopupId); // Mới nhất lên đầu
+        Assert.Equal(100000m, result.Value.PendingTopUps[0].Amount);
     }
 }

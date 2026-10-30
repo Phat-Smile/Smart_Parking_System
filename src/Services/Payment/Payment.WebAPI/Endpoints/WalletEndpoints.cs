@@ -10,6 +10,7 @@ using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetMyWallet;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetWalletTopupStatus;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetWalletTransactions;
 using ParkingSystem.Payment.WebAPI.Models;
+using ParkingSystem.Payment.WebAPI.Security;
 
 namespace ParkingSystem.Payment.WebAPI.Endpoints;
 
@@ -19,7 +20,7 @@ public static class WalletEndpoints
     public static IEndpointRouteBuilder MapWalletEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/payment/wallets")
-            .RequireAuthorization();
+            .RequireAuthorization(PaymentAuthorization.CustomerPolicy);
 
         // Tra cứu số dư ví của người dùng hiện tại
         group.MapGet("/me", async (

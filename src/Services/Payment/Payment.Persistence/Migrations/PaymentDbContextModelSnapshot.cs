@@ -111,6 +111,113 @@ namespace ParkingSystem.Payment.Persistence.Migrations
                     b.ToTable("audit_logs", "payment");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.ParkingFeePayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountPaid")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("ExitWindowExpiresUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ParkingLotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("PaymentTimeUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PlateNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<long>("PrepaidAmount")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<long>("TotalFee")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid>("WalletId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("WalletId");
+
+                    b.ToTable("parking_fee_payments", "payment");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.PaymentIdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("LockedUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ResponsePayload")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId", "Operation", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payment_idempotency_account_op_key");
+
+                    b.ToTable("payment_idempotency_records", "payment");
+                });
+
             modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.VnpayTransaction", b =>
                 {
                     b.Property<Guid>("Id")

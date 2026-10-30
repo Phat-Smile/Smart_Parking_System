@@ -63,6 +63,16 @@ public class ProcessVnpayIpnCommandHandlerTests
             _txns.TryGetValue(txnRef, out var tx);
             return Task.FromResult(tx);
         }
+
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
+        {
+            var items = _txns.Values
+                .Where(t => t.WalletId == walletId && t.Status == VnpayTransactionStatus.Pending)
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
+        }
     }
 
     private class FakeWalletRepository : IWalletRepository
