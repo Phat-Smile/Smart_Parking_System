@@ -13,8 +13,15 @@ import { CustomerMap } from "./CustomerMap";
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
-import { getApprovedParkingLots, type ParkingLotSummary } from "./parkingLotApi";
-import { previewParkingLots } from "./previewParkingLots";
+import {
+    getApprovedParkingLots,
+    searchNearbyParkingLots,
+    type NearbyParkingLot,
+    type ParkingLotSummary,
+} from "./parkingLotApi";
+
+// A search result: an approved lot, with its distance when the search had a point.
+type SearchResult = ParkingLotSummary & { distanceKm?: number };
 import {
     geocodeDestination,
     retrieveDestination,
@@ -92,7 +99,9 @@ export function CustomerFindParkingPage({
         latitude: number;
     } | null>(null);
     const [approvedLots, setApprovedLots] = useState<ParkingLotSummary[]>([]);
-    const [catalogState, setCatalogState] = useState<"loading" | "ready" | "error">("loading");
+    const [catalogState, setCatalogState] = useState<
+        "loading" | "ready" | "error"
+    >("loading");
     useEffect(() => {
         const controller = new AbortController();
         getApprovedParkingLots(controller.signal)
@@ -201,40 +210,52 @@ export function CustomerFindParkingPage({
         hasActiveFilters ||
         Boolean(destination.trim() || submittedDestination) ||
         vehicleType !== "any";
-    const visibleParkings = previewParkingLots
-        .filter((parking) => {
-            const query = submittedDestination.toLocaleLowerCase();
-            return (
-                (!query ||
-                    query === "current location" ||
-                    `${parking.name} ${parking.type} ${parking.area} ho chi minh city`
-                        .toLocaleLowerCase()
-                        .includes(query)) &&
-                parking.hourlyPrice <= filters.maxPrice &&
-                (filters.distance === "any" ||
-                    parking.distanceKm <= Number(filters.distance)) &&
-                (filters.availability === "any" ||
-                    (filters.availability === "available" &&
-                        parking.spaces > 0) ||
-                    (filters.availability === "prebookable" &&
-                        parking.prebookable)) &&
-                (filters.compatibility.length === 0 ||
-                    filters.compatibility.some((type) =>
-                        parking.compatible.includes(type),
-                    )) &&
-                filters.amenities.every((amenity) =>
-                    parking.amenities.includes(amenity),
-                ) &&
-                (vehicleType === "any" ||
-                    parking.compatible.includes(vehicleType))
-            );
-        })
-        .sort((a, b) => {
-            if (filters.sort === "name") return a.name.localeCompare(b.name);
-            if (filters.sort === "price") return a.hourlyPrice - b.hourlyPrice;
-            if (filters.sort === "distance") return a.distanceKm - b.distanceKm;
-            return previewParkingLots.indexOf(a) - previewParkingLots.indexOf(b);
-        });
+    const searchOrigin = destinationLocation ?? currentLocation;
+    const radiusKm = filters.distance === "any" ? 5 : Number(filters.distance);
+    const [nearby, setNearby] = useState<{
+        key: string;
+        state: "loading" | "ready" | "error";
+        lots: NearbyParkingLot[];
+    } | null>(null);
+    const originKey = searchOrigin
+        ? `${searchOrigin.latitude},${searchOrigin.longitude},${radiusKm}`
+        : "";
+    useEffect(() => {
+        if (!originKey) return;
+        const [latitude, longitude, radius] = originKey.split(",").map(Number);
+        const controller = new AbortController();
+        void (async () => {
+            setNearby({ key: originKey, state: "loading", lots: [] });
+            try {
+                const lots = await searchNearbyParkingLots(
+                    latitude,
+                    longitude,
+                    radius,
+                    controller.signal,
+                );
+                setNearby({ key: originKey, state: "ready", lots });
+            } catch {
+                if (!controller.signal.aborted)
+                    setNearby({ key: originKey, state: "error", lots: [] });
+            }
+        })();
+        return () => controller.abort();
+    }, [originKey]);
+    const nearbyCurrent = nearby?.key === originKey ? nearby : null;
+    const resultsState: "loading" | "ready" | "error" = originKey
+        ? (nearbyCurrent?.state ?? "loading")
+        : catalogState;
+    const results: SearchResult[] = originKey
+        ? (nearbyCurrent?.lots ?? [])
+        : approvedLots;
+    // Price, availability, vehicle type and amenity filters need data Parking does not return in search yet.
+    const visibleParkings = [...results].sort((a, b) => {
+        if (filters.sort === "name") return a.name.localeCompare(b.name);
+        return (
+            (a.distanceKm ?? 0) - (b.distanceKm ?? 0) ||
+            a.name.localeCompare(b.name)
+        );
+    });
     const activeSelectedId = visibleParkings.some(
         (parking) => parking.id === selectedId,
     )
@@ -321,7 +342,7 @@ export function CustomerFindParkingPage({
             setDestinationLocation(coordinates);
             setSubmittedDestination("");
             setSearchMessage(
-                `Map centered on “${suggestion.name}”. Parking locations below are examples, not live search results.`,
+                `Showing approved parking lots near “${suggestion.name}”.`,
             );
         } catch {
             if (!controller.signal.aborted) {
@@ -375,9 +396,7 @@ export function CustomerFindParkingPage({
 
         if (selectedSuggestion?.name === query && destinationLocation) {
             setSearchBusy(false);
-            setSearchMessage(
-                `Map centered on “${query}”. Parking locations below are examples, not live search results.`,
-            );
+            setSearchMessage(`Showing approved parking lots near “${query}”.`);
             return;
         }
 
@@ -387,8 +406,8 @@ export function CustomerFindParkingPage({
             setSubmittedDestination(query);
             setSearchMessage(
                 query
-                    ? `Showing matching example locations for “${query}”.`
-                    : "Showing all example parking locations.",
+                    ? "Destination search needs the Mapbox token. Showing all approved parking lots."
+                    : "Showing all approved parking lots.",
             );
             return;
         }
@@ -413,9 +432,7 @@ export function CustomerFindParkingPage({
             setCurrentLocation(null);
             setDestinationLocation(coordinates);
             setSubmittedDestination("");
-            setSearchMessage(
-                `Map centered on “${query}”. Parking locations below are examples, not live search results.`,
-            );
+            setSearchMessage(`Showing approved parking lots near “${query}”.`);
         } catch {
             if (!controller.signal.aborted) {
                 setSearchMessage(
@@ -713,30 +730,6 @@ export function CustomerFindParkingPage({
                     </p>
                 )}
 
-                <section className="customer-search-live-lots" aria-labelledby="customer-search-live-title">
-                    <div className="customer-search-live-header">
-                        <div>
-                            <span>APPROVED PARKING LOTS</span>
-                            <h2 id="customer-search-live-title">Explore real parking locations</h2>
-                        </div>
-                        <p>Details are provided by the Parking service.</p>
-                    </div>
-                    {catalogState === "loading" && <p role="status">Loading parking lots…</p>}
-                    {catalogState === "error" && <p role="status">Live parking lots are unavailable right now.</p>}
-                    {catalogState === "ready" && approvedLots.length === 0 && <p>No approved parking lots are available yet.</p>}
-                    {catalogState === "ready" && approvedLots.length > 0 && (
-                        <div className="customer-search-live-list">
-                            {approvedLots.map((lot) => (
-                                <Link key={lot.id} href={`/parking-lots/${lot.id}`} className="customer-search-live-card">
-                                    <span className="customer-search-live-icon"><CustomerIcon name="location" size={21} /></span>
-                                    <span><strong>{lot.name}</strong><small>{lot.address}</small></span>
-                                    <span className="customer-search-live-action">View details <CustomerIcon name="arrow" size={16} /></span>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
-                </section>
-
                 <div className="customer-search-toolbar">
                     <div className="customer-search-toolbar-header">
                         <div className="customer-search-filter-summary">
@@ -1020,10 +1013,8 @@ export function CustomerFindParkingPage({
                     </div>
                     <div className="customer-search-results-toolbar">
                         <span className="customer-search-preview-count">
-                            {visibleParkings.length} example{" "}
-                            {visibleParkings.length === 1
-                                ? "location"
-                                : "locations"}{" "}
+                            {visibleParkings.length} parking{" "}
+                            {visibleParkings.length === 1 ? "lot" : "lots"}{" "}
                             found
                         </span>
                         <div className="customer-search-sort-control">
@@ -1048,22 +1039,24 @@ export function CustomerFindParkingPage({
                         <div className="customer-search-results-note">
                             <CustomerIcon name="location" size={17} />
                             <span>
-                                Prices, distances and spaces below are example
-                                values. Live availability and booking are not
-                                connected yet.
+                                {resultsState === "loading"
+                                    ? "Loading approved parking lots…"
+                                    : resultsState === "error"
+                                      ? "Parking search is unavailable right now. Try again later."
+                                      : searchOrigin
+                                        ? `Approved parking lots within ${radiusKm} km. Price and free spaces are on each lot's page.`
+                                        : "All approved parking lots. Search a destination to see the nearest ones."}
                             </span>
                         </div>
                         <div className="customer-search-list">
-                            {visibleParkings.map((parking, index) => (
+                            {visibleParkings.map((parking) => (
                                 <article
                                     className={`customer-search-result ${activeSelectedId === parking.id ? "selected" : ""}`}
                                     key={parking.id}
                                 >
                                     <div className="customer-search-result-top">
                                         <span>
-                                            {index === 0
-                                                ? "FEATURED PREVIEW"
-                                                : "DESIGN PREVIEW"}
+                                            {parking.type.toUpperCase()}
                                         </span>
                                         {activeSelectedId === parking.id && (
                                             <strong>
@@ -1078,7 +1071,7 @@ export function CustomerFindParkingPage({
                                     <div className="customer-search-result-main">
                                         <div className="customer-search-result-photo">
                                             <Image
-                                                src={parking.image}
+                                                src="/images/parkwise/dashboard-parking-structure.webp"
                                                 alt="Illustration of a parking facility"
                                                 fill
                                                 sizes="(max-width: 700px) 100vw, 200px"
@@ -1091,8 +1084,7 @@ export function CustomerFindParkingPage({
                                                     name="location"
                                                     size={15}
                                                 />{" "}
-                                                {parking.type} · {parking.area},
-                                                Ho Chi Minh City
+                                                {parking.address}
                                             </p>
                                             <div className="customer-search-result-metrics">
                                                 <span>
@@ -1102,30 +1094,11 @@ export function CustomerFindParkingPage({
                                                     />
                                                     <small>Distance</small>
                                                     <b>
-                                                        {parking.distanceKm} km
-                                                        demo
+                                                        {parking.distanceKm ===
+                                                        undefined
+                                                            ? "—"
+                                                            : `${parking.distanceKm} km`}
                                                     </b>
-                                                </span>
-                                                <span>
-                                                    <CustomerIcon
-                                                        name="price"
-                                                        size={17}
-                                                    />
-                                                    <small>Price / hour</small>
-                                                    <b>
-                                                        {parking.hourlyPrice.toLocaleString(
-                                                            "vi-VN",
-                                                        )}
-                                                        ₫ demo
-                                                    </b>
-                                                </span>
-                                                <span>
-                                                    <CustomerIcon
-                                                        name="car"
-                                                        size={17}
-                                                    />
-                                                    <small>Spaces</small>
-                                                    <b>{parking.spaces} demo</b>
                                                 </span>
                                             </div>
                                             <div className="customer-search-result-actions">
@@ -1145,11 +1118,14 @@ export function CustomerFindParkingPage({
                                                     />
                                                 </button>
                                                 <Link
-                                                    href={`/parking-lots/preview/${parking.id}`}
+                                                    href={`/parking-lots/${parking.id}`}
                                                     className="customer-shell-primary"
                                                 >
                                                     View details
-                                                    <CustomerIcon name="arrow" size={15} />
+                                                    <CustomerIcon
+                                                        name="arrow"
+                                                        size={15}
+                                                    />
                                                 </Link>
                                             </div>
                                         </div>
@@ -1157,24 +1133,26 @@ export function CustomerFindParkingPage({
                                 </article>
                             ))}
                         </div>
-                        {visibleParkings.length === 0 && (
-                            <div className="customer-search-empty">
-                                <CustomerIcon name="search" size={28} />
-                                <strong>No matching example locations</strong>
-                                <p>
-                                    Try another destination or clear the
-                                    filters. Live parking search is not
-                                    connected yet.
-                                </p>
-                                <button
-                                    type="button"
-                                    className="customer-shell-secondary"
-                                    onClick={clearFilters}
-                                >
-                                    Clear filters
-                                </button>
-                            </div>
-                        )}
+                        {resultsState === "ready" &&
+                            visibleParkings.length === 0 && (
+                                <div className="customer-search-empty">
+                                    <CustomerIcon name="search" size={28} />
+                                    <strong>
+                                        No approved parking lots found
+                                    </strong>
+                                    <p>
+                                        Try another destination or a larger
+                                        distance.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        className="customer-shell-secondary"
+                                        onClick={clearFilters}
+                                    >
+                                        Clear filters
+                                    </button>
+                                </div>
+                            )}
                     </div>
                     <div className="customer-search-map-column">
                         <div className="customer-search-map-header">
@@ -1186,14 +1164,12 @@ export function CustomerFindParkingPage({
                             onSelect={setSelectedId}
                             currentLocation={currentLocation}
                             destinationLocation={destinationLocation}
-                            visibleIds={visibleParkings.map(
-                                (parking) => parking.id,
-                            )}
+                            lots={visibleParkings}
                         />
                         <div className="customer-search-map-footer">
                             <span>
                                 <i className="customer-search-map-dot" />{" "}
-                                Example location
+                                Approved parking lot
                             </span>
                             <Link href="/customer/vehicles">
                                 Manage vehicles{" "}

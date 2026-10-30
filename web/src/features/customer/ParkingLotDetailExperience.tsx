@@ -7,7 +7,6 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import {
     ArrowLeft,
     ArrowRight,
-    ArrowUpRight,
     CalendarDays,
     Camera,
     BatteryCharging,
@@ -43,7 +42,6 @@ import {
 } from "@/features/auth/authSession";
 import { getMyVehicles, type RegisteredVehicle } from "./myVehiclesApi";
 import { isFutureBookingStart } from "./bookingDateTime";
-import { previewParkingLots } from "./previewParkingLots";
 import type { DailyOpeningHours } from "./parkingLotApi";
 
 export type ParkingLotDetailView = {
@@ -63,6 +61,9 @@ export type ParkingLotDetailView = {
     rating?: number;
     reviewCount?: number;
     spaces?: number;
+    /** Prices and free spaces from Parking (lot detail), already worded for the page. */
+    priceText?: string | null;
+    spacesText?: string | null;
     compatible?: string[];
     amenities?: string[];
 };
@@ -180,9 +181,6 @@ export function ParkingLotDetailExperience({
         lot.latitude !== undefined && lot.longitude !== undefined
             ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lot.latitude},${lot.longitude}`)}`
             : null;
-    const nearby = lot.isPreview
-        ? previewParkingLots.filter((item) => item.id !== lot.id)
-        : [];
     const selectedVehicle = vehicles.find(
         (item) => item.vehicleId === vehicleId,
     );
@@ -350,14 +348,15 @@ export function ParkingLotDetailExperience({
                                 <Tag size={21} />
                                 <span>
                                     <strong>
-                                        {lot.hourlyPrice === undefined
-                                            ? "—"
-                                            : formatMoney(lot.hourlyPrice)}
+                                        {lot.priceText ??
+                                            (lot.hourlyPrice === undefined
+                                                ? "—"
+                                                : formatMoney(lot.hourlyPrice))}
                                     </strong>
                                     <small>
-                                        {lot.isPreview
-                                            ? "parking rate / hour"
-                                            : "rate unavailable"}
+                                        {lot.priceText
+                                            ? "current price"
+                                            : "no price set yet"}
                                     </small>
                                 </span>
                             </div>
@@ -365,13 +364,14 @@ export function ParkingLotDetailExperience({
                                 <CarFront size={21} />
                                 <span>
                                     <strong>
-                                        {lot.spaces === undefined
-                                            ? "—"
-                                            : lot.spaces}
+                                        {lot.spacesText ??
+                                            (lot.spaces === undefined
+                                                ? "—"
+                                                : lot.spaces)}
                                     </strong>
                                     <small>
-                                        {lot.isPreview
-                                            ? "available spaces"
+                                        {lot.spacesText
+                                            ? "free spaces now"
                                             : "availability unavailable"}
                                     </small>
                                 </span>
@@ -727,59 +727,6 @@ export function ParkingLotDetailExperience({
                     </aside>
                 </div>
 
-                {nearby.length > 0 && (
-                    <section
-                        className="lot-detail-nearby"
-                        aria-labelledby="lot-detail-nearby-title"
-                    >
-                        <div className="lot-detail-section-heading">
-                            <div>
-                                <h2 id="lot-detail-nearby-title">
-                                    Nearby Parking Options
-                                </h2>
-                                <p>Explore more parking lots nearby.</p>
-                            </div>
-                            <Link href="/search">
-                                View all <ArrowUpRight size={15} />
-                            </Link>
-                        </div>
-                        <div className="lot-detail-nearby-list">
-                            {nearby.map((item) => (
-                                <Link
-                                    href={`/parking-lots/preview/${item.id}`}
-                                    key={item.id}
-                                >
-                                    <Image
-                                        src={item.image}
-                                        alt={`${item.name} parking facility`}
-                                        width={78}
-                                        height={54}
-                                        loading="eager"
-                                    />
-                                    <span>
-                                        <strong>{item.name}</strong>
-                                        <small>
-                                            {item.area} · {item.distanceKm} km
-                                            away
-                                        </small>
-                                        <span className="lot-detail-nearby-rating">
-                                            <Star
-                                                size={12}
-                                                fill="currentColor"
-                                            />
-                                            {item.rating.toFixed(1)} (
-                                            {item.reviewCount})
-                                        </span>
-                                        <b>
-                                            {formatMoney(item.hourlyPrice)}/hour
-                                        </b>
-                                    </span>
-                                    <ChevronRight size={18} />
-                                </Link>
-                            ))}
-                        </div>
-                    </section>
-                )}
                 <Link href="/search" className="lot-detail-bottom-back">
                     <ArrowLeft size={16} /> Back to Find Parking
                 </Link>
