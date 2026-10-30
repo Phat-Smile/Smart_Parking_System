@@ -30,6 +30,48 @@ export default function ParkingLotDetailPage() {
     const [editing, setEditing] = useState(false);
     const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+    if (!lot) {
+        return (
+            <div
+                style={{
+                    maxWidth: 800,
+                    margin: "60px auto",
+                    textAlign: "center",
+                    padding: "32px 20px",
+                }}
+            >
+                <h2
+                    style={{
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "#0f1b3d",
+                        marginBottom: 12,
+                    }}
+                >
+                    Không tìm thấy bãi đỗ xe
+                </h2>
+                <p style={{ color: "#6a7491", fontSize: 14, marginBottom: 24 }}>
+                    Bãi đỗ xe này chưa được tạo hoặc danh sách bãi đang được
+                    đồng bộ từ hệ thống.
+                </p>
+                <Link
+                    href="/owner/parking-lots"
+                    style={{
+                        display: "inline-block",
+                        padding: "10px 20px",
+                        background: "#0f1b3d",
+                        color: "#fff",
+                        borderRadius: 8,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                    }}
+                >
+                    ← Quay lại danh sách bãi
+                </Link>
+            </div>
+        );
+    }
+
     // New zone form state
     const [zoneName, setZoneName] = useState("");
     const [zoneType, setZoneType] = useState<"car" | "moto">("car");
@@ -105,10 +147,16 @@ export default function ParkingLotDetailPage() {
                         <Link href="/owner/parking-lots" className="btn">
                             ← Danh sách
                         </Link>
-                        <Link href={`/owner/lots/${id}/policies`} className="btn">
+                        <Link
+                            href={`/owner/lots/${id}/policies`}
+                            className="btn"
+                        >
                             Chính sách đặt chỗ & cọc
                         </Link>
-                        <Link href={`/owner/lots/${id}/pricing`} className="btn">
+                        <Link
+                            href={`/owner/lots/${id}/pricing`}
+                            className="btn"
+                        >
                             Biểu giá
                         </Link>
                         {!isPending &&
@@ -498,17 +546,33 @@ export default function ParkingLotDetailPage() {
                             }}
                         >
                             <div>
-                                <div style={{ fontWeight: 600, color: "#1e40af", fontSize: "14px" }}>
+                                <div
+                                    style={{
+                                        fontWeight: 600,
+                                        color: "#1e40af",
+                                        fontSize: "14px",
+                                    }}
+                                >
                                     Trang Cấu hình Chính sách Nâng cao
                                 </div>
-                                <div style={{ fontSize: "12px", color: "#3b82f6" }}>
-                                    Cấu hình tỷ lệ suất đặt trước (10% - 50%), mức tiền cọc 15 phút và đồng bộ trực tiếp với máy chủ.
+                                <div
+                                    style={{
+                                        fontSize: "12px",
+                                        color: "#3b82f6",
+                                    }}
+                                >
+                                    Cấu hình tỷ lệ suất đặt trước (10% - 50%),
+                                    mức tiền cọc 15 phút và đồng bộ trực tiếp
+                                    với máy chủ.
                                 </div>
                             </div>
                             <Link
                                 href={`/owner/lots/${id}/policies`}
                                 className="btn p"
-                                style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                                style={{
+                                    whiteSpace: "nowrap",
+                                    fontSize: "13px",
+                                }}
                             >
                                 Mở trang chính sách →
                             </Link>

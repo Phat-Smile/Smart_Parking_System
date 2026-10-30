@@ -223,84 +223,8 @@ export function createInitialSpots(): ParkingSpot[] {
     return spots;
 }
 
-// Initial Lots
-export const INITIAL_LOTS: ParkingLot[] = [
-    {
-        id: 1,
-        name: "Bãi đỗ xe Vincom Đồng Khởi",
-        addr: "72 Lê Thánh Tôn, Q.1, TP.HCM",
-        gps: "10.7769, 106.7009",
-        op: "06:00",
-        cl2: "22:00",
-        vc: true,
-        vm: false,
-        cc: 500,
-        cm: 0,
-        fls: 5,
-        pc: 30000,
-        pm: 5000,
-        dep: 20000,
-        res: "on",
-        hold: 15,
-        maxr: 10,
-        fc: 10,
-        ap: "approved",
-        zones: [
-            { n: "Dãy A", t: "car", c: 125, s: "open" },
-            { n: "Dãy B", t: "car", c: 125, s: "open" },
-            { n: "Dãy C", t: "car", c: 125, s: "open" },
-            { n: "Dãy D", t: "car", c: 125, s: "open" },
-        ],
-    },
-    {
-        id: 2,
-        name: "Bãi xe Nguyễn Huệ",
-        addr: "25 Nguyễn Huệ, Q.1, TP.HCM",
-        gps: "10.7740, 106.7030",
-        op: "06:00",
-        cl2: "23:00",
-        vc: true,
-        vm: true,
-        cc: 30,
-        cm: 40,
-        fls: 2,
-        pc: 35000,
-        pm: 6000,
-        dep: 20000,
-        res: "on",
-        hold: 30,
-        maxr: 6,
-        fc: 10,
-        ap: "pending",
-        zones: [
-            { n: "Khu Ô tô", t: "car", c: 30, s: "open" },
-            { n: "Khu Xe máy", t: "moto", c: 40, s: "open" },
-        ],
-    },
-    {
-        id: 3,
-        name: "Bãi xe Pasteur",
-        addr: "12 Pasteur, Q.3, TP.HCM",
-        gps: "10.7790, 106.6930",
-        op: "05:30",
-        cl2: "22:00",
-        vc: true,
-        vm: false,
-        cc: 96,
-        cm: 0,
-        fls: 4,
-        pc: 28000,
-        pm: 5000,
-        dep: 15000,
-        res: "off",
-        hold: 15,
-        maxr: 0,
-        fc: 0,
-        ap: "rejected",
-        why: "Ảnh sơ đồ chưa khớp địa chỉ. Vui lòng cập nhật vị trí GPS và gửi lại.",
-        zones: [{ n: "Khu A", t: "car", c: 96, s: "open" }],
-    },
-];
+// Initial Lots - Empty by default; loaded dynamically from GET /api/parking/owner/lots
+export const INITIAL_LOTS: ParkingLot[] = [];
 
 // Initial Reservations
 export const INITIAL_RESERVATIONS: Reservation[] = [
