@@ -27,6 +27,7 @@ using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
 using ParkingSystem.Identity.Application.Vehicles.DeleteVehicle;
 using ParkingSystem.Identity.Application.Vehicles.GetVehicles;
+using ParkingSystem.Identity.Application.Vehicles.SetDefaultVehicle;
 using ParkingSystem.Identity.WebAPI.Security;
 
 namespace ParkingSystem.Identity.WebAPI.Endpoints;
@@ -1044,6 +1045,43 @@ internal static class AccountEndpoints
             .Produces<DeletedVehicleResult>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // US-VEH-002 / US-VEH-003: Đặt phương tiện làm xe mặc định của tài khoản.
+        app.MapPatch("/api/identity/accounts/me/vehicles/{vehicleId:guid}/default", async (
+                Guid vehicleId,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new SetDefaultVehicleCommand(accountId, vehicleId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.NoContent();
+
+                var statusCode = result.Error!.Code switch
+                {
+                    "identity.vehicle_not_found" => StatusCodes.Status404NotFound,
+                    "identity.account_not_found" => StatusCodes.Status404NotFound,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                return Results.Problem(
+                    statusCode: statusCode,
+                    title: result.Error.Message,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("6. Phương tiện (Vehicles)")
+            .WithName("SetDefaultVehicle")
+            .WithSummary("Đặt phương tiện làm xe mặc định (US-VEH-003)")
+            .WithDescription("Đặt xe chỉ định làm xe mặc định của tài khoản. Các xe khác sẽ tự động bỏ chọn mặc định.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
         // US-ADMIN-001: Lấy thông tin trạng thái xét duyệt Chủ bãi của tài khoản hiện tại.

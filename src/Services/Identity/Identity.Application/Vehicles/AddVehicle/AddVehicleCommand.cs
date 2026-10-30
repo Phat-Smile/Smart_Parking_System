@@ -21,7 +21,8 @@ public sealed record AddedVehicleResult(
     string LicensePlate,
     string VehicleType,
     string? NickName,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    bool IsDefault);
 
 public static class AddVehicleErrors
 {
@@ -86,13 +87,18 @@ public sealed class AddVehicleCommandHandler(
         if (plateExists)
             return Result<AddedVehicleResult>.Failure(AddVehicleErrors.PlateAlreadyRegistered);
 
+        // US-VEH-003: Chiếc xe đầu tiên của tài khoản sẽ tự động được đặt làm xe mặc định.
+        var existingVehicles = await vehicles.ListByAccountIdAsync(request.AccountId, cancellationToken);
+        var isFirstVehicle = existingVehicles.Count == 0;
+
         var vehicle = Vehicle.Add(
             Guid.NewGuid(),
             request.AccountId,
             normalizedPlate,
             vehicleType,
             clock.UtcNow,
-            request.NickName);
+            request.NickName,
+            isDefault: isFirstVehicle);
 
         vehicles.Add(vehicle);
         if (await vehicles.SaveNewVehicleAsync(cancellationToken) == SaveVehicleResult.DuplicatePlateConflict)
@@ -104,6 +110,7 @@ public sealed class AddVehicleCommandHandler(
             vehicle.LicensePlate,
             vehicle.VehicleType.ToString(),
             vehicle.NickName,
-            vehicle.CreatedAtUtc));
+            vehicle.CreatedAtUtc,
+            vehicle.IsDefault));
     }
 }

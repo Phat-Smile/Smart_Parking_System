@@ -201,17 +201,19 @@ export function ParkingLotDetailExperience({
         getMyVehicles(controller.signal)
             .then((result) => {
                 setVehicles(result.vehicles);
-                const eligible = result.vehicles.find(
-                    (item) =>
-                        !lot.compatible?.length ||
-                        lot.compatible.includes(
-                            item.vehicleType.toLowerCase(),
-                        ) ||
-                        (item.vehicleType === "Car" &&
-                            lot.compatible.some(
-                                (kind) => kind === "ev" || kind === "large",
-                            )),
+                const isEligible = (item: RegisteredVehicle) =>
+                    !lot.compatible?.length ||
+                    lot.compatible.includes(
+                        item.vehicleType.toLowerCase(),
+                    ) ||
+                    (item.vehicleType === "Car" &&
+                        lot.compatible.some(
+                            (kind) => kind === "ev" || kind === "large",
+                        ));
+                const defaultVehicle = result.vehicles.find(
+                    (item) => item.isDefault && isEligible(item),
                 );
+                const eligible = defaultVehicle ?? result.vehicles.find(isEligible);
                 setVehicleId(eligible?.vehicleId ?? "");
                 setVehiclesState("ready");
             })
