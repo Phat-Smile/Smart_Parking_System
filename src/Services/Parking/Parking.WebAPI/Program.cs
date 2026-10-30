@@ -83,6 +83,7 @@ app.MapParkingLotOpeningHoursEndpoints();
 app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();
 app.MapStaffLotEndpoints();
+app.MapGateReadingEndpoints();
 app.MapPricingEndpoints();
 app.MapDepositPolicyEndpoints();
 app.MapReservationRatioPolicyEndpoints();

@@ -621,23 +621,17 @@ export const FALLBACK_REQUIREMENTS: Record<
     ],
 };
 
+// Every call below reports the backend's answer. A failure is thrown as ApiError so the wizard shows it;
+// nothing is kept in localStorage, so a document or a submission never exists only in this browser.
 export async function getOwnerDocumentRequirements(
     ownerType: OwnerType,
 ): Promise<OwnerDocumentRequirementsDto> {
-    try {
-        return await gatewayFetch<OwnerDocumentRequirementsDto>(
-            `/api/identity/owner-document-requirements?ownerType=${encodeURIComponent(ownerType)}`,
-        );
-    } catch (err) {
-        return {
-            ownerType,
-            documents:
-                FALLBACK_REQUIREMENTS[ownerType] ||
-                FALLBACK_REQUIREMENTS.Enterprise,
-        };
-    }
+    return await gatewayFetch<OwnerDocumentRequirementsDto>(
+        `/api/identity/owner-document-requirements?ownerType=${encodeURIComponent(ownerType)}`,
+    );
 }
 
+/** No application yet (404) is a normal state for a new owner: status "None". Other errors are thrown. */
 export async function getMyOwnerApplication(): Promise<MyOwnerApplicationDto> {
     try {
         return await gatewayFetch<MyOwnerApplicationDto>(
@@ -706,6 +700,7 @@ export async function uploadOwnerDocument(
             body: formData,
         },
     );
+    // The number and checks typed on this screen are shown next to the stored file for this visit only.
     return {
         ...doc,
         documentNumber: documentNumber || doc.documentNumber,
@@ -725,31 +720,14 @@ export async function deleteOwnerDocument(documentType: string): Promise<void> {
 export async function applyForOwnerApplication(
     data: ApplyOwnerApplicationRequest,
 ): Promise<OwnerApplicationActionResult> {
-    try {
-        return await gatewayFetch<OwnerApplicationActionResult>(
-            "/api/identity/accounts/me/owner-application/apply",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-            },
-        );
-    } catch (err) {
-        if (
-            err instanceof ApiError &&
-            (err.problem?.errorCode ===
-                "identity.owner_application_already_pending" ||
-                err.status === 409)
-        ) {
-            return {
-                accountId: "",
-                status: "Pending",
-                message:
-                    "Hồ sơ xét duyệt Chủ bãi đang trong hàng đợi chờ Ban quản trị phê duyệt.",
-            };
-        }
-        throw err;
-    }
+    return await gatewayFetch<OwnerApplicationActionResult>(
+        "/api/identity/accounts/me/owner-application/apply",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        },
+    );
 }
 
 export async function resubmitOwnerApplication(
@@ -762,5 +740,48 @@ export async function resubmitOwnerApplication(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
         },
+    );
+}
+
+const OWNER_APPLICATION_MESSAGES: Record<string, string> = {
+    "identity.owner_type_required":
+        "Vui lòng chọn loại chủ thể (Cá nhân, Hộ kinh doanh hoặc Doanh nghiệp).",
+    "identity.owner_type_invalid": "Loại chủ thể không hợp lệ.",
+    "identity.owner_application_not_found":
+        "Tài khoản này chưa đăng ký làm Chủ bãi.",
+    "identity.owner_application_locked":
+        "Hồ sơ đang khóa chỉnh sửa (đang chờ duyệt hoặc đã duyệt).",
+    "identity.owner_application_already_pending":
+        "Hồ sơ đã được gửi và đang chờ duyệt.",
+    "identity.owner_application_already_approved": "Hồ sơ đã được duyệt.",
+    "identity.owner_application_not_rejected":
+        "Chỉ gửi lại được hồ sơ đã bị từ chối.",
+    "identity.owner_documents_incomplete":
+        "Còn thiếu giấy tờ bắt buộc. Vui lòng tải đủ trước khi gửi duyệt.",
+    "identity.owner_document_invalid_type":
+        "Loại giấy tờ không thuộc danh sách của loại chủ thể đã chọn.",
+    "identity.owner_document_too_large": "Tệp vượt quá dung lượng cho phép.",
+    "identity.owner_document_unsupported_content":
+        "Chỉ nhận tệp PDF, PNG hoặc JPEG.",
+    "identity.owner_document_limit_reached":
+        "Đã đủ số tệp tối đa cho loại giấy tờ này.",
+    "identity.owner_document_not_found": "Không tìm thấy giấy tờ này.",
+    "identity.owner_tax_code_already_registered":
+        "Mã số thuế này đã được một tài khoản khác đăng ký.",
+};
+
+/** Turns an owner application failure into the message shown on the wizard. */
+export function describeOwnerApplicationError(error: unknown): string {
+    if (!(error instanceof ApiError)) {
+        return "Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.";
+    }
+    if (error.status === 401) {
+        return "Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.";
+    }
+    const code = error.problem?.errorCode;
+    return (
+        (code && OWNER_APPLICATION_MESSAGES[code]) ||
+        error.message ||
+        "Không thể xử lý yêu cầu. Vui lòng thử lại."
     );
 }

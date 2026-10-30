@@ -3,6 +3,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Booking.Application;
+using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Infrastructure;
 using ParkingSystem.Booking.Persistence;
 using ParkingSystem.Booking.WebAPI.Grpc;
@@ -11,7 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("booking-api");
-builder.Services.AddApplicationServices();
+
+var bookingCapacityOptions = builder.Configuration
+    .GetSection(BookingCapacityOptions.SectionName)
+    .Get<BookingCapacityOptions>() ?? new BookingCapacityOptions();
+builder.Services.AddApplicationServices(bookingCapacityOptions);
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddParkingServiceClient(builder.Configuration);

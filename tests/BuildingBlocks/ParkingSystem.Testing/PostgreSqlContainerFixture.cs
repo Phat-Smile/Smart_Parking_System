@@ -9,6 +9,7 @@ public sealed class PostgreSqlContainerFixture : IAsyncLifetime
         .WithDatabase("parking_system_test")
         .WithUsername("postgres")
         .WithPassword("postgres")
+        .WithCommand("-c", "max_connections=300")
         .Build();
 
     public string ConnectionString => _container.GetConnectionString();

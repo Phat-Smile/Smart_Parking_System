@@ -41,7 +41,7 @@ export function StaffSessionsPage() {
                 s.plateNumber
                     .toLowerCase()
                     .includes(search.trim().toLowerCase()) ||
-                s.slotCode
+                (s.slotCode ?? "")
                     .toLowerCase()
                     .includes(search.trim().toLowerCase()) ||
                 (s.driverName &&
@@ -184,10 +184,12 @@ export function StaffSessionsPage() {
                                             <StatusPill
                                                 status={s.paymentStatus}
                                             />
-                                            {s.amountDueVnd > 0 && (
+                                            {(s.amountDueVnd ?? 0) > 0 && (
                                                 <small className="staff-due-badge">
                                                     {t("sessionsDue")}:{" "}
-                                                    {formatVnd(s.amountDueVnd)}
+                                                    {formatVnd(
+                                                        s.amountDueVnd ?? 0,
+                                                    )}
                                                 </small>
                                             )}
                                         </div>
@@ -224,7 +226,7 @@ export function StaffSessionsPage() {
             </div>
 
             {/* QR View Modal */}
-            {selectedQrSession && (
+            {selectedQrSession?.qrToken && (
                 <QrCodeModal
                     qrToken={selectedQrSession.qrToken}
                     plateNumber={selectedQrSession.plateNumber}

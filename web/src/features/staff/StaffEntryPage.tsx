@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { CameraFeedMock, PlateBadge, QrCodeModal } from "./StaffUi";
+import { CameraFeedMock, PlateBadge, QrCodeModal, countText } from "./StaffUi";
 import { describeStaffError, openParkingSession } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
@@ -64,6 +64,15 @@ export function StaffEntryPage() {
             ? editedPlate.trim()
             : plateNumber.trim();
 
+        if (!assignedLot) {
+            setLoading(false);
+            setStep("camera");
+            setErrorMsg(
+                "Tài khoản chưa được phân công bãi nào, nên chưa mở được phiên.",
+            );
+            return;
+        }
+
         try {
             // Call the real POST /api/parking/sessions endpoint with real assigned lotId
             const res = await openParkingSession({
@@ -75,34 +84,22 @@ export function StaffEntryPage() {
             setLastOpened(res);
             setStep("session_created");
 
-            // Add to live staff state
+            // Parking decides the customer type (plate linked to an account or not), the zone and the slot.
             addSession({
                 id: res.sessionId,
                 lotId: res.lotId,
                 plateNumber: res.plateNumber,
                 vehicleType: res.vehicleType,
-                customerType: entryType,
-                driverName:
-                    entryType === "Registered"
-                        ? "Nguyễn Văn An"
-                        : "Guest Driver",
+                customerType: res.customerType,
                 entryTime: res.entryTime,
                 status: "Active",
                 qrToken: res.qrToken,
-                slotCode: vehicleType === "Car" ? "B1-A15" : "B2-M28",
+                slotCode: res.slotCode ?? res.zoneCode ?? null,
                 paymentStatus: "Pending",
-                totalFeeVnd: vehicleType === "Car" ? 30000 : 6000,
-                prepaidVnd: entryType === "Registered" ? 30000 : 0,
-                amountDueVnd:
-                    entryType === "Registered"
-                        ? 0
-                        : vehicleType === "Car"
-                          ? 30000
-                          : 6000,
             });
 
             // If Guest, auto prompt QR ticket modal
-            if (entryType === "Guest") {
+            if (res.customerType === "Guest") {
                 setShowQrModal(true);
             }
 
@@ -426,9 +423,11 @@ export function StaffEntryPage() {
                             <div className="staff-summary-row">
                                 <span>{t("entrySummaryCap")}</span>
                                 <strong className="text-emerald">
-                                    {vehicleType === "Car"
-                                        ? `${occupancy.carAvailable} ${t("dashSlots")}`
-                                        : `${occupancy.motorbikeAvailable} ${t("dashSlots")}`}
+                                    {`${countText(
+                                        vehicleType === "Car"
+                                            ? occupancy.carAvailable
+                                            : occupancy.motorbikeAvailable,
+                                    )} ${t("dashSlots")}`}
                                 </strong>
                             </div>
                             <div className="staff-summary-row">
@@ -499,6 +498,31 @@ export function StaffEntryPage() {
                                             color: "var(--staff-text-muted)",
                                         }}
                                     >
+                                        Khu / chỗ
+                                    </span>
+                                    <strong style={{ fontSize: "14px" }}>
+                                        {[
+                                            lastOpened.floorName,
+                                            lastOpened.zoneCode,
+                                            lastOpened.slotCode,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(" · ") || "—"}
+                                    </strong>
+                                </div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: "12px",
+                                            color: "var(--staff-text-muted)",
+                                        }}
+                                    >
                                         {vehicleType === "Car"
                                             ? t("entryCarSlotsLeft")
                                             : t("entryMotorbikeSlotsLeft")}
@@ -509,10 +533,12 @@ export function StaffEntryPage() {
                                             color: "#10b981",
                                         }}
                                     >
-                                        {vehicleType === "Car"
-                                            ? occupancy.carAvailable
-                                            : (lastOpened.availableMotorbikeSlots ??
-                                              occupancy.motorbikeAvailable)}{" "}
+                                        {countText(
+                                            vehicleType === "Car"
+                                                ? occupancy.carAvailable
+                                                : (lastOpened.availableMotorbikeSlots ??
+                                                      occupancy.motorbikeAvailable),
+                                        )}{" "}
                                         {t("dashSlots")}
                                     </strong>
                                 </div>

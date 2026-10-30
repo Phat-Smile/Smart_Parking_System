@@ -185,13 +185,6 @@ export function OwnerRegisterPage({
 
             rememberRegisteredProfileName(account.email, account.fullName);
             rememberPendingRole("owner");
-            try {
-                window.localStorage.removeItem("parkwise_demo_owner_app");
-                window.localStorage.removeItem("parkwise_demo_owner_docs");
-            } catch {
-                // ignore
-            }
-
             if (!rememberPendingVerification(account.email, 60)) {
                 setSubmitError(
                     isVi

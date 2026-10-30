@@ -10,6 +10,8 @@ using ParkingSystem.Parking.Persistence.Outbox;
 using ParkingSystem.Parking.Persistence.Inbox;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Persistence.ParkingSessions;
+using ParkingSystem.Parking.Application.GateReadings;
+using ParkingSystem.Parking.Persistence.GateReadings;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Persistence.ParkingLots;
 using ParkingSystem.Parking.Application.Common.Auditing;
@@ -48,6 +50,7 @@ public static class PersistenceDependencyInjection
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, ParkingInboxExecutionCoordinator>();
         services.AddScoped<IParkingSessionRepository, ParkingSessionRepository>();
+        services.AddScoped<IGateReadingRepository, GateReadingRepository>();
         services.AddScoped<IAuditLog, AuditLog>();
         services.AddScoped<ParkingLotCatalogReader>();
         services.AddScoped<IParkingLotCatalogReader>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());

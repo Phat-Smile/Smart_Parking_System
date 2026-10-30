@@ -18,6 +18,8 @@ import { ApiError } from "@/shared/errors/api-error";
 
 // The verification UI uses the six-digit code from the registration flow.
 const OTP_LENGTH = 6;
+// The owner application needs a signed-in account; verifying the email does not sign in.
+const OWNER_ONBOARDING_LOGIN = "/login?redirect=%2Fowner%2Fonboarding";
 const subscribePendingVerification = () => () => {};
 
 export function ParkWiseOtpPage({
@@ -130,7 +132,7 @@ export function ParkWiseOtpPage({
             }
         }
         const targetUrl = isOwner ? ownerLoginRedirectUrl : "/login";
-        const timer = window.setTimeout(() => router.replace(targetUrl), 1800);
+        const timer = window.setTimeout(() => router.replace(targetUrl), 1500);
         return () => window.clearTimeout(timer);
     }, [verified, router, isOwner, ownerLoginRedirectUrl]);
 
@@ -151,14 +153,6 @@ export function ParkWiseOtpPage({
             if (!result.isVerified)
                 throw new Error("Verification was not confirmed.");
             clearPendingVerification();
-            if (isOwner) {
-                try {
-                    window.localStorage.removeItem("parkwise_demo_owner_app");
-                    window.localStorage.removeItem("parkwise_demo_owner_docs");
-                } catch {
-                    // ignore
-                }
-            }
             setVerified(true);
         } catch (failure) {
             const code =
@@ -322,7 +316,7 @@ export function ParkWiseOtpPage({
                         </h2>
                         <p>
                             {isOwner
-                                ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang đăng nhập để hoàn tất hồ sơ đối tác..."
+                                ? "Tài khoản đối tác đã kích hoạt. Hãy đăng nhập để tiếp tục hồ sơ pháp lý..."
                                 : "Account activated. Redirecting to login..."}
                         </p>
                         {isOwner ? (

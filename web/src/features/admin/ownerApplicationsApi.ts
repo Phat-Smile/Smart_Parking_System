@@ -1,4 +1,4 @@
-import { gatewayFetch } from "@/shared/api/client";
+import { gatewayFetch, gatewayFetchBlob } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
 import type {
     ApprovalStatus,
@@ -99,6 +99,20 @@ export async function getOwnerApplicationDocuments(
 ): Promise<OwnerApplicationDocumentsResponse> {
     return await gatewayFetch<OwnerApplicationDocumentsResponse>(
         `/api/identity/admin/owner-applications/${encodeURIComponent(accountId)}/documents`,
+        { method: "GET" },
+    );
+}
+
+/**
+ * Admin mở một giấy tờ của hồ sơ chủ bãi (tệp gốc, có token)
+ * Endpoint: GET /api/identity/admin/owner-applications/{id}/documents/{documentType}
+ */
+export async function downloadOwnerApplicationDocument(
+    accountId: string,
+    documentType: string,
+): Promise<Blob> {
+    return await gatewayFetchBlob(
+        `/api/identity/admin/owner-applications/${encodeURIComponent(accountId)}/documents/${encodeURIComponent(documentType)}`,
         { method: "GET" },
     );
 }

@@ -190,10 +190,11 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         <div className="staff-lot-badge">
                             <span className="staff-lot-dot" />
                             <span className="staff-lot-name">
-                                {assignedLot.lotName}
+                                {assignedLot?.lotName ??
+                                    "Chưa được phân công bãi"}
                             </span>
                             <span className="staff-lot-zone">
-                                {assignedLot.address || "Tầng Hầm B1/B2"}
+                                {assignedLot?.address ?? ""}
                             </span>
                         </div>
                     </div>

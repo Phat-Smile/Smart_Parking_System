@@ -15,7 +15,7 @@ internal static class PaymentAuthorization
                 .RequireClaim(RoleClaimType, AdminRole))
             .AddPolicy(ViewSessionFeePolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireClaim(RoleClaimType, "Customer", "Staff", "LotOwner"));
+                .RequireClaim(RoleClaimType, "Customer", "Staff", "ParkingLotOwner", "LotOwner"));
 
         return services;
     }

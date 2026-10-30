@@ -140,7 +140,7 @@ describe("ParkWiseOtpPage", () => {
             }),
         ).toHaveAttribute(
             "href",
-            "/login?redirect=%2Fowner%2Fonboarding&role=owner&verified=1&email=owner%40example.com",
+            expect.stringContaining("/login?redirect=%2Fowner%2Fonboarding"),
         );
     });
 
