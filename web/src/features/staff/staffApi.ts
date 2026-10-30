@@ -40,100 +40,79 @@ function sanitizeLotName(name: string): string {
 }
 
 export async function getStaffLots(): Promise<StaffLotItem[]> {
+    const res = await gatewayFetch<StaffLotItem[]>("/api/parking/staff/lots", {
+        method: "GET",
+    });
+    return res.map((item) => ({
+        id: item.id,
+        name: sanitizeLotName(item.name),
+        address: item.address || "",
+        type: item.type,
+    }));
+}
+
+interface MotorbikeAvailabilityResponse {
+    totalCapacity: number;
+    available: number;
+}
+
+interface LotAvailabilityResponse {
+    car: { available: number };
+}
+
+// A count Parking cannot give (no motorbike zone, lot not public yet) is unknown: null, never a guess.
+async function countOrNull<T>(
+    path: string,
+    pick: (body: T) => number,
+): Promise<number | null> {
     try {
-        const res = await gatewayFetch<StaffLotItem[] | AssignedLotResponse>(
-            "/api/parking/staff/lots",
-            { method: "GET" },
+        return pick(await gatewayFetch<T>(path, { method: "GET" }));
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+    }
+}
+
+/**
+ * Lấy bãi trực của nhân viên (D04.2) và số chỗ còn do Parking đếm.
+ * Endpoints: GET /api/parking/staff/lots, GET /api/parking/lots/{id}/motorbike-availability,
+ * GET /api/parking/lots/{id}/availability. Null when the account has no lot.
+ */
+export async function getAssignedLot(): Promise<AssignedLotResponse | null> {
+    const lots = await getStaffLots();
+    const chosen = lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
+    if (!chosen) return null;
+
+    const lotPath = `/api/parking/lots/${encodeURIComponent(chosen.id)}`;
+    let motorbikeCapacity: number | null = null;
+    const availableMotorbikeSlots =
+        await countOrNull<MotorbikeAvailabilityResponse>(
+            `${lotPath}/motorbike-availability`,
+            (body) => {
+                motorbikeCapacity = body.totalCapacity;
+                return body.available;
+            },
         );
-        if (Array.isArray(res) && res.length > 0) {
-            return res.map((item) => ({
-                id:
-                    (item as unknown as { id?: string; lotId?: string }).id ||
-                    (item as unknown as { lotId?: string }).lotId ||
-                    "",
-                name: sanitizeLotName(
-                    (item as unknown as { name?: string; lotName?: string })
-                        .name ||
-                        (item as unknown as { lotName?: string }).lotName ||
-                        "",
-                ),
-                address: item.address || "",
-                type: (item as unknown as { type?: string }).type || "Outdoor",
-            }));
-        }
-    } catch {
-        // Fallback for demo/offline
-    }
-    return [
-        {
-            id: "10000000-0000-0000-0000-000000000002",
-            name: "Bãi đỗ xe B",
-            address: "02 Đường Mẫu, TP. Hồ Chí Minh",
-            type: "Outdoor",
-        },
-        {
-            id: "10000000-0000-0000-0000-000000000001",
-            name: "Vincom Central Tower",
-            address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-            type: "Indoor",
-        },
-    ];
-}
-
-/**
- * Lấy bãi trực của nhân viên (D04.2)
- * Gọi endpoint thật GET /api/parking/staff/lots (#129)
- */
-export async function getAssignedLot(): Promise<AssignedLotResponse> {
-    try {
-        const lots = await getStaffLots();
-        const chosen =
-            lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
-        if (chosen) {
-            return {
-                lotId: chosen.id,
-                lotName: sanitizeLotName(chosen.name),
-                address: chosen.address,
-                availableMotorbikeSlots: 20,
-                availableCarSlots: 50,
-                totalCapacity: 70,
-                occupiedSlots: 5,
-            };
-        }
-    } catch {
-        // Fallback
-    }
-
-    return {
-        lotId: DEFAULT_STAFF_LOT_ID,
-        lotName: "Bãi đỗ xe B",
-        address: "02 Đường Mẫu, TP. Hồ Chí Minh",
-        availableMotorbikeSlots: 20,
-        availableCarSlots: 50,
-        totalCapacity: 70,
-        occupiedSlots: 5,
-    };
-}
-
-/**
- * Tính toán tiền đỗ xe dựa trên thời gian vào và loại phương tiện
- */
-export function calculateParkingFee(
-    entryTimeIso: string,
-    vehicleType: VehicleType,
-): { totalFeeVnd: number; amountDueVnd: number } {
-    const entry = new Date(entryTimeIso).getTime();
-    const diffMs = Math.max(
-        0,
-        Date.now() - (isNaN(entry) ? Date.now() : entry),
+    const availableCarSlots = await countOrNull<LotAvailabilityResponse>(
+        `${lotPath}/availability`,
+        (body) => body.car.available,
     );
-    const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
-    const baseRate = vehicleType === "Car" ? 30000 : 6000;
-    const total = hours * baseRate;
+
     return {
-        totalFeeVnd: total,
-        amountDueVnd: total,
+        lotId: chosen.id,
+        lotName: chosen.name,
+        address: chosen.address,
+        availableMotorbikeSlots,
+        motorbikeCapacity,
+        availableCarSlots,
     };
+}
+
+interface OpenedSessionWire extends Omit<
+    OpenedSessionResponse,
+    "availableMotorbikeSlots"
+> {
+    availableMotorbikeSpaces: number | null;
 }
 
 /**
@@ -143,45 +122,20 @@ export function calculateParkingFee(
 export async function openParkingSession(
     payload: OpenSessionPayload,
 ): Promise<OpenedSessionResponse> {
-    try {
-        const res = await gatewayFetch<OpenedSessionResponse>(
-            "/api/parking/sessions",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    lotId: payload.lotId,
-                    plateNumber: payload.plateNumber.trim().toUpperCase(),
-                    vehicleType: payload.vehicleType,
-                }),
-            },
-        );
-        return {
-            ...res,
-            availableMotorbikeSlots: res.availableMotorbikeSlots ?? 58,
-        };
-    } catch (error) {
-        // Fallback for offline preview/demo
-        if (!(error instanceof ApiError)) {
-            const isGuest = !payload.plateNumber.includes("51F");
-            const sessionId = `ses-${Date.now().toString(36)}`;
-            const qrToken = `QR-${Date.now()}-${payload.plateNumber.replace(/\s+/g, "")}`;
-            return {
-                sessionId,
+    const { availableMotorbikeSpaces, ...res } =
+        await gatewayFetch<OpenedSessionWire>("/api/parking/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
                 lotId: payload.lotId,
                 plateNumber: payload.plateNumber.trim().toUpperCase(),
                 vehicleType: payload.vehicleType,
-                customerType: isGuest ? "Guest" : "Registered",
-                status: "Active",
-                entryTime: new Date().toISOString(),
-                isAccountLinked: !isGuest,
-                reservationId: isGuest ? null : "res-882194",
-                qrToken,
-                availableMotorbikeSlots: 58,
-            };
-        }
-        throw error;
-    }
+            }),
+        });
+    return {
+        ...res,
+        availableMotorbikeSlots: availableMotorbikeSpaces ?? null,
+    };
 }
 
 /**
@@ -192,25 +146,32 @@ export async function cancelParkingSession(
     sessionId: string,
     reason: string,
 ): Promise<CancelledSessionResponse> {
-    try {
-        return await gatewayFetch<CancelledSessionResponse>(
-            `/api/parking/sessions/${encodeURIComponent(sessionId)}/cancel`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ reason: reason.trim() }),
-            },
-        );
-    } catch (error) {
-        if (!(error instanceof ApiError)) {
-            return {
-                sessionId,
-                cancelledAt: new Date().toISOString(),
-                reason: reason.trim(),
-            };
-        }
-        throw error;
-    }
+    return await gatewayFetch<CancelledSessionResponse>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}/cancel`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.trim() }),
+        },
+    );
+}
+
+/** Fee preview from Payment (DTO, docs/api/Payment-Wallet-Contract.md). */
+export interface ParkingSessionFee {
+    sessionId: string;
+    totalFee: number;
+    depositAmount: number;
+    amountDue: number;
+}
+
+/** Endpoint: GET /api/payment/parking-sessions/{sessionId}/fee */
+export async function getParkingSessionFee(
+    sessionId: string,
+): Promise<ParkingSessionFee> {
+    return await gatewayFetch<ParkingSessionFee>(
+        `/api/payment/parking-sessions/${encodeURIComponent(sessionId)}/fee`,
+        { method: "GET" },
+    );
 }
 
 /**
@@ -220,74 +181,36 @@ export async function cancelParkingSession(
 export async function findSessionByQr(
     qrToken: string,
 ): Promise<SessionByQrResponse> {
-    try {
-        const res = await gatewayFetch<SessionByQrResponse>(
-            `/api/parking/sessions/by-qr/${encodeURIComponent(qrToken.trim())}`,
-            { method: "GET" },
-        );
-        const fees = calculateParkingFee(res.entryTime, res.vehicleType);
-        return {
-            ...res,
-            amountDueVnd: res.amountDueVnd ?? fees.amountDueVnd,
-            totalFeeVnd: res.totalFeeVnd ?? fees.totalFeeVnd,
-        };
-    } catch (error) {
-        if (!(error instanceof ApiError)) {
-            const entryTime = new Date(
-                Date.now() - 3600000 * 2.5,
-            ).toISOString();
-            const fees = calculateParkingFee(entryTime, "Car");
-            return {
-                sessionId: `sim-ses-${qrToken.slice(-6)}`,
-                lotId: DEFAULT_STAFF_LOT_ID,
-                lotName: "Vincom Center Basement",
-                plateNumber: "51K-892.41",
-                vehicleType: "Car",
-                customerType: "Guest",
-                entryTime,
-                status: "Active",
-                qrToken: qrToken.trim(),
-                amountDueVnd: fees.amountDueVnd,
-                totalFeeVnd: fees.totalFeeVnd,
-            };
-        }
-        throw error;
-    }
+    const res = await gatewayFetch<SessionByQrResponse>(
+        `/api/parking/sessions/by-qr/${encodeURIComponent(qrToken.trim())}`,
+        { method: "GET" },
+    );
+    // The fee is Payment's; when it cannot be read the screen says so instead of guessing.
+    const fee = await getParkingSessionFee(res.sessionId).catch(() => null);
+    return {
+        ...res,
+        qrToken: qrToken.trim(),
+        totalFeeVnd: fee?.totalFee,
+        amountDueVnd: fee?.amountDue,
+    };
 }
 
 /**
  * Xác nhận xe ra và đóng phiên gửi xe thật
- * Endpoint: POST /api/parking/sessions/{id}/complete
+ * Endpoint: POST /api/parking/sessions/{id}/complete (not in Parking yet: exit payment is Sprint 3)
  */
 export async function completeParkingSession(
     sessionId: string,
     payload?: CompleteSessionPayload,
 ): Promise<CompletedSessionResponse> {
-    try {
-        return await gatewayFetch<CompletedSessionResponse>(
-            `/api/parking/sessions/${encodeURIComponent(sessionId)}/complete`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload ?? {}),
-            },
-        );
-    } catch (error) {
-        if (
-            !(error instanceof ApiError) ||
-            error.status === 404 ||
-            error.status === 405
-        ) {
-            return {
-                sessionId,
-                status: "Completed",
-                completedAt: new Date().toISOString(),
-                amountPaidVnd: payload?.amountPaidVnd ?? 0,
-                paymentMethod: payload?.paymentMethod ?? "Cash",
-            };
-        }
-        throw error;
-    }
+    return await gatewayFetch<CompletedSessionResponse>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}/complete`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload ?? {}),
+        },
+    );
 }
 
 /**
