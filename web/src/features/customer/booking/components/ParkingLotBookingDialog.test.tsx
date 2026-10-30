@@ -32,6 +32,7 @@ const mockVehicle: RegisteredVehicle = {
     vehicleType: "Car",
     nickName: "Xe đi làm",
     createdAtUtc: "2026-10-30T10:00:00Z",
+    isDefault: true,
 };
 
 describe("ParkingLotBookingDialog", () => {

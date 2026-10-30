@@ -41,7 +41,17 @@ public sealed class DeleteVehicleCommandHandler(
         if (vehicle.AccountId != request.AccountId)
             return Result<DeletedVehicleResult>.Failure(DeleteVehicleErrors.VehicleForbidden);
 
+        var wasDefault = vehicle.IsDefault;
         vehicles.Remove(vehicle);
+
+        // US-VEH-003: Nếu xóa xe đang là mặc định, tự động chuyển xe tiếp theo (nếu có) thành xe mặc định.
+        if (wasDefault)
+        {
+            var remainingVehicles = await vehicles.ListByAccountIdAsync(request.AccountId, cancellationToken);
+            var nextDefault = remainingVehicles.FirstOrDefault(v => v.Id != request.VehicleId);
+            nextDefault?.SetAsDefault();
+        }
+
         await vehicles.SaveChangesAsync(cancellationToken);
 
         return Result<DeletedVehicleResult>.Success(new DeletedVehicleResult(
