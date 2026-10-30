@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { OwnerPageHeader as PageHeader } from "../../../../../components/layout/OwnerPageHeader";
 import { Plan2DGrid } from "../../../../../components/viz/Plan2DGrid";
 import { useOwnerStore } from "../../../../../store/useOwnerStore";
@@ -213,6 +214,24 @@ export default function Layout2DPage() {
                             alignItems: "center",
                         }}
                     >
+                        <Link
+                            href="/owner/layout/editor"
+                            style={{
+                                background: "#f8fafc",
+                                color: "#1e293b",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: 10,
+                                padding: "8px 16px",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                            }}
+                        >
+                            ✏️ Chỉnh sửa sơ đồ
+                        </Link>
                         <button
                             type="button"
                             onClick={handleSaveLayout}
