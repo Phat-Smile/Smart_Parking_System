@@ -94,6 +94,16 @@ public class CreateWalletTopupCommandHandlerTests
             return Task.FromResult(tx);
         }
 
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
+        {
+            var items = _transactions
+                .Where(t => t.WalletId == walletId && t.Status == VnpayTransactionStatus.Pending)
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
+        }
+
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;

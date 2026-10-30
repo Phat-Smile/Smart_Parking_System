@@ -17,4 +17,7 @@ public interface IVnpayTransactionRepository
 
     // Tim giao dich nap vi theo ma tham chieu va tai khoan so huu
     Task<VnpayTransaction?> GetTopupByTxnRefAndUserIdAsync(string txnRef, Guid userId, CancellationToken cancellationToken);
+
+    // Lay danh sach giao dich nap dang cho xu ly gan nhat cua vi
+    Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken);
 }
