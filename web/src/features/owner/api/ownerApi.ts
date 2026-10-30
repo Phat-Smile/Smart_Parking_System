@@ -253,7 +253,7 @@ export async function getOpeningHoursApi(
 }
 
 // ==========================================
-// 6. DEPOSIT POLICY (OwnerDepositConfig)
+// 6. DEPOSIT & RESERVATION POLICIES (Owner Policies)
 // ==========================================
 export interface ConfigureDepositPolicyRequest {
     holdDepositVnd: number; // integer VND >= 0
@@ -271,23 +271,113 @@ export async function configureDepositPolicyApi(
     lotId: string | number,
     req: ConfigureDepositPolicyRequest,
 ): Promise<DepositPolicyResponse> {
-    return gatewayFetch<DepositPolicyResponse>(
-        `/api/parking/lots/${lotId}/deposit-policy`,
-        {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(req),
-        },
-    );
+    const raw = await gatewayFetch<
+        DepositPolicyResponse | { result: DepositPolicyResponse }
+    >(`/api/parking/lots/${lotId}/deposit-policy`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+    });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as DepositPolicyResponse;
 }
 
 export async function getDepositPolicyApi(
     lotId: string | number,
 ): Promise<DepositPolicyResponse> {
-    return gatewayFetch<DepositPolicyResponse>(
-        `/api/parking/lots/${lotId}/deposit-policy`,
-        { method: "GET" },
-    );
+    const raw = await gatewayFetch<
+        DepositPolicyResponse | { result: DepositPolicyResponse }
+    >(`/api/parking/lots/${lotId}/deposit-policy`, { method: "GET" });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as DepositPolicyResponse;
+}
+
+export interface ConfigureReservationRatioPolicyRequest {
+    reservationRatioPercent: number; // 10 to 50
+}
+
+export interface ReservationRatioPolicyResponse {
+    lotId: string;
+    reservationRatioPercent: number;
+    isConfigured: boolean;
+    updatedAtUtc: string | null;
+}
+
+export async function configureReservationRatioPolicyApi(
+    lotId: string | number,
+    req: ConfigureReservationRatioPolicyRequest,
+): Promise<ReservationRatioPolicyResponse> {
+    const raw = await gatewayFetch<
+        ReservationRatioPolicyResponse | { result: ReservationRatioPolicyResponse }
+    >(`/api/parking/lots/${lotId}/reservation-ratio-policy`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+    });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationRatioPolicyResponse;
+}
+
+export async function getReservationRatioPolicyApi(
+    lotId: string | number,
+): Promise<ReservationRatioPolicyResponse> {
+    const raw = await gatewayFetch<
+        ReservationRatioPolicyResponse | { result: ReservationRatioPolicyResponse }
+    >(`/api/parking/lots/${lotId}/reservation-ratio-policy`, { method: "GET" });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationRatioPolicyResponse;
+}
+
+export interface ConfigureReservationAvailabilityPolicyRequest {
+    reservationEnabled: boolean;
+}
+
+export interface ReservationAvailabilityPolicyResponse {
+    lotId: string;
+    reservationEnabled: boolean;
+    isConfigured: boolean;
+    updatedAtUtc: string | null;
+}
+
+export async function configureReservationAvailabilityApi(
+    lotId: string | number,
+    req: ConfigureReservationAvailabilityPolicyRequest,
+): Promise<ReservationAvailabilityPolicyResponse> {
+    const raw = await gatewayFetch<
+        ReservationAvailabilityPolicyResponse | {
+            result: ReservationAvailabilityPolicyResponse;
+        }
+    >(`/api/parking/lots/${lotId}/reservation-availability`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+    });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationAvailabilityPolicyResponse;
+}
+
+export async function getReservationAvailabilityApi(
+    lotId: string | number,
+): Promise<ReservationAvailabilityPolicyResponse> {
+    const raw = await gatewayFetch<
+        ReservationAvailabilityPolicyResponse | {
+            result: ReservationAvailabilityPolicyResponse;
+        }
+    >(`/api/parking/lots/${lotId}/reservation-availability`, { method: "GET" });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationAvailabilityPolicyResponse;
 }
 
 // ==========================================

@@ -105,6 +105,12 @@ export default function ParkingLotDetailPage() {
                         <Link href="/owner/parking-lots" className="btn">
                             ← Danh sách
                         </Link>
+                        <Link href={`/owner/lots/${id}/policies`} className="btn">
+                            Chính sách đặt chỗ & cọc
+                        </Link>
+                        <Link href={`/owner/lots/${id}/pricing`} className="btn">
+                            Biểu giá
+                        </Link>
                         {!isPending &&
                             (editing ? (
                                 <button
@@ -478,6 +484,35 @@ export default function ParkingLotDetailPage() {
                 {/* Tab 5: Đặt chỗ */}
                 {tab === "policy" && (
                     <div className="form">
+                        <div
+                            style={{
+                                padding: "12px 16px",
+                                backgroundColor: "#eff6ff",
+                                border: "1px solid #bfdbfe",
+                                borderRadius: "8px",
+                                marginBottom: "16px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "12px",
+                            }}
+                        >
+                            <div>
+                                <div style={{ fontWeight: 600, color: "#1e40af", fontSize: "14px" }}>
+                                    Trang Cấu hình Chính sách Nâng cao
+                                </div>
+                                <div style={{ fontSize: "12px", color: "#3b82f6" }}>
+                                    Cấu hình tỷ lệ suất đặt trước (10% - 50%), mức tiền cọc 15 phút và đồng bộ trực tiếp với máy chủ.
+                                </div>
+                            </div>
+                            <Link
+                                href={`/owner/lots/${id}/policies`}
+                                className="btn p"
+                                style={{ whiteSpace: "nowrap", fontSize: "13px" }}
+                            >
+                                Mở trang chính sách →
+                            </Link>
+                        </div>
                         <label className="f">
                             <span>Cho phép đặt trước</span>
                             <select
