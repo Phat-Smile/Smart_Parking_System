@@ -6,6 +6,8 @@ public interface IReservationRepository
 {
     Task<Reservation?> FindByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Reservation>> ListByUserIdAsync(Guid userId, ReservationStatus? status, CancellationToken cancellationToken);
+
     void Add(Reservation reservation);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);

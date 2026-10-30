@@ -6,6 +6,7 @@ using ParkingSystem.Booking.Application;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Infrastructure;
 using ParkingSystem.Booking.Persistence;
+using ParkingSystem.Booking.WebAPI.Endpoints;
 using ParkingSystem.Booking.WebAPI.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemServiceSecurity();
+app.MapReservationEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
