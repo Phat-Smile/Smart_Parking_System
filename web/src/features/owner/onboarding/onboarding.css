@@ -1191,6 +1191,49 @@
     line-height: 1.4;
 }
 
+/* VNeID Fast Fill Button & Badge */
+.pw-btn-vneid {
+    background: linear-gradient(135deg, #b91c1c, #991b1b);
+    border: 1.5px solid #7f1d1d;
+    color: #ffffff;
+    padding: 0 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.pw-btn-vneid:hover:not(:disabled) {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d);
+    box-shadow: 0 2px 8px rgba(185, 28, 28, 0.35);
+}
+
+.pw-btn-vneid:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.pw-vneid-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 6px;
+    animation: pwFadeIn 0.3s ease;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .pw-type-grid {
