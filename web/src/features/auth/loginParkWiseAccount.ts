@@ -48,6 +48,7 @@ export async function loginParkWiseAccount(email: string, password: string) {
             "/api/identity/accounts/login",
             {
                 method: "POST",
+                credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
             },

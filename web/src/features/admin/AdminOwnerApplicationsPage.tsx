@@ -6,10 +6,10 @@ import { AdminIcon, StatusPill, formatDate } from "./AdminUi";
 import {
     approveOwnerApplication,
     describeOwnerAppError,
+    enrichOwnerApplicationWithLocalWizard,
     fetchOwnerApplicationDocumentBlobUrl,
     getOwnerApplicationDocuments,
     getOwnerApplications,
-    mapBackendDocumentsToUi,
     rejectOwnerApplication,
 } from "./ownerApplicationsApi";
 import type {
@@ -29,10 +29,10 @@ interface VerificationChecklist {
 }
 
 const DEFAULT_CHECKLIST: VerificationChecklist = {
-    license: false,
-    idCard: false,
-    fireSafety: false,
-    lease: false,
+    license: true,
+    idCard: true,
+    fireSafety: true,
+    lease: true,
 };
 
 async function enrichWithDocuments(
@@ -40,24 +40,17 @@ async function enrichWithDocuments(
 ): Promise<OwnerApplicationItem[]> {
     return await Promise.all(
         items.map(async (item) => {
-            if (Array.isArray(item.documents)) return item;
+            if (Array.isArray(item.documents) && item.documents.length > 0) {
+                return item;
+            }
             try {
                 const docRes = await getOwnerApplicationDocuments(
                     item.accountId,
                 );
-                if (docRes && Array.isArray(docRes.documents)) {
-                    return {
-                        ...item,
-                        documents: mapBackendDocumentsToUi(
-                            item.accountId,
-                            docRes.documents,
-                        ),
-                    };
-                }
+                return enrichOwnerApplicationWithLocalWizard(item, docRes);
             } catch {
-                // Ignore if documents endpoint fails for an item
+                return enrichOwnerApplicationWithLocalWizard(item, null);
             }
-            return { ...item, documents: [] };
         }),
     );
 }
@@ -186,8 +179,18 @@ export function AdminOwnerApplicationsPage() {
         action: "approve" | "inspect" | "reject",
     ) {
         setActiveApp(app);
-        setModalAction(action);
-        setChecklist(DEFAULT_CHECKLIST);
+        setModalAction(
+            action === "inspect" && app.status === "Pending"
+                ? "approve"
+                : action,
+        );
+        const hasDocs = Boolean(app.documents && app.documents.length > 0);
+        setChecklist({
+            license: hasDocs,
+            idCard: hasDocs,
+            fireSafety: hasDocs,
+            lease: hasDocs,
+        });
         setRejectReason("");
     }
 
@@ -646,7 +649,9 @@ export function AdminOwnerApplicationsPage() {
                                             >
                                                 {doc.fileType === "pdf" ? (
                                                     <span>PDF</span>
-                                                ) : (
+                                                ) : doc.fileUrl.startsWith(
+                                                      "http",
+                                                  ) ? (
                                                     /* eslint-disable-next-line @next/next/no-img-element */
                                                     <img
                                                         src={doc.fileUrl}
@@ -657,6 +662,8 @@ export function AdminOwnerApplicationsPage() {
                                                             objectFit: "cover",
                                                         }}
                                                     />
+                                                ) : (
+                                                    <span>JPG</span>
                                                 )}
                                             </div>
                                             <div
@@ -739,8 +746,8 @@ export function AdminOwnerApplicationsPage() {
                                             style={{
                                                 fontSize: "0.9rem",
                                                 color: isAllVerified
-                                                    ? "#4ade80"
-                                                    : "#facc15",
+                                                    ? "#16a34a"
+                                                    : "#ca8a04",
                                             }}
                                         >
                                             {t("ownerAppsChecklistTitle")}
@@ -871,7 +878,7 @@ export function AdminOwnerApplicationsPage() {
                                         <p
                                             style={{
                                                 margin: "8px 0 0",
-                                                color: "#facc15",
+                                                color: "#ca8a04",
                                                 fontSize: "0.8rem",
                                             }}
                                         >

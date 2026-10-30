@@ -6,16 +6,81 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
     getAuthSessionSnapshot,
+    setAuthSession,
     subscribeAuthSession,
 } from "@/features/auth/authSession";
+import type { LoginResponse } from "@/features/auth/loginParkWiseAccount";
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
+import { getAccessToken } from "@/shared/api/access-token";
 import { AdminIcon } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
 import { getAdminParkingLots } from "./reviewParkingLot";
 import { AdminNotifications } from "./AdminNotifications";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
+const ADMIN_AUTH_CACHE_KEY = "parkwise:admin-auth-cache";
+let adminSessionRestored = false;
+
+function syncAdminSessionCache() {
+    if (typeof window === "undefined") return;
+    try {
+        const current = getAuthSessionSnapshot();
+        const token = getAccessToken();
+        if (current && current.account.role === "SystemAdmin" && token) {
+            const payload: LoginResponse = {
+                accessToken: token,
+                tokenType: "Bearer",
+                expiresIn: 3600,
+                refreshToken: current.refreshToken ?? "",
+                account: current.account,
+            };
+            window.sessionStorage.setItem(
+                ADMIN_AUTH_CACHE_KEY,
+                JSON.stringify(payload),
+            );
+        } else if (current && current.account.role !== "SystemAdmin") {
+            window.sessionStorage.removeItem(ADMIN_AUTH_CACHE_KEY);
+        }
+    } catch {
+        // Ignore storage errors
+    }
+}
+
+function restoreAdminSessionIfNeeded() {
+    if (typeof window === "undefined") return;
+    const current = getAuthSessionSnapshot();
+    if (current) {
+        syncAdminSessionCache();
+        return;
+    }
+    if (adminSessionRestored) return;
+    adminSessionRestored = true;
+    try {
+        const raw = window.sessionStorage.getItem(ADMIN_AUTH_CACHE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as LoginResponse;
+        if (
+            parsed?.accessToken &&
+            parsed?.account?.role === "SystemAdmin" &&
+            !parsed.accessToken.startsWith("mock-token-")
+        ) {
+            setAuthSession(parsed);
+        } else {
+            window.sessionStorage.removeItem(ADMIN_AUTH_CACHE_KEY);
+        }
+    } catch {
+        // Ignore corrupted cache
+    }
+}
+
+if (typeof window !== "undefined") {
+    subscribeAuthSession(() => {
+        syncAdminSessionCache();
+    });
+}
+
 export function AdminShell({ children }: { children: ReactNode }) {
+    restoreAdminSessionIfNeeded();
     const pathname = usePathname();
     const router = useRouter();
     const { t } = useLanguage();
@@ -26,6 +91,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
     );
     const pending = countByStatus(useAdminLots()).Pending;
     const role = session?.account.role;
+
+    useEffect(() => {
+        restoreAdminSessionIfNeeded();
+        syncAdminSessionCache();
+    }, [session]);
 
     useEffect(() => {
         if (role && role !== "SystemAdmin") router.replace("/403");
@@ -67,6 +137,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
             : pathname.startsWith(href);
 
     async function signOut() {
+        if (typeof window !== "undefined") {
+            try {
+                window.sessionStorage.removeItem(ADMIN_AUTH_CACHE_KEY);
+            } catch {
+                // Ignore storage errors
+            }
+        }
+        adminSessionRestored = false;
         await logoutParkWiseAccount().catch(() => undefined);
         router.push("/login");
     }
@@ -146,6 +224,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                         <span>
                             You&apos;re not signed in. Approve/Reject require a
                             SystemAdmin session (e.g.{" "}
+                            <code>admin@test.local</code> /{" "}
                             <code>admin@demo.local</code> /{" "}
                             <code>admin@parking.test</code>).
                         </span>
