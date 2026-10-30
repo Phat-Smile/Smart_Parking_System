@@ -5,6 +5,7 @@ using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Booking.Application;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Infrastructure;
+using ParkingSystem.Booking.Infrastructure.Messaging.Consumers;
 using ParkingSystem.Booking.Persistence;
 using ParkingSystem.Booking.WebAPI.Endpoints;
 using ParkingSystem.Booking.WebAPI.Grpc;
@@ -19,7 +20,11 @@ var bookingCapacityOptions = builder.Configuration
     .Get<BookingCapacityOptions>() ?? new BookingCapacityOptions();
 builder.Services.AddApplicationServices(bookingCapacityOptions);
 builder.Services.AddPersistence(builder.Configuration);
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddBookingConsumers();
+builder.Services.AddInfrastructure(builder.Configuration, bus =>
+{
+    bus.AddConsumer<SlotStatusChangedConsumer>();
+});
 builder.Services.AddParkingServiceClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<BookingDbContext>(name: "postgresql", tags: ["ready"]);

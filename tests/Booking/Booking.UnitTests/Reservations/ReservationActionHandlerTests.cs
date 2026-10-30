@@ -154,6 +154,13 @@ public sealed class ReservationActionHandlerTests
             return Task.FromResult<IReadOnlyList<Reservation>>(query.ToList());
         }
 
+        public Task<IReadOnlyList<Reservation>> ListActiveByLotIdAsync(Guid lotId, CancellationToken cancellationToken)
+        {
+            var active = _list.Where(r => r.LotId == lotId &&
+                (r.Status == ReservationStatus.TemporaryHold || r.Status == ReservationStatus.Confirmed)).ToList();
+            return Task.FromResult<IReadOnlyList<Reservation>>(active);
+        }
+
         public void Add(Reservation reservation) => _list.Add(reservation);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;

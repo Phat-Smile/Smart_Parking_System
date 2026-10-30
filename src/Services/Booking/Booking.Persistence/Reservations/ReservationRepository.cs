@@ -20,6 +20,14 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
         return await query.OrderByDescending(reservation => reservation.CreatedAt).ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Reservation>> ListActiveByLotIdAsync(Guid lotId, CancellationToken cancellationToken)
+    {
+        return await dbContext.Reservations
+            .Where(reservation => reservation.LotId == lotId &&
+                (reservation.Status == ReservationStatus.TemporaryHold || reservation.Status == ReservationStatus.Confirmed))
+            .ToListAsync(cancellationToken);
+    }
+
     public void Add(Reservation reservation) =>
         dbContext.Reservations.Add(reservation);
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using ParkingSystem.Booking.Infrastructure.Messaging;
 using ParkingSystem.Booking.Infrastructure.Messaging.Outbox;
+using ParkingSystem.Booking.Infrastructure.Messaging.Consumers;
 using ParkingSystem.BuildingBlocks.Time;
 
 namespace ParkingSystem.Booking.Infrastructure;
@@ -58,6 +59,12 @@ public static class DependencyInjection
             });
         });
 
+        return services;
+    }
+
+    public static IServiceCollection AddBookingConsumers(this IServiceCollection services)
+    {
+        services.AddIdempotentConsumer<SlotStatusChangedConsumer>("booking.slot-status-changed");
         return services;
     }
 }

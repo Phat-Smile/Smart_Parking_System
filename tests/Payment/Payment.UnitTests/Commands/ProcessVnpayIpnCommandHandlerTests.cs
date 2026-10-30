@@ -131,10 +131,15 @@ public class ProcessVnpayIpnCommandHandlerTests
             _outboxWriter,
             NullLogger<WalletTopUpResultHandler>.Instance);
 
+        var directPaymentHandler = new DirectPaymentResultHandler(
+            _txnRepository,
+            _outboxWriter,
+            NullLogger<DirectPaymentResultHandler>.Instance);
+
         _handler = new ProcessVnpayIpnCommandHandler(
             _paymentGateway,
             _txnRepository,
-            new[] { topupHandler },
+            new IVnpayResultHandler[] { topupHandler, directPaymentHandler },
             NullLogger<ProcessVnpayIpnCommandHandler>.Instance);
     }
 
@@ -337,5 +342,118 @@ public class ProcessVnpayIpnCommandHandlerTests
         Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
         Assert.Equal(VnpayTransactionStatus.Success, txn.Status);
         Assert.Equal(20_000m, wallet.Balance);
+    }
+
+    [Fact]
+    public async Task TC_IPN_08_DirectPayment_Success_EnqueuesOutboxEventAndMarksSuccess()
+    {
+        // Arrange (S3-L5: Direct Payment at exit barrier via VNPay)
+        var sessionId = Guid.NewGuid();
+        var txn = VnpayTransaction.CreateDirectPayment(
+            Guid.NewGuid(),
+            "01234567890123456789012345678902",
+            sessionId,
+            35_000m,
+            "req_key_exit_pay",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "3500000",
+            ["vnp_ResponseCode"] = "00",
+            ["vnp_TransactionStatus"] = "00",
+            ["vnp_TransactionNo"] = "987654321",
+            ["vnp_BankCode"] = "NCB"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(VnpayTransactionStatus.Success, txn.Status);
+        Assert.True(_txnRepository.SaveChangesCalled);
+
+        // Outbox event must be enqueued with event type payment.direct-payment-completed.v1
+        Assert.Single(_outboxWriter.Enqueued);
+        var enqueued = _outboxWriter.Enqueued[0];
+        Assert.Equal("payment.direct-payment-completed.v1", enqueued.EventType);
+        Assert.Equal(1, enqueued.EventVersion);
+
+        var directEvent = Assert.IsType<ParkingSystem.Contracts.Events.Payment.DirectPaymentCompletedIntegrationEvent>(enqueued.Event);
+        Assert.Equal(txn.Id, directEvent.TransactionId);
+        Assert.Equal(txn.TxnRef, directEvent.TxnRef);
+        Assert.Equal(sessionId, directEvent.WalletId);
+        Assert.Equal(35_000m, directEvent.Amount);
+        Assert.Equal("987654321", directEvent.VnpayTxnNo);
+    }
+
+    [Fact]
+    public async Task TC_IPN_09_DirectPayment_Failure_MarksFailedAndDoesNotEnqueueEvent()
+    {
+        // Arrange
+        var sessionId = Guid.NewGuid();
+        var txn = VnpayTransaction.CreateDirectPayment(
+            Guid.NewGuid(),
+            "01234567890123456789012345678903",
+            sessionId,
+            40_000m,
+            "req_key_exit_fail",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "4000000",
+            ["vnp_ResponseCode"] = "24", // Canceled by customer
+            ["vnp_TransactionStatus"] = "02"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(VnpayTransactionStatus.Failed, txn.Status);
+        Assert.Empty(_outboxWriter.Enqueued);
+        Assert.True(_txnRepository.SaveChangesCalled);
+    }
+
+    [Fact]
+    public async Task TC_IPN_10_DirectPayment_DuplicateIpn_Returns02AndDoesNotEnqueueDuplicate()
+    {
+        // Arrange (Idempotency check: Already confirmed)
+        var sessionId = Guid.NewGuid();
+        var txn = VnpayTransaction.CreateDirectPayment(
+            Guid.NewGuid(),
+            "01234567890123456789012345678904",
+            sessionId,
+            30_000m,
+            "req_key_exit_dup",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15));
+        txn.MarkAsSuccess("987654322", "NCB", "00", DateTimeOffset.UtcNow);
+        _txnRepository.SeedTransaction(txn);
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = txn.TxnRef,
+            ["vnp_Amount"] = "3000000",
+            ["vnp_ResponseCode"] = "00",
+            ["vnp_TransactionStatus"] = "00"
+        };
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(VnpayIpnResponseDto.Codes.AlreadyConfirmed, result.RspCode);
+        Assert.Equal(VnpayIpnResponseDto.Messages.AlreadyConfirmed, result.Message);
+        Assert.Empty(_outboxWriter.Enqueued);
     }
 }
