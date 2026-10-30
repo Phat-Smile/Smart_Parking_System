@@ -127,5 +127,8 @@ internal sealed class ReservationConfiguration : IEntityTypeConfiguration<Reserv
 
         builder.HasIndex(reservation => new { reservation.LotId, reservation.VehicleGroup, reservation.Status, reservation.WindowStartAt, reservation.HoldEndAt })
             .HasDatabaseName("ix_reservations_active_hold");
+
+        builder.HasIndex(reservation => new { reservation.PlateNumber, reservation.Status, reservation.WindowStartAt, reservation.WindowEndAt })
+            .HasDatabaseName("ix_reservations_plate_overlap");
     }
 }

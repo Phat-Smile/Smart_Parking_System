@@ -274,6 +274,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
         public int LastCeiling { get; private set; }
         public int? LastAvailableSlotCount { get; private set; }
         public TimeSpan LastLockTimeout { get; private set; }
+        public int LastMaxActiveReservationsPerUser { get; private set; }
         public Func<Reservation, Result<Reservation>> ResultToReturn { get; set; } = r => Result<Reservation>.Success(r);
 
         public Task<Result<Reservation>> CreateTemporaryHoldAtomicAsync(
@@ -281,12 +282,14 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
             int ceiling,
             int? availableSlotCount,
             TimeSpan lockTimeout,
+            int maxActiveReservationsPerUser = 3,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastCeiling = ceiling;
             LastAvailableSlotCount = availableSlotCount;
             LastLockTimeout = lockTimeout;
+            LastMaxActiveReservationsPerUser = maxActiveReservationsPerUser;
             OnCall?.Invoke();
             return Task.FromResult(ResultToReturn(reservation));
         }

@@ -150,7 +150,7 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
                             ReservationId: Guid.NewGuid(),
                             UserId: Guid.NewGuid(),
                             VehicleId: Guid.NewGuid(),
-                            PlateNumber: $"51F-{i:D5}",
+                            PlateNumber: $"51F-{iter:D2}-{i:D5}",
                             LotId: lotId,
                             VehicleGroup: VehicleGroup.Car,
                             ReservationType: ReservationType.Scheduled,

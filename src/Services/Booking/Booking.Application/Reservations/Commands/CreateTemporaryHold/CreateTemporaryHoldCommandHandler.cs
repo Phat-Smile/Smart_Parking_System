@@ -129,6 +129,7 @@ public sealed class CreateTemporaryHoldCommandHandler(
             ceiling,
             availableSlotCountToCheck,
             lockTimeout,
+            _options.MaxActiveReservationsPerUser,
             cancellationToken);
 
         return atomicResult;

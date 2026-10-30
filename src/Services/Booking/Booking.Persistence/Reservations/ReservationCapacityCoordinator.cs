@@ -24,6 +24,7 @@ public sealed class ReservationCapacityCoordinator(
         int ceiling,
         int? availableSlotCount,
         TimeSpan lockTimeout,
+        int maxActiveReservationsPerUser = 3,
         CancellationToken cancellationToken = default)
     {
         var executionStrategy = dbContext.Database.CreateExecutionStrategy();
@@ -56,7 +57,20 @@ public sealed class ReservationCapacityCoordinator(
                     cancellationToken);
 #pragma warning restore EF1002
 
-                // Step 3: Acquire exclusive row-level lock on (lot_id, vehicle_group)
+                // Step 3: Concurrency protection for US-RES-010 (User limit & Plate overlap)
+                // 3.1: Acquire transaction-level advisory lock on User (namespace 1)
+                await dbContext.Database.ExecuteSqlRawAsync(
+                    "SELECT pg_advisory_xact_lock(1, hashtext({0}::text));",
+                    [reservation.UserId.ToString()],
+                    cancellationToken);
+
+                // 3.2: Acquire transaction-level advisory lock on Plate (namespace 2)
+                await dbContext.Database.ExecuteSqlRawAsync(
+                    "SELECT pg_advisory_xact_lock(2, hashtext({0}::text));",
+                    [reservation.PlateNumber],
+                    cancellationToken);
+
+                // 3.3: Acquire exclusive row-level lock on (lot_id, vehicle_group)
                 await dbContext.Database.ExecuteSqlRawAsync(
                     """
                     SELECT 1 FROM booking.reservation_capacity
@@ -78,14 +92,43 @@ public sealed class ReservationCapacityCoordinator(
                     return Result<Reservation>.Success(existingReservation);
                 }
 
-                // =========================================================================
-                // PLUG-IN HOOK: US-RES-010 (Account Limit <= 3 & No Overlapping Plate Number)
-                // This reservation lock ensures that subsequent checks for US-RES-010
-                // (e.g. user active reservations count and plate schedule collisions)
-                // run under the exact same protected row lock.
-                // =========================================================================
+                // Step 5 (US-RES-010 BR-1): Enforce max active reservations per user account across all lots
+                var userActiveCount = await dbContext.Reservations
+                    .Where(r => r.UserId == reservation.UserId &&
+                                (r.Status == ReservationStatus.Confirmed ||
+                                 (r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt > now)))
+                    .CountAsync(cancellationToken);
 
-                // Step 5: Condition (i) - Count active reservations overlapping with the new reservation's ceiling window
+                if (userActiveCount >= maxActiveReservationsPerUser)
+                {
+                    logger.LogInformation(
+                        "Reservation {ReservationId} rejected: user {UserId} active reservations limit ({Limit}) reached. Current active={ActiveCount}.",
+                        reservation.Id, reservation.UserId, maxActiveReservationsPerUser, userActiveCount);
+
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<Reservation>.Failure(ReservationCapacityErrors.UserActiveReservationsLimitExceeded);
+                }
+
+                // Step 6 (US-RES-010 BR-2): Enforce no overlapping active reservations for the same plate number
+                var hasPlateOverlap = await dbContext.Reservations
+                    .Where(r => r.PlateNumber == reservation.PlateNumber &&
+                                (r.Status == ReservationStatus.Confirmed ||
+                                 (r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt > now)) &&
+                                r.WindowStartAt < reservation.WindowEndAt &&
+                                r.WindowEndAt > reservation.WindowStartAt)
+                    .AnyAsync(cancellationToken);
+
+                if (hasPlateOverlap)
+                {
+                    logger.LogInformation(
+                        "Reservation {ReservationId} rejected: plate {PlateNumber} already has an active overlapping reservation for window [{WindowStartAt}, {WindowEndAt}).",
+                        reservation.Id, reservation.PlateNumber, reservation.WindowStartAt, reservation.WindowEndAt);
+
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<Reservation>.Failure(ReservationCapacityErrors.PlateReservationOverlap);
+                }
+
+                // Step 7: Condition (i) - Count active reservations overlapping with the new reservation's ceiling window
                 // Active reservation = Confirmed OR (TemporaryHold with temp_hold_expires_at > now)
                 // Half-open interval overlap = r.WindowStartAt < reservation.WindowEndAt && r.WindowEndAt > reservation.WindowStartAt
                 var overlappingActiveCount = await dbContext.Reservations
@@ -107,7 +150,7 @@ public sealed class ReservationCapacityCoordinator(
                     return Result<Reservation>.Failure(ReservationCapacityErrors.CapacityExceeded);
                 }
 
-                // Step 6: Condition (ii) - If the reservation window has already started at 'now',
+                // Step 8: Condition (ii) - If the reservation window has already started at 'now',
                 // count current active holds against availableSlotCount
                 if (availableSlotCount.HasValue)
                 {
@@ -131,7 +174,7 @@ public sealed class ReservationCapacityCoordinator(
                     }
                 }
 
-                // Step 7: Conditions met! Insert new reservation and touch capacity updated_at
+                // Step 9: Conditions met! Insert new reservation and touch capacity updated_at
                 dbContext.Reservations.Add(reservation);
                 await dbContext.SaveChangesAsync(cancellationToken);
 
