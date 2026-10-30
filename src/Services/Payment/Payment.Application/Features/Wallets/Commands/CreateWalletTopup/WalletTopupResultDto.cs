@@ -9,6 +9,5 @@ public class WalletTopupResultDto
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset ExpiresAtUtc { get; set; }
 
-    [System.Text.Json.Serialization.JsonIgnore]
     public bool IsReplay { get; set; }
 }
