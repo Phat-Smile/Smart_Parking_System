@@ -28,6 +28,29 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(
+        Guid lotId,
+        string plateNumber,
+        DateTimeOffset arrivalTime,
+        CancellationToken cancellationToken)
+    {
+        var normalizedPlate = plateNumber.Trim().ToUpperInvariant();
+        var utcArrival = arrivalTime.ToUniversalTime();
+
+        var candidates = await dbContext.Reservations
+            .Where(r => r.LotId == lotId &&
+                        r.PlateNumber == normalizedPlate &&
+                        r.Status == ReservationStatus.Confirmed)
+            .ToListAsync(cancellationToken);
+
+        // Khung giờ đón xe hợp lệ (MF-08):
+        // Cho phép xe đến sớm tối đa 15 phút so với WindowStartAt
+        // Cho phép xe đến muộn tối đa 15 phút (NoShowGracePeriodMinutes) so với AppointmentTime
+        return candidates.FirstOrDefault(r =>
+            utcArrival >= r.WindowStartAt.AddMinutes(-15) &&
+            utcArrival <= r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes));
+    }
+
     public void Add(Reservation reservation) =>
         dbContext.Reservations.Add(reservation);
 

@@ -1,5 +1,6 @@
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
@@ -73,7 +74,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_opens_active_unlinked_session_when_plate_has_no_owner()
     {
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, " 51a-123.45 ", "car", StaffId),
@@ -99,7 +100,7 @@ public sealed class OpenParkingSessionTests
     {
         var owner = new PlateOwner(Guid.NewGuid(), Guid.NewGuid());
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(owner), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(owner), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Motorbike", StaffId),
@@ -116,7 +117,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_rejects_plate_that_already_has_an_open_session()
     {
         var repository = new FakeParkingSessionRepository { HasOpenSession = true };
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId),
@@ -131,7 +132,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_reports_already_open_when_concurrent_request_wins_the_unique_index()
     {
         var repository = new FakeParkingSessionRepository { SaveSucceeds = false };
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId),
@@ -145,7 +146,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_rejects_lot_that_does_not_exist_or_is_not_approved()
     {
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: false), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: false), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId),
@@ -160,7 +161,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_refuses_staff_not_assigned_to_the_lot_and_opens_nothing()
     {
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: false), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: false), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
 
         var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId), TestContext.Current.CancellationToken);
 
@@ -172,7 +173,7 @@ public sealed class OpenParkingSessionTests
     public async Task Handler_issues_a_different_qr_token_without_plate_for_each_session()
     {
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels());
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
 
         var first = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-111.11", "Car", StaffId), TestContext.Current.CancellationToken);
         var second = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-222.22", "Car", StaffId), TestContext.Current.CancellationToken);
@@ -355,14 +356,67 @@ public sealed class OpenParkingSessionTests
         Assert.Null(result.Value!.SlotCode);
     }
 
+    [Fact]
+    public async Task Handler_opens_session_for_car_with_booking_sets_customer_type_booking_and_reservation_id()
+    {
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var vehicleId = Guid.NewGuid();
+        var bookingClient = new FakeBookingCheckInClient(new CheckedInReservation(reservationId, userId, vehicleId));
+
+        var repository = new FakeParkingSessionRepository();
+        var handler = NewHandler(repository, new FakeMotorbikeZones(), new FakeUnitOfWork(), bookingClient: bookingClient);
+
+        var result = await handler.Handle(
+            new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Booking", result.Value!.CustomerType);
+        Assert.Equal(reservationId, result.Value.ReservationId);
+        Assert.True(result.Value.IsAccountLinked);
+        Assert.Equal("A-01", result.Value.SlotCode);
+
+        var session = Assert.Single(repository.Saved);
+        Assert.Equal(reservationId, session.ReservationId);
+        Assert.Equal(userId, session.UserId);
+        Assert.Equal(vehicleId, session.VehicleId);
+    }
+
+    [Fact]
+    public async Task Handler_admits_car_with_booking_even_when_walkin_is_full_because_reservation_held_slot()
+    {
+        // Held = 5, Available = 5 => Walk-in would be blocked because available - held <= 0!
+        var reservationId = Guid.NewGuid();
+        var bookingClient = new FakeBookingCheckInClient(new CheckedInReservation(reservationId, Guid.NewGuid(), Guid.NewGuid()));
+
+        var repository = new FakeParkingSessionRepository();
+        var handler = NewHandler(
+            repository,
+            new FakeMotorbikeZones(),
+            new FakeUnitOfWork(),
+            slots: new FakeSlotDesignator(available: 5),
+            heldQuota: new FakeHeldQuota(held: 5),
+            bookingClient: bookingClient);
+
+        var result = await handler.Handle(
+            new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Booking", result.Value!.CustomerType);
+        Assert.Equal(reservationId, result.Value.ReservationId);
+    }
+
     private static OpenParkingSessionCommandHandler NewHandler(
         FakeParkingSessionRepository repository,
         FakeMotorbikeZones zones,
         FakeUnitOfWork unitOfWork,
         FakeSlotDesignator? slots = null,
-        FakeHeldQuota? heldQuota = null) =>
+        FakeHeldQuota? heldQuota = null,
+        IBookingCheckInClient? bookingClient = null) =>
         new(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), zones, unitOfWork,
-            slots ?? new FakeSlotDesignator(), heldQuota ?? new FakeHeldQuota(0), new FakeZoneLabels());
+            slots ?? new FakeSlotDesignator(), heldQuota ?? new FakeHeldQuota(0), new FakeZoneLabels(), bookingClient ?? new FakeBookingCheckInClient());
 
     private sealed class FakeParkingSessionRepository : IParkingSessionRepository
     {
@@ -511,5 +565,15 @@ public sealed class OpenParkingSessionTests
         public Task<IReadOnlyDictionary<Guid, ZoneLabel>> GetLabelsAsync(IReadOnlyCollection<Guid> zoneIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyDictionary<Guid, ZoneLabel>>(
                 zoneIds.Where(id => id == FakeSlotDesignator.CarZoneId).ToDictionary(id => id, _ => new ZoneLabel("CAR-A", "Tầng 1")));
+    }
+
+    private sealed class FakeBookingCheckInClient(CheckedInReservation? reservation = null) : IBookingCheckInClient
+    {
+        public Task<CheckedInReservation?> CheckInReservationAsync(
+            Guid lotId,
+            string normalizedPlate,
+            DateTimeOffset entryTime,
+            Guid sessionId,
+            CancellationToken cancellationToken) => Task.FromResult(reservation);
     }
 }

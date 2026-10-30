@@ -3,7 +3,9 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Mapbox;
+using ParkingSystem.Parking.Infrastructure.Booking;
 using ParkingSystem.Parking.Infrastructure.Mapbox;
 using ParkingSystem.Parking.Infrastructure;
 using ParkingSystem.Parking.Persistence;
@@ -42,6 +44,8 @@ builder.Services.AddSingleton<IMapboxGeoRouting>(_ => new MapboxGeoRoutingClient
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddIdentityServiceClient(builder.Configuration);
+builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSection(BookingServiceOptions.SectionName));
+builder.Services.AddHttpClient<IBookingCheckInClient, BookingCheckInHttpClient>();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ParkingDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>
