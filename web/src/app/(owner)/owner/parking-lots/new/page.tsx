@@ -5,7 +5,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { PageHeader } from "../../../../../components/layout/PageHeader";
 import { Plan2D } from "../../../../../components/viz/Plan2D";
-import { useOwnerStore } from "../../../../../store/useOwnerStore";
 import { AP, vnd, ST, K } from "../../../../../types/owner";
 
 const ParkingScene3DViewer = dynamic(
@@ -17,9 +16,9 @@ import {
     registerParkingLotApi,
     ParkingLotTypeEnum,
 } from "@/features/owner/api/ownerApi";
-import { useOwnerMapStore } from "@/features/owner/lots/useOwnerMapStore";
 import { useLotInfoStore } from "@/features/owner/lots/lotInfo";
 import { ApiError } from "@/shared/errors/api-error";
+import { loadOwnerLots, localLotId } from "@/features/owner/lots/ownerLotsSync";
 
 interface WizardData {
     name: string;
@@ -58,8 +57,6 @@ const INITIAL_DATA: WizardData = {
 };
 
 export default function NewParkingLotPage() {
-    const addLot = useOwnerStore((s) => s.addLot);
-
     const [step, setStep] = useState(0);
     const [data, setData] = useState<WizardData>(INITIAL_DATA);
     const [errors, setErrors] = useState<string[]>([]);
@@ -115,113 +112,69 @@ export default function NewParkingLotPage() {
     const [createdLotId, setCreatedLotId] = useState<number>(1);
 
     const handleConfirmSend = async () => {
-        setIsSubmitting(true);
         setErrors([]);
+        const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
+        const latitude = Number(latStr);
+        const longitude = Number(lngStr);
+        if (
+            !latStr ||
+            !lngStr ||
+            !Number.isFinite(latitude) ||
+            !Number.isFinite(longitude) ||
+            Math.abs(latitude) > 90 ||
+            Math.abs(longitude) > 180
+        ) {
+            setErrors([
+                "Tọa độ GPS chưa hợp lệ. Nhập theo dạng 'vĩ độ, kinh độ', ví dụ 10.7769, 106.7009.",
+            ]);
+            setConfirming(false);
+            setStep(0);
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
-            const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
-            const latitude = Number(latStr) || 10.7769;
-            const longitude = Number(lngStr) || 106.7009;
-
-            let registeredId = (Date.now() % 100000) + 10;
-
-            // Gọi API đăng ký bãi xe chuẩn BE (POST /api/parking/lots)
-            try {
-                const res = await registerParkingLotApi({
-                    name: data.name,
-                    address: data.addr,
-                    latitude,
-                    longitude,
-                    type: data.type,
-                });
-                if (res?.id) {
-                    // If BE returns a string UUID, we generate a stable local numeric ID for store mapping
-                    registeredId =
-                        Math.abs(
-                            res.id
-                                .split("")
-                                .reduce(
-                                    (acc, char) =>
-                                        (acc << 5) - acc + char.charCodeAt(0),
-                                    0,
-                                ) % 100000,
-                        ) + 10;
-                }
-            } catch (err: unknown) {
-                if (err instanceof ApiError) {
-                    if (err.status === 409) {
-                        setErrors([
-                            "Tên bãi đỗ xe này đã được bạn đăng ký trước đó. Vui lòng chọn tên khác (Mã lỗi: parking.lot_duplicate).",
-                        ]);
-                        setConfirming(false);
-                        setStep(0);
-                        return;
-                    }
-                    if (err.status === 400) {
-                        setErrors([
-                            err.problem?.detail ||
-                                "Thông tin đăng ký bãi đỗ xe chưa đúng định dạng.",
-                        ]);
-                        setConfirming(false);
-                        setStep(0);
-                        return;
-                    }
-                    if (err.status === 401 || err.status === 403) {
-                        setErrors([
-                            "Tài khoản của bạn chưa có quyền Chủ bãi (ParkingLotOwner) để thực hiện thao tác này.",
-                        ]);
-                        setConfirming(false);
-                        return;
-                    }
-                }
-                console.warn(
-                    "Backend API registration call skipped or offline, falling back to local store:",
-                    err,
-                );
-            }
-
-            setCreatedLotId(registeredId);
-
-            const newLotObj = {
-                id: registeredId,
-                name: data.name.trim(),
-                addr: data.addr.trim(),
-                gps: data.gps.trim(),
-                op: data.op,
-                cl2: data.cl2,
-                vc: data.vc,
-                vm: data.vm,
-                cc: data.vc ? data.cap : 0,
-                cm: data.vm ? data.cap : 0,
-                fls: data.type === "Outdoor" ? 1 : data.floors,
-                pc: data.pc,
-                pm: data.pm,
-                dep: data.dep,
-                res: Number(data.hold) > 0 ? ("on" as const) : ("off" as const),
-                hold: Number(data.hold) || 15,
-                maxr: 6,
-                fc: 10,
-                ap: "pending" as const,
-                zones: [],
-            };
-
-            // Cập nhật bãi xe vào cả 2 store để đảm bảo hiển thị tức thì trên mọi view (Bản đồ, Danh sách, Thống kê)
-            addLot(newLotObj);
-            useOwnerMapStore.getState().addOverlayLot(newLotObj);
-
-            // Cập nhật thông tin chi tiết bãi
-            const today = new Date().toISOString().split("T")[0];
-            useLotInfoStore.getState().setLotInfo(registeredId, {
-                submittedAt: today,
-                openingHours: `${data.op} – ${data.cl2}`,
-                phone: "Chưa cập nhật",
-                prices: {
-                    carFirstHour: data.pc,
-                    carNextHour: data.pc,
-                    reservationDeposit: data.dep,
-                },
+            // D02.1: Parking stores the lot as Pending. Hours, prices and layout are saved on their own
+            // screens, so they are not part of this request.
+            const res = await registerParkingLotApi({
+                name: data.name,
+                address: data.addr,
+                latitude,
+                longitude,
+                type: data.type,
             });
-
+            await loadOwnerLots();
+            const registeredId = localLotId(res.id);
+            setCreatedLotId(registeredId);
+            useLotInfoStore.getState().setLotInfo(registeredId, {
+                submittedAt: new Date().toISOString().split("T")[0],
+            });
             setDone(true);
+        } catch (err: unknown) {
+            setConfirming(false);
+            if (err instanceof ApiError && err.status === 409) {
+                setErrors([
+                    "Tên bãi đỗ xe này đã được bạn đăng ký trước đó. Vui lòng chọn tên khác (Mã lỗi: parking.lot_duplicate).",
+                ]);
+                setStep(0);
+            } else if (err instanceof ApiError && err.status === 400) {
+                setErrors([
+                    err.problem?.detail ||
+                        "Thông tin đăng ký bãi đỗ xe chưa đúng định dạng.",
+                ]);
+                setStep(0);
+            } else if (
+                err instanceof ApiError &&
+                (err.status === 401 || err.status === 403)
+            ) {
+                setErrors([
+                    "Tài khoản của bạn chưa có quyền Chủ bãi (ParkingLotOwner) để thực hiện thao tác này.",
+                ]);
+            } else {
+                setErrors([
+                    "Không kết nối được máy chủ. Bãi chưa được tạo, vui lòng thử lại.",
+                ]);
+            }
         } finally {
             setIsSubmitting(false);
         }

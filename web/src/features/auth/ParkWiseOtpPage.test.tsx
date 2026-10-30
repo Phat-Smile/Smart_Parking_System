@@ -138,7 +138,7 @@ describe("ParkWiseOtpPage", () => {
             screen.getByRole("link", {
                 name: /Tiếp tục: Nhập hồ sơ pháp lý đối tác/i,
             }),
-        ).toHaveAttribute("href", "/owner/onboarding");
+        ).toHaveAttribute("href", "/login?redirect=%2Fowner%2Fonboarding");
     });
 
     it("displays dev OTP prompt when detected from backend dev helper", async () => {

@@ -2,20 +2,35 @@
 
 import React, { useState } from "react";
 import { useOwnerMapStore } from "./useOwnerMapStore";
-import { useLotInfoStore } from "./lotInfo";
-import { useOwnerStore } from "@/store/useOwnerStore";
-import { ParkingLot } from "@/types/owner";
+import { loadOwnerLots, localLotId } from "./ownerLotsSync";
 import { registerParkingLotApi } from "@/features/owner/api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
 
+type LotType = "MultiStorey" | "Underground" | "Outdoor";
+
+function describeRegisterError(err: unknown): string {
+    if (!(err instanceof ApiError))
+        return "Không kết nối được máy chủ. Bãi chưa được tạo, vui lòng thử lại.";
+    if (err.status === 409)
+        return "Tên bãi đỗ xe này đã được đăng ký trước đó. Vui lòng chọn tên khác.";
+    if (err.status === 400)
+        return (
+            err.problem?.detail || "Thông tin bãi đỗ xe chưa đúng định dạng."
+        );
+    if (err.status === 401 || err.status === 403)
+        return "Tài khoản hiện tại không có quyền đăng ký bãi. Vui lòng đăng nhập lại bằng tài khoản Chủ bãi đã được duyệt.";
+    return "Máy chủ chưa tạo được bãi. Vui lòng thử lại.";
+}
+
 export function AddLotModal() {
-    const { isAddModalOpen, setAddModalOpen, addOverlayLot } =
+    const { isAddModalOpen, setAddModalOpen, setSelectedLotId } =
         useOwnerMapStore();
 
     const [name, setName] = useState("");
     const [addr, setAddr] = useState("");
-    const [cc, setCc] = useState(200);
-    const [cm, setCm] = useState(100);
+    const [lat, setLat] = useState("");
+    const [lng, setLng] = useState("");
+    const [lotType, setLotType] = useState<LotType>("Outdoor");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -25,98 +40,45 @@ export function AddLotModal() {
         e.preventDefault();
         if (!name.trim()) return;
 
-        setIsSubmitting(true);
-        setErrorMsg("");
-
-        let registeredId = Date.now();
-
-        try {
-            const res = await registerParkingLotApi({
-                name: name.trim(),
-                address: addr.trim() || "TP.HCM",
-                latitude: 10.7745,
-                longitude: 106.7035,
-                type: "Outdoor",
-            });
-            if (res?.id) {
-                registeredId =
-                    Math.abs(
-                        res.id
-                            .split("")
-                            .reduce(
-                                (acc, char) =>
-                                    (acc << 5) - acc + char.charCodeAt(0),
-                                0,
-                            ) % 100000,
-                    ) + 10;
-            }
-        } catch (err: unknown) {
-            if (err instanceof ApiError) {
-                if (err.status === 409) {
-                    setErrorMsg(
-                        "Tên bãi đỗ xe này đã được đăng ký trước đó. Vui lòng chọn tên khác.",
-                    );
-                    setIsSubmitting(false);
-                    return;
-                }
-                if (err.status === 400) {
-                    setErrorMsg(
-                        err.problem?.detail ||
-                            "Thông tin bãi đỗ xe chưa đúng định dạng.",
-                    );
-                    setIsSubmitting(false);
-                    return;
-                }
-            }
-            console.warn(
-                "Backend API registration call skipped or offline:",
-                err,
+        const latitude = Number(lat);
+        const longitude = Number(lng);
+        if (
+            lat.trim() === "" ||
+            lng.trim() === "" ||
+            !Number.isFinite(latitude) ||
+            !Number.isFinite(longitude) ||
+            Math.abs(latitude) > 90 ||
+            Math.abs(longitude) > 180
+        ) {
+            setErrorMsg(
+                "Vui lòng nhập vĩ độ và kinh độ hợp lệ của bãi (VD: 10.7745 và 106.7035).",
             );
+            return;
         }
 
-        const newLot: ParkingLot = {
-            id: registeredId,
-            name: name.trim(),
-            addr: addr.trim() || "TP.HCM",
-            gps: "10.7745, 106.7035",
-            op: "06:00",
-            cl2: "23:00",
-            vc: true,
-            vm: cm > 0,
-            cc,
-            cm,
-            fls: 3,
-            pc: 30000,
-            pm: 5000,
-            dep: 20000,
-            res: "on",
-            hold: 20,
-            maxr: 8,
-            fc: 8,
-            ap: "pending",
-            zones: [{ n: "Khu A", t: "car", c: cc, s: "open" }],
-        };
-
-        addOverlayLot(newLot);
-        useOwnerStore.getState().addLot(newLot);
-
-        // Initialize lotInfo with submittedAt = today
-        const today = new Date().toISOString().split("T")[0];
-        useLotInfoStore.getState().setLotInfo(newLot.id, {
-            submittedAt: today,
-            openingHours: `${newLot.op} – ${newLot.cl2}`,
-            phone: "Chưa cập nhật",
-            prices: {
-                carFirstHour: newLot.pc,
-                carNextHour: newLot.pc,
-                reservationDeposit: newLot.dep,
-            },
-        });
-
-        setIsSubmitting(false);
-        setAddModalOpen(false);
-        setName("");
-        setAddr("");
+        setIsSubmitting(true);
+        setErrorMsg("");
+        try {
+            // D02.1: Parking stores what the owner typed; the lot starts as Pending.
+            const res = await registerParkingLotApi({
+                name: name.trim(),
+                address: addr.trim(),
+                latitude,
+                longitude,
+                type: lotType,
+            });
+            await loadOwnerLots();
+            if (res?.id) setSelectedLotId(localLotId(res.id));
+            setAddModalOpen(false);
+            setName("");
+            setAddr("");
+            setLat("");
+            setLng("");
+        } catch (err: unknown) {
+            setErrorMsg(describeRegisterError(err));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -265,12 +227,13 @@ export function AddLotModal() {
                     <div
                         style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "1fr 1fr 1fr",
                             gap: 12,
                         }}
                     >
                         <div>
                             <label
+                                htmlFor="add-lot-lat"
                                 style={{
                                     display: "block",
                                     fontSize: 13,
@@ -279,14 +242,16 @@ export function AddLotModal() {
                                     marginBottom: 4,
                                 }}
                             >
-                                Sức chứa ô tô
+                                Vĩ độ (GPS)
                             </label>
                             <input
-                                type="number"
-                                min={10}
-                                max={5000}
-                                value={cc}
-                                onChange={(e) => setCc(Number(e.target.value))}
+                                id="add-lot-lat"
+                                type="text"
+                                inputMode="decimal"
+                                required
+                                placeholder="10.7745"
+                                value={lat}
+                                onChange={(e) => setLat(e.target.value)}
                                 style={{
                                     width: "100%",
                                     border: "1px solid #e3e8f2",
@@ -299,6 +264,7 @@ export function AddLotModal() {
                         </div>
                         <div>
                             <label
+                                htmlFor="add-lot-lng"
                                 style={{
                                     display: "block",
                                     fontSize: 13,
@@ -307,14 +273,16 @@ export function AddLotModal() {
                                     marginBottom: 4,
                                 }}
                             >
-                                Sức chứa xe máy
+                                Kinh độ (GPS)
                             </label>
                             <input
-                                type="number"
-                                min={0}
-                                max={5000}
-                                value={cm}
-                                onChange={(e) => setCm(Number(e.target.value))}
+                                id="add-lot-lng"
+                                type="text"
+                                inputMode="decimal"
+                                required
+                                placeholder="106.7035"
+                                value={lng}
+                                onChange={(e) => setLng(e.target.value)}
                                 style={{
                                     width: "100%",
                                     border: "1px solid #e3e8f2",
@@ -324,6 +292,39 @@ export function AddLotModal() {
                                     outline: "none",
                                 }}
                             />
+                        </div>
+                        <div>
+                            <label
+                                htmlFor="add-lot-type"
+                                style={{
+                                    display: "block",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: "#0f1b3d",
+                                    marginBottom: 4,
+                                }}
+                            >
+                                Loại bãi
+                            </label>
+                            <select
+                                id="add-lot-type"
+                                value={lotType}
+                                onChange={(e) =>
+                                    setLotType(e.target.value as LotType)
+                                }
+                                style={{
+                                    width: "100%",
+                                    border: "1px solid #e3e8f2",
+                                    borderRadius: 10,
+                                    padding: "9px 12px",
+                                    fontSize: 13,
+                                    outline: "none",
+                                }}
+                            >
+                                <option value="Outdoor">Ngoài trời</option>
+                                <option value="MultiStorey">Nhiều tầng</option>
+                                <option value="Underground">Tầng hầm</option>
+                            </select>
                         </div>
                     </div>
 

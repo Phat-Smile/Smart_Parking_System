@@ -84,13 +84,16 @@ import {
     getDepositPolicyApi,
 } from "@/features/owner/api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
+import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 
 export default function LotPricingConfigPage() {
     const params = useParams();
     const lotId = Number(params?.id) || 1;
 
     const lots = useOwnerStore((s) => s.lots);
-    const lot = lots.find((l) => l.id === lotId) || lots[0];
+    const lot = lots.find((l) => l.id === lotId);
+    // Parking keys lots by GUID; a design lot without one cannot be saved.
+    const lotKey = backendLotId(lot);
 
     // Pricing configuration state
     const [pricingType, setPricingType] = useState<"block" | "turn">("block");
@@ -112,21 +115,16 @@ export default function LotPricingConfigPage() {
     // Load deposit policy from BE if available
     useEffect(() => {
         async function loadDeposit() {
+            if (!lotKey) return;
             try {
-                const res = await getDepositPolicyApi(lotId);
-                if (
-                    res &&
-                    res.depositAmount !== null &&
-                    res.depositAmount !== undefined
-                ) {
-                    setDeposit(res.depositAmount);
-                }
+                const res = await getDepositPolicyApi(lotKey);
+                if (res.isConfigured) setDeposit(res.holdDepositVnd);
             } catch {
-                // ignore
+                setErrorMessage("Không tải được mức cọc hiện tại của bãi này.");
             }
         }
         loadDeposit();
-    }, [lotId]);
+    }, [lotKey]);
 
     // Calculate estimated price
     const calculatePreviewPrice = () => {
@@ -146,16 +144,22 @@ export default function LotPricingConfigPage() {
     };
 
     const handleSave = async () => {
-        setIsSubmitting(true);
         setErrorMessage("");
         setSuccessMessage("");
+        if (!lotKey) {
+            setErrorMessage(
+                "Bãi này chưa có trên hệ thống nên không lưu được. Hãy chọn một bãi bạn đã đăng ký.",
+            );
+            return;
+        }
+        setIsSubmitting(true);
 
         const billingMode = pricingType === "block" ? "Block" : "PerEntry";
         const blockMins = pricingType === "block" ? blockDuration : null;
 
         try {
             // 1. Configure pricing for Car (PUT /api/parking/lots/{lotId}/pricing/CAR)
-            await configurePricingApi(lotId, "CAR", {
+            await configurePricingApi(lotKey, "CAR", {
                 billingMode,
                 price: carHourly,
                 blockMinutes: blockMins,
@@ -164,7 +168,7 @@ export default function LotPricingConfigPage() {
             });
 
             // 2. Configure pricing for Motorbike (PUT /api/parking/lots/{lotId}/pricing/MOTORBIKE)
-            await configurePricingApi(lotId, "MOTORBIKE", {
+            await configurePricingApi(lotKey, "MOTORBIKE", {
                 billingMode,
                 price: motoHourly,
                 blockMinutes: blockMins,
@@ -172,19 +176,10 @@ export default function LotPricingConfigPage() {
                 reason: "Chủ bãi cập nhật biểu giá xe máy",
             });
 
-            // 3. Configure deposit policy (PUT /api/v1/parking-lots/{lotId}/deposit-policy)
-            if (deposit >= 0) {
-                try {
-                    await configureDepositPolicyApi(lotId, {
-                        depositAmount: deposit,
-                    });
-                } catch (depositErr) {
-                    console.warn(
-                        "Deposit policy call skipped or fallback:",
-                        depositErr,
-                    );
-                }
-            }
+            // 3. Configure deposit policy (PUT /api/parking/lots/{lotId}/deposit-policy)
+            await configureDepositPolicyApi(lotKey, {
+                holdDepositVnd: deposit,
+            });
 
             setSuccessMessage(
                 "Đã lưu và áp dụng biểu phí & tiền cọc lên hệ thống máy chủ bãi xe thành công!",
@@ -206,9 +201,8 @@ export default function LotPricingConfigPage() {
                     );
                 }
             } else {
-                // Fallback for presentation when backend container is offline
-                setSuccessMessage(
-                    "Đã lưu cấu hình bảng giá thành công vào hệ thống!",
+                setErrorMessage(
+                    "Không kết nối được máy chủ. Bảng giá chưa được lưu.",
                 );
             }
         } finally {

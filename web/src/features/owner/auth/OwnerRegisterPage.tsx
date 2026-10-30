@@ -144,13 +144,6 @@ export function OwnerRegisterPage({
 
             rememberRegisteredProfileName(account.email, account.fullName);
             rememberPendingRole("owner");
-            try {
-                window.localStorage.removeItem("parkwise_demo_owner_app");
-                window.localStorage.removeItem("parkwise_demo_owner_docs");
-            } catch {
-                // ignore
-            }
-
             if (!rememberPendingVerification(account.email, 60)) {
                 setSubmitError(
                     "Đăng ký thành công nhưng trình duyệt không mở được xác thực. Vui lòng bật Session Storage và thử lại.",

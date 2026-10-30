@@ -60,24 +60,35 @@ describe("reviewParkingLot API integration", () => {
     });
 
     describe("getAdminParkingLots", () => {
-        it("sends GET to /api/parking/admin/lots?status=Pending", async () => {
+        it("sends GET to /api/parking/admin/lots with status Pending and reads the page", async () => {
+            // Shape documented in docs/api/Parking-Owner-Admin-Lots.md (Admin list).
             const mockLots = [
                 {
                     id: "11111111-1111-1111-1111-111111111111",
+                    ownerUserId: "22222222-2222-2222-2222-222222222222",
                     name: "Vincom Center Basement",
-                    ownerName: "Nguyễn Minh Khoa",
-                    ownerEmail: "owner@parking.test",
-                    submittedAtUtc: "2026-10-15T02:30:00Z",
-                    status: "Pending",
-                    totalCapacity: 240,
+                    address: "72 Lê Thánh Tôn",
+                    latitude: 10.77,
+                    longitude: 106.7,
+                    type: "Underground",
+                    approvalStatus: "Pending",
+                    rejectionReason: null,
                 },
             ];
 
             const fetchMock = vi.fn().mockResolvedValue(
-                new Response(JSON.stringify(mockLots), {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                }),
+                new Response(
+                    JSON.stringify({
+                        items: mockLots,
+                        totalCount: 1,
+                        page: 1,
+                        pageSize: 100,
+                    }),
+                    {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    },
+                ),
             );
             vi.stubGlobal("fetch", fetchMock);
 
@@ -88,8 +99,9 @@ describe("reviewParkingLot API integration", () => {
 
             const [url, init] = fetchMock.mock.calls[0];
             expect(String(url)).toBe(
-                "http://localhost:5000/api/parking/admin/lots?status=Pending",
+                "http://localhost:5000/api/parking/admin/lots?page=1&pageSize=100&status=Pending",
             );
+            expect(result[0].status).toBe("Pending");
             expect(init?.method).toBe("GET");
         });
     });
