@@ -19,7 +19,8 @@ public sealed record LotParkingSessionItem(
     string VehicleType,
     string Status,
     DateTimeOffset EntryTime,
-    string? SlotCode);
+    string? SlotCode,
+    string CustomerType);
 
 public sealed record LotParkingSessionPage(IReadOnlyList<LotParkingSessionItem> Items, int TotalCount, int Page, int PageSize);
 
@@ -73,7 +74,8 @@ public sealed class ListLotParkingSessionsQueryHandler(IParkingSessionRepository
                     session.VehicleType.ToString(),
                     session.Status.ToString(),
                     session.EntryTime,
-                    slotCodes.GetValueOrDefault(session.Id)))
+                    slotCodes.GetValueOrDefault(session.Id),
+                    session.CustomerType.ToString()))
                 .ToList(),
             totalCount,
             request.Page,

@@ -64,7 +64,7 @@ should call this instead of `/staff/assigned-lot`, which does not exist.
 }
 ```
 
-`status` is `Active`, `Paid`, `Completed` or `Cancelled`. The `Location` header returned when a session is opened points here.
+`status` is `Active`, `Paid`, `Completed` or `Cancelled`. In the list, `customerType` is `Booking`, `RegisteredWalkIn` or `UnregisteredWalkIn` (a vehicle without an account, who gets a printed QR ticket). The `Location` header returned when a session is opened points here.
 
 `slotCode` is the slot a walk-in car was given at the gate (US-PARK-007) while the session holds it. It is `null` for
 motorbikes (no slot) and after the slot is released (cancelled session).
@@ -92,7 +92,8 @@ motorbikes (no slot) and after the slot is released (cancelled session).
 {
   "items": [
     { "sessionId": "2b684220-8663-48a3-aed6-a1ef40748c3a", "plateNumber": "59A-12345", "vehicleType": "Motorbike",
-      "status": "Active", "entryTime": "2026-10-27T08:00:00+00:00", "slotCode": null }
+      "status": "Active", "entryTime": "2026-10-27T08:00:00+00:00", "slotCode": null,
+      "customerType": "UnregisteredWalkIn" }
   ],
   "totalCount": 1,
   "page": 1,

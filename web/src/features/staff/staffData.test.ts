@@ -23,6 +23,7 @@ vi.mock("./staffApi", () => ({
                 status: "Active",
                 entryTime: "2026-10-30T01:00:00Z",
                 slotCode: null,
+                customerType: "UnregisteredWalkIn",
             },
         ],
         totalCount: 1,
@@ -43,6 +44,7 @@ describe("useStaffData", () => {
         );
         expect(result.current.activeSessions).toHaveLength(1);
         expect(result.current.activeSessions[0].plateNumber).toBe("59A-12345");
+        expect(result.current.activeSessions[0].customerType).toBe("Guest");
         expect(result.current.issues).toEqual([]);
         expect(result.current.occupancy).toMatchObject({
             motorbikeAvailable: 58,

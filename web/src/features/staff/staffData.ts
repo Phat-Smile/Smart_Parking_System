@@ -10,6 +10,7 @@ import type {
     VehicleType,
     VerificationIssue,
 } from "./types";
+import { toStaffCustomerType } from "./types";
 import { getAssignedLot, listLotSessions } from "./staffApi";
 
 export interface GateActivity {
@@ -50,6 +51,7 @@ function toStaffSession(
         lotId,
         plateNumber: item.plateNumber,
         vehicleType: item.vehicleType as VehicleType,
+        customerType: toStaffCustomerType(item.customerType),
         entryTime: item.entryTime,
         status: item.status as SessionStatus,
         slotCode: item.slotCode,

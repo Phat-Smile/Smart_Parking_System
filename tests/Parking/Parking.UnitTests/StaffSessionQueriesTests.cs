@@ -116,6 +116,21 @@ public sealed class StaffSessionQueriesTests
     }
 
     [Fact]
+    public async Task Lot_sessions_tell_registered_and_unregistered_walk_ins_apart()
+    {
+        var registered = NewSession(CustomerId);
+        var unregistered = NewSession(userId: null);
+        var sessions = new FakeSessions(registered) { LotPage = ([registered, unregistered], 2) };
+        var handler = new ListLotParkingSessionsQueryHandler(sessions, new FakeLotAccess(allowed: true), new FakeSlotCodes());
+
+        var result = await handler.Handle(new ListLotParkingSessionsQuery(LotId, null, 1, 20, StaffId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["RegisteredWalkIn", "UnregisteredWalkIn"],
+            result.Value!.Items.Select(item => item.CustomerType).ToArray());
+    }
+
+    [Fact]
     public async Task Lot_sessions_ask_for_the_requested_page_and_status()
     {
         var session = NewSession(CustomerId);

@@ -155,6 +155,7 @@ export interface LotParkingSessionItem {
     status: string;
     entryTime: string;
     slotCode: string | null;
+    customerType?: string;
 }
 
 export interface LotParkingSessionPageResponse {
