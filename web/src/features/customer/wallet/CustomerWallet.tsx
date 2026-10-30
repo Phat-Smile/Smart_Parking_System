@@ -14,12 +14,14 @@ import {
 type Props = {
     /** Opens the VNPay payment page; the page passes window.location.assign. */
     onRedirect: (url: string) => void;
+    /** Opens the status page of a top-up (used when Payment replays one that needs no payment page). */
+    onOpenStatus: (topupId: string) => void;
     /** New Idempotency-Key for a new top-up. */
     newKey: () => string;
 };
 
 /** Demo 3 (D03.2, D03.3, D03.6): balance, top-up through VNPay sandbox and wallet history. */
-export function CustomerWallet({ onRedirect, newKey }: Props) {
+export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
     const [wallet, setWallet] = useState<WalletBalance | null>(null);
     const [walletError, setWalletError] = useState("");
     const [history, setHistory] = useState<WalletTransactionsPage | null>(null);
@@ -70,11 +72,16 @@ export function CustomerWallet({ onRedirect, newKey }: Props) {
                 value,
                 pendingKey.current.key,
             );
+            pendingKey.current = null;
             if (!result.paymentUrl) {
-                setTopupError("Payment chưa trả liên kết thanh toán VNPay.");
+                // Replay of a top-up that is already settled: there is nothing to pay, show its result.
+                if (result.isReplay) onOpenStatus(result.topupId);
+                else
+                    setTopupError(
+                        "Payment chưa trả liên kết thanh toán VNPay.",
+                    );
                 return;
             }
-            pendingKey.current = null;
             onRedirect(result.paymentUrl);
         } catch (err) {
             setTopupError(describeWalletError(err));
@@ -153,7 +160,16 @@ export function CustomerWallet({ onRedirect, newKey }: Props) {
                                         ).toLocaleString("vi-VN")}
                                     </td>
                                     <td>{item.entryType}</td>
-                                    <td>{formatVnd(item.balanceDelta)}</td>
+                                    <td>
+                                        {item.affectsBalance ? (
+                                            formatVnd(item.balanceDelta)
+                                        ) : (
+                                            <em>
+                                                Không đổi số dư (
+                                                {formatVnd(item.amount)})
+                                            </em>
+                                        )}
+                                    </td>
                                     <td>{formatVnd(item.balanceAfter)}</td>
                                 </tr>
                             ))}

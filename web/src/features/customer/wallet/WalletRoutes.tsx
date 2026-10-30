@@ -10,9 +10,15 @@ import { CustomerWallet } from "./CustomerWallet";
 import { VnpayReturnStatus } from "./VnpayReturnStatus";
 
 export function CustomerWalletScreen() {
+    const router = useRouter();
     return (
         <CustomerWallet
             onRedirect={(url) => window.location.assign(url)}
+            onOpenStatus={(topupId) =>
+                router.push(
+                    `/payment/vnpay-return?vnp_TxnRef=${encodeURIComponent(topupId)}`,
+                )
+            }
             newKey={() => crypto.randomUUID()}
         />
     );

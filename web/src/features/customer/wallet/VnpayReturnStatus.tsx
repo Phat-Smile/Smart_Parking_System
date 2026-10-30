@@ -5,7 +5,9 @@ import Link from "next/link";
 import {
     describeWalletError,
     formatVnd,
+    getMyWallet,
     getWalletTopup,
+    type WalletBalance,
     type WalletTopupStatus,
 } from "./walletApi";
 
@@ -20,6 +22,22 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
     const [status, setStatus] = useState<WalletTopupStatus | null>(null);
     const [error, setError] = useState("");
     const [gaveUp, setGaveUp] = useState(false);
+    const [wallet, setWallet] = useState<WalletBalance | null>(null);
+    const succeeded = status?.status === "Succeeded";
+
+    // Once Payment credited the top-up, read the new balance (the IPN may arrive after the first read).
+    useEffect(() => {
+        if (!succeeded) return;
+        let active = true;
+        getMyWallet()
+            .then((data) => active && setWallet(data))
+            .catch(() => {
+                // The wallet page shows the balance and its own error.
+            });
+        return () => {
+            active = false;
+        };
+    }, [succeeded]);
 
     useEffect(() => {
         if (!topupId) return;
@@ -65,8 +83,18 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                 Giao dịch <code>{status.topupId}</code> ·{" "}
                 {formatVnd(status.amount)}
             </p>
-            {status.status === "Success" && (
-                <p>Nạp tiền thành công. Số dư đã được cộng.</p>
+            {succeeded && (
+                <>
+                    <p>Nạp tiền thành công. Số dư đã được cộng.</p>
+                    {wallet && (
+                        <p>
+                            Số dư hiện tại:{" "}
+                            <strong data-testid="return-balance">
+                                {formatVnd(wallet.balance)}
+                            </strong>
+                        </p>
+                    )}
+                </>
             )}
             {status.status === "Pending" && (
                 <p>
