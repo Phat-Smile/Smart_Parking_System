@@ -28,7 +28,7 @@ export interface WalletTopupResult {
     isReplay: boolean;
 }
 
-/** Status values: Pending, Success, Failed, Expired (VnpayTransactionStatus). */
+/** Status values of GET /wallets/top-up/{id}: Pending, Succeeded, Failed (Expired once Payment reports it). */
 export interface WalletTopupStatus {
     topupId: string;
     amount: number;

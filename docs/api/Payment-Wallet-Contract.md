@@ -60,6 +60,10 @@ then opens `paymentUrl`. After VNPay returns, it reads `GET /top-up/{topupId}`.
 
 `TopupStatus`: `{ "topupId", "amount", "status", "createdAtUtc", "completedAtUtc", "expiresAtUtc" }`.
 
+`status` of `GET /wallets/top-up/{topupId}` is `Pending`, `Succeeded` or `Failed`. A top-up past its expiry is still reported as `Pending` today; `Expired` is planned (`.notes/plans/ke-hoach-sua-luong-nap-vi-2026-10-30.md`).
+
+Replay: sending the same `Idempotency-Key` and amount again returns 200 with `isReplay: true`. While the first top-up is pending and not expired, `paymentUrl` is a new link for it. When it already succeeded, `paymentUrl` is `null` and the web app opens `GET /wallets/top-up/{topupId}` instead of reporting an error. The `status` text in this replay body is not yet the same word as the status route (`Success` instead of `Succeeded`): read the status route, not the replay body. A different amount with the same key is 409 `payment.idempotency_key_reused`; an expired one is 409 `payment.topup_expired`.
+
 `TransactionsPage`: `{ "items": [ { "entryId", "createdAtUtc", "entryType", "amount", "balanceDelta", "affectsBalance",
 "balanceAfter", "reason", "referenceType", "referenceId" } ], "page", "pageSize", "totalItems", "totalPages" }`.
 
