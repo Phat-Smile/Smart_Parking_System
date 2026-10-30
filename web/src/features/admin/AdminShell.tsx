@@ -1,108 +1,47 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
     getAuthSessionSnapshot,
-    setAuthSession,
     subscribeAuthSession,
 } from "@/features/auth/authSession";
-import type { LoginResponse } from "@/features/auth/loginParkWiseAccount";
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
-import { getAccessToken } from "@/shared/api/access-token";
 import { AdminIcon } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
 import { getAdminParkingLots } from "./reviewParkingLot";
 import { AdminNotifications } from "./AdminNotifications";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
-const ADMIN_AUTH_CACHE_KEY = "parkwise:admin-auth-cache";
-let adminSessionRestored = false;
-
-function syncAdminSessionCache() {
-    if (typeof window === "undefined") return;
-    try {
-        const current = getAuthSessionSnapshot();
-        const token = getAccessToken();
-        if (current && current.account.role === "SystemAdmin" && token) {
-            const payload: LoginResponse = {
-                accessToken: token,
-                tokenType: "Bearer",
-                expiresIn: 3600,
-                refreshToken: current.refreshToken ?? "",
-                account: current.account,
-            };
-            window.sessionStorage.setItem(
-                ADMIN_AUTH_CACHE_KEY,
-                JSON.stringify(payload),
-            );
-        } else if (current && current.account.role !== "SystemAdmin") {
-            window.sessionStorage.removeItem(ADMIN_AUTH_CACHE_KEY);
-        }
-    } catch {
-        // Ignore storage errors
-    }
-}
-
-function restoreAdminSessionIfNeeded() {
-    if (typeof window === "undefined") return;
-    const current = getAuthSessionSnapshot();
-    if (current) {
-        syncAdminSessionCache();
-        return;
-    }
-    if (adminSessionRestored) return;
-    adminSessionRestored = true;
-    try {
-        const raw = window.sessionStorage.getItem(ADMIN_AUTH_CACHE_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw) as LoginResponse;
-        if (
-            parsed?.accessToken &&
-            parsed?.account?.role === "SystemAdmin" &&
-            !parsed.accessToken.startsWith("mock-token-")
-        ) {
-            setAuthSession(parsed);
-        } else {
-            window.sessionStorage.removeItem(ADMIN_AUTH_CACHE_KEY);
-        }
-    } catch {
-        // Ignore corrupted cache
-    }
-}
-
-if (typeof window !== "undefined") {
-    subscribeAuthSession(() => {
-        syncAdminSessionCache();
-    });
-}
-
 export function AdminShell({ children }: { children: ReactNode }) {
-    restoreAdminSessionIfNeeded();
     const pathname = usePathname();
     const router = useRouter();
     const { t } = useLanguage();
-    const session = useSyncExternalStore(
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const externalSession = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
         () => null,
     );
+
+    const session = mounted ? (externalSession ?? getAuthSessionSnapshot()) : null;
     const pending = countByStatus(useAdminLots()).Pending;
     const role = session?.account.role;
 
     useEffect(() => {
-        restoreAdminSessionIfNeeded();
-        syncAdminSessionCache();
-    }, [session]);
-
-    useEffect(() => {
+        if (!mounted) return;
         if (role && role !== "SystemAdmin") router.replace("/403");
         if (role === "SystemAdmin") {
             getAdminParkingLots("All").catch(() => undefined);
         }
-    }, [role, router]);
+    }, [role, router, mounted]);
 
     const links = [
         { href: "/admin/dashboard", label: t("adminDashboard"), icon: "grid" },
@@ -137,14 +76,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
             : pathname.startsWith(href);
 
     async function signOut() {
-        if (typeof window !== "undefined") {
-            try {
-                window.sessionStorage.removeItem(ADMIN_AUTH_CACHE_KEY);
-            } catch {
-                // Ignore storage errors
-            }
-        }
-        adminSessionRestored = false;
         await logoutParkWiseAccount().catch(() => undefined);
         router.push("/login");
     }
@@ -194,7 +125,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                             {session?.displayName || t("systemAdmin")}
                         </strong>
                         <small>
-                            {session?.account.email ?? t("notSignedIn")}
+                            {session?.account.email ?? (mounted ? t("notSignedIn") : "...")}
                         </small>
                     </div>
                     {session && (
@@ -210,7 +141,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </div>
             </aside>
             <main className="admin-main">
-                {/* Top Action Bar: Notifications & Language Switcher (lên trên Review queue) */}
+                {/* Top Action Bar: Notifications & Language Switcher */}
                 <div className="admin-topbar">
                     <div className="admin-topbar-right">
                         <AdminNotifications />
@@ -218,7 +149,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     </div>
                 </div>
 
-                {!session && (
+                {mounted && !session && (
                     <div className="admin-banner" role="status">
                         <AdminIcon name="alert" size={16} />
                         <span>
