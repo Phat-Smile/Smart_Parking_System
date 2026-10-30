@@ -7,7 +7,6 @@ import Map, {
     type MapRef,
 } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
-import type { MapCoordinates } from "./geocodeDestination";
 
 export type PreviewParkingPin = {
     id: string;
@@ -24,27 +23,24 @@ export default function CustomerMapScene({
     selectedId,
     onSelect,
     currentLocation,
-    destinationLocation,
 }: {
     token: string;
     pins: PreviewParkingPin[];
     selectedId: string;
     onSelect: (id: string) => void;
     currentLocation?: { longitude: number; latitude: number } | null;
-    destinationLocation?: MapCoordinates | null;
 }) {
     const mapRef = useRef<MapRef>(null);
-    const mapTarget = destinationLocation ?? currentLocation;
 
     useEffect(() => {
-        if (mapTarget) {
+        if (currentLocation) {
             mapRef.current?.flyTo({
-                center: [mapTarget.longitude, mapTarget.latitude],
+                center: [currentLocation.longitude, currentLocation.latitude],
                 zoom: 14,
                 essential: true,
             });
         }
-    }, [mapTarget]);
+    }, [currentLocation]);
 
     return (
         <Map
@@ -86,18 +82,6 @@ export default function CustomerMapScene({
                     <span
                         className="customer-map-you"
                         aria-label="Your current location"
-                    />
-                </Marker>
-            )}
-            {destinationLocation && (
-                <Marker
-                    longitude={destinationLocation.longitude}
-                    latitude={destinationLocation.latitude}
-                    anchor="bottom"
-                >
-                    <span
-                        className="customer-map-destination"
-                        aria-label="Searched destination"
                     />
                 </Marker>
             )}

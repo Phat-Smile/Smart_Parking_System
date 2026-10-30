@@ -806,6 +806,22 @@ body:has(.vehicles-dialog[open]) {
 .vehicles-category-field .vehicles-size-option {
     min-height: 64px;
 }
+.vehicles-motorbike-note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid #dcebdd;
+    border-radius: 9px;
+    background: #f4fbf5;
+    color: #315b40;
+    font-size: 14px;
+    line-height: 1.4;
+}
+.vehicles-motorbike-note svg {
+    flex: none;
+}
 .vehicles-field label span {
     color: #66748e;
     font-weight: 500;
@@ -988,79 +1004,6 @@ body:has(.vehicles-dialog[open]) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
-}
-.vehicles-category-field .vehicles-size-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-.vehicles-category-field .vehicles-size-option {
-    padding: 10px;
-    gap: 8px;
-}
-.vehicles-category-field .vehicles-size-option strong {
-    font-size: 13px;
-}
-.vehicles-category-field .vehicles-size-option small {
-    font-size: 11px;
-}
-.vehicles-two-wheeler-field .vehicles-size-options {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-}
-.vehicles-two-wheeler-field .vehicles-size-option {
-    min-height: 60px;
-    gap: 7px;
-    padding: 8px;
-}
-.vehicles-two-wheeler-field .vehicles-size-option strong {
-    font-size: 12px;
-}
-@media (max-width: 600px) {
-    .vehicles-two-wheeler-field .vehicles-size-options {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .vehicles-two-wheeler-field .vehicles-size-option:last-child {
-        grid-column: 1 / -1;
-    }
-}
-.vehicles-power-field .vehicles-size-options {
-    gap: 10px;
-}
-.vehicles-power-field .vehicles-size-option {
-    min-height: 56px;
-    padding: 9px 12px;
-}
-.vehicles-power-field .vehicles-size-option strong {
-    font-size: 14px;
-}
-.vehicles-form--account .vehicles-form-fields {
-    width: min(100%, 920px);
-    margin-inline: auto;
-}
-.vehicles-photo-inline {
-    display: block;
-    width: 120px;
-    height: 80px;
-    margin-top: 8px;
-    border-radius: 7px;
-    object-fit: cover;
-}
-.vehicles-badge.electric-car,
-.vehicles-badge.electric-motorbike {
-    background: #e8f7e8;
-    color: #087e3c;
-}
-.vehicles-badge.bicycle {
-    background: #e7f3f7;
-    color: #087088;
-}
-.vehicles-badge.car {
-    background: #e7f0ff;
-    color: #0054ef;
-}
-.vehicles-badge.draft {
-    background: #f2f3f5;
-    color: #5c6775;
 }
 .vehicles-size-option {
     position: relative;

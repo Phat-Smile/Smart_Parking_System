@@ -4,7 +4,6 @@ import {
     useEffect,
     useRef,
     useState,
-    useSyncExternalStore,
     type FormEvent,
     type ReactNode,
 } from "react";
@@ -13,16 +12,6 @@ import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerAccountMenu } from "./CustomerShell";
 import { VehicleDropdown } from "./VehicleDropdown";
-import {
-    getAuthSessionSnapshot,
-    subscribeAuthSession,
-} from "@/features/auth/authSession";
-import {
-    addMyVehicle,
-    deleteMyVehicle,
-    getMyVehicles,
-    type RegisteredVehicle,
-} from "./myVehiclesApi";
 import {
     BRAND_OPTIONS,
     COLOR_OPTIONS,
@@ -40,7 +29,7 @@ import {
 
 type Vehicle = {
     id: string;
-    category: VehicleCategory;
+    category: "car" | "motorbike";
     plate: string;
     brand: string;
     model?: string;
@@ -50,85 +39,17 @@ type Vehicle = {
     color?: string;
     manufacturingYear?: string;
     size: "standard" | "large";
+    electric: boolean;
     photo?: string;
-    draft?: boolean;
 };
-type VehicleCategory =
-    "motorbike" | "electric-motorbike" | "bicycle" | "car" | "electric-car";
-const VEHICLE_CATEGORIES: {
-    value: VehicleCategory;
-    label: string;
-    description: string;
-    icon: string;
-}[] = [
-    {
-        value: "motorbike",
-        label: "Motorbike",
-        description: "Motorbike area",
-        icon: "motorbike",
-    },
-    {
-        value: "electric-motorbike",
-        label: "Electric motorbike",
-        description: "Electric motorbike area",
-        icon: "motorbike",
-    },
-    {
-        value: "bicycle",
-        label: "Bicycle",
-        description: "Bicycle area · photo required",
-        icon: "bicycle",
-    },
-    { value: "car", label: "Car", description: "Car area", icon: "car" },
-    {
-        value: "electric-car",
-        label: "Electric car",
-        description: "Electric car area",
-        icon: "car",
-    },
-];
-const VEHICLE_FORM_CATEGORIES = VEHICLE_CATEGORIES.filter(
-    (item) => item.value === "motorbike" || item.value === "car",
-).map((item) => ({
-    ...item,
-    label: item.value === "motorbike" ? "Two-wheelers" : item.label,
-    description:
-        item.value === "motorbike"
-            ? "Motorbike or bicycle"
-            : "Fuel or electric",
-}));
-function categoryInfo(category: VehicleCategory) {
-    return VEHICLE_CATEGORIES.find((item) => item.value === category)!;
-}
-function baseCategory(category: VehicleCategory): VehicleCategory {
-    if (category === "electric-motorbike" || category === "bicycle")
-        return "motorbike";
-    if (category === "electric-car") return "car";
-    return category;
-}
-function isMotorbikeCategory(category: VehicleCategory) {
-    return category === "motorbike" || category === "electric-motorbike";
-}
-function isCarCategory(category: VehicleCategory) {
-    return category === "car" || category === "electric-car";
-}
-function needsPlate(category: VehicleCategory) {
-    return category !== "bicycle";
-}
-function needsPhoto(category: VehicleCategory) {
-    return category === "bicycle";
-}
-function backendSupports(category: VehicleCategory) {
-    return category === "car" || category === "motorbike";
-}
 type Modal = "add" | "edit" | "delete" | null;
 const MAX_VEHICLES = 10;
 
-function formatPlate(value: string, category: VehicleCategory) {
+function formatPlate(value: string, category: Vehicle["category"]) {
     const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
     const compact = normalized.replace(/[ .-]/g, "");
     const parts = (
-        isMotorbikeCategory(category)
+        category === "motorbike"
             ? /^(\d{2}[A-Z]\d)(\d{0,5})$/
             : /^(\d{2}[A-Z]{1,2})(\d{0,5})$/
     ).exec(compact);
@@ -138,34 +59,29 @@ function formatPlate(value: string, category: VehicleCategory) {
     return `${prefix}-${number.slice(0, 3)}${number.length > 3 ? `.${number.slice(3)}` : ""}`;
 }
 
-function getVehicleDetails(vehicle: Vehicle, fromAccount = false) {
+function getVehicleDetails(vehicle: Vehicle) {
     return [
-        vehicle.brand
-            ? {
-                  label: fromAccount ? "Nickname" : "Vehicle Brand",
-                  value: vehicle.brand,
-                  icon: "tag",
-              }
-            : null,
+        {
+            label: "Vehicle Brand",
+            value: vehicle.brand,
+            icon: "tag",
+        },
         vehicle.model?.trim()
             ? {
                   label: "Vehicle Model",
                   value: vehicle.model.trim(),
-                  icon: isMotorbikeCategory(vehicle.category)
-                      ? "motorbike"
-                      : "car",
+                  icon: vehicle.category === "motorbike" ? "motorbike" : "car",
               }
             : null,
         vehicle.vehicleType
             ? {
-                  label: isMotorbikeCategory(vehicle.category)
-                      ? "Motorbike type"
-                      : "Body type",
-                  icon: isMotorbikeCategory(vehicle.category)
-                      ? "motorbike"
-                      : "car",
+                  label:
+                      vehicle.category === "motorbike"
+                          ? "Motorbike type"
+                          : "Body type",
+                  icon: vehicle.category === "motorbike" ? "motorbike" : "car",
                   value:
-                      (isMotorbikeCategory(vehicle.category)
+                      (vehicle.category === "motorbike"
                           ? MOTORBIKE_TYPE_OPTIONS
                           : VEHICLE_TYPE_OPTIONS
                       ).find((option) => option.value === vehicle.vehicleType)
@@ -180,7 +96,7 @@ function getVehicleDetails(vehicle: Vehicle, fromAccount = false) {
                   label: "Fuel type",
                   icon: "fuel",
                   value:
-                      (isMotorbikeCategory(vehicle.category)
+                      (vehicle.category === "motorbike"
                           ? MOTORBIKE_FUEL_OPTIONS
                           : FUEL_OPTIONS
                       ).find((option) => option.value === vehicle.fuelType)
@@ -212,7 +128,7 @@ function getVehicleDetails(vehicle: Vehicle, fromAccount = false) {
 const sampleVehicles: Vehicle[] = [
     {
         id: "sample-sedan",
-        category: "electric-car",
+        category: "car",
         plate: "51K-123.45",
         brand: "Toyota",
         vehicleType: "sedan",
@@ -221,6 +137,7 @@ const sampleVehicles: Vehicle[] = [
         color: "white",
         manufacturingYear: "2023",
         size: "standard",
+        electric: true,
         photo: "/images/parkwise/vehicle-sedan-cutout.png",
     },
     {
@@ -234,6 +151,7 @@ const sampleVehicles: Vehicle[] = [
         color: "white",
         manufacturingYear: "2022",
         size: "large",
+        electric: false,
         photo: "/images/parkwise/vehicle-suv.png",
     },
     {
@@ -247,19 +165,10 @@ const sampleVehicles: Vehicle[] = [
         color: "white",
         manufacturingYear: "2024",
         size: "standard",
+        electric: false,
         photo: "/images/parkwise/vehicle-motorbike-cutout.png",
     },
 ];
-
-function fromRegisteredVehicle(vehicle: RegisteredVehicle): Vehicle {
-    return {
-        id: vehicle.vehicleId,
-        category: vehicle.vehicleType === "Motorbike" ? "motorbike" : "car",
-        plate: vehicle.licensePlate,
-        brand: vehicle.nickName ?? "",
-        size: "standard",
-    };
-}
 
 function Icon({ name, size = 20 }: { name: string; size?: number }) {
     const paths: Record<string, ReactNode> = {
@@ -278,13 +187,6 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
                 <circle cx="5.5" cy="17.5" r="3.5" />
                 <circle cx="18.5" cy="17.5" r="3.5" />
                 <path d="m8.5 17.5 3-7h3l4 7M8 9h3m1.5 1.5 2.5-3h2m-5.5 10h4" />
-            </>
-        ),
-        bicycle: (
-            <>
-                <circle cx="5.5" cy="17" r="3.5" />
-                <circle cx="18.5" cy="17" r="3.5" />
-                <path d="m5.5 17 4-9h4l5 9M9.5 8l5 9m-9 0h9M8 6h3m3 0h3" />
             </>
         ),
         book: (
@@ -386,94 +288,8 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
     );
 }
 
-function TwoWheelerTypeSelector({
-    category,
-    disabled,
-    onChange,
-}: {
-    category: VehicleCategory;
-    disabled: boolean;
-    onChange: (kind: "motorbike" | "electric-motorbike" | "bicycle") => void;
-}) {
-    if (baseCategory(category) !== "motorbike") return null;
-    const options = ["motorbike", "electric-motorbike", "bicycle"] as const;
-    return (
-        <fieldset className="vehicles-size-field vehicles-two-wheeler-field">
-            <legend>Two-wheeler type</legend>
-            <div className="vehicles-size-options">
-                {options.map((kind) => {
-                    const info = categoryInfo(kind);
-                    return (
-                        <label
-                            key={kind}
-                            className={`vehicles-size-option ${category === kind ? "selected" : ""}`}
-                        >
-                            <input
-                                type="radio"
-                                name="vehicles-two-wheeler-type"
-                                checked={category === kind}
-                                disabled={disabled}
-                                onChange={() => onChange(kind)}
-                            />
-                            <span className="vehicles-size-indicator" />
-                            <Icon name={info.icon} size={21} />
-                            <strong>{info.label}</strong>
-                        </label>
-                    );
-                })}
-            </div>
-        </fieldset>
-    );
-}
-
-function PowerSourceSelector({
-    category,
-    disabled,
-    onChange,
-}: {
-    category: VehicleCategory;
-    disabled: boolean;
-    onChange: (electric: boolean) => void;
-}) {
-    if (!isCarCategory(category)) return null;
-    const electric = category === "electric-car";
-    return (
-        <fieldset className="vehicles-size-field vehicles-power-field">
-            <legend>Power source</legend>
-            <div className="vehicles-size-options">
-                {[
-                    { value: false, label: "Fuel / hybrid", icon: "fuel" },
-                    { value: true, label: "Electric", icon: "bolt" },
-                ].map((option) => (
-                    <label
-                        key={option.label}
-                        className={`vehicles-size-option ${electric === option.value ? "selected" : ""}`}
-                    >
-                        <input
-                            type="radio"
-                            name="vehicles-power-source"
-                            checked={electric === option.value}
-                            disabled={disabled}
-                            onChange={() => onChange(option.value)}
-                        />
-                        <span className="vehicles-size-indicator" />
-                        <Icon name={option.icon} size={23} />
-                        <strong>{option.label}</strong>
-                    </label>
-                ))}
-            </div>
-        </fieldset>
-    );
-}
-
 export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
-    const session = useSyncExternalStore(
-        subscribeAuthSession,
-        getAuthSessionSnapshot,
-        () => null,
-    );
     const [vehicles, setVehicles] = useState<Vehicle[]>(sampleVehicles);
-    const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
     const [modal, setModal] = useState<Modal>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [plate, setPlate] = useState("");
@@ -486,6 +302,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
     const [color, setColor] = useState("");
     const [manufacturingYear, setManufacturingYear] = useState("");
     const [size, setSize] = useState<Vehicle["size"]>("standard");
+    const [electric, setElectric] = useState(false);
     const [photo, setPhoto] = useState<string | undefined>();
     const [error, setError] = useState("");
     const [brandError, setBrandError] = useState("");
@@ -499,25 +316,6 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
     );
 
     useEffect(() => {
-        if (!session) return;
-        const controller = new AbortController();
-        getMyVehicles(controller.signal)
-            .then((result) => {
-                setVehicles(result.vehicles.map(fromRegisteredVehicle));
-                setLoadedAccountId(session.account.id);
-            })
-            .catch(() => {
-                if (controller.signal.aborted) return;
-                setVehicles([]);
-                setLoadedAccountId(session.account.id);
-                setNotice(
-                    "Your vehicles could not be loaded. Please refresh the page.",
-                );
-            });
-        return () => controller.abort();
-    }, [session]);
-
-    useEffect(() => {
         const dialog = dialogRef.current;
         if (modal && dialog && !dialog.open) dialog.showModal();
         if (!modal && dialog?.open) dialog.close();
@@ -527,7 +325,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         if (vehicles.length >= MAX_VEHICLES) return;
         setSelectedId(null);
         setPlate("");
-        setCategory("motorbike");
+        setCategory("car");
         setBrand("");
         setModel("");
         setVehicleType("");
@@ -536,6 +334,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         setColor("");
         setManufacturingYear("");
         setSize("standard");
+        setElectric(false);
         setPhoto(undefined);
         setError("");
         setBrandError("");
@@ -554,44 +353,12 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         setColor(vehicle.color ?? "");
         setManufacturingYear(vehicle.manufacturingYear ?? "");
         setSize(vehicle.size);
+        setElectric(vehicle.electric);
         setPhoto(vehicle.photo);
         setError("");
         setBrandError("");
         setPhotoError("");
         setModal("edit");
-    }
-    function resetVehicleDetails() {
-        setPlate("");
-        setBrand("");
-        setModel("");
-        setVehicleType("");
-        setSeats("");
-        setFuelType("");
-        setPhoto(undefined);
-        setBrandError("");
-        setPhotoError("");
-        setError("");
-        setSize("standard");
-    }
-    function chooseCategory(kind: VehicleCategory) {
-        if (baseCategory(category) === kind) return;
-        setCategory(kind);
-        resetVehicleDetails();
-    }
-    function chooseTwoWheelerType(
-        kind: "motorbike" | "electric-motorbike" | "bicycle",
-    ) {
-        if (category === kind) return;
-        if ((category === "bicycle") !== (kind === "bicycle")) {
-            resetVehicleDetails();
-        }
-        setCategory(kind);
-        setFuelType(kind === "electric-motorbike" ? "electric" : "");
-    }
-    function choosePowerSource(electric: boolean) {
-        if (!isCarCategory(category)) return;
-        setCategory(electric ? "electric-car" : "car");
-        setFuelType(electric ? "electric" : "");
     }
     function closeModal() {
         setModal(null);
@@ -621,63 +388,27 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
             input.setSelectionRange(position, position);
         });
     }
-    async function saveVehicle(event: FormEvent<HTMLFormElement>) {
+    function saveVehicle(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        const nextPlate = needsPlate(category)
-            ? formatPlate(plate, category)
-            : "";
+        const nextPlate = formatPlate(plate, category);
         const nextBrand = brand.trim();
-        const needsBrand = needsPlate(category);
-        setBrandError(
-            nextBrand || session || !needsBrand
-                ? ""
-                : "Select or enter a vehicle brand.",
-        );
-        if (
-            modal === "add" &&
-            (needsPlate(category) || Boolean(nextPlate)) &&
-            !/^[A-Z0-9 .-]{5,15}$/.test(nextPlate)
-        ) {
+        setBrandError(nextBrand ? "" : "Select or enter a vehicle brand.");
+        if (modal === "add" && !/^[A-Z0-9 .-]{5,15}$/.test(nextPlate)) {
             setError("Enter a license plate with 5–15 letters or numbers.");
             return;
         }
-        if (needsPhoto(category) && !photo) {
-            setPhotoError("Add a photo so this bicycle can be identified.");
-            return;
-        }
         if (
             modal === "add" &&
-            nextPlate &&
             vehicles.some((vehicle) => vehicle.plate === nextPlate)
         ) {
-            setError("This license plate is already in your list.");
+            setError("This license plate is already registered here.");
             return;
         }
-        if (!nextBrand && !session && needsBrand) {
+        if (!nextBrand) {
             document.getElementById("vehicles-brand")?.focus();
             return;
         }
         if (modal === "add") {
-            if (session && backendSupports(category)) {
-                try {
-                    const saved = await addMyVehicle(
-                        nextPlate,
-                        category === "car" ? "Car" : "Motorbike",
-                        nextBrand || null,
-                    );
-                    setVehicles((current) => [
-                        ...current,
-                        fromRegisteredVehicle(saved),
-                    ]);
-                    setNotice("Vehicle added to your account.");
-                    closeModal();
-                } catch {
-                    setError(
-                        "Could not add this vehicle. Check the plate and try again.",
-                    );
-                }
-                return;
-            }
             setVehicles((current) => [
                 ...current,
                 {
@@ -692,15 +423,11 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                     color,
                     manufacturingYear,
                     size,
+                    electric,
                     photo,
-                    draft: Boolean(session),
                 },
             ]);
-            setNotice(
-                session
-                    ? "This vehicle is a local draft until its API is available."
-                    : "Vehicle added for this session.",
-            );
+            setNotice("Vehicle added for this session.");
         } else if (modal === "edit" && selectedId) {
             setVehicles((current) =>
                 current.map((vehicle) =>
@@ -716,6 +443,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                               color,
                               manufacturingYear,
                               size,
+                              electric,
                               photo,
                           }
                         : vehicle,
@@ -741,37 +469,13 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         reader.readAsDataURL(file);
         setPhotoError("");
     }
-    async function removeVehicle() {
+    function removeVehicle() {
         if (!selectedId) return;
-        if (session && !selectedVehicle?.draft) {
-            try {
-                await deleteMyVehicle(selectedId);
-            } catch {
-                setNotice("Could not remove this vehicle. Please try again.");
-                closeModal();
-                return;
-            }
-        }
         setVehicles((current) =>
             current.filter((vehicle) => vehicle.id !== selectedId),
         );
-        setNotice(
-            session
-                ? "Vehicle removed from your account."
-                : "Vehicle removed for this session.",
-        );
+        setNotice("Vehicle removed for this session.");
         closeModal();
-    }
-
-    if (session && loadedAccountId !== session.account.id) {
-        return (
-            <main
-                className={`parkwise-page vehicles-page ${fontClassName}`}
-                aria-live="polite"
-            >
-                Loading your vehicles…
-            </main>
-        );
     }
 
     return (
@@ -792,17 +496,20 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                     <div className="vehicles-primary-column">
                         <div className="vehicles-heading">
                             <h1>My Vehicles</h1>
-                            <p>Manage the vehicles you use when parking.</p>
+                            <p>
+                                Manage your registered vehicles for a smoother
+                                parking experience.
+                            </p>
                         </div>
                         <section
                             className="vehicles-summary"
-                            aria-label="My vehicles"
+                            aria-label="Registered vehicles"
                         >
                             <span className="vehicles-summary-icon">
                                 <Icon name="car" size={25} />
                             </span>
                             <div className="vehicles-summary-stats">
-                                <span>My vehicles</span>
+                                <span>Registered vehicles</span>
                                 <strong>
                                     {vehicles.length} / {MAX_VEHICLES}
                                 </strong>
@@ -837,10 +544,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                         )}
                         <div className="vehicles-card-grid">
                             {vehicles.map((vehicle) => {
-                                const details = getVehicleDetails(
-                                    vehicle,
-                                    Boolean(session),
-                                );
+                                const details = getVehicleDetails(vehicle);
                                 return (
                                     <article
                                         className="vehicles-card"
@@ -849,34 +553,32 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         <div className="vehicles-card-top">
                                             <div className="vehicles-badges">
                                                 <span
-                                                    className={`vehicles-badge ${vehicle.category}`}
+                                                    className={`vehicles-badge ${vehicle.category === "motorbike" ? "motorbike" : vehicle.size}`}
                                                 >
                                                     <Icon
                                                         name={
-                                                            categoryInfo(
-                                                                vehicle.category,
-                                                            ).icon
+                                                            vehicle.category ===
+                                                            "motorbike"
+                                                                ? "motorbike"
+                                                                : "car"
                                                         }
                                                         size={16}
                                                     />
-                                                    {
-                                                        categoryInfo(
-                                                            vehicle.category,
-                                                        ).label
-                                                    }
+                                                    {vehicle.category ===
+                                                    "motorbike"
+                                                        ? "Motorbike"
+                                                        : vehicle.size ===
+                                                            "standard"
+                                                          ? "Standard"
+                                                          : "Large"}
                                                 </span>
-                                                {isCarCategory(
-                                                    vehicle.category,
-                                                ) &&
-                                                    vehicle.size ===
-                                                        "large" && (
-                                                        <span className="vehicles-badge large">
-                                                            Large
-                                                        </span>
-                                                    )}
-                                                {vehicle.draft && (
-                                                    <span className="vehicles-badge draft">
-                                                        Local draft
+                                                {vehicle.electric && (
+                                                    <span className="vehicles-badge electric">
+                                                        <Icon
+                                                            name="bolt"
+                                                            size={14}
+                                                        />{" "}
+                                                        Electric
                                                     </span>
                                                 )}
                                             </div>
@@ -885,7 +587,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             {vehicle.photo ? (
                                                 <Image
                                                     src={vehicle.photo}
-                                                    alt={`Vehicle ${vehicle.plate || vehicle.brand || categoryInfo(vehicle.category).label}`}
+                                                    alt={`Vehicle ${vehicle.plate}`}
                                                     fill
                                                     sizes="(max-width: 700px) 90vw, 360px"
                                                     unoptimized={vehicle.photo.startsWith(
@@ -896,9 +598,10 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                 <span className="vehicles-photo-placeholder">
                                                     <Icon
                                                         name={
-                                                            categoryInfo(
-                                                                vehicle.category,
-                                                            ).icon
+                                                            vehicle.category ===
+                                                            "motorbike"
+                                                                ? "motorbike"
+                                                                : "car"
                                                         }
                                                         size={56}
                                                     />
@@ -906,19 +609,12 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             )}
                                         </div>
                                         <div className="vehicles-card-info">
-                                            <h2>
-                                                {vehicle.plate ||
-                                                    vehicle.brand ||
-                                                    categoryInfo(
-                                                        vehicle.category,
-                                                    ).label}
-                                            </h2>
+                                            <h2>{vehicle.plate}</h2>
                                             <p className="vehicles-card-subtitle">
-                                                {
-                                                    categoryInfo(
-                                                        vehicle.category,
-                                                    ).description
-                                                }
+                                                {vehicle.category ===
+                                                "motorbike"
+                                                    ? "Motorbike parking"
+                                                    : `${vehicle.size === "standard" ? "Standard" : "Large"} parking space`}
                                             </p>
                                             {details.length > 0 && (
                                                 <ul className="vehicles-card-details">
@@ -950,20 +646,15 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             )}
                                         </div>
                                         <div className="vehicles-card-actions">
-                                            {(!session || vehicle.draft) && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        openEdit(vehicle)
-                                                    }
-                                                >
-                                                    <Icon
-                                                        name="edit"
-                                                        size={16}
-                                                    />{" "}
-                                                    Edit
-                                                </button>
-                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    openEdit(vehicle)
+                                                }
+                                            >
+                                                <Icon name="edit" size={16} />{" "}
+                                                Edit
+                                            </button>
                                             <button
                                                 type="button"
                                                 className="danger"
@@ -994,7 +685,8 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             : "Add another vehicle"}
                                     </strong>
                                     <span>
-                                        Manage up to {MAX_VEHICLES} vehicles.
+                                        You can register up to {MAX_VEHICLES}{" "}
+                                        vehicles.
                                     </span>
                                     <span className="vehicles-outline-button">
                                         <Icon name="plus" size={17} />{" "}
@@ -1022,27 +714,28 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     <span>
                                         <Icon name="car" size={19} />
                                     </span>
-                                    Manage up to 10 vehicles.
+                                    You can register up to 10 vehicles.
                                 </li>
                                 <li>
                                     <span>
                                         <Icon name="document" size={18} />
                                     </span>
-                                    Choose the parking area that matches your
-                                    vehicle.
+                                    Cars and motorbikes can be registered.
                                 </li>
                                 <li>
                                     <span>
                                         <Icon name="bolt" size={18} />
                                     </span>
-                                    A bicycle needs a photo for identification.
+                                    Electric vehicles can be marked for a better
+                                    parking experience.
                                 </li>
                                 <li>
                                     <span>
                                         <Icon name="info" size={18} />
                                     </span>
-                                    Government priority vehicles do not register
-                                    here.
+                                    The license plate cannot be edited. To
+                                    change it, please delete the vehicle and add
+                                    a new one.
                                 </li>
                             </ul>
                         </section>
@@ -1106,19 +799,13 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                         <strong className="vehicles-delete-plate">
                             <Icon
                                 name={
-                                    selectedVehicle
-                                        ? categoryInfo(selectedVehicle.category)
-                                              .icon
+                                    selectedVehicle?.category === "motorbike"
+                                        ? "motorbike"
                                         : "car"
                                 }
                                 size={20}
                             />{" "}
-                            {selectedVehicle?.plate ||
-                                selectedVehicle?.brand ||
-                                (selectedVehicle
-                                    ? categoryInfo(selectedVehicle.category)
-                                          .label
-                                    : "")}
+                            {selectedVehicle?.plate}
                         </strong>
                         <div className="vehicles-dialog-actions">
                             <button
@@ -1138,201 +825,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                         </div>
                     </div>
                 ) : (
-                    modal &&
-                    (session ? (
-                        <form
-                            className="vehicles-form vehicles-form--account"
-                            onSubmit={saveVehicle}
-                            noValidate
-                        >
-                            <div className="vehicles-dialog-header">
-                                <div>
-                                    <h2 id="vehicles-dialog-title">
-                                        {modal === "add"
-                                            ? "Add Vehicle"
-                                            : "Edit Vehicle"}
-                                    </h2>
-                                    <p>
-                                        Choose the parking area that fits this
-                                        vehicle.
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    className="vehicles-dialog-close"
-                                    aria-label="Close"
-                                    onClick={closeModal}
-                                >
-                                    <Icon name="close" size={27} />
-                                </button>
-                            </div>
-                            <div
-                                className="vehicles-form-fields"
-                                style={{ padding: 24 }}
-                            >
-                                <fieldset className="vehicles-size-field vehicles-category-field">
-                                    <legend>Vehicle Type</legend>
-                                    <div className="vehicles-size-options">
-                                        {VEHICLE_FORM_CATEGORIES.map((item) => (
-                                            <label
-                                                key={item.value}
-                                                className={`vehicles-size-option ${category === item.value ? "selected" : ""}`}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="vehicles-category"
-                                                    value={item.value}
-                                                    checked={
-                                                        baseCategory(
-                                                            category,
-                                                        ) === item.value
-                                                    }
-                                                    disabled={modal === "edit"}
-                                                    onChange={() =>
-                                                        chooseCategory(
-                                                            item.value,
-                                                        )
-                                                    }
-                                                />
-                                                <span className="vehicles-size-indicator" />
-                                                <Icon
-                                                    name={item.icon}
-                                                    size={25}
-                                                />
-                                                <span>
-                                                    <strong>
-                                                        {item.label}
-                                                    </strong>
-                                                    <small>
-                                                        {item.description}
-                                                    </small>
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </fieldset>
-                                <TwoWheelerTypeSelector
-                                    category={category}
-                                    disabled={modal === "edit"}
-                                    onChange={chooseTwoWheelerType}
-                                />
-                                <PowerSourceSelector
-                                    category={category}
-                                    disabled={modal === "edit"}
-                                    onChange={choosePowerSource}
-                                />
-                                {needsPlate(category) && (
-                                    <div className="vehicles-field">
-                                        <label htmlFor="vehicles-plate">
-                                            License Plate{" "}
-                                            <span aria-hidden="true">*</span>
-                                        </label>
-                                        <input
-                                            id="vehicles-plate"
-                                            ref={plateInputRef}
-                                            value={plate}
-                                            onChange={(event) =>
-                                                updatePlate(
-                                                    event.target.value,
-                                                    event.target.selectionStart,
-                                                )
-                                            }
-                                            placeholder="e.g. 51K-123.45"
-                                            maxLength={15}
-                                            disabled={modal === "edit"}
-                                            autoCapitalize="characters"
-                                            spellCheck={false}
-                                            aria-required={needsPlate(category)}
-                                            aria-invalid={Boolean(error)}
-                                        />
-                                        {error && (
-                                            <p
-                                                className="vehicles-form-error"
-                                                role="alert"
-                                            >
-                                                {error}
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                                {!backendSupports(category) && (
-                                    <div className="vehicles-field">
-                                        <label htmlFor="vehicles-photo">
-                                            Vehicle photo{" "}
-                                            {needsPhoto(category) ? (
-                                                <span aria-hidden="true">
-                                                    *
-                                                </span>
-                                            ) : (
-                                                <span>(Optional)</span>
-                                            )}
-                                        </label>
-                                        <input
-                                            id="vehicles-photo"
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            onChange={(event) =>
-                                                handlePhoto(
-                                                    event.target.files?.[0],
-                                                )
-                                            }
-                                            aria-required={needsPhoto(category)}
-                                        />
-                                        {photo && (
-                                            <Image
-                                                src={photo}
-                                                alt="Selected vehicle"
-                                                width={120}
-                                                height={80}
-                                                unoptimized
-                                                className="vehicles-photo-inline"
-                                            />
-                                        )}
-                                        {photoError && (
-                                            <p
-                                                className="vehicles-form-error"
-                                                role="alert"
-                                            >
-                                                {photoError}
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                                <div className="vehicles-field">
-                                    <label htmlFor="vehicles-nickname">
-                                        Nickname <span>(Optional)</span>
-                                    </label>
-                                    <input
-                                        id="vehicles-nickname"
-                                        value={brand}
-                                        onChange={(event) =>
-                                            setBrand(event.target.value)
-                                        }
-                                        maxLength={50}
-                                        placeholder="e.g. My daily car"
-                                    />
-                                </div>
-                            </div>
-                            <div className="vehicles-dialog-actions">
-                                <button
-                                    type="button"
-                                    className="vehicles-light-button"
-                                    onClick={closeModal}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="vehicles-dark-button"
-                                >
-                                    {modal === "add"
-                                        ? "Add Vehicle"
-                                        : "Save Changes"}{" "}
-                                    <Icon name="arrow" size={17} />
-                                </button>
-                            </div>
-                        </form>
-                    ) : (
+                    modal && (
                         <form
                             className="vehicles-form"
                             onSubmit={saveVehicle}
@@ -1347,8 +840,8 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     </h2>
                                     <p>
                                         {modal === "add"
-                                            ? "Choose the parking area that fits this vehicle."
-                                            : "Update this vehicle's details."}
+                                            ? "Register a new vehicle to use ParkWise parking services."
+                                            : "Update your vehicle details for ParkWise parking services."}
                                     </p>
                                 </div>
                                 <button
@@ -1389,19 +882,14 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         <span className="vehicles-upload-icon">
                                             <Icon
                                                 name={
-                                                    categoryInfo(category).icon
+                                                    category === "motorbike"
+                                                        ? "motorbike"
+                                                        : "car"
                                                 }
                                                 size={43}
                                             />
                                         </span>
-                                        <strong>
-                                            Upload Vehicle Photo{" "}
-                                            {needsPhoto(category) && (
-                                                <span aria-hidden="true">
-                                                    *
-                                                </span>
-                                            )}
-                                        </strong>
+                                        <strong>Upload Vehicle Photo</strong>
                                         <small>
                                             JPG, PNG or WebP · Max 5 MB
                                         </small>
@@ -1415,45 +903,29 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             <span>or</span>
                                         </span>
                                         <span className="vehicles-upload-preview">
-                                            {photo || needsPlate(category) ? (
-                                                <Image
-                                                    src={
-                                                        photo ??
-                                                        (isMotorbikeCategory(
-                                                            category,
-                                                        )
-                                                            ? "/images/parkwise/vehicle-motorbike-cutout.png"
-                                                            : "/images/parkwise/vehicle-sedan-cutout.png")
-                                                    }
-                                                    alt={
-                                                        photo
-                                                            ? "Selected vehicle"
-                                                            : ""
-                                                    }
-                                                    fill
-                                                    sizes="(max-width: 850px) 85vw, 320px"
-                                                    unoptimized={Boolean(
-                                                        photo?.startsWith(
-                                                            "data:",
-                                                        ),
-                                                    )}
-                                                />
-                                            ) : (
-                                                <Icon
-                                                    name={
-                                                        categoryInfo(category)
-                                                            .icon
-                                                    }
-                                                    size={78}
-                                                />
-                                            )}
+                                            <Image
+                                                src={
+                                                    photo ??
+                                                    (category === "motorbike"
+                                                        ? "/images/parkwise/vehicle-motorbike-cutout.png"
+                                                        : "/images/parkwise/vehicle-sedan-cutout.png")
+                                                }
+                                                alt={
+                                                    photo
+                                                        ? "Selected vehicle"
+                                                        : ""
+                                                }
+                                                fill
+                                                sizes="(max-width: 850px) 85vw, 320px"
+                                                unoptimized={Boolean(
+                                                    photo?.startsWith("data:"),
+                                                )}
+                                            />
                                         </span>
                                         <span className="vehicles-upload-caption">
                                             {photo
                                                 ? "Your vehicle photo is ready. Choose another photo to replace it."
-                                                : category === "bicycle"
-                                                  ? "A photo is required to identify your bicycle."
-                                                  : "Add a photo to help you recognize your vehicle."}
+                                                : "Add a photo to help you recognize your vehicle more easily."}
                                         </span>
                                     </button>
                                     {photoError && (
@@ -1472,276 +944,257 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             <span aria-hidden="true">*</span>
                                         </legend>
                                         <div className="vehicles-size-options">
-                                            {VEHICLE_FORM_CATEGORIES.map(
-                                                (item) => (
-                                                    <label
-                                                        key={item.value}
-                                                        className={`vehicles-size-option ${category === item.value ? "selected" : ""}`}
-                                                    >
-                                                        <input
-                                                            type="radio"
-                                                            name="vehicles-category"
-                                                            value={item.value}
-                                                            checked={
-                                                                baseCategory(
-                                                                    category,
-                                                                ) === item.value
-                                                            }
-                                                            disabled={
-                                                                modal === "edit"
-                                                            }
-                                                            onChange={() =>
-                                                                chooseCategory(
-                                                                    item.value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <span className="vehicles-size-indicator" />
-                                                        <Icon
-                                                            name={item.icon}
-                                                            size={27}
-                                                        />
-                                                        <span>
-                                                            <strong>
-                                                                {item.label}
-                                                            </strong>
-                                                            <small>
-                                                                {
-                                                                    item.description
-                                                                }
-                                                            </small>
-                                                        </span>
-                                                    </label>
-                                                ),
-                                            )}
+                                            {(
+                                                ["car", "motorbike"] as const
+                                            ).map((kind) => (
+                                                <label
+                                                    key={kind}
+                                                    className={`vehicles-size-option ${category === kind ? "selected" : ""}`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="vehicles-category"
+                                                        value={kind}
+                                                        checked={
+                                                            category === kind
+                                                        }
+                                                        onChange={() => {
+                                                            if (
+                                                                category ===
+                                                                kind
+                                                            )
+                                                                return;
+                                                            setCategory(kind);
+                                                            setBrand("");
+                                                            setModel("");
+                                                            setVehicleType("");
+                                                            setSeats("");
+                                                            setFuelType("");
+                                                            setElectric(false);
+                                                            setPhoto(undefined);
+                                                            setBrandError("");
+                                                            setSize("standard");
+                                                        }}
+                                                    />
+                                                    <span className="vehicles-size-indicator" />
+                                                    <Icon
+                                                        name={
+                                                            kind === "car"
+                                                                ? "car"
+                                                                : "motorbike"
+                                                        }
+                                                        size={27}
+                                                    />
+                                                    <span>
+                                                        <strong>
+                                                            {kind === "car"
+                                                                ? "Car"
+                                                                : "Motorbike"}
+                                                        </strong>
+                                                        <small>
+                                                            {kind === "car"
+                                                                ? "Standard or large space"
+                                                                : "Motorbike space"}
+                                                        </small>
+                                                    </span>
+                                                </label>
+                                            ))}
                                         </div>
                                     </fieldset>
-                                    <TwoWheelerTypeSelector
-                                        category={category}
-                                        disabled={modal === "edit"}
-                                        onChange={chooseTwoWheelerType}
-                                    />
-                                    <PowerSourceSelector
-                                        category={category}
-                                        disabled={modal === "edit"}
-                                        onChange={choosePowerSource}
-                                    />
-                                    {needsPlate(category) && (
+                                    <div className="vehicles-field">
+                                        <label htmlFor="vehicles-plate">
+                                            License Plate{" "}
+                                            {modal === "add" && (
+                                                <span aria-hidden="true">
+                                                    *
+                                                </span>
+                                            )}
+                                        </label>
+                                        <input
+                                            id="vehicles-plate"
+                                            ref={plateInputRef}
+                                            value={plate}
+                                            onChange={(event) =>
+                                                updatePlate(
+                                                    event.target.value,
+                                                    event.target.selectionStart,
+                                                )
+                                            }
+                                            onBlur={() =>
+                                                setPlate((current) =>
+                                                    formatPlate(
+                                                        current,
+                                                        category,
+                                                    ),
+                                                )
+                                            }
+                                            placeholder={
+                                                category === "motorbike"
+                                                    ? "e.g. 59A1-123.45"
+                                                    : "e.g. 51K-123.45"
+                                            }
+                                            maxLength={15}
+                                            disabled={modal === "edit"}
+                                            autoCapitalize="characters"
+                                            spellCheck={false}
+                                            aria-required={modal === "add"}
+                                            aria-invalid={Boolean(error)}
+                                            aria-describedby={
+                                                error
+                                                    ? "vehicles-form-error"
+                                                    : modal === "edit"
+                                                      ? "vehicles-plate-hint"
+                                                      : undefined
+                                            }
+                                        />
+                                        {modal === "edit" && (
+                                            <small id="vehicles-plate-hint">
+                                                The license plate cannot be
+                                                edited.
+                                            </small>
+                                        )}
+                                        {error && (
+                                            <p
+                                                id="vehicles-form-error"
+                                                className="vehicles-form-error"
+                                                role="alert"
+                                            >
+                                                {error}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="vehicles-field-grid">
                                         <div className="vehicles-field">
-                                            <label htmlFor="vehicles-plate">
-                                                License Plate{" "}
+                                            <label htmlFor="vehicles-brand">
+                                                Vehicle Brand{" "}
                                                 <span aria-hidden="true">
                                                     *
                                                 </span>
                                             </label>
-                                            <input
-                                                id="vehicles-plate"
-                                                ref={plateInputRef}
-                                                value={plate}
-                                                onChange={(event) =>
-                                                    updatePlate(
-                                                        event.target.value,
-                                                        event.target
-                                                            .selectionStart,
-                                                    )
+                                            <VehicleDropdown
+                                                id="vehicles-brand"
+                                                value={brand}
+                                                options={
+                                                    category === "motorbike"
+                                                        ? MOTORBIKE_BRAND_OPTIONS
+                                                        : BRAND_OPTIONS
                                                 }
-                                                onBlur={() =>
-                                                    setPlate((current) =>
-                                                        formatPlate(
-                                                            current,
-                                                            category,
-                                                        ),
-                                                    )
+                                                placeholder="Select brand"
+                                                onChange={(nextBrand) => {
+                                                    setBrand(nextBrand);
+                                                    setBrandError("");
+                                                    setModel("");
+                                                }}
+                                                required
+                                                invalid={Boolean(brandError)}
+                                                describedBy={
+                                                    brandError
+                                                        ? "vehicles-brand-error"
+                                                        : undefined
                                                 }
-                                                placeholder={
-                                                    isMotorbikeCategory(
-                                                        category,
-                                                    )
-                                                        ? "e.g. 59A1-123.45"
-                                                        : "e.g. 51K-123.45"
-                                                }
-                                                maxLength={15}
-                                                disabled={modal === "edit"}
-                                                autoCapitalize="characters"
-                                                spellCheck={false}
-                                                aria-required={
-                                                    modal === "add" &&
-                                                    needsPlate(category)
-                                                }
-                                                aria-invalid={Boolean(error)}
-                                                aria-describedby={
-                                                    error
-                                                        ? "vehicles-form-error"
-                                                        : modal === "edit"
-                                                          ? "vehicles-plate-hint"
-                                                          : undefined
+                                                searchable
+                                                otherLabel="Other — enter a brand"
+                                                leadingIcon={
+                                                    <Icon
+                                                        name={
+                                                            category ===
+                                                            "motorbike"
+                                                                ? "motorbike"
+                                                                : "car"
+                                                        }
+                                                        size={19}
+                                                    />
                                                 }
                                             />
-                                            {modal === "edit" && (
-                                                <small id="vehicles-plate-hint">
-                                                    The license plate cannot be
-                                                    edited.
-                                                </small>
-                                            )}
-                                            {error && (
+                                            {brandError && (
                                                 <p
-                                                    id="vehicles-form-error"
+                                                    id="vehicles-brand-error"
                                                     className="vehicles-form-error"
                                                     role="alert"
                                                 >
-                                                    {error}
+                                                    {brandError}
                                                 </p>
                                             )}
                                         </div>
-                                    )}
-                                    {needsPlate(category) && (
-                                        <div className="vehicles-field-grid">
+                                        <div className="vehicles-field">
+                                            <label htmlFor="vehicles-model">
+                                                Vehicle Model{" "}
+                                                <span>(Optional)</span>
+                                            </label>
+                                            <VehicleDropdown
+                                                id="vehicles-model"
+                                                value={model}
+                                                options={
+                                                    category === "motorbike"
+                                                        ? getMotorbikeModelOptions(
+                                                              brand,
+                                                          )
+                                                        : getModelOptions(brand)
+                                                }
+                                                placeholder="Select model"
+                                                onChange={setModel}
+                                                searchable
+                                                otherLabel="Other — enter a model"
+                                                emptyMessage={
+                                                    brand
+                                                        ? "No suggested models for this brand"
+                                                        : "Select a brand to see models"
+                                                }
+                                            />
+                                        </div>
+                                        <div className="vehicles-field">
+                                            <label htmlFor="vehicles-type">
+                                                {category === "motorbike"
+                                                    ? "Motorbike Type"
+                                                    : "Body Type"}{" "}
+                                                <span>(Optional)</span>
+                                            </label>
+                                            <VehicleDropdown
+                                                id="vehicles-type"
+                                                value={vehicleType}
+                                                options={
+                                                    category === "motorbike"
+                                                        ? MOTORBIKE_TYPE_OPTIONS
+                                                        : VEHICLE_TYPE_OPTIONS
+                                                }
+                                                placeholder="Select type"
+                                                onChange={setVehicleType}
+                                                leadingIcon={
+                                                    <Icon
+                                                        name={
+                                                            category ===
+                                                            "motorbike"
+                                                                ? "motorbike"
+                                                                : "car"
+                                                        }
+                                                        size={20}
+                                                    />
+                                                }
+                                            />
+                                        </div>
+                                        {category === "car" && (
                                             <div className="vehicles-field">
-                                                <label htmlFor="vehicles-brand">
-                                                    Vehicle Brand{" "}
-                                                    <span aria-hidden="true">
-                                                        *
-                                                    </span>
-                                                </label>
-                                                <VehicleDropdown
-                                                    id="vehicles-brand"
-                                                    value={brand}
-                                                    options={
-                                                        isMotorbikeCategory(
-                                                            category,
-                                                        )
-                                                            ? MOTORBIKE_BRAND_OPTIONS
-                                                            : BRAND_OPTIONS
-                                                    }
-                                                    placeholder="Select brand"
-                                                    onChange={(nextBrand) => {
-                                                        setBrand(nextBrand);
-                                                        setBrandError("");
-                                                        setModel("");
-                                                    }}
-                                                    required
-                                                    invalid={Boolean(
-                                                        brandError,
-                                                    )}
-                                                    describedBy={
-                                                        brandError
-                                                            ? "vehicles-brand-error"
-                                                            : undefined
-                                                    }
-                                                    searchable
-                                                    otherLabel="Other — enter a brand"
-                                                    leadingIcon={
-                                                        <Icon
-                                                            name={
-                                                                isMotorbikeCategory(
-                                                                    category,
-                                                                )
-                                                                    ? "motorbike"
-                                                                    : "car"
-                                                            }
-                                                            size={19}
-                                                        />
-                                                    }
-                                                />
-                                                {brandError && (
-                                                    <p
-                                                        id="vehicles-brand-error"
-                                                        className="vehicles-form-error"
-                                                        role="alert"
-                                                    >
-                                                        {brandError}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="vehicles-field">
-                                                <label htmlFor="vehicles-model">
-                                                    Vehicle Model{" "}
+                                                <label htmlFor="vehicles-seats">
+                                                    Number of Seats{" "}
                                                     <span>(Optional)</span>
                                                 </label>
                                                 <VehicleDropdown
-                                                    id="vehicles-model"
-                                                    value={model}
-                                                    options={
-                                                        isMotorbikeCategory(
-                                                            category,
-                                                        )
-                                                            ? getMotorbikeModelOptions(
-                                                                  brand,
-                                                              )
-                                                            : getModelOptions(
-                                                                  brand,
-                                                              )
-                                                    }
-                                                    placeholder="Select model"
-                                                    onChange={setModel}
-                                                    searchable
-                                                    otherLabel="Other — enter a model"
-                                                    emptyMessage={
-                                                        brand
-                                                            ? "No suggested models for this brand"
-                                                            : "Select a brand to see models"
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="vehicles-field">
-                                                <label htmlFor="vehicles-type">
-                                                    {isMotorbikeCategory(
-                                                        category,
-                                                    )
-                                                        ? "Motorbike Type"
-                                                        : "Body Type"}{" "}
-                                                    <span>(Optional)</span>
-                                                </label>
-                                                <VehicleDropdown
-                                                    id="vehicles-type"
-                                                    value={vehicleType}
-                                                    options={
-                                                        isMotorbikeCategory(
-                                                            category,
-                                                        )
-                                                            ? MOTORBIKE_TYPE_OPTIONS
-                                                            : VEHICLE_TYPE_OPTIONS
-                                                    }
-                                                    placeholder="Select type"
-                                                    onChange={setVehicleType}
+                                                    id="vehicles-seats"
+                                                    value={seats}
+                                                    options={SEAT_OPTIONS}
+                                                    placeholder="Select seats"
+                                                    onChange={setSeats}
                                                     leadingIcon={
                                                         <Icon
-                                                            name={
-                                                                isMotorbikeCategory(
-                                                                    category,
-                                                                )
-                                                                    ? "motorbike"
-                                                                    : "car"
-                                                            }
+                                                            name="seats"
                                                             size={20}
                                                         />
                                                     }
                                                 />
                                             </div>
-                                            {isCarCategory(category) && (
-                                                <div className="vehicles-field">
-                                                    <label htmlFor="vehicles-seats">
-                                                        Number of Seats{" "}
-                                                        <span>(Optional)</span>
-                                                    </label>
-                                                    <VehicleDropdown
-                                                        id="vehicles-seats"
-                                                        value={seats}
-                                                        options={SEAT_OPTIONS}
-                                                        placeholder="Select seats"
-                                                        onChange={setSeats}
-                                                        leadingIcon={
-                                                            <Icon
-                                                                name="seats"
-                                                                size={20}
-                                                            />
-                                                        }
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    {isCarCategory(category) && (
+                                        )}
+                                    </div>
+                                    {category === "car" && (
                                         <fieldset className="vehicles-size-field">
                                             <legend>
                                                 Parking Space Size{" "}
@@ -1826,91 +1279,107 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             </div>
                                         </fieldset>
                                     )}
-                                    {needsPlate(category) && (
-                                        <div className="vehicles-field-grid vehicles-field-grid--extra">
-                                            {category !== "electric-car" &&
-                                                category !==
-                                                    "electric-motorbike" && (
-                                                    <div className="vehicles-field">
-                                                        <label htmlFor="vehicles-fuel">
-                                                            Fuel Type{" "}
-                                                            <span>
-                                                                (Optional)
-                                                            </span>
-                                                        </label>
-                                                        <VehicleDropdown
-                                                            id="vehicles-fuel"
-                                                            value={fuelType}
-                                                            options={(isMotorbikeCategory(
-                                                                category,
-                                                            )
-                                                                ? MOTORBIKE_FUEL_OPTIONS
-                                                                : FUEL_OPTIONS
-                                                            ).filter(
-                                                                (option) =>
-                                                                    option.value !==
-                                                                    "electric",
-                                                            )}
-                                                            placeholder="Select fuel type"
-                                                            onChange={
-                                                                setFuelType
-                                                            }
-                                                            leadingIcon={
-                                                                <Icon
-                                                                    name="fuel"
-                                                                    size={19}
-                                                                />
-                                                            }
-                                                        />
-                                                    </div>
-                                                )}
-                                            <div className="vehicles-field">
-                                                <label htmlFor="vehicles-color">
-                                                    Vehicle Color{" "}
-                                                    <span>(Optional)</span>
-                                                </label>
-                                                <VehicleDropdown
-                                                    id="vehicles-color"
-                                                    value={color}
-                                                    options={COLOR_OPTIONS}
-                                                    placeholder="Select color"
-                                                    onChange={setColor}
-                                                    leadingIcon={
-                                                        <span
-                                                            className="vehicles-color-swatch"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    COLOR_SWATCHES[
-                                                                        color
-                                                                    ] ?? "#fff",
-                                                            }}
-                                                        />
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="vehicles-field">
-                                                <label htmlFor="vehicles-year">
-                                                    Manufacturing Year{" "}
-                                                    <span>(Optional)</span>
-                                                </label>
-                                                <VehicleDropdown
-                                                    id="vehicles-year"
-                                                    value={manufacturingYear}
-                                                    options={YEAR_OPTIONS}
-                                                    placeholder="Select year"
-                                                    onChange={
-                                                        setManufacturingYear
-                                                    }
-                                                    leadingIcon={
-                                                        <Icon
-                                                            name="calendar"
-                                                            size={19}
-                                                        />
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
+                                    {category === "motorbike" && (
+                                        <p className="vehicles-motorbike-note">
+                                            <Icon name="motorbike" size={22} />
+                                            Motorbike parking space is selected
+                                            automatically.
+                                        </p>
                                     )}
+                                    <div className="vehicles-field-grid vehicles-field-grid--extra">
+                                        <div className="vehicles-field">
+                                            <label htmlFor="vehicles-fuel">
+                                                Fuel Type{" "}
+                                                <span>(Optional)</span>
+                                            </label>
+                                            <VehicleDropdown
+                                                id="vehicles-fuel"
+                                                value={fuelType}
+                                                options={
+                                                    category === "motorbike"
+                                                        ? MOTORBIKE_FUEL_OPTIONS
+                                                        : FUEL_OPTIONS
+                                                }
+                                                placeholder="Select fuel type"
+                                                onChange={(nextFuel) => {
+                                                    setFuelType(nextFuel);
+                                                    setElectric(
+                                                        nextFuel === "electric",
+                                                    );
+                                                }}
+                                                leadingIcon={
+                                                    <Icon
+                                                        name="fuel"
+                                                        size={19}
+                                                    />
+                                                }
+                                            />
+                                        </div>
+                                        <label className="vehicles-electric-checkbox">
+                                            <input
+                                                type="checkbox"
+                                                checked={electric}
+                                                onChange={(event) => {
+                                                    const isElectric =
+                                                        event.target.checked;
+                                                    setElectric(isElectric);
+                                                    setFuelType((current) =>
+                                                        isElectric
+                                                            ? "electric"
+                                                            : current ===
+                                                                "electric"
+                                                              ? ""
+                                                              : current,
+                                                    );
+                                                }}
+                                            />
+                                            <Icon name="bolt" size={25} />
+                                            This is an electric vehicle
+                                        </label>
+                                        <div className="vehicles-field">
+                                            <label htmlFor="vehicles-color">
+                                                Vehicle Color{" "}
+                                                <span>(Optional)</span>
+                                            </label>
+                                            <VehicleDropdown
+                                                id="vehicles-color"
+                                                value={color}
+                                                options={COLOR_OPTIONS}
+                                                placeholder="Select color"
+                                                onChange={setColor}
+                                                leadingIcon={
+                                                    <span
+                                                        className="vehicles-color-swatch"
+                                                        style={{
+                                                            backgroundColor:
+                                                                COLOR_SWATCHES[
+                                                                    color
+                                                                ] ?? "#fff",
+                                                        }}
+                                                    />
+                                                }
+                                            />
+                                        </div>
+                                        <div className="vehicles-field">
+                                            <label htmlFor="vehicles-year">
+                                                Manufacturing Year{" "}
+                                                <span>(Optional)</span>
+                                            </label>
+                                            <VehicleDropdown
+                                                id="vehicles-year"
+                                                value={manufacturingYear}
+                                                options={YEAR_OPTIONS}
+                                                placeholder="Select year"
+                                                onChange={setManufacturingYear}
+                                                leadingIcon={
+                                                    <Icon
+                                                        name="calendar"
+                                                        size={19}
+                                                    />
+                                                }
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="vehicles-dialog-actions">
@@ -1932,7 +1401,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 </button>
                             </div>
                         </form>
-                    ))
+                    )
                 )}
             </dialog>
         </div>
