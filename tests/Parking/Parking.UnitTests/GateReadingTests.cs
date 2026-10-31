@@ -1,5 +1,6 @@
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.GateReadings.RecordGateReading;
 using ParkingSystem.Parking.Application.Incidents;
 using ParkingSystem.Parking.Application.ParkingLots;
@@ -42,11 +43,12 @@ public sealed class GateReadingTests
     }
 
     [Fact]
-    public async Task An_auto_accepted_reading_opens_no_incident()
+    public async Task An_auto_accepted_reading_opens_no_incident_but_leaves_an_audit_entry_without_the_plate()
     {
         var incidents = new FakeIncidents();
+        var audit = new FakeAuditLog();
 
-        var result = await NewHandler(incidents).Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "car", 0.93m, StaffId), TestContext.Current.CancellationToken);
+        var result = await NewHandler(incidents, audit).Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "car", 0.93m, StaffId), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Value!.IncidentId);
@@ -55,6 +57,28 @@ public sealed class GateReadingTests
         Assert.Equal(0.93m, result.Value.Confidence);
         Assert.Equal(Now, result.Value.ReceivedAt);
         Assert.Empty(incidents.Saved);
+        Assert.True(incidents.SaveCalled);
+
+        // Lead review of #151: who let the vehicle through, at which lot and when.
+        var entry = Assert.Single(audit.Entries);
+        Assert.Equal(AuditActions.GateReadingAutoAccepted, entry.Action);
+        Assert.Equal(StaffId, entry.ActorUserId);
+        Assert.Equal(LotId, entry.LotId);
+        Assert.Equal(Now, entry.OccurredAt);
+        Assert.Equal("Car", entry.Details!["vehicleType"]);
+        Assert.Equal("0.93", entry.Details["confidence"]);
+        // NFR-15: no plate number in the audit details.
+        Assert.DoesNotContain(entry.Details.Values, value => value.Contains("51A", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task A_pending_reading_writes_no_audit_entry()
+    {
+        var audit = new FakeAuditLog();
+
+        await NewHandler(new FakeIncidents(), audit).Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.5m, StaffId), TestContext.Current.CancellationToken);
+
+        Assert.Empty(audit.Entries);
     }
 
     [Fact]
@@ -103,7 +127,7 @@ public sealed class GateReadingTests
     public async Task Handler_refuses_an_unknown_or_unapproved_lot()
     {
         var incidents = new FakeIncidents();
-        var handler = new RecordGateReadingCommandHandler(incidents, new FakeLots(approved: false), new FakeLotAccess(allowed: true), new FixedClock());
+        var handler = new RecordGateReadingCommandHandler(incidents, new FakeLots(approved: false), new FakeLotAccess(allowed: true), new FakeAuditLog(), new FixedClock());
 
         var result = await handler.Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.5m, StaffId), TestContext.Current.CancellationToken);
 
@@ -115,7 +139,7 @@ public sealed class GateReadingTests
     public async Task Handler_refuses_staff_not_assigned_to_the_lot()
     {
         var incidents = new FakeIncidents();
-        var handler = new RecordGateReadingCommandHandler(incidents, new FakeLots(approved: true), new FakeLotAccess(allowed: false), new FixedClock());
+        var handler = new RecordGateReadingCommandHandler(incidents, new FakeLots(approved: true), new FakeLotAccess(allowed: false), new FakeAuditLog(), new FixedClock());
 
         var result = await handler.Handle(new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.5m, StaffId), TestContext.Current.CancellationToken);
 
@@ -156,18 +180,27 @@ public sealed class GateReadingTests
         Assert.False(validator.Validate(new RecordGateReadingCommand(LotId, new string('1', ParkingSession.PlateNumberMaxLength + 1), "Car", 0.95m, StaffId)).IsValid);
     }
 
-    private static RecordGateReadingCommandHandler NewHandler(FakeIncidents incidents) =>
-        new(incidents, new FakeLots(approved: true), new FakeLotAccess(allowed: true), new FixedClock());
+    private static RecordGateReadingCommandHandler NewHandler(FakeIncidents incidents, FakeAuditLog? audit = null) =>
+        new(incidents, new FakeLots(approved: true), new FakeLotAccess(allowed: true), audit ?? new FakeAuditLog(), new FixedClock());
+
+    private sealed class FakeAuditLog : IAuditLog
+    {
+        public List<AuditEntry> Entries { get; } = [];
+
+        public void Record(AuditEntry entry) => Entries.Add(entry);
+    }
 
     private sealed class FakeIncidents : IIncidentRepository
     {
         private readonly List<Incident> added = [];
         public List<Incident> Saved { get; } = [];
+        public bool SaveCalled { get; private set; }
 
         public void Add(Incident incident) => added.Add(incident);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
+            SaveCalled = true;
             Saved.AddRange(added);
             added.Clear();
             return Task.CompletedTask;

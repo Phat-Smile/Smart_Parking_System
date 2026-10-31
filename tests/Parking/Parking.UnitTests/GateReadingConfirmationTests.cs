@@ -64,9 +64,11 @@ public sealed class GateReadingConfirmationTests
         Assert.Equal("Motorbike", result.Value.VehicleType);
         Assert.Equal("51A-123.4S", incident.ObservedPlate); // what the device read is kept
         Assert.Equal(VehicleType.Car, incident.ObservedVehicleType);
-        // The ERD has no confirmed-plate column: the confirmed values are written in the resolution reason.
-        Assert.Contains("51A-123.45", incident.ResolutionReason);
-        Assert.Contains("Motorbike", incident.ResolutionReason);
+        // Lead review of #151: the confirmed values have their own columns, not a sentence in the resolution reason.
+        Assert.Equal("51A-123.45", incident.ConfirmedPlate);
+        Assert.Equal(VehicleType.Motorbike, incident.ConfirmedVehicleType);
+        Assert.Equal(Incident.PlateConfirmedReason, incident.ResolutionReason);
+        Assert.DoesNotContain("51A", incident.ResolutionReason!);
         var details = Assert.Single(audit.Entries).Details!;
         Assert.Equal("True", details["plateCorrected"]);
         Assert.Equal("True", details["vehicleTypeCorrected"]);

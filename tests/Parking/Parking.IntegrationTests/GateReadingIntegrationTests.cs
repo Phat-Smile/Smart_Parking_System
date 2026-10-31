@@ -101,7 +101,7 @@ public sealed class GateReadingIntegrationTests(PostgreSqlContainerFixture postg
     }
 
     [Fact]
-    public async Task Confirming_keeps_the_observed_plate_and_writes_the_confirmed_one_in_the_resolution_reason()
+    public async Task Confirming_keeps_the_observed_plate_and_stores_the_confirmed_values_in_their_own_columns()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
@@ -115,7 +115,26 @@ public sealed class GateReadingIntegrationTests(PostgreSqlContainerFixture postg
         var stored = await scope.ServiceProvider.GetRequiredService<ParkingDbContext>().Incidents.AsNoTracking()
             .SingleAsync(item => item.Id == reading.IncidentId, cancellationToken);
         Assert.Equal("51A-123.4S", stored.ObservedPlate);
-        Assert.Contains("51A-123.45", stored.ResolutionReason);
+        Assert.Equal("51A-123.45", stored.ConfirmedPlate);
+        Assert.Equal(VehicleType.Car, stored.ConfirmedVehicleType);
+        Assert.Equal(Incident.PlateConfirmedReason, stored.ResolutionReason);
+    }
+
+    [Fact]
+    public async Task An_auto_accepted_reading_is_traced_in_the_audit_log()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(cancellationToken);
+        var lotId = await SeedAssignedApprovedLotAsync(serviceProvider, cancellationToken);
+
+        await RecordAsync(serviceProvider, new RecordGateReadingCommand(lotId, "51A-123.45", "Car", 0.97m, StaffId), cancellationToken);
+
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        Assert.False(await dbContext.Incidents.AnyAsync(incident => incident.LotId == lotId, cancellationToken));
+        var entry = await dbContext.AuditLogEntries.AsNoTracking()
+            .SingleAsync(item => item.LotId == lotId && item.Action == AuditActions.GateReadingAutoAccepted, cancellationToken);
+        Assert.Equal(StaffId, entry.ActorUserId);
     }
 
     // What the confirm handler does before saving: load, resolve, add the audit entry.

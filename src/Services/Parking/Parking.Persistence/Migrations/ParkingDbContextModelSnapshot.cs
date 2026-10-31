@@ -144,6 +144,16 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("ConfirmedPlate")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("confirmed_plate");
+
+                    b.Property<string>("ConfirmedVehicleType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("confirmed_vehicle_type");
+
                     b.Property<string>("DeviceId")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")

@@ -80,6 +80,30 @@ public sealed class Incident
         };
     }
 
+    // Not in the team ERD yet (lead review of #151, 2026-10-31): the plate and vehicle type staff confirmed for a
+    // LowConfidencePlate incident, kept in columns so the next steps (open the session, reconciliation) can read them.
+    public string? ConfirmedPlate { get; private set; }
+    public VehicleType? ConfirmedVehicleType { get; private set; }
+
+    /// <summary>
+    /// US-PARK-002: staff confirm the plate and vehicle type they see on a LowConfidencePlate incident. The observed values
+    /// stay as read. Only an Open incident can be confirmed.
+    /// </summary>
+    /// <returns>False when the incident is already resolved.</returns>
+    public bool ConfirmPlate(Guid resolvedBy, DateTimeOffset resolvedAt, string plateNumber, VehicleType vehicleType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(plateNumber);
+        if (!Resolve(resolvedBy, resolvedAt, PlateConfirmedReason))
+            return false;
+
+        ConfirmedPlate = ParkingSession.NormalizePlate(plateNumber);
+        ConfirmedVehicleType = vehicleType;
+        return true;
+    }
+
+    // Staff do not type a reason when confirming a plate yet; the case itself says why it went to staff.
+    public const string PlateConfirmedReason = "Plate and vehicle type confirmed by staff at the gate.";
+
     /// <summary>Staff handled the case. Only an Open incident can be resolved.</summary>
     /// <returns>False when the incident is already resolved.</returns>
     public bool Resolve(Guid resolvedBy, DateTimeOffset resolvedAt, string reason)

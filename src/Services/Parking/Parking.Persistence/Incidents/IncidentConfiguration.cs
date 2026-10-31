@@ -74,6 +74,14 @@ internal sealed class IncidentConfiguration : IEntityTypeConfiguration<Incident>
         builder.Property(incident => incident.ResolutionReason)
             .HasColumnName("resolution_reason")
             .HasMaxLength(Incident.ResolutionReasonMaxLength);
+        // Not in the team ERD yet (lead review of #151): what staff confirmed on a LowConfidencePlate incident.
+        builder.Property(incident => incident.ConfirmedPlate)
+            .HasColumnName("confirmed_plate")
+            .HasMaxLength(ParkingSession.PlateNumberMaxLength);
+        builder.Property(incident => incident.ConfirmedVehicleType)
+            .HasColumnName("confirmed_vehicle_type")
+            .HasConversion<string>()
+            .HasMaxLength(32);
 
         // US-PARK-002 lists the open incidents of a lot by type, oldest first.
         builder.HasIndex(incident => new { incident.LotId, incident.Status, incident.IncidentType, incident.OccurredAt })

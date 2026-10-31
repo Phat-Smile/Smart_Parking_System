@@ -76,8 +76,8 @@ public sealed class ConfirmGateReadingCommandHandler(
         var vehicleType = Enum.Parse<VehicleType>(request.VehicleType, ignoreCase: true);
         var now = clock.UtcNow;
 
-        // The ERD has no column for the confirmed plate: it is kept in resolution_reason, the observed values stay as read.
-        if (!incident.Resolve(request.ActorUserId, now, $"Staff confirmed plate {plate} ({vehicleType})."))
+        // The confirmed values go to their own columns; the observed values stay as read.
+        if (!incident.ConfirmPlate(request.ActorUserId, now, plate, vehicleType))
             return Result<ConfirmedGateReading>.Failure(ConfirmGateReadingErrors.NotPending);
 
         var plateFormatValid = VietnamPlateFormat.IsValid(plate);
