@@ -5,6 +5,7 @@ using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.Common.Realtime;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
@@ -104,7 +105,8 @@ public sealed class OpenParkingSessionCommandHandler(
     ISlotDesignator slots,
     IHeldQuotaProvider heldQuota,
     IZoneLabelReader zoneLabels,
-    IBookingCheckInClient bookingClient) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
+    IBookingCheckInClient bookingClient,
+    IParkingRealtimeNotifier? realtimeNotifier = null) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
     public async Task<Result<OpenedParkingSession>> Handle(OpenParkingSessionCommand request, CancellationToken cancellationToken)
     {
@@ -209,6 +211,31 @@ public sealed class OpenParkingSessionCommandHandler(
             return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.SessionAlreadyOpen);
 
         await transaction.CommitAsync(cancellationToken);
+
+        // US-MAP-003: Broadcast realtime status change if slot or motorbike space was assigned
+        if (realtimeNotifier is not null)
+        {
+            if (slot is not null)
+            {
+                await realtimeNotifier.NotifySlotStatusChangedAsync(
+                    request.LotId,
+                    slot.SlotId,
+                    slot.SlotCode,
+                    "Assigned",
+                    "Available",
+                    entryTime,
+                    cancellationToken);
+            }
+            else if (space is not null)
+            {
+                await realtimeNotifier.NotifyLotOccupancyChangedAsync(
+                    request.LotId,
+                    0,
+                    space.AvailableSpaces,
+                    entryTime,
+                    cancellationToken);
+            }
+        }
 
         // The driver is told the slot with its zone and floor (BR-04.a), like the motorbike zone printed with the QR.
         ZoneLabel? slotZone = null;
