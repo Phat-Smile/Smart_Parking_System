@@ -13,6 +13,7 @@ import { rememberRegisteredProfileName } from "@/features/auth/authSession";
 import {
     rememberPendingVerification,
     rememberPendingRole,
+    rememberPendingCredentials,
 } from "@/features/auth/pendingVerification";
 import { ApiError } from "@/shared/errors/api-error";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
@@ -144,6 +145,7 @@ export function OwnerRegisterPage({
 
             rememberRegisteredProfileName(account.email, account.fullName);
             rememberPendingRole("owner");
+            rememberPendingCredentials(account.email, values.password);
             if (!rememberPendingVerification(account.email, 60)) {
                 setSubmitError(
                     "Đăng ký thành công nhưng trình duyệt không mở được xác thực. Vui lòng bật Session Storage và thử lại.",
