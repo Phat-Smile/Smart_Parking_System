@@ -11,6 +11,7 @@ import {
     getLotAssignments,
     removeLotMember,
     type StaffAccountOption,
+    type ShiftType,
 } from "./lotAssignmentsApi";
 import type { AdminParkingLot, ParkingLotAssignmentMember } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
@@ -32,6 +33,7 @@ export function AdminLotAssignmentsPage() {
 
     // Form gán nhân viên mới
     const [selectedAccountId, setSelectedAccountId] = useState("");
+    const [selectedShift, setSelectedShift] = useState<ShiftType>("morning");
     const [selectedRole, setSelectedRole] = useState<"Staff" | "Owner">(
         "Staff",
     );
@@ -143,6 +145,7 @@ export function AdminLotAssignmentsPage() {
                 selectedLotId,
                 selectedAccountId,
                 selectedRole,
+                selectedShift,
             );
             const staff = availableStaff.find(
                 (s) => s.accountId === selectedAccountId,
@@ -372,6 +375,7 @@ export function AdminLotAssignmentsPage() {
                                     <th>{t("assignmentsColStaff")}</th>
                                     <th>{t("assignmentsColContact")}</th>
                                     <th>{t("assignmentsColRole")}</th>
+                                    <th>{t("assignmentsColShift")}</th>
                                     <th style={{ textAlign: "right" }}>
                                         {t("actions")}
                                     </th>
@@ -431,6 +435,36 @@ export function AdminLotAssignmentsPage() {
                                                     : t("roleStaff")}
                                             </span>
                                         </td>
+                                        <td>
+                                            <span
+                                                style={{
+                                                    display: "inline-block",
+                                                    padding: "2px 8px",
+                                                    borderRadius: "4px",
+                                                    fontSize: "0.75rem",
+                                                    fontWeight: 600,
+                                                    background:
+                                                        "rgba(163, 230, 53, 0.15)",
+                                                    color: "#84cc16",
+                                                    border: "1px solid rgba(163, 230, 53, 0.3)",
+                                                }}
+                                            >
+                                                {member.shiftName ||
+                                                    t("shiftMorning")}
+                                            </span>
+                                            {member.hours && (
+                                                <small
+                                                    style={{
+                                                        display: "block",
+                                                        color: "#64748b",
+                                                        marginTop: "2px",
+                                                        fontSize: "0.75rem",
+                                                    }}
+                                                >
+                                                    {member.hours}
+                                                </small>
+                                            )}
+                                        </td>
                                         <td style={{ textAlign: "right" }}>
                                             <button
                                                 type="button"
@@ -485,7 +519,7 @@ export function AdminLotAssignmentsPage() {
                             onSubmit={handleAssignMember}
                             style={{
                                 display: "grid",
-                                gridTemplateColumns: "1fr 180px auto",
+                                gridTemplateColumns: "1fr 150px 220px auto",
                                 gap: "12px",
                                 alignItems: "end",
                             }}
@@ -596,6 +630,54 @@ export function AdminLotAssignmentsPage() {
                                         }}
                                     >
                                         {t("roleOwner")}
+                                    </option>
+                                </select>
+                            </label>
+
+                            <label
+                                className="admin-field"
+                                style={{ margin: 0 }}
+                            >
+                                <span
+                                    style={{
+                                        fontWeight: 600,
+                                        color: "#111827",
+                                        marginBottom: "4px",
+                                        display: "block",
+                                    }}
+                                >
+                                    {t("assignmentsSelectShift")}
+                                </span>
+                                <select
+                                    value={selectedShift}
+                                    onChange={(e) =>
+                                        setSelectedShift(
+                                            e.target.value as ShiftType,
+                                        )
+                                    }
+                                    style={{
+                                        width: "100%",
+                                        height: "42px",
+                                        padding: "8px 12px",
+                                        borderRadius: "8px",
+                                        background: "#ffffff",
+                                        color: "#111827",
+                                        border: "1px solid #d1d5db",
+                                        fontSize: "0.875rem",
+                                        outline: "none",
+                                    }}
+                                >
+                                    <option value="morning">
+                                        {t("shiftMorning")}
+                                    </option>
+                                    <option value="afternoon">
+                                        {t("shiftAfternoon")}
+                                    </option>
+                                    <option value="night">
+                                        {t("shiftNight")}
+                                    </option>
+                                    <option value="allday">
+                                        {t("shiftAllDay")}
                                     </option>
                                 </select>
                             </label>

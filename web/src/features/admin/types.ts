@@ -115,4 +115,7 @@ export interface ParkingLotAssignmentMember {
     accountEmail?: string;
     accountFullName?: string;
     accountPhoneNumber?: string;
+    shift?: "morning" | "afternoon" | "night" | "allday";
+    shiftName?: string;
+    hours?: string;
 }

@@ -91,6 +91,37 @@ let localAssignments: ParkingLotAssignmentMember[] = [
     },
 ];
 
+export type ShiftType = "morning" | "afternoon" | "night" | "allday";
+
+export const SHIFT_DETAILS: Record<ShiftType, { shiftName: string; hours: string }> = {
+    morning: { shiftName: "Ca 1 - Sáng", hours: "06:00 - 14:00" },
+    afternoon: { shiftName: "Ca 2 - Chiều", hours: "14:00 - 22:00" },
+    night: { shiftName: "Ca 3 - Đêm", hours: "22:00 - 06:00" },
+    allday: { shiftName: "Cả ngày", hours: "00:00 - 23:59" },
+};
+
+async function fetchShiftMap(lotId: string): Promise<Map<string, { shift: ShiftType; shiftName: string; hours: string }>> {
+    const shiftMap = new Map<string, { shift: ShiftType; shiftName: string; hours: string }>();
+    try {
+        const res = await fetch(`/api/staff-shifts?lotId=${encodeURIComponent(lotId)}`);
+        if (res.ok) {
+            const list = await res.json();
+            if (Array.isArray(list)) {
+                list.forEach((s: { accountId: string; shift: ShiftType; shiftName: string; hours: string }) => {
+                    shiftMap.set(s.accountId.toLowerCase(), {
+                        shift: s.shift,
+                        shiftName: s.shiftName,
+                        hours: s.hours,
+                    });
+                });
+            }
+        }
+    } catch {
+        // Fallback
+    }
+    return shiftMap;
+}
+
 let cachedAccountsMap = new Map<string, StaffAccountOption>(
     sampleStaffAccounts.map((s) => [s.accountId, s]),
 );
@@ -103,8 +134,23 @@ export async function assignLotMember(
     lotId: string,
     accountId: string,
     role: "Staff" | "Owner" = "Staff",
+    shift: ShiftType = "morning",
 ): Promise<ParkingLotAssignmentMember> {
+    const shiftInfo = SHIFT_DETAILS[shift] || SHIFT_DETAILS.morning;
     try {
+
+        fetch("/api/staff-shifts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                lotId,
+                accountId,
+                shift,
+                shiftName: shiftInfo.shiftName,
+                hours: shiftInfo.hours,
+            }),
+        }).catch(() => undefined);
+
         const res = await gatewayFetch<ParkingLotAssignmentMember>(
             `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments/${encodeURIComponent(accountId)}`,
             {
@@ -123,12 +169,20 @@ export async function assignLotMember(
             accountFullName: known?.fullName || "Nhân viên trực bãi",
             accountEmail: known?.email,
             accountPhoneNumber: known?.phoneNumber,
+            shift,
+            shiftName: shiftInfo.shiftName,
+            hours: shiftInfo.hours,
         };
         localAssignments = localAssignments
             .filter((a) => !(a.lotId === lotId && a.accountId === accountId))
             .concat(item);
 
-        return res || item;
+        return {
+            ...(res || item),
+            shift,
+            shiftName: shiftInfo.shiftName,
+            hours: shiftInfo.hours,
+        };
     } catch (error) {
         if (error instanceof ApiError) throw error;
         // Fallback for offline/demo if BE is offline
@@ -141,6 +195,9 @@ export async function assignLotMember(
             accountFullName: known?.fullName || "Nhân viên trực bãi",
             accountEmail: known?.email,
             accountPhoneNumber: known?.phoneNumber,
+            shift,
+            shiftName: shiftInfo.shiftName,
+            hours: shiftInfo.hours,
         };
         localAssignments = localAssignments
             .filter((a) => !(a.lotId === lotId && a.accountId === accountId))
@@ -158,6 +215,10 @@ export async function removeLotMember(
     accountId: string,
 ): Promise<void> {
     try {
+        fetch(
+            `/api/staff-shifts?lotId=${encodeURIComponent(lotId)}&accountId=${encodeURIComponent(accountId)}`,
+            { method: "DELETE" },
+        ).catch(() => undefined);
         await gatewayFetch<void>(
             `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments/${encodeURIComponent(accountId)}`,
             {
@@ -182,6 +243,7 @@ export async function removeLotMember(
 export async function getLotAssignments(
     lotId: string,
 ): Promise<ParkingLotAssignmentMember[]> {
+    const shiftMap = await fetchShiftMap(lotId);
     try {
         const res = await gatewayFetch<ParkingLotAssignmentMember[]>(
             `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments`,
@@ -206,13 +268,33 @@ export async function getLotAssignments(
                         item.accountPhoneNumber ||
                         known?.phoneNumber ||
                         undefined,
+                    shift:
+                        shiftMap.get(item.accountId.toLowerCase())?.shift ||
+                        "morning",
+                    shiftName:
+                        shiftMap.get(item.accountId.toLowerCase())?.shiftName ||
+                        "Ca 1 - Sáng",
+                    hours:
+                        shiftMap.get(item.accountId.toLowerCase())?.hours ||
+                        "06:00 - 14:00",
                 };
             });
         }
     } catch {
         // Fallback for offline/demo if BE is offline
     }
-    return localAssignments.filter((a) => a.lotId === lotId);
+    return localAssignments
+        .filter((a) => a.lotId === lotId)
+        .map((a) => {
+            const shiftRecord = shiftMap.get(a.accountId.toLowerCase());
+            return {
+                ...a,
+                shift: shiftRecord?.shift || a.shift || "morning",
+                shiftName:
+                    shiftRecord?.shiftName || a.shiftName || "Ca 1 - Sáng",
+                hours: shiftRecord?.hours || a.hours || "06:00 - 14:00",
+            };
+        });
 }
 
 /**

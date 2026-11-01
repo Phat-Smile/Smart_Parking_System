@@ -139,6 +139,12 @@ export interface TranslationDictionary {
     assignmentsColStaff: string;
     assignmentsColContact: string;
     assignmentsColRole: string;
+    assignmentsColShift: string;
+    assignmentsSelectShift: string;
+    shiftMorning: string;
+    shiftAfternoon: string;
+    shiftNight: string;
+    shiftAllDay: string;
     assignmentsLoadingLots: string;
     assignmentsLoadingAssignments: string;
     assignmentsAssigning: string;
@@ -538,6 +544,12 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         assignmentsColStaff: "Nhân viên / Họ tên",
         assignmentsColContact: "Email & Số điện thoại",
         assignmentsColRole: "Vai trò tại bãi",
+        assignmentsColShift: "Ca trực",
+        assignmentsSelectShift: "Ca trực phân công",
+        shiftMorning: "Ca 1 - Sáng (06:00 - 14:00)",
+        shiftAfternoon: "Ca 2 - Chiều (14:00 - 22:00)",
+        shiftNight: "Ca 3 - Đêm (22:00 - 06:00)",
+        shiftAllDay: "Cả ngày / 24/7 (00:00 - 23:59)",
         assignmentsLoadingLots: "Đang tải danh sách bãi...",
         assignmentsLoadingAssignments: "Đang tải danh sách phân công...",
         assignmentsAssigning: "Đang gán...",
@@ -949,6 +961,12 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         assignmentsColStaff: "Staff Member / Name",
         assignmentsColContact: "Email & Phone Number",
         assignmentsColRole: "Role at Lot",
+        assignmentsColShift: "Work Shift",
+        assignmentsSelectShift: "Assign Work Shift",
+        shiftMorning: "Shift 1 - Morning (06:00 - 14:00)",
+        shiftAfternoon: "Shift 2 - Afternoon (14:00 - 22:00)",
+        shiftNight: "Shift 3 - Night (22:00 - 06:00)",
+        shiftAllDay: "All Day / 24/7 (00:00 - 23:59)",
         assignmentsLoadingLots: "Loading parking lots...",
         assignmentsLoadingAssignments: "Loading staff assignments...",
         assignmentsAssigning: "Assigning...",
