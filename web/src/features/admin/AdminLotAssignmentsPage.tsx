@@ -26,6 +26,31 @@ export function AdminLotAssignmentsPage() {
     const [availableStaff, setAvailableStaff] = useState<StaffAccountOption[]>(
         [],
     );
+    const [allAssignedMap, setAllAssignedMap] = useState<
+        Map<string, { lotId: string; lotName: string }>
+    >(new Map());
+
+    const refreshAllAssigned = useCallback(async (lotList: AdminParkingLot[]) => {
+        if (!lotList || lotList.length === 0) return;
+        const mapping = new Map<string, { lotId: string; lotName: string }>();
+        await Promise.allSettled(
+            lotList.map(async (lot) => {
+                try {
+                    const members = await getLotAssignments(lot.id);
+                    members.forEach((m) => {
+                        mapping.set(m.accountId.toLowerCase(), {
+                            lotId: lot.id,
+                            lotName: lot.name,
+                        });
+                    });
+                } catch {
+                    // ignore
+                }
+            }),
+        );
+        setAllAssignedMap(mapping);
+    }, []);
+
 
     const [loadingLots, setLoadingLots] = useState(false);
     const [loadingAssignments, setLoadingAssignments] = useState(false);
@@ -58,6 +83,7 @@ export function AdminLotAssignmentsPage() {
             ]);
             setLots(lotList);
             setAvailableStaff(staffList);
+            refreshAllAssigned(lotList).catch(() => {});
             if (lotList.length > 0 && !selectedLotId) {
                 setSelectedLotId(lotList[0].id);
             }
@@ -89,6 +115,7 @@ export function AdminLotAssignmentsPage() {
                 if (!active) return;
                 setLots(lotList);
                 setAvailableStaff(staffList);
+                refreshAllAssigned(lotList).catch(() => {});
                 if (lotList.length > 0) {
                     setSelectedLotId((prev) => prev || lotList[0].id);
                 }
@@ -127,16 +154,42 @@ export function AdminLotAssignmentsPage() {
         [lots, selectedLotId],
     );
 
-    // Lọc danh sách nhân viên chưa được gán vào bãi này
+    // 1 nhân viên chỉ quản lý 1 bãi duy nhất (Admin chỉ phân 1 người 1 bãi)
     const assignableStaff = useMemo(() => {
-        const assignedIds = new Set(assignments.map((a) => a.accountId));
-        return availableStaff.filter((s) => !assignedIds.has(s.accountId));
-    }, [availableStaff, assignments]);
+        return availableStaff.filter((s) => {
+            const assigned = allAssignedMap.get(s.accountId.toLowerCase());
+            return !assigned;
+        });
+    }, [availableStaff, allAssignedMap]);
+
+    const busyStaff = useMemo(() => {
+        return availableStaff
+            .map((s) => ({
+                staff: s,
+                assignedTo: allAssignedMap.get(s.accountId.toLowerCase()),
+            }))
+            .filter(
+                (
+                    item,
+                ): item is {
+                    staff: StaffAccountOption;
+                    assignedTo: { lotId: string; lotName: string };
+                } => Boolean(item.assignedTo),
+            );
+    }, [availableStaff, allAssignedMap]);
 
     // Xử lý gán nhân viên (PUT)
     async function handleAssignMember(e: React.FormEvent) {
         e.preventDefault();
         if (!selectedLotId || !selectedAccountId) return;
+
+        const alreadyAssigned = allAssignedMap.get(selectedAccountId.toLowerCase());
+        if (alreadyAssigned) {
+            setRawError(
+                `Nhân viên này đã được phân công trực tại "${alreadyAssigned.lotName}". Hệ thống quy định mỗi nhân viên chỉ trực 1 bãi duy nhất. Vui lòng gỡ nhân viên khỏi bãi cũ trước khi phân công bãi mới.`
+            );
+            return;
+        }
 
         setActionBusy(true);
         setRawError(null);
@@ -155,6 +208,7 @@ export function AdminLotAssignmentsPage() {
             );
             setSelectedAccountId("");
             await loadAssignments(selectedLotId);
+            refreshAllAssigned(lots).catch(() => {});
         } catch (err) {
             setRawError(err);
         } finally {
@@ -178,6 +232,7 @@ export function AdminLotAssignmentsPage() {
                 `${t("removeStaffBtn")}: ${memberName} (${activeLot?.name || ""})`,
             );
             await loadAssignments(selectedLotId);
+            refreshAllAssigned(lots).catch(() => {});
         } catch (err) {
             setRawError(err);
         } finally {
@@ -574,7 +629,20 @@ export function AdminLotAssignmentsPage() {
                                                 color: "#111827",
                                             }}
                                         >
-                                            {staff.fullName} ({staff.email})
+                                            {staff.fullName} ({staff.email}) — Sẵn sàng phân công
+                                        </option>
+                                    ))}
+                                    {busyStaff.map(({ staff, assignedTo }) => (
+                                        <option
+                                            key={staff.accountId}
+                                            value={staff.accountId}
+                                            disabled
+                                            style={{
+                                                background: "#f3f4f6",
+                                                color: "#9ca3af",
+                                            }}
+                                        >
+                                            🔒 {staff.fullName} (Đã trực tại: {assignedTo.lotName} - 1 người/1 bãi)
                                         </option>
                                     ))}
                                 </select>
