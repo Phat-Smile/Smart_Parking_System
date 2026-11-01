@@ -16,112 +16,9 @@ import {
     listLotSessions,
 } from "./staffApi";
 
-const initialSessions: StaffSession[] = [
-    {
-        id: "ses-101",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "51F-782.91",
-        vehicleType: "Car",
-        customerType: "Registered",
-        driverName: "Lê Hoàng Long",
-        entryTime: new Date(Date.now() - 3600000 * 3.5).toISOString(),
-        status: "Active",
-        qrToken: "QR-PARKWISE-REG-101",
-        slotCode: "B1-A04",
-        paymentStatus: "Paid",
-        totalFeeVnd: 75000,
-        prepaidVnd: 75000,
-        amountDueVnd: 0,
-        paymentMethod: "Wallet",
-    },
-    {
-        id: "ses-102",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "59T1-883.12",
-        vehicleType: "Motorbike",
-        customerType: "Guest",
-        driverName: "Guest",
-        entryTime: new Date(Date.now() - 3600000 * 1.8).toISOString(),
-        status: "Active",
-        qrToken: "QR-GUEST-59T1-88312",
-        slotCode: "B2-M12",
-        paymentStatus: "Pending",
-        totalFeeVnd: 12000,
-        prepaidVnd: 0,
-        amountDueVnd: 12000,
-    },
-    {
-        id: "ses-103",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "51K-892.41",
-        vehicleType: "Car",
-        customerType: "Guest",
-        driverName: "Guest",
-        entryTime: new Date(Date.now() - 3600000 * 2.2).toISOString(),
-        status: "Active",
-        qrToken: "QR-GUEST-51K-89241",
-        slotCode: "B1-B10",
-        paymentStatus: "Pending",
-        totalFeeVnd: 60000,
-        prepaidVnd: 0,
-        amountDueVnd: 60000,
-    },
-    {
-        id: "ses-104",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "50E-124.99",
-        vehicleType: "Car",
-        customerType: "Registered",
-        driverName: "Trần Anh Vũ",
-        entryTime: new Date(Date.now() - 3600000 * 0.5).toISOString(),
-        status: "Active",
-        qrToken: "QR-PARKWISE-REG-104",
-        slotCode: "B1-A12",
-        paymentStatus: "Paid",
-        totalFeeVnd: 30000,
-        prepaidVnd: 30000,
-        amountDueVnd: 0,
-        paymentMethod: "Wallet",
-    },
-];
-
-const initialIssues: VerificationIssue[] = [
-    {
-        id: "issue-1",
-        sessionId: "ses-103",
-        spot: "Gate In 01",
-        spotVi: "Cổng Vào 01",
-        spotEn: "Gate In 01",
-        plateNumber: "51K-892.41",
-        problem: "Low Camera OCR Confidence (64%)",
-        problemVi: "Độ tin cậy OCR camera thấp (64%)",
-        problemEn: "Low Camera OCR Confidence (64%)",
-        detectedPlate: "51K-892.4?",
-        confidence: 0.64,
-        currentState: "Waiting for staff confirmation",
-        currentStateVi: "Chờ nhân viên xác nhận",
-        currentStateEn: "Waiting for staff confirmation",
-        createdAt: new Date(Date.now() - 1000 * 180).toISOString(),
-        status: "Pending",
-    },
-    {
-        id: "issue-2",
-        spot: "Gate Out 02",
-        spotVi: "Cổng Ra 02",
-        spotEn: "Gate Out 02",
-        plateNumber: "59C2-441.80",
-        problem: "QR Damaged / Unreadable on Guest Phone",
-        problemVi: "Mã QR mờ / hỏng trên điện thoại khách",
-        problemEn: "QR Damaged / Unreadable on Guest Phone",
-        detectedPlate: "59C2-441.80",
-        confidence: 0.98,
-        currentState: "Vehicle waiting at barrier",
-        currentStateVi: "Phương tiện chờ tại rào chắn",
-        currentStateEn: "Vehicle waiting at barrier",
-        createdAt: new Date(Date.now() - 1000 * 60).toISOString(),
-        status: "Pending",
-    },
-];
+// 100% Real API: Zero initial mock data
+const initialSessions: StaffSession[] = [];
+const initialIssues: VerificationIssue[] = [];
 
 export interface GateActivity {
     id: string;
@@ -134,49 +31,21 @@ export interface GateActivity {
     amount?: number;
 }
 
-const initialActivities: GateActivity[] = [
-    {
-        id: "act-1",
-        type: "entry",
-        plateNumber: "50E-124.99",
-        vehicleType: "Car",
-        customerType: "Registered",
-        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        slotCode: "B1-A12",
-    },
-    {
-        id: "act-2",
-        type: "exit",
-        plateNumber: "51A-932.18",
-        vehicleType: "Car",
-        customerType: "Guest",
-        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-        amount: 60000,
-    },
-    {
-        id: "act-3",
-        type: "entry",
-        plateNumber: "51K-892.41",
-        vehicleType: "Car",
-        customerType: "Guest",
-        timestamp: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-        slotCode: "B1-B10",
-    },
-];
+const initialActivities: GateActivity[] = [];
 
 let assignedLotState: AssignedLotResponse = {
     lotId: DEFAULT_STAFF_LOT_ID,
-    lotName: "ParkWise Central Tower",
-    address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-    availableMotorbikeSlots: 59,
-    availableCarSlots: 95,
-    totalCapacity: 240,
-    occupiedSlots: 86,
+    lotName: "Đang tải bãi đỗ xe...",
+    address: "",
+    availableMotorbikeSlots: 0,
+    availableCarSlots: 0,
+    totalCapacity: 0,
+    occupiedSlots: 0,
 };
 
-let sessionsState = [...initialSessions];
-let issuesState = [...initialIssues];
-let activitiesState = [...initialActivities];
+let sessionsState: StaffSession[] = [...initialSessions];
+let issuesState: VerificationIssue[] = [...initialIssues];
+let activitiesState: GateActivity[] = [...initialActivities];
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -194,52 +63,74 @@ export const staffStore = {
         notify();
     },
 
-    fetchAssignedLot: async () => {
-        const lot = await getAssignedLot();
-        assignedLotState = lot;
-        try {
-            const page = await listLotSessions(lot.lotId, undefined, 1, 50);
-            if (page && Array.isArray(page.items) && page.items.length > 0) {
-                sessionsState = page.items.map((item): StaffSession => {
-                    const vType: VehicleType =
-                        item.vehicleType === "Motorbike" ? "Motorbike" : "Car";
-                    const sStatus: SessionStatus =
-                        item.status === "Completed"
-                            ? "Completed"
-                            : item.status === "Cancelled"
-                              ? "Cancelled"
-                              : "Active";
-                    const fees = calculateParkingFee(item.entryTime, vType);
-                    const isCompleted = sStatus === "Completed";
-                    return {
-                        id: item.sessionId,
-                        lotId: lot.lotId,
+    /**
+     * 100% Real API: Fetch assigned lot and active sessions from DB
+     */
+    fetchAssignedLot: async (preferredLotId?: string) => {
+        const lot = await getAssignedLot(preferredLotId);
+        if (lot) {
+            assignedLotState = lot;
+        }
+
+        const targetLotId = lot?.lotId || assignedLotState.lotId;
+        if (targetLotId) {
+            try {
+                // Fetch real sessions from database
+                const page = await listLotSessions(targetLotId, undefined, 1, 100);
+                if (page && Array.isArray(page.items)) {
+                    sessionsState = page.items.map((item): StaffSession => {
+                        const vType: VehicleType =
+                            item.vehicleType === "Motorbike" ? "Motorbike" : "Car";
+                        const sStatus: SessionStatus =
+                            item.status === "Completed"
+                                ? "Completed"
+                                : item.status === "Cancelled"
+                                  ? "Cancelled"
+                                  : "Active";
+                        const fees = calculateParkingFee(item.entryTime, vType);
+                        const isCompleted = sStatus === "Completed";
+                        return {
+                            id: item.sessionId,
+                            lotId: targetLotId,
+                            plateNumber: item.plateNumber,
+                            vehicleType: vType,
+                            customerType: "Guest",
+                            driverName: "Khách gửi xe",
+                            entryTime: item.entryTime,
+                            status: sStatus,
+                            qrToken: `QR-${item.sessionId}`,
+                            slotCode:
+                                item.slotCode ||
+                                (vType === "Car" ? "CAR-A" : "MOTO-B"),
+                            paymentStatus: isCompleted ? "Paid" : "Pending",
+                            totalFeeVnd: fees.totalFeeVnd,
+                            prepaidVnd: isCompleted ? fees.totalFeeVnd : 0,
+                            amountDueVnd: isCompleted ? 0 : fees.amountDueVnd,
+                        };
+                    });
+
+                    // Build real activity timeline from sessions
+                    activitiesState = page.items.slice(0, 15).map((item) => ({
+                        id: `act-${item.sessionId}`,
+                        type: item.status === "Completed" ? ("exit" as const) : ("entry" as const),
                         plateNumber: item.plateNumber,
-                        vehicleType: vType,
+                        vehicleType: item.vehicleType,
                         customerType: "Guest",
-                        driverName: "Khách gửi xe",
-                        entryTime: item.entryTime,
-                        status: sStatus,
-                        qrToken: `QR-${item.sessionId}`,
-                        slotCode:
-                            item.slotCode ||
-                            (vType === "Car" ? "CAR-A" : "MOTO-B"),
-                        paymentStatus: isCompleted ? "Paid" : "Pending",
-                        totalFeeVnd: fees.totalFeeVnd,
-                        prepaidVnd: isCompleted ? fees.totalFeeVnd : 0,
-                        amountDueVnd: isCompleted ? 0 : fees.amountDueVnd,
-                    };
-                });
+                        timestamp: item.entryTime,
+                        slotCode: item.slotCode || undefined,
+                        amount: item.status === "Completed" ? calculateParkingFee(item.entryTime, item.vehicleType === "Motorbike" ? "Motorbike" : "Car").totalFeeVnd : undefined,
+                    }));
+                }
+            } catch {
+                // Keep empty on error
             }
-        } catch {
-            // Keep current sessionsState on error
         }
         notify();
         return lot;
     },
 
     addSession: (session: StaffSession) => {
-        sessionsState = [session, ...sessionsState];
+        sessionsState = [session, ...sessionsState.filter((s) => s.id !== session.id)];
         if (
             session.vehicleType === "Motorbike" &&
             assignedLotState.availableMotorbikeSlots > 0
@@ -363,15 +254,15 @@ export function useStaffData() {
     const activeSessions = sessions.filter((s) => s.status === "Active");
     const pendingIssues = issues.filter((i) => i.status === "Pending");
 
-    const totalCap = assignedLot.totalCapacity ?? 240;
-    const occupied = activeSessions.length + (assignedLot.occupiedSlots ?? 86);
+    const totalCap = assignedLot.totalCapacity || 50;
+    const occupied = activeSessions.length;
 
     const occupancy: OccupancyStats = {
         totalCapacity: totalCap,
         occupied,
         carAvailable: Math.max(
             0,
-            (assignedLot.availableCarSlots ?? 95) -
+            (assignedLot.availableCarSlots || 50) -
                 activeSessions.filter((s) => s.vehicleType === "Car").length,
         ),
         motorbikeAvailable: Math.max(0, assignedLot.availableMotorbikeSlots),

@@ -2,7 +2,7 @@ export type VehicleType = "Car" | "Motorbike";
 
 export type CustomerType = "Registered" | "Guest";
 
-export type SessionStatus = "Active" | "Completed" | "Cancelled";
+export type SessionStatus = "Active" | "Paid" | "Completed" | "Cancelled";
 
 export type PaymentStatus = "Pending" | "Paid" | "Exempt";
 
@@ -27,6 +27,7 @@ export interface OpenedSessionResponse {
     isAccountLinked: boolean;
     reservationId: string | null;
     qrToken: string;
+    slotCode?: string;
     availableMotorbikeSlots?: number;
 }
 

@@ -434,3 +434,6 @@ export function QrCodeModal({
         </div>
     );
 }
+
+
+export { RealCameraFeed } from "./RealCameraFeed";

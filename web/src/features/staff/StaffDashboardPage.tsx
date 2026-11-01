@@ -15,10 +15,10 @@ export function StaffDashboardPage() {
         fetchAssignedLot().catch(() => {});
     }, [fetchAssignedLot]);
 
-    const occupancyPercent = Math.min(
-        100,
-        Math.round((occupancy.occupied / occupancy.totalCapacity) * 100),
-    );
+    const totalCap = occupancy.totalCapacity || 50;
+    const occupancyPercent = totalCap > 0
+        ? Math.min(100, Math.round((occupancy.occupied / totalCap) * 100))
+        : 0;
 
     const entryActivities = activities
         .filter((a) => a.type === "entry")
@@ -32,11 +32,23 @@ export function StaffDashboardPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">{t("dashTitle")}</h1>
-                    <p className="staff-subtitle">{t("dashSubtitle")}</p>
+                    <p className="staff-subtitle">
+                        {assignedLot?.lotName ? `Bãi đang trực: ${assignedLot.lotName} (${assignedLot.address || "Hệ thống CSDL"}) · ` : ""}
+                        {t("dashSubtitle")}
+                    </p>
+                </div>
+                <div className="staff-header-actions">
+                    <button
+                        type="button"
+                        className="staff-btn staff-btn-secondary"
+                        onClick={() => fetchAssignedLot()}
+                    >
+                        🔄 Cập nhật số liệu CSDL
+                    </button>
                 </div>
             </header>
 
-            {/* 3.8 Current occupancy & High level stats */}
+            {/* Current occupancy & High level stats */}
             <section className="staff-stats-grid">
                 <div className="staff-stat-card occupancy-card">
                     <div className="staff-stat-header">
@@ -50,7 +62,7 @@ export function StaffDashboardPage() {
                     <div className="staff-occupancy-value">
                         <strong>{occupancy.occupied}</strong>
                         <span>
-                            / {occupancy.totalCapacity} {t("dashSlots")}
+                            / {totalCap} {t("dashSlots")}
                         </span>
                     </div>
 
@@ -134,7 +146,7 @@ export function StaffDashboardPage() {
 
             {/* Entry activity & Exit activity columns */}
             <div className="staff-two-col">
-                {/* 3.8 Entry activity */}
+                {/* Entry activity */}
                 <div className="staff-card">
                     <div className="staff-card-header">
                         <h2>{t("dashEntryActivity")}</h2>
@@ -145,7 +157,7 @@ export function StaffDashboardPage() {
 
                     <div className="staff-activity-list">
                         {entryActivities.length === 0 ? (
-                            <p className="staff-empty">{t("dashNoEntry")}</p>
+                            <p className="staff-empty">Chưa có lượt xe vào nào được ghi nhận trong phiên làm việc.</p>
                         ) : (
                             entryActivities.map((act) => (
                                 <div
@@ -176,7 +188,7 @@ export function StaffDashboardPage() {
                     </div>
                 </div>
 
-                {/* 3.8 Exit activity */}
+                {/* Exit activity */}
                 <div className="staff-card">
                     <div className="staff-card-header">
                         <h2>{t("dashExitActivity")}</h2>
@@ -187,7 +199,7 @@ export function StaffDashboardPage() {
 
                     <div className="staff-activity-list">
                         {exitActivities.length === 0 ? (
-                            <p className="staff-empty">{t("dashNoExit")}</p>
+                            <p className="staff-empty">Chưa có lượt xe ra nào được ghi nhận trong phiên làm việc.</p>
                         ) : (
                             exitActivities.map((act) => (
                                 <div

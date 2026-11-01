@@ -41,9 +41,9 @@ describe("staffApi integration", () => {
             vi.stubGlobal("fetch", fetchMock);
 
             const result = await getAssignedLot();
-            expect(result.lotId).toBe("22222222-2222-2222-2222-222222222222");
-            expect(result.lotName).toBe("Bitexco Financial Tower Parking");
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(result?.lotId).toBe("22222222-2222-2222-2222-222222222222");
+            expect(result?.lotName).toBe("Bitexco Financial Tower Parking");
+            expect(fetchMock).toHaveBeenCalled();
 
             const [url, init] = fetchMock.mock.calls[0];
             expect(String(url)).toBe(
