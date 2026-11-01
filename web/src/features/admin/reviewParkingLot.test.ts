@@ -3,6 +3,7 @@ import { ApiError } from "@/shared/errors/api-error";
 import {
     approveParkingLot,
     describeReviewError,
+    getAdminParkingLotLayout,
     getAdminParkingLots,
     isParkingLotId,
     rejectParkingLot,
@@ -164,6 +165,27 @@ describe("reviewParkingLot API integration", () => {
             );
             expect(init?.method).toBe("POST");
             expect(JSON.parse(init?.body as string)).toEqual({ reason });
+        });
+    });
+
+    describe("getAdminParkingLotLayout", () => {
+        it("returns empty layout with version 0 when backend returns 404", async () => {
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify({ title: "Not Found" }), {
+                    status: 404,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await getAdminParkingLotLayout(
+                "14501f62-330e-4746-8a76-733468723aeb",
+            );
+            expect(result).toEqual({
+                lotId: "14501f62-330e-4746-8a76-733468723aeb",
+                version: 0,
+                floors: [],
+            });
         });
     });
 

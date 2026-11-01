@@ -44,7 +44,7 @@ function getStateText(issue: VerificationIssue, isVi: boolean): string {
 }
 
 export function StaffVerificationPage() {
-    const { issues, resolveIssue } = useStaffData();
+    const { issues, resolveIssue, assignedLot } = useStaffData();
     const { t, language } = useLanguage();
     const isVi = language === "vi";
     const [actionMsg, setActionMsg] = useState("");
@@ -68,7 +68,10 @@ export function StaffVerificationPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">{t("verifTitle")}</h1>
-                    <p className="staff-subtitle">{t("verifSubtitle")}</p>
+                    <p className="staff-subtitle">
+                        {assignedLot?.lotName ? `Bãi trực: ${assignedLot.lotName} · ` : ""}
+                        {t("verifSubtitle")}
+                    </p>
                 </div>
             </header>
 
@@ -98,10 +101,7 @@ export function StaffVerificationPage() {
                             <th style={{ width: "150px" }}>
                                 {t("verifColReportedAt")}
                             </th>
-                            <th
-                                className="text-right"
-                                style={{ width: "180px" }}
-                            >
+                            <th style={{ width: "230px" }} className="text-right">
                                 {t("verifColAction")}
                             </th>
                         </tr>
@@ -109,8 +109,14 @@ export function StaffVerificationPage() {
                     <tbody>
                         {issues.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="staff-empty">
-                                    {t("verifEmpty")}
+                                <td colSpan={7} className="staff-empty" style={{ padding: "40px 20px", textAlign: "center" }}>
+                                    <span style={{ fontSize: "28px" }}>✅</span>
+                                    <p style={{ marginTop: "8px", fontWeight: "bold", color: "#10b981", fontSize: "15px" }}>
+                                        Tất cả các làn cổng đều hoạt động ổn định
+                                    </p>
+                                    <p style={{ fontSize: "13px", color: "#94a3b8", marginTop: "4px" }}>
+                                        Không có sự cố nhận diện biển số hoặc lỗi mã QR nào cần xác minh thủ công lúc này.
+                                    </p>
                                 </td>
                             </tr>
                         ) : (

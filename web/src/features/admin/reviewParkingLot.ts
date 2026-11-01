@@ -75,10 +75,17 @@ export async function getAdminParkingLotDetail(
 export async function getAdminParkingLotLayout(
     parkingLotId: string,
 ): Promise<AdminLotLayout> {
-    return await gatewayFetch<AdminLotLayout>(
-        `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/layout`,
-        { method: "GET" },
-    );
+    try {
+        return await gatewayFetch<AdminLotLayout>(
+            `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/layout`,
+            { method: "GET" },
+        );
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+            return { lotId: parkingLotId, version: 0, floors: [] };
+        }
+        throw error;
+    }
 }
 
 /**

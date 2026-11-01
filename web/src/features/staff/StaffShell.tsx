@@ -5,6 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStaffData } from "./staffData";
+import {
+    getStaffAssignedShift,
+    getStaffLots,
+    getStaffProfile,
+    type StaffProfile,
+    type StaffShiftDetails,
+} from "./staffApi";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 import { StaffNotifications } from "./StaffNotifications";
 
@@ -12,6 +19,13 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const { occupancy, issues, assignedLot, fetchAssignedLot } = useStaffData();
     const [currentTime, setCurrentTime] = useState("");
+
+    const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
+    const [assignedShift, setAssignedShift] = useState<StaffShiftDetails>({
+        shift: "morning",
+        shiftName: "Ca 1 - Sáng",
+        hours: "06:00 - 14:00",
+    });
 
     useEffect(() => {
         fetchAssignedLot().catch(() => {});
@@ -29,6 +43,30 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         const timer = setInterval(updateClock, 1000);
         return () => clearInterval(timer);
     }, [fetchAssignedLot]);
+
+    // 100% Real API: 1 Staff chỉ quản lý 1 bãi duy nhất được Admin phân công
+    useEffect(() => {
+        let active = true;
+        Promise.all([getStaffProfile(), getStaffLots()])
+            .then(async ([profile, lots]) => {
+                if (!active) return;
+                setStaffProfile(profile);
+                const singleLot = lots.length > 0 ? lots[0] : null;
+                const targetLotId = singleLot?.id || assignedLot?.lotId || "";
+                if (singleLot && assignedLot && singleLot.id !== assignedLot.lotId) {
+                    fetchAssignedLot(singleLot.id);
+                }
+                const shiftInfo = await getStaffAssignedShift(
+                    targetLotId,
+                    profile?.id,
+                );
+                if (active) setAssignedShift(shiftInfo);
+            })
+            .catch(() => {});
+        return () => {
+            active = false;
+        };
+    }, [assignedLot?.lotId, fetchAssignedLot]);
 
     const { t } = useLanguage();
 
@@ -62,6 +100,12 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             badgeDanger: issues.length > 0,
         },
     ];
+
+    const operatorName =
+        staffProfile?.fullName ||
+        (staffProfile?.email
+            ? staffProfile.email.split("@")[0]
+            : "Nhân viên trực bãi");
 
     return (
         <div className="staff-layout">
@@ -143,10 +187,21 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         <div className="staff-operator-avatar">👤</div>
                         <div className="staff-operator-info">
                             <span className="staff-operator-shift">
-                                {t("staffShift")}
+                                {assignedShift.shiftName}
+                                {assignedShift.hours && (
+                                    <small
+                                        style={{
+                                            display: "block",
+                                            opacity: 0.8,
+                                            fontSize: "0.75rem",
+                                        }}
+                                    >
+                                        {assignedShift.hours}
+                                    </small>
+                                )}
                             </span>
                             <strong className="staff-operator-name">
-                                Nguyễn Văn Hải
+                                {operatorName}
                             </strong>
                         </div>
                     </div>
@@ -187,6 +242,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             <div className="staff-main-wrapper">
                 <header className="staff-topbar">
                     <div className="staff-topbar-left">
+                        {/* 1 Staff chỉ quản lý 1 bãi duy nhất được Admin phân công */}
                         <div className="staff-lot-badge">
                             <span className="staff-lot-dot" />
                             <span className="staff-lot-name">
@@ -194,7 +250,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                     "Chưa được phân công bãi"}
                             </span>
                             <span className="staff-lot-zone">
-                                {assignedLot?.address ?? ""}
+{assignedLot?.address || "Bãi trực phân công"}
                             </span>
                         </div>
                     </div>

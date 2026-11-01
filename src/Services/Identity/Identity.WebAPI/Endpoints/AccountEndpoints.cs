@@ -1166,12 +1166,15 @@ internal static class AccountEndpoints
         // US-ADMIN-001: Danh sách hồ sơ xét duyệt Chủ bãi (Dành cho Quản trị viên).
         app.MapGet("/api/identity/admin/owner-applications", async (
                 string? status,
-                int page,
-                int pageSize,
+                int? page,
+                int? pageSize,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var query = new ListOwnerApplicationsQuery(status, page <= 0 ? 1 : page, pageSize <= 0 ? 20 : pageSize);
+                var query = new ListOwnerApplicationsQuery(
+                    status,
+                    (page is null || page <= 0) ? 1 : page.Value,
+                    (pageSize is null || pageSize <= 0) ? 20 : pageSize.Value);
                 var result = await sender.Send(query, cancellationToken);
                 if (!result.IsSuccess)
                 {

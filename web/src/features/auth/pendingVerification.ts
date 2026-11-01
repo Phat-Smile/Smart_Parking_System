@@ -2,6 +2,7 @@ const KEY = "parkwise.pending-verification-email";
 const COOLDOWN_KEY = "parkwise.pending-verification-resend-at";
 const EXPIRY_KEY = "parkwise.pending-verification-expires-at";
 const ROLE_KEY = "parkwise.pending-verification-role";
+const CRED_KEY = "parkwise.pending-verification-cred";
 
 // Identity currently issues registration verification codes for five minutes.
 export const VERIFICATION_CODE_LIFETIME_SECONDS = 5 * 60;
@@ -14,10 +15,14 @@ export function rememberPendingVerification(
     try {
         const previousEmail = window.sessionStorage.getItem(KEY);
         window.sessionStorage.setItem(KEY, email);
-        if (previousEmail !== email) {
+        if (
+            previousEmail &&
+            previousEmail.toLowerCase() !== email.toLowerCase()
+        ) {
             window.sessionStorage.removeItem(COOLDOWN_KEY);
             window.sessionStorage.removeItem(EXPIRY_KEY);
             window.sessionStorage.removeItem(ROLE_KEY);
+            window.sessionStorage.removeItem(CRED_KEY);
         }
         if (cooldownSeconds > 0) {
             window.sessionStorage.setItem(
@@ -30,6 +35,42 @@ export function rememberPendingVerification(
         return true;
     } catch {
         return false;
+    }
+}
+
+export function rememberPendingCredentials(
+    email: string,
+    password: string,
+): boolean {
+    try {
+        window.sessionStorage.setItem(
+            CRED_KEY,
+            JSON.stringify({ email, password }),
+        );
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export function readPendingCredentials(): {
+    email: string;
+    password: string;
+} | null {
+    try {
+        const raw = window.sessionStorage.getItem(CRED_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+export function clearPendingCredentials(): void {
+    try {
+        window.sessionStorage.removeItem(CRED_KEY);
+    } catch {
+        // ignore
     }
 }
 
@@ -110,6 +151,7 @@ export function clearPendingVerification(): void {
         window.sessionStorage.removeItem(COOLDOWN_KEY);
         window.sessionStorage.removeItem(EXPIRY_KEY);
         window.sessionStorage.removeItem(ROLE_KEY);
+        window.sessionStorage.removeItem(CRED_KEY);
     } catch {
         // Verification has already succeeded; storage may be unavailable.
     }

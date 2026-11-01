@@ -304,10 +304,16 @@ export function OwnerOnboardingWizard({
                     setRejectionReason(app.rejectionReason);
 
                 // Load requirements for selected owner type
-                const reqs = await getOwnerDocumentRequirements(
-                    app.ownerType || "Enterprise",
-                );
-                setRequirements(reqs.documents);
+                try {
+                    const reqs = await getOwnerDocumentRequirements(
+                        app.ownerType || "Enterprise",
+                    );
+                    setRequirements(reqs.documents);
+                } catch {
+                    const fallback =
+                        FALLBACK_REQUIREMENTS[app.ownerType || "Enterprise"];
+                    if (fallback) setRequirements(fallback);
+                }
 
                 // Load existing uploaded documents
                 const docs = await getMyOwnerDocuments();
@@ -352,8 +358,11 @@ export function OwnerOnboardingWizard({
         try {
             const res = await getOwnerDocumentRequirements(type);
             setRequirements(res.documents);
-        } catch (err) {
-            setErrorMsg(describeOwnerApplicationError(err));
+        } catch {
+            const fallback = FALLBACK_REQUIREMENTS[type];
+            if (fallback) {
+                setRequirements(fallback);
+            }
         }
     }
 
