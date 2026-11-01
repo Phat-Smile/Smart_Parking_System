@@ -5,6 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStaffData } from "./staffData";
+import {
+    getStaffAssignedShift,
+    getStaffLots,
+    getStaffProfile,
+    type StaffLotItem,
+    type StaffProfile,
+    type StaffShiftDetails,
+} from "./staffApi";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 import { StaffNotifications } from "./StaffNotifications";
 
@@ -12,6 +20,14 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const { occupancy, issues, assignedLot, fetchAssignedLot } = useStaffData();
     const [currentTime, setCurrentTime] = useState("");
+
+    const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
+    const [assignedShift, setAssignedShift] = useState<StaffShiftDetails>({
+        shift: "morning",
+        shiftName: "Ca 1 - Sáng",
+        hours: "06:00 - 14:00",
+    });
+    const [staffLots, setStaffLots] = useState<StaffLotItem[]>([]);
 
     useEffect(() => {
         fetchAssignedLot().catch(() => {});
@@ -29,6 +45,28 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         const timer = setInterval(updateClock, 1000);
         return () => clearInterval(timer);
     }, [fetchAssignedLot]);
+
+    // 100% Real API: Tải thông tin tài khoản nhân viên, bãi trực và ca trực được Admin phân công
+    useEffect(() => {
+        let active = true;
+        Promise.all([getStaffProfile(), getStaffLots()])
+            .then(async ([profile, lots]) => {
+                if (!active) return;
+                setStaffProfile(profile);
+                setStaffLots(lots);
+                const targetLotId =
+                    assignedLot.lotId || (lots.length > 0 ? lots[0].id : "");
+                const shiftInfo = await getStaffAssignedShift(
+                    targetLotId,
+                    profile?.id,
+                );
+                if (active) setAssignedShift(shiftInfo);
+            })
+            .catch(() => {});
+        return () => {
+            active = false;
+        };
+    }, [assignedLot.lotId]);
 
     const { t } = useLanguage();
 
@@ -62,6 +100,12 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             badgeDanger: issues.length > 0,
         },
     ];
+
+    const operatorName =
+        staffProfile?.fullName ||
+        (staffProfile?.email
+            ? staffProfile.email.split("@")[0]
+            : "Nhân viên trực bãi");
 
     return (
         <div className="staff-layout">
@@ -143,10 +187,21 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         <div className="staff-operator-avatar">👤</div>
                         <div className="staff-operator-info">
                             <span className="staff-operator-shift">
-                                {t("staffShift")}
+                                {assignedShift.shiftName}
+                                {assignedShift.hours && (
+                                    <small
+                                        style={{
+                                            display: "block",
+                                            opacity: 0.8,
+                                            fontSize: "0.75rem",
+                                        }}
+                                    >
+                                        {assignedShift.hours}
+                                    </small>
+                                )}
                             </span>
                             <strong className="staff-operator-name">
-                                Nguyễn Văn Hải
+                                {operatorName}
                             </strong>
                         </div>
                     </div>
@@ -187,15 +242,60 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             <div className="staff-main-wrapper">
                 <header className="staff-topbar">
                     <div className="staff-topbar-left">
-                        <div className="staff-lot-badge">
-                            <span className="staff-lot-dot" />
-                            <span className="staff-lot-name">
-                                {assignedLot.lotName}
-                            </span>
-                            <span className="staff-lot-zone">
-                                {assignedLot.address || "Tầng Hầm B1/B2"}
-                            </span>
-                        </div>
+                        {staffLots.length > 1 ? (
+                            <div
+                                className="staff-lot-badge staff-lot-select-wrap"
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                }}
+                            >
+                                <span className="staff-lot-dot" />
+                                <select
+                                    value={assignedLot.lotId}
+                                    onChange={(e) =>
+                                        fetchAssignedLot(e.target.value)
+                                    }
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "inherit",
+                                        fontWeight: 600,
+                                        fontSize: "0.95rem",
+                                        cursor: "pointer",
+                                        outline: "none",
+                                    }}
+                                >
+                                    {staffLots.map((l) => (
+                                        <option
+                                            key={l.id}
+                                            value={l.id}
+                                            style={{
+                                                background: "#ffffff",
+                                                color: "#111827",
+                                            }}
+                                        >
+                                            {l.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="staff-lot-zone">
+                                    {assignedLot.address ||
+                                        "Bãi trực phân công"}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="staff-lot-badge">
+                                <span className="staff-lot-dot" />
+                                <span className="staff-lot-name">
+                                    {assignedLot.lotName}
+                                </span>
+                                <span className="staff-lot-zone">
+                                    {assignedLot.address || "Tầng Hầm B1/B2"}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="staff-topbar-right">

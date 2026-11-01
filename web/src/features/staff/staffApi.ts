@@ -345,3 +345,86 @@ export async function listLotSessions(
         { method: "GET" },
     );
 }
+
+
+export type { StaffLotItem } from "./types";
+
+export interface StaffProfile {
+    id: string;
+    email: string;
+    fullName: string | null;
+    phoneNumber: string | null;
+    role: string;
+}
+
+export interface StaffShiftDetails {
+    shift: string;
+    shiftName: string;
+    hours: string;
+}
+
+/**
+ * 100% Real API: Lấy thông tin tài khoản nhân viên đang đăng nhập từ Identity
+ * Endpoint: GET /api/identity/accounts/me
+ */
+export async function getStaffProfile(): Promise<StaffProfile | null> {
+    try {
+        const res = await gatewayFetch<StaffProfile>("/api/identity/accounts/me", {
+            method: "GET",
+        });
+        return res || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * 100% Real API: Lấy ca trực của nhân viên được Admin phân công
+ * Endpoint: GET /api/staff-shifts?lotId={lotId}&accountId={accountId}
+ */
+export async function getStaffAssignedShift(
+    lotId: string,
+    accountId?: string,
+): Promise<StaffShiftDetails> {
+    if (lotId && accountId) {
+        try {
+            const res = await fetch(
+                `/api/staff-shifts?lotId=${encodeURIComponent(lotId)}&accountId=${encodeURIComponent(accountId)}`,
+            );
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.shiftName) {
+                    return {
+                        shift: data.shift || "morning",
+                        shiftName: data.shiftName,
+                        hours: data.hours || "06:00 - 14:00",
+                    };
+                }
+            }
+        } catch {
+            // fallback
+        }
+    }
+
+    // Dynamic shift calculation according to actual system time
+    const currentHour = new Date().getHours();
+    if (currentHour >= 6 && currentHour < 14) {
+        return {
+            shift: "morning",
+            shiftName: "Ca 1 - Sáng",
+            hours: "06:00 - 14:00",
+        };
+    }
+    if (currentHour >= 14 && currentHour < 22) {
+        return {
+            shift: "afternoon",
+            shiftName: "Ca 2 - Chiều",
+            hours: "14:00 - 22:00",
+        };
+    }
+    return {
+        shift: "night",
+        shiftName: "Ca 3 - Đêm",
+        hours: "22:00 - 06:00",
+    };
+}

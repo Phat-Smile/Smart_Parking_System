@@ -249,5 +249,50 @@ describe("staffApi integration", () => {
             const err = new ApiError(401, undefined, undefined);
             expect(describeStaffError(err)).toContain("session has expired");
         });
+
+        it("sends GET to /api/identity/accounts/me for staff profile", async () => {
+            const mockProfile = {
+                id: "account-123",
+                email: "staff.tuan@smartpark.vn",
+                fullName: "Nguyễn Văn Tuấn",
+                phoneNumber: "0909112233",
+                role: "Staff",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockProfile), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const { getStaffProfile } = await import("./staffApi");
+            const res = await getStaffProfile();
+            expect(res?.fullName).toBe("Nguyễn Văn Tuấn");
+            expect(res?.email).toBe("staff.tuan@smartpark.vn");
+        });
+
+        it("fetches assigned shift from /api/staff-shifts", async () => {
+            const mockShift = {
+                shift: "afternoon",
+                shiftName: "Ca 2 - Chiều",
+                hours: "14:00 - 22:00",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockShift), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const { getStaffAssignedShift } = await import("./staffApi");
+            const res = await getStaffAssignedShift("lot-1", "acc-1");
+            expect(res.shift).toBe("afternoon");
+            expect(res.shiftName).toBe("Ca 2 - Chiều");
+            expect(res.hours).toBe("14:00 - 22:00");
+        });
     });
 });
