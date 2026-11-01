@@ -18,9 +18,16 @@ import {
     deleteOwnerDocument,
     applyForOwnerApplication,
     resubmitOwnerApplication,
+    updateOwnerType,
+    describeOwnerApplicationError,
     FALLBACK_REQUIREMENTS,
 } from "@/features/owner/api/ownerLegalApi";
 import "./onboarding.css";
+import { getAuthSessionSnapshot } from "@/features/auth/authSession";
+import { ApiError } from "@/shared/errors/api-error";
+
+// The application belongs to the signed-in account, so an owner signs in before filling it.
+const LOGIN_FOR_ONBOARDING = "/login?redirect=%2Fowner%2Fonboarding";
 
 // SVG Icons
 function BuildingIcon() {
@@ -211,6 +218,10 @@ export function OwnerOnboardingWizard({
     // 1. Initial Load: Check if application already exists
     useEffect(() => {
         async function loadData() {
+            if (!getAuthSessionSnapshot()) {
+                router.replace(LOGIN_FOR_ONBOARDING);
+                return;
+            }
             try {
                 const app = await getMyOwnerApplication();
                 const urlParams =
@@ -293,10 +304,16 @@ export function OwnerOnboardingWizard({
                     setRejectionReason(app.rejectionReason);
 
                 // Load requirements for selected owner type
-                const reqs = await getOwnerDocumentRequirements(
-                    app.ownerType || "Enterprise",
-                );
-                setRequirements(reqs.documents);
+                try {
+                    const reqs = await getOwnerDocumentRequirements(
+                        app.ownerType || "Enterprise",
+                    );
+                    setRequirements(reqs.documents);
+                } catch {
+                    const fallback =
+                        FALLBACK_REQUIREMENTS[app.ownerType || "Enterprise"];
+                    if (fallback) setRequirements(fallback);
+                }
 
                 // Load existing uploaded documents
                 const docs = await getMyOwnerDocuments();
@@ -320,13 +337,17 @@ export function OwnerOnboardingWizard({
                 setDocNumbers(initialDocNums);
                 setDocVerifications(initialVerifs);
             } catch (err) {
-                // Continue with default values
+                if (err instanceof ApiError && err.status === 401) {
+                    router.replace(LOGIN_FOR_ONBOARDING);
+                    return;
+                }
+                setErrorMsg(describeOwnerApplicationError(err));
             } finally {
                 setLoadingInitial(false);
             }
         }
         loadData();
-    }, []);
+    }, [router]);
 
     // Update requirements when ownerType changes
     async function handleOwnerTypeChange(type: OwnerType) {
@@ -338,7 +359,10 @@ export function OwnerOnboardingWizard({
             const res = await getOwnerDocumentRequirements(type);
             setRequirements(res.documents);
         } catch {
-            // ignore
+            const fallback = FALLBACK_REQUIREMENTS[type];
+            if (fallback) {
+                setRequirements(fallback);
+            }
         }
     }
 
@@ -385,7 +409,7 @@ export function OwnerOnboardingWizard({
     }
 
     // Handle Step 1 Validation & Next
-    function handleNextToStep2() {
+    async function handleNextToStep2() {
         setErrorMsg("");
         if (!businessName.trim()) {
             setErrorMsg(
@@ -522,6 +546,14 @@ export function OwnerOnboardingWizard({
             return updated;
         });
 
+        // Identity checks each document against the checklist of the chosen owner type.
+        try {
+            await updateOwnerType(ownerType);
+        } catch (err) {
+            setErrorMsg(describeOwnerApplicationError(err));
+            return;
+        }
+
         setStep(2);
         window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -564,10 +596,7 @@ export function OwnerOnboardingWizard({
             });
             setSuccessNotice(`Đã tải lên tệp: ${file.name}`);
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "";
-            setErrorMsg(
-                message || "Không thể tải lên tệp tin. Vui lòng thử lại.",
-            );
+            setErrorMsg(describeOwnerApplicationError(err));
         } finally {
             setUploadingDocType(null);
             if (fileInputRefs.current[documentType]) {
@@ -585,8 +614,8 @@ export function OwnerOnboardingWizard({
                 prev.filter((d) => d.documentType !== documentType),
             );
             setSuccessNotice("Đã xóa tệp tài liệu.");
-        } catch {
-            setErrorMsg("Không thể xóa tệp. Vui lòng thử lại.");
+        } catch (err) {
+            setErrorMsg(describeOwnerApplicationError(err));
         }
     }
 
@@ -661,11 +690,7 @@ export function OwnerOnboardingWizard({
             setStep(4);
             window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "";
-            setErrorMsg(
-                message ||
-                    "Không thể gửi hồ sơ lúc này. Vui lòng kiểm tra lại thông tin và thử lại sau.",
-            );
+            setErrorMsg(describeOwnerApplicationError(err));
         } finally {
             setIsSubmitting(false);
         }
@@ -2811,11 +2836,6 @@ export function OwnerOnboardingWizard({
                                     type="button"
                                     className="pw-btn-secondary"
                                     onClick={() => {
-                                        try {
-                                            window.localStorage.removeItem(
-                                                "parkwise_demo_owner_app",
-                                            );
-                                        } catch {}
                                         setStep(1);
                                         setApplicationStatus("None");
                                     }}

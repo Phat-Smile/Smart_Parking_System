@@ -36,10 +36,12 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IInboxExecutionCoordinator, PaymentInboxExecutionCoordinator>();
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IAuditLogQueryRepository, AuditLogQueryRepository>();
+        services.AddScoped<IPrepaymentReader, PrepaymentReader>();
         services.AddScoped<IWalletTransactionQueryRepository, WalletTransactionQueryRepository>();
         services.AddScoped<IWalletRepository, WalletRepository>();
         services.AddScoped<IVnpayTransactionRepository, VnpayTransactionRepository>();
-        services.AddScoped<IPrepaymentReader, PrepaymentReader>();
+        services.AddScoped<IParkingFeePaymentRepository, ParkingFeePaymentRepository>();
+        services.AddScoped<IIdempotencyStore, PaymentIdempotencyStore>();
         return services;
     }
 }

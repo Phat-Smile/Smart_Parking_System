@@ -434,3 +434,20 @@ export function QrCodeModal({
         </div>
     );
 }
+
+/** A count from Parking, or a dash when Parking could not give it. */
+export function countText(value: number | null | undefined): string {
+    return value === null || value === undefined ? "—" : String(value);
+}
+
+/** A fee from Payment, or a note when Payment could not give it. */
+export function feeText(
+    value: number | null | undefined,
+    format: (vnd: number) => string,
+): string {
+    return value === null || value === undefined
+        ? "Chưa tính được phí"
+        : format(value);
+}
+
+export { RealCameraFeed } from "./RealCameraFeed";

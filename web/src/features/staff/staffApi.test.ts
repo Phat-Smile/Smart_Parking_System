@@ -32,18 +32,27 @@ describe("staffApi integration", () => {
                 },
             ];
 
-            const fetchMock = vi.fn().mockResolvedValue(
-                new Response(JSON.stringify(mockLots), {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                }),
-            );
+            // The lot list, then the motorbike and car free spaces Parking counts.
+            const fetchMock = vi
+                .fn()
+                .mockResolvedValueOnce(
+                    new Response(JSON.stringify(mockLots), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    }),
+                )
+                .mockResolvedValue(
+                    new Response(JSON.stringify({ status: 404 }), {
+                        status: 404,
+                        headers: { "Content-Type": "application/problem+json" },
+                    }),
+                );
             vi.stubGlobal("fetch", fetchMock);
 
             const result = await getAssignedLot();
-            expect(result.lotId).toBe("22222222-2222-2222-2222-222222222222");
-            expect(result.lotName).toBe("Bitexco Financial Tower Parking");
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(result?.lotId).toBe("22222222-2222-2222-2222-222222222222");
+            expect(result?.lotName).toBe("Bitexco Financial Tower Parking");
+            expect(fetchMock).toHaveBeenCalledTimes(3);
 
             const [url, init] = fetchMock.mock.calls[0];
             expect(String(url)).toBe(
@@ -66,7 +75,7 @@ describe("staffApi integration", () => {
                 isAccountLinked: true,
                 reservationId: null,
                 qrToken: "QR-TEST-TOKEN",
-                availableMotorbikeSlots: 50,
+                availableMotorbikeSpaces: 50,
             };
 
             const fetchMock = vi.fn().mockResolvedValue(
@@ -83,7 +92,7 @@ describe("staffApi integration", () => {
                 vehicleType: "Car",
             });
 
-            expect(result).toEqual(mockRes);
+            expect(result.sessionId).toBe(mockRes.sessionId);
             expect(result.availableMotorbikeSlots).toBe(50);
             expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -150,19 +159,35 @@ describe("staffApi integration", () => {
                 qrToken,
             };
 
-            const fetchMock = vi.fn().mockResolvedValue(
-                new Response(JSON.stringify(mockRes), {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                }),
-            );
+            const fetchMock = vi
+                .fn()
+                .mockResolvedValueOnce(
+                    new Response(JSON.stringify(mockRes), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    }),
+                )
+                .mockResolvedValueOnce(
+                    new Response(
+                        JSON.stringify({
+                            sessionId: mockRes.sessionId,
+                            totalFee: 30000,
+                            depositAmount: 0,
+                            amountDue: 30000,
+                        }),
+                        {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        },
+                    ),
+                );
             vi.stubGlobal("fetch", fetchMock);
 
             const result = await findSessionByQr(qrToken);
             expect(result.sessionId).toBe(mockRes.sessionId);
             expect(result.plateNumber).toBe(mockRes.plateNumber);
-            expect(result.amountDueVnd).toBeDefined();
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(result.amountDueVnd).toBe(30000);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
 
             const [url, init] = fetchMock.mock.calls[0];
             expect(String(url)).toBe(
@@ -248,6 +273,51 @@ describe("staffApi integration", () => {
         it("handles 401 unauthenticated", () => {
             const err = new ApiError(401, undefined, undefined);
             expect(describeStaffError(err)).toContain("session has expired");
+        });
+
+        it("sends GET to /api/identity/accounts/me for staff profile", async () => {
+            const mockProfile = {
+                id: "account-123",
+                email: "staff.tuan@smartpark.vn",
+                fullName: "Nguyễn Văn Tuấn",
+                phoneNumber: "0909112233",
+                role: "Staff",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockProfile), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const { getStaffProfile } = await import("./staffApi");
+            const res = await getStaffProfile();
+            expect(res?.fullName).toBe("Nguyễn Văn Tuấn");
+            expect(res?.email).toBe("staff.tuan@smartpark.vn");
+        });
+
+        it("fetches assigned shift from /api/staff-shifts", async () => {
+            const mockShift = {
+                shift: "afternoon",
+                shiftName: "Ca 2 - Chiều",
+                hours: "14:00 - 22:00",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockShift), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const { getStaffAssignedShift } = await import("./staffApi");
+            const res = await getStaffAssignedShift("lot-1", "acc-1");
+            expect(res.shift).toBe("afternoon");
+            expect(res.shiftName).toBe("Ca 2 - Chiều");
+            expect(res.hours).toBe("14:00 - 22:00");
         });
     });
 });

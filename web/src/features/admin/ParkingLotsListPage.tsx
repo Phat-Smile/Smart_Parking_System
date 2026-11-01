@@ -114,10 +114,12 @@ export function ParkingLotsListPage({
                 (lot) =>
                     !term ||
                     [lot.name, lot.ownerName, lot.ownerEmail, lot.address].some(
-                        (v) => v.toLowerCase().includes(term),
+                        (v) => (v ?? "").toLowerCase().includes(term),
                     ),
             )
-            .sort((a, b) => a.submittedAtUtc.localeCompare(b.submittedAtUtc));
+            .sort((a, b) =>
+                (a.submittedAtUtc ?? "").localeCompare(b.submittedAtUtc ?? ""),
+            );
     }, [lots, search, status]);
 
     function openById(event: React.FormEvent) {
@@ -326,12 +328,14 @@ export function ParkingLotsListPage({
                                     <small>{lot.address}</small>
                                 </td>
                                 <td>
-                                    {lot.ownerName}
-                                    <small>{lot.ownerEmail}</small>
+                                    {lot.ownerName ?? lot.ownerUserId ?? "-"}
+                                    <small>{lot.ownerEmail ?? ""}</small>
                                 </td>
-                                <td>{formatDate(lot.submittedAtUtc)}</td>
                                 <td>
-                                    {lot.totalCapacity}{" "}
+                                    {formatDate(lot.submittedAtUtc ?? null)}
+                                </td>
+                                <td>
+                                    {lot.totalCapacity ?? "-"}{" "}
                                     {language === "vi" ? "chỗ" : "slots"}
                                 </td>
                                 <td>

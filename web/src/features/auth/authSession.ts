@@ -29,9 +29,12 @@ function hydrateSessionIfNeeded() {
             window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
         if (!raw) return;
         const parsed = JSON.parse(raw) as ActiveAuthSession;
-        if (parsed && parsed.account?.email) {
+        if (
+            parsed &&
+            parsed.account?.email &&
+            !parsed.refreshToken?.startsWith("mock-refresh-")
+        ) {
             activeSession = parsed;
-            setTimeout(() => emitChange(), 0);
         } else {
             window.sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
             window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);

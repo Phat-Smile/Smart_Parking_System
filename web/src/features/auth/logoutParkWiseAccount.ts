@@ -28,7 +28,6 @@ export async function logoutAllParkWiseAccount() {
             "/api/identity/accounts/logout-all",
             {
                 method: "POST",
-                credentials: "include",
             },
         );
     } finally {

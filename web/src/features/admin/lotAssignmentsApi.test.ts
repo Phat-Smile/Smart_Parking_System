@@ -93,6 +93,16 @@ describe("lotAssignmentsApi integration", () => {
     describe("getLotAssignments", () => {
         it("returns assignments for lotId", async () => {
             const lotId = "11111111-1111-1111-1111-111111111111";
+            // The list comes from the backend; there is no local fallback any more.
+            vi.stubGlobal(
+                "fetch",
+                vi.fn().mockResolvedValue(
+                    new Response("[]", {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    }),
+                ),
+            );
             const list = await getLotAssignments(lotId);
             expect(Array.isArray(list)).toBe(true);
         });

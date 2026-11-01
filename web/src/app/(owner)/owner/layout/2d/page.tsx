@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { OwnerPageHeader as PageHeader } from "../../../../../components/layout/OwnerPageHeader";
 import { Plan2DGrid } from "../../../../../components/viz/Plan2DGrid";
 import { useOwnerStore } from "../../../../../store/useOwnerStore";
@@ -14,11 +15,9 @@ import {
 import { K_VISIBLE } from "../../../../../lib/mapStatus";
 import { SlotStatusChips } from "@/features/owner/layout/SlotStatusChips";
 import { SlotStatusListPanel } from "@/features/owner/layout/SlotStatusListPanel";
-import {
-    saveParkingLayoutApi,
-    getParkingLayoutApi,
-} from "@/features/owner/api/ownerApi";
+import { saveParkingLayoutApi } from "@/features/owner/api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
+import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 
 // ──────────────────────────────────────────────────────────
 // SlotModal – cửa sổ nhỏ hiển thị chi tiết ô được bấm
@@ -122,19 +121,9 @@ export default function Layout2DPage() {
         return () => clearInterval(timer);
     }, [simulateTick]);
 
-    const mainLot = lots[0] || { id: 1, name: "Bãi đỗ xe Vincom Đồng Khởi" };
-
-    // Attempt to load layout from server
-    useEffect(() => {
-        async function loadLayout() {
-            try {
-                await getParkingLayoutApi(mainLot.id || 1);
-            } catch {
-                // Fallback to local store data
-            }
-        }
-        loadLayout();
-    }, [mainLot.id]);
+    // The layout is saved for the owner's first real lot (Parking GUID); design lots have none.
+    const mainLot = lots.find((lot) => backendLotId(lot)) ?? lots[0];
+    const lotKey = backendLotId(mainLot);
 
     const handleSelect = (spot: ParkingSpot) => {
         selectSpot(spot.id);
@@ -147,9 +136,15 @@ export default function Layout2DPage() {
     };
 
     const handleSaveLayout = async () => {
-        setIsSaving(true);
         setSaveSuccess(null);
         setSaveError(null);
+        if (!lotKey) {
+            setSaveError(
+                "Chưa có bãi nào của bạn trên hệ thống nên không lưu được sơ đồ.",
+            );
+            return;
+        }
+        setIsSaving(true);
 
         const floors = FLOORS.map((f) => {
             const floorSpots = spots.filter((s) => s.f === f);
@@ -182,7 +177,7 @@ export default function Layout2DPage() {
         });
 
         try {
-            await saveParkingLayoutApi(mainLot.id || 1, {
+            await saveParkingLayoutApi(lotKey, {
                 expectedVersion: 0,
                 floors,
             });
@@ -192,7 +187,9 @@ export default function Layout2DPage() {
             if (err instanceof ApiError) {
                 setSaveError(`Lỗi lưu sơ đồ: ${err.message}`);
             } else {
-                setSaveSuccess("Đã lưu cấu hình sơ đồ thành công!");
+                setSaveError(
+                    "Không kết nối được máy chủ. Sơ đồ chưa được lưu.",
+                );
             }
             setTimeout(() => {
                 setSaveSuccess(null);
@@ -208,7 +205,7 @@ export default function Layout2DPage() {
             <PageHeader
                 breadcrumb="/owner/layout/2d"
                 title="Sơ đồ 2D"
-                subtitle={`${mainLot.name} · theo dõi trực tiếp`}
+                subtitle={`${mainLot?.name ?? "Chưa có bãi"} · theo dõi trực tiếp`}
                 actions={
                     <div
                         style={{
@@ -217,6 +214,24 @@ export default function Layout2DPage() {
                             alignItems: "center",
                         }}
                     >
+                        <Link
+                            href="/owner/layout/editor"
+                            style={{
+                                background: "#f8fafc",
+                                color: "#1e293b",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: 10,
+                                padding: "8px 16px",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                            }}
+                        >
+                            ✏️ Chỉnh sửa sơ đồ
+                        </Link>
                         <button
                             type="button"
                             onClick={handleSaveLayout}

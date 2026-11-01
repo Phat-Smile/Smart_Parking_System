@@ -256,13 +256,15 @@ export async function getOpeningHoursApi(
 // 6. DEPOSIT POLICY (OwnerDepositConfig)
 // ==========================================
 export interface ConfigureDepositPolicyRequest {
-    depositAmount: number; // integer VND >= 0
+    holdDepositVnd: number; // integer VND >= 0
 }
 
+/** GET/PUT /api/parking/lots/{lotId}/deposit-policy (DepositPolicyResponse in Parking). */
 export interface DepositPolicyResponse {
     lotId: string;
-    depositAmount: number | null;
-    configuredAtUtc: string | null;
+    holdDepositVnd: number;
+    isConfigured: boolean;
+    updatedAtUtc: string | null;
 }
 
 export async function configureDepositPolicyApi(
@@ -270,7 +272,7 @@ export async function configureDepositPolicyApi(
     req: ConfigureDepositPolicyRequest,
 ): Promise<DepositPolicyResponse> {
     return gatewayFetch<DepositPolicyResponse>(
-        `/api/v1/parking-lots/${lotId}/deposit-policy`,
+        `/api/parking/lots/${lotId}/deposit-policy`,
         {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -283,7 +285,7 @@ export async function getDepositPolicyApi(
     lotId: string | number,
 ): Promise<DepositPolicyResponse> {
     return gatewayFetch<DepositPolicyResponse>(
-        `/api/v1/parking-lots/${lotId}/deposit-policy`,
+        `/api/parking/lots/${lotId}/deposit-policy`,
         { method: "GET" },
     );
 }

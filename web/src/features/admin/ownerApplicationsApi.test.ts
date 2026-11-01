@@ -17,7 +17,7 @@ describe("ownerApplicationsApi integration", () => {
     });
 
     describe("getOwnerApplications", () => {
-        it("sends GET to /api/identity/admin/owner-applications?status=Pending", async () => {
+        it("sends GET to /api/identity/admin/owner-applications?status=Pending&page=1&pageSize=20", async () => {
             const mockData = {
                 items: [
                     {

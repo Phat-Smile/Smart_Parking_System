@@ -54,6 +54,18 @@ internal sealed class ReservationConfiguration : IEntityTypeConfiguration<Reserv
         builder.Property(reservation => reservation.DurationMinutes)
             .HasColumnName("duration_minutes");
 
+        builder.Property(reservation => reservation.WindowStartAt)
+            .HasColumnName("window_start_at")
+            .IsRequired();
+
+        builder.Property(reservation => reservation.WindowEndAt)
+            .HasColumnName("window_end_at")
+            .IsRequired();
+
+        builder.Property(reservation => reservation.HoldEndAt)
+            .HasColumnName("hold_end_at")
+            .IsRequired();
+
         builder.Property(reservation => reservation.TempHoldExpiresAt)
             .HasColumnName("temp_hold_expires_at");
 
@@ -109,5 +121,11 @@ internal sealed class ReservationConfiguration : IEntityTypeConfiguration<Reserv
 
         builder.HasIndex(reservation => new { reservation.Status, reservation.TempHoldExpiresAt })
             .HasDatabaseName("ix_reservations_status_temp_hold_expires_at");
+
+        builder.HasIndex(reservation => new { reservation.LotId, reservation.VehicleGroup, reservation.Status, reservation.WindowStartAt, reservation.WindowEndAt })
+            .HasDatabaseName("ix_reservations_capacity_check");
+
+        builder.HasIndex(reservation => new { reservation.LotId, reservation.VehicleGroup, reservation.Status, reservation.WindowStartAt, reservation.HoldEndAt })
+            .HasDatabaseName("ix_reservations_active_hold");
     }
 }

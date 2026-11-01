@@ -5,7 +5,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { PageHeader } from "../../../../../components/layout/PageHeader";
 import { Plan2D } from "../../../../../components/viz/Plan2D";
-import { useOwnerStore } from "../../../../../store/useOwnerStore";
 import { AP, vnd, ST, K } from "../../../../../types/owner";
 
 const ParkingScene3DViewer = dynamic(
@@ -17,11 +16,9 @@ import {
     registerParkingLotApi,
     ParkingLotTypeEnum,
 } from "@/features/owner/api/ownerApi";
-import { useOwnerMapStore } from "@/features/owner/lots/useOwnerMapStore";
 import { useLotInfoStore } from "@/features/owner/lots/lotInfo";
 import { ApiError } from "@/shared/errors/api-error";
-import { saveRegisteredLotMeta } from "@/features/admin/reviewParkingLot";
-import { getAuthSessionSnapshot } from "@/features/auth/authSession";
+import { loadOwnerLots, localLotId } from "@/features/owner/lots/ownerLotsSync";
 
 interface WizardData {
     name: string;
@@ -60,8 +57,6 @@ const INITIAL_DATA: WizardData = {
 };
 
 export default function NewParkingLotPage() {
-    const addLot = useOwnerStore((s) => s.addLot);
-
     const [step, setStep] = useState(0);
     const [data, setData] = useState<WizardData>(INITIAL_DATA);
     const [errors, setErrors] = useState<string[]>([]);
@@ -117,180 +112,69 @@ export default function NewParkingLotPage() {
     const [createdLotId, setCreatedLotId] = useState<number>(1);
 
     const handleConfirmSend = async () => {
-        setIsSubmitting(true);
         setErrors([]);
+        const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
+        const latitude = Number(latStr);
+        const longitude = Number(lngStr);
+        if (
+            !latStr ||
+            !lngStr ||
+            !Number.isFinite(latitude) ||
+            !Number.isFinite(longitude) ||
+            Math.abs(latitude) > 90 ||
+            Math.abs(longitude) > 180
+        ) {
+            setErrors([
+                "Tọa độ GPS chưa hợp lệ. Nhập theo dạng 'vĩ độ, kinh độ', ví dụ 10.7769, 106.7009.",
+            ]);
+            setConfirming(false);
+            setStep(0);
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
-            const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
-            const latitude = Number(latStr) || 10.7769;
-            const longitude = Number(lngStr) || 106.7009;
-
-            let registeredId = (Date.now() % 100000) + 10;
-            let registeredLotRes: any = null;
-
-            // Gọi API đăng ký bãi xe chuẩn BE (POST /api/parking/lots)
-            try {
-                registeredLotRes = await registerParkingLotApi({
-                    name: data.name,
-                    address: data.addr,
-                    latitude,
-                    longitude,
-                    type: data.type,
-                });
-                if (registeredLotRes?.id) {
-                    // If BE returns a string UUID, we generate a stable local numeric ID for store mapping
-                    registeredId =
-                        Math.abs(
-                            (registeredLotRes.id as string)
-                                .split("")
-                                .reduce(
-                                    (acc: number, char: string) =>
-                                        (acc << 5) - acc + char.charCodeAt(0),
-                                    0,
-                                ) % 100000,
-                        ) + 10;
-                }
-            } catch (err: unknown) {
-                if (err instanceof ApiError) {
-                    if (err.status === 409) {
-                        setErrors([
-                            "Tên bãi đỗ xe này đã được bạn đăng ký trước đó. Vui lòng chọn tên khác (Mã lỗi: parking.lot_duplicate).",
-                        ]);
-                        setConfirming(false);
-                        setStep(0);
-                        return;
-                    }
-                    if (err.status === 400) {
-                        setErrors([
-                            err.problem?.detail ||
-                                "Thông tin đăng ký bãi đỗ xe chưa đúng định dạng.",
-                        ]);
-                        setConfirming(false);
-                        setStep(0);
-                        return;
-                    }
-                    if (err.status === 401 || err.status === 403) {
-                        setErrors([
-                            "Tài khoản của bạn chưa có quyền Chủ bãi (ParkingLotOwner) để thực hiện thao tác này.",
-                        ]);
-                        setConfirming(false);
-                        return;
-                    }
-                }
-                console.warn(
-                    "Backend API registration call skipped or offline, falling back to local store:",
-                    err,
-                );
-            }
-
+            // D02.1: Parking stores the lot as Pending. Hours, prices and layout are saved on their own
+            // screens, so they are not part of this request.
+            const res = await registerParkingLotApi({
+                name: data.name,
+                address: data.addr,
+                latitude,
+                longitude,
+                type: data.type,
+            });
+            await loadOwnerLots();
+            const registeredId = localLotId(res.id);
             setCreatedLotId(registeredId);
-
-            const newLotObj = {
-                id: registeredId,
-                name: data.name.trim(),
-                addr: data.addr.trim(),
-                gps: data.gps.trim(),
-                op: data.op,
-                cl2: data.cl2,
-                vc: data.vc,
-                vm: data.vm,
-                cc: data.vc ? data.cap : 0,
-                cm: data.vm ? data.cap : 0,
-                fls: data.type === "Outdoor" ? 1 : data.floors,
-                pc: data.pc,
-                pm: data.pm,
-                dep: data.dep,
-                res: Number(data.hold) > 0 ? ("on" as const) : ("off" as const),
-                hold: Number(data.hold) || 15,
-                maxr: 6,
-                fc: 10,
-                ap: "pending" as const,
-                zones: [],
-            };
-
-            // Cập nhật bãi xe vào cả 2 store để đảm bảo hiển thị tức thì trên mọi view (Bản đồ, Danh sách, Thống kê)
-            addLot(newLotObj);
-            useOwnerMapStore.getState().addOverlayLot(newLotObj);
-
-            // Cập nhật thông tin chi tiết bãi
-            const today = new Date().toISOString().split("T")[0];
             useLotInfoStore.getState().setLotInfo(registeredId, {
-                submittedAt: today,
-                openingHours: `${data.op} – ${data.cl2}`,
-                phone: "Chưa cập nhật",
-                prices: {
-                    carFirstHour: data.pc,
-                    carNextHour: data.pc,
-                    reservationDeposit: data.dep,
-                },
+                submittedAt: new Date().toISOString().split("T")[0],
             });
-
-            // Đồng bộ dữ liệu bãi xe chi tiết sang Admin phê duyệt
-            const session = getAuthSessionSnapshot();
-            const totalCap = Number(data.cap) || 100;
-            const carPrice = Number(data.pc) || 30000;
-            const motoPrice = Number(data.pm) || 5000;
-            const depPrice = Number(data.dep) || 20000;
-            const holdMin = Number(data.hold) || 15;
-
-            const zones: any[] = [];
-            if (data.vc) {
-                zones.push({
-                    id: "ZONE-CAR",
-                    name: "Khu vực Ô tô",
-                    vehicleType: "Car",
-                    slots: data.vm ? Math.round(totalCap * 0.7) : totalCap,
-                    pricePerHourVnd: carPrice,
-                });
-            }
-            if (data.vm) {
-                zones.push({
-                    id: "ZONE-MOTO",
-                    name: "Khu vực Xe máy",
-                    vehicleType: "Motorbike",
-                    slots: data.vc ? Math.round(totalCap * 0.3) : totalCap,
-                    pricePerHourVnd: motoPrice,
-                });
-            }
-
-            const numFloors = data.type === "Outdoor" ? 1 : Math.max(1, Number(data.floors) || 1);
-            const numRows = Math.max(4, Number(data.rowsPerFloor) || 4);
-            const numCols = Math.max(8, Math.ceil(totalCap / (numFloors * numRows)));
-            const layout = Array.from({ length: numFloors }, (_, idx) => ({
-                name: `Tầng ${idx + 1}`,
-                rows: numRows,
-                cols: numCols,
-                blocked: [12, 13, 14, 15],
-            }));
-
-            saveRegisteredLotMeta({
-                id: registeredLotRes?.id,
-                name: data.name.trim(),
-                address: data.addr.trim(),
-                ownerName: session?.displayName || session?.account?.email?.split("@")[0] || "Chủ bãi",
-                ownerEmail: session?.account?.email || "owner@demo.local",
-                submittedAtUtc: new Date().toISOString(),
-                is24h: data.op === "00:00" && (data.cl2 === "23:59" || data.cl2 === "24:00"),
-                openTime: data.op,
-                closeTime: data.cl2,
-                vehicleTypes: [data.vc ? "Car" : null, data.vm ? "Motorbike" : null].filter(Boolean) as string[],
-                totalCapacity: totalCap,
-                pricing: {
-                    firstHourVnd: carPrice,
-                    extraHourVnd: carPrice,
-                    dailyCapVnd: carPrice * 8,
-                    overnightVnd: carPrice * 4,
-                },
-                holdDepositVnd: depPrice,
-                reservation: {
-                    holdMinutes: holdMin,
-                    freeCancelMinutes: Math.min(10, Math.floor(holdMin / 2)),
-                    noShowRule: "Tiền cọc giữ chỗ không hoàn lại khi quá thời hạn giữ chỗ.",
-                },
-                zones,
-                layout,
-            });
-
             setDone(true);
+        } catch (err: unknown) {
+            setConfirming(false);
+            if (err instanceof ApiError && err.status === 409) {
+                setErrors([
+                    "Tên bãi đỗ xe này đã được bạn đăng ký trước đó. Vui lòng chọn tên khác (Mã lỗi: parking.lot_duplicate).",
+                ]);
+                setStep(0);
+            } else if (err instanceof ApiError && err.status === 400) {
+                setErrors([
+                    err.problem?.detail ||
+                        "Thông tin đăng ký bãi đỗ xe chưa đúng định dạng.",
+                ]);
+                setStep(0);
+            } else if (
+                err instanceof ApiError &&
+                (err.status === 401 || err.status === 403)
+            ) {
+                setErrors([
+                    "Tài khoản của bạn chưa có quyền Chủ bãi (ParkingLotOwner) để thực hiện thao tác này.",
+                ]);
+            } else {
+                setErrors([
+                    "Không kết nối được máy chủ. Bãi chưa được tạo, vui lòng thử lại.",
+                ]);
+            }
         } finally {
             setIsSubmitting(false);
         }

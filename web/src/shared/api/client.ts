@@ -28,6 +28,26 @@ export async function gatewayFetch<T>(
     path: string,
     init?: RequestInit,
 ): Promise<T> {
+    const response = await gatewaySend(path, init, "application/json");
+    if (response.status === 204) return undefined as T;
+    return (await response.json()) as T;
+}
+
+// For files the backend streams (for example an owner's document): same token and refresh handling,
+// returned as a Blob so the page can open it with URL.createObjectURL.
+export async function gatewayFetchBlob(
+    path: string,
+    init?: RequestInit,
+): Promise<Blob> {
+    const response = await gatewaySend(path, init, "*/*");
+    return await response.blob();
+}
+
+async function gatewaySend(
+    path: string,
+    init: RequestInit | undefined,
+    accept: string,
+): Promise<Response> {
     if (!path.startsWith("/") || path.startsWith("//")) {
         throw new Error("Gateway API paths must be root-relative.");
     }
@@ -38,7 +58,7 @@ export async function gatewayFetch<T>(
     }
 
     const headers = new Headers(init?.headers);
-    if (!headers.has("Accept")) headers.set("Accept", "application/json");
+    if (!headers.has("Accept")) headers.set("Accept", accept);
     const accessToken = getAccessToken();
     if (accessToken && !headers.has("Authorization")) {
         headers.set("Authorization", `Bearer ${accessToken}`);
@@ -78,6 +98,5 @@ export async function gatewayFetch<T>(
             })(),
         );
     }
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
+    return response;
 }
