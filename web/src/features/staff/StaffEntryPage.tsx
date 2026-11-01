@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { RealCameraFeed } from "./RealCameraFeed";
-import { PlateBadge, QrCodeModal } from "./StaffUi";
+import { CameraFeedMock, PlateBadge, QrCodeModal, countText } from "./StaffUi";
 import { describeStaffError, openParkingSession } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
@@ -90,18 +90,18 @@ export function StaffEntryPage() {
             setLastOpened(res);
             setStep("session_created");
 
-            // Add real session into live staff state
+            // Add real session into live staff state (Parking assigns customer type, zone, and slot)
             addSession({
                 id: res.sessionId,
                 lotId: res.lotId,
                 plateNumber: res.plateNumber,
                 vehicleType: res.vehicleType,
-                customerType: entryType,
+                customerType: res.customerType || entryType,
                 driverName: entryType === "Registered" ? "Khách đã đăng ký" : "Khách vãng lai",
                 entryTime: res.entryTime,
                 status: "Active",
                 qrToken: res.qrToken,
-                slotCode: res.slotCode || (vehicleType === "Car" ? "CAR-A" : "MOTO-B"),
+                slotCode: res.slotCode ?? res.zoneCode ?? (vehicleType === "Car" ? "CAR-A" : "MOTO-B"),
                 paymentStatus: "Pending",
                 totalFeeVnd: vehicleType === "Car" ? 30000 : 6000,
                 prepaidVnd: 0,
@@ -109,7 +109,7 @@ export function StaffEntryPage() {
             });
 
             // If Guest, auto prompt QR ticket modal
-            if (entryType === "Guest") {
+            if (res.customerType === "Guest") {
                 setShowQrModal(true);
             }
 
@@ -480,9 +480,11 @@ export function StaffEntryPage() {
                             <div className="staff-summary-row">
                                 <span>{t("entrySummaryCap")}</span>
                                 <strong className="text-emerald">
-                                    {vehicleType === "Car"
-                                        ? `${occupancy.carAvailable} ${t("dashSlots")}`
-                                        : `${occupancy.motorbikeAvailable} ${t("dashSlots")}`}
+                                    {`${countText(
+                                        vehicleType === "Car"
+                                            ? occupancy.carAvailable
+                                            : occupancy.motorbikeAvailable,
+                                    )} ${t("dashSlots")}`}
                                 </strong>
                             </div>
                             <div className="staff-summary-row">
@@ -553,7 +555,34 @@ export function StaffEntryPage() {
                                             color: "var(--staff-text-muted)",
                                         }}
                                     >
-                                        Chỗ trống còn lại:
+Khu / chỗ
+                                    </span>
+                                    <strong style={{ fontSize: "14px" }}>
+                                        {[
+                                            lastOpened.floorName,
+                                            lastOpened.zoneCode,
+                                            lastOpened.slotCode,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(" · ") || "—"}
+                                    </strong>
+                                </div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: "12px",
+                                            color: "var(--staff-text-muted)",
+                                        }}
+                                    >
+                                        {vehicleType === "Car"
+                                            ? t("entryCarSlotsLeft")
+                                             : t("entryMotorbikeSlotsLeft")}
                                     </span>
                                     <strong
                                         style={{
@@ -561,10 +590,12 @@ export function StaffEntryPage() {
                                             color: "#10b981",
                                         }}
                                     >
-                                        {vehicleType === "Car"
-                                            ? occupancy.carAvailable
-                                            : (lastOpened.availableMotorbikeSlots ??
-                                              occupancy.motorbikeAvailable)}{" "}
+                                        {countText(
+                                            vehicleType === "Car"
+                                                ? occupancy.carAvailable
+                                                : (lastOpened.availableMotorbikeSlots ??
+                                                      occupancy.motorbikeAvailable),
+                                        )}{" "}
                                         {t("dashSlots")}
                                     </strong>
                                 </div>

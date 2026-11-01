@@ -95,6 +95,8 @@ export interface ParkingZone {
 
 export interface ParkingLot {
     id: number;
+    /** Parking's GUID for a real lot; design lots have none. */
+    backendId?: string;
     name: string;
     addr: string;
     gps: string;

@@ -81,6 +81,40 @@ Order: Pending lots first (the review queue), then by name, then id.
 
 `ownerUserId` is the registrant and can be null for lots seeded before owners existed. Parking does not know the owner's name or email (they belong to Identity); a client looks them up through the administrator account API.
 
+## Owner lot detail
+
+Added for Demo 1 (catalog `API-PK-02`). The owner reads one of their lots in any approval state; the public detail
+hides Pending and Rejected lots.
+
+| API | URL | Permission |
+| --- | --- | --- |
+| GET | `/api/parking/owner/lots/{lotId}` | `ParkingLotOwner` with an `Owner` assignment row for this lot |
+
+```json
+{
+  "id": "10000000-0000-0000-0000-000000000002",
+  "name": "Bãi đỗ chờ duyệt",
+  "address": "02 Đường Mẫu, TP. Hồ Chí Minh",
+  "latitude": 10.78,
+  "longitude": 106.71,
+  "type": "Outdoor",
+  "approvalStatus": "Rejected",
+  "rejectionReason": "Thiếu giấy phép",
+  "openingHours": null,
+  "pricing": [ { "vehicleType": "CAR", "version": 1, "billingMode": "Block", "blockMinutes": 60, "price": 20000, "overnightFee": 0 } ]
+}
+```
+
+| Status | `errorCode` | When |
+| --- | --- | --- |
+| 401 | — | No token. |
+| 403 | — | The role is not `ParkingLotOwner`. |
+| 403 | `parking.lot.access_denied` | The caller does not own this lot. |
+| 404 | `parking.lot_not_found` | The lot does not exist. |
+
+The layout summary listed in the catalog is not in this response: the owner reads it with
+`GET /api/parking/owner/lots/{lotId}/layout`.
+
 ## Errors
 
 - 400: invalid `status`, or a `page` / `pageSize` that is not an integer.

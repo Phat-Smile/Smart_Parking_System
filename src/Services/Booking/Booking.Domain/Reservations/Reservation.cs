@@ -18,6 +18,9 @@ public sealed class Reservation
     public ReservationStatus Status { get; private set; }
     public DateTimeOffset AppointmentTime { get; private set; }
     public int? DurationMinutes { get; private set; }
+    public DateTimeOffset WindowStartAt { get; private set; }
+    public DateTimeOffset WindowEndAt { get; private set; }
+    public DateTimeOffset HoldEndAt { get; private set; }
     public DateTimeOffset? TempHoldExpiresAt { get; private set; }
     public decimal PrepaidAmount { get; private set; }
     public string? PriceSnapshot { get; private set; }
@@ -44,7 +47,10 @@ public sealed class Reservation
         DateTimeOffset createdAt,
         int? durationMinutes = null,
         DateTimeOffset? tempHoldExpiresAt = null,
-        string? priceSnapshot = null)
+        string? priceSnapshot = null,
+        DateTimeOffset? windowStartAt = null,
+        DateTimeOffset? windowEndAt = null,
+        DateTimeOffset? holdEndAt = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Reservation ID must not be empty.", nameof(id));
@@ -72,6 +78,10 @@ public sealed class Reservation
         if (vehicleGroup != VehicleGroup.Car)
             throw new ReservationDomainException("Only cars are allowed to create reservations.");
 
+        var calculatedWindows = (windowStartAt.HasValue && windowEndAt.HasValue && holdEndAt.HasValue)
+            ? (WindowStartAt: windowStartAt.Value.ToUniversalTime(), WindowEndAt: windowEndAt.Value.ToUniversalTime(), HoldEndAt: holdEndAt.Value.ToUniversalTime())
+            : ReservationTimeWindow.CalculateWindows(reservationType, appointmentTime, durationMinutes);
+
         return new Reservation
         {
             Id = id,
@@ -84,6 +94,9 @@ public sealed class Reservation
             Status = ReservationStatus.TemporaryHold,
             AppointmentTime = appointmentTime.ToUniversalTime(),
             DurationMinutes = durationMinutes,
+            WindowStartAt = calculatedWindows.WindowStartAt,
+            WindowEndAt = calculatedWindows.WindowEndAt,
+            HoldEndAt = calculatedWindows.HoldEndAt,
             TempHoldExpiresAt = tempHoldExpiresAt?.ToUniversalTime(),
             PrepaidAmount = prepaidAmount,
             PriceSnapshot = priceSnapshot,

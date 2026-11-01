@@ -51,6 +51,7 @@ public static class PersistenceDependencyInjection
                 });
         });
         services.AddScoped<IReservationRepository, ReservationRepository>();
+        services.AddScoped<IReservationCapacityCoordinator, ReservationCapacityCoordinator>();
         services.AddScoped<IOutboxStore, OutboxStore>();
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();

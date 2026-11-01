@@ -48,6 +48,17 @@ public class GetWalletTopupStatusQueryHandlerTests
             return Task.CompletedTask;
         }
 
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
+        {
+            var items = _transactions
+                .Where(x => x.Txn.WalletId == walletId && x.Txn.Status == VnpayTransactionStatus.Pending)
+                .OrderByDescending(x => x.Txn.CreatedAt)
+                .Select(x => x.Txn)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
+        }
+
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;

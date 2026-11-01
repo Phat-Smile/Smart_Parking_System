@@ -52,8 +52,8 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 if (!active) return;
                 setStaffProfile(profile);
                 const singleLot = lots.length > 0 ? lots[0] : null;
-                const targetLotId = singleLot?.id || assignedLot.lotId;
-                if (singleLot && singleLot.id !== assignedLot.lotId) {
+                const targetLotId = singleLot?.id || assignedLot?.lotId || "";
+                if (singleLot && assignedLot && singleLot.id !== assignedLot.lotId) {
                     fetchAssignedLot(singleLot.id);
                 }
                 const shiftInfo = await getStaffAssignedShift(
@@ -66,7 +66,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         return () => {
             active = false;
         };
-    }, [assignedLot.lotId, fetchAssignedLot]);
+    }, [assignedLot?.lotId, fetchAssignedLot]);
 
     const { t } = useLanguage();
 
@@ -246,10 +246,11 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         <div className="staff-lot-badge">
                             <span className="staff-lot-dot" />
                             <span className="staff-lot-name">
-                                {assignedLot.lotName}
+                                {assignedLot?.lotName ??
+                                    "Chưa được phân công bãi"}
                             </span>
                             <span className="staff-lot-zone">
-                                {assignedLot.address || "Bãi trực phân công"}
+{assignedLot?.address || "Bãi trực phân công"}
                             </span>
                         </div>
                     </div>

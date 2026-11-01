@@ -15,7 +15,6 @@ builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("payment-api");
 builder.Services.AddPaymentAuthorization();
-builder.Services.OverrideJwtBearerToApiResponse();
 builder.Services.AddScoped<ICurrentActor, CurrentActor>();
 builder.Services.Configure<WalletOptions>(builder.Configuration.GetSection(WalletOptions.SectionName));
 builder.Services.Configure<VnpayOptions>(builder.Configuration.GetSection(VnpayOptions.SectionName));

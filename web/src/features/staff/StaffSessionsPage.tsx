@@ -64,7 +64,7 @@ export function StaffSessionsPage() {
                 s.plateNumber
                     .toLowerCase()
                     .includes(search.trim().toLowerCase()) ||
-                s.slotCode
+                (s.slotCode ?? "")
                     .toLowerCase()
                     .includes(search.trim().toLowerCase()) ||
                 (s.driverName &&
@@ -298,12 +298,14 @@ export function StaffSessionsPage() {
                                         <StatusPill status={s.status} />
                                     </td>
                                     <td>
-                                        <StatusPill status={s.paymentStatus} />
-                                        {s.paymentStatus === "Pending" && (
-                                            <div className="staff-cell-fee">
-                                                {formatVnd(s.amountDueVnd)}
-                                            </div>
-                                        )}
+<div className="staff-payment-cell">
+                                            <StatusPill status={s.paymentStatus} />
+                                            {(s.amountDueVnd ?? 0) > 0 && (
+                                                <small className="staff-due-badge">
+                                                    {t("sessionsDue")}: {formatVnd(s.amountDueVnd ?? 0)}
+                                                </small>
+                                            )}
+                                        </div>
                                     </td>
                                     <td>
                                         <button
@@ -348,8 +350,8 @@ export function StaffSessionsPage() {
                 </table>
             </div>
 
-            {/* QR Modal view */}
-            {selectedQrSession && (
+{/* QR View Modal */}
+            {selectedQrSession?.qrToken && (
                 <QrCodeModal
                     qrToken={selectedQrSession.qrToken}
                     plateNumber={selectedQrSession.plateNumber}

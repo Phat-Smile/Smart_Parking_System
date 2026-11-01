@@ -14,7 +14,9 @@ import {
     getAuthSessionSnapshot,
     subscribeAuthSession,
 } from "@/features/auth/authSession";
+
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
+import { ActiveSessionCard } from "./CustomerSessions";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { dashboardPreviewData } from "./dashboardPreviewData";
 
@@ -532,93 +534,14 @@ export function CustomerDashboardPage({
                                     <h2 id="dashboard-session-title">
                                         Active Parking Session
                                     </h2>
-                                    <span className="dashboard-status green">
-                                        Demo data
-                                    </span>
                                 </div>
-                                <Link href="/search">
-                                    Find a spot{" "}
+                                <Link href="/customer/sessions">
+                                    My sessions{" "}
                                     <CustomerIcon name="arrow" size={17} />
                                 </Link>
                             </div>
                             <div className="dashboard-session-body">
-                                <div className="dashboard-session-image">
-                                    <Image
-                                        src="/images/parkwise/dashboard-parking-garage.webp"
-                                        alt="Covered parking garage entrance"
-                                        fill
-                                        sizes="(max-width: 700px) 100vw, 250px"
-                                    />
-                                </div>
-                                <div className="dashboard-session-description">
-                                    <div>
-                                        <h3>
-                                            {
-                                                dashboardPreviewData.session
-                                                    .lotName
-                                            }
-                                        </h3>
-                                        <p>
-                                            {
-                                                dashboardPreviewData.session
-                                                    .location
-                                            }
-                                        </p>
-                                    </div>
-                                    <div className="dashboard-session-facts">
-                                        <span>
-                                            <CustomerIcon
-                                                name="clock"
-                                                size={21}
-                                            />
-                                            <span>
-                                                <small>Entry time</small>
-                                                <strong>
-                                                    {
-                                                        dashboardPreviewData
-                                                            .session.entryTime
-                                                    }
-                                                </strong>
-                                            </span>
-                                        </span>
-                                        <span>
-                                            <CustomerIcon
-                                                name="history"
-                                                size={21}
-                                            />
-                                            <span>
-                                                <small>Duration</small>
-                                                <strong>
-                                                    {
-                                                        dashboardPreviewData
-                                                            .session.duration
-                                                    }
-                                                </strong>
-                                            </span>
-                                        </span>
-                                        <span>
-                                            <CustomerIcon
-                                                name="car"
-                                                size={21}
-                                            />
-                                            <span>
-                                                <small>Vehicle</small>
-                                                <strong>
-                                                    {
-                                                        dashboardPreviewData
-                                                            .session.vehicle
-                                                    }
-                                                </strong>
-                                            </span>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="dashboard-session-qr">
-                                    <CustomerIcon name="dashboard" size={42} />
-                                    <small>
-                                        Live session QR appears after check-in
-                                    </small>
-                                </div>
+                                <ActiveSessionCard />
                             </div>
                         </section>
                         <section

@@ -6,13 +6,15 @@ export type SessionStatus = "Active" | "Paid" | "Completed" | "Cancelled";
 
 export type PaymentStatus = "Pending" | "Paid" | "Exempt";
 
+/** Counts come from Parking; null means Parking could not give them (no motorbike zone, lot not public). */
 export interface AssignedLotResponse {
     lotId: string;
     lotName: string;
     address?: string;
-    availableMotorbikeSlots: number;
-    availableCarSlots?: number;
-    totalCapacity?: number;
+    availableMotorbikeSlots: number | null;
+    motorbikeCapacity: number | null;
+    availableCarSlots: number | null;
+    totalCapacity?: number | null;
     occupiedSlots?: number;
 }
 
@@ -27,8 +29,11 @@ export interface OpenedSessionResponse {
     isAccountLinked: boolean;
     reservationId: string | null;
     qrToken: string;
-    slotCode?: string;
-    availableMotorbikeSlots?: number;
+    zoneId?: string | null;
+    zoneCode?: string | null;
+    floorName?: string | null;
+    slotCode?: string | null;
+    availableMotorbikeSlots: number | null;
 }
 
 export interface CancelledSessionResponse {
@@ -59,22 +64,23 @@ export interface SessionByQrResponse {
     totalFeeVnd?: number;
 }
 
+/** A session as the staff screens show it; fields Parking or Payment did not send stay undefined. */
 export interface StaffSession {
     id: string;
     lotId: string;
     plateNumber: string;
     vehicleType: VehicleType;
-    customerType: CustomerType;
+    customerType?: CustomerType;
     driverName?: string;
     entryTime: string;
     exitTime?: string;
     status: SessionStatus;
-    qrToken: string;
-    slotCode: string;
+    qrToken?: string;
+    slotCode: string | null;
     paymentStatus: PaymentStatus;
-    totalFeeVnd: number;
-    prepaidVnd: number;
-    amountDueVnd: number;
+    totalFeeVnd?: number;
+    prepaidVnd?: number;
+    amountDueVnd?: number;
     paymentMethod?: "VNPay" | "Cash" | "Wallet";
 }
 
@@ -98,10 +104,11 @@ export interface VerificationIssue {
 }
 
 export interface OccupancyStats {
-    totalCapacity: number;
+    /** Motorbike capacity only: Parking has no car total for staff yet. */
+    totalCapacity: number | null;
     occupied: number;
-    carAvailable: number;
-    motorbikeAvailable: number;
+    carAvailable: number | null;
+    motorbikeAvailable: number | null;
     activeSessionsCount: number;
     needsVerificationCount: number;
 }

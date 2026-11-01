@@ -193,11 +193,19 @@ export function CustomerIcon({
     );
 }
 
-export function CustomerHeader({ active }: { active: "home" | "search" }) {
+export function CustomerHeader({
+    active,
+}: {
+    active: "home" | "search" | "detail";
+}) {
     return (
         <ParkWiseNavbar
             variant="customer"
-            navigationMode={active === "home" ? "dashboard" : "customer"}
+            navigationMode={
+                active === "home" || active === "detail"
+                    ? "dashboard"
+                    : "customer"
+            }
             activeHref={active === "home" ? "/customer/dashboard" : "/search"}
             accountControl={
                 active === "home" ? (
@@ -282,6 +290,8 @@ const accountLinks: {
     { href: "/customer/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/search", label: "Find Parking", icon: "location" },
     { href: "/customer/vehicles", label: "My Vehicles", icon: "car" },
+    { href: "/customer/sessions", label: "My Sessions", icon: "clock" },
+    { href: "/customer/wallet", label: "Wallet", icon: "price" },
 ];
 
 function initials(name: string) {

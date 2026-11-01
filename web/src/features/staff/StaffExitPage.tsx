@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { RealCameraFeed } from "./RealCameraFeed";
 import {
     PlateBadge,
+    feeText,
     formatDateTime,
     formatVnd,
 } from "./StaffUi";
@@ -12,6 +13,7 @@ import {
     describeStaffError,
     findOpenSessionByPlate,
     findSessionByQr,
+    getParkingSessionFee,
     manualVerifyExit,
     reissueParkingSessionQr,
 } from "./staffApi";
@@ -81,12 +83,12 @@ export function StaffExitPage() {
         setPaymentSuccess(false);
 
         try {
-            // 100% Real API: Call GET /api/parking/sessions/by-qr/{qrToken}
-            const res: SessionByQrResponse = await findSessionByQr(token);
+            // Call real endpoint GET /api/parking/sessions/by-qr/{qrToken}
+            const queryToken = (token || qrInput || "").trim();
+            const res: SessionByQrResponse = await findSessionByQr(queryToken);
             const fee = res.amountDueVnd ?? 30000;
             const isReg = res.customerType === "Registered";
             const isPaid = res.status === "Paid" || (res.amountDueVnd === 0);
-
             const scanned: StaffSession = {
                 id: res.sessionId,
                 lotId: res.lotId,
@@ -137,8 +139,11 @@ export function StaffExitPage() {
                 plate,
             );
             setQrInput(res.qrToken || "");
-            const fee = res.vehicleType === "Car" ? 30000 : 6000;
-            const isPaid = res.status === "Paid";
+            const paymentFee = await getParkingSessionFee(res.sessionId).catch(() => null);
+            const fallbackFee = res.vehicleType === "Car" ? 30000 : 6000;
+            const totalFee = paymentFee?.totalFee ?? fallbackFee;
+            const amountDue = paymentFee?.amountDue ?? fallbackFee;
+            const isPaid = res.status === "Paid" || amountDue === 0;
             const scanned: StaffSession = {
                 id: res.sessionId,
                 lotId: res.lotId,
@@ -150,9 +155,9 @@ export function StaffExitPage() {
                 qrToken: res.qrToken || "",
                 slotCode: res.vehicleType === "Car" ? "CAR-A" : "MOTO-B",
                 paymentStatus: isPaid ? "Paid" : "Pending",
-                totalFeeVnd: fee,
-                prepaidVnd: isPaid ? fee : 0,
-                amountDueVnd: isPaid ? 0 : fee,
+                totalFeeVnd: totalFee,
+                prepaidVnd: isPaid ? totalFee : (paymentFee?.depositAmount ?? 0),
+                amountDueVnd: isPaid ? 0 : amountDue,
             };
             setScannedSession(scanned);
             if (isPaid) setPaymentSuccess(true);
@@ -205,16 +210,21 @@ export function StaffExitPage() {
         }
     }
 
+    // Exit payment is Sprint 3 (Demo B): Payment has no session payment yet, so the screen never marks a
+    // session as paid and the gate stays closed.
+    const EXIT_PAYMENT_NOT_READY =
+        "Thanh toán phiên đỗ ở cổng ra chưa có trong Sprint 2. Chưa ghi nhận tiền, chưa mở cổng.";
+
     function handleCompleteCashPayment() {
         if (!scannedSession) return;
-        setPaymentSuccess(true);
         setPaymentModal(null);
+        setErrorMsg(EXIT_PAYMENT_NOT_READY);
     }
 
     function handleCompleteVnPayPayment() {
         if (!scannedSession) return;
-        setPaymentSuccess(true);
         setPaymentModal(null);
+        setErrorMsg(EXIT_PAYMENT_NOT_READY);
     }
 
     // 100% Real API: Close Parking Session
@@ -292,12 +302,12 @@ export function StaffExitPage() {
                             type="button"
                             className="staff-preset-chip"
                             onClick={() => {
-                                setQrInput(s.qrToken);
+                                setQrInput(s.qrToken || "");
                                 setDetectedExitPlate(s.plateNumber);
                                 handleVerifyQr(s.qrToken);
                             }}
                         >
-                            {s.vehicleType === "Car" ? "🚗" : "🛵"} {s.plateNumber} ({s.qrToken.slice(-8)})
+                            {s.vehicleType === "Car" ? "🚗" : "🛵"} {s.plateNumber} ({(s.qrToken || "").slice(-8)})
                         </button>
                     ))}
                 </div>
@@ -585,7 +595,7 @@ export function StaffExitPage() {
                                                 </span>
                                             ) : (
                                                 <span className="text-danger">
-                                                    Còn nợ: {formatVnd(scannedSession.amountDueVnd)}
+                                                    Còn nợ: {formatVnd(scannedSession.amountDueVnd ?? 0)}
                                                 </span>
                                             )
                                         ) : (
@@ -614,9 +624,11 @@ export function StaffExitPage() {
                             <div className="staff-fee-box">
                                 <div className="staff-fee-header">
                                     <h3>{t("exitFeeTitle")}</h3>
-                                    <PlateBadge
-                                        plate={scannedSession.plateNumber}
-                                    />
+<PlateBadge plate={scannedSession.plateNumber} />
+                                    <span>
+                                        {t("sessionsSpot")}{" "}
+                                        {scannedSession.slotCode ?? "—"}
+                                    </span>
                                 </div>
 
                                 <div className="staff-fee-rows">
@@ -639,12 +651,23 @@ export function StaffExitPage() {
                                     <div className="staff-fee-row">
                                         <span>{t("exitTotalFee")}</span>
                                         <strong>
-                                            {formatVnd(
+                                            {feeText(
                                                 scannedSession.totalFeeVnd,
+                                                formatVnd,
                                             )}
                                         </strong>
                                     </div>
-                                    <div className="staff-fee-row total-due">
+<div className="fee-row">
+                                        <span>{t("exitPrepaidWallet")}</span>
+                                        <span className="text-emerald">
+                                            -{" "}
+                                            {feeText(
+                                                scannedSession.prepaidVnd,
+                                                formatVnd,
+                                            )}
+                                        </span>
+                                    </div>
+                                    <div className="fee-row fee-total">
                                         <span>{t("exitAmountDue")}</span>
                                         <strong className={amountDue > 0 ? "text-danger" : "text-emerald"}>
                                             {formatVnd(amountDue)}
@@ -741,59 +764,140 @@ export function StaffExitPage() {
                             </button>
                         </div>
 
-                        <div className="staff-modal-body">
-                            {paymentModal === "Cash" ? (
-                                <div className="staff-cash-calc">
-                                    <div className="staff-cash-row">
-                                        <span>{t("exitAmountDueLabel")}</span>
-                                        <strong className="text-danger">
-                                            {formatVnd(scannedSession.amountDueVnd)}
-                                        </strong>
-                                    </div>
-                                    <div className="staff-form-group">
-                                        <label htmlFor="staff-cash-given">
-                                            {t("exitCashReceivedLabel")}
-                                        </label>
-                                        <input
-                                            id="staff-cash-given"
-                                            type="number"
-                                            step="10000"
-                                            className="staff-input staff-cash-input"
-                                            value={cashGiven}
-                                            onChange={(e) =>
-                                                setCashGiven(
-                                                    Number(e.target.value) || 0,
-                                                )
-                                            }
-                                        />
-                                    </div>
-                                    <div className="staff-cash-denoms">
-                                        {[20000, 50000, 100000, 200000, 500000].map(
-                                            (val) => (
-                                                <button
-                                                    key={val}
-                                                    type="button"
-                                                    className="staff-denom-chip"
-                                                    onClick={() =>
-                                                        setCashGiven(val)
-                                                    }
-                                                >
-                                                    {val.toLocaleString(
-                                                        "vi-VN",
-                                                    )}{" "}
-                                                    ₫
-                                                </button>
-                                            ),
+<div className="staff-payment-modal-body">
+                            {/* Receipt Summary Card */}
+                            <div className="staff-modal-receipt-card">
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">
+                                        {t("exitPlateLabel")}
+                                    </span>
+                                    <PlateBadge
+                                        plate={scannedSession.plateNumber}
+                                        size="normal"
+                                    />
+                                </div>
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">
+                                        {t("exitSpotLabel")}
+                                    </span>
+                                    <span className="staff-slot-code">
+                                        {t("sessionsSpot")}{" "}
+                                        {scannedSession.slotCode ?? "—"}
+                                    </span>
+                                </div>
+                                <div className="staff-summary-row staff-summary-due-row">
+                                    <span className="staff-summary-label">
+                                        {t("exitAmountDueLabel")}
+                                    </span>
+                                    <strong className="staff-modal-amount-due">
+                                        {feeText(
+                                            scannedSession.amountDueVnd,
+                                            formatVnd,
                                         )}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {paymentModal === "Cash" ? (
+                                <div className="staff-cash-flow">
+                                    <div className="staff-form-group">
+                                        <div className="staff-form-label-row">
+                                            <label htmlFor="staff-cash-received">
+                                                {t("exitCashReceivedLabel")}
+                                            </label>
+                                            <span className="staff-form-hint">
+                                                {t("exitCashHint")}
+                                            </span>
+                                        </div>
+
+                                        <div className="staff-input-cash-wrap">
+                                            <input
+                                                id="staff-cash-received"
+                                                type="number"
+                                                step="1000"
+                                                className="staff-input staff-cash-input"
+                                                value={cashGiven || ""}
+                                                onChange={(e) =>
+                                                    setCashGiven(
+                                                        Number(e.target.value),
+                                                    )
+                                                }
+                                                placeholder="100000"
+                                            />
+                                            <span className="staff-cash-unit">
+                                                ₫
+                                            </span>
+                                        </div>
+
+                                        {/* Quick tap cash presets */}
+                                        <div className="staff-quick-cash-row">
+                                            <button
+                                                type="button"
+                                                className="staff-quick-cash-btn"
+                                                onClick={() =>
+                                                    setCashGiven(
+                                                        scannedSession.amountDueVnd ??
+                                                            0,
+                                                    )
+                                                }
+                                            >
+                                                {t("exitExactCash")} (
+                                                {feeText(
+                                                    scannedSession.amountDueVnd,
+                                                    formatVnd,
+                                                )}
+                                                )
+                                            </button>
+                                            {[100000, 200000, 500000].map(
+                                                (preset) => (
+                                                    <button
+                                                        key={preset}
+                                                        type="button"
+                                                        className={`staff-quick-cash-btn ${
+                                                            cashGiven === preset
+                                                                ? "active"
+                                                                : ""
+                                                        }`}
+                                                        onClick={() =>
+                                                            setCashGiven(preset)
+                                                        }
+                                                    >
+                                                        {preset.toLocaleString(
+                                                            language === "vi"
+                                                                 ? "vi-VN"
+                                                                : "en-US",
+                                                        )}
+                                                        ₫
+                                                    </button>
+                                                ),
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="staff-cash-change">
-                                        <span>{t("exitChangeDue")}</span>
-                                        <strong className="text-emerald">
+
+                                    <div className="staff-change-box">
+                                        <div className="staff-change-info">
+                                            <span className="staff-change-label">
+                                                {t("exitChangeDue")}
+                                            </span>
+                                            <span className="staff-change-sub">
+                                                {cashGiven >=
+                                                (scannedSession.amountDueVnd ??
+                                                    0)
+                                                    ? language === "vi"
+                                                        ? "Khách đã trả đủ tiền mặt"
+                                                        : "Sufficient cash received"
+                                                    : language === "vi"
+                                                      ? "⚠️ Chưa đủ số tiền cước"
+                                                      : "⚠️ Insufficient cash"}
+                                            </span>
+                                        </div>
+                                        <strong className="staff-change-val">
                                             {formatVnd(
                                                 Math.max(
                                                     0,
                                                     cashGiven -
-                                                        scannedSession.amountDueVnd,
+                                                        (scannedSession.amountDueVnd ??
+                                                            0),
                                                 ),
                                             )}
                                         </strong>
@@ -813,7 +917,8 @@ export function StaffExitPage() {
                                             className="staff-btn staff-btn-primary staff-btn-flex"
                                             disabled={
                                                 cashGiven <
-                                                scannedSession.amountDueVnd
+                                                (scannedSession.amountDueVnd ??
+                                                    0)
                                             }
                                             onClick={handleCompleteCashPayment}
                                         >
@@ -836,8 +941,9 @@ export function StaffExitPage() {
                                         </div>
                                         <div className="staff-vnpay-code">
                                             🅿️ PARKWISE GATE 02 ·{" "}
-                                            {formatVnd(
+                                            {feeText(
                                                 scannedSession.amountDueVnd,
+                                                formatVnd,
                                             )}
                                         </div>
                                     </div>
