@@ -125,55 +125,102 @@ export function StaffSessionsPage() {
                 </div>
             )}
 
-            {/* Filter toolbar */}
+            {/* Modern Segmented Filter Toolbar */}
             <div className="staff-toolbar">
-                <div className="staff-search-box">
-                    <span className="search-icon">🔍</span>
-                    <input
-                        type="text"
-                        className="staff-input staff-search-input"
-                        placeholder={t("sessionsSearchPlaceholder")}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                <div className="staff-toolbar-top">
+                    <div className="staff-search-box">
+                        <span className="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            className="staff-search-input"
+                            placeholder="Tìm kiếm biển số xe, vị trí ô đỗ..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        {search && (
+                            <button
+                                type="button"
+                                onClick={() => setSearch("")}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: "#94a3b8",
+                                    fontSize: "14px",
+                                    padding: "2px 6px",
+                                }}
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="staff-toolbar-summary">
+                        <span className="staff-summary-pill">
+                            Tổng hiển thị: <strong>{filtered.length}</strong> / {sessions.length} phiên xe
+                        </span>
+                    </div>
                 </div>
 
-                {/* Status filter */}
-                <div className="staff-filter-tabs">
-                    {(["All", "Active", "Completed", "Cancelled"] as const).map((st) => (
-                        <button
-                            key={st}
-                            type="button"
-                            className={`staff-filter-btn ${statusFilter === st ? "active" : ""}`}
-                            onClick={() => setStatusFilter(st)}
-                        >
-                            {st === "All"
-                                ? "Tất cả trạng thái"
-                                : st === "Active"
-                                  ? "Đang đỗ (Active)"
-                                  : st === "Completed"
-                                    ? "Đã rời bãi (Completed)"
-                                    : "Đã hủy (Cancelled)"}
-                        </button>
-                    ))}
-                </div>
+                <div className="staff-toolbar-bottom">
+                    {/* Status filter tabs */}
+                    <div className="staff-filter-group">
+                        <span className="staff-filter-label">Trạng thái:</span>
+                        <div className="staff-filter-tabs">
+                            {[
+                                { key: "All", label: "Tất cả", icon: "📋" },
+                                { key: "Active", label: "Đang đỗ (Active)", icon: "🟢" },
+                                { key: "Completed", label: "Đã rời bãi (Completed)", icon: "⚪" },
+                                { key: "Cancelled", label: "Đã hủy (Cancelled)", icon: "🔴" },
+                            ].map((tab) => {
+                                const count =
+                                    tab.key === "All"
+                                        ? sessions.length
+                                        : sessions.filter((s) => s.status === tab.key).length;
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        type="button"
+                                        className={`staff-filter-btn ${statusFilter === tab.key ? "active" : ""}`}
+                                        onClick={() => setStatusFilter(tab.key as any)}
+                                    >
+                                        <span>{tab.icon}</span>
+                                        <span>{tab.label}</span>
+                                        <span className="staff-filter-badge">{count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-                {/* Customer type filter */}
-                <div className="staff-filter-tabs">
-                    {(["All", "Guest", "Registered"] as const).map((tab) => (
-                        <button
-                            key={tab}
-                            type="button"
-                            className={`staff-filter-btn ${filterType === tab ? "active" : ""}`}
-                            onClick={() => setFilterType(tab)}
-                        >
-                            {tab === "Guest"
-                                ? t("sessionsGuestTab")
-                                : tab === "Registered"
-                                  ? t("sessionsRegisteredTab")
-                                  : t("sessionsAllTab")}
-                        </button>
-                    ))}
+                    {/* Customer type filter tabs */}
+                    <div className="staff-filter-group">
+                        <span className="staff-filter-label">Đối tượng:</span>
+                        <div className="staff-filter-tabs">
+                            {[
+                                { key: "All", label: "Tất cả phiên xe", icon: "👥" },
+                                { key: "Guest", label: "Khách vãng lai", icon: "🎫" },
+                                { key: "Registered", label: "Khách đăng ký App", icon: "📱" },
+                            ].map((tab) => {
+                                const count =
+                                    tab.key === "All"
+                                        ? sessions.length
+                                        : sessions.filter((s) => s.customerType === tab.key).length;
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        type="button"
+                                        className={`staff-filter-btn ${filterType === tab.key ? "active" : ""}`}
+                                        onClick={() => setFilterType(tab.key as any)}
+                                    >
+                                        <span>{tab.icon}</span>
+                                        <span>{tab.label}</span>
+                                        <span className="staff-filter-badge">{count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
             </div>
 
