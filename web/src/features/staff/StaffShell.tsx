@@ -9,7 +9,6 @@ import {
     getStaffAssignedShift,
     getStaffLots,
     getStaffProfile,
-    type StaffLotItem,
     type StaffProfile,
     type StaffShiftDetails,
 } from "./staffApi";
@@ -27,7 +26,6 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         shiftName: "Ca 1 - Sáng",
         hours: "06:00 - 14:00",
     });
-    const [staffLots, setStaffLots] = useState<StaffLotItem[]>([]);
 
     useEffect(() => {
         fetchAssignedLot().catch(() => {});
@@ -46,16 +44,18 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         return () => clearInterval(timer);
     }, [fetchAssignedLot]);
 
-    // 100% Real API: Tải thông tin tài khoản nhân viên, bãi trực và ca trực được Admin phân công
+    // 100% Real API: 1 Staff chỉ quản lý 1 bãi duy nhất được Admin phân công
     useEffect(() => {
         let active = true;
         Promise.all([getStaffProfile(), getStaffLots()])
             .then(async ([profile, lots]) => {
                 if (!active) return;
                 setStaffProfile(profile);
-                setStaffLots(lots);
-                const targetLotId =
-                    assignedLot.lotId || (lots.length > 0 ? lots[0].id : "");
+                const singleLot = lots.length > 0 ? lots[0] : null;
+                const targetLotId = singleLot?.id || assignedLot.lotId;
+                if (singleLot && singleLot.id !== assignedLot.lotId) {
+                    fetchAssignedLot(singleLot.id);
+                }
                 const shiftInfo = await getStaffAssignedShift(
                     targetLotId,
                     profile?.id,
@@ -66,7 +66,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         return () => {
             active = false;
         };
-    }, [assignedLot.lotId]);
+    }, [assignedLot.lotId, fetchAssignedLot]);
 
     const { t } = useLanguage();
 
@@ -242,60 +242,16 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             <div className="staff-main-wrapper">
                 <header className="staff-topbar">
                     <div className="staff-topbar-left">
-                        {staffLots.length > 1 ? (
-                            <div
-                                className="staff-lot-badge staff-lot-select-wrap"
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                }}
-                            >
-                                <span className="staff-lot-dot" />
-                                <select
-                                    value={assignedLot.lotId}
-                                    onChange={(e) =>
-                                        fetchAssignedLot(e.target.value)
-                                    }
-                                    style={{
-                                        background: "transparent",
-                                        border: "none",
-                                        color: "inherit",
-                                        fontWeight: 600,
-                                        fontSize: "0.95rem",
-                                        cursor: "pointer",
-                                        outline: "none",
-                                    }}
-                                >
-                                    {staffLots.map((l) => (
-                                        <option
-                                            key={l.id}
-                                            value={l.id}
-                                            style={{
-                                                background: "#ffffff",
-                                                color: "#111827",
-                                            }}
-                                        >
-                                            {l.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <span className="staff-lot-zone">
-                                    {assignedLot.address ||
-                                        "Bãi trực phân công"}
-                                </span>
-                            </div>
-                        ) : (
-                            <div className="staff-lot-badge">
-                                <span className="staff-lot-dot" />
-                                <span className="staff-lot-name">
-                                    {assignedLot.lotName}
-                                </span>
-                                <span className="staff-lot-zone">
-                                    {assignedLot.address || "Tầng Hầm B1/B2"}
-                                </span>
-                            </div>
-                        )}
+                        {/* 1 Staff chỉ quản lý 1 bãi duy nhất được Admin phân công */}
+                        <div className="staff-lot-badge">
+                            <span className="staff-lot-dot" />
+                            <span className="staff-lot-name">
+                                {assignedLot.lotName}
+                            </span>
+                            <span className="staff-lot-zone">
+                                {assignedLot.address || "Bãi trực phân công"}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="staff-topbar-right">

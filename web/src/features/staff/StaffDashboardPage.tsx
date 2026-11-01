@@ -57,9 +57,14 @@ export function StaffDashboardPage() {
         .filter((a) => a.type === "exit")
         .slice(0, 6);
 
-    const activeLotDetail = assignedLotsDetails.find(
-        (l) => l.lotId === assignedLot.lotId,
-    );
+    // 1 staff chỉ quản lý 1 bãi duy nhất
+    const activeLotDetail =
+        assignedLotsDetails.find(
+            (l) =>
+                l.lotId.toLowerCase() ===
+                (assignedLot?.lotId || "").toLowerCase(),
+        ) ||
+        (assignedLotsDetails.length > 0 ? assignedLotsDetails[0] : null);
 
     return (
         <div className="staff-page">
@@ -88,12 +93,13 @@ export function StaffDashboardPage() {
                 </div>
             </header>
 
-            {/* BẢNG THÔNG TIN PHÂN CÔNG BÃI TRỰC & CA LÀM VIỆC TỪ ADMIN */}
+            {/* THÔNG TIN BÃI TRỰC & CA LÀM VIỆC DUY NHẤT TỪ ADMIN */}
             <section
                 className="staff-card"
                 style={{
                     marginBottom: "24px",
                     borderLeft: "4px solid var(--pw-admin-lime, #eafe89)",
+                    background: "#ffffff",
                 }}
             >
                 <div
@@ -117,41 +123,35 @@ export function StaffDashboardPage() {
                             {staffProfile?.fullName
                                 ? `Nhân viên: ${staffProfile.fullName} (${staffProfile.email}) · `
                                 : ""}
-                            Xem các bãi đỗ xe Admin đã phân quyền cho bạn, lịch ca trực và tình trạng vận hành thực tế.
+                            Mỗi nhân viên trực 1 bãi duy nhất. Dưới đây là thông tin bãi đỗ xe và ca làm việc bạn được Admin phân công.
                         </p>
                     </div>
 
                     <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        {activeLotDetail && (
-                            <span
-                                style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "6px",
-                                    background: "rgba(22, 163, 74, 0.12)",
-                                    color: "#16a34a",
-                                    border: "1px solid rgba(22, 163, 74, 0.3)",
-                                    padding: "4px 10px",
-                                    borderRadius: "8px",
-                                    fontWeight: 700,
-                                    fontSize: "0.8rem",
-                                }}
-                            >
-                                <span className="staff-pulse-dot green" />
-                                Ca hiện tại: {activeLotDetail.shiftName} ({activeLotDetail.hours})
-                            </span>
-                        )}
-                        <span className="staff-pill staff-pill-success">
-                            {assignedLotsDetails.length} bãi được phân quyền
+                        <span
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                background: "#dcfce7",
+                                color: "#15803d",
+                                border: "1px solid #86efac",
+                                padding: "4px 12px",
+                                borderRadius: "9999px",
+                                fontWeight: 700,
+                                fontSize: "0.8rem",
+                            }}
+                        >
+                            ✓ Bãi trực duy nhất
                         </span>
                     </div>
                 </div>
 
-                {loadingLots && assignedLotsDetails.length === 0 ? (
+                {loadingLots && !activeLotDetail ? (
                     <p className="staff-empty">
-                        Đang tải danh sách bãi và ca trực từ CSDL...
+                        Đang tải thông tin phân công bãi và ca trực từ CSDL...
                     </p>
-                ) : assignedLotsDetails.length === 0 ? (
+                ) : !activeLotDetail ? (
                     <div
                         style={{
                             padding: "20px",
@@ -168,310 +168,239 @@ export function StaffDashboardPage() {
                     <div
                         style={{
                             display: "grid",
-                            gridTemplateColumns:
-                                "repeat(auto-fit, minmax(320px, 1fr))",
-                            gap: "16px",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                            gap: "20px",
+                            alignItems: "stretch",
                         }}
                     >
-                        {assignedLotsDetails.map((lot) => {
-                            const isCurrentActive =
-                                lot.lotId.toLowerCase() ===
-                                (assignedLot?.lotId || "").toLowerCase();
-                            return (
-                                <div
-                                    key={lot.lotId}
+                        {/* Cột 1: Thông tin Bãi & Ca trực */}
+                        <div
+                            style={{
+                                padding: "18px",
+                                background: "var(--pw-admin-soft, #f8f9fa)",
+                                borderRadius: "12px",
+                                border: "1px solid var(--pw-admin-line, #e8eaef)",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                                gap: "16px",
+                            }}
+                        >
+                            <div>
+                                <span
                                     style={{
-                                        border: isCurrentActive
-                                            ? "2px solid #22c55e"
-                                            : "1px solid var(--pw-admin-line, #e8eaef)",
-                                        borderRadius: "12px",
-                                        padding: "16px",
-                                        background: isCurrentActive
-                                            ? "#ffffff"
-                                            : "var(--pw-admin-soft, #f8f9fa)",
-                                        boxShadow: isCurrentActive
-                                            ? "0 4px 16px rgba(34, 197, 94, 0.12)"
-                                            : "none",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        justifyContent: "space-between",
-                                        gap: "14px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: 700,
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.05em",
+                                        color: "var(--pw-admin-muted, #64748b)",
                                     }}
                                 >
-                                    <div>
-                                        {/* Row 1: Tên bãi & Badge đang trực */}
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "flex-start",
-                                                gap: "8px",
-                                            }}
-                                        >
-                                            <div>
-                                                <strong
-                                                    style={{
-                                                        fontSize: "1.05rem",
-                                                        color: "var(--pw-admin-ink, #0f172a)",
-                                                    }}
-                                                >
-                                                    {lot.lotName}
-                                                </strong>
-                                                <p
-                                                    style={{
-                                                        margin: "3px 0 0",
-                                                        fontSize: "0.8rem",
-                                                        color: "var(--pw-admin-muted, #64748b)",
-                                                    }}
-                                                >
-                                                    📍 {lot.address}
-                                                </p>
-                                            </div>
-                                            {isCurrentActive ? (
-                                                <span
-                                                    style={{
-                                                        background: "#dcfce7",
-                                                        color: "#15803d",
-                                                        padding: "3px 8px",
-                                                        borderRadius: "9999px",
-                                                        fontSize: "0.75rem",
-                                                        fontWeight: 700,
-                                                        whiteSpace: "nowrap",
-                                                        border: "1px solid #86efac",
-                                                    }}
-                                                >
-                                                    ✓ Đang đứng trực
-                                                </span>
-                                            ) : null}
-                                        </div>
+                                    BÃI ĐỖ XE ĐƯỢC PHÂN QUYỀN
+                                </span>
+                                <h3
+                                    style={{
+                                        fontSize: "1.25rem",
+                                        fontWeight: 800,
+                                        margin: "4px 0 0",
+                                        color: "var(--pw-admin-ink, #0f172a)",
+                                    }}
+                                >
+                                    {activeLotDetail.lotName}
+                                </h3>
+                                <p
+                                    style={{
+                                        margin: "4px 0 0",
+                                        fontSize: "0.85rem",
+                                        color: "var(--pw-admin-muted, #64748b)",
+                                    }}
+                                >
+                                    📍 {activeLotDetail.address}
+                                </p>
+                            </div>
 
-                                        {/* Row 2: Ca trực của bạn tại bãi này */}
-                                        <div
-                                            style={{
-                                                marginTop: "12px",
-                                                padding: "10px 12px",
-                                                background: "#ffffff",
-                                                borderRadius: "8px",
-                                                border: "1px solid #e2e8f0",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "space-between",
-                                            }}
-                                        >
-                                            <div>
-                                                <span
-                                                    style={{
-                                                        fontSize: "0.75rem",
-                                                        color: "#64748b",
-                                                        display: "block",
-                                                    }}
-                                                >
-                                                    Ca trực được phân công:
-                                                </span>
-                                                <strong
-                                                    style={{
-                                                        fontSize: "0.95rem",
-                                                        color: "#0f172a",
-                                                    }}
-                                                >
-                                                    {lot.shiftName}
-                                                </strong>
-                                                <small
-                                                    style={{
-                                                        display: "block",
-                                                        color: "#64748b",
-                                                        fontSize: "0.75rem",
-                                                    }}
-                                                >
-                                                    Khung giờ: {lot.hours}
-                                                </small>
-                                            </div>
-
-                                            <div>
-                                                {lot.isCurrentShift ? (
-                                                    <span
-                                                        style={{
-                                                            background:
-                                                                "rgba(22, 163, 74, 0.12)",
-                                                            color: "#16a34a",
-                                                            border: "1px solid rgba(22, 163, 74, 0.3)",
-                                                            padding: "3px 8px",
-                                                            borderRadius: "6px",
-                                                            fontSize: "0.75rem",
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        ● Đang trong ca
-                                                    </span>
-                                                ) : (
-                                                    <span
-                                                        style={{
-                                                            background:
-                                                                "rgba(100, 116, 139, 0.1)",
-                                                            color: "#64748b",
-                                                            padding: "3px 8px",
-                                                            borderRadius: "6px",
-                                                            fontSize: "0.75rem",
-                                                        }}
-                                                    >
-                                                        Ngoài ca trực
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Row 3: Tình trạng bãi thời gian thực */}
-                                        <div
-                                            style={{
-                                                marginTop: "12px",
-                                                display: "grid",
-                                                gridTemplateColumns: "1fr 1fr",
-                                                gap: "8px",
-                                                fontSize: "0.8rem",
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    background: "#ffffff",
-                                                    padding: "8px 10px",
-                                                    borderRadius: "6px",
-                                                    border: "1px solid #e2e8f0",
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        color: "#64748b",
-                                                        display: "block",
-                                                    }}
-                                                >
-                                                    Chỗ trống Ô tô
-                                                </span>
-                                                <strong
-                                                    style={{
-                                                        color: "#16a34a",
-                                                        fontSize: "0.95rem",
-                                                    }}
-                                                >
-                                                    {lot.carAvailable} chỗ
-                                                </strong>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    background: "#ffffff",
-                                                    padding: "8px 10px",
-                                                    borderRadius: "6px",
-                                                    border: "1px solid #e2e8f0",
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        color: "#64748b",
-                                                        display: "block",
-                                                    }}
-                                                >
-                                                    Chỗ trống Xe máy
-                                                </span>
-                                                <strong
-                                                    style={{
-                                                        color: "#16a34a",
-                                                        fontSize: "0.95rem",
-                                                    }}
-                                                >
-                                                    {lot.motorbikeAvailable} chỗ
-                                                </strong>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    background: "#ffffff",
-                                                    padding: "8px 10px",
-                                                    borderRadius: "6px",
-                                                    border: "1px solid #e2e8f0",
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        color: "#64748b",
-                                                        display: "block",
-                                                    }}
-                                                >
-                                                    Phiên xe trong bãi
-                                                </span>
-                                                <strong
-                                                    style={{
-                                                        color: "#0284c7",
-                                                        fontSize: "0.95rem",
-                                                    }}
-                                                >
-                                                    {lot.activeSessionsCount} xe
-                                                </strong>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    background: "#ffffff",
-                                                    padding: "8px 10px",
-                                                    borderRadius: "6px",
-                                                    border: "1px solid #e2e8f0",
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        color: "#64748b",
-                                                        display: "block",
-                                                    }}
-                                                >
-                                                    Rào chắn Barrier
-                                                </span>
-                                                <strong
-                                                    style={{
-                                                        color: "#16a34a",
-                                                        fontSize: "0.85rem",
-                                                    }}
-                                                >
-                                                    ● Hoạt động
-                                                </strong>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Button: Chuyển bãi trực nếu được phân nhiều bãi */}
-                                    <div style={{ marginTop: "6px" }}>
-                                        {isCurrentActive ? (
-                                            <button
-                                                type="button"
-                                                className="staff-btn staff-btn-secondary"
-                                                style={{
-                                                    width: "100%",
-                                                    justifyContent: "center",
-                                                    opacity: 0.85,
-                                                    background: "#ecfdf5",
-                                                    borderColor: "#86efac",
-                                                    color: "#15803d",
-                                                    fontWeight: 600,
-                                                }}
-                                                disabled
-                                            >
-                                                ✓ Đang trực bãi này
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                className="staff-btn staff-btn-primary"
-                                                style={{
-                                                    width: "100%",
-                                                    justifyContent: "center",
-                                                    fontWeight: 600,
-                                                }}
-                                                onClick={() =>
-                                                    fetchAssignedLot(lot.lotId)
-                                                }
-                                            >
-                                                🔄 Chuyển sang trực bãi này
-                                            </button>
-                                        )}
-                                    </div>
+                            {/* Khối Ca trực */}
+                            <div
+                                style={{
+                                    padding: "14px 16px",
+                                    background: "#ffffff",
+                                    borderRadius: "10px",
+                                    border: "1px solid #e2e8f0",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <div>
+                                    <span
+                                        style={{
+                                            fontSize: "0.75rem",
+                                            color: "#64748b",
+                                            display: "block",
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        CA TRỰC CỦA BẠN:
+                                    </span>
+                                    <strong
+                                        style={{
+                                            fontSize: "1.05rem",
+                                            color: "#0f172a",
+                                        }}
+                                    >
+                                        {activeLotDetail.shiftName}
+                                    </strong>
+                                    <span
+                                        style={{
+                                            display: "block",
+                                            color: "#64748b",
+                                            fontSize: "0.8rem",
+                                            marginTop: "2px",
+                                        }}
+                                    >
+                                        Khung giờ làm việc: {activeLotDetail.hours}
+                                    </span>
                                 </div>
-                            );
-                        })}
+
+                                <div>
+                                    {activeLotDetail.isCurrentShift ? (
+                                        <span
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "6px",
+                                                background: "rgba(22, 163, 74, 0.12)",
+                                                color: "#16a34a",
+                                                border: "1px solid rgba(22, 163, 74, 0.3)",
+                                                padding: "6px 12px",
+                                                borderRadius: "8px",
+                                                fontSize: "0.8rem",
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            <span className="staff-pulse-dot green" />
+                                            Đang trong ca trực
+                                        </span>
+                                    ) : (
+                                        <span
+                                            style={{
+                                                background: "rgba(100, 116, 139, 0.1)",
+                                                color: "#64748b",
+                                                padding: "6px 12px",
+                                                borderRadius: "8px",
+                                                fontSize: "0.8rem",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            Ngoài ca trực
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Cột 2: Tình trạng vận hành bãi */}
+                        <div
+                            style={{
+                                padding: "18px",
+                                background: "var(--pw-admin-soft, #f8f9fa)",
+                                borderRadius: "12px",
+                                border: "1px solid var(--pw-admin-line, #e8eaef)",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                                gap: "12px",
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em",
+                                    color: "var(--pw-admin-muted, #64748b)",
+                                }}
+                            >
+                                TÌNH TRẠNG VẬN HÀNH THỜI GIAN THỰC
+                            </span>
+
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr 1fr",
+                                    gap: "10px",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        background: "#ffffff",
+                                        padding: "12px",
+                                        borderRadius: "8px",
+                                        border: "1px solid #e2e8f0",
+                                    }}
+                                >
+                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                        Chỗ trống Ô tô
+                                    </span>
+                                    <strong style={{ color: "#16a34a", fontSize: "1.15rem" }}>
+                                        {activeLotDetail.carAvailable} chỗ
+                                    </strong>
+                                </div>
+
+                                <div
+                                    style={{
+                                        background: "#ffffff",
+                                        padding: "12px",
+                                        borderRadius: "8px",
+                                        border: "1px solid #e2e8f0",
+                                    }}
+                                >
+                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                        Chỗ trống Xe máy
+                                    </span>
+                                    <strong style={{ color: "#16a34a", fontSize: "1.15rem" }}>
+                                        {activeLotDetail.motorbikeAvailable} chỗ
+                                    </strong>
+                                </div>
+
+                                <div
+                                    style={{
+                                        background: "#ffffff",
+                                        padding: "12px",
+                                        borderRadius: "8px",
+                                        border: "1px solid #e2e8f0",
+                                    }}
+                                >
+                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                        Xe đang đỗ trong bãi
+                                    </span>
+                                    <strong style={{ color: "#0284c7", fontSize: "1.15rem" }}>
+                                        {activeLotDetail.activeSessionsCount} xe
+                                    </strong>
+                                </div>
+
+                                <div
+                                    style={{
+                                        background: "#ffffff",
+                                        padding: "12px",
+                                        borderRadius: "8px",
+                                        border: "1px solid #e2e8f0",
+                                    }}
+                                >
+                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                        Rào chắn Barrier
+                                    </span>
+                                    <strong style={{ color: "#16a34a", fontSize: "1rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                                        <span className="staff-pulse-dot green" />
+                                        Hoạt động tốt
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <p style={{ margin: "4px 0 0", fontSize: "0.8rem", color: "var(--pw-admin-muted, #64748b)" }}>
+                                Cổng IN 01 & Cổng OUT 02 đang kết nối đồng bộ và sẵn sàng xử lý phương tiện ra vào.
+                            </p>
+                        </div>
                     </div>
                 )}
             </section>
