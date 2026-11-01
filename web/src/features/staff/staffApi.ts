@@ -237,10 +237,16 @@ export function describeStaffError(error: unknown): string {
     }
 
     const code = error.problem?.errorCode;
+    if (code === "parking.session.qr_invalid") {
+        return "Mã vé QR không hợp lệ, không tồn tại hoặc đã hết hạn.";
+    }
+    if (code === "parking.session.not_found") {
+        return "Không tìm thấy phiên gửi xe nào cho phương tiện này trong bãi.";
+    }
     if (code === "parking.session.already_open" || error.status === 409) {
         return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
     }
-    if (code === "parking.lot.not_found" || error.status === 404) {
+    if (code === "parking.lot.not_found") {
         return "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt (not found or is not approved).";
     }
     if (code === "parking.lot.access_denied" || error.status === 403) {
@@ -248,6 +254,9 @@ export function describeStaffError(error: unknown): string {
     }
     if (code === "parking.walk_in.full" || code === "parking.motorbike_zone.full") {
         return "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.";
+    }
+    if (error.status === 404) {
+        return "Không tìm thấy thông tin bãi xe hoặc dữ liệu yêu cầu (not found or is not approved).";
     }
     if (error.status === 400) {
         return (

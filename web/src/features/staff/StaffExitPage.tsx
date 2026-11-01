@@ -48,7 +48,7 @@ export function StaffExitPage() {
     const [exitAllowed, setExitAllowed] = useState(false);
 
     // Verification check flags
-    const qrValid = Boolean(scannedSession);
+    const qrValid = Boolean(scannedSession) && (Boolean(scannedSession?.qrToken) || exitAllowed);
     const plateMatch =
         Boolean(scannedSession) &&
         Boolean(detectedExitPlate) &&
@@ -62,14 +62,14 @@ export function StaffExitPage() {
         : (scannedSession?.amountDueVnd ?? 0);
 
     const canAllowExit =
-        qrValid &&
         plateMatch &&
         sessionActive &&
         paymentCompleted &&
-        amountDue === 0;
+        amountDue === 0 &&
+        (qrValid || exitAllowed);
 
     async function handleVerifyQr(tokenOverride?: string) {
-        const token = (typeof tokenOverride === "string" ? tokenOverride : qrInput).trim();
+        const token = (typeof tokenOverride === "string" ? tokenOverride : qrInput || "").trim();
         if (!token) {
             setErrorMsg("Vui lòng nhập hoặc quét mã QR.");
             return;
@@ -136,7 +136,7 @@ export function StaffExitPage() {
                 lotId,
                 plate,
             );
-            setQrInput(res.qrToken);
+            setQrInput(res.qrToken || "");
             const fee = res.vehicleType === "Car" ? 30000 : 6000;
             const isPaid = res.status === "Paid";
             const scanned: StaffSession = {
@@ -147,7 +147,7 @@ export function StaffExitPage() {
                 customerType: "Guest",
                 entryTime: res.entryTime,
                 status: res.status,
-                qrToken: res.qrToken,
+                qrToken: res.qrToken || "",
                 slotCode: res.vehicleType === "Car" ? "CAR-A" : "MOTO-B",
                 paymentStatus: isPaid ? "Paid" : "Pending",
                 totalFeeVnd: fee,
@@ -173,10 +173,10 @@ export function StaffExitPage() {
                 scannedSession.id,
                 "Khách làm mất vé QR tại cổng ra",
             );
-            setQrInput(res.qrToken);
+            setQrInput(res.qrToken || "");
             setScannedSession({
                 ...scannedSession,
-                qrToken: res.qrToken,
+                qrToken: res.qrToken || "",
             });
         } catch (err) {
             setErrorMsg(describeStaffError(err));
@@ -336,14 +336,14 @@ export function StaffExitPage() {
                                     id="staff-qr-input"
                                     type="text"
                                     className="staff-input"
-                                    value={qrInput}
+                                    value={qrInput || ""}
                                     onChange={(e) => setQrInput(e.target.value)}
                                     placeholder="Hướng camera vào mã QR hoặc dán mã QR-..."
                                 />
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-primary"
-                                    disabled={loading || !qrInput.trim()}
+                                    disabled={loading || !qrInput?.trim()}
                                     onClick={() => handleVerifyQr()}
                                 >
                                     {loading
@@ -456,11 +456,15 @@ export function StaffExitPage() {
                                                     {t("exitCheckQrScanned")}
                                                 </span>
                                                 <code className="staff-code-pill">
-                                                    {scannedSession?.qrToken}
+                                                    {scannedSession?.qrToken || "Đã xác minh thủ công"}
                                                 </code>
                                             </>
                                         ) : (
-                                            <span>Chưa quét hoặc chưa tìm thấy mã QR</span>
+                                            <span>
+                                                {scannedSession
+                                                    ? "Khách mất vé QR — Vui lòng cấp lại vé hoặc xác minh thủ công"
+                                                    : "Chưa quét hoặc chưa tìm thấy mã QR"}
+                                            </span>
                                         )}
                                     </div>
                                 </div>

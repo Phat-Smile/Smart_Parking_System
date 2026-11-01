@@ -131,7 +131,7 @@ export interface OpenSessionByPlateResponse {
     vehicleType: VehicleType;
     entryTime: string;
     status: SessionStatus;
-    qrToken: string;
+    qrToken?: string;
 }
 
 export interface LotParkingSessionItem {
