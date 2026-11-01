@@ -33,6 +33,27 @@ export function AdminLotAssignmentsPage() {
     const refreshAllAssigned = useCallback(async (lotList: AdminParkingLot[]) => {
         if (!lotList || lotList.length === 0) return;
         const mapping = new Map<string, { lotId: string; lotName: string }>();
+        const lotNames = new Map<string, string>(lotList.map((l) => [l.id.toLowerCase(), l.name]));
+
+        try {
+            const shiftRes = await fetch("/api/staff-shifts");
+            if (shiftRes.ok) {
+                const shiftList = await shiftRes.json();
+                if (Array.isArray(shiftList)) {
+                    shiftList.forEach((s: { accountId?: string; lotId?: string }) => {
+                        if (s.accountId && s.lotId) {
+                            mapping.set(s.accountId.toLowerCase(), {
+                                lotId: s.lotId,
+                                lotName: lotNames.get(s.lotId.toLowerCase()) || "Bãi đỗ khác",
+                            });
+                        }
+                    });
+                }
+            }
+        } catch {
+            // ignore
+        }
+
         await Promise.allSettled(
             lotList.map(async (lot) => {
                 try {

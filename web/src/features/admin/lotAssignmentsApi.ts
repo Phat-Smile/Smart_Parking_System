@@ -139,7 +139,7 @@ export async function assignLotMember(
     const shiftInfo = SHIFT_DETAILS[shift] || SHIFT_DETAILS.morning;
     try {
 
-        fetch("/api/staff-shifts", {
+        await fetch("/api/staff-shifts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -215,7 +215,7 @@ export async function removeLotMember(
     accountId: string,
 ): Promise<void> {
     try {
-        fetch(
+        await fetch(
             `/api/staff-shifts?lotId=${encodeURIComponent(lotId)}&accountId=${encodeURIComponent(accountId)}`,
             { method: "DELETE" },
         ).catch(() => undefined);
@@ -410,3 +410,4 @@ export function describeAssignmentError(
             : "Could not perform assignment. Please try again.")
     );
 }
+
