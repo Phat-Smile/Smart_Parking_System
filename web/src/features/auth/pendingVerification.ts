@@ -15,7 +15,10 @@ export function rememberPendingVerification(
     try {
         const previousEmail = window.sessionStorage.getItem(KEY);
         window.sessionStorage.setItem(KEY, email);
-        if (previousEmail !== email) {
+        if (
+            previousEmail &&
+            previousEmail.toLowerCase() !== email.toLowerCase()
+        ) {
             window.sessionStorage.removeItem(COOLDOWN_KEY);
             window.sessionStorage.removeItem(EXPIRY_KEY);
             window.sessionStorage.removeItem(ROLE_KEY);
