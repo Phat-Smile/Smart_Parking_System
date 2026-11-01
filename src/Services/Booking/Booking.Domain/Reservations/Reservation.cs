@@ -242,4 +242,20 @@ public sealed class Reservation
     /// </summary>
     public bool OverlapsWith(DateTimeOffset start, DateTimeOffset end) =>
         ReservationTimeWindow.IsOverlapping(WindowStartAt, WindowEndAt, start, end);
+
+    /// <summary>
+    /// Evaluates whether this reservation matches the given license plate under canonical normalization rules (BR-2, US-RES-010).
+    /// </summary>
+    public bool HasSamePlate(string? otherPlate) =>
+        LicensePlateNormalizer.AreEquivalent(PlateNumber, otherPlate);
+
+    /// <summary>
+    /// Checks whether this reservation conflicts with another reservation for the same vehicle
+    /// during the specified reservation window [start, end) at the reference time (BR-2, US-RES-010).
+    /// Conflict occurs when this reservation is active, has an equivalent license plate, and their reservation windows overlap.
+    /// </summary>
+    public bool ConflictsWithPlate(string? plate, DateTimeOffset windowStart, DateTimeOffset windowEnd, DateTimeOffset now) =>
+        IsActive(now) &&
+        HasSamePlate(plate) &&
+        OverlapsWith(windowStart, windowEnd);
 }

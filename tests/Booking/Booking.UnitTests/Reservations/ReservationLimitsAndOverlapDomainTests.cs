@@ -205,6 +205,22 @@ public sealed class ReservationLimitsAndOverlapDomainTests
     }
 
     [Fact]
+    public void PO_03b_Existing_Window_Contained_Inside_New_Overlaps()
+    {
+        // Case 4: Existing window fully contained by incoming window
+        // Existing: [10:00, 11:00)
+        // New:      [09:00, 12:00)
+        var existingStart = BaseTime.AddHours(10);
+        var existingEnd = BaseTime.AddHours(11);
+        var newStart = BaseTime.AddHours(9);
+        var newEnd = BaseTime.AddHours(12);
+
+        var existing = CreateSampleReservation(windowStartAt: existingStart, windowEndAt: existingEnd);
+
+        Assert.True(existing.OverlapsWith(newStart, newEnd));
+    }
+
+    [Fact]
     public void PO_04_New_Window_Starting_Inside_Existing_Overlaps()
     {
         // Existing: [09:00, 11:00)
@@ -258,5 +274,183 @@ public sealed class ReservationLimitsAndOverlapDomainTests
 
         Assert.Throws<ArgumentException>(() =>
             ReservationTimeWindow.IsOverlapping(start, invalidEnd, BaseTime, BaseTime.AddHours(1)));
+    }
+
+    [Fact]
+    public void PO_08_Different_Plates_Do_Not_Conflict_Even_If_Windows_Overlap()
+    {
+        // Case 8: Different plates with identical windows
+        var res1 = CreateSampleReservation(plateNumber: "51F-111.11");
+        var res2 = CreateSampleReservation(plateNumber: "51F-222.22");
+
+        Assert.NotEqual(res1.PlateNumber, res2.PlateNumber);
+        // Overlap rule applies only to same plate
+    }
+
+    [Theory]
+    [InlineData(ReservationStatus.Cancelled)]
+    [InlineData(ReservationStatus.Expired)]
+    public void PO_09_PO_10_Ineligible_Reservations_Are_Not_Active_For_Conflict(ReservationStatus status)
+    {
+        // Cases 9 & 10: Cancelled or Expired reservations are inactive
+        var now = BaseTime;
+        var res = CreateSampleReservation(status: status);
+
+        Assert.False(res.IsActive(now));
+    }
+
+    [Fact]
+    public void PO_11_HoldWindow_Does_Not_Determine_Conflict_ReservationWindow_Governs()
+    {
+        // Case 11:
+        // Existing scheduled reservation at 10:00, duration 120m (ReservationWindow: [09:30, 12:00), HoldWindow: [09:30, 10:15))
+        // Incoming reservation window: [10:30, 11:30)
+        // Notice: Existing HoldWindow [09:30, 10:15) does NOT overlap with [10:30, 11:30).
+        // BUT ReservationWindow [09:30, 12:00) DOES overlap with [10:30, 11:30).
+        // Under the confirmed business decision (ReservationWindow governs, HoldWindow excluded),
+        // this MUST be detected as an overlap!
+        var existingStart = BaseTime.AddMinutes(-30); // 09:30
+        var existingEnd = BaseTime.AddMinutes(120);   // 12:00
+        var existing = CreateSampleReservation(windowStartAt: existingStart, windowEndAt: existingEnd);
+
+        var incomingStart = BaseTime.AddMinutes(30);  // 10:30
+        var incomingEnd = BaseTime.AddMinutes(90);    // 11:30
+
+        Assert.True(existing.OverlapsWith(incomingStart, incomingEnd));
+
+        // And if incoming reservation window is after 12:00 (e.g. [12:00, 13:00)), it does NOT overlap
+        Assert.False(existing.OverlapsWith(existingEnd, existingEnd.AddHours(1)));
+    }
+
+    // =========================================================================
+    // License Plate Normalization & Equivalence (PN-01 to PN-08)
+    // Faithfully matching Identity's normalization rules
+    // =========================================================================
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    [InlineData("\t\r\n", "")]
+    public void PN_01_Null_Or_Whitespace_Normalizes_To_Empty(string? raw, string expected)
+    {
+        Assert.Equal(expected, LicensePlateNormalizer.Normalize(raw));
+    }
+
+    [Theory]
+    [InlineData("51a-123.45", "51A12345")]
+    [InlineData("51-A 123.45", "51A12345")]
+    [InlineData("51A.123.45", "51A12345")]
+    [InlineData("51A-123-45", "51A12345")]
+    [InlineData("\t51A\u00A0123.45\n", "51A12345")]
+    [InlineData(" 30f - 999.99 ", "30F99999")]
+    public void PN_02_Punctuation_And_Whitespace_Stripped_And_Uppercase(string raw, string expected)
+    {
+        Assert.Equal(expected, LicensePlateNormalizer.Normalize(raw));
+    }
+
+    [Theory]
+    [InlineData("51A-123.45", "51A12345", true)]
+    [InlineData(" 51a-123.45 ", "51A 123.45", true)]
+    [InlineData("51A.123.45", "51a-12345", true)]
+    [InlineData("51A12345", "51B12345", false)]
+    [InlineData("51A-123.45", "51A-123.46", false)]
+    [InlineData("51A-123.45", null, false)]
+    [InlineData(null, null, true)]
+    public void PN_03_AreEquivalent_Evaluates_Correctly(string? plateA, string? plateB, bool expectedEquivalent)
+    {
+        Assert.Equal(expectedEquivalent, LicensePlateNormalizer.AreEquivalent(plateA, plateB));
+    }
+
+    [Fact]
+    public void PN_04_Reservation_HasSamePlate_Uses_Canonical_Equivalence()
+    {
+        var reservation = CreateSampleReservation(plateNumber: "51A-123.45");
+
+        Assert.True(reservation.HasSamePlate("51A12345"));
+        Assert.True(reservation.HasSamePlate("  51a-123.45  "));
+        Assert.True(reservation.HasSamePlate("51A.123.45"));
+        Assert.False(reservation.HasSamePlate("51B12345"));
+    }
+
+    [Fact]
+    public void PN_05_ConflictsWithPlate_Detects_Overlap_With_Different_Punctuation_Representations()
+    {
+        var existingStart = BaseTime;
+        var existingEnd = BaseTime.AddHours(2);
+        var now = BaseTime;
+
+        // Existing reservation has formatted plate "51A-123.45"
+        var existing = CreateSampleReservation(
+            plateNumber: "51A-123.45",
+            windowStartAt: existingStart,
+            windowEndAt: existingEnd,
+            status: ReservationStatus.Confirmed);
+
+        // Incoming attempt has unformatted plate "51A12345" with overlapping window [BaseTime + 30m, BaseTime + 90m)
+        var incomingStart = BaseTime.AddMinutes(30);
+        var incomingEnd = BaseTime.AddMinutes(90);
+
+        Assert.True(existing.ConflictsWithPlate("51A12345", incomingStart, incomingEnd, now));
+    }
+
+    [Fact]
+    public void PN_06_ConflictsWithPlate_Does_Not_Conflict_When_Windows_Do_Not_Overlap()
+    {
+        var existingStart = BaseTime;
+        var existingEnd = BaseTime.AddHours(2);
+        var now = BaseTime;
+
+        var existing = CreateSampleReservation(
+            plateNumber: "51A-123.45",
+            windowStartAt: existingStart,
+            windowEndAt: existingEnd,
+            status: ReservationStatus.Confirmed);
+
+        // Incoming attempt has identical normalized plate but non-overlapping adjacent window [BaseTime + 2h, BaseTime + 4h)
+        var incomingStart = BaseTime.AddHours(2);
+        var incomingEnd = BaseTime.AddHours(4);
+
+        Assert.False(existing.ConflictsWithPlate("51A12345", incomingStart, incomingEnd, now));
+    }
+
+    [Fact]
+    public void PN_07_ConflictsWithPlate_Does_Not_Conflict_When_Plates_Are_Different()
+    {
+        var existingStart = BaseTime;
+        var existingEnd = BaseTime.AddHours(2);
+        var now = BaseTime;
+
+        var existing = CreateSampleReservation(
+            plateNumber: "51A-123.45",
+            windowStartAt: existingStart,
+            windowEndAt: existingEnd,
+            status: ReservationStatus.Confirmed);
+
+        var incomingStart = BaseTime.AddMinutes(30);
+        var incomingEnd = BaseTime.AddMinutes(90);
+
+        Assert.False(existing.ConflictsWithPlate("51B-123.45", incomingStart, incomingEnd, now));
+    }
+
+    [Theory]
+    [InlineData(ReservationStatus.Cancelled)]
+    [InlineData(ReservationStatus.Expired)]
+    public void PN_08_ConflictsWithPlate_Does_Not_Conflict_When_Existing_Is_Inactive(ReservationStatus inactiveStatus)
+    {
+        var existingStart = BaseTime;
+        var existingEnd = BaseTime.AddHours(2);
+        var now = BaseTime;
+
+        var existing = CreateSampleReservation(
+            plateNumber: "51A-123.45",
+            windowStartAt: existingStart,
+            windowEndAt: existingEnd,
+            status: inactiveStatus);
+
+        var incomingStart = BaseTime.AddMinutes(30);
+        var incomingEnd = BaseTime.AddMinutes(90);
+
+        Assert.False(existing.ConflictsWithPlate("51A12345", incomingStart, incomingEnd, now));
     }
 }

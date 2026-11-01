@@ -458,6 +458,155 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
         }
     }
 
+    [Fact]
+    public async Task PO_04_Existing_Window_Contained_Inside_New_Window_Is_Rejected()
+    {
+        // Case 4: Incoming reservation window completely contains existing reservation window
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            var plate = "51F-CONTAIN";
+            // Res 1 (contained): Appointment at 12:00, duration 30m -> [11:30, 12:30)
+            var res1 = await mediator.Send(CreateCommand(
+                plateNumber: plate,
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 30));
+            Assert.True(res1.IsSuccess);
+
+            // Res 2 (containing): Appointment at 11:30, duration 120m -> [11:00, 13:30)
+            var res2 = await mediator.Send(CreateCommand(
+                plateNumber: plate,
+                appointmentTime: BaseTime.AddHours(1).AddMinutes(30),
+                durationMinutes: 120));
+
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PO_08_Different_Plates_With_Overlapping_Windows_Are_Allowed()
+    {
+        // Case 8: Different plates targeting the exact same time window are not rejected by plate overlap
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            var appointment = BaseTime.AddHours(3);
+
+            var res1 = await mediator.Send(CreateCommand(
+                plateNumber: "51F-PLATE.01",
+                appointmentTime: appointment,
+                durationMinutes: 60));
+            Assert.True(res1.IsSuccess);
+
+            var res2 = await mediator.Send(CreateCommand(
+                plateNumber: "51F-PLATE.02",
+                appointmentTime: appointment,
+                durationMinutes: 60));
+            Assert.True(res2.IsSuccess);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PO_09_PO_10_Cancelled_Or_Expired_Reservations_Do_Not_Block_New_Reservation_For_Same_Plate()
+    {
+        // Cases 9 & 10: Ineligible existing reservations (Cancelled, Expired) do not trigger plate overlap
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, clock, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+
+            var plate = "51F-CANCELLED.PLATE";
+            var appointment = BaseTime.AddHours(2);
+
+            // Create initial reservation
+            var cmd1 = CreateCommand(plateNumber: plate, appointmentTime: appointment, durationMinutes: 60);
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // Cancel res1
+            var entity1 = await dbContext.Reservations.FirstAsync(r => r.Id == cmd1.ReservationId);
+            entity1.Cancel(clock.UtcNow.AddMinutes(1), CancelReason.CustomerCancelled);
+            await dbContext.SaveChangesAsync();
+
+            // Now create a new reservation for the same plate in the exact same time window: MUST SUCCEED
+            var cmd2 = CreateCommand(plateNumber: plate, appointmentTime: appointment, durationMinutes: 60);
+            var res2 = await mediator.Send(cmd2);
+            Assert.True(res2.IsSuccess);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PO_11_HoldWindow_Does_Not_Govern_Plate_Overlap_Conflict()
+    {
+        // Case 11: Verifies that ReservationWindow governs plate conflict, not HoldWindow
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            var plate = "51F-HOLD.CHECK";
+            // Res 1: Appointment at 12:00, duration 120m.
+            // ReservationWindow: [11:30, 14:00). HoldWindow: [11:30, 12:15).
+            var res1 = await mediator.Send(CreateCommand(
+                plateNumber: plate,
+                appointmentTime: BaseTime.AddHours(2), // 12:00
+                durationMinutes: 120));
+            Assert.True(res1.IsSuccess);
+
+            // Res 2: Appointment at 13:30, duration 60m.
+            // ReservationWindow: [13:00, 14:30). HoldWindow: [13:00, 13:45).
+            // Notice: Res 1's HoldWindow ended at 12:15, and Res 2's HoldWindow starts at 13:00.
+            // THEIR HOLDWINDOWS DO NOT OVERLAP!
+            // BUT their ReservationWindows DO OVERLAP: [11:30, 14:00) vs [13:00, 14:30).
+            // Under confirmed business rules, this MUST be rejected as an overlap!
+            var res2 = await mediator.Send(CreateCommand(
+                plateNumber: plate,
+                appointmentTime: BaseTime.AddHours(3).AddMinutes(30), // 13:30
+                durationMinutes: 60));
+
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
     // =========================================================================
     // Concurrency Stress Tests (Scenario A, B, C, D)
     // =========================================================================
@@ -662,6 +811,589 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
             var results = await Task.WhenAll(taskList);
 
             Assert.All(results, r => Assert.True(r.IsSuccess));
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    // =========================================================================
+    // Canonical License Plate Normalization Integration Tests (PR #152)
+    // Testing cross-format plate representation overlap, persistence & concurrency
+    // =========================================================================
+
+    [Fact]
+    public async Task PlateNorm_01_Existing_Formatted_Plate_Blocks_Incoming_Unformatted_Plate_When_Overlapping()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with formatted plate "51A-123.45"
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51A-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with unformatted plate "51A12345" overlapping window
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51A12345",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+
+            // Verify DB state: exactly 1 reservation for this canonical plate
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservations = await dbContext.Reservations.AsNoTracking().ToListAsync();
+                var matching = reservations.Where(r => LicensePlateNormalizer.AreEquivalent(r.PlateNumber, "51A12345")).ToList();
+                Assert.Single(matching);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_01B_Existing_Plate_With_Internal_Tab_Or_NBSP_Blocks_Incoming_When_Overlapping()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with internal tab in plate "51G\t123.45"
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51G\t123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with canonical plate "51G12345" overlapping window
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51G12345",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+
+            // Verify DB state: exactly 1 reservation for this canonical plate
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservations = await dbContext.Reservations.AsNoTracking().ToListAsync();
+                var matching = reservations.Where(r => LicensePlateNormalizer.AreEquivalent(r.PlateNumber, "51G12345")).ToList();
+                Assert.Single(matching);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_01C_Existing_Plate_With_Actual_NBSP_Blocks_Incoming_When_Overlapping()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with real Non-Breaking Space (U+00A0, char 160)
+            const string rawNbspPlate = "51J\u00A0123.45";
+            Assert.Contains('\u00A0', rawNbspPlate);
+
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: rawNbspPlate,
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with canonical plate "51J12345" overlapping window
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51J12345",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+
+            // Verify DB state: exactly 1 reservation for this canonical plate
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservations = await dbContext.Reservations.AsNoTracking().ToListAsync();
+                var matching = reservations.Where(r => LicensePlateNormalizer.AreEquivalent(r.PlateNumber, "51J12345")).ToList();
+                Assert.Single(matching);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_01D_Existing_Plate_With_Space_And_Hyphen_Blocks_Incoming_When_Overlapping()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with space and hyphen format: "51-K 123.45"
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51-K 123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with unformatted canonical plate "51K12345"
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51K12345",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+
+            // Verify DB state
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservations = await dbContext.Reservations.AsNoTracking().ToListAsync();
+                var matching = reservations.Where(r => LicensePlateNormalizer.AreEquivalent(r.PlateNumber, "51K12345")).ToList();
+                Assert.Single(matching);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_01E_Preserves_Valid_Letters_And_Digits_Without_Corrupting_Comparison()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with letters and digits including 'S', 'U', 'A': "29S1-123.45"
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "29S1-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation missing letter 'S': "291-123.45"
+            // If the regex mistakenly stripped 'S', this would collide. It must NOT collide!
+            var cmdDifferent = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "291-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var resDifferent = await mediator.Send(cmdDifferent);
+            Assert.True(resDifferent.IsSuccess, "Plate '291-123.45' must not collide with '29S1-123.45'; 'S' must be preserved.");
+
+            // 3. Incoming reservation with the actual canonical plate "29S112345" -> MUST COLLIDE and be rejected!
+            var cmdSame = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "29S112345",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var resSame = await mediator.Send(cmdSame);
+            Assert.False(resSame.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, resSame.Error.Code);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_02_Existing_Unformatted_Plate_Blocks_Incoming_Formatted_Plate_When_Overlapping()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with unformatted plate "51B98765"
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51B98765",
+                appointmentTime: BaseTime.AddHours(3),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with formatted plate "51B-987.65" overlapping window
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51B-987.65",
+                appointmentTime: BaseTime.AddHours(3),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+
+            // Verify DB state: exactly 1 reservation for this canonical plate
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservations = await dbContext.Reservations.AsNoTracking().ToListAsync();
+                var matching = reservations.Where(r => LicensePlateNormalizer.AreEquivalent(r.PlateNumber, "51B98765")).ToList();
+                Assert.Single(matching);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_03_Casing_And_Whitespace_Delimiters_Are_Normalized_And_Blocked_When_Overlapping()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with lowercase and surrounding whitespace "  51c-456.78  "
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "  51c-456.78  ",
+                appointmentTime: BaseTime.AddHours(4),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with dot notation and uppercase "51C.456.78"
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51C.456.78",
+                appointmentTime: BaseTime.AddHours(4),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+
+            // Verify DB state: exactly 1 reservation for this canonical plate
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservations = await dbContext.Reservations.AsNoTracking().ToListAsync();
+                var matching = reservations.Where(r => LicensePlateNormalizer.AreEquivalent(r.PlateNumber, "51C45678")).ToList();
+                Assert.Single(matching);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_04_Equivalent_Plates_With_Non_Overlapping_Windows_Are_Allowed()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with "51D-111.22" for appointment at 2h (window: [1h30m, 3h))
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51D-111.22",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with "51D11122" for appointment at 6h (window: [5h30m, 7h) -> no overlap)
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51D11122",
+                appointmentTime: BaseTime.AddHours(6),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.True(res2.IsSuccess);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_05_Cancelled_Reservation_With_Equivalent_Plate_Does_Not_Block_New_Reservation()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            Guid cancelledReservationId;
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+                var cmd1 = CreateCommand(
+                    userId: Guid.NewGuid(),
+                    plateNumber: "51E-333.44",
+                    appointmentTime: BaseTime.AddHours(2),
+                    durationMinutes: 60);
+
+                var res1 = await mediator.Send(cmd1);
+                Assert.True(res1.IsSuccess);
+                cancelledReservationId = res1.Value.Id;
+            }
+
+            // Cancel the existing reservation
+            await using (var cancelScope = provider.CreateAsyncScope())
+            {
+                var dbContext = cancelScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservation = await dbContext.Reservations.FindAsync(cancelledReservationId);
+                Assert.NotNull(reservation);
+                reservation.Cancel(BaseTime.AddMinutes(5), CancelReason.CustomerCancelled);
+                await dbContext.SaveChangesAsync();
+            }
+
+            // Incoming reservation with equivalent unformatted plate "51E33344" overlapping window
+            await using (var newScope = provider.CreateAsyncScope())
+            {
+                var mediator = newScope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+                var cmd2 = CreateCommand(
+                    userId: Guid.NewGuid(),
+                    plateNumber: "51E33344",
+                    appointmentTime: BaseTime.AddHours(2),
+                    durationMinutes: 60);
+
+                var res2 = await mediator.Send(cmd2);
+                Assert.True(res2.IsSuccess);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task Concurrency_Scenario_E_Mixed_Punctuation_Plate_Collision()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            // 10 concurrent requests for the exact same vehicle with MIXED plate formats:
+            var plateVariants = new[]
+            {
+                "51F-888.88",
+                "51F88888",
+                "  51f-888.88  ",
+                "51F.888.88",
+                "51f 888 88",
+                "51F-88888",
+                "51f88888",
+                " 51F.88888 ",
+                "51F-888.88",
+                "51F88888"
+            };
+
+            const int totalRequests = 10;
+            var barrier = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var tasks = Enumerable.Range(0, totalRequests).Select(async i =>
+            {
+                await barrier.Task;
+                await using var scope = provider.CreateAsyncScope();
+                var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+                var cmd = CreateCommand(
+                    userId: Guid.NewGuid(),
+                    plateNumber: plateVariants[i],
+                    appointmentTime: BaseTime.AddHours(2),
+                    durationMinutes: 60);
+
+                return await mediator.Send(cmd);
+            });
+
+            var taskList = tasks.ToList();
+            barrier.SetResult();
+            var results = await Task.WhenAll(taskList);
+
+            var successes = results.Where(r => r.IsSuccess).ToList();
+            var failures = results.Where(r => !r.IsSuccess).ToList();
+
+            // Advisory lock on canonical normalized plate must guarantee EXACTLY ONE succeeds
+            Assert.Single(successes);
+            Assert.Equal(9, failures.Count);
+
+            foreach (var failure in failures)
+            {
+                Assert.True(
+                    failure.Error.Code == ReservationCapacityErrors.PlateReservationOverlap.Code ||
+                    failure.Error.Code == ReservationCapacityErrors.LockTimeout.Code,
+                    $"Unexpected failure code: {failure.Error.Code}");
+            }
+
+            // Verify database state: exactly one active reservation exists for this canonical vehicle
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var allHolds = await dbContext.Reservations.AsNoTracking().ToListAsync();
+                var matchingHolds = allHolds.Where(r => LicensePlateNormalizer.AreEquivalent(r.PlateNumber, "51F88888")).ToList();
+                Assert.Single(matchingHolds);
+            }
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    [Fact]
+    public async Task PlateNorm_06_Account_Limit_Coexists_With_Plate_Normalization()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment(maxActiveReservationsPerUser: 3);
+            await EnsureMigratedAsync(provider);
+
+            var userId = Guid.NewGuid();
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. User creates 1st reservation with "51P-123.45" at 2h
+            var cmd1 = CreateCommand(
+                userId: userId,
+                plateNumber: "51P-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. User creates 2nd reservation with "51Q-123.45" at 2h
+            var cmd2 = CreateCommand(
+                userId: userId,
+                plateNumber: "51Q-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+            var res2 = await mediator.Send(cmd2);
+            Assert.True(res2.IsSuccess);
+
+            // 3. User attempts 3rd reservation with unformatted "51P12345" overlapping 1st -> REJECTED by PlateReservationOverlap
+            var cmdOverlap = CreateCommand(
+                userId: userId,
+                plateNumber: "51P12345",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+            var resOverlap = await mediator.Send(cmdOverlap);
+            Assert.False(resOverlap.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, resOverlap.Error.Code);
+
+            // 4. User attempts valid 3rd reservation with "51R-123.45" at 2h -> SUCCEEDS (count becomes 3)
+            var cmd3 = CreateCommand(
+                userId: userId,
+                plateNumber: "51R-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+            var res3 = await mediator.Send(cmd3);
+            Assert.True(res3.IsSuccess);
+
+            // 5. User attempts 4th reservation with "51S-123.45" -> REJECTED by UserActiveReservationsLimitExceeded
+            var cmd4 = CreateCommand(
+                userId: userId,
+                plateNumber: "51S-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+            var res4 = await mediator.Send(cmd4);
+            Assert.False(res4.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.UserActiveReservationsLimitExceeded.Code, res4.Error.Code);
         }
         finally
         {

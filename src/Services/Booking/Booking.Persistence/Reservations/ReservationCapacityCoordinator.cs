@@ -64,10 +64,11 @@ public sealed class ReservationCapacityCoordinator(
                     [reservation.UserId.ToString()],
                     cancellationToken);
 
-                // 3.2: Acquire transaction-level advisory lock on Plate (namespace 2)
+                // 3.2: Acquire transaction-level advisory lock on Canonical Plate (namespace 2)
+                var normalizedPlate = LicensePlateNormalizer.Normalize(reservation.PlateNumber);
                 await dbContext.Database.ExecuteSqlRawAsync(
                     "SELECT pg_advisory_xact_lock(2, hashtext({0}::text));",
-                    [reservation.PlateNumber],
+                    [normalizedPlate],
                     cancellationToken);
 
                 // 3.3: Acquire exclusive row-level lock on (lot_id, vehicle_group)
@@ -110,12 +111,21 @@ public sealed class ReservationCapacityCoordinator(
                 }
 
                 // Step 6 (US-RES-010 BR-2): Enforce no overlapping active reservations for the same plate number
+                // Comparison uses canonical normalized plate rules (ignoring case, all whitespace including tabs/NBSP, dashes, dots)
+                // PostgreSQL regexp_replace with 'g' flag ensures global replacement matching Identity's normalization policy.
                 var hasPlateOverlap = await dbContext.Reservations
-                    .Where(r => r.PlateNumber == reservation.PlateNumber &&
-                                (r.Status == ReservationStatus.Confirmed ||
-                                 (r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt > now)) &&
-                                r.WindowStartAt < reservation.WindowEndAt &&
-                                r.WindowEndAt > reservation.WindowStartAt)
+                    .FromSql($"""
+                        SELECT *
+                        FROM booking.reservations
+                        WHERE (status = 'confirmed'::booking.reservation_status OR (status = 'temporary_hold'::booking.reservation_status AND temp_hold_expires_at > {now}))
+                          AND window_start_at < {reservation.WindowEndAt}
+                          AND window_end_at > {reservation.WindowStartAt}
+                          AND (
+                            plate_number = {normalizedPlate}
+                            OR plate_number = {reservation.PlateNumber}
+                            OR upper(regexp_replace(plate_number, '[[:space:]\s\-\.\u00A0]', '', 'g')) = {normalizedPlate}
+                          )
+                        """)
                     .AnyAsync(cancellationToken);
 
                 if (hasPlateOverlap)
