@@ -17,7 +17,7 @@ describe("lotAssignmentsApi integration", () => {
     });
 
     describe("assignLotMember", () => {
-        it("sends PUT to /api/parking/admin/lots/{lotId}/assignments/{accountId} with role Staff", async () => {
+        it("sends PUT to /api/parking/admin/lots/{lotId}/assignments/{accountId} with role Staff and persists shift", async () => {
             const lotId = "11111111-1111-1111-1111-111111111111";
             const accountId = "88888888-8888-8888-8888-888888888884";
             const mockRes = {
@@ -26,25 +26,44 @@ describe("lotAssignmentsApi integration", () => {
                 role: "Staff",
             };
 
-            const fetchMock = vi.fn().mockResolvedValue(
-                new Response(JSON.stringify(mockRes), {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                }),
-            );
+            const fetchMock = vi.fn().mockImplementation((url: string | URL) => {
+                const urlStr = String(url);
+                if (urlStr.includes("/api/staff-shifts")) {
+                    return Promise.resolve(
+                        new Response(JSON.stringify({ success: true }), {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        }),
+                    );
+                }
+                return Promise.resolve(
+                    new Response(JSON.stringify(mockRes), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    }),
+                );
+            });
             vi.stubGlobal("fetch", fetchMock);
 
-            const result = await assignLotMember(lotId, accountId, "Staff");
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            const result = await assignLotMember(lotId, accountId, "Staff", "morning");
+            expect(fetchMock).toHaveBeenCalled();
 
-            const [url, init] = fetchMock.mock.calls[0];
-            expect(String(url)).toBe(
-                `http://localhost:5000/api/parking/admin/lots/${lotId}/assignments/${accountId}`,
+            const putCall = fetchMock.mock.calls.find(([url]) =>
+                String(url).includes(`/api/parking/admin/lots/${lotId}/assignments/${accountId}`),
             );
-            expect(init?.method).toBe("PUT");
-            expect(JSON.parse(init?.body as string)).toEqual({ role: "Staff" });
+            expect(putCall).toBeDefined();
+            expect(putCall![1]?.method).toBe("PUT");
+            expect(JSON.parse(putCall![1]?.body as string)).toEqual({ role: "Staff" });
+
+            const shiftCall = fetchMock.mock.calls.find(([url]) =>
+                String(url).includes("/api/staff-shifts"),
+            );
+            expect(shiftCall).toBeDefined();
+            expect(shiftCall![1]?.method).toBe("POST");
+
             expect(result.lotId).toBe(lotId);
             expect(result.accountId).toBe(accountId);
+            expect(result.shift).toBe("morning");
         });
     });
 
@@ -61,13 +80,13 @@ describe("lotAssignmentsApi integration", () => {
             vi.stubGlobal("fetch", fetchMock);
 
             await removeLotMember(lotId, accountId);
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(fetchMock).toHaveBeenCalled();
 
-            const [url, init] = fetchMock.mock.calls[0];
-            expect(String(url)).toBe(
-                `http://localhost:5000/api/parking/admin/lots/${lotId}/assignments/${accountId}`,
+            const deleteCall = fetchMock.mock.calls.find(([url]) =>
+                String(url).includes(`/api/parking/admin/lots/${lotId}/assignments/${accountId}`),
             );
-            expect(init?.method).toBe("DELETE");
+            expect(deleteCall).toBeDefined();
+            expect(deleteCall![1]?.method).toBe("DELETE");
         });
     });
 

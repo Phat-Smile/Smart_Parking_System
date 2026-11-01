@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import {
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { AdminIcon } from "./AdminUi";
 import { countByStatus, useAdminLots } from "./adminLotsData";
+import { getAdminParkingLots } from "./reviewParkingLot";
 import { AdminNotifications } from "./AdminNotifications";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 
@@ -18,17 +19,29 @@ export function AdminShell({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { t } = useLanguage();
-    const session = useSyncExternalStore(
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const externalSession = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
         () => null,
     );
+
+    const session = mounted ? (externalSession ?? getAuthSessionSnapshot()) : null;
     const pending = countByStatus(useAdminLots()).Pending;
     const role = session?.account.role;
 
     useEffect(() => {
+        if (!mounted) return;
         if (role && role !== "SystemAdmin") router.replace("/403");
-    }, [role, router]);
+        if (role === "SystemAdmin") {
+            getAdminParkingLots("All").catch(() => undefined);
+        }
+    }, [role, router, mounted]);
 
     const links = [
         { href: "/admin/dashboard", label: t("adminDashboard"), icon: "grid" },
@@ -59,7 +72,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     const isActive = (href: string) =>
         href === "/admin/parking-lots"
             ? pathname === href ||
-              /^\/admin\/parking-lots\/(?!pending|assignments)/.test(pathname)
+            /^\/admin\/parking-lots\/(?!pending|assignments)/.test(pathname)
             : pathname.startsWith(href);
 
     async function signOut() {
@@ -112,7 +125,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                             {session?.displayName || t("systemAdmin")}
                         </strong>
                         <small>
-                            {session?.account.email ?? t("notSignedIn")}
+                            {session?.account.email ?? (mounted ? t("notSignedIn") : "...")}
                         </small>
                     </div>
                     {session && (
@@ -128,7 +141,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </div>
             </aside>
             <main className="admin-main">
-                {/* Top Action Bar: Notifications & Language Switcher (lên trên Review queue) */}
+                {/* Top Action Bar: Notifications & Language Switcher */}
                 <div className="admin-topbar">
                     <div className="admin-topbar-right">
                         <AdminNotifications />
@@ -136,12 +149,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     </div>
                 </div>
 
-                {!session && (
+                {mounted && !session && (
                     <div className="admin-banner" role="status">
                         <AdminIcon name="alert" size={16} />
                         <span>
                             You&apos;re not signed in. Approve/Reject require a
                             SystemAdmin session (e.g.{" "}
+                            <code>admin@test.local</code> /{" "}
+                            <code>admin@demo.local</code> /{" "}
                             <code>admin@parking.test</code>).
                         </span>
                         <Link href="/login">Sign in</Link>

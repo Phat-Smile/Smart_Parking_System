@@ -142,13 +142,8 @@ export async function POST(request: Request) {
         };
 
         const store = readStore();
-        const updated = store.filter(
-            (r) =>
-                !(
-                    r.lotId.toLowerCase() === body.lotId!.toLowerCase() &&
-                    r.accountId.toLowerCase() === body.accountId!.toLowerCase()
-                ),
-        );
+        // 1 staff 1 lot policy
+        const updated = store.filter((r) => r.accountId.toLowerCase() !== body.accountId!.toLowerCase());
         updated.push(newRecord);
         writeStore(updated);
 
