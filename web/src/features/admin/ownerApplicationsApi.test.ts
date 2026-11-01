@@ -49,7 +49,7 @@ describe("ownerApplicationsApi integration", () => {
 
             const [url, init] = fetchMock.mock.calls[0];
             expect(String(url)).toBe(
-                "http://localhost:5000/api/identity/admin/owner-applications?status=Pending",
+                "http://localhost:5000/api/identity/admin/owner-applications?status=Pending&page=1&pageSize=20",
             );
             expect(init?.method).toBe("GET");
         });

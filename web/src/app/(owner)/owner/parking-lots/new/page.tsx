@@ -20,6 +20,8 @@ import {
 import { useOwnerMapStore } from "@/features/owner/lots/useOwnerMapStore";
 import { useLotInfoStore } from "@/features/owner/lots/lotInfo";
 import { ApiError } from "@/shared/errors/api-error";
+import { saveRegisteredLotMeta } from "@/features/admin/reviewParkingLot";
+import { getAuthSessionSnapshot } from "@/features/auth/authSession";
 
 interface WizardData {
     name: string;
@@ -123,24 +125,25 @@ export default function NewParkingLotPage() {
             const longitude = Number(lngStr) || 106.7009;
 
             let registeredId = (Date.now() % 100000) + 10;
+            let registeredLotRes: any = null;
 
             // Gọi API đăng ký bãi xe chuẩn BE (POST /api/parking/lots)
             try {
-                const res = await registerParkingLotApi({
+                registeredLotRes = await registerParkingLotApi({
                     name: data.name,
                     address: data.addr,
                     latitude,
                     longitude,
                     type: data.type,
                 });
-                if (res?.id) {
+                if (registeredLotRes?.id) {
                     // If BE returns a string UUID, we generate a stable local numeric ID for store mapping
                     registeredId =
                         Math.abs(
-                            res.id
+                            (registeredLotRes.id as string)
                                 .split("")
                                 .reduce(
-                                    (acc, char) =>
+                                    (acc: number, char: string) =>
                                         (acc << 5) - acc + char.charCodeAt(0),
                                     0,
                                 ) % 100000,
@@ -219,6 +222,72 @@ export default function NewParkingLotPage() {
                     carNextHour: data.pc,
                     reservationDeposit: data.dep,
                 },
+            });
+
+            // Đồng bộ dữ liệu bãi xe chi tiết sang Admin phê duyệt
+            const session = getAuthSessionSnapshot();
+            const totalCap = Number(data.cap) || 100;
+            const carPrice = Number(data.pc) || 30000;
+            const motoPrice = Number(data.pm) || 5000;
+            const depPrice = Number(data.dep) || 20000;
+            const holdMin = Number(data.hold) || 15;
+
+            const zones: any[] = [];
+            if (data.vc) {
+                zones.push({
+                    id: "ZONE-CAR",
+                    name: "Khu vực Ô tô",
+                    vehicleType: "Car",
+                    slots: data.vm ? Math.round(totalCap * 0.7) : totalCap,
+                    pricePerHourVnd: carPrice,
+                });
+            }
+            if (data.vm) {
+                zones.push({
+                    id: "ZONE-MOTO",
+                    name: "Khu vực Xe máy",
+                    vehicleType: "Motorbike",
+                    slots: data.vc ? Math.round(totalCap * 0.3) : totalCap,
+                    pricePerHourVnd: motoPrice,
+                });
+            }
+
+            const numFloors = data.type === "Outdoor" ? 1 : Math.max(1, Number(data.floors) || 1);
+            const numRows = Math.max(4, Number(data.rowsPerFloor) || 4);
+            const numCols = Math.max(8, Math.ceil(totalCap / (numFloors * numRows)));
+            const layout = Array.from({ length: numFloors }, (_, idx) => ({
+                name: `Tầng ${idx + 1}`,
+                rows: numRows,
+                cols: numCols,
+                blocked: [12, 13, 14, 15],
+            }));
+
+            saveRegisteredLotMeta({
+                id: registeredLotRes?.id,
+                name: data.name.trim(),
+                address: data.addr.trim(),
+                ownerName: session?.displayName || session?.account?.email?.split("@")[0] || "Chủ bãi",
+                ownerEmail: session?.account?.email || "owner@demo.local",
+                submittedAtUtc: new Date().toISOString(),
+                is24h: data.op === "00:00" && (data.cl2 === "23:59" || data.cl2 === "24:00"),
+                openTime: data.op,
+                closeTime: data.cl2,
+                vehicleTypes: [data.vc ? "Car" : null, data.vm ? "Motorbike" : null].filter(Boolean) as string[],
+                totalCapacity: totalCap,
+                pricing: {
+                    firstHourVnd: carPrice,
+                    extraHourVnd: carPrice,
+                    dailyCapVnd: carPrice * 8,
+                    overnightVnd: carPrice * 4,
+                },
+                holdDepositVnd: depPrice,
+                reservation: {
+                    holdMinutes: holdMin,
+                    freeCancelMinutes: Math.min(10, Math.floor(holdMin / 2)),
+                    noShowRule: "Tiền cọc giữ chỗ không hoàn lại khi quá thời hạn giữ chỗ.",
+                },
+                zones,
+                layout,
             });
 
             setDone(true);

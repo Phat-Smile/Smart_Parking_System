@@ -72,7 +72,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     const isActive = (href: string) =>
         href === "/admin/parking-lots"
             ? pathname === href ||
-              /^\/admin\/parking-lots\/(?!pending|assignments)/.test(pathname)
+            /^\/admin\/parking-lots\/(?!pending|assignments)/.test(pathname)
             : pathname.startsWith(href);
 
     async function signOut() {

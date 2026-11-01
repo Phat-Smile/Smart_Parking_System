@@ -47,6 +47,10 @@ interface LocalDemoOwnerDoc {
     verificationData?: Record<string, string>;
 }
 
+function isValidGuid(id: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 function readLocalDemoApp(): LocalDemoOwnerApp | null {
     if (typeof window === "undefined") return null;
     try {
@@ -223,18 +227,18 @@ export async function getOwnerApplications(params?: {
     page?: number;
     pageSize?: number;
 }): Promise<ListOwnerApplicationsResponse> {
+    const page = params?.page ?? 1;
+    const pageSize = params?.pageSize ?? 20;
+
     const query = new URLSearchParams();
     if (params?.status && params.status !== "All") {
         query.set("status", params.status);
     }
-    if (params?.page) {
-        query.set("page", String(params.page));
-    }
-    if (params?.pageSize) {
-        query.set("pageSize", String(params.pageSize));
-    }
+    query.set("page", String(page));
+    query.set("pageSize", String(pageSize));
 
     const qs = query.toString() ? `?${query.toString()}` : "";
+    const localApp = readLocalDemoApp();
 
     try {
         const response = await gatewayFetch<
@@ -243,24 +247,153 @@ export async function getOwnerApplications(params?: {
             method: "GET",
         });
 
-        if (Array.isArray(response)) {
-            return {
-                items: response,
-                totalCount: response.length,
-                page: params?.page ?? 1,
-                pageSize: params?.pageSize ?? 20,
-            };
+        const rawItems = Array.isArray(response)
+            ? response
+            : (response.items ?? []);
+
+        // Ghép dữ liệu từ Wizard nộp trên client nếu có
+        let items = rawItems;
+        if (localApp && localApp.status !== "None") {
+            const matchesStatus =
+                !params?.status ||
+                params.status === "All" ||
+                localApp.status === params.status;
+
+            if (matchesStatus) {
+                const targetEmail = (
+                    localApp.contactEmail ||
+                    localApp.email ||
+                    ""
+                ).toLowerCase();
+                let existingIdx = items.findIndex(
+                    (i) =>
+                        (targetEmail &&
+                            i.email.toLowerCase() === targetEmail) ||
+                        (localApp.accountId &&
+                            i.accountId === localApp.accountId),
+                );
+
+                const targetName = (localApp.fullName || "").trim().toLowerCase();
+
+                if (existingIdx < 0 && targetName) {
+                    existingIdx = items.findIndex(
+                        (i) => i.fullName && i.fullName.trim().toLowerCase() === targetName,
+                    );
+                }
+
+                if (existingIdx < 0 && items.length > 0) {
+                    // Tìm tài khoản Pending mới nhất chưa có businessName để gán dữ liệu Wizard
+                    const candidateIdx = items.findIndex((i) => !i.businessName || i.businessName === "—");
+                    if (candidateIdx >= 0) {
+                        existingIdx = candidateIdx;
+                    }
+                }
+
+                if (existingIdx >= 0) {
+                    // Cập nhật thông tin chi tiết từ Wizard vào tài khoản thực trong DB
+                    const existing = items[existingIdx];
+                    items = [
+                        ...items.slice(0, existingIdx),
+                        {
+                            ...existing,
+                            businessName:
+                                existing.businessName ||
+                                localApp.businessName ||
+                                "Bãi đỗ xe " +
+                                    (localApp.fullName || existing.fullName),
+                            taxCode: existing.taxCode || localApp.taxCode,
+                            phoneNumber:
+                                existing.phoneNumber || localApp.phoneNumber,
+                            fullName: existing.fullName || localApp.fullName,
+                        },
+                        ...items.slice(existingIdx + 1),
+                    ];
+                } else if (items.length === 0 && (targetEmail || localApp.businessName)) {
+                    // CHỈ chèn fallback khi DB hoàn toàn không có item nào (offline)
+                    const fallbackId = (localApp.accountId && isValidGuid(localApp.accountId))
+                        ? localApp.accountId
+                        : "55555555-5555-5555-5555-555555555551";
+                    const newAppItem: OwnerApplicationItem = {
+                        accountId: fallbackId,
+                        email:
+                            localApp.contactEmail ||
+                            localApp.email ||
+                            "owner.new@parking.local",
+                        phoneNumber: localApp.phoneNumber || "0901234567",
+                        fullName: localApp.fullName || "Chủ bãi đối tác mới",
+                        businessName:
+                            localApp.businessName ||
+                            "Bãi đỗ xe " + (localApp.fullName || "Mới"),
+                        taxCode: localApp.taxCode || null,
+                        businessAddress:
+                            localApp.parkingAddress ||
+                            localApp.permanentAddress ||
+                            "TP. Hồ Chí Minh",
+                        idCardNumber: localApp.idCardNumber || null,
+                        status: (localApp.status as ApprovalStatus) || "Pending",
+                        rejectionReason: localApp.rejectionReason || null,
+                        reviewedAtUtc: localApp.reviewedAtUtc || null,
+                        reviewedBy: null,
+                        createdAtUtc: new Date().toISOString(),
+                    };
+                    items = [newAppItem];
+                }
+            }
         }
 
-        return response;
+        const totalCount = Array.isArray(response)
+            ? items.length
+            : Math.max(response.totalCount ?? 0, items.length);
+
+        return {
+            items,
+            totalCount,
+            page,
+            pageSize,
+        };
     } catch {
         // Fallback for demo/offline
-        const filtered = sampleOwnerApplications.filter(
+        let filtered = sampleOwnerApplications.filter(
             (item) =>
                 !params?.status ||
                 params.status === "All" ||
                 item.status === params.status,
         );
+
+        if (localApp && localApp.status !== "None") {
+            const matchesStatus =
+                !params?.status ||
+                params.status === "All" ||
+                localApp.status === params.status;
+            if (matchesStatus) {
+                const localItem: OwnerApplicationItem = {
+                    accountId:
+                        localApp.accountId || "local-demo-" + Date.now(),
+                    email:
+                        localApp.contactEmail ||
+                        localApp.email ||
+                        "owner.wizard@parking.test",
+                    phoneNumber: localApp.phoneNumber || "0987654321",
+                    fullName: localApp.fullName || "Chủ bãi đối tác",
+                    businessName:
+                        localApp.businessName ||
+                        "Bãi đỗ xe " + (localApp.fullName || "Mới"),
+                    taxCode: localApp.taxCode || null,
+                    businessAddress:
+                        localApp.parkingAddress ||
+                        localApp.permanentAddress ||
+                        "TP. Hồ Chí Minh",
+                    idCardNumber: localApp.idCardNumber || null,
+                    status: (localApp.status as ApprovalStatus) || "Pending",
+                    rejectionReason: localApp.rejectionReason || null,
+                    reviewedAtUtc: localApp.reviewedAtUtc || null,
+                    reviewedBy: null,
+                    createdAtUtc: new Date().toISOString(),
+                };
+                filtered = [localItem, ...filtered];
+            }
+        }
+
         return {
             items: filtered,
             totalCount: filtered.length,
@@ -280,6 +413,15 @@ export async function getOwnerApplications(params?: {
 export async function approveOwnerApplication(
     accountId: string,
 ): Promise<OwnerApplicationActionResult> {
+    if (!isValidGuid(accountId)) {
+        updateLocalDemoAppStatus("Approved", null);
+        return {
+            accountId,
+            status: "Approved",
+            message: "Hồ sơ chủ bãi đã được phê duyệt thành công.",
+        };
+    }
+
     try {
         const res = await gatewayFetch<OwnerApplicationActionResult>(
             `/api/identity/admin/owner-applications/${encodeURIComponent(accountId)}/approve`,
@@ -324,6 +466,15 @@ export async function rejectOwnerApplication(
     accountId: string,
     reason: string,
 ): Promise<OwnerApplicationActionResult> {
+    if (!isValidGuid(accountId)) {
+        updateLocalDemoAppStatus("Rejected", reason.trim());
+        return {
+            accountId,
+            status: "Rejected",
+            message: "Hồ sơ chủ bãi đã bị từ chối.",
+        };
+    }
+
     const res = await gatewayFetch<OwnerApplicationActionResult>(
         `/api/identity/admin/owner-applications/${encodeURIComponent(accountId)}/reject`,
         {

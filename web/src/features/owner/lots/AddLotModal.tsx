@@ -7,6 +7,8 @@ import { useOwnerStore } from "@/store/useOwnerStore";
 import { ParkingLot } from "@/types/owner";
 import { registerParkingLotApi } from "@/features/owner/api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
+import { saveRegisteredLotMeta } from "@/features/admin/reviewParkingLot";
+import { getAuthSessionSnapshot } from "@/features/auth/authSession";
 
 export function AddLotModal() {
     const { isAddModalOpen, setAddModalOpen, addOverlayLot } =
@@ -29,22 +31,23 @@ export function AddLotModal() {
         setErrorMsg("");
 
         let registeredId = Date.now();
+        let registeredLotRes: any = null;
 
         try {
-            const res = await registerParkingLotApi({
+            registeredLotRes = await registerParkingLotApi({
                 name: name.trim(),
                 address: addr.trim() || "TP.HCM",
                 latitude: 10.7745,
                 longitude: 106.7035,
                 type: "Outdoor",
             });
-            if (res?.id) {
+            if (registeredLotRes?.id) {
                 registeredId =
                     Math.abs(
-                        res.id
+                        (registeredLotRes.id as string)
                             .split("")
                             .reduce(
-                                (acc, char) =>
+                                (acc: number, char: string) =>
                                     (acc << 5) - acc + char.charCodeAt(0),
                                 0,
                             ) % 100000,
@@ -111,6 +114,55 @@ export function AddLotModal() {
                 carNextHour: newLot.pc,
                 reservationDeposit: newLot.dep,
             },
+        });
+
+        const session = getAuthSessionSnapshot();
+        const totalCap = cc + cm;
+        const zones: any[] = [];
+        if (newLot.vc) {
+            zones.push({
+                id: "ZONE-CAR",
+                name: "Khu vực Ô tô",
+                vehicleType: "Car",
+                slots: cc,
+                pricePerHourVnd: newLot.pc,
+            });
+        }
+        if (newLot.vm) {
+            zones.push({
+                id: "ZONE-MOTO",
+                name: "Khu vực Xe máy",
+                vehicleType: "Motorbike",
+                slots: cm,
+                pricePerHourVnd: newLot.pm,
+            });
+        }
+
+        saveRegisteredLotMeta({
+            id: registeredLotRes?.id,
+            name: newLot.name,
+            address: newLot.addr,
+            ownerName: session?.displayName || session?.account?.email?.split("@")[0] || "Chủ bãi",
+            ownerEmail: session?.account?.email || "owner@demo.local",
+            submittedAtUtc: new Date().toISOString(),
+            is24h: false,
+            openTime: newLot.op,
+            closeTime: newLot.cl2,
+            vehicleTypes: [newLot.vc ? "Car" : null, newLot.vm ? "Motorbike" : null].filter(Boolean) as string[],
+            totalCapacity: totalCap,
+            pricing: {
+                firstHourVnd: newLot.pc,
+                extraHourVnd: newLot.pc,
+                dailyCapVnd: newLot.pc * 8,
+                overnightVnd: newLot.pc * 4,
+            },
+            holdDepositVnd: newLot.dep,
+            reservation: {
+                holdMinutes: newLot.hold,
+                freeCancelMinutes: 10,
+                noShowRule: "Tiền cọc giữ chỗ không hoàn lại khi quá thời hạn giữ chỗ.",
+            },
+            zones,
         });
 
         setIsSubmitting(false);
