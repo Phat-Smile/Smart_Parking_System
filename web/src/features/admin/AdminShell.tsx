@@ -67,6 +67,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
             icon: "check",
         },
         { href: "/admin/users", label: t("adminUsers"), icon: "users" },
+        {
+            href: "/admin/audit-logs",
+            label: "Kiểm toán & Đối soát",
+            icon: "clock",
+        },
     ];
 
     const isActive = (href: string) =>
