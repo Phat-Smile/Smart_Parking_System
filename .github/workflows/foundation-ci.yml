@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - develop
-      - "features/**"
   pull_request:
     branches:
       - develop
-      - "features/**"
 
 permissions:
   contents: read
