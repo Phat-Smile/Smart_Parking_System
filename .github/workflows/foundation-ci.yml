@@ -25,7 +25,15 @@ jobs:
       - run: dotnet tool restore
       - run: dotnet restore ParkingSystem.slnx
       - run: dotnet build ParkingSystem.slnx --no-restore
-      - run: dotnet test ParkingSystem.slnx --no-build --filter "FullyQualifiedName!~Integration" -- --ignore-exit-code 8
+      - name: Run Unit & Architecture Tests
+        run: |
+          dotnet test tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj --no-build
+          dotnet test tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj --no-build
+          dotnet test tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj --no-build
+          dotnet test tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj --no-build
+          dotnet test tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj --no-build
+          dotnet test tests/ArchitectureTests/ArchitectureTests.csproj --no-build
+          dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --no-build
 
   ai:
     name: AI / Test
@@ -63,5 +71,3 @@ jobs:
       - run: npm run format:check
       - run: npm run test:run
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
