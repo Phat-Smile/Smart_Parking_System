@@ -2,7 +2,7 @@ export type VehicleType = "Car" | "Motorbike";
 
 export type CustomerType = "Registered" | "Guest";
 
-export type SessionStatus = "Active" | "Completed" | "Cancelled";
+export type SessionStatus = "Active" | "Paid" | "Completed" | "Cancelled";
 
 export type PaymentStatus = "Pending" | "Paid" | "Exempt";
 
@@ -14,6 +14,8 @@ export interface AssignedLotResponse {
     availableMotorbikeSlots: number | null;
     motorbikeCapacity: number | null;
     availableCarSlots: number | null;
+    totalCapacity?: number | null;
+    occupiedSlots?: number;
 }
 
 export interface OpenedSessionResponse {
@@ -136,7 +138,7 @@ export interface OpenSessionByPlateResponse {
     vehicleType: VehicleType;
     entryTime: string;
     status: SessionStatus;
-    qrToken: string;
+    qrToken?: string;
 }
 
 export interface LotParkingSessionItem {

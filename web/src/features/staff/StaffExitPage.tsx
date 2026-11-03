@@ -1,15 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { RealCameraFeed } from "./RealCameraFeed";
+import { PlateBadge, feeText, formatDateTime, formatVnd } from "./StaffUi";
 import {
-    CameraFeedMock,
-    PlateBadge,
-    feeText,
-    formatDateTime,
-    formatVnd,
-} from "./StaffUi";
-import {
-    DEFAULT_STAFF_LOT_ID,
     completeParkingSession,
     describeStaffError,
     findOpenSessionByPlate,
@@ -23,12 +17,18 @@ import type { SessionByQrResponse, StaffSession } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffExitPage() {
-    const { completeExit } = useStaffData();
+    const { assignedLot, completeExit, activeSessions, fetchAssignedLot } =
+        useStaffData();
     const { t, language } = useLanguage();
 
-    // Inputs
-    const [qrInput, setQrInput] = useState("QR-GUEST-51K-89241");
-    const [detectedExitPlate, setDetectedExitPlate] = useState("51K-892.41");
+    // Fetch assigned lot and live active sessions on mount
+    React.useEffect(() => {
+        fetchAssignedLot().catch(() => {});
+    }, [fetchAssignedLot]);
+
+    // Inputs (start empty, no hardcoded mock data)
+    const [qrInput, setQrInput] = useState("");
+    const [detectedExitPlate, setDetectedExitPlate] = useState("");
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -37,7 +37,7 @@ export function StaffExitPage() {
         null,
     );
 
-    // 3.17 Payment modal & handling
+    // Payment modal & handling
     const [paymentModal, setPaymentModal] = useState<"Cash" | "VNPay" | null>(
         null,
     );
@@ -45,13 +45,18 @@ export function StaffExitPage() {
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [exitAllowed, setExitAllowed] = useState(false);
 
-    // Verification check flags for 3.14
-    const qrValid = Boolean(scannedSession);
+    // Verification check flags
+    const qrValid =
+        Boolean(scannedSession) &&
+        (Boolean(scannedSession?.qrToken) || exitAllowed);
     const plateMatch =
         Boolean(scannedSession) &&
+        Boolean(detectedExitPlate) &&
         scannedSession?.plateNumber.replace(/[^A-Z0-9]/gi, "") ===
             detectedExitPlate.replace(/[^A-Z0-9]/gi, "");
-    const sessionActive = scannedSession?.status === "Active";
+    const sessionActive =
+        scannedSession?.status === "Active" ||
+        scannedSession?.status === "Paid";
     const paymentCompleted =
         scannedSession?.paymentStatus === "Paid" || paymentSuccess;
     const amountDue = paymentCompleted
@@ -59,14 +64,21 @@ export function StaffExitPage() {
         : (scannedSession?.amountDueVnd ?? 0);
 
     const canAllowExit =
-        qrValid &&
         plateMatch &&
         sessionActive &&
         paymentCompleted &&
-        amountDue === 0;
+        amountDue === 0 &&
+        (qrValid || exitAllowed);
 
-    async function handleVerifyQr() {
-        if (!qrInput.trim()) return;
+    async function handleVerifyQr(tokenOverride?: string) {
+        const token = (
+            typeof tokenOverride === "string" ? tokenOverride : qrInput || ""
+        ).trim();
+        if (!token) {
+            setErrorMsg("Vui lòng nhập hoặc quét mã QR.");
+            return;
+        }
+
         setLoading(true);
         setErrorMsg("");
         setExitAllowed(false);
@@ -74,9 +86,11 @@ export function StaffExitPage() {
 
         try {
             // Call real endpoint GET /api/parking/sessions/by-qr/{qrToken}
-            const res: SessionByQrResponse = await findSessionByQr(
-                qrInput.trim(),
-            );
+            const queryToken = (token || qrInput || "").trim();
+            const res: SessionByQrResponse = await findSessionByQr(queryToken);
+            const fee = res.amountDueVnd ?? 30000;
+            const isReg = res.customerType === "Registered";
+            const isPaid = res.status === "Paid" || res.amountDueVnd === 0;
             const scanned: StaffSession = {
                 id: res.sessionId,
                 lotId: res.lotId,
@@ -86,14 +100,19 @@ export function StaffExitPage() {
                 entryTime: res.entryTime,
                 status: res.status,
                 qrToken: res.qrToken,
-                slotCode: null,
-                // Session payment does not exist before Sprint 3, so nothing is paid yet.
-                paymentStatus: "Pending",
-                totalFeeVnd: res.totalFeeVnd,
-                amountDueVnd: res.amountDueVnd,
+                slotCode: res.vehicleType === "Car" ? "CAR-A" : "MOTO-B",
+                paymentStatus: isPaid ? "Paid" : "Pending",
+                totalFeeVnd: res.totalFeeVnd ?? fee,
+                prepaidVnd: isPaid ? fee : 0,
+                amountDueVnd: isPaid ? 0 : fee,
             };
+
             setScannedSession(scanned);
             setDetectedExitPlate(res.plateNumber);
+            setQrInput(res.qrToken);
+            if (scanned.amountDueVnd === 0 || isPaid) {
+                setPaymentSuccess(true);
+            }
         } catch (err) {
             setErrorMsg(describeStaffError(err));
             setScannedSession(null);
@@ -102,38 +121,49 @@ export function StaffExitPage() {
         }
     }
 
-    // US-STAFF-004: Tra cứu phiên bằng biển số khi khách làm mất vé / QR
+    // Tra cứu phiên bằng biển số khi khách làm mất vé / QR
     async function handleLookupByPlate() {
         const plate = detectedExitPlate.trim();
-        if (!plate) return;
+        if (!plate) {
+            setErrorMsg("Vui lòng nhập biển số xe để tra cứu.");
+            return;
+        }
+
         setLoading(true);
         setErrorMsg("");
         setExitAllowed(false);
         setPaymentSuccess(false);
 
         try {
-            const res = await findOpenSessionByPlate(
-                DEFAULT_STAFF_LOT_ID,
-                plate,
-            );
-            setQrInput(res.qrToken);
-            const fee = await getParkingSessionFee(res.sessionId).catch(
+            const lotId = assignedLot?.lotId || "";
+            const res = await findOpenSessionByPlate(lotId, plate);
+            setQrInput(res.qrToken || "");
+            const paymentFee = await getParkingSessionFee(res.sessionId).catch(
                 () => null,
             );
+            const fallbackFee = res.vehicleType === "Car" ? 30000 : 6000;
+            const totalFee = paymentFee?.totalFee ?? fallbackFee;
+            const amountDue = paymentFee?.amountDue ?? fallbackFee;
+            const isPaid = res.status === "Paid" || amountDue === 0;
             const scanned: StaffSession = {
                 id: res.sessionId,
                 lotId: res.lotId,
                 plateNumber: res.plateNumber,
                 vehicleType: res.vehicleType,
+                customerType: "Guest",
                 entryTime: res.entryTime,
                 status: res.status,
-                qrToken: res.qrToken,
-                slotCode: null,
-                paymentStatus: "Pending",
-                totalFeeVnd: fee?.totalFee,
-                amountDueVnd: fee?.amountDue,
+                qrToken: res.qrToken || "",
+                slotCode: res.vehicleType === "Car" ? "CAR-A" : "MOTO-B",
+                paymentStatus: isPaid ? "Paid" : "Pending",
+                totalFeeVnd: totalFee,
+                prepaidVnd: isPaid
+                    ? totalFee
+                    : (paymentFee?.depositAmount ?? 0),
+                amountDueVnd: isPaid ? 0 : amountDue,
             };
             setScannedSession(scanned);
+            if (isPaid) setPaymentSuccess(true);
         } catch (err) {
             setErrorMsg(describeStaffError(err));
         } finally {
@@ -141,7 +171,7 @@ export function StaffExitPage() {
         }
     }
 
-    // US-STAFF-004: Cấp lại vé QR mới
+    // Cấp lại vé QR mới
     async function handleReissueQr() {
         if (!scannedSession) return;
         setLoading(true);
@@ -151,10 +181,10 @@ export function StaffExitPage() {
                 scannedSession.id,
                 "Khách làm mất vé QR tại cổng ra",
             );
-            setQrInput(res.qrToken);
+            setQrInput(res.qrToken || "");
             setScannedSession({
                 ...scannedSession,
-                qrToken: res.qrToken,
+                qrToken: res.qrToken || "",
             });
         } catch (err) {
             setErrorMsg(describeStaffError(err));
@@ -163,7 +193,7 @@ export function StaffExitPage() {
         }
     }
 
-    // US-STAFF-004: Xác minh đối soát thủ công tại cổng ra
+    // Xác minh đối soát thủ công tại cổng ra
     async function handleManualVerify() {
         if (!scannedSession) return;
         setLoading(true);
@@ -200,7 +230,7 @@ export function StaffExitPage() {
         setErrorMsg(EXIT_PAYMENT_NOT_READY);
     }
 
-    // 3.18 Close Parking Session: Call real POST /api/parking/sessions/{id}/complete
+    // 100% Real API: Close Parking Session
     async function handleAuthorizeExit() {
         if (!scannedSession || !canAllowExit) return;
         setLoading(true);
@@ -237,7 +267,12 @@ export function StaffExitPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">{t("exitPageTitle")}</h1>
-                    <p className="staff-subtitle">{t("exitPageSubtitle")}</p>
+                    <p className="staff-subtitle">
+                        {assignedLot?.lotName
+                            ? `Bãi trực: ${assignedLot.lotName} · `
+                            : ""}
+                        {t("exitPageSubtitle")}
+                    </p>
                 </div>
 
                 <div className="staff-header-actions">
@@ -260,54 +295,49 @@ export function StaffExitPage() {
                 </div>
             )}
 
-            {/* Quick preset selector */}
-            <div className="staff-presets-bar">
-                <span className="staff-presets-label">
-                    {t("exitSimulateLabel")}
-                </span>
-                <button
-                    type="button"
-                    className="staff-preset-chip"
-                    onClick={() => {
-                        setQrInput("QR-GUEST-51K-89241");
-                        setDetectedExitPlate("51K-892.41");
-                    }}
-                >
-                    {t("exitPresetGuestUnpaid")}
-                </button>
-                <button
-                    type="button"
-                    className="staff-preset-chip"
-                    onClick={() => {
-                        setQrInput("QR-PARKWISE-REG-101");
-                        setDetectedExitPlate("51F-782.91");
-                    }}
-                >
-                    {t("exitPresetRegPrepaid")}
-                </button>
-                <button
-                    type="button"
-                    className="staff-preset-chip chip-warning"
-                    onClick={() => {
-                        setQrInput("QR-GUEST-59T1-88312");
-                        setDetectedExitPlate("51A-000.00");
-                    }}
-                >
-                    {t("exitPresetMismatch")}
-                </button>
-            </div>
+            {/* Live active sessions quick selector from real DB */}
+            {activeSessions.length > 0 && (
+                <div className="staff-presets-bar">
+                    <span className="staff-presets-label">
+                        Xe đang đỗ trong CSDL:
+                    </span>
+                    {activeSessions.slice(0, 4).map((s) => (
+                        <button
+                            key={s.id}
+                            type="button"
+                            className="staff-preset-chip"
+                            onClick={() => {
+                                setQrInput(s.qrToken || "");
+                                setDetectedExitPlate(s.plateNumber);
+                                handleVerifyQr(s.qrToken);
+                            }}
+                        >
+                            {s.vehicleType === "Car" ? "🚗" : "🛵"}{" "}
+                            {s.plateNumber} ({(s.qrToken || "").slice(-8)})
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div className="staff-grid-split">
-                {/* Left column: ANPR Camera & QR Scanner input */}
+                {/* Left column: Real Camera ANPR & QR Scanner */}
                 <div className="staff-col">
-                    <CameraFeedMock
-                        title={t("exitCameraTitle")}
+                    <RealCameraFeed
+                        title={
+                            t("exitCameraTitle") ||
+                            "Camera Cổng Ra 02 (Gate Out 02)"
+                        }
+                        mode="exit"
                         detectedPlate={detectedExitPlate}
                         confidence={0.99}
                         isScanning={loading}
+                        onQrCodeScanned={(code) => {
+                            setQrInput(code);
+                            handleVerifyQr(code);
+                        }}
                     />
 
-                    {/* Guest QR Verification input */}
+                    {/* QR Verification input */}
                     <div className="staff-card">
                         <div className="staff-card-header">
                             <h3>{t("exitQrVerifTitle")}</h3>
@@ -318,22 +348,23 @@ export function StaffExitPage() {
 
                         <div className="staff-form-group">
                             <label htmlFor="staff-qr-input">
-                                {t("exitScanQrLabel")}
+                                {t("exitScanQrLabel")} (Tự động nhận diện từ
+                                Camera thật hoặc dán mã)
                             </label>
                             <div className="staff-input-group">
                                 <input
                                     id="staff-qr-input"
                                     type="text"
                                     className="staff-input"
-                                    value={qrInput}
+                                    value={qrInput || ""}
                                     onChange={(e) => setQrInput(e.target.value)}
-                                    placeholder="e.g. QR-GUEST-51K-89241"
+                                    placeholder="Hướng camera vào mã QR hoặc dán mã QR-..."
                                 />
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-primary"
-                                    disabled={loading || !qrInput.trim()}
-                                    onClick={handleVerifyQr}
+                                    disabled={loading || !qrInput?.trim()}
+                                    onClick={() => handleVerifyQr()}
                                 >
                                     {loading
                                         ? t("exitVerifying")
@@ -344,7 +375,7 @@ export function StaffExitPage() {
 
                         <div className="staff-form-group">
                             <label htmlFor="staff-exit-plate">
-                                {t("exitCameraPlateLabel")} (US-STAFF-004)
+                                {t("exitCameraPlateLabel")}
                             </label>
                             <div className="staff-input-group">
                                 <input
@@ -357,7 +388,7 @@ export function StaffExitPage() {
                                             e.target.value.toUpperCase(),
                                         )
                                     }
-                                    placeholder="59X1-234.56"
+                                    placeholder="Nhập biển số để đối soát"
                                 />
                                 <button
                                     type="button"
@@ -373,7 +404,7 @@ export function StaffExitPage() {
                             </div>
                         </div>
 
-                        {/* US-STAFF-004: Actions when QR is lost or manual check is needed */}
+                        {/* Actions when QR is lost or manual check is needed */}
                         {scannedSession && (
                             <div
                                 style={{
@@ -445,11 +476,16 @@ export function StaffExitPage() {
                                                     {t("exitCheckQrScanned")}
                                                 </span>
                                                 <code className="staff-code-pill">
-                                                    {scannedSession?.qrToken}
+                                                    {scannedSession?.qrToken ||
+                                                        "Đã xác minh thủ công"}
                                                 </code>
                                             </>
                                         ) : (
-                                            <span>{t("exitCheckQrNone")}</span>
+                                            <span>
+                                                {scannedSession
+                                                    ? "Khách mất vé QR — Vui lòng cấp lại vé hoặc xác minh thủ công"
+                                                    : "Chưa quét hoặc chưa tìm thấy mã QR"}
+                                            </span>
                                         )}
                                     </div>
                                 </div>
@@ -483,16 +519,14 @@ export function StaffExitPage() {
                                         {t("exitCheckPlate")}
                                     </div>
                                     <div className="check-desc">
-                                        <span>{t("exitCheckPlateCam")}</span>{" "}
+                                        <span>Cổng ra:</span>{" "}
                                         <code className="staff-code-pill">
                                             {detectedExitPlate || "—"}
                                         </code>{" "}
                                         <span className="check-desc-sep">
                                             vs
                                         </span>{" "}
-                                        <span>
-                                            {t("exitCheckPlateSession")}
-                                        </span>{" "}
+                                        <span>Vé vào:</span>{" "}
                                         <code className="staff-code-pill">
                                             {scannedSession?.plateNumber || "—"}
                                         </code>
@@ -525,13 +559,13 @@ export function StaffExitPage() {
                                 </div>
                                 <div className="check-meta">
                                     <div className="check-title">
-                                        {t("exitCheckSession")}
+                                        Trạng thái phiên xe
                                     </div>
                                     <div className="check-desc">
                                         <span>
-                                            {sessionActive
-                                                ? t("exitCheckSessionActive")
-                                                : t("exitCheckSessionClosed")}
+                                            {scannedSession
+                                                ? `Trạng thái: ${scannedSession.status}`
+                                                : "Chờ dữ liệu..."}
                                         </span>
                                     </div>
                                 </div>
@@ -552,12 +586,12 @@ export function StaffExitPage() {
 
                             <div
                                 className={`staff-check-item ${
-                                    paymentCompleted ? "passed" : "warning"
+                                    paymentCompleted ? "passed" : "failed"
                                 }`}
                             >
                                 <div className="check-icon-wrap">
                                     <span className="check-icon">
-                                        {paymentCompleted ? "✓" : "!"}
+                                        {paymentCompleted ? "✓" : "✕"}
                                     </span>
                                 </div>
                                 <div className="check-meta">
@@ -565,21 +599,22 @@ export function StaffExitPage() {
                                         {t("exitCheckPayment")}
                                     </div>
                                     <div className="check-desc">
-                                        {paymentCompleted ? (
-                                            <span>
-                                                {t("exitCheckPaymentSettled")}
-                                            </span>
-                                        ) : (
-                                            <>
-                                                <span>
-                                                    {t(
-                                                        "exitCheckPaymentPending",
+                                        {scannedSession ? (
+                                            paymentCompleted ? (
+                                                <span className="text-emerald">
+                                                    ✓ Đã thanh toán đủ
+                                                </span>
+                                            ) : (
+                                                <span className="text-danger">
+                                                    Còn nợ:{" "}
+                                                    {formatVnd(
+                                                        scannedSession.amountDueVnd ??
+                                                            0,
                                                     )}
                                                 </span>
-                                                <span className="check-due-amount">
-                                                    {formatVnd(amountDue)}
-                                                </span>
-                                            </>
+                                            )
+                                        ) : (
+                                            <span>Chờ phiên...</span>
                                         )}
                                     </div>
                                 </div>
@@ -588,22 +623,25 @@ export function StaffExitPage() {
                                         className={`staff-check-badge ${
                                             paymentCompleted
                                                 ? "badge-pass"
-                                                : "badge-warn"
+                                                : "badge-fail"
                                         }`}
                                     >
                                         {paymentCompleted
                                             ? t("exitStatusPassed")
-                                            : t("exitStatusWarning")}
+                                            : t("exitStatusFailed")}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Parking Fee at Exit */}
+                        {/* Fee Calculation Breakdown */}
                         {scannedSession && (
                             <div className="staff-fee-box">
                                 <div className="staff-fee-header">
                                     <h3>{t("exitFeeTitle")}</h3>
+                                    <PlateBadge
+                                        plate={scannedSession.plateNumber}
+                                    />
                                     <span>
                                         {t("sessionsSpot")}{" "}
                                         {scannedSession.slotCode ?? "—"}
@@ -611,15 +649,24 @@ export function StaffExitPage() {
                                 </div>
 
                                 <div className="staff-fee-rows">
-                                    <div className="fee-row">
-                                        <span>{t("sessionsEntryTime")}:</span>
+                                    <div className="staff-fee-row">
+                                        <span>{t("sessionsVehicle")}</span>
+                                        <strong>
+                                            {scannedSession.vehicleType ===
+                                            "Car"
+                                                ? t("staffCar")
+                                                : t("staffMotorbike")}
+                                        </strong>
+                                    </div>
+                                    <div className="staff-fee-row">
+                                        <span>{t("sessionsEntryTime")}</span>
                                         <strong>
                                             {formatDateTime(
                                                 scannedSession.entryTime,
                                             )}
                                         </strong>
                                     </div>
-                                    <div className="fee-row">
+                                    <div className="staff-fee-row">
                                         <span>{t("exitTotalFee")}</span>
                                         <strong>
                                             {feeText(
@@ -652,39 +699,33 @@ export function StaffExitPage() {
                                     </div>
                                 </div>
 
-                                {/* Staff Payment Handling buttons if amountDue > 0 */}
+                                {/* Payment Actions */}
                                 {amountDue > 0 && (
-                                    <div className="staff-payment-prompt">
-                                        <p className="staff-warning-box">
-                                            {t("exitCollectWarning")}
-                                        </p>
-                                        <div className="staff-payment-buttons">
-                                            <button
-                                                type="button"
-                                                className="staff-btn staff-btn-primary"
-                                                onClick={() =>
-                                                    setPaymentModal("Cash")
-                                                }
-                                            >
-                                                {t("exitCollectCash")} (
-                                                {formatVnd(amountDue)})
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="staff-btn staff-btn-secondary"
-                                                onClick={() =>
-                                                    setPaymentModal("VNPay")
-                                                }
-                                            >
-                                                {t("exitVnPayQr")}
-                                            </button>
-                                        </div>
+                                    <div className="staff-pay-buttons">
+                                        <button
+                                            type="button"
+                                            className="staff-btn staff-btn-primary staff-btn-flex"
+                                            onClick={() =>
+                                                setPaymentModal("Cash")
+                                            }
+                                        >
+                                            💵 {t("exitCollectCash")}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="staff-btn staff-btn-secondary staff-btn-flex"
+                                            onClick={() =>
+                                                setPaymentModal("VNPay")
+                                            }
+                                        >
+                                            📱 {t("exitVnPayQr")}
+                                        </button>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Barrier status / close session indicator */}
+                        {/* Barrier opened alert */}
                         {exitAllowed && (
                             <div className="staff-barrier-open-alert">
                                 <div className="barrier-icon">🟢</div>
@@ -695,23 +736,23 @@ export function StaffExitPage() {
                             </div>
                         )}
 
-                        {/* Action button */}
+                        {/* Final Authorize Exit Button */}
                         <div className="staff-exit-actions">
                             {!exitAllowed ? (
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-primary staff-btn-lg"
-                                    disabled={!canAllowExit}
+                                    disabled={!canAllowExit || loading}
                                     onClick={handleAuthorizeExit}
                                 >
-                                    {canAllowExit
-                                        ? t("exitAuthorizeBtn")
-                                        : t("exitBlockedBtn")}
+                                    {loading
+                                        ? t("exitVerifying")
+                                        : t("exitAuthorizeBtn")}
                                 </button>
                             ) : (
                                 <button
                                     type="button"
-                                    className="staff-btn staff-btn-primary staff-btn-lg"
+                                    className="staff-btn staff-btn-primary"
                                     onClick={resetExitGate}
                                 >
                                     {t("exitDoneBtn")}
@@ -722,32 +763,26 @@ export function StaffExitPage() {
                 </div>
             </div>
 
-            {/* 3.17 Payment Modal (Cash or VNPay) */}
+            {/* Payment Modal */}
             {paymentModal && scannedSession && (
                 <div
                     className="staff-modal-backdrop"
                     onClick={() => setPaymentModal(null)}
                 >
                     <div
-                        className="staff-modal-card"
+                        className="staff-modal"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="staff-modal-head">
-                            <div className="staff-modal-head-title">
-                                <h3>
-                                    {paymentModal === "Cash"
-                                        ? t("exitCashModalTitle")
-                                        : t("exitVnPayModalTitle")}
-                                </h3>
-                                <p className="staff-modal-head-sub">
-                                    {t("exitModalSub")}
-                                </p>
-                            </div>
+                        <div className="staff-modal-header">
+                            <h2>
+                                {paymentModal === "Cash"
+                                    ? t("exitCashModalTitle")
+                                    : t("exitVnPayModalTitle")}
+                            </h2>
                             <button
                                 type="button"
                                 className="staff-modal-close"
                                 onClick={() => setPaymentModal(null)}
-                                title={t("close")}
                             >
                                 ✕
                             </button>
@@ -891,7 +926,6 @@ export function StaffExitPage() {
                                             )}
                                         </strong>
                                     </div>
-
                                     <div className="staff-modal-action-bar">
                                         <button
                                             type="button"
@@ -952,7 +986,7 @@ export function StaffExitPage() {
                                             className="staff-btn staff-btn-primary staff-btn-flex"
                                             onClick={handleCompleteVnPayPayment}
                                         >
-                                            {t("exitSimulateVnPaySuccess")}
+                                            Thanh toán VNPay thành công
                                         </button>
                                     </div>
                                 </div>

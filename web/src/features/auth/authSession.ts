@@ -4,6 +4,7 @@ import { getGatewayBaseUrl } from "@/shared/config/env";
 import { registerAuthRefreshHandler } from "@/shared/api/client";
 
 const REGISTERED_NAME_PREFIX = "parkwise:registered-profile-name:";
+const AUTH_SESSION_STORAGE_KEY = "parkwise:auth-session";
 
 export type ActiveAuthSession = {
     account: LoginResponse["account"];
@@ -12,22 +13,50 @@ export type ActiveAuthSession = {
 };
 
 let activeSession: ActiveAuthSession | null = null;
+let sessionHydrated = false;
 const listeners = new Set<() => void>();
 
 function emitChange() {
     for (const listener of listeners) listener();
 }
 
+function hydrateSessionIfNeeded() {
+    if (sessionHydrated || typeof window === "undefined") return;
+    sessionHydrated = true;
+    try {
+        const raw =
+            window.sessionStorage.getItem(AUTH_SESSION_STORAGE_KEY) ||
+            window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as ActiveAuthSession;
+        if (
+            parsed &&
+            parsed.account?.email &&
+            !parsed.refreshToken?.startsWith("mock-refresh-")
+        ) {
+            activeSession = parsed;
+        } else {
+            window.sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+            window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+        }
+    } catch {
+        // Ignore corrupted session storage
+    }
+}
+
 export function subscribeAuthSession(listener: () => void) {
+    hydrateSessionIfNeeded();
     listeners.add(listener);
     return () => listeners.delete(listener);
 }
 
 export function getAuthSessionSnapshot() {
+    hydrateSessionIfNeeded();
     return activeSession;
 }
 
 export function setAuthSession(response: LoginResponse) {
+    sessionHydrated = true;
     setAccessToken(response.accessToken);
     const displayName = readRegisteredProfileName(response.account.email);
     activeSession = {
@@ -35,13 +64,31 @@ export function setAuthSession(response: LoginResponse) {
         refreshToken: response.refreshToken ?? "",
         displayName,
     };
+    if (typeof window !== "undefined") {
+        try {
+            const serialized = JSON.stringify(activeSession);
+            window.sessionStorage.setItem(AUTH_SESSION_STORAGE_KEY, serialized);
+            window.localStorage.setItem(AUTH_SESSION_STORAGE_KEY, serialized);
+        } catch {
+            // Ignore storage errors
+        }
+    }
     emitChange();
     return activeSession;
 }
 
 export function clearAuthSession() {
+    sessionHydrated = true;
     clearAccessToken();
     activeSession = null;
+    if (typeof window !== "undefined") {
+        try {
+            window.sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+            window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+        } catch {
+            // Ignore storage errors
+        }
+    }
     emitChange();
 }
 
@@ -75,8 +122,9 @@ export function readRegisteredProfileName(email: string) {
 }
 
 registerAuthRefreshHandler(async () => {
+    hydrateSessionIfNeeded();
     const token = activeSession?.refreshToken;
-    if (!token) return null;
+    if (!token || token.startsWith("mock-refresh-")) return null;
     const response = await fetch(
         new URL("/api/identity/accounts/refresh", `${getGatewayBaseUrl()}/`),
         {

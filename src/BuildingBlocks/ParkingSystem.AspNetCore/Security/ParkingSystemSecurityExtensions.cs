@@ -73,7 +73,9 @@ public static class ParkingSystemSecurityExtensions
         builder.Services.AddCors(options => options.AddPolicy(GatewayCorsPolicy, policy =>
         {
             if (origins.Length > 0)
-                policy.WithOrigins(origins);
+                policy.WithOrigins(origins).AllowCredentials();
+            else
+                policy.WithOrigins("http://localhost:3000").AllowCredentials();
 
             policy.WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
                 .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID")
