@@ -127,10 +127,26 @@ public class ProcessVnpayIpnCommandHandlerTests
         }
     }
 
+    private class FakeParkingFeeIpnHandler : IParkingFeeIpnHandler
+    {
+        public bool HandleCalled { get; private set; }
+        public VnpayIpnResponseDto ResponseToReturn { get; set; } = VnpayIpnResponseDto.Success();
+
+        public Task<VnpayIpnResponseDto> HandleAsync(
+            IReadOnlyDictionary<string, string> query,
+            string txnRef,
+            CancellationToken cancellationToken)
+        {
+            HandleCalled = true;
+            return Task.FromResult(ResponseToReturn);
+        }
+    }
+
     private readonly FakePaymentGateway _paymentGateway = new();
     private readonly FakeVnpayTransactionRepository _txnRepository = new();
     private readonly FakeWalletRepository _walletRepository = new();
     private readonly FakeOutboxWriter _outboxWriter = new();
+    private readonly FakeParkingFeeIpnHandler _parkingFeeHandler = new();
     private readonly ProcessVnpayIpnCommandHandler _handler;
 
     public ProcessVnpayIpnCommandHandlerTests()
@@ -150,7 +166,8 @@ public class ProcessVnpayIpnCommandHandlerTests
             _paymentGateway,
             _txnRepository,
             new IVnpayResultHandler[] { topupHandler, directPaymentHandler },
-            NullLogger<ProcessVnpayIpnCommandHandler>.Instance);
+            NullLogger<ProcessVnpayIpnCommandHandler>.Instance,
+            _parkingFeeHandler);
     }
 
     [Fact]
@@ -352,6 +369,25 @@ public class ProcessVnpayIpnCommandHandlerTests
         Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
         Assert.Equal(VnpayTransactionStatus.Success, txn.Status);
         Assert.Equal(20_000m, wallet.Balance);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTxnRefStartsWithPark_DelegatesToParkingFeeHandler()
+    {
+        // Arrange
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_TxnRef"] = "PARK_session_123",
+            ["vnp_SecureHash"] = "valid_hash"
+        };
+        _paymentGateway.IsSignatureValid = true;
+
+        // Act
+        var result = await _handler.Handle(new ProcessVnpayIpnCommand(query), CancellationToken.None);
+
+        // Assert
+        Assert.Equal("00", result.RspCode);
+        Assert.True(_parkingFeeHandler.HandleCalled);
     }
 
     [Fact]

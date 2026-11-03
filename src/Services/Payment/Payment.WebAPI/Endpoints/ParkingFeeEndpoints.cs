@@ -2,6 +2,8 @@ using MediatR;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Payment.Application.Common.Constants;
+using ParkingSystem.Payment.Application.Features.ParkingFeePayments.Queries.GetParkingFeePaymentStatus;
+using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.CreateVnPayParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.PayParkingFeeByWallet;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingSessionFee;
 using ParkingSystem.Payment.WebAPI.Security;
@@ -10,6 +12,9 @@ namespace ParkingSystem.Payment.WebAPI.Endpoints;
 
 // Yêu cầu trừ tiền ví trả tiền gửi xe
 public sealed record PayParkingFeeByWalletRequest(long ExpectedAmountDue);
+
+// Yêu cầu thanh toán tiền gửi xe qua VNPay
+public sealed record PayParkingFeeByVnPayRequest(long ExpectedAmountDue);
 
 internal static class ParkingFeeEndpoints
 {
@@ -127,7 +132,166 @@ internal static class ParkingFeeEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
+        // Tạo yêu cầu thanh toán tiền gửi xe qua VNPay
+        app.MapPost("/api/payment/parking-sessions/{sessionId}/pay/vnpay", async (
+                string sessionId,
+                PayParkingFeeByVnPayRequest? body,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                // 1. Kiểm tra khóa chống lặp yêu cầu
+                if (!httpContext.Request.Headers.TryGetValue("X-Idempotency-Key", out var rawKey) ||
+                    string.IsNullOrWhiteSpace(rawKey) ||
+                    !Guid.TryParse(rawKey, out _))
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.IdempotencyKeyInvalid);
+                }
+
+                // 2. Kiểm tra định dạng mã phiên xe
+                if (!Guid.TryParse(sessionId, out var sessionGuid) || sessionGuid == Guid.Empty)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.SessionIdInvalid);
+                }
+
+                // 3. Kiểm tra số tiền khách đồng ý trả
+                if (body is null || body.ExpectedAmountDue <= 0)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.ExpectedAmountInvalid);
+                }
+
+                var callerAccountId = Guid.TryParse(
+                    httpContext.User.FindFirst("sub")?.Value, out var id)
+                    ? id : (Guid?)null;
+                var callerRole = httpContext.User.FindFirst("role")?.Value
+                    ?? string.Empty;
+                var staffLotId = httpContext.User.FindFirst("parking_lot_id")?.Value;
+                var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+                var command = new CreateVnPayParkingFeePaymentCommand(
+                    SessionId: sessionGuid,
+                    ExpectedAmountDue: body.ExpectedAmountDue,
+                    IdempotencyKey: rawKey.ToString(),
+                    CallerAccountId: callerAccountId,
+                    CallerRole: callerRole,
+                    StaffLotId: staffLotId,
+                    ClientIp: clientIp);
+
+                var result = await sender.Send(command, cancellationToken);
+
+                if (result.IsSuccess)
+                {
+                    if (result.Value!.IsReplayed)
+                    {
+                        httpContext.Response.Headers["Idempotency-Replayed"] = "true";
+                    }
+
+                    var statusCode = result.Value.IsReused ? StatusCodes.Status200OK : StatusCodes.Status201Created;
+                    return Results.Json(result.Value, statusCode: statusCode);
+                }
+
+                return MapPayVnPayError(result.Error!, httpContext);
+            })
+            .RequireAuthorization(PaymentAuthorization.PayVnPayPolicy)
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("CreateVnPayParkingFeePayment")
+            .WithSummary("Tạo yêu cầu thanh toán phí đỗ xe qua VNPay")
+            .WithDescription("Sinh link thanh toán VNPay có chữ ký số để người dùng quét mã.")
+            .Produces<CreateVnPayParkingFeePaymentResponse>(StatusCodes.Status201Created)
+            .Produces<CreateVnPayParkingFeePaymentResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Tra cứu trạng thái hóa đơn thanh toán tiền gửi xe
+        app.MapGet("/api/payment/parking-fee-payments/{transactionId}", async (
+                string transactionId,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                if (!Guid.TryParse(transactionId, out var transactionGuid) || transactionGuid == Guid.Empty)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, ParkingFeePaymentErrors.TransactionIdInvalid);
+                }
+
+                var query = new GetParkingFeePaymentStatusQuery(transactionGuid);
+                var result = await sender.Send(query, cancellationToken);
+
+                if (result.IsSuccess)
+                {
+                    return Results.Ok(result.Value);
+                }
+
+                if (result.Error!.Code == ParkingFeePaymentErrors.TransactionNotFound.Code)
+                {
+                    return BusinessProblem.Create(httpContext, StatusCodes.Status404NotFound, result.Error);
+                }
+
+                return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);
+            })
+            .RequireAuthorization(PaymentAuthorization.ViewFeePaymentPolicy)
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("GetParkingFeePaymentStatus")
+            .WithSummary("Tra cứu trạng thái thanh toán tiền gửi xe")
+            .WithDescription("Kiểm tra trạng thái hóa đơn thanh toán sau khi quét mã VNPay.")
+            .Produces<GetParkingFeePaymentStatusResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
         return app;
+    }
+
+    // Ánh xạ lỗi khi tạo thanh toán VNPay sang ProblemDetails
+    private static IResult MapPayVnPayError(Error error, HttpContext httpContext)
+    {
+        if (error.Code == PayParkingFeeErrors.RequestInProgress.Code)
+        {
+            httpContext.Response.Headers.RetryAfter = "2";
+            return BusinessProblem.Create(httpContext, StatusCodes.Status409Conflict, error);
+        }
+
+        if (error.Code == PayParkingFeeErrors.ParkingServiceUnavailable.Code)
+        {
+            return BusinessProblem.Create(httpContext, StatusCodes.Status503ServiceUnavailable, error);
+        }
+
+        if (error.Code == PayParkingFeeErrors.RoleNotAllowedVNPay.Code ||
+            error.Code == PayParkingFeeErrors.SessionAccessDenied.Code)
+        {
+            return BusinessProblem.Create(httpContext, StatusCodes.Status403Forbidden, error);
+        }
+
+        if (error.Code == PayParkingFeeErrors.SessionNotFound.Code)
+        {
+            return BusinessProblem.Create(httpContext, StatusCodes.Status404NotFound, error);
+        }
+
+        if (error.Code == PayParkingFeeErrors.SessionNotActive.Code ||
+            error.Code == PayParkingFeeErrors.SessionAlreadyPaid.Code ||
+            error.Code == PayParkingFeeErrors.NoAmountDue.Code ||
+            error.Code == PayParkingFeeErrors.FeeChanged.Code ||
+            error.Code == PayParkingFeeErrors.VnPayAmountNotSupported.Code ||
+            error.Code == PayParkingFeeErrors.IdempotencyKeyReused.Code)
+        {
+            return BusinessProblem.Create(httpContext, StatusCodes.Status409Conflict, error);
+        }
+
+        return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, error);
     }
 
     // Ánh xạ lỗi khi thanh toán tiền gửi xe bằng ví sang ProblemDetails

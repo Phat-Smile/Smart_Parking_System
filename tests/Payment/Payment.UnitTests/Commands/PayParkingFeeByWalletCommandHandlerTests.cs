@@ -111,10 +111,46 @@ public class PayParkingFeeByWalletCommandHandlerTests
             return Task.FromResult(SessionExists);
         }
 
+        public Task<bool> HasSucceededPaymentAsync(Guid sessionId, CancellationToken ct)
+        {
+            return Task.FromResult(SessionExists);
+        }
+
+        public Task<ParkingFeePayment?> GetPendingBySessionIdAsync(Guid sessionId, CancellationToken ct)
+        {
+            return Task.FromResult(AddedPayments.LastOrDefault(p => p.SessionId == sessionId && p.Status == "Pending"));
+        }
+
+        public Task CreateOrReplacePendingAsync(ParkingFeePayment newPayment, CancellationToken ct)
+        {
+            AddedPayments.Add(newPayment);
+            return Task.CompletedTask;
+        }
+
         public Task AddAsync(ParkingFeePayment payment, CancellationToken ct)
         {
             AddedPayments.Add(payment);
             return Task.CompletedTask;
+        }
+
+        public Task<ParkingFeePayment?> GetByTxnRefAsync(string txnRef, CancellationToken ct)
+        {
+            return Task.FromResult(AddedPayments.LastOrDefault(p => p.TxnRef == txnRef));
+        }
+
+        public Task ReloadAsync(ParkingFeePayment payment, CancellationToken ct)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task SaveChangesAsync(CancellationToken ct)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<ParkingFeePayment?> GetByIdAsync(Guid id, CancellationToken ct)
+        {
+            return Task.FromResult(AddedPayments.LastOrDefault(p => p.Id == id));
         }
     }
 

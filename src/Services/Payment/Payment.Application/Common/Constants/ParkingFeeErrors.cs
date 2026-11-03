@@ -80,4 +80,24 @@ public static class PayParkingFeeErrors
     public static readonly Error WalletInsufficientBalance = 
         new("payment.wallet_insufficient_balance", 
             "Wallet balance is not enough to pay this parking fee.");
+    public static readonly Error RoleNotAllowedVNPay = 
+        new("payment.role_not_allowed", 
+            "Your role cannot create a VNPay payment.");
+    public static readonly Error VnPayAmountNotSupported = 
+        new("payment.vnpay_amount_not_supported", 
+            "This amount cannot be paid through VNPay.");
+    public static readonly Error VnPayUrlGenerationFailed = 
+        new("payment.vnpay_url_generation_failed", 
+            "Failed to generate VNPay payment URL.");
+}
+
+// Danh mục lỗi khi tra cứu trạng thái hóa đơn
+public static class ParkingFeePaymentErrors
+{
+    public static readonly Error TransactionIdInvalid =
+        new("payment.transaction_id_invalid",
+            "Transaction id is invalid.");
+    public static readonly Error TransactionNotFound =
+        new("payment.transaction_not_found",
+            "Parking fee payment not found.");
 }

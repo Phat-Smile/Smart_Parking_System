@@ -61,6 +61,7 @@ public class VnpayPaymentGatewayTests
         const string secret = "TEST_HASH_SECRET_1234567890";
         var options = Options.Create(new VnpayOptions
         {
+            TmnCode = "DEMO",
             HashSecret = secret
         });
         var gateway = new VnpayPaymentGateway(options);
@@ -92,11 +93,16 @@ public class VnpayPaymentGatewayTests
     {
         // Arrange
         const string secret = "TEST_HASH_SECRET_1234567890";
-        var options = Options.Create(new VnpayOptions { HashSecret = secret });
+        var options = Options.Create(new VnpayOptions
+        {
+            TmnCode = "DEMO",
+            HashSecret = secret
+        });
         var gateway = new VnpayPaymentGateway(options);
 
         var query = new Dictionary<string, string>
         {
+            ["vnp_TmnCode"] = "DEMO",
             ["vnp_Amount"] = "99999999", // Số tiền bị can thiệp
             ["vnp_TxnRef"] = "ref123",
             ["vnp_SecureHash"] = "invalid_hash_string"
@@ -117,11 +123,49 @@ public class VnpayPaymentGatewayTests
     }
 
     [Fact]
+    public void VerifyIpnSignature_WhenTmnCodeDoesNotMatch_ReturnsFalse()
+    {
+        // Arrange
+        const string secret = "TEST_HASH_SECRET_1234567890";
+        var options = Options.Create(new VnpayOptions
+        {
+            TmnCode = "DEMO",
+            HashSecret = secret
+        });
+        var gateway = new VnpayPaymentGateway(options);
+
+        // Tạo chữ ký hợp lệ nhưng TMN code của điểm bán khác
+        var rawData = "vnp_Amount=10000000&vnp_Command=pay&vnp_ResponseCode=00&vnp_TmnCode=OTHER_TMN&vnp_TxnRef=ref123";
+        using var hmac = new HMACSHA512(Encoding.UTF8.GetBytes(secret));
+        var hash = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(rawData))).ToLowerInvariant();
+
+        var query = new Dictionary<string, string>
+        {
+            ["vnp_Amount"] = "10000000",
+            ["vnp_Command"] = "pay",
+            ["vnp_ResponseCode"] = "00",
+            ["vnp_TmnCode"] = "OTHER_TMN",
+            ["vnp_TxnRef"] = "ref123",
+            ["vnp_SecureHash"] = hash
+        };
+
+        // Act
+        var isValid = gateway.VerifyIpnSignature(query);
+
+        // Assert
+        Assert.False(isValid);
+    }
+
+    [Fact]
     public void VerifyIpnSignature_WithSimulationScriptParameters_ReturnsTrue()
     {
         // Vector matching Simulate-VnpayIpn.ps1 parameter set
         const string secret = "TEST_HASH_SECRET_1234567890";
-        var options = Options.Create(new VnpayOptions { HashSecret = secret });
+        var options = Options.Create(new VnpayOptions
+        {
+            TmnCode = "PARKWISE",
+            HashSecret = secret
+        });
         var gateway = new VnpayPaymentGateway(options);
 
         var query = new Dictionary<string, string>
