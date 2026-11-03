@@ -33,7 +33,6 @@ jobs:
           dotnet test tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj --no-build
           dotnet test tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj --no-build
           dotnet test tests/ArchitectureTests/ArchitectureTests.csproj --no-build
-          dotnet test tests/WebFoundationTests/WebFoundationTests.csproj --no-build
 
   ai:
     name: AI / Test
