@@ -124,9 +124,6 @@ describe("admin calls read the real backend shapes", () => {
                 accountId: ACCOUNT,
                 role: "Staff",
                 assignedAtUtc: "2026-10-29T01:00:00Z",
-                shift: "morning",
-                shiftName: "Ca 1 - Sáng",
-                hours: "06:00 - 14:00",
             },
         ]);
     });
