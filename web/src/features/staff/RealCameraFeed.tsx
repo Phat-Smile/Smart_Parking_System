@@ -57,13 +57,12 @@ export function RealCameraFeed({
         if (!isActive) {
             if (stream) {
                 stream.getTracks().forEach((track) => track.stop());
-                setStream(null);
+                queueMicrotask(() => setStream(null));
             }
             return;
         }
 
         let isCancelled = false;
-        setErrorMsg("");
 
         const constraints: MediaStreamConstraints = {
             video: selectedDeviceId
@@ -123,12 +122,22 @@ export function RealCameraFeed({
         if (mode !== "exit" || !isActive || !stream || !onQrCodeScanned) return;
 
         let active = true;
-        let detector: any = null;
+        let detector: {
+            detect: (
+                s: HTMLVideoElement | HTMLCanvasElement,
+            ) => Promise<Array<{ rawValue?: string }>>;
+        } | null = null;
 
         // Check if BarcodeDetector is available in window
         if (typeof window !== "undefined" && "BarcodeDetector" in window) {
             try {
-                detector = new (window as any).BarcodeDetector({
+                detector = new (
+                    window as unknown as {
+                        BarcodeDetector: new (opts: {
+                            formats: string[];
+                        }) => typeof detector;
+                    }
+                ).BarcodeDetector({
                     formats: ["qr_code"],
                 });
             } catch {
@@ -199,12 +208,20 @@ export function RealCameraFeed({
             "BarcodeDetector" in window
         ) {
             try {
-                const detector = new (window as any).BarcodeDetector({
+                const detector = new (
+                    window as unknown as {
+                        BarcodeDetector: new (opts: { formats: string[] }) => {
+                            detect: (
+                                s: HTMLCanvasElement,
+                            ) => Promise<Array<{ rawValue?: string }>>;
+                        };
+                    }
+                ).BarcodeDetector({
                     formats: ["qr_code"],
                 });
                 detector
                     .detect(canvas)
-                    .then((barcodes: any[]) => {
+                    .then((barcodes: Array<{ rawValue?: string }>) => {
                         if (barcodes && barcodes.length > 0) {
                             const code = barcodes[0].rawValue;
                             if (code) {
@@ -359,7 +376,6 @@ export function RealCameraFeed({
                                     type="button"
                                     onClick={() => {
                                         setIsActive(true);
-                                        setErrorMsg("");
                                     }}
                                     className="staff-btn staff-btn-primary staff-btn-sm"
                                 >

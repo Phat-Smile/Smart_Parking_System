@@ -185,12 +185,7 @@ export function ParkingLotBookingDialog({
                             style={{ marginTop: "14px" }}
                         >
                             <HoldCountdownTimer
-                                expiresAt={
-                                    bookingHold.tempHoldExpiresAt ||
-                                    new Date(
-                                        Date.now() + 15 * 60 * 1000,
-                                    ).toISOString()
-                                }
+                                expiresAt={bookingHold.tempHoldExpiresAt || ""}
                                 onExpire={() => {
                                     setErrorMessage(
                                         "Hết thời gian giữ chỗ tạm thời (15 phút). Vui lòng đặt lại.",

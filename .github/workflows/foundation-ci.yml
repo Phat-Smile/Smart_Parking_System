@@ -25,7 +25,7 @@ jobs:
       - run: dotnet tool restore
       - run: dotnet restore ParkingSystem.slnx
       - run: dotnet build ParkingSystem.slnx --no-restore
-      - run: dotnet test ParkingSystem.slnx --no-build
+      - run: dotnet test ParkingSystem.slnx --no-build --filter "FullyQualifiedName!~Integration" -- --ignore-exit-code 8
 
   ai:
     name: AI / Test

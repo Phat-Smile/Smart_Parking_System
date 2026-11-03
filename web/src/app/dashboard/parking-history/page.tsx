@@ -26,7 +26,6 @@ export default function ParkingHistoryPage() {
     const [error, setError] = useState<string | null>(null);
 
     async function loadHistory() {
-        setLoading(true);
         setError(null);
         try {
             const data = await getMyParkingSessions();
@@ -49,6 +48,7 @@ export default function ParkingHistoryPage() {
     }
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         loadHistory();
     }, []);
 

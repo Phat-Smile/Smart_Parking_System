@@ -42,7 +42,7 @@ export async function getStaffLots(): Promise<StaffLotItem[]> {
     const res = await gatewayFetch<StaffLotItem[]>("/api/parking/staff/lots", {
         method: "GET",
     });
-    return res.map((item: any) => ({
+    return res.map((item: StaffLotItem) => ({
         id: item.id,
         name: sanitizeLotName(item.name),
         address: item.address || "",
@@ -100,7 +100,12 @@ export async function getAssignedLot(
             `${lotPath}/motorbike-availability`,
             (body) => {
                 motorbikeCapacity = body.totalCapacity ?? null;
-                return body.available ?? (body as any).availableSpaces ?? 0;
+                return (
+                    body.available ??
+                    (body as unknown as { availableSpaces?: number })
+                        .availableSpaces ??
+                    0
+                );
             },
         );
 
@@ -171,7 +176,8 @@ export async function openParkingSession(
         ...res,
         availableMotorbikeSlots:
             availableMotorbikeSpaces ??
-            (res as any).availableMotorbikeSlots ??
+            (res as unknown as { availableMotorbikeSlots?: number })
+                .availableMotorbikeSlots ??
             0,
     };
 }

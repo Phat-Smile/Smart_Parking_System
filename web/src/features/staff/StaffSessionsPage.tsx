@@ -208,7 +208,10 @@ export function StaffSessionsPage() {
                                         type="button"
                                         className={`staff-filter-btn ${statusFilter === tab.key ? "active" : ""}`}
                                         onClick={() =>
-                                            setStatusFilter(tab.key as any)
+                                            setStatusFilter(
+                                                tab.key as
+                                                    SessionStatus | "All",
+                                            )
                                         }
                                     >
                                         <span>{tab.icon}</span>
@@ -255,7 +258,9 @@ export function StaffSessionsPage() {
                                         type="button"
                                         className={`staff-filter-btn ${filterType === tab.key ? "active" : ""}`}
                                         onClick={() =>
-                                            setFilterType(tab.key as any)
+                                            setFilterType(
+                                                tab.key as CustomerType | "All",
+                                            )
                                         }
                                     >
                                         <span>{tab.icon}</span>

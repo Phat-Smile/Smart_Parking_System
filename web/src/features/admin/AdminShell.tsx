@@ -24,11 +24,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { t } = useLanguage();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    const mounted = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
 
     const externalSession = useSyncExternalStore(
         subscribeAuthSession,
