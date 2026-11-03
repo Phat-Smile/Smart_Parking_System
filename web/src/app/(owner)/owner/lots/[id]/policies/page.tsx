@@ -45,8 +45,7 @@ export default function LotPoliciesPage() {
     const [errorMessage, setErrorMessage] = useState("");
 
     // Total estimated capacity from lot
-    const totalCapacity =
-        lot && lot.cc + lot.cm > 0 ? lot.cc + lot.cm : 100;
+    const totalCapacity = lot && lot.cc + lot.cm > 0 ? lot.cc + lot.cm : 100;
     const reservedSlots = Math.round((totalCapacity * ratioPercent) / 100);
     const walkInSlots = Math.max(0, totalCapacity - reservedSlots);
 
@@ -61,26 +60,38 @@ export default function LotPoliciesPage() {
             }
             setIsLoading(true);
             try {
-                const [availRes, ratioRes, depositRes] = await Promise.allSettled([
-                    getReservationAvailabilityApi(lotKey),
-                    getReservationRatioPolicyApi(lotKey),
-                    getDepositPolicyApi(lotKey),
-                ]);
+                const [availRes, ratioRes, depositRes] =
+                    await Promise.allSettled([
+                        getReservationAvailabilityApi(lotKey),
+                        getReservationRatioPolicyApi(lotKey),
+                        getDepositPolicyApi(lotKey),
+                    ]);
 
                 if (!isMounted) return;
 
-                if (availRes.status === "fulfilled" && availRes.value.isConfigured) {
+                if (
+                    availRes.status === "fulfilled" &&
+                    availRes.value.isConfigured
+                ) {
                     setReservationEnabled(availRes.value.reservationEnabled);
                 }
-                if (ratioRes.status === "fulfilled" && ratioRes.value.isConfigured) {
+                if (
+                    ratioRes.status === "fulfilled" &&
+                    ratioRes.value.isConfigured
+                ) {
                     setRatioPercent(ratioRes.value.reservationRatioPercent);
                 }
-                if (depositRes.status === "fulfilled" && depositRes.value.isConfigured) {
+                if (
+                    depositRes.status === "fulfilled" &&
+                    depositRes.value.isConfigured
+                ) {
                     setDepositVnd(depositRes.value.holdDepositVnd);
                 }
             } catch {
                 if (isMounted) {
-                    setErrorMessage("Không thể tải một số chính sách từ máy chủ.");
+                    setErrorMessage(
+                        "Không thể tải một số chính sách từ máy chủ.",
+                    );
                 }
             } finally {
                 if (isMounted) {
@@ -214,7 +225,8 @@ export default function LotPoliciesPage() {
                 <div
                     style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                        gridTemplateColumns:
+                            "repeat(auto-fit, minmax(320px, 1fr))",
                         gap: "20px",
                         marginTop: "16px",
                     }}
@@ -270,8 +282,9 @@ export default function LotPoliciesPage() {
                                 marginBottom: "16px",
                             }}
                         >
-                            Cho phép khách hàng tìm kiếm bãi xe trên bản đồ ứng dụng
-                            ParkWise và bấm giữ chỗ trước 15 phút trước khi đến.
+                            Cho phép khách hàng tìm kiếm bãi xe trên bản đồ ứng
+                            dụng ParkWise và bấm giữ chỗ trước 15 phút trước khi
+                            đến.
                         </p>
 
                         <label
@@ -313,8 +326,8 @@ export default function LotPoliciesPage() {
                                         color: "#64748b",
                                     }}
                                 >
-                                    Khi tắt, khách chỉ có thể gửi xe vãng lai trực tiếp
-                                    tại cổng.
+                                    Khi tắt, khách chỉ có thể gửi xe vãng lai
+                                    trực tiếp tại cổng.
                                 </div>
                             </div>
                         </label>
@@ -362,8 +375,9 @@ export default function LotPoliciesPage() {
                                 marginBottom: "16px",
                             }}
                         >
-                            Tỷ lệ tối đa số ô đỗ dành riêng cho khách đặt trước qua app
-                            (phần còn lại dành cho khách vãng lai tại cổng).
+                            Tỷ lệ tối đa số ô đỗ dành riêng cho khách đặt trước
+                            qua app (phần còn lại dành cho khách vãng lai tại
+                            cổng).
                         </p>
 
                         <div style={{ marginBottom: "16px" }}>
@@ -376,7 +390,12 @@ export default function LotPoliciesPage() {
                                 }}
                             >
                                 <span>10%</span>
-                                <b style={{ color: "#2563eb", fontSize: "15px" }}>
+                                <b
+                                    style={{
+                                        color: "#2563eb",
+                                        fontSize: "15px",
+                                    }}
+                                >
                                     {ratioPercent}%
                                 </b>
                                 <span>50%</span>
@@ -391,7 +410,10 @@ export default function LotPoliciesPage() {
                                 onChange={(e) =>
                                     setRatioPercent(Number(e.target.value))
                                 }
-                                style={{ width: "100%", accentColor: "#2563eb" }}
+                                style={{
+                                    width: "100%",
+                                    accentColor: "#2563eb",
+                                }}
                             />
                         </div>
 
@@ -412,7 +434,8 @@ export default function LotPoliciesPage() {
                                     marginBottom: "8px",
                                 }}
                             >
-                                Dự tính phân bổ ô đỗ (Tổng sức chứa: {totalCapacity} ô):
+                                Dự tính phân bổ ô đỗ (Tổng sức chứa:{" "}
+                                {totalCapacity} ô):
                             </div>
                             <div
                                 style={{
@@ -445,10 +468,20 @@ export default function LotPoliciesPage() {
                                     fontSize: "12px",
                                 }}
                             >
-                                <span style={{ color: "#1d4ed8", fontWeight: 600 }}>
+                                <span
+                                    style={{
+                                        color: "#1d4ed8",
+                                        fontWeight: 600,
+                                    }}
+                                >
                                     ● Đặt trước: {reservedSlots} ô
                                 </span>
-                                <span style={{ color: "#475569", fontWeight: 500 }}>
+                                <span
+                                    style={{
+                                        color: "#475569",
+                                        fontWeight: 500,
+                                    }}
+                                >
                                     ● Vãng lai: {walkInSlots} ô
                                 </span>
                             </div>
@@ -497,9 +530,10 @@ export default function LotPoliciesPage() {
                                 marginBottom: "16px",
                             }}
                         >
-                            Khoản tiền tạm trừ từ Ví ParkWise của khách khi xác nhận giữ
-                            chỗ. Khoản này sẽ được khấu trừ vào phí đỗ xe khi check-in,
-                            hoặc hoàn lại nếu khách tự hủy trước 5 phút.
+                            Khoản tiền tạm trừ từ Ví ParkWise của khách khi xác
+                            nhận giữ chỗ. Khoản này sẽ được khấu trừ vào phí đỗ
+                            xe khi check-in, hoặc hoàn lại nếu khách tự hủy
+                            trước 5 phút.
                         </p>
 
                         <div
@@ -543,7 +577,13 @@ export default function LotPoliciesPage() {
                                 />
                             </div>
 
-                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: "8px",
+                                    flexWrap: "wrap",
+                                }}
+                            >
                                 {[0, 20000, 50000, 100000].map((preset) => (
                                     <button
                                         key={preset}
@@ -569,7 +609,9 @@ export default function LotPoliciesPage() {
                                             cursor: "pointer",
                                         }}
                                     >
-                                        {preset === 0 ? "Miễn cọc" : vnd(preset)}
+                                        {preset === 0
+                                            ? "Miễn cọc"
+                                            : vnd(preset)}
                                     </button>
                                 ))}
                             </div>
@@ -590,17 +632,18 @@ export default function LotPoliciesPage() {
                             <b>📌 Quy định vận hành Smart Parking:</b>
                             <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
                                 <li>
-                                    Nếu khách check-in đúng giờ: Tiền cọc được trừ trực
-                                    tiếp vào hóa đơn cuối cùng.
+                                    Nếu khách check-in đúng giờ: Tiền cọc được
+                                    trừ trực tiếp vào hóa đơn cuối cùng.
                                 </li>
                                 <li>
-                                    Nếu khách hủy sớm (trước 5 phút): Hệ thống hoàn 100%
-                                    tiền cọc về ví của khách.
+                                    Nếu khách hủy sớm (trước 5 phút): Hệ thống
+                                    hoàn 100% tiền cọc về ví của khách.
                                 </li>
                                 <li>
-                                    Nếu quá 15 phút không đến (No-show): Ô đỗ tự động giải
-                                    phóng cho tài xế khác, tiền cọc được ghi nhận bồi hoàn
-                                    doanh thu cho chủ bãi.
+                                    Nếu quá 15 phút không đến (No-show): Ô đỗ tự
+                                    động giải phóng cho tài xế khác, tiền cọc
+                                    được ghi nhận bồi hoàn doanh thu cho chủ
+                                    bãi.
                                 </li>
                             </ul>
                         </div>
@@ -631,7 +674,9 @@ export default function LotPoliciesPage() {
                             fontWeight: 600,
                         }}
                     >
-                        {isSubmitting ? "Đang lưu chính sách..." : "Lưu tất cả chính sách"}
+                        {isSubmitting
+                            ? "Đang lưu chính sách..."
+                            : "Lưu tất cả chính sách"}
                     </button>
                 </div>
             </form>

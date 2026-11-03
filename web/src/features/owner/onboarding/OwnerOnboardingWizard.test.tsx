@@ -416,9 +416,13 @@ describe("OwnerOnboardingWizard", () => {
 
         // Verify auto-filled values
         expect(screen.getByTestId("vneid-verified-badge")).toBeInTheDocument();
-        const idCardInput = screen.getByPlaceholderText(/079201234567/i) as HTMLInputElement;
+        const idCardInput = screen.getByPlaceholderText(
+            /079201234567/i,
+        ) as HTMLInputElement;
         expect(idCardInput.value).toBe("079201234567");
-        const fullNameInput = screen.getByPlaceholderText(/Nguyễn Văn An/i) as HTMLInputElement;
+        const fullNameInput = screen.getByPlaceholderText(
+            /Nguyễn Văn An/i,
+        ) as HTMLInputElement;
         expect(fullNameInput.value).toBe("NGUYỄN VĂN AN");
     });
 });

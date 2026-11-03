@@ -67,14 +67,20 @@ describe("LotPoliciesPage Component", () => {
             updatedAtUtc: "2026-10-30T10:00:00Z",
         });
 
-        vi.spyOn(ownerApi, "configureReservationAvailabilityApi").mockResolvedValue({
+        vi.spyOn(
+            ownerApi,
+            "configureReservationAvailabilityApi",
+        ).mockResolvedValue({
             lotId: "lot-guid-12345",
             reservationEnabled: false,
             isConfigured: true,
             updatedAtUtc: "2026-10-30T11:00:00Z",
         });
 
-        vi.spyOn(ownerApi, "configureReservationRatioPolicyApi").mockResolvedValue({
+        vi.spyOn(
+            ownerApi,
+            "configureReservationRatioPolicyApi",
+        ).mockResolvedValue({
             lotId: "lot-guid-12345",
             reservationRatioPercent: 40,
             isConfigured: true,
@@ -112,12 +118,16 @@ describe("LotPoliciesPage Component", () => {
         expect(screen.getByText(/● Đang nhận đặt trước/i)).toBeInTheDocument();
 
         // Ratio distribution
-        expect(screen.getByText(/2. Tỷ lệ Suất Giữ chỗ \(30%\)/i)).toBeInTheDocument();
+        expect(
+            screen.getByText(/2. Tỷ lệ Suất Giữ chỗ \(30%\)/i),
+        ).toBeInTheDocument();
         expect(screen.getByText(/● Đặt trước: 30 ô/i)).toBeInTheDocument();
         expect(screen.getByText(/● Vãng lai: 70 ô/i)).toBeInTheDocument();
 
         // Deposit value
-        const depositInput = screen.getByTestId("deposit-vnd-input") as HTMLInputElement;
+        const depositInput = screen.getByTestId(
+            "deposit-vnd-input",
+        ) as HTMLInputElement;
         expect(depositInput.value).toBe("50000");
     });
 
@@ -125,7 +135,9 @@ describe("LotPoliciesPage Component", () => {
         render(<LotPoliciesPage />);
 
         await waitFor(() => {
-            expect(screen.getByTestId("reservation-enabled-checkbox")).toBeInTheDocument();
+            expect(
+                screen.getByTestId("reservation-enabled-checkbox"),
+            ).toBeInTheDocument();
         });
 
         const checkbox = screen.getByTestId(
@@ -142,13 +154,17 @@ describe("LotPoliciesPage Component", () => {
         render(<LotPoliciesPage />);
 
         await waitFor(() => {
-            expect(screen.getByTestId("ratio-percent-slider")).toBeInTheDocument();
+            expect(
+                screen.getByTestId("ratio-percent-slider"),
+            ).toBeInTheDocument();
         });
 
         const slider = screen.getByTestId("ratio-percent-slider");
         fireEvent.change(slider, { target: { value: "40" } });
 
-        expect(screen.getByText(/2. Tỷ lệ Suất Giữ chỗ \(40%\)/i)).toBeInTheDocument();
+        expect(
+            screen.getByText(/2. Tỷ lệ Suất Giữ chỗ \(40%\)/i),
+        ).toBeInTheDocument();
         expect(screen.getByText(/● Đặt trước: 40 ô/i)).toBeInTheDocument();
         expect(screen.getByText(/● Vãng lai: 60 ô/i)).toBeInTheDocument();
     });
@@ -163,7 +179,9 @@ describe("LotPoliciesPage Component", () => {
         const preset100k = screen.getByText("100.000 đ");
         fireEvent.click(preset100k);
 
-        const depositInput = screen.getByTestId("deposit-vnd-input") as HTMLInputElement;
+        const depositInput = screen.getByTestId(
+            "deposit-vnd-input",
+        ) as HTMLInputElement;
         expect(depositInput.value).toBe("100000");
     });
 
@@ -171,7 +189,9 @@ describe("LotPoliciesPage Component", () => {
         render(<LotPoliciesPage />);
 
         await waitFor(() => {
-            expect(screen.getByTestId("save-policies-button")).toBeInTheDocument();
+            expect(
+                screen.getByTestId("save-policies-button"),
+            ).toBeInTheDocument();
         });
 
         // Change availability to false
@@ -222,7 +242,9 @@ describe("LotPoliciesPage Component", () => {
         render(<LotPoliciesPage />);
 
         await waitFor(() => {
-            expect(screen.getByTestId("save-policies-button")).toBeInTheDocument();
+            expect(
+                screen.getByTestId("save-policies-button"),
+            ).toBeInTheDocument();
         });
 
         const submitBtn = screen.getByTestId("save-policies-button");

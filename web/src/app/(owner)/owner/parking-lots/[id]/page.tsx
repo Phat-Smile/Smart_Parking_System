@@ -30,6 +30,11 @@ export default function ParkingLotDetailPage() {
     const [editing, setEditing] = useState(false);
     const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+    // New zone form state
+    const [zoneName, setZoneName] = useState("");
+    const [zoneType, setZoneType] = useState<"car" | "moto">("car");
+    const [zoneCap, setZoneCap] = useState(10);
+
     if (!lot) {
         return (
             <div
@@ -71,11 +76,6 @@ export default function ParkingLotDetailPage() {
             </div>
         );
     }
-
-    // New zone form state
-    const [zoneName, setZoneName] = useState("");
-    const [zoneType, setZoneType] = useState<"car" | "moto">("car");
-    const [zoneCap, setZoneCap] = useState(10);
 
     const showToast = (msg: string) => {
         setToastMsg(msg);

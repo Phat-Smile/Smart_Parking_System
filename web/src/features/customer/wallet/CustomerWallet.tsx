@@ -75,7 +75,10 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
             pendingKey.current = null;
             if (!result.paymentUrl) {
                 // Replay of a top-up that is already settled: there is nothing to pay, show its result.
-                if (result.isReplay || (result.topupId && result.status !== "Pending")) {
+                if (
+                    result.isReplay ||
+                    (result.topupId && result.status !== "Pending")
+                ) {
                     onOpenStatus(result.topupId);
                 } else {
                     setTopupError(

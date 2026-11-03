@@ -357,7 +357,9 @@ export function CompleteProfilePage({
         setIssueDate(profile.issueDate);
         setIssuedBy("Cục Cảnh sát QLHC về TTXH");
         setVneidVerified(true);
-        setNotice(`Đã điền tự động và đối soát thành công qua VNeID Mức 2 (CCCD: ${profile.cccd}).`);
+        setNotice(
+            `Đã điền tự động và đối soát thành công qua VNeID Mức 2 (CCCD: ${profile.cccd}).`,
+        );
         setVneidModalOpen(false);
     }
     const [validationErrors, setValidationErrors] = useState({
@@ -1088,9 +1090,12 @@ export function CompleteProfilePage({
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() => setVneidModalOpen(true)}
+                                                onClick={() =>
+                                                    setVneidModalOpen(true)
+                                                }
                                                 style={{
-                                                    background: "linear-gradient(135deg, #b91c1c, #991b1b)",
+                                                    background:
+                                                        "linear-gradient(135deg, #b91c1c, #991b1b)",
                                                     color: "#ffffff",
                                                     border: "1.5px solid #7f1d1d",
                                                     padding: "8px 16px",
@@ -1101,10 +1106,12 @@ export function CompleteProfilePage({
                                                     display: "inline-flex",
                                                     alignItems: "center",
                                                     gap: "6px",
-                                                    boxShadow: "0 2px 6px rgba(185, 28, 28, 0.25)",
+                                                    boxShadow:
+                                                        "0 2px 6px rgba(185, 28, 28, 0.25)",
                                                 }}
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID (Level 2 eID)
+                                                🇻🇳 Điền nhanh qua VNeID (Level 2
+                                                eID)
                                             </button>
                                             {vneidVerified && (
                                                 <span
@@ -1122,7 +1129,8 @@ export function CompleteProfilePage({
                                                         fontWeight: 600,
                                                     }}
                                                 >
-                                                    ✓ Đã đối soát CSDL Dân cư Quốc gia VNeID
+                                                    ✓ Đã đối soát CSDL Dân cư
+                                                    Quốc gia VNeID
                                                 </span>
                                             )}
                                         </div>

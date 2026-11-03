@@ -74,7 +74,13 @@ export function ParkingLotBookingDialog({
                 durationMinutes: duration * 60,
                 prepaidAmount: depositRequired,
             });
-            setBookingHold(hold);
+            const normalizedHold: ReservationHoldResponse = {
+                ...hold,
+                tempHoldExpiresAt:
+                    hold.tempHoldExpiresAt ||
+                    new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+            };
+            setBookingHold(normalizedHold);
 
             // Cập nhật lại số dư ví sau khi giữ chỗ
             try {
@@ -185,12 +191,7 @@ export function ParkingLotBookingDialog({
                             style={{ marginTop: "14px" }}
                         >
                             <HoldCountdownTimer
-                                expiresAt={
-                                    bookingHold.tempHoldExpiresAt ||
-                                    new Date(
-                                        Date.now() + 15 * 60 * 1000,
-                                    ).toISOString()
-                                }
+                                expiresAt={bookingHold.tempHoldExpiresAt || ""}
                                 onExpire={() => {
                                     setErrorMessage(
                                         "Hết thời gian giữ chỗ tạm thời (15 phút). Vui lòng đặt lại.",
