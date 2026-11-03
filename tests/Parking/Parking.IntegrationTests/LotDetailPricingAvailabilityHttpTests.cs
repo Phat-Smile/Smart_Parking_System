@@ -18,6 +18,8 @@ using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.Common.Interfaces;
 using ParkingSystem.Parking.Application.ParkingLayout;
+using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
+using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 using ParkingSystem.Parking.Domain.Entities;
@@ -34,8 +36,164 @@ public sealed class LotDetailPricingAvailabilityHttpTests
     private const string UserHeader = "X-Test-User";
     private static readonly Guid ApprovedLot = Guid.Parse("a0000000-0000-0000-0000-000000000001");
     private static readonly Guid PendingLot = Guid.Parse("a0000000-0000-0000-0000-000000000002");
+    private static readonly Guid RejectedLot = Guid.Parse("a0000000-0000-0000-0000-000000000003");
     private static readonly Guid Owner = Guid.Parse("b0000000-0000-0000-0000-000000000001");
     private static readonly Guid OtherOwner = Guid.Parse("b0000000-0000-0000-0000-000000000002");
+
+    [Fact]
+    public async Task Approved_layout_is_public_and_contains_slot_states_and_geometry()
+    {
+        await using var app = await CreateAppAsync();
+
+        var body = await GetOkJsonAsync(app, $"/api/parking/lots/{ApprovedLot}/layout", role: null, user: null);
+
+        Assert.Equal(ApprovedLot, body.GetProperty("lotId").GetGuid());
+        Assert.Equal(3, body.GetProperty("version").GetInt32());
+        Assert.True(body.TryGetProperty("asOfUtc", out _));
+        var zones = body.GetProperty("floors")[0].GetProperty("zones");
+        var car = zones[0];
+        Assert.Equal("Occupied", car.GetProperty("slots")[0].GetProperty("effectiveStatus").GetString());
+        Assert.Equal(1, car.GetProperty("slots")[0].GetProperty("position").GetProperty("x").GetInt32());
+    }
+
+    [Fact]
+    public async Task Pending_and_unknown_lots_do_not_expose_layout_publicly()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var pending = await SendAsync(app, $"/api/parking/lots/{PendingLot}/layout", null, null);
+        using var unknown = await SendAsync(app, $"/api/parking/lots/{Guid.NewGuid()}/layout", null, null);
+
+        await AssertProblemAsync(pending, HttpStatusCode.NotFound, "parking.layout.lot_not_found");
+        await AssertProblemAsync(unknown, HttpStatusCode.NotFound, "parking.layout.lot_not_found");
+    }
+
+    [Theory]
+    [InlineData("Customer")]
+    [InlineData("Staff")]
+    [InlineData("ParkingLotOwner")]
+    [InlineData("Admin")]
+    public async Task Approved_layout_is_readable_without_role_restrictions(string role)
+    {
+        await using var app = await CreateAppAsync();
+
+        var body = await GetOkJsonAsync(app, $"/api/parking/lots/{ApprovedLot}/layout", role, Owner);
+
+        Assert.Equal(ApprovedLot, body.GetProperty("lotId").GetGuid());
+    }
+
+    [Fact]
+    public async Task Pending_layout_remains_private_even_to_its_owner_on_the_public_route()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var response = await SendAsync(app, $"/api/parking/lots/{PendingLot}/layout", "ParkingLotOwner", Owner);
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "parking.layout.lot_not_found");
+    }
+
+    [Fact]
+    public async Task Rejected_layout_is_not_public()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var response = await SendAsync(app, $"/api/parking/lots/{RejectedLot}/layout", "ParkingLotOwner", Owner);
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "parking.layout.lot_not_found");
+    }
+
+    [Fact]
+    public async Task Empty_guid_cannot_disclose_a_layout()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var response = await SendAsync(app, $"/api/parking/lots/{Guid.Empty}/layout", null, null);
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "parking.layout.lot_not_found");
+    }
+
+    [Fact]
+    public async Task Layout_response_is_not_cached_on_success_or_not_found()
+    {
+        await using var app = await CreateAppAsync();
+
+        using var found = await SendAsync(app, $"/api/parking/lots/{ApprovedLot}/layout", null, null);
+        using var hidden = await SendAsync(app, $"/api/parking/lots/{PendingLot}/layout", null, null);
+
+        Assert.Equal(HttpStatusCode.OK, found.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+        Assert.Equal("no-store", found.Headers.CacheControl?.ToString());
+        Assert.Equal("no-store", hidden.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task Layout_contains_multiple_floors_and_both_vehicle_groups()
+    {
+        await using var app = await CreateAppAsync();
+
+        var body = await GetOkJsonAsync(app, $"/api/parking/lots/{ApprovedLot}/layout", null, null);
+
+        var floors = body.GetProperty("floors");
+        Assert.Equal(2, floors.GetArrayLength());
+        Assert.Equal("Ground", floors[0].GetProperty("name").GetString());
+        Assert.Equal("Upper", floors[1].GetProperty("name").GetString());
+        var zones = floors[0].GetProperty("zones");
+        Assert.Equal("Car", zones[0].GetProperty("vehicleGroup").GetString());
+        Assert.Equal("Motorbike", zones[1].GetProperty("vehicleGroup").GetString());
+        Assert.Equal(20, zones[1].GetProperty("capacity").GetInt32());
+        Assert.Equal(5, zones[1].GetProperty("currentVehicleCount").GetInt32());
+        Assert.False(zones[1].GetProperty("hasSlotSensor").GetBoolean());
+        Assert.Empty(zones[1].GetProperty("slots").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Layout_preserves_bounds_polygon_and_slot_coordinates()
+    {
+        await using var app = await CreateAppAsync();
+
+        var body = await GetOkJsonAsync(app, $"/api/parking/lots/{ApprovedLot}/layout", null, null);
+
+        var zones = body.GetProperty("floors")[0].GetProperty("zones");
+        var carSlots = zones[0].GetProperty("slots");
+        Assert.Equal("A-06", carSlots[5].GetProperty("slotCode").GetString());
+        Assert.Equal(6, carSlots[5].GetProperty("position").GetProperty("x").GetInt32());
+        Assert.Equal(1, carSlots[5].GetProperty("position").GetProperty("y").GetInt32());
+        Assert.Equal(5, zones[1].GetProperty("bounds").GetProperty("width").GetInt32());
+        Assert.Equal(JsonValueKind.Null, zones[1].GetProperty("polygon").ValueKind);
+        var polygon = body.GetProperty("floors")[1].GetProperty("zones")[0].GetProperty("polygon");
+        Assert.Equal(3, polygon.GetArrayLength());
+        Assert.Equal(4, polygon[1].GetProperty("x").GetInt32());
+        Assert.Equal(5, polygon[2].GetProperty("y").GetInt32());
+    }
+
+    [Theory]
+    [InlineData(0, "Occupied")]
+    [InlineData(1, "Available")]
+    [InlineData(2, "Maintenance")]
+    [InlineData(3, "Unavailable")]
+    [InlineData(4, "Assigned")]
+    [InlineData(5, "NeedsVerification")]
+    public async Task Layout_exposes_each_effective_slot_status(int index, string expected)
+    {
+        await using var app = await CreateAppAsync();
+
+        var body = await GetOkJsonAsync(app, $"/api/parking/lots/{ApprovedLot}/layout", null, null);
+
+        var slot = body.GetProperty("floors")[0].GetProperty("zones")[0].GetProperty("slots")[index];
+        Assert.Equal(expected, slot.GetProperty("effectiveStatus").GetString());
+    }
+
+    [Fact]
+    public async Task Layout_timestamp_is_a_valid_utc_instant()
+    {
+        await using var app = await CreateAppAsync();
+
+        var body = await GetOkJsonAsync(app, $"/api/parking/lots/{ApprovedLot}/layout", null, null);
+
+        var instant = body.GetProperty("asOfUtc").GetDateTimeOffset();
+        Assert.Equal(TimeSpan.Zero, instant.Offset);
+        Assert.True(instant > DateTimeOffset.UnixEpoch);
+    }
 
     [Fact]
     public async Task Anyone_reads_every_price_of_an_approved_lot()
@@ -185,6 +343,7 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         builder.Services.AddSingleton<ILotOwnershipService, InMemoryOwnership>();
         builder.Services.AddSingleton<IPricingPolicyRepository, InMemoryPricing>();
         builder.Services.AddSingleton<IAvailableSlotReader, InMemoryCarSlots>();
+        builder.Services.AddSingleton<IManageParkingLayoutRepository, InMemoryLayouts>();
         builder.Services.AddSingleton<IMotorbikeZoneCounter, InMemoryMotorbikeZones>();
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
 
@@ -193,6 +352,7 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapParkingLotEndpoints();
+        app.MapPublicParkingLayoutEndpoints();
         app.MapPricingEndpoints();
         await app.StartAsync(TestContext.Current.CancellationToken);
         return app;
@@ -237,6 +397,8 @@ public sealed class LotDetailPricingAvailabilityHttpTests
             Task.FromResult(
                 parkingLotId == PendingLot
                     ? new AdminParkingLotDetail(PendingLot, Owner, "Bãi chờ duyệt", "2 Lê Lợi", 10.78m, 106.71m, "Outdoor", "Pending", null, null)
+                    : parkingLotId == RejectedLot
+                        ? new AdminParkingLotDetail(RejectedLot, Owner, "Bãi bị từ chối", "3 Lê Lợi", 10.79m, 106.72m, "Outdoor", "Rejected", null, null)
                     : parkingLotId == ApprovedLot
                         ? new AdminParkingLotDetail(ApprovedLot, Owner, "Bãi trung tâm", "1 Lê Lợi", 10.77m, 106.70m, "Outdoor", "Approved", null, null)
                         : null);
@@ -269,6 +431,42 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<bool> SaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class InMemoryLayouts : IManageParkingLayoutRepository
+    {
+        public Task<bool> LotExistsAsync(Guid lotId, CancellationToken ct) =>
+            Task.FromResult(lotId == ApprovedLot || lotId == PendingLot);
+
+        public Task<bool> IsOwnerAsync(Guid lotId, Guid actorId, CancellationToken ct) =>
+            Task.FromResult(false);
+
+        public Task<ParkingLotLayout> ReadAsync(Guid lotId, CancellationToken ct) =>
+            Task.FromResult(new ParkingLotLayout(lotId, 3,
+            [
+                new LayoutFloor(Guid.NewGuid(), "Ground",
+                [
+                    new LayoutZone(Guid.NewGuid(), "CAR", "Car", 6, 3, true,
+                    [
+                        new LayoutSlot(Guid.NewGuid(), "A-01", null, "Occupied", new GridPoint(1, 1)),
+                        new LayoutSlot(Guid.NewGuid(), "A-02", null, "Available", new GridPoint(2, 1)),
+                        new LayoutSlot(Guid.NewGuid(), "A-03", "Maintenance", "Maintenance", new GridPoint(3, 1)),
+                        new LayoutSlot(Guid.NewGuid(), "A-04", "Unavailable", "Unavailable", new GridPoint(4, 1)),
+                        new LayoutSlot(Guid.NewGuid(), "A-05", null, "Assigned", new GridPoint(5, 1)),
+                        new LayoutSlot(Guid.NewGuid(), "A-06", null, "NeedsVerification", new GridPoint(6, 1))
+                    ], null, null),
+                    new LayoutZone(Guid.NewGuid(), "BIKES", "Motorbike", 20, 5, false, [],
+                        new GridBounds(0, 0, 5, 5), null)
+                ]),
+                new LayoutFloor(Guid.NewGuid(), "Upper",
+                [
+                    new LayoutZone(Guid.NewGuid(), "OVERFLOW", "Motorbike", 15, 2, false, [], null,
+                    [new GridPoint(0, 0), new GridPoint(4, 0), new GridPoint(0, 5)])
+                ])
+            ]));
+
+        public Task<Error?> SaveAsync(Guid lotId, Guid actorId, int expectedVersion,
+            IReadOnlyList<LayoutFloorInput> floors, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class InMemoryCarSlots : IAvailableSlotReader
