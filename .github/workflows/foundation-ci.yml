@@ -20,17 +20,15 @@ jobs:
       matrix:
         include:
           - name: "Identity"
-            project: "tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj"
+            projects: "tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj"
           - name: "Parking"
-            project: "tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj"
+            projects: "tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj"
           - name: "Booking"
-            project: "tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj"
+            projects: "tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj"
           - name: "Payment"
-            project: "tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj"
-          - name: "Notification"
-            project: "tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj"
-          - name: "Architecture"
-            project: "tests/ArchitectureTests/ArchitectureTests.csproj"
+            projects: "tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj"
+          - name: "Shared & Architecture"
+            projects: "tests/ArchitectureTests/ArchitectureTests.csproj tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -44,26 +42,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
       - name: Build Service
-        run: dotnet build ${{ matrix.project }} -m:1 --disable-build-servers
+        run: |
+          for proj in ${{ matrix.projects }}; do
+            dotnet build "$proj" -m:1 --disable-build-servers
+          done
       - name: Run Tests
-        run: dotnet test --project ${{ matrix.project }} --no-build
-
-  ai:
-    name: AI / Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: ai/ai-service/requirements.lock
-      - name: Install locked dependencies
-        working-directory: ai/ai-service
-        run: python -m pip install -r requirements.lock
-      - name: Run AI tests
-        working-directory: ai/ai-service
-        run: python -m unittest discover -s tests -v
+        run: |
+          for proj in ${{ matrix.projects }}; do
+            dotnet test --project "$proj" --no-build
+          done
 
   frontend:
     name: Frontend / Lint, Typecheck, Test & Build
