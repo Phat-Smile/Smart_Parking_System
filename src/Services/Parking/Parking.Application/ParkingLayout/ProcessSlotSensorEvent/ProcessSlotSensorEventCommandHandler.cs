@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Parking;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Parking.Application.Common.Realtime;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 
 namespace ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent;
@@ -13,7 +14,8 @@ public sealed class ProcessSlotSensorEventCommandHandler(
     ISlotSensorDeduplicationStore dedupStore,
     IOutboxWriter outboxWriter,
     IClock clock,
-    ILogger<ProcessSlotSensorEventCommandHandler> logger)
+    ILogger<ProcessSlotSensorEventCommandHandler> logger,
+    IParkingRealtimeNotifier? realtimeNotifier = null)
     : IRequestHandler<ProcessSlotSensorEventCommand, Result<ProcessedSensorEventResponse>>
 {
     public const int DefaultClockDriftToleranceSeconds = 5;
@@ -132,6 +134,19 @@ public sealed class ProcessSlotSensorEventCommandHandler(
                     slot.RowVersion),
                 "parking.slot-status-changed.v1",
                 1);
+
+            // US-MAP-003: Phát sự kiện thời gian thực tới SignalR Hub cho khách hàng & chủ bãi
+            if (realtimeNotifier is not null)
+            {
+                await realtimeNotifier.NotifySlotStatusChangedAsync(
+                    slot.LotId,
+                    slot.Id,
+                    slot.SlotCode,
+                    slot.EffectiveStatus.ToString(),
+                    previousStatus.ToString(),
+                    effectiveEventTime,
+                    cancellationToken);
+            }
         }
 
         // 7. Lưu thay đổi và cập nhật mốc thời gian khử trùng

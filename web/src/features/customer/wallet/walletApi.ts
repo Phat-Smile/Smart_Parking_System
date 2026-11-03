@@ -108,6 +108,7 @@ const WALLET_MESSAGES: Record<string, string> = {
     "payment.topup_not_found": "Không tìm thấy giao dịch nạp tiền này.",
     "payment.invalid_topup_id": "Mã giao dịch nạp tiền không hợp lệ.",
     "payment.customer_only": "Chỉ tài khoản khách hàng mới có ví.",
+    "auth.forbidden": "Chỉ tài khoản khách hàng mới có ví.",
 };
 
 export function describeWalletError(error: unknown): string {
@@ -115,6 +116,7 @@ export function describeWalletError(error: unknown): string {
         return "Không kết nối được máy chủ. Vui lòng thử lại.";
     if (error.status === 401)
         return "Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.";
+    if (error.status === 403) return "Chỉ tài khoản khách hàng mới có ví.";
     const code = error.problem?.errorCode;
     return (
         (code && WALLET_MESSAGES[code]) ||

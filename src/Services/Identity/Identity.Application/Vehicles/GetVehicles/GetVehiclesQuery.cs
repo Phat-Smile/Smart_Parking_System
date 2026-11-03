@@ -10,7 +10,8 @@ public sealed record VehicleItem(
     string LicensePlate,
     string VehicleType,
     string? NickName,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    bool IsDefault);
 
 public sealed record GetVehiclesResult(IReadOnlyList<VehicleItem> Vehicles);
 
@@ -26,7 +27,8 @@ public sealed class GetVehiclesQueryHandler(IVehicleRepository vehicles)
             v.LicensePlate,
             v.VehicleType.ToString(),
             v.NickName,
-            v.CreatedAtUtc)).ToList();
+            v.CreatedAtUtc,
+            v.IsDefault)).ToList();
 
         return Result<GetVehiclesResult>.Success(new GetVehiclesResult(items));
     }

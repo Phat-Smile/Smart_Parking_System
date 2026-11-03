@@ -6,6 +6,7 @@ export type RegisteredVehicle = {
     vehicleType: "Car" | "Motorbike";
     nickName: string | null;
     createdAtUtc: string;
+    isDefault: boolean;
 };
 
 export function getMyVehicles(signal?: AbortSignal) {
@@ -34,5 +35,12 @@ export function deleteMyVehicle(vehicleId: string) {
     return gatewayFetch<{ vehicleId: string; message: string }>(
         `/api/identity/accounts/me/vehicles/${encodeURIComponent(vehicleId)}`,
         { method: "DELETE" },
+    );
+}
+
+export function setDefaultVehicle(vehicleId: string) {
+    return gatewayFetch<void>(
+        `/api/identity/accounts/me/vehicles/${encodeURIComponent(vehicleId)}/default`,
+        { method: "PATCH" },
     );
 }

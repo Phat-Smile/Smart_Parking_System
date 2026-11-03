@@ -43,6 +43,7 @@ import {
 } from "@/features/auth/authSession";
 import { getMyVehicles, type RegisteredVehicle } from "./myVehiclesApi";
 import { isFutureBookingStart } from "./bookingDateTime";
+import { useParkingRealtime } from "@/features/parking/useParkingRealtime";
 import type { DailyOpeningHours } from "./parkingLotApi";
 
 export type ParkingLotDetailView = {
@@ -177,6 +178,13 @@ export function ParkingLotDetailExperience({
     const [date, setDate] = useState(initialBookingDate);
     const [time, setTime] = useState("10:00");
     const [duration, setDuration] = useState(2);
+    const [realtimeSpaces, setRealtimeSpaces] = useState<number | null>(null);
+    const { isConnected } = useParkingRealtime({
+        lotId: lot.id,
+        onLotOccupancyChanged: (event) => {
+            setRealtimeSpaces(event.availableCarSlots);
+        },
+    });
     const photos = lot.photos.length ? lot.photos : [lot.image];
     const directionsHref =
         lot.latitude !== undefined && lot.longitude !== undefined
@@ -201,17 +209,18 @@ export function ParkingLotDetailExperience({
         getMyVehicles(controller.signal)
             .then((result) => {
                 setVehicles(result.vehicles);
-                const eligible = result.vehicles.find(
-                    (item) =>
-                        !lot.compatible?.length ||
-                        lot.compatible.includes(
-                            item.vehicleType.toLowerCase(),
-                        ) ||
-                        (item.vehicleType === "Car" &&
-                            lot.compatible.some(
-                                (kind) => kind === "ev" || kind === "large",
-                            )),
+                const isEligible = (item: RegisteredVehicle) =>
+                    !lot.compatible?.length ||
+                    lot.compatible.includes(item.vehicleType.toLowerCase()) ||
+                    (item.vehicleType === "Car" &&
+                        lot.compatible.some(
+                            (kind) => kind === "ev" || kind === "large",
+                        ));
+                const defaultVehicle = result.vehicles.find(
+                    (item) => item.isDefault && isEligible(item),
                 );
+                const eligible =
+                    defaultVehicle ?? result.vehicles.find(isEligible);
                 setVehicleId(eligible?.vehicleId ?? "");
                 setVehiclesState("ready");
             })
@@ -365,15 +374,38 @@ export function ParkingLotDetailExperience({
                                 <CarFront size={21} />
                                 <span>
                                     <strong>
-                                        {lot.spacesText ??
-                                            (lot.spaces === undefined
-                                                ? "—"
-                                                : lot.spaces)}
+                                        {realtimeSpaces !== null
+                                            ? `${realtimeSpaces} slots`
+                                            : (lot.spacesText ??
+                                              (lot.spaces === undefined
+                                                  ? "—"
+                                                  : lot.spaces))}
                                     </strong>
-                                    <small>
-                                        {lot.spacesText
-                                            ? "free spaces now"
-                                            : "availability unavailable"}
+                                    <small
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                        }}
+                                    >
+                                        {isConnected && (
+                                            <span
+                                                style={{
+                                                    display: "inline-block",
+                                                    width: "6px",
+                                                    height: "6px",
+                                                    borderRadius: "50%",
+                                                    backgroundColor: "#10b981",
+                                                    boxShadow:
+                                                        "0 0 6px #10b981",
+                                                }}
+                                            />
+                                        )}
+                                        {realtimeSpaces !== null
+                                            ? "Real-time live"
+                                            : lot.spacesText
+                                              ? "free spaces now"
+                                              : "availability unavailable"}
                                     </small>
                                 </span>
                             </div>

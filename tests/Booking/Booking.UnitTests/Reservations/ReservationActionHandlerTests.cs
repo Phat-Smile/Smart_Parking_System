@@ -161,6 +161,22 @@ public sealed class ReservationActionHandlerTests
             return Task.FromResult<IReadOnlyList<Reservation>>(active);
         }
 
+        public Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(
+            Guid lotId,
+            string plateNumber,
+            DateTimeOffset arrivalTime,
+            CancellationToken cancellationToken)
+        {
+            var normalized = plateNumber.Trim().ToUpperInvariant();
+            var res = _list.FirstOrDefault(r =>
+                r.LotId == lotId &&
+                r.PlateNumber.Trim().ToUpperInvariant() == normalized &&
+                r.Status == ReservationStatus.Confirmed &&
+                arrivalTime >= r.WindowStartAt.AddMinutes(-15) &&
+                arrivalTime <= r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes));
+            return Task.FromResult(res);
+        }
+
         public void Add(Reservation reservation) => _list.Add(reservation);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;

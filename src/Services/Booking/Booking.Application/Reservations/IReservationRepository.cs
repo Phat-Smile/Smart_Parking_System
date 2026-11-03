@@ -10,6 +10,12 @@ public interface IReservationRepository
 
     Task<IReadOnlyList<Reservation>> ListActiveByLotIdAsync(Guid lotId, CancellationToken cancellationToken);
 
+    Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(
+        Guid lotId,
+        string plateNumber,
+        DateTimeOffset arrivalTime,
+        CancellationToken cancellationToken);
+
     void Add(Reservation reservation);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);

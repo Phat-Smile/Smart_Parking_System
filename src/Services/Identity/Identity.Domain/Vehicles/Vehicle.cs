@@ -15,6 +15,7 @@ public sealed class Vehicle
     public VehicleDomainType VehicleType { get; private set; }
     public string? NickName { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
+    public bool IsDefault { get; private set; }
 
     public static Vehicle Add(
         Guid id,
@@ -22,7 +23,8 @@ public sealed class Vehicle
         string licensePlate,
         VehicleDomainType vehicleType,
         DateTimeOffset createdAtUtc,
-        string? nickName = null)
+        string? nickName = null,
+        bool isDefault = false)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Vehicle Id must not be empty.", nameof(id));
@@ -47,7 +49,18 @@ public sealed class Vehicle
             LicensePlate = plate,
             VehicleType = vehicleType,
             NickName = string.IsNullOrEmpty(trimmedNick) ? null : trimmedNick,
-            CreatedAtUtc = createdAtUtc
+            CreatedAtUtc = createdAtUtc,
+            IsDefault = isDefault
         };
+    }
+
+    public void SetAsDefault()
+    {
+        IsDefault = true;
+    }
+
+    public void UnsetDefault()
+    {
+        IsDefault = false;
     }
 }

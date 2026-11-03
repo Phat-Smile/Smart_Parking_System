@@ -459,6 +459,12 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_default");
+
                     b.Property<string>("LicensePlate")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -477,11 +483,17 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_vehicles");
 
-                    b.HasIndex("AccountId");
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_vehicles_account_id");
 
                     b.HasIndex("LicensePlate")
                         .IsUnique()
                         .HasDatabaseName("ix_vehicles_license_plate");
+
+                    b.HasIndex("AccountId", "IsDefault")
+                        .IsUnique()
+                        .HasDatabaseName("ix_vehicles_account_id_is_default")
+                        .HasFilter("\"is_default\" = TRUE");
 
                     b.ToTable("vehicles", "identity");
                 });

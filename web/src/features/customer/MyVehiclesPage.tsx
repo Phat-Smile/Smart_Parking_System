@@ -21,6 +21,7 @@ import {
     addMyVehicle,
     deleteMyVehicle,
     getMyVehicles,
+    setDefaultVehicle,
     type RegisteredVehicle,
 } from "./myVehiclesApi";
 import {
@@ -52,6 +53,7 @@ type Vehicle = {
     size: "standard" | "large";
     photo?: string;
     draft?: boolean;
+    isDefault?: boolean;
 };
 type VehicleCategory =
     "motorbike" | "electric-motorbike" | "bicycle" | "car" | "electric-car";
@@ -258,6 +260,7 @@ function fromRegisteredVehicle(vehicle: RegisteredVehicle): Vehicle {
         plate: vehicle.licensePlate,
         brand: vehicle.nickName ?? "",
         size: "standard",
+        isDefault: vehicle.isDefault,
     };
 }
 
@@ -476,6 +479,27 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
     const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
     const [modal, setModal] = useState<Modal>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [settingDefaultId, setSettingDefaultId] = useState<string | null>(
+        null,
+    );
+
+    async function handleSetDefault(vehicleId: string) {
+        setSettingDefaultId(vehicleId);
+        try {
+            await setDefaultVehicle(vehicleId);
+            setVehicles((current) =>
+                current.map((v) => ({
+                    ...v,
+                    isDefault: v.id === vehicleId,
+                })),
+            );
+            setNotice("Đã đặt phương tiện làm xe mặc định.");
+        } catch {
+            setNotice("Không thể đặt làm xe mặc định. Vui lòng thử lại.");
+        } finally {
+            setSettingDefaultId(null);
+        }
+    }
     const [plate, setPlate] = useState("");
     const [category, setCategory] = useState<Vehicle["category"]>("car");
     const [brand, setBrand] = useState("");
@@ -752,9 +776,18 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                 return;
             }
         }
-        setVehicles((current) =>
-            current.filter((vehicle) => vehicle.id !== selectedId),
-        );
+        setVehicles((current) => {
+            const remaining = current.filter(
+                (vehicle) => vehicle.id !== selectedId,
+            );
+            const wasDefault = current.find(
+                (vehicle) => vehicle.id === selectedId,
+            )?.isDefault;
+            if (wasDefault && remaining.length > 0) {
+                remaining[0] = { ...remaining[0], isDefault: true };
+            }
+            return remaining;
+        });
         setNotice(
             session
                 ? "Vehicle removed from your account."
@@ -874,6 +907,19 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             Large
                                                         </span>
                                                     )}
+                                                {vehicle.isDefault && (
+                                                    <span
+                                                        className="vehicles-badge default"
+                                                        style={{
+                                                            background:
+                                                                "#059669",
+                                                            color: "#ffffff",
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        ★ Mặc định
+                                                    </span>
+                                                )}
                                                 {vehicle.draft && (
                                                     <span className="vehicles-badge draft">
                                                         Local draft
@@ -950,6 +996,48 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             )}
                                         </div>
                                         <div className="vehicles-card-actions">
+                                            {session &&
+                                                !vehicle.draft &&
+                                                (vehicle.isDefault ? (
+                                                    <span
+                                                        style={{
+                                                            fontSize: "0.85rem",
+                                                            color: "#059669",
+                                                            fontWeight: 600,
+                                                            display:
+                                                                "inline-flex",
+                                                            alignItems:
+                                                                "center",
+                                                            gap: "4px",
+                                                            padding: "6px 8px",
+                                                        }}
+                                                    >
+                                                        ✓ Xe chính
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="secondary"
+                                                        onClick={() =>
+                                                            handleSetDefault(
+                                                                vehicle.id,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            settingDefaultId ===
+                                                            vehicle.id
+                                                        }
+                                                        style={{
+                                                            fontSize: "0.85rem",
+                                                            cursor: "pointer",
+                                                        }}
+                                                    >
+                                                        {settingDefaultId ===
+                                                        vehicle.id
+                                                            ? "Đang đặt..."
+                                                            : "⭐ Đặt mặc định"}
+                                                    </button>
+                                                ))}
                                             {(!session || vehicle.draft) && (
                                                 <button
                                                     type="button"

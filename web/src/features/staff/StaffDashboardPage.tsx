@@ -20,13 +20,12 @@ export function StaffDashboardPage() {
     const [assignedLotsDetails, setAssignedLotsDetails] = React.useState<
         StaffAssignedLotDetail[]
     >([]);
-    const [loadingLots, setLoadingLots] = React.useState(false);
+    const [loadingLots, setLoadingLots] = React.useState(true);
     const [staffProfile, setStaffProfile] = React.useState<StaffProfile | null>(
         null,
     );
 
     const loadAssignedLotsDetails = React.useCallback(async () => {
-        setLoadingLots(true);
         try {
             const profile = await getStaffProfile();
             setStaffProfile(profile);

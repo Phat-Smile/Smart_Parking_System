@@ -3,6 +3,7 @@ using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Parking;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Parking.Application.Common.Realtime;
 using ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 using Xunit;
@@ -262,6 +263,75 @@ public sealed class SlotSensorEventProcessingTests
         Assert.Equal("parking.slot.not_found", result.Error?.Code);
     }
 
+    [Fact]
+    public async Task Sensor_event_broadcasts_realtime_status_when_effective_status_changes()
+    {
+        var slot = ParkingSlot.Create(Guid.NewGuid(), LotId, ZoneId, "A-01");
+        var repository = new FakeSlotSensorRepository(slot);
+        var dedupStore = new FakeSlotSensorDeduplicationStore();
+        var outbox = new FakeOutboxWriter();
+        var clock = new FakeClock(DateTimeOffset.Parse("2026-10-30T10:00:00Z"));
+        var realtime = new FakeParkingRealtimeNotifier();
+
+        var handler = new ProcessSlotSensorEventCommandHandler(
+            repository,
+            dedupStore,
+            outbox,
+            clock,
+            NullLogger<ProcessSlotSensorEventCommandHandler>.Instance,
+            realtime);
+
+        var command = new ProcessSlotSensorEventCommand(
+            Guid.NewGuid(),
+            "sensor-01",
+            LotId,
+            "A-01",
+            SensorState.Occupied,
+            DateTimeOffset.Parse("2026-10-30T09:59:58Z"));
+
+        var result = await handler.Handle(command, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        var broadcast = Assert.Single(realtime.SlotChanges);
+        Assert.Equal(LotId, broadcast.LotId);
+        Assert.Equal("A-01", broadcast.SlotCode);
+        Assert.Equal("Occupied", broadcast.EffectiveStatus);
+        Assert.Equal("Available", broadcast.PreviousStatus);
+    }
+
+    [Fact]
+    public async Task Sensor_event_does_not_broadcast_when_status_is_unchanged()
+    {
+        var slot = ParkingSlot.Create(Guid.NewGuid(), LotId, ZoneId, "A-01");
+        // Initial sensor state is already Empty -> sending Empty won't change effective status
+        var repository = new FakeSlotSensorRepository(slot);
+        var dedupStore = new FakeSlotSensorDeduplicationStore();
+        var outbox = new FakeOutboxWriter();
+        var clock = new FakeClock(DateTimeOffset.Parse("2026-10-30T10:00:00Z"));
+        var realtime = new FakeParkingRealtimeNotifier();
+
+        var handler = new ProcessSlotSensorEventCommandHandler(
+            repository,
+            dedupStore,
+            outbox,
+            clock,
+            NullLogger<ProcessSlotSensorEventCommandHandler>.Instance,
+            realtime);
+
+        var command = new ProcessSlotSensorEventCommand(
+            Guid.NewGuid(),
+            "sensor-01",
+            LotId,
+            "A-01",
+            SensorState.Empty,
+            DateTimeOffset.Parse("2026-10-30T09:59:58Z"));
+
+        var result = await handler.Handle(command, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(realtime.SlotChanges);
+    }
+
     private sealed class FakeSlotSensorRepository(ParkingSlot? slot) : ISlotSensorRepository
     {
         public Task<ParkingSlot?> FindBySlotCodeAsync(Guid lotId, string slotCode, CancellationToken cancellationToken) =>
@@ -317,5 +387,35 @@ public sealed class SlotSensorEventProcessingTests
     private sealed class FakeClock(DateTimeOffset utcNow) : IClock
     {
         public DateTimeOffset UtcNow => utcNow;
+    }
+
+    private sealed class FakeParkingRealtimeNotifier : IParkingRealtimeNotifier
+    {
+        public List<(Guid LotId, Guid SlotId, string SlotCode, string EffectiveStatus, string PreviousStatus, DateTimeOffset Timestamp)> SlotChanges { get; } = [];
+        public List<(Guid LotId, int AvailableCarSlots, int AvailableMotorbikeSlots, DateTimeOffset Timestamp)> OccupancyChanges { get; } = [];
+
+        public Task NotifySlotStatusChangedAsync(
+            Guid lotId,
+            Guid slotId,
+            string slotCode,
+            string effectiveStatus,
+            string previousStatus,
+            DateTimeOffset timestamp,
+            CancellationToken cancellationToken = default)
+        {
+            SlotChanges.Add((lotId, slotId, slotCode, effectiveStatus, previousStatus, timestamp));
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyLotOccupancyChangedAsync(
+            Guid lotId,
+            int availableCarSlots,
+            int availableMotorbikeSlots,
+            DateTimeOffset timestamp,
+            CancellationToken cancellationToken = default)
+        {
+            OccupancyChanges.Add((lotId, availableCarSlots, availableMotorbikeSlots, timestamp));
+            return Task.CompletedTask;
+        }
     }
 }

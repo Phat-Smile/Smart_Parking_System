@@ -118,8 +118,11 @@ export function StaffEntryPage() {
                 amountDueVnd: vehicleType === "Car" ? 30000 : 6000,
             });
 
-            // If Guest, auto prompt QR ticket modal
-            if (res.customerType === "Guest") {
+            // If Guest or UnregisteredWalkIn, auto prompt QR ticket modal
+            if (
+                res.customerType === "Guest" ||
+                res.customerType === "UnregisteredWalkIn"
+            ) {
                 setShowQrModal(true);
             }
 
@@ -220,6 +223,19 @@ export function StaffEntryPage() {
                     }
                 >
                     ⚠️ Biển số mờ (Cần sửa tay)
+                </button>
+                <button
+                    type="button"
+                    className="staff-preset-chip"
+                    style={{
+                        borderColor: "rgba(59, 130, 246, 0.4)",
+                        color: "#60a5fa",
+                    }}
+                    onClick={() =>
+                        loadPreset("51H-999.88", "Car", "Booking", 0.99)
+                    }
+                >
+                    ⭐ Xe đặt trước: 51H-999.88
                 </button>
             </div>
 
@@ -394,6 +410,9 @@ export function StaffEntryPage() {
                                     <option value="Registered">
                                         {t("entryRegOption")}
                                     </option>
+                                    <option value="Booking">
+                                        Xe đặt chỗ (Booking)
+                                    </option>
                                 </select>
                             </div>
                         </div>
@@ -564,6 +583,43 @@ export function StaffEntryPage() {
                                         {lastOpened.qrToken}
                                     </code>
                                 </div>
+                                {lastOpened.reservationId && (
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            marginBottom: "8px",
+                                            padding: "6px 10px",
+                                            background:
+                                                "rgba(59, 130, 246, 0.15)",
+                                            borderRadius: "4px",
+                                            border: "1px solid rgba(59, 130, 246, 0.3)",
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontSize: "12px",
+                                                color: "#60a5fa",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            ✨ Khách đặt trước (Booking)
+                                        </span>
+                                        <code
+                                            style={{
+                                                fontSize: "12px",
+                                                color: "#93c5fd",
+                                            }}
+                                        >
+                                            #
+                                            {lastOpened.reservationId.slice(
+                                                0,
+                                                8,
+                                            )}
+                                        </code>
+                                    </div>
+                                )}
                                 <div
                                     style={{
                                         display: "flex",

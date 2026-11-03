@@ -8,6 +8,8 @@ namespace ParkingSystem.Identity.Persistence.Vehicles;
 internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 {
     public const string PlateIndexName = "ix_vehicles_license_plate";
+    public const string AccountIdIndexName = "ix_vehicles_account_id";
+    public const string DefaultVehicleIndexName = "ix_vehicles_account_id_is_default";
 
     public void Configure(EntityTypeBuilder<Vehicle> builder)
     {
@@ -27,6 +29,9 @@ internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
             .IsUnique()
             .HasDatabaseName(PlateIndexName);
 
+        builder.HasIndex(v => v.AccountId)
+            .HasDatabaseName(AccountIdIndexName);
+
         builder.Property(v => v.VehicleType)
             .HasColumnName("vehicle_type")
             .HasConversion<int>()
@@ -39,6 +44,16 @@ internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
         builder.Property(v => v.CreatedAtUtc)
             .HasColumnName("created_at_utc")
             .IsRequired();
+
+        builder.Property(v => v.IsDefault)
+            .HasColumnName("is_default")
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.HasIndex(v => new { v.AccountId, v.IsDefault })
+            .IsUnique()
+            .HasFilter("\"is_default\" = TRUE")
+            .HasDatabaseName(DefaultVehicleIndexName);
 
         builder.HasOne<Account>()
             .WithMany()

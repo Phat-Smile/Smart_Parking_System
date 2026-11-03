@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.CancelReservation;
+using ParkingSystem.Booking.Application.Reservations.Commands.CheckInReservation;
 using ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReservation;
 using ParkingSystem.Booking.Application.Reservations.Commands.CreateTemporaryHold;
 using ParkingSystem.Booking.Application.Reservations.Queries.GetMyReservations;
@@ -206,9 +207,42 @@ public static class ReservationEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // 5. Check-in đặt chỗ khi xe vào cổng (US-PARK-004 / MF-08)
+        group.MapPost("/reservations/check-in", async (
+            HttpContext httpContext,
+            CheckInReservationApiRequest request,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new CheckInReservationCommand(
+                request.LotId,
+                request.PlateNumber,
+                request.EntryTime ?? DateTimeOffset.UtcNow,
+                request.SessionId);
+
+            var result = await sender.Send(command, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error!);
+            }
+
+            return Results.Ok(result.Value);
+        })
+        .AllowAnonymous()
+        .WithName("CheckInReservation")
+        .WithSummary("Check-in đặt chỗ tại cổng khi xe đến bãi (MF-08)")
+        .Produces<CheckInReservationResult>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
+
         return app;
     }
 }
+
+public sealed record CheckInReservationApiRequest(
+    [Required] Guid LotId,
+    [Required] string PlateNumber,
+    DateTimeOffset? EntryTime,
+    Guid? SessionId);
 
 public sealed record CreateReservationHoldRequest(
     [Required] Guid LotId,

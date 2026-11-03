@@ -24,12 +24,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { t } = useLanguage();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setMounted(true);
-    }, []);
+    const mounted = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
 
     const externalSession = useSyncExternalStore(
         subscribeAuthSession,
@@ -75,6 +74,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
             icon: "check",
         },
         { href: "/admin/users", label: t("adminUsers"), icon: "users" },
+        {
+            href: "/admin/audit-logs",
+            label: "Kiểm toán & Đối soát",
+            icon: "clock",
+        },
     ];
 
     const isActive = (href: string) =>
