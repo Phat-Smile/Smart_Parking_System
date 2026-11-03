@@ -36,9 +36,12 @@ export function useParkingRealtime({
     const [lastOccupancyChange, setLastOccupancyChange] = useState<LotOccupancyChangedEvent | null>(null);
 
     const slotCbRef = useRef(onSlotStatusChanged);
-    slotCbRef.current = onSlotStatusChanged;
     const occCbRef = useRef(onLotOccupancyChanged);
-    occCbRef.current = onLotOccupancyChanged;
+
+    useEffect(() => {
+        slotCbRef.current = onSlotStatusChanged;
+        occCbRef.current = onLotOccupancyChanged;
+    }, [onSlotStatusChanged, onLotOccupancyChanged]);
 
     useEffect(() => {
         if (!lotId) return;

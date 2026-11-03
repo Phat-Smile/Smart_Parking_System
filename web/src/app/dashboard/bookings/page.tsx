@@ -61,7 +61,6 @@ export default function BookingsPage() {
     );
 
     const loadReservations = useCallback(async () => {
-        setLoading(true);
         setError(null);
         try {
             const data = await getMyReservations();

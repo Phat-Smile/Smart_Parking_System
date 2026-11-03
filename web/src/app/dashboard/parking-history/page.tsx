@@ -26,7 +26,6 @@ export default function ParkingHistoryPage() {
     const [error, setError] = useState<string | null>(null);
 
     async function loadHistory() {
-        setLoading(true);
         setError(null);
         try {
             const data = await getMyParkingSessions();
