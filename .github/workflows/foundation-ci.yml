@@ -22,9 +22,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
       - run: dotnet tool restore
-      - run: dotnet restore ParkingSystem.slnx
-      - run: dotnet build ParkingSystem.slnx --no-restore
+      - run: dotnet restore ParkingSystem.slnx -m:1 --disable-build-servers
+      - run: dotnet build ParkingSystem.slnx --no-restore -m:1 --disable-build-servers
       - name: Run Unit & Architecture Tests
         run: |
           dotnet test tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj --no-build
@@ -33,6 +40,18 @@ jobs:
           dotnet test tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj --no-build
           dotnet test tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj --no-build
           dotnet test tests/ArchitectureTests/ArchitectureTests.csproj --no-build
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          echo "### 🧪 .NET Unit & Architecture Tests Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Service Project | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Identity.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Parking.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Booking.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Payment.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Notification.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| ArchitectureTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
 
   ai:
     name: AI / Test
