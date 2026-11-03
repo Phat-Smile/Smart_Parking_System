@@ -10,7 +10,12 @@ import type {
     VehicleType,
     VerificationIssue,
 } from "./types";
-import { getAssignedLot, listLotSessions } from "./staffApi";
+import {
+    calculateParkingFee,
+    DEFAULT_STAFF_LOT_ID,
+    getAssignedLot,
+    listLotSessions,
+} from "./staffApi";
 
 export interface GateActivity {
     id: string;
@@ -23,11 +28,6 @@ export interface GateActivity {
     amount?: number;
 }
 
-/*
- * What the staff screens show, read from Parking: the assigned lot, its free spaces and its active
- * sessions. Activities are the actions taken in this browser tab. Gate plate readings (#136, #137) are
- * not wired yet, so there are no verification issues.
- */
 let assignedLotState: AssignedLotResponse | null = null;
 let sessionsState: StaffSession[] = [];
 const issuesState: VerificationIssue[] = [];
@@ -98,13 +98,36 @@ export const staffStore = {
         notify();
     },
 
-    fetchAssignedLot: refresh,
+    fetchAssignedLot: async (preferredLotId?: string) => {
+        try {
+            const lot = await getAssignedLot(preferredLotId);
+            const targetLotId = lot?.lotId || DEFAULT_STAFF_LOT_ID;
+            const page = targetLotId
+                ? await listLotSessions(targetLotId, "Active", 1, 100)
+                : null;
+            assignedLotState = lot;
+            sessionsState = page
+                ? page.items.map((item) => toStaffSession(item, targetLotId))
+                : [];
+            loadErrorState = null;
+        } catch (error) {
+            loadErrorState = error;
+        } finally {
+            loaded = true;
+            notify();
+        }
+        return assignedLotState;
+    },
     refresh,
 
     /** Called after Parking opened the session; counts and the list are read again from Parking. */
     addSession: (session: StaffSession) => {
+        sessionsState = [
+            session,
+            ...sessionsState.filter((s) => s.id !== session.id),
+        ];
         addActivity({
-            id: `act-${session.id}`,
+            id: `act-${session.id || Date.now()}`,
             type: "entry",
             plateNumber: session.plateNumber,
             vehicleType: session.vehicleType,
@@ -185,6 +208,10 @@ export function useStaffData() {
 
     const activeSessions = sessions.filter((s) => s.status === "Active");
     const pendingIssues = issues.filter((i) => i.status === "Pending");
+
+    const totalCap =
+        assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
+    const occupied = activeSessions.length;
 
     const occupancy: OccupancyStats = {
         totalCapacity: assignedLot?.motorbikeCapacity ?? null,
