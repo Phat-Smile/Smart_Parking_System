@@ -45,9 +45,6 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
             MaxBalance = _walletOptions.MaxBalanceVnd
         };
 
-        var isDemo = !string.Equals(_vnpayOptions.Mode, "Production", StringComparison.OrdinalIgnoreCase);
-        var demoNotice = isDemo ? SandboxDemoNotice : string.Empty;
-
         if (wallet == null)
         {
             var emptyDto = new WalletBalanceDto
@@ -55,8 +52,8 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
                 WalletId = null,
                 Balance = 0m,
                 Currency = "VND",
-                IsDemo = isDemo,
-                DemoNotice = demoNotice,
+                IsDemo = true,
+                DemoNotice = SandboxDemoNotice,
                 Limits = limits,
                 GatewayMode = _vnpayOptions.Mode,
                 PendingTopUps = new List<PendingTopUpDto>()
@@ -82,8 +79,8 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
                 WalletId = wallet.Id,
                 Balance = wallet.Balance,
                 Currency = "VND",
-                IsDemo = isDemo,
-                DemoNotice = demoNotice,
+                IsDemo = true,
+                DemoNotice = SandboxDemoNotice,
                 Limits = limits,
                 GatewayMode = _vnpayOptions.Mode,
                 PendingTopUps = pendingDtos

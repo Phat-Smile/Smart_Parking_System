@@ -45,12 +45,8 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<WalletTopUpCompletedIntegrationEvent>(
             "payment.wallet-topup-completed.v1", 1);
-        services.AddIntegrationEvent<WalletTopUpCompletedIntegrationEvent>(
-            "payment.wallet-topup-completed.v1", 1);
         services.AddIntegrationEvent<ParkingSessionPaidIntegrationEvent>(
             "payment.session-paid.v1", 1);
-        services.AddIntegrationEvent<DirectPaymentCompletedIntegrationEvent>(
-            "payment.direct-payment-completed.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()

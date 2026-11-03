@@ -4,7 +4,6 @@ WORKDIR /src
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/BuildingBlocks/ParkingSystem.BuildingBlocks.csproj src/BuildingBlocks/
 COPY src/BuildingBlocks/ParkingSystem.AspNetCore/ParkingSystem.AspNetCore.csproj src/BuildingBlocks/ParkingSystem.AspNetCore/
-COPY contracts/events/ParkingSystem.Contracts.Events/ParkingSystem.Contracts.Events.csproj contracts/events/ParkingSystem.Contracts.Events/
 COPY src/Services/Parking/Parking.Domain/Parking.Domain.csproj src/Services/Parking/Parking.Domain/
 COPY src/Services/Parking/Parking.Application/Parking.Application.csproj src/Services/Parking/Parking.Application/
 COPY src/Services/Parking/Parking.Persistence/Parking.Persistence.csproj src/Services/Parking/Parking.Persistence/
@@ -13,7 +12,6 @@ COPY src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj src/Services/Park
 RUN dotnet restore src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
-COPY contracts/events/ contracts/events/
 COPY contracts/grpc/ contracts/grpc/
 COPY src/Services/Parking/ src/Services/Parking/
 RUN dotnet publish src/Services/Parking/Parking.WebAPI/Parking.WebAPI.csproj \

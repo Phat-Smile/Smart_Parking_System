@@ -100,62 +100,6 @@ public class VnpayTransaction
     }
 
     /// <summary>
-    /// Khởi tạo một giao dịch thanh toán trực tiếp phí đỗ xe qua VNPay ở trạng thái Pending.
-    /// </summary>
-    public static VnpayTransaction CreateDirectPayment(
-        Guid id,
-        string txnRef,
-        Guid sessionId,
-        decimal amount,
-        string clientRequestKey,
-        DateTimeOffset createdAt,
-        DateTimeOffset expiresAt)
-    {
-        if (id == Guid.Empty)
-        {
-            throw new ArgumentException(DomainErrorMessages.VnpayTransaction.EmptyTransactionId, nameof(id));
-        }
-
-        if (string.IsNullOrWhiteSpace(txnRef) || txnRef.Length != 32)
-        {
-            throw new ArgumentException(DomainErrorMessages.VnpayTransaction.InvalidTxnRef, nameof(txnRef));
-        }
-
-        if (sessionId == Guid.Empty)
-        {
-            throw new ArgumentException(DomainErrorMessages.VnpayTransaction.InvalidWalletId, nameof(sessionId));
-        }
-
-        if (amount <= 0m || amount % 1m != 0m)
-        {
-            throw new ArgumentException(DomainErrorMessages.VnpayTransaction.InvalidAmount, nameof(amount));
-        }
-
-        if (string.IsNullOrWhiteSpace(clientRequestKey) || clientRequestKey.Length < 8 || clientRequestKey.Length > 64)
-        {
-            throw new ArgumentException(DomainErrorMessages.VnpayTransaction.InvalidClientRequestKey, nameof(clientRequestKey));
-        }
-
-        if (expiresAt <= createdAt)
-        {
-            throw new ArgumentException(DomainErrorMessages.VnpayTransaction.InvalidExpiryTime, nameof(expiresAt));
-        }
-
-        return new VnpayTransaction
-        {
-            Id = id,
-            TxnRef = txnRef,
-            WalletId = sessionId,
-            Amount = amount,
-            Purpose = VnpayTransactionPurpose.DirectPayment,
-            Status = VnpayTransactionStatus.Pending,
-            ClientRequestKey = clientRequestKey,
-            CreatedAt = createdAt,
-            ExpiresAt = expiresAt
-        };
-    }
-
-    /// <summary>
     /// Phương thức chuyển trạng thái thành công khi nhận IPN hợp lệ
     /// </summary>
     public void MarkAsSuccess(string vnpayTransactionNo, string? bankCode, string responseCode, DateTimeOffset completedAt)

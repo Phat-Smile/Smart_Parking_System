@@ -10,6 +10,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Booking.Domain\Booking.Domain.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\ParkingSystem.BuildingBlocks.csproj" />
-    <ProjectReference Include="..\..\..\..\contracts\events\ParkingSystem.Contracts.Events\ParkingSystem.Contracts.Events.csproj" />
   </ItemGroup>
 </Project>

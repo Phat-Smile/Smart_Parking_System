@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 import { CustomerFooter, CustomerHeader } from "./CustomerShell";
 import { ParkingLayoutView } from "./ParkingLayoutView";
-import { ParkingLotBookingDialog } from "./booking/components/ParkingLotBookingDialog";
 import {
     getAuthSessionSnapshot,
     subscribeAuthSession,
@@ -733,17 +732,69 @@ export function ParkingLotDetailExperience({
                 </Link>
             </main>
             <CustomerFooter />
-            {bookingDialogOpen && selectedVehicle && (
-                <ParkingLotBookingDialog
-                    isOpen={bookingDialogOpen}
-                    onClose={() => setBookingDialogOpen(false)}
-                    lot={lot}
-                    vehicle={selectedVehicle}
-                    date={date}
-                    time={time}
-                    duration={duration}
-                    selectedSpot={selectedSpot}
-                />
+            {bookingDialogOpen && (
+                <div
+                    className="lot-detail-dialog-backdrop"
+                    onClick={() => setBookingDialogOpen(false)}
+                >
+                    <div
+                        className="lot-detail-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="lot-detail-dialog-title"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h2 id="lot-detail-dialog-title">
+                            Review your booking
+                        </h2>
+                        <dl>
+                            <div>
+                                <dt>Parking lot</dt>
+                                <dd>{lot.name}</dd>
+                            </div>
+                            <div>
+                                <dt>Vehicle</dt>
+                                <dd>{selectedVehicle?.licensePlate}</dd>
+                            </div>
+                            <div>
+                                <dt>Arrival</dt>
+                                <dd>
+                                    {date} · {time}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Duration</dt>
+                                <dd>{duration} hours</dd>
+                            </div>
+                            {selectedSpot && (
+                                <div>
+                                    <dt>Preferred space</dt>
+                                    <dd>{selectedSpot}</dd>
+                                </div>
+                            )}
+                            <div>
+                                <dt>Estimated total</dt>
+                                <dd>
+                                    {lot.hourlyPrice === undefined
+                                        ? "Unavailable"
+                                        : formatMoney(
+                                              lot.hourlyPrice * duration,
+                                          )}
+                                </dd>
+                            </div>
+                        </dl>
+                        <p role="status">
+                            Online booking is not available for this lot yet. No
+                            reservation or payment has been made.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setBookingDialogOpen(false)}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

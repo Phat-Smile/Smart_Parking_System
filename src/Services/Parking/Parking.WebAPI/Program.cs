@@ -89,7 +89,6 @@ app.MapDepositPolicyEndpoints();
 app.MapReservationRatioPolicyEndpoints();
 app.MapReservationAvailabilityPolicyEndpoints();
 app.MapParkingLayoutOwnerEndpoints();
-app.MapSlotSensorEndpoints();
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)

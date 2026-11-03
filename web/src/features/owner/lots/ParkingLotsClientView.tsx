@@ -104,148 +104,120 @@ export function ParkingLotsClientView({
             </div>
 
             {/* Lot Cards Grid */}
-            {filteredLots.length === 0 ? (
-                <div
-                    style={{
-                        background: "#fff",
-                        borderRadius: 18,
-                        border: "1px dashed #cbd5e1",
-                        padding: "48px 24px",
-                        textAlign: "center",
-                    }}
-                >
-                    <p
-                        style={{
-                            fontSize: 16,
-                            fontWeight: 700,
-                            color: "#1e293b",
-                            marginBottom: 6,
-                        }}
-                    >
-                        Chưa có bãi đỗ xe nào
-                    </p>
-                    <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
-                        Bạn chưa có bãi đỗ xe nào trên hệ thống hoặc không có
-                        bãi phù hợp với bộ lọc đã chọn.
-                    </p>
-                </div>
-            ) : (
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                            "repeat(auto-fit, minmax(280px, 1fr))",
-                        gap: 16,
-                    }}
-                >
-                    {filteredLots.map((lot) => {
-                        const isSelected = selectedLotId === lot.id;
-                        const statusBg =
-                            lot.ap === "approved"
-                                ? "#def7ec"
-                                : lot.ap === "pending"
-                                  ? "#fef3c7"
-                                  : "#fde8e8";
-                        const statusColor =
-                            lot.ap === "approved"
-                                ? "#0e9f6e"
-                                : lot.ap === "pending"
-                                  ? "#b45309"
-                                  : "#e5484d";
-                        const statusText =
-                            lot.ap === "approved"
-                                ? "Đang hoạt động"
-                                : lot.ap === "pending"
-                                  ? "Chờ duyệt"
-                                  : "Bị từ chối";
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: 16,
+                }}
+            >
+                {filteredLots.map((lot) => {
+                    const isSelected = selectedLotId === lot.id;
+                    const statusBg =
+                        lot.ap === "approved"
+                            ? "#def7ec"
+                            : lot.ap === "pending"
+                              ? "#fef3c7"
+                              : "#fde8e8";
+                    const statusColor =
+                        lot.ap === "approved"
+                            ? "#0e9f6e"
+                            : lot.ap === "pending"
+                              ? "#b45309"
+                              : "#e5484d";
+                    const statusText =
+                        lot.ap === "approved"
+                            ? "Đang hoạt động"
+                            : lot.ap === "pending"
+                              ? "Chờ duyệt"
+                              : "Bị từ chối";
 
-                        return (
-                            <div
-                                key={lot.id}
-                                onClick={() =>
-                                    setSelectedLotId(isSelected ? null : lot.id)
+                    return (
+                        <div
+                            key={lot.id}
+                            onClick={() =>
+                                setSelectedLotId(isSelected ? null : lot.id)
+                            }
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setSelectedLotId(
+                                        isSelected ? null : lot.id,
+                                    );
                                 }
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" || e.key === " ") {
-                                        e.preventDefault();
-                                        setSelectedLotId(
-                                            isSelected ? null : lot.id,
-                                        );
-                                    }
-                                }}
-                                aria-label={`Bãi xe ${lot.name}, ${lot.addr}, ${lot.cc} ô đỗ`}
+                            }}
+                            aria-label={`Bãi xe ${lot.name}, ${lot.addr}, ${lot.cc} ô đỗ`}
+                            style={{
+                                background: "#fff",
+                                borderRadius: 18,
+                                border: isSelected
+                                    ? "2px solid #2563eb"
+                                    : "1px solid #e3e8f2",
+                                padding: 22,
+                                cursor: "pointer",
+                                boxShadow: isSelected
+                                    ? "0 8px 24px rgba(37,99,235,0.12)"
+                                    : "0 2px 6px rgba(15,27,61,0.04)",
+                                transition: "all 0.15s ease",
+                            }}
+                        >
+                            <div
                                 style={{
-                                    background: "#fff",
-                                    borderRadius: 18,
-                                    border: isSelected
-                                        ? "2px solid #2563eb"
-                                        : "1px solid #e3e8f2",
-                                    padding: 22,
-                                    cursor: "pointer",
-                                    boxShadow: isSelected
-                                        ? "0 8px 24px rgba(37,99,235,0.12)"
-                                        : "0 2px 6px rgba(15,27,61,0.04)",
-                                    transition: "all 0.15s ease",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "flex-start",
+                                    marginBottom: 10,
                                 }}
                             >
                                 <div
                                     style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "flex-start",
-                                        marginBottom: 10,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            fontSize: 16,
-                                            fontWeight: 800,
-                                            color: "#0f1b3d",
-                                        }}
-                                    >
-                                        {lot.name}
-                                    </div>
-                                    <span
-                                        style={{
-                                            background: statusBg,
-                                            color: statusColor,
-                                            borderRadius: 999,
-                                            padding: "3px 10px",
-                                            fontSize: 11.5,
-                                            fontWeight: 700,
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {statusText}
-                                    </span>
-                                </div>
-
-                                <div
-                                    style={{
-                                        fontSize: 13,
-                                        color: "#6a7491",
-                                        marginBottom: 14,
-                                    }}
-                                >
-                                    {lot.addr}
-                                </div>
-
-                                <div
-                                    style={{
-                                        fontSize: 14,
-                                        fontWeight: 700,
+                                        fontSize: 16,
+                                        fontWeight: 800,
                                         color: "#0f1b3d",
                                     }}
                                 >
-                                    {lot.cc} ô đỗ
+                                    {lot.name}
                                 </div>
+                                <span
+                                    style={{
+                                        background: statusBg,
+                                        color: statusColor,
+                                        borderRadius: 999,
+                                        padding: "3px 10px",
+                                        fontSize: 11.5,
+                                        fontWeight: 700,
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {statusText}
+                                </span>
                             </div>
-                        );
-                    })}
-                </div>
-            )}
+
+                            <div
+                                style={{
+                                    fontSize: 13,
+                                    color: "#6a7491",
+                                    marginBottom: 14,
+                                }}
+                            >
+                                {lot.addr}
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    color: "#0f1b3d",
+                                }}
+                            >
+                                {lot.cc} ô đỗ
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
 
             {/* Add Lot Modal */}
             <AddLotModal />

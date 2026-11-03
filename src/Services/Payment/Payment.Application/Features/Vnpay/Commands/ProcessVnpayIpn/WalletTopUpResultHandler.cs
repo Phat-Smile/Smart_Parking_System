@@ -96,9 +96,9 @@ public class WalletTopUpResultHandler : IVnpayResultHandler
         {
             await _transactionRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.GetType().Name == "DbUpdateException")
+        catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException")
         {
-            // Tránh cộng tiền lặp khi VNPay gửi webhook song song (xung đột version hoặc vi phạm unique key sổ cái)
+            // Tránh cộng tiền lặp khi VNPay gửi webhook song song
             _logger.LogInformation(ex, "Concurrency conflict for top-up {TxnRef}, transaction already confirmed", transaction.TxnRef);
             return VnpayIpnResponseDto.AlreadyConfirmed();
         }
