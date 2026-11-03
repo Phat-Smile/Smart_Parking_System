@@ -9,9 +9,11 @@ COPY src/Services/Booking/Booking.Application/Booking.Application.csproj src/Ser
 COPY src/Services/Booking/Booking.Persistence/Booking.Persistence.csproj src/Services/Booking/Booking.Persistence/
 COPY src/Services/Booking/Booking.Infrastructure/Booking.Infrastructure.csproj src/Services/Booking/Booking.Infrastructure/
 COPY src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj src/Services/Booking/Booking.WebAPI/
+COPY contracts/events/ParkingSystem.Contracts.Events/ParkingSystem.Contracts.Events.csproj contracts/events/ParkingSystem.Contracts.Events/
 RUN dotnet restore src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
+COPY contracts/events/ contracts/events/
 COPY contracts/grpc/ contracts/grpc/
 COPY src/Services/Booking/ src/Services/Booking/
 RUN dotnet publish src/Services/Booking/Booking.WebAPI/Booking.WebAPI.csproj \

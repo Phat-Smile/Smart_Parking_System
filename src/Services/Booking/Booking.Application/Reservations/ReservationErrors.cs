@@ -1,0 +1,24 @@
+using ParkingSystem.BuildingBlocks.Results;
+
+namespace ParkingSystem.Booking.Application.Reservations;
+
+public static class ReservationErrors
+{
+    public static readonly Error NotFound =
+        new("booking.reservation.not_found", "The reservation was not found.");
+
+    public static readonly Error AccessDenied =
+        new("booking.reservation.access_denied", "You do not have permission to access this reservation.");
+
+    public static readonly Error InvalidStatus =
+        new("booking.reservation.invalid_status", "The reservation is not in a valid state for this action.");
+
+    public static readonly Error HoldExpired =
+        new("booking.reservation.hold_expired", "The temporary hold has expired.");
+
+    public static readonly Error AlreadyConfirmed =
+        new("booking.reservation.already_confirmed", "The reservation is already confirmed.");
+
+    public static readonly Error CannotCancel =
+        new("booking.reservation.cannot_cancel", "The reservation cannot be cancelled in its current state.");
+}

@@ -14,6 +14,7 @@ import {
 import type { OwnerApplicationDocumentsResponse } from "./ownerApplicationsApi";
 import type { ApprovalStatus, OwnerApplicationItem } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
+import { findProfileByCccd } from "@/features/simulator/vneid/vneidSeedData";
 
 type Filter = ApprovalStatus | "All";
 type ReviewDocument = OwnerApplicationDocumentsResponse["documents"][number];
@@ -188,7 +189,13 @@ export function AdminOwnerApplicationsPage() {
     ) {
         setActiveApp(app);
         setModalAction(action);
-        setChecklist(DEFAULT_CHECKLIST);
+        const hasVneidMatch = Boolean(
+            app.idCardNumber && findProfileByCccd(app.idCardNumber),
+        );
+        setChecklist({
+            ...DEFAULT_CHECKLIST,
+            idCard: hasVneidMatch,
+        });
         setRejectReason("");
         void loadDocuments(app.accountId);
     }
@@ -570,6 +577,30 @@ export function AdminOwnerApplicationsPage() {
                                     <strong>
                                         {activeApp.idCardNumber || "—"}
                                     </strong>
+                                    {activeApp.idCardNumber &&
+                                        findProfileByCccd(
+                                            activeApp.idCardNumber,
+                                        ) && (
+                                            <span
+                                                data-testid="admin-vneid-badge"
+                                                style={{
+                                                    marginLeft: "8px",
+                                                    padding: "2px 8px",
+                                                    borderRadius: "4px",
+                                                    fontSize: "0.75rem",
+                                                    fontWeight: "700",
+                                                    background: "#ecfdf5",
+                                                    color: "#059669",
+                                                    border: "1px solid #a7f3d0",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "4px",
+                                                }}
+                                                title={`Trùng khớp CSDL Quốc gia VNeID: ${findProfileByCccd(activeApp.idCardNumber)?.fullName}`}
+                                            >
+                                                🇻🇳 VNeID Mức 2
+                                            </span>
+                                        )}
                                 </div>
                                 <div>
                                     <span style={{ color: "#4b5563" }}>
@@ -803,6 +834,26 @@ export function AdminOwnerApplicationsPage() {
                                             <span>
                                                 {t("ownerAppsChecklistRule2")}
                                             </span>
+                                            {activeApp &&
+                                                activeApp.idCardNumber &&
+                                                findProfileByCccd(
+                                                    activeApp.idCardNumber,
+                                                ) && (
+                                                    <span
+                                                        style={{
+                                                            marginLeft: "6px",
+                                                            padding: "1px 6px",
+                                                            borderRadius: "4px",
+                                                            fontSize: "0.7rem",
+                                                            fontWeight: "bold",
+                                                            background:
+                                                                "rgba(34, 197, 94, 0.15)",
+                                                            color: "#15803d",
+                                                        }}
+                                                    >
+                                                        ✓ Đã đối soát VNeID
+                                                    </span>
+                                                )}
                                         </label>
                                         <label
                                             style={{

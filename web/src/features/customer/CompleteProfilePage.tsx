@@ -18,6 +18,8 @@ import {
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerAccountMenu } from "./CustomerShell";
+import { VneidAuthModal } from "@/features/simulator/vneid/VneidAuthModal";
+import type { VneidCitizenProfile } from "@/features/simulator/vneid/vneidSeedData";
 
 type IdType = "citizenId" | "driverLicense";
 type DocumentSide = "front" | "back";
@@ -344,6 +346,22 @@ export function CompleteProfilePage({
     const [consent, setConsent] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    const [vneidModalOpen, setVneidModalOpen] = useState(false);
+    const [vneidVerified, setVneidVerified] = useState(false);
+
+    function handleVneidConfirm(profile: VneidCitizenProfile) {
+        setFullName(profile.fullName);
+        setBirthDate(profile.dobDisplay);
+        setAddress(profile.residence);
+        setDocumentNumber(profile.cccd);
+        setIssueDate(profile.issueDate);
+        setIssuedBy("Cục Cảnh sát QLHC về TTXH");
+        setVneidVerified(true);
+        setNotice(
+            `Đã điền tự động và đối soát thành công qua VNeID Mức 2 (CCCD: ${profile.cccd}).`,
+        );
+        setVneidModalOpen(false);
+    }
     const [validationErrors, setValidationErrors] = useState({
         fullName: "",
         phone: "",
@@ -1059,6 +1077,65 @@ export function CompleteProfilePage({
                                             <i />
                                         </button>
                                     </div>
+
+                                    {idType === "citizenId" && (
+                                        <div
+                                            style={{
+                                                margin: "14px 0 8px",
+                                                display: "flex",
+                                                flexWrap: "wrap",
+                                                alignItems: "center",
+                                                gap: "10px",
+                                            }}
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setVneidModalOpen(true)
+                                                }
+                                                style={{
+                                                    background:
+                                                        "linear-gradient(135deg, #b91c1c, #991b1b)",
+                                                    color: "#ffffff",
+                                                    border: "1.5px solid #7f1d1d",
+                                                    padding: "8px 16px",
+                                                    borderRadius: "10px",
+                                                    fontSize: "13px",
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "6px",
+                                                    boxShadow:
+                                                        "0 2px 6px rgba(185, 28, 28, 0.25)",
+                                                }}
+                                            >
+                                                🇻🇳 Điền nhanh qua VNeID (Level 2
+                                                eID)
+                                            </button>
+                                            {vneidVerified && (
+                                                <span
+                                                    data-testid="customer-vneid-verified-badge"
+                                                    style={{
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        gap: "5px",
+                                                        background: "#ecfdf5",
+                                                        color: "#065f46",
+                                                        border: "1px solid #a7f3d0",
+                                                        padding: "6px 12px",
+                                                        borderRadius: "8px",
+                                                        fontSize: "12px",
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    ✓ Đã đối soát CSDL Dân cư
+                                                    Quốc gia VNeID
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {idType && (
                                         <>
                                             <div className="parkwise-profile-fields document-fields">
@@ -1523,6 +1600,15 @@ export function CompleteProfilePage({
                 </div>
             </main>
             <ParkWiseFooter />
+
+            <VneidAuthModal
+                isOpen={vneidModalOpen}
+                onClose={() => setVneidModalOpen(false)}
+                onConfirm={handleVneidConfirm}
+                defaultCccd="000000000001"
+                title="Xác thực Căn cước công dân qua VNeID"
+                subtitle="Chia sẻ thông tin công dân để hoàn tất hồ sơ khách hàng ParkWise"
+            />
         </div>
     );
 }
