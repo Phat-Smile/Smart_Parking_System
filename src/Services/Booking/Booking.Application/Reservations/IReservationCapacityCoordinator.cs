@@ -11,8 +11,9 @@ namespace ParkingSystem.Booking.Application.Reservations;
 public interface IReservationCapacityCoordinator
 {
     /// <summary>
-    /// Atomically validates ceiling (condition i) and available slots (condition ii) under a row lock
-    /// on (lot_id, vehicle_group) in booking.reservation_capacity, and inserts the reservation in TemporaryHold status.
+    /// Atomically validates user reservation limit (BR-1), plate overlap (BR-2), ceiling (condition i),
+    /// and available slots (condition ii) under serialization locks within a single transaction,
+    /// and inserts the reservation in TemporaryHold status.
     /// Supports idempotency: if reservation with same Id already exists, returns existing reservation.
     /// </summary>
     Task<Result<Reservation>> CreateTemporaryHoldAtomicAsync(
@@ -20,6 +21,7 @@ public interface IReservationCapacityCoordinator
         int ceiling,
         int? availableSlotCount,
         TimeSpan lockTimeout,
+        int maxActiveReservationsPerUser = 3,
         CancellationToken cancellationToken = default);
 }
 

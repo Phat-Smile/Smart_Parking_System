@@ -3,6 +3,7 @@ using Xunit;
 
 namespace ParkingSystem.Testing;
 
+
 public sealed class PostgreSqlContainerFixture : IAsyncLifetime
 {
     private static readonly string? DirectConnectionString =
@@ -13,7 +14,7 @@ public sealed class PostgreSqlContainerFixture : IAsyncLifetime
             .WithDatabase("parking_system_test")
             .WithUsername("postgres")
             .WithPassword("postgres")
-            .WithCommand("-c", "max_connections=300")
+            .WithCommand("-c", "max_connections=500")
             .Build()
         : null;
 
@@ -35,3 +36,4 @@ public sealed class PostgreSqlContainerFixture : IAsyncLifetime
         }
     }
 }
+

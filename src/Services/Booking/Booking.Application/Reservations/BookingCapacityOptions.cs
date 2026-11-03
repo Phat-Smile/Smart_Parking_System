@@ -26,5 +26,10 @@ public sealed class BookingCapacityOptions
     /// Row lock timeout in seconds when acquiring SELECT ... FOR UPDATE (default 5s).
     /// </summary>
     public int LockTimeoutSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// Maximum number of active reservations permitted per user account (default 3, BR-1 US-RES-010).
+    /// </summary>
+    public int MaxActiveReservationsPerUser { get; set; } = 3;
 }
 
