@@ -118,7 +118,9 @@ describe("AdminOwnerApplicationsPage documents", () => {
             await screen.findByRole("button", { name: /Xem giấy tờ/i }),
         );
 
-        expect(await screen.findByTestId("admin-vneid-badge")).toBeInTheDocument();
+        expect(
+            await screen.findByTestId("admin-vneid-badge"),
+        ).toBeInTheDocument();
         expect(screen.getByText(/VNeID Mức 2/i)).toBeInTheDocument();
     });
 });

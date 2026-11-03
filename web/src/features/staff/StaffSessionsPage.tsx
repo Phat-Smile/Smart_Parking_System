@@ -15,12 +15,15 @@ import type { CustomerType, SessionStatus, StaffSession } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffSessionsPage() {
-    const { sessions, cancelSession, assignedLot, fetchAssignedLot } = useStaffData();
+    const { sessions, cancelSession, assignedLot, fetchAssignedLot } =
+        useStaffData();
     const { t } = useLanguage();
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [filterType, setFilterType] = useState<CustomerType | "All">("All");
-    const [statusFilter, setStatusFilter] = useState<SessionStatus | "All">("All");
+    const [statusFilter, setStatusFilter] = useState<SessionStatus | "All">(
+        "All",
+    );
     const [search, setSearch] = useState("");
     const [selectedQrSession, setSelectedQrSession] =
         useState<StaffSession | null>(null);
@@ -96,7 +99,9 @@ export function StaffSessionsPage() {
                 <div>
                     <h1 className="staff-title">{t("sessionsTitle")}</h1>
                     <p className="staff-subtitle">
-                        {assignedLot?.lotName ? `Bãi trực: ${assignedLot.lotName} · ` : ""}
+                        {assignedLot?.lotName
+                            ? `Bãi trực: ${assignedLot.lotName} · `
+                            : ""}
                         Dữ liệu phiên thực tế tải 100% từ CSDL hệ thống
                     </p>
                 </div>
@@ -108,9 +113,14 @@ export function StaffSessionsPage() {
                         onClick={handleRefresh}
                         disabled={isRefreshing}
                     >
-                        {isRefreshing ? "Đang tải CSDL..." : "🔄 Làm mới từ CSDL"}
+                        {isRefreshing
+                            ? "Đang tải CSDL..."
+                            : "🔄 Làm mới từ CSDL"}
                     </button>
-                    <Link href="/staff/entry" className="staff-btn staff-btn-primary">
+                    <Link
+                        href="/staff/entry"
+                        className="staff-btn staff-btn-primary"
+                    >
                         + Check-in xe mới
                     </Link>
                 </div>
@@ -157,7 +167,8 @@ export function StaffSessionsPage() {
 
                     <div className="staff-toolbar-summary">
                         <span className="staff-summary-pill">
-                            Tổng hiển thị: <strong>{filtered.length}</strong> / {sessions.length} phiên xe
+                            Tổng hiển thị: <strong>{filtered.length}</strong> /{" "}
+                            {sessions.length} phiên xe
                         </span>
                     </div>
                 </div>
@@ -169,24 +180,42 @@ export function StaffSessionsPage() {
                         <div className="staff-filter-tabs">
                             {[
                                 { key: "All", label: "Tất cả", icon: "📋" },
-                                { key: "Active", label: "Đang đỗ (Active)", icon: "🟢" },
-                                { key: "Completed", label: "Đã rời bãi (Completed)", icon: "⚪" },
-                                { key: "Cancelled", label: "Đã hủy (Cancelled)", icon: "🔴" },
+                                {
+                                    key: "Active",
+                                    label: "Đang đỗ (Active)",
+                                    icon: "🟢",
+                                },
+                                {
+                                    key: "Completed",
+                                    label: "Đã rời bãi (Completed)",
+                                    icon: "⚪",
+                                },
+                                {
+                                    key: "Cancelled",
+                                    label: "Đã hủy (Cancelled)",
+                                    icon: "🔴",
+                                },
                             ].map((tab) => {
                                 const count =
                                     tab.key === "All"
                                         ? sessions.length
-                                        : sessions.filter((s) => s.status === tab.key).length;
+                                        : sessions.filter(
+                                              (s) => s.status === tab.key,
+                                          ).length;
                                 return (
                                     <button
                                         key={tab.key}
                                         type="button"
                                         className={`staff-filter-btn ${statusFilter === tab.key ? "active" : ""}`}
-                                        onClick={() => setStatusFilter(tab.key as any)}
+                                        onClick={() =>
+                                            setStatusFilter(tab.key as any)
+                                        }
                                     >
                                         <span>{tab.icon}</span>
                                         <span>{tab.label}</span>
-                                        <span className="staff-filter-badge">{count}</span>
+                                        <span className="staff-filter-badge">
+                                            {count}
+                                        </span>
                                     </button>
                                 );
                             })}
@@ -198,24 +227,42 @@ export function StaffSessionsPage() {
                         <span className="staff-filter-label">Đối tượng:</span>
                         <div className="staff-filter-tabs">
                             {[
-                                { key: "All", label: "Tất cả phiên xe", icon: "👥" },
-                                { key: "Guest", label: "Khách vãng lai", icon: "🎫" },
-                                { key: "Registered", label: "Khách đăng ký App", icon: "📱" },
+                                {
+                                    key: "All",
+                                    label: "Tất cả phiên xe",
+                                    icon: "👥",
+                                },
+                                {
+                                    key: "Guest",
+                                    label: "Khách vãng lai",
+                                    icon: "🎫",
+                                },
+                                {
+                                    key: "Registered",
+                                    label: "Khách đăng ký App",
+                                    icon: "📱",
+                                },
                             ].map((tab) => {
                                 const count =
                                     tab.key === "All"
                                         ? sessions.length
-                                        : sessions.filter((s) => s.customerType === tab.key).length;
+                                        : sessions.filter(
+                                              (s) => s.customerType === tab.key,
+                                          ).length;
                                 return (
                                     <button
                                         key={tab.key}
                                         type="button"
                                         className={`staff-filter-btn ${filterType === tab.key ? "active" : ""}`}
-                                        onClick={() => setFilterType(tab.key as any)}
+                                        onClick={() =>
+                                            setFilterType(tab.key as any)
+                                        }
                                     >
                                         <span>{tab.icon}</span>
                                         <span>{tab.label}</span>
-                                        <span className="staff-filter-badge">{count}</span>
+                                        <span className="staff-filter-badge">
+                                            {count}
+                                        </span>
                                     </button>
                                 );
                             })}
@@ -245,15 +292,37 @@ export function StaffSessionsPage() {
                     <tbody>
                         {filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="staff-empty" style={{ padding: "40px 20px" }}>
+                                <td
+                                    colSpan={9}
+                                    className="staff-empty"
+                                    style={{ padding: "40px 20px" }}
+                                >
                                     <div style={{ textAlign: "center" }}>
-                                        <p style={{ fontSize: "16px", fontWeight: "bold", color: "#64748b", marginBottom: "8px" }}>
-                                            Chưa có phiên gửi xe nào trong CSDL phù hợp với bộ lọc
+                                        <p
+                                            style={{
+                                                fontSize: "16px",
+                                                fontWeight: "bold",
+                                                color: "#64748b",
+                                                marginBottom: "8px",
+                                            }}
+                                        >
+                                            Chưa có phiên gửi xe nào trong CSDL
+                                            phù hợp với bộ lọc
                                         </p>
-                                        <p style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "16px" }}>
-                                            Hãy tiến hành Check-in xe tại cổng vào để tạo phiên mới trên CSDL thật.
+                                        <p
+                                            style={{
+                                                fontSize: "13px",
+                                                color: "#94a3b8",
+                                                marginBottom: "16px",
+                                            }}
+                                        >
+                                            Hãy tiến hành Check-in xe tại cổng
+                                            vào để tạo phiên mới trên CSDL thật.
                                         </p>
-                                        <Link href="/staff/entry" className="staff-btn staff-btn-primary staff-btn-sm">
+                                        <Link
+                                            href="/staff/entry"
+                                            className="staff-btn staff-btn-primary staff-btn-sm"
+                                        >
                                             Đi đến Cổng Vào (Check-in)
                                         </Link>
                                     </div>
@@ -298,11 +367,16 @@ export function StaffSessionsPage() {
                                         <StatusPill status={s.status} />
                                     </td>
                                     <td>
-<div className="staff-payment-cell">
-                                            <StatusPill status={s.paymentStatus} />
+                                        <div className="staff-payment-cell">
+                                            <StatusPill
+                                                status={s.paymentStatus}
+                                            />
                                             {(s.amountDueVnd ?? 0) > 0 && (
                                                 <small className="staff-due-badge">
-                                                    {t("sessionsDue")}: {formatVnd(s.amountDueVnd ?? 0)}
+                                                    {t("sessionsDue")}:{" "}
+                                                    {formatVnd(
+                                                        s.amountDueVnd ?? 0,
+                                                    )}
                                                 </small>
                                             )}
                                         </div>
@@ -338,7 +412,12 @@ export function StaffSessionsPage() {
                                                 </Link>
                                             </div>
                                         ) : (
-                                            <span style={{ fontSize: "12px", color: "#64748b" }}>
+                                            <span
+                                                style={{
+                                                    fontSize: "12px",
+                                                    color: "#64748b",
+                                                }}
+                                            >
                                                 —
                                             </span>
                                         )}
@@ -350,7 +429,7 @@ export function StaffSessionsPage() {
                 </table>
             </div>
 
-{/* QR View Modal */}
+            {/* QR View Modal */}
             {selectedQrSession?.qrToken && (
                 <QrCodeModal
                     qrToken={selectedQrSession.qrToken}
@@ -384,13 +463,12 @@ export function StaffSessionsPage() {
                         <div className="staff-modal-body">
                             <p className="staff-modal-text">
                                 {t("sessionsCancelConfirmText")}{" "}
-                                <strong>
-                                    {cancellingSession.plateNumber}
-                                </strong>
+                                <strong>{cancellingSession.plateNumber}</strong>
                                 ?
                             </p>
                             <p className="staff-modal-hint">
-                                Phiên xe sẽ được đánh dấu Cancelled trong CSDL và chỗ đỗ sẽ được giải phóng ngay lập tức.
+                                Phiên xe sẽ được đánh dấu Cancelled trong CSDL
+                                và chỗ đỗ sẽ được giải phóng ngay lập tức.
                             </p>
 
                             <div className="staff-form-group">

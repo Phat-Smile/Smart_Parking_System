@@ -26,34 +26,45 @@ describe("lotAssignmentsApi integration", () => {
                 role: "Staff",
             };
 
-            const fetchMock = vi.fn().mockImplementation((url: string | URL) => {
-                const urlStr = String(url);
-                if (urlStr.includes("/api/staff-shifts")) {
+            const fetchMock = vi
+                .fn()
+                .mockImplementation((url: string | URL) => {
+                    const urlStr = String(url);
+                    if (urlStr.includes("/api/staff-shifts")) {
+                        return Promise.resolve(
+                            new Response(JSON.stringify({ success: true }), {
+                                status: 200,
+                                headers: { "Content-Type": "application/json" },
+                            }),
+                        );
+                    }
                     return Promise.resolve(
-                        new Response(JSON.stringify({ success: true }), {
+                        new Response(JSON.stringify(mockRes), {
                             status: 200,
                             headers: { "Content-Type": "application/json" },
                         }),
                     );
-                }
-                return Promise.resolve(
-                    new Response(JSON.stringify(mockRes), {
-                        status: 200,
-                        headers: { "Content-Type": "application/json" },
-                    }),
-                );
-            });
+                });
             vi.stubGlobal("fetch", fetchMock);
 
-            const result = await assignLotMember(lotId, accountId, "Staff", "morning");
+            const result = await assignLotMember(
+                lotId,
+                accountId,
+                "Staff",
+                "morning",
+            );
             expect(fetchMock).toHaveBeenCalled();
 
             const putCall = fetchMock.mock.calls.find(([url]) =>
-                String(url).includes(`/api/parking/admin/lots/${lotId}/assignments/${accountId}`),
+                String(url).includes(
+                    `/api/parking/admin/lots/${lotId}/assignments/${accountId}`,
+                ),
             );
             expect(putCall).toBeDefined();
             expect(putCall![1]?.method).toBe("PUT");
-            expect(JSON.parse(putCall![1]?.body as string)).toEqual({ role: "Staff" });
+            expect(JSON.parse(putCall![1]?.body as string)).toEqual({
+                role: "Staff",
+            });
 
             const shiftCall = fetchMock.mock.calls.find(([url]) =>
                 String(url).includes("/api/staff-shifts"),
@@ -83,7 +94,9 @@ describe("lotAssignmentsApi integration", () => {
             expect(fetchMock).toHaveBeenCalled();
 
             const deleteCall = fetchMock.mock.calls.find(([url]) =>
-                String(url).includes(`/api/parking/admin/lots/${lotId}/assignments/${accountId}`),
+                String(url).includes(
+                    `/api/parking/admin/lots/${lotId}/assignments/${accountId}`,
+                ),
             );
             expect(deleteCall).toBeDefined();
             expect(deleteCall![1]?.method).toBe("DELETE");

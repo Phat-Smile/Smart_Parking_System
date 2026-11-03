@@ -1,6 +1,11 @@
 export type VehicleType = "Car" | "Motorbike";
 
-export type CustomerType = "Registered" | "Guest" | "Booking" | "RegisteredWalkIn" | "UnregisteredWalkIn";
+export type CustomerType =
+    | "Registered"
+    | "Guest"
+    | "Booking"
+    | "RegisteredWalkIn"
+    | "UnregisteredWalkIn";
 
 export type SessionStatus = "Active" | "Paid" | "Completed" | "Cancelled";
 

@@ -77,12 +77,16 @@ describe("AdminAuditLogsPage", () => {
     it("renders heading and audit logs table with records", async () => {
         renderPage();
 
-        expect(screen.getByText("Nhật ký kiểm toán hệ thống")).toBeInTheDocument();
+        expect(
+            screen.getByText("Nhật ký kiểm toán hệ thống"),
+        ).toBeInTheDocument();
 
         await waitFor(() => {
             expect(screen.getByText("WalletTopUp")).toBeInTheDocument();
             expect(screen.getByText("PricingConfigured")).toBeInTheDocument();
-            expect(screen.getByText("khachhang@parkwise.vn")).toBeInTheDocument();
+            expect(
+                screen.getByText("khachhang@parkwise.vn"),
+            ).toBeInTheDocument();
             expect(screen.getByText("chubai@parkwise.vn")).toBeInTheDocument();
         });
     });
@@ -96,12 +100,16 @@ describe("AdminAuditLogsPage", () => {
 
         await userEvent.click(screen.getAllByText("Chi tiết")[0]);
 
-        expect(screen.getByText(/Chi tiết bản ghi kiểm toán/)).toBeInTheDocument();
+        expect(
+            screen.getByText(/Chi tiết bản ghi kiểm toán/),
+        ).toBeInTheDocument();
         expect(screen.getAllByText("Nạp tiền ví 100,000 VND")).toHaveLength(2);
         expect(screen.getByText(/"method": "VNPay"/)).toBeInTheDocument();
 
         await userEvent.click(screen.getByText("Đóng"));
-        expect(screen.queryByText(/Chi tiết bản ghi kiểm toán/)).not.toBeInTheDocument();
+        expect(
+            screen.queryByText(/Chi tiết bản ghi kiểm toán/),
+        ).not.toBeInTheDocument();
     });
 
     it("filters by actionType when selecting from dropdown", async () => {

@@ -82,10 +82,15 @@ async function countOrNull<T>(
  * Endpoints: GET /api/parking/staff/lots, GET /api/parking/lots/{id}/motorbike-availability,
  * GET /api/parking/lots/{id}/availability.
  */
-export async function getAssignedLot(preferredLotId?: string): Promise<AssignedLotResponse | null> {
+export async function getAssignedLot(
+    preferredLotId?: string,
+): Promise<AssignedLotResponse | null> {
     const lots = await getStaffLots();
     if (!lots || lots.length === 0) return null;
-    const chosen = (preferredLotId ? lots.find((l) => l.id === preferredLotId) : null) || lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) || lots[0];
+    const chosen =
+        (preferredLotId ? lots.find((l) => l.id === preferredLotId) : null) ||
+        lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) ||
+        lots[0];
     if (!chosen) return null;
 
     const lotPath = `/api/parking/lots/${encodeURIComponent(chosen.id)}`;
@@ -111,7 +116,10 @@ export async function getAssignedLot(preferredLotId?: string): Promise<AssignedL
         availableMotorbikeSlots,
         motorbikeCapacity,
         availableCarSlots,
-        totalCapacity: motorbikeCapacity !== null || availableCarSlots !== null ? (motorbikeCapacity ?? 0) + (availableCarSlots ?? 0) : null,
+        totalCapacity:
+            motorbikeCapacity !== null || availableCarSlots !== null
+                ? (motorbikeCapacity ?? 0) + (availableCarSlots ?? 0)
+                : null,
         occupiedSlots: 0,
     };
 }
@@ -161,7 +169,10 @@ export async function openParkingSession(
         });
     return {
         ...res,
-        availableMotorbikeSlots: availableMotorbikeSpaces ?? (res as any).availableMotorbikeSlots ?? 0,
+        availableMotorbikeSlots:
+            availableMotorbikeSpaces ??
+            (res as any).availableMotorbikeSlots ??
+            0,
     };
 }
 
@@ -263,7 +274,10 @@ export function describeStaffError(error: unknown): string {
     if (code === "parking.lot.access_denied" || error.status === 403) {
         return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
     }
-    if (code === "parking.walk_in.full" || code === "parking.motorbike_zone.full") {
+    if (
+        code === "parking.walk_in.full" ||
+        code === "parking.motorbike_zone.full"
+    ) {
         return "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.";
     }
     if (error.status === 404) {
@@ -278,7 +292,10 @@ export function describeStaffError(error: unknown): string {
     if (error.status === 401) {
         return "Phiên làm việc của nhân viên đã hết hạn (session has expired). Vui lòng đăng nhập lại.";
     }
-    return error.problem?.detail || "Không thể thực hiện thao tác. Vui lòng kiểm tra lại.";
+    return (
+        error.problem?.detail ||
+        "Không thể thực hiện thao tác. Vui lòng kiểm tra lại."
+    );
 }
 
 /**
@@ -357,7 +374,6 @@ export async function listLotSessions(
     );
 }
 
-
 export type { StaffLotItem } from "./types";
 
 export interface StaffProfile {
@@ -380,9 +396,12 @@ export interface StaffShiftDetails {
  */
 export async function getStaffProfile(): Promise<StaffProfile | null> {
     try {
-        const res = await gatewayFetch<StaffProfile>("/api/identity/accounts/me", {
-            method: "GET",
-        });
+        const res = await gatewayFetch<StaffProfile>(
+            "/api/identity/accounts/me",
+            {
+                method: "GET",
+            },
+        );
         return res || null;
     } catch {
         return null;
@@ -440,7 +459,6 @@ export async function getStaffAssignedShift(
     };
 }
 
-
 export interface StaffAssignedLotDetail {
     lotId: string;
     lotName: string;
@@ -482,7 +500,10 @@ export async function getStaffAssignedLotsDetails(
             let activeCount = 0;
             try {
                 const [motoRes, sessionPage] = await Promise.all([
-                    gatewayFetch<{ availableSpaces?: number; totalCapacity?: number }>(
+                    gatewayFetch<{
+                        availableSpaces?: number;
+                        totalCapacity?: number;
+                    }>(
                         `/api/parking/lots/${encodeURIComponent(lot.id)}/motorbike-availability`,
                         { method: "GET" },
                     ).catch(() => null),

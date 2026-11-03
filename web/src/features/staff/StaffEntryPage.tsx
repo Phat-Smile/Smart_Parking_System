@@ -64,14 +64,18 @@ export function StaffEntryPage() {
     }
 
     async function handleConfirmEntry() {
-        const finalPlate = (isEditingPlate ? editedPlate : plateNumber).trim().toUpperCase();
+        const finalPlate = (isEditingPlate ? editedPlate : plateNumber)
+            .trim()
+            .toUpperCase();
         if (!finalPlate) {
             setErrorMsg("Vui lòng nhập biển số xe.");
             return;
         }
 
         if (!assignedLot?.lotId) {
-            setErrorMsg("Chưa tải được thông tin bãi xe được phân công. Vui lòng kiểm tra lại tài khoản nhân viên.");
+            setErrorMsg(
+                "Chưa tải được thông tin bãi xe được phân công. Vui lòng kiểm tra lại tài khoản nhân viên.",
+            );
             return;
         }
 
@@ -97,11 +101,17 @@ export function StaffEntryPage() {
                 plateNumber: res.plateNumber,
                 vehicleType: res.vehicleType,
                 customerType: res.customerType || entryType,
-                driverName: entryType === "Registered" ? "Khách đã đăng ký" : "Khách vãng lai",
+                driverName:
+                    entryType === "Registered"
+                        ? "Khách đã đăng ký"
+                        : "Khách vãng lai",
                 entryTime: res.entryTime,
                 status: "Active",
                 qrToken: res.qrToken,
-                slotCode: res.slotCode ?? res.zoneCode ?? (vehicleType === "Car" ? "CAR-A" : "MOTO-B"),
+                slotCode:
+                    res.slotCode ??
+                    res.zoneCode ??
+                    (vehicleType === "Car" ? "CAR-A" : "MOTO-B"),
                 paymentStatus: "Pending",
                 totalFeeVnd: vehicleType === "Car" ? 30000 : 6000,
                 prepaidVnd: 0,
@@ -109,7 +119,10 @@ export function StaffEntryPage() {
             });
 
             // If Guest or UnregisteredWalkIn, auto prompt QR ticket modal
-            if (res.customerType === "Guest" || res.customerType === "UnregisteredWalkIn") {
+            if (
+                res.customerType === "Guest" ||
+                res.customerType === "UnregisteredWalkIn"
+            ) {
                 setShowQrModal(true);
             }
 
@@ -145,7 +158,9 @@ export function StaffEntryPage() {
                 <div>
                     <h1 className="staff-title">{t("entryPageTitle")}</h1>
                     <p className="staff-subtitle">
-                        {assignedLot?.lotName ? `Bãi trực: ${assignedLot.lotName} · ` : ""}
+                        {assignedLot?.lotName
+                            ? `Bãi trực: ${assignedLot.lotName} · `
+                            : ""}
                         {t("entryPageSubtitle")}
                     </p>
                 </div>
@@ -172,19 +187,12 @@ export function StaffEntryPage() {
 
             {/* Quick Presets Bar */}
             <div className="staff-presets-bar">
-                <span className="staff-presets-label">
-                    Biển số mẫu:
-                </span>
+                <span className="staff-presets-label">Biển số mẫu:</span>
                 <button
                     type="button"
                     className="staff-preset-chip"
                     onClick={() =>
-                        loadPreset(
-                            "59X1-234.56",
-                            "Motorbike",
-                            "Guest",
-                            0.99,
-                        )
+                        loadPreset("59X1-234.56", "Motorbike", "Guest", 0.99)
                     }
                 >
                     🛵 {t("staffMotorbike")}: 59X1-234.56
@@ -219,7 +227,10 @@ export function StaffEntryPage() {
                 <button
                     type="button"
                     className="staff-preset-chip"
-                    style={{ borderColor: "rgba(59, 130, 246, 0.4)", color: "#60a5fa" }}
+                    style={{
+                        borderColor: "rgba(59, 130, 246, 0.4)",
+                        color: "#60a5fa",
+                    }}
                     onClick={() =>
                         loadPreset("51H-999.88", "Car", "Booking", 0.99)
                     }
@@ -232,9 +243,14 @@ export function StaffEntryPage() {
                 {/* Left column: Real Camera ANPR & Detection Feed */}
                 <div className="staff-col">
                     <RealCameraFeed
-                        title={t("entryCameraTitle") || "Camera Cổng Vào 01 (Gate In 01)"}
+                        title={
+                            t("entryCameraTitle") ||
+                            "Camera Cổng Vào 01 (Gate In 01)"
+                        }
                         mode="entry"
-                        detectedPlate={isEditingPlate ? editedPlate : plateNumber}
+                        detectedPlate={
+                            isEditingPlate ? editedPlate : plateNumber
+                        }
                         confidence={ocrConfidence}
                         isScanning={loading}
                         onCaptureSnapshot={handleCameraSnapshot}
@@ -265,9 +281,21 @@ export function StaffEntryPage() {
                                     border: "1px solid #10b981",
                                 }}
                             />
-                            <div style={{ flex: 1, fontSize: "12px", color: "#e2e8f0" }}>
+                            <div
+                                style={{
+                                    flex: 1,
+                                    fontSize: "12px",
+                                    color: "#e2e8f0",
+                                }}
+                            >
                                 <strong>Ảnh chụp biển số thực tế</strong>
-                                <p style={{ fontSize: "11px", color: "#94a3b8", margin: "2px 0 0" }}>
+                                <p
+                                    style={{
+                                        fontSize: "11px",
+                                        color: "#94a3b8",
+                                        margin: "2px 0 0",
+                                    }}
+                                >
                                     Đã lưu frame camera cho phiên đỗ này.
                                 </p>
                             </div>
@@ -563,7 +591,8 @@ export function StaffEntryPage() {
                                             alignItems: "center",
                                             marginBottom: "8px",
                                             padding: "6px 10px",
-                                            background: "rgba(59, 130, 246, 0.15)",
+                                            background:
+                                                "rgba(59, 130, 246, 0.15)",
                                             borderRadius: "4px",
                                             border: "1px solid rgba(59, 130, 246, 0.3)",
                                         }}
@@ -583,7 +612,11 @@ export function StaffEntryPage() {
                                                 color: "#93c5fd",
                                             }}
                                         >
-                                            #{lastOpened.reservationId.slice(0, 8)}
+                                            #
+                                            {lastOpened.reservationId.slice(
+                                                0,
+                                                8,
+                                            )}
                                         </code>
                                     </div>
                                 )}
@@ -600,7 +633,7 @@ export function StaffEntryPage() {
                                             color: "var(--staff-text-muted)",
                                         }}
                                     >
-Khu / chỗ
+                                        Khu / chỗ
                                     </span>
                                     <strong style={{ fontSize: "14px" }}>
                                         {[
@@ -627,7 +660,7 @@ Khu / chỗ
                                     >
                                         {vehicleType === "Car"
                                             ? t("entryCarSlotsLeft")
-                                             : t("entryMotorbikeSlotsLeft")}
+                                            : t("entryMotorbikeSlotsLeft")}
                                     </span>
                                     <strong
                                         style={{
@@ -678,9 +711,7 @@ Khu / chỗ
                                         <button
                                             type="button"
                                             className="staff-btn staff-btn-secondary"
-                                            onClick={() =>
-                                                setShowQrModal(true)
-                                            }
+                                            onClick={() => setShowQrModal(true)}
                                         >
                                             {t("entryViewQrBtn")}
                                         </button>

@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+    useEffect,
+    useState,
+    useSyncExternalStore,
+    type ReactNode,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,7 +36,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         () => null,
     );
 
-    const session = mounted ? (externalSession ?? getAuthSessionSnapshot()) : null;
+    const session = mounted
+        ? (externalSession ?? getAuthSessionSnapshot())
+        : null;
     const pending = countByStatus(useAdminLots()).Pending;
     const role = session?.account.role;
 
@@ -77,7 +84,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     const isActive = (href: string) =>
         href === "/admin/parking-lots"
             ? pathname === href ||
-            /^\/admin\/parking-lots\/(?!pending|assignments)/.test(pathname)
+              /^\/admin\/parking-lots\/(?!pending|assignments)/.test(pathname)
             : pathname.startsWith(href);
 
     async function signOut() {
@@ -130,7 +137,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
                             {session?.displayName || t("systemAdmin")}
                         </strong>
                         <small>
-                            {session?.account.email ?? (mounted ? t("notSignedIn") : "...")}
+                            {session?.account.email ??
+                                (mounted ? t("notSignedIn") : "...")}
                         </small>
                     </div>
                     {session && (

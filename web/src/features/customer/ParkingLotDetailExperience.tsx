@@ -211,9 +211,7 @@ export function ParkingLotDetailExperience({
                 setVehicles(result.vehicles);
                 const isEligible = (item: RegisteredVehicle) =>
                     !lot.compatible?.length ||
-                    lot.compatible.includes(
-                        item.vehicleType.toLowerCase(),
-                    ) ||
+                    lot.compatible.includes(item.vehicleType.toLowerCase()) ||
                     (item.vehicleType === "Car" &&
                         lot.compatible.some(
                             (kind) => kind === "ev" || kind === "large",
@@ -221,7 +219,8 @@ export function ParkingLotDetailExperience({
                 const defaultVehicle = result.vehicles.find(
                     (item) => item.isDefault && isEligible(item),
                 );
-                const eligible = defaultVehicle ?? result.vehicles.find(isEligible);
+                const eligible =
+                    defaultVehicle ?? result.vehicles.find(isEligible);
                 setVehicleId(eligible?.vehicleId ?? "");
                 setVehiclesState("ready");
             })
@@ -378,11 +377,17 @@ export function ParkingLotDetailExperience({
                                         {realtimeSpaces !== null
                                             ? `${realtimeSpaces} slots`
                                             : (lot.spacesText ??
-                                                (lot.spaces === undefined
-                                                    ? "—"
-                                                    : lot.spaces))}
+                                              (lot.spaces === undefined
+                                                  ? "—"
+                                                  : lot.spaces))}
                                     </strong>
-                                    <small style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                    <small
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                        }}
+                                    >
                                         {isConnected && (
                                             <span
                                                 style={{
@@ -391,15 +396,16 @@ export function ParkingLotDetailExperience({
                                                     height: "6px",
                                                     borderRadius: "50%",
                                                     backgroundColor: "#10b981",
-                                                    boxShadow: "0 0 6px #10b981",
+                                                    boxShadow:
+                                                        "0 0 6px #10b981",
                                                 }}
                                             />
                                         )}
                                         {realtimeSpaces !== null
                                             ? "Real-time live"
-                                            : (lot.spacesText
-                                                ? "free spaces now"
-                                                : "availability unavailable")}
+                                            : lot.spacesText
+                                              ? "free spaces now"
+                                              : "availability unavailable"}
                                     </small>
                                 </span>
                             </div>

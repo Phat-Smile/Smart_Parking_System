@@ -312,7 +312,8 @@ export async function configureReservationRatioPolicyApi(
     req: ConfigureReservationRatioPolicyRequest,
 ): Promise<ReservationRatioPolicyResponse> {
     const raw = await gatewayFetch<
-        ReservationRatioPolicyResponse | { result: ReservationRatioPolicyResponse }
+        | ReservationRatioPolicyResponse
+        | { result: ReservationRatioPolicyResponse }
     >(`/api/parking/lots/${lotId}/reservation-ratio-policy`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -328,7 +329,8 @@ export async function getReservationRatioPolicyApi(
     lotId: string | number,
 ): Promise<ReservationRatioPolicyResponse> {
     const raw = await gatewayFetch<
-        ReservationRatioPolicyResponse | { result: ReservationRatioPolicyResponse }
+        | ReservationRatioPolicyResponse
+        | { result: ReservationRatioPolicyResponse }
     >(`/api/parking/lots/${lotId}/reservation-ratio-policy`, { method: "GET" });
     if (raw && "result" in raw && raw.result) {
         return raw.result;
@@ -352,9 +354,10 @@ export async function configureReservationAvailabilityApi(
     req: ConfigureReservationAvailabilityPolicyRequest,
 ): Promise<ReservationAvailabilityPolicyResponse> {
     const raw = await gatewayFetch<
-        ReservationAvailabilityPolicyResponse | {
-            result: ReservationAvailabilityPolicyResponse;
-        }
+        | ReservationAvailabilityPolicyResponse
+        | {
+              result: ReservationAvailabilityPolicyResponse;
+          }
     >(`/api/parking/lots/${lotId}/reservation-availability`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -370,9 +373,10 @@ export async function getReservationAvailabilityApi(
     lotId: string | number,
 ): Promise<ReservationAvailabilityPolicyResponse> {
     const raw = await gatewayFetch<
-        ReservationAvailabilityPolicyResponse | {
-            result: ReservationAvailabilityPolicyResponse;
-        }
+        | ReservationAvailabilityPolicyResponse
+        | {
+              result: ReservationAvailabilityPolicyResponse;
+          }
     >(`/api/parking/lots/${lotId}/reservation-availability`, { method: "GET" });
     if (raw && "result" in raw && raw.result) {
         return raw.result;

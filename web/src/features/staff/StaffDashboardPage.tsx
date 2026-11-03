@@ -45,9 +45,10 @@ export function StaffDashboardPage() {
     }, [fetchAssignedLot, loadAssignedLotsDetails]);
 
     const totalCap = occupancy.totalCapacity || 50;
-    const occupancyPercent = totalCap > 0
-        ? Math.min(100, Math.round((occupancy.occupied / totalCap) * 100))
-        : 0;
+    const occupancyPercent =
+        totalCap > 0
+            ? Math.min(100, Math.round((occupancy.occupied / totalCap) * 100))
+            : 0;
 
     const entryActivities = activities
         .filter((a) => a.type === "entry")
@@ -62,8 +63,7 @@ export function StaffDashboardPage() {
             (l) =>
                 l.lotId.toLowerCase() ===
                 (assignedLot?.lotId || "").toLowerCase(),
-        ) ||
-        (assignedLotsDetails.length > 0 ? assignedLotsDetails[0] : null);
+        ) || (assignedLotsDetails.length > 0 ? assignedLotsDetails[0] : null);
 
     return (
         <div className="staff-page">
@@ -87,7 +87,10 @@ export function StaffDashboardPage() {
                         }}
                         disabled={loadingLots}
                     >
-                        🔄 {loadingLots ? "Đang làm mới..." : "Cập nhật số liệu CSDL"}
+                        🔄{" "}
+                        {loadingLots
+                            ? "Đang làm mới..."
+                            : "Cập nhật số liệu CSDL"}
                     </button>
                 </div>
             </header>
@@ -113,7 +116,8 @@ export function StaffDashboardPage() {
                                 gap: "8px",
                             }}
                         >
-                            <span>🏢</span> Bãi trực & Ca làm việc của bạn (Admin phân công)
+                            <span>🏢</span> Bãi trực & Ca làm việc của bạn
+                            (Admin phân công)
                         </h2>
                         <p
                             className="staff-card-hint"
@@ -122,11 +126,19 @@ export function StaffDashboardPage() {
                             {staffProfile?.fullName
                                 ? `Nhân viên: ${staffProfile.fullName} (${staffProfile.email}) · `
                                 : ""}
-                            Mỗi nhân viên trực 1 bãi duy nhất. Dưới đây là thông tin bãi đỗ xe và ca làm việc bạn được Admin phân công.
+                            Mỗi nhân viên trực 1 bãi duy nhất. Dưới đây là thông
+                            tin bãi đỗ xe và ca làm việc bạn được Admin phân
+                            công.
                         </p>
                     </div>
 
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                        }}
+                    >
                         <span
                             style={{
                                 display: "inline-flex",
@@ -159,15 +171,23 @@ export function StaffDashboardPage() {
                             textAlign: "center",
                         }}
                     >
-                        <p style={{ margin: 0, color: "var(--pw-admin-muted, #64748b)" }}>
-                            Bạn chưa được quản trị viên phân công vào bãi xe nào. Vui lòng liên hệ Admin để được phân quyền trực bãi.
+                        <p
+                            style={{
+                                margin: 0,
+                                color: "var(--pw-admin-muted, #64748b)",
+                            }}
+                        >
+                            Bạn chưa được quản trị viên phân công vào bãi xe
+                            nào. Vui lòng liên hệ Admin để được phân quyền trực
+                            bãi.
                         </p>
                     </div>
                 ) : (
                     <div
                         style={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                            gridTemplateColumns:
+                                "repeat(auto-fit, minmax(320px, 1fr))",
                             gap: "20px",
                             alignItems: "stretch",
                         }}
@@ -257,7 +277,8 @@ export function StaffDashboardPage() {
                                             marginTop: "2px",
                                         }}
                                     >
-                                        Khung giờ làm việc: {activeLotDetail.hours}
+                                        Khung giờ làm việc:{" "}
+                                        {activeLotDetail.hours}
                                     </span>
                                 </div>
 
@@ -268,7 +289,8 @@ export function StaffDashboardPage() {
                                                 display: "inline-flex",
                                                 alignItems: "center",
                                                 gap: "6px",
-                                                background: "rgba(22, 163, 74, 0.12)",
+                                                background:
+                                                    "rgba(22, 163, 74, 0.12)",
                                                 color: "#16a34a",
                                                 border: "1px solid rgba(22, 163, 74, 0.3)",
                                                 padding: "6px 12px",
@@ -283,7 +305,8 @@ export function StaffDashboardPage() {
                                     ) : (
                                         <span
                                             style={{
-                                                background: "rgba(100, 116, 139, 0.1)",
+                                                background:
+                                                    "rgba(100, 116, 139, 0.1)",
                                                 color: "#64748b",
                                                 padding: "6px 12px",
                                                 borderRadius: "8px",
@@ -338,10 +361,21 @@ export function StaffDashboardPage() {
                                         border: "1px solid #e2e8f0",
                                     }}
                                 >
-                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                    <span
+                                        style={{
+                                            color: "#64748b",
+                                            fontSize: "0.8rem",
+                                            display: "block",
+                                        }}
+                                    >
                                         Chỗ trống Ô tô
                                     </span>
-                                    <strong style={{ color: "#16a34a", fontSize: "1.15rem" }}>
+                                    <strong
+                                        style={{
+                                            color: "#16a34a",
+                                            fontSize: "1.15rem",
+                                        }}
+                                    >
                                         {activeLotDetail.carAvailable} chỗ
                                     </strong>
                                 </div>
@@ -354,10 +388,21 @@ export function StaffDashboardPage() {
                                         border: "1px solid #e2e8f0",
                                     }}
                                 >
-                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                    <span
+                                        style={{
+                                            color: "#64748b",
+                                            fontSize: "0.8rem",
+                                            display: "block",
+                                        }}
+                                    >
                                         Chỗ trống Xe máy
                                     </span>
-                                    <strong style={{ color: "#16a34a", fontSize: "1.15rem" }}>
+                                    <strong
+                                        style={{
+                                            color: "#16a34a",
+                                            fontSize: "1.15rem",
+                                        }}
+                                    >
                                         {activeLotDetail.motorbikeAvailable} chỗ
                                     </strong>
                                 </div>
@@ -370,10 +415,21 @@ export function StaffDashboardPage() {
                                         border: "1px solid #e2e8f0",
                                     }}
                                 >
-                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                    <span
+                                        style={{
+                                            color: "#64748b",
+                                            fontSize: "0.8rem",
+                                            display: "block",
+                                        }}
+                                    >
                                         Xe đang đỗ trong bãi
                                     </span>
-                                    <strong style={{ color: "#0284c7", fontSize: "1.15rem" }}>
+                                    <strong
+                                        style={{
+                                            color: "#0284c7",
+                                            fontSize: "1.15rem",
+                                        }}
+                                    >
                                         {activeLotDetail.activeSessionsCount} xe
                                     </strong>
                                 </div>
@@ -386,18 +442,39 @@ export function StaffDashboardPage() {
                                         border: "1px solid #e2e8f0",
                                     }}
                                 >
-                                    <span style={{ color: "#64748b", fontSize: "0.8rem", display: "block" }}>
+                                    <span
+                                        style={{
+                                            color: "#64748b",
+                                            fontSize: "0.8rem",
+                                            display: "block",
+                                        }}
+                                    >
                                         Rào chắn Barrier
                                     </span>
-                                    <strong style={{ color: "#16a34a", fontSize: "1rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <strong
+                                        style={{
+                                            color: "#16a34a",
+                                            fontSize: "1rem",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                        }}
+                                    >
                                         <span className="staff-pulse-dot green" />
                                         Hoạt động tốt
                                     </strong>
                                 </div>
                             </div>
 
-                            <p style={{ margin: "4px 0 0", fontSize: "0.8rem", color: "var(--pw-admin-muted, #64748b)" }}>
-                                Cổng IN 01 & Cổng OUT 02 đang kết nối đồng bộ và sẵn sàng xử lý phương tiện ra vào.
+                            <p
+                                style={{
+                                    margin: "4px 0 0",
+                                    fontSize: "0.8rem",
+                                    color: "var(--pw-admin-muted, #64748b)",
+                                }}
+                            >
+                                Cổng IN 01 & Cổng OUT 02 đang kết nối đồng bộ và
+                                sẵn sàng xử lý phương tiện ra vào.
                             </p>
                         </div>
                     </div>
@@ -418,7 +495,8 @@ export function StaffDashboardPage() {
                     <div className="staff-occupancy-value">
                         <strong>{occupancy.occupied}</strong>
                         <span>
-/ {countText(occupancy.totalCapacity || totalCap)} {t("dashSlots")}
+                            / {countText(occupancy.totalCapacity || totalCap)}{" "}
+                            {t("dashSlots")}
                         </span>
                     </div>
 
@@ -516,7 +594,8 @@ export function StaffDashboardPage() {
                     <div className="staff-activity-list">
                         {entryActivities.length === 0 ? (
                             <p className="staff-empty">
-                                Chưa có lượt xe vào nào được ghi nhận trong phiên làm việc.
+                                Chưa có lượt xe vào nào được ghi nhận trong
+                                phiên làm việc.
                             </p>
                         ) : (
                             entryActivities.map((act) => (
@@ -560,7 +639,8 @@ export function StaffDashboardPage() {
                     <div className="staff-activity-list">
                         {exitActivities.length === 0 ? (
                             <p className="staff-empty">
-                                Chưa có lượt xe ra nào được ghi nhận trong phiên làm việc.
+                                Chưa có lượt xe ra nào được ghi nhận trong phiên
+                                làm việc.
                             </p>
                         ) : (
                             exitActivities.map((act) => (

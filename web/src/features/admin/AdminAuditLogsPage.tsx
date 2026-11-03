@@ -26,20 +26,44 @@ const ACTION_TYPE_OPTIONS = [
     { value: "SlotStatusChanged", label: "Trạng thái ô đỗ (Sensor/IoT)" },
 ];
 
-function getActionBadgeStyle(actionType: string): { bg: string; color: string; border: string } {
+function getActionBadgeStyle(actionType: string): {
+    bg: string;
+    color: string;
+    border: string;
+} {
     if (actionType.includes("TopUp") || actionType.includes("Refund")) {
-        return { bg: "rgba(16, 185, 129, 0.12)", color: "#059669", border: "rgba(16, 185, 129, 0.3)" };
+        return {
+            bg: "rgba(16, 185, 129, 0.12)",
+            color: "#059669",
+            border: "rgba(16, 185, 129, 0.3)",
+        };
     }
     if (actionType.includes("Payment")) {
-        return { bg: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "rgba(59, 130, 246, 0.3)" };
+        return {
+            bg: "rgba(59, 130, 246, 0.12)",
+            color: "#2563eb",
+            border: "rgba(59, 130, 246, 0.3)",
+        };
     }
     if (actionType.includes("Pricing") || actionType.includes("Policy")) {
-        return { bg: "rgba(245, 158, 11, 0.12)", color: "#d97706", border: "rgba(245, 158, 11, 0.3)" };
+        return {
+            bg: "rgba(245, 158, 11, 0.12)",
+            color: "#d97706",
+            border: "rgba(245, 158, 11, 0.3)",
+        };
     }
     if (actionType.includes("Session")) {
-        return { bg: "rgba(139, 92, 246, 0.12)", color: "#7c3aed", border: "rgba(139, 92, 246, 0.3)" };
+        return {
+            bg: "rgba(139, 92, 246, 0.12)",
+            color: "#7c3aed",
+            border: "rgba(139, 92, 246, 0.3)",
+        };
     }
-    return { bg: "rgba(100, 116, 139, 0.12)", color: "#475569", border: "rgba(100, 116, 139, 0.3)" };
+    return {
+        bg: "rgba(100, 116, 139, 0.12)",
+        color: "#475569",
+        border: "rgba(100, 116, 139, 0.3)",
+    };
 }
 
 export function AdminAuditLogsPage() {
@@ -58,7 +82,15 @@ export function AdminAuditLogsPage() {
     const [toUtc, setToUtc] = useState("");
     const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
-    const queryKey = ["admin-audit-logs", page, actionType, parkingLotId, actorId, fromUtc, toUtc];
+    const queryKey = [
+        "admin-audit-logs",
+        page,
+        actionType,
+        parkingLotId,
+        actorId,
+        fromUtc,
+        toUtc,
+    ];
 
     const { data, isLoading, isError, error, refetch } = useQuery({
         queryKey,
@@ -91,7 +123,8 @@ export function AdminAuditLogsPage() {
                     <span className="admin-eyebrow">Quản trị & Đối soát</span>
                     <h1>Nhật ký kiểm toán hệ thống</h1>
                     <p style={{ color: "var(--muted)", marginTop: "4px" }}>
-                        Tra cứu toàn bộ biến động tài chính ví, đối soát giao dịch, cập nhật giá và lịch sử hệ thống (US-ADMIN-005).
+                        Tra cứu toàn bộ biến động tài chính ví, đối soát giao
+                        dịch, cập nhật giá và lịch sử hệ thống (US-ADMIN-005).
                     </p>
                 </div>
             </header>
@@ -111,7 +144,15 @@ export function AdminAuditLogsPage() {
                 }}
             >
                 <div>
-                    <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "var(--muted)" }}>
+                    <label
+                        style={{
+                            display: "block",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            marginBottom: "6px",
+                            color: "var(--muted)",
+                        }}
+                    >
                         Loại hành động
                     </label>
                     <select
@@ -139,7 +180,15 @@ export function AdminAuditLogsPage() {
                 </div>
 
                 <div>
-                    <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "var(--muted)" }}>
+                    <label
+                        style={{
+                            display: "block",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            marginBottom: "6px",
+                            color: "var(--muted)",
+                        }}
+                    >
                         Từ thời điểm
                     </label>
                     <input
@@ -161,7 +210,15 @@ export function AdminAuditLogsPage() {
                 </div>
 
                 <div>
-                    <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "var(--muted)" }}>
+                    <label
+                        style={{
+                            display: "block",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            marginBottom: "6px",
+                            color: "var(--muted)",
+                        }}
+                    >
                         Đến thời điểm
                     </label>
                     <input
@@ -182,7 +239,13 @@ export function AdminAuditLogsPage() {
                     />
                 </div>
 
-                <div style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "flex-end",
+                        gap: "8px",
+                    }}
+                >
                     <button
                         type="button"
                         onClick={resetFilters}
@@ -221,8 +284,18 @@ export function AdminAuditLogsPage() {
 
             {/* Content states */}
             {isLoading && (
-                <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)" }}>
-                    <div style={{ display: "inline-block", marginBottom: "8px" }}>⏳</div>
+                <div
+                    style={{
+                        padding: "40px",
+                        textAlign: "center",
+                        color: "var(--muted)",
+                    }}
+                >
+                    <div
+                        style={{ display: "inline-block", marginBottom: "8px" }}
+                    >
+                        ⏳
+                    </div>
                     <p>Đang tải nhật ký kiểm toán...</p>
                 </div>
             )}
@@ -240,7 +313,8 @@ export function AdminAuditLogsPage() {
                 >
                     <strong>⚠️ Lỗi tải dữ liệu kiểm toán</strong>
                     <p style={{ marginTop: "4px", fontSize: "13px" }}>
-                        {(error as Error)?.message || "Không thể kết nối đến máy chủ thanh toán."}
+                        {(error as Error)?.message ||
+                            "Không thể kết nối đến máy chủ thanh toán."}
                     </p>
                     <button
                         type="button"
@@ -273,45 +347,135 @@ export function AdminAuditLogsPage() {
                             boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
                         }}
                     >
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13.5px" }}>
+                        <table
+                            style={{
+                                width: "100%",
+                                borderCollapse: "collapse",
+                                fontSize: "13.5px",
+                            }}
+                        >
                             <thead>
-                                <tr style={{ background: "var(--soft)", borderBottom: "1px solid var(--line)", textAlign: "left" }}>
-                                    <th style={{ padding: "12px 16px", fontWeight: 700 }}>Thời gian</th>
-                                    <th style={{ padding: "12px 16px", fontWeight: 700 }}>Hành động</th>
-                                    <th style={{ padding: "12px 16px", fontWeight: 700 }}>Dịch vụ</th>
-                                    <th style={{ padding: "12px 16px", fontWeight: 700 }}>Người thực hiện</th>
-                                    <th style={{ padding: "12px 16px", fontWeight: 700 }}>Đối tượng</th>
-                                    <th style={{ padding: "12px 16px", fontWeight: 700 }}>Lý do / Nội dung</th>
-                                    <th style={{ padding: "12px 16px", fontWeight: 700, textAlign: "right" }}>Thao tác</th>
+                                <tr
+                                    style={{
+                                        background: "var(--soft)",
+                                        borderBottom: "1px solid var(--line)",
+                                        textAlign: "left",
+                                    }}
+                                >
+                                    <th
+                                        style={{
+                                            padding: "12px 16px",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Thời gian
+                                    </th>
+                                    <th
+                                        style={{
+                                            padding: "12px 16px",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Hành động
+                                    </th>
+                                    <th
+                                        style={{
+                                            padding: "12px 16px",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Dịch vụ
+                                    </th>
+                                    <th
+                                        style={{
+                                            padding: "12px 16px",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Người thực hiện
+                                    </th>
+                                    <th
+                                        style={{
+                                            padding: "12px 16px",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Đối tượng
+                                    </th>
+                                    <th
+                                        style={{
+                                            padding: "12px 16px",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Lý do / Nội dung
+                                    </th>
+                                    <th
+                                        style={{
+                                            padding: "12px 16px",
+                                            fontWeight: 700,
+                                            textAlign: "right",
+                                        }}
+                                    >
+                                        Thao tác
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {data.items.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} style={{ padding: "40px 16px", textAlign: "center", color: "var(--muted)" }}>
-                                            Không tìm thấy bản ghi kiểm toán nào khớp bộ lọc.
+                                        <td
+                                            colSpan={7}
+                                            style={{
+                                                padding: "40px 16px",
+                                                textAlign: "center",
+                                                color: "var(--muted)",
+                                            }}
+                                        >
+                                            Không tìm thấy bản ghi kiểm toán nào
+                                            khớp bộ lọc.
                                         </td>
                                     </tr>
                                 ) : (
                                     data.items.map((item) => {
-                                        const badge = getActionBadgeStyle(item.actionType);
+                                        const badge = getActionBadgeStyle(
+                                            item.actionType,
+                                        );
                                         return (
                                             <tr
                                                 key={item.id}
-                                                style={{ borderBottom: "1px solid var(--line)", transition: "background 0.15s" }}
+                                                style={{
+                                                    borderBottom:
+                                                        "1px solid var(--line)",
+                                                    transition:
+                                                        "background 0.15s",
+                                                }}
                                             >
-                                                <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
-                                                    {formatDate(item.occurredAtUtc)}
+                                                <td
+                                                    style={{
+                                                        padding: "12px 16px",
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {formatDate(
+                                                        item.occurredAtUtc,
+                                                    )}
                                                 </td>
-                                                <td style={{ padding: "12px 16px" }}>
+                                                <td
+                                                    style={{
+                                                        padding: "12px 16px",
+                                                    }}
+                                                >
                                                     <span
                                                         style={{
-                                                            display: "inline-block",
+                                                            display:
+                                                                "inline-block",
                                                             padding: "3px 8px",
                                                             borderRadius: "6px",
                                                             fontSize: "12px",
                                                             fontWeight: 700,
-                                                            background: badge.bg,
+                                                            background:
+                                                                badge.bg,
                                                             color: badge.color,
                                                             border: `1px solid ${badge.border}`,
                                                         }}
@@ -319,32 +483,85 @@ export function AdminAuditLogsPage() {
                                                         {item.actionType}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
+                                                <td
+                                                    style={{
+                                                        padding: "12px 16px",
+                                                        color: "var(--muted)",
+                                                    }}
+                                                >
                                                     {item.sourceService}
                                                 </td>
-                                                <td style={{ padding: "12px 16px" }}>
+                                                <td
+                                                    style={{
+                                                        padding: "12px 16px",
+                                                    }}
+                                                >
                                                     <div>
-                                                        <strong>{item.actorEmail || "System / Anonymous"}</strong>
-                                                        <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                                                            Role: {item.actorRole || "—"}
+                                                        <strong>
+                                                            {item.actorEmail ||
+                                                                "System / Anonymous"}
+                                                        </strong>
+                                                        <div
+                                                            style={{
+                                                                fontSize:
+                                                                    "11px",
+                                                                color: "var(--muted)",
+                                                            }}
+                                                        >
+                                                            Role:{" "}
+                                                            {item.actorRole ||
+                                                                "—"}
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: "12px 16px" }}>
+                                                <td
+                                                    style={{
+                                                        padding: "12px 16px",
+                                                    }}
+                                                >
                                                     <div>
-                                                        <span>{item.targetType}</span>
-                                                        <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--muted)" }}>
-                                                            {item.targetId.length > 12 ? `${item.targetId.slice(0, 10)}...` : item.targetId}
+                                                        <span>
+                                                            {item.targetType}
+                                                        </span>
+                                                        <div
+                                                            style={{
+                                                                fontSize:
+                                                                    "11px",
+                                                                fontFamily:
+                                                                    "var(--font-mono)",
+                                                                color: "var(--muted)",
+                                                            }}
+                                                        >
+                                                            {item.targetId
+                                                                .length > 12
+                                                                ? `${item.targetId.slice(0, 10)}...`
+                                                                : item.targetId}
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: "12px 16px", maxWidth: "240px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                <td
+                                                    style={{
+                                                        padding: "12px 16px",
+                                                        maxWidth: "240px",
+                                                        overflow: "hidden",
+                                                        textOverflow:
+                                                            "ellipsis",
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
                                                     {item.reason || "—"}
                                                 </td>
-                                                <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                                                <td
+                                                    style={{
+                                                        padding: "12px 16px",
+                                                        textAlign: "right",
+                                                    }}
+                                                >
                                                     <button
                                                         type="button"
-                                                        onClick={() => setSelectedLog(item)}
+                                                        onClick={() =>
+                                                            setSelectedLog(item)
+                                                        }
                                                         style={{
                                                             padding: "4px 10px",
                                                             borderRadius: "6px",
@@ -378,20 +595,30 @@ export function AdminAuditLogsPage() {
                             }}
                         >
                             <span>
-                                Hiển thị <strong>{data.items.length}</strong> / <strong>{data.totalItems}</strong> sự kiện
-                                (Trang {data.page} / {Math.max(1, data.totalPages)})
+                                Hiển thị <strong>{data.items.length}</strong> /{" "}
+                                <strong>{data.totalItems}</strong> sự kiện
+                                (Trang {data.page} /{" "}
+                                {Math.max(1, data.totalPages)})
                             </span>
                             <div style={{ display: "flex", gap: "8px" }}>
                                 <button
                                     type="button"
                                     disabled={data.page <= 1}
-                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    onClick={() =>
+                                        setPage((p) => Math.max(1, p - 1))
+                                    }
                                     style={{
                                         padding: "6px 12px",
                                         borderRadius: "6px",
                                         border: "1px solid var(--line)",
-                                        background: data.page <= 1 ? "var(--soft)" : "#fff",
-                                        cursor: data.page <= 1 ? "not-allowed" : "pointer",
+                                        background:
+                                            data.page <= 1
+                                                ? "var(--soft)"
+                                                : "#fff",
+                                        cursor:
+                                            data.page <= 1
+                                                ? "not-allowed"
+                                                : "pointer",
                                         fontWeight: 600,
                                     }}
                                 >
@@ -405,8 +632,14 @@ export function AdminAuditLogsPage() {
                                         padding: "6px 12px",
                                         borderRadius: "6px",
                                         border: "1px solid var(--line)",
-                                        background: data.page >= data.totalPages ? "var(--soft)" : "#fff",
-                                        cursor: data.page >= data.totalPages ? "not-allowed" : "pointer",
+                                        background:
+                                            data.page >= data.totalPages
+                                                ? "var(--soft)"
+                                                : "#fff",
+                                        cursor:
+                                            data.page >= data.totalPages
+                                                ? "not-allowed"
+                                                : "pointer",
                                         fontWeight: 600,
                                     }}
                                 >
@@ -456,7 +689,8 @@ export function AdminAuditLogsPage() {
                             }}
                         >
                             <h2 style={{ fontSize: "16px", fontWeight: 700 }}>
-                                Chi tiết bản ghi kiểm toán #{selectedLog.id.slice(0, 8)}
+                                Chi tiết bản ghi kiểm toán #
+                                {selectedLog.id.slice(0, 8)}
                             </h2>
                             <button
                                 type="button"
@@ -472,46 +706,136 @@ export function AdminAuditLogsPage() {
                             </button>
                         </header>
 
-                        <div style={{ padding: "20px", overflowY: "auto", display: "grid", gap: "12px", fontSize: "13px" }}>
+                        <div
+                            style={{
+                                padding: "20px",
+                                overflowY: "auto",
+                                display: "grid",
+                                gap: "12px",
+                                fontSize: "13px",
+                            }}
+                        >
                             <div>
-                                <span style={{ color: "var(--muted)", display: "block", fontSize: "12px" }}>Hành động:</span>
-                                <strong>{selectedLog.actionType}</strong> ({selectedLog.sourceService})
+                                <span
+                                    style={{
+                                        color: "var(--muted)",
+                                        display: "block",
+                                        fontSize: "12px",
+                                    }}
+                                >
+                                    Hành động:
+                                </span>
+                                <strong>{selectedLog.actionType}</strong> (
+                                {selectedLog.sourceService})
                             </div>
                             <div>
-                                <span style={{ color: "var(--muted)", display: "block", fontSize: "12px" }}>Thời gian:</span>
-                                <strong>{formatDate(selectedLog.occurredAtUtc)}</strong> (<code>{selectedLog.occurredAtUtc}</code>)
+                                <span
+                                    style={{
+                                        color: "var(--muted)",
+                                        display: "block",
+                                        fontSize: "12px",
+                                    }}
+                                >
+                                    Thời gian:
+                                </span>
+                                <strong>
+                                    {formatDate(selectedLog.occurredAtUtc)}
+                                </strong>{" "}
+                                (<code>{selectedLog.occurredAtUtc}</code>)
                             </div>
                             <div>
-                                <span style={{ color: "var(--muted)", display: "block", fontSize: "12px" }}>Người thực hiện:</span>
-                                <strong>{selectedLog.actorEmail || "—"}</strong> | Role: {selectedLog.actorRole || "—"}
-                                <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--muted)" }}>
+                                <span
+                                    style={{
+                                        color: "var(--muted)",
+                                        display: "block",
+                                        fontSize: "12px",
+                                    }}
+                                >
+                                    Người thực hiện:
+                                </span>
+                                <strong>{selectedLog.actorEmail || "—"}</strong>{" "}
+                                | Role: {selectedLog.actorRole || "—"}
+                                <div
+                                    style={{
+                                        fontSize: "11px",
+                                        fontFamily: "var(--font-mono)",
+                                        color: "var(--muted)",
+                                    }}
+                                >
                                     Actor ID: {selectedLog.actorId || "—"}
                                 </div>
                             </div>
                             <div>
-                                <span style={{ color: "var(--muted)", display: "block", fontSize: "12px" }}>Đối tượng:</span>
-                                <strong>{selectedLog.targetType}</strong>: <code>{selectedLog.targetId}</code>
+                                <span
+                                    style={{
+                                        color: "var(--muted)",
+                                        display: "block",
+                                        fontSize: "12px",
+                                    }}
+                                >
+                                    Đối tượng:
+                                </span>
+                                <strong>{selectedLog.targetType}</strong>:{" "}
+                                <code>{selectedLog.targetId}</code>
                             </div>
                             {selectedLog.parkingLotId && (
                                 <div>
-                                    <span style={{ color: "var(--muted)", display: "block", fontSize: "12px" }}>Mã bãi đỗ:</span>
+                                    <span
+                                        style={{
+                                            color: "var(--muted)",
+                                            display: "block",
+                                            fontSize: "12px",
+                                        }}
+                                    >
+                                        Mã bãi đỗ:
+                                    </span>
                                     <code>{selectedLog.parkingLotId}</code>
                                 </div>
                             )}
                             <div>
-                                <span style={{ color: "var(--muted)", display: "block", fontSize: "12px" }}>Lý do / Mô tả:</span>
-                                <p style={{ background: "var(--soft)", padding: "8px 12px", borderRadius: "8px", margin: "4px 0" }}>
+                                <span
+                                    style={{
+                                        color: "var(--muted)",
+                                        display: "block",
+                                        fontSize: "12px",
+                                    }}
+                                >
+                                    Lý do / Mô tả:
+                                </span>
+                                <p
+                                    style={{
+                                        background: "var(--soft)",
+                                        padding: "8px 12px",
+                                        borderRadius: "8px",
+                                        margin: "4px 0",
+                                    }}
+                                >
                                     {selectedLog.reason || "Không có mô tả"}
                                 </p>
                             </div>
                             {selectedLog.ipAddress && (
                                 <div>
-                                    <span style={{ color: "var(--muted)", display: "block", fontSize: "12px" }}>Địa chỉ IP:</span>
+                                    <span
+                                        style={{
+                                            color: "var(--muted)",
+                                            display: "block",
+                                            fontSize: "12px",
+                                        }}
+                                    >
+                                        Địa chỉ IP:
+                                    </span>
                                     <code>{selectedLog.ipAddress}</code>
                                 </div>
                             )}
                             <div>
-                                <span style={{ color: "var(--muted)", display: "block", fontSize: "12px", marginBottom: "4px" }}>
+                                <span
+                                    style={{
+                                        color: "var(--muted)",
+                                        display: "block",
+                                        fontSize: "12px",
+                                        marginBottom: "4px",
+                                    }}
+                                >
                                     Dữ liệu JSON chi tiết (Payload Details):
                                 </span>
                                 <pre
@@ -527,7 +851,11 @@ export function AdminAuditLogsPage() {
                                         wordBreak: "break-all",
                                     }}
                                 >
-                                    {JSON.stringify(selectedLog.details, null, 2) || "{}"}
+                                    {JSON.stringify(
+                                        selectedLog.details,
+                                        null,
+                                        2,
+                                    ) || "{}"}
                                 </pre>
                             </div>
                         </div>

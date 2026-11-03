@@ -68,7 +68,11 @@ export function RealCameraFeed({
         const constraints: MediaStreamConstraints = {
             video: selectedDeviceId
                 ? { deviceId: { exact: selectedDeviceId } }
-                : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                : {
+                      facingMode: { ideal: "environment" },
+                      width: { ideal: 1280 },
+                      height: { ideal: 720 },
+                  },
             audio: false,
         };
 
@@ -96,9 +100,11 @@ export function RealCameraFeed({
             .catch((err) => {
                 if (isCancelled) return;
                 const errText =
-                    err.name === "NotAllowedError" || err.name === "PermissionDeniedError"
+                    err.name === "NotAllowedError" ||
+                    err.name === "PermissionDeniedError"
                         ? "Quyền truy cập Camera bị từ chối. Vui lòng cho phép quyền Camera trên trình duyệt."
-                        : err.name === "NotFoundError" || err.name === "DevicesNotFoundError"
+                        : err.name === "NotFoundError" ||
+                            err.name === "DevicesNotFoundError"
                           ? "Không tìm thấy thiết bị Camera trên máy này."
                           : `Không thể mở Camera: ${err.message || err.name}`;
                 setErrorMsg(errText);
@@ -135,7 +141,8 @@ export function RealCameraFeed({
         let lastScannedTime = 0;
 
         const scanInterval = setInterval(async () => {
-            if (!active || !videoRef.current || videoRef.current.readyState < 2) return;
+            if (!active || !videoRef.current || videoRef.current.readyState < 2)
+                return;
             const now = Date.now();
             if (now - lastScannedTime < 2000) return; // avoid flood
 
@@ -185,18 +192,28 @@ export function RealCameraFeed({
         }
 
         // Try BarcodeDetector on the captured image as well
-        if (mode === "exit" && onQrCodeScanned && typeof window !== "undefined" && "BarcodeDetector" in window) {
+        if (
+            mode === "exit" &&
+            onQrCodeScanned &&
+            typeof window !== "undefined" &&
+            "BarcodeDetector" in window
+        ) {
             try {
-                const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-                detector.detect(canvas).then((barcodes: any[]) => {
-                    if (barcodes && barcodes.length > 0) {
-                        const code = barcodes[0].rawValue;
-                        if (code) {
-                            setQrDetectedNotice(code);
-                            onQrCodeScanned(code);
+                const detector = new (window as any).BarcodeDetector({
+                    formats: ["qr_code"],
+                });
+                detector
+                    .detect(canvas)
+                    .then((barcodes: any[]) => {
+                        if (barcodes && barcodes.length > 0) {
+                            const code = barcodes[0].rawValue;
+                            if (code) {
+                                setQrDetectedNotice(code);
+                                onQrCodeScanned(code);
+                            }
                         }
-                    }
-                }).catch(() => {});
+                    })
+                    .catch(() => {});
             } catch {
                 // Ignore
             }
@@ -206,7 +223,9 @@ export function RealCameraFeed({
     // Switch between available cameras
     const handleSwitchCamera = useCallback(() => {
         if (devices.length <= 1) return;
-        const currentIndex = devices.findIndex((d) => d.deviceId === selectedDeviceId);
+        const currentIndex = devices.findIndex(
+            (d) => d.deviceId === selectedDeviceId,
+        );
         const nextIndex = (currentIndex + 1) % devices.length;
         setSelectedDeviceId(devices[nextIndex].deviceId);
     }, [devices, selectedDeviceId]);
@@ -217,21 +236,41 @@ export function RealCameraFeed({
 
             {/* Header with Camera status & Controls */}
             <div className="staff-camera-header">
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                    }}
+                >
                     <span className="staff-rec-indicator">
-                        <span className={`staff-rec-dot ${!isActive ? "bg-slate-500" : ""}`} />
-                        {isActive && stream ? "REC LIVE (CAMERA THẬT)" : "OFFLINE"}
+                        <span
+                            className={`staff-rec-dot ${!isActive ? "bg-slate-500" : ""}`}
+                        />
+                        {isActive && stream
+                            ? "REC LIVE (CAMERA THẬT)"
+                            : "OFFLINE"}
                     </span>
                     <span className="staff-camera-title">{title}</span>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                    }}
+                >
                     {devices.length > 1 && (
                         <button
                             type="button"
                             onClick={handleSwitchCamera}
                             className="staff-btn staff-btn-ghost staff-btn-sm"
-                            style={{ color: "#ffffff", padding: "2px 8px", fontSize: "11px" }}
+                            style={{
+                                color: "#ffffff",
+                                padding: "2px 8px",
+                                fontSize: "11px",
+                            }}
                             title="Đổi camera khác"
                         >
                             🔄 Đổi cam ({devices.length})
@@ -252,7 +291,10 @@ export function RealCameraFeed({
             </div>
 
             {/* Viewport: Live Video or Fallback Message */}
-            <div className="staff-camera-viewport" style={{ position: "relative", minHeight: "280px" }}>
+            <div
+                className="staff-camera-viewport"
+                style={{ position: "relative", minHeight: "280px" }}
+            >
                 {/* Flash effect on snapshot or scan */}
                 {flash && (
                     <div
@@ -297,13 +339,22 @@ export function RealCameraFeed({
                             textAlign: "center",
                             color: "#94a3b8",
                             gap: "12px",
-                            background: "radial-gradient(circle at center, #1e293b 0%, #090d16 100%)",
+                            background:
+                                "radial-gradient(circle at center, #1e293b 0%, #090d16 100%)",
                         }}
                     >
                         {errorMsg ? (
                             <>
                                 <span style={{ fontSize: "28px" }}>⚠️</span>
-                                <p style={{ fontSize: "13px", color: "#f87171", maxWidth: "360px" }}>{errorMsg}</p>
+                                <p
+                                    style={{
+                                        fontSize: "13px",
+                                        color: "#f87171",
+                                        maxWidth: "360px",
+                                    }}
+                                >
+                                    {errorMsg}
+                                </p>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -318,8 +369,14 @@ export function RealCameraFeed({
                         ) : (
                             <>
                                 <span style={{ fontSize: "28px" }}>📹</span>
-                                <p style={{ fontSize: "13px", maxWidth: "340px" }}>
-                                    Camera thật đang tắt. Bấm nút dưới để kết nối Camera/Webcam của máy.
+                                <p
+                                    style={{
+                                        fontSize: "13px",
+                                        maxWidth: "340px",
+                                    }}
+                                >
+                                    Camera thật đang tắt. Bấm nút dưới để kết
+                                    nối Camera/Webcam của máy.
                                 </p>
                                 <button
                                     type="button"
@@ -334,11 +391,22 @@ export function RealCameraFeed({
                 )}
 
                 {/* CCTV Overlays: Grid, Scanline, Target Frame */}
-                <div className="staff-camera-grid" style={{ pointerEvents: "none" }} />
-                {isScanning && <div className="staff-camera-scanline" style={{ pointerEvents: "none" }} />}
+                <div
+                    className="staff-camera-grid"
+                    style={{ pointerEvents: "none" }}
+                />
+                {isScanning && (
+                    <div
+                        className="staff-camera-scanline"
+                        style={{ pointerEvents: "none" }}
+                    />
+                )}
 
                 {/* Target box */}
-                <div className="staff-camera-target" style={{ pointerEvents: "none" }}>
+                <div
+                    className="staff-camera-target"
+                    style={{ pointerEvents: "none" }}
+                >
                     <div className="staff-target-corner top-left" />
                     <div className="staff-target-corner top-right" />
                     <div className="staff-target-corner bottom-left" />
@@ -370,7 +438,9 @@ export function RealCameraFeed({
                             {typeof confidence === "number" && (
                                 <span
                                     className={`staff-camera-conf ${
-                                        confidence >= 0.8 ? "conf-high" : "conf-low"
+                                        confidence >= 0.8
+                                            ? "conf-high"
+                                            : "conf-low"
                                     }`}
                                 >
                                     {(confidence * 100).toFixed(0)}% OCR
@@ -392,29 +462,44 @@ export function RealCameraFeed({
                     borderTop: "1px solid rgba(255, 255, 255, 0.1)",
                 }}
             >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                    }}
+                >
                     <button
                         type="button"
                         onClick={handleCapture}
                         disabled={!stream}
                         className="staff-btn staff-btn-primary staff-btn-sm"
-                        style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                        }}
                     >
-                        📸 {mode === "entry" ? "Chụp ảnh biển số" : "Chụp & Quét mã QR"}
+                        📸{" "}
+                        {mode === "entry"
+                            ? "Chụp ảnh biển số"
+                            : "Chụp & Quét mã QR"}
                     </button>
 
                     {lastSnapshot && (
                         <span style={{ fontSize: "11px", color: "#10b981" }}>
-                            ✓ Đã chụp ảnh frame ({new Date().toLocaleTimeString("vi-VN")})
+                            ✓ Đã chụp ảnh frame (
+                            {new Date().toLocaleTimeString("vi-VN")})
                         </span>
                     )}
                 </div>
 
                 <div style={{ fontSize: "11px", color: "#64748b" }}>
-                    {mode === "entry" ? "Nhận diện biển số xe vào" : "Hướng camera vào mã QR để tự quét"}
+                    {mode === "entry"
+                        ? "Nhận diện biển số xe vào"
+                        : "Hướng camera vào mã QR để tự quét"}
                 </div>
             </div>
         </div>
     );
 }
-

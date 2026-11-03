@@ -2,12 +2,7 @@
 
 import React, { useState } from "react";
 import { RealCameraFeed } from "./RealCameraFeed";
-import {
-    PlateBadge,
-    feeText,
-    formatDateTime,
-    formatVnd,
-} from "./StaffUi";
+import { PlateBadge, feeText, formatDateTime, formatVnd } from "./StaffUi";
 import {
     completeParkingSession,
     describeStaffError,
@@ -22,7 +17,8 @@ import type { SessionByQrResponse, StaffSession } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 export function StaffExitPage() {
-    const { assignedLot, completeExit, activeSessions, fetchAssignedLot } = useStaffData();
+    const { assignedLot, completeExit, activeSessions, fetchAssignedLot } =
+        useStaffData();
     const { t, language } = useLanguage();
 
     // Fetch assigned lot and live active sessions on mount
@@ -50,13 +46,17 @@ export function StaffExitPage() {
     const [exitAllowed, setExitAllowed] = useState(false);
 
     // Verification check flags
-    const qrValid = Boolean(scannedSession) && (Boolean(scannedSession?.qrToken) || exitAllowed);
+    const qrValid =
+        Boolean(scannedSession) &&
+        (Boolean(scannedSession?.qrToken) || exitAllowed);
     const plateMatch =
         Boolean(scannedSession) &&
         Boolean(detectedExitPlate) &&
         scannedSession?.plateNumber.replace(/[^A-Z0-9]/gi, "") ===
             detectedExitPlate.replace(/[^A-Z0-9]/gi, "");
-    const sessionActive = scannedSession?.status === "Active" || scannedSession?.status === "Paid";
+    const sessionActive =
+        scannedSession?.status === "Active" ||
+        scannedSession?.status === "Paid";
     const paymentCompleted =
         scannedSession?.paymentStatus === "Paid" || paymentSuccess;
     const amountDue = paymentCompleted
@@ -71,7 +71,9 @@ export function StaffExitPage() {
         (qrValid || exitAllowed);
 
     async function handleVerifyQr(tokenOverride?: string) {
-        const token = (typeof tokenOverride === "string" ? tokenOverride : qrInput || "").trim();
+        const token = (
+            typeof tokenOverride === "string" ? tokenOverride : qrInput || ""
+        ).trim();
         if (!token) {
             setErrorMsg("Vui lòng nhập hoặc quét mã QR.");
             return;
@@ -88,7 +90,7 @@ export function StaffExitPage() {
             const res: SessionByQrResponse = await findSessionByQr(queryToken);
             const fee = res.amountDueVnd ?? 30000;
             const isReg = res.customerType === "Registered";
-            const isPaid = res.status === "Paid" || (res.amountDueVnd === 0);
+            const isPaid = res.status === "Paid" || res.amountDueVnd === 0;
             const scanned: StaffSession = {
                 id: res.sessionId,
                 lotId: res.lotId,
@@ -134,12 +136,11 @@ export function StaffExitPage() {
 
         try {
             const lotId = assignedLot?.lotId || "";
-            const res = await findOpenSessionByPlate(
-                lotId,
-                plate,
-            );
+            const res = await findOpenSessionByPlate(lotId, plate);
             setQrInput(res.qrToken || "");
-            const paymentFee = await getParkingSessionFee(res.sessionId).catch(() => null);
+            const paymentFee = await getParkingSessionFee(res.sessionId).catch(
+                () => null,
+            );
             const fallbackFee = res.vehicleType === "Car" ? 30000 : 6000;
             const totalFee = paymentFee?.totalFee ?? fallbackFee;
             const amountDue = paymentFee?.amountDue ?? fallbackFee;
@@ -156,7 +157,9 @@ export function StaffExitPage() {
                 slotCode: res.vehicleType === "Car" ? "CAR-A" : "MOTO-B",
                 paymentStatus: isPaid ? "Paid" : "Pending",
                 totalFeeVnd: totalFee,
-                prepaidVnd: isPaid ? totalFee : (paymentFee?.depositAmount ?? 0),
+                prepaidVnd: isPaid
+                    ? totalFee
+                    : (paymentFee?.depositAmount ?? 0),
                 amountDueVnd: isPaid ? 0 : amountDue,
             };
             setScannedSession(scanned);
@@ -265,7 +268,9 @@ export function StaffExitPage() {
                 <div>
                     <h1 className="staff-title">{t("exitPageTitle")}</h1>
                     <p className="staff-subtitle">
-                        {assignedLot?.lotName ? `Bãi trực: ${assignedLot.lotName} · ` : ""}
+                        {assignedLot?.lotName
+                            ? `Bãi trực: ${assignedLot.lotName} · `
+                            : ""}
                         {t("exitPageSubtitle")}
                     </p>
                 </div>
@@ -307,7 +312,8 @@ export function StaffExitPage() {
                                 handleVerifyQr(s.qrToken);
                             }}
                         >
-                            {s.vehicleType === "Car" ? "🚗" : "🛵"} {s.plateNumber} ({(s.qrToken || "").slice(-8)})
+                            {s.vehicleType === "Car" ? "🚗" : "🛵"}{" "}
+                            {s.plateNumber} ({(s.qrToken || "").slice(-8)})
                         </button>
                     ))}
                 </div>
@@ -317,7 +323,10 @@ export function StaffExitPage() {
                 {/* Left column: Real Camera ANPR & QR Scanner */}
                 <div className="staff-col">
                     <RealCameraFeed
-                        title={t("exitCameraTitle") || "Camera Cổng Ra 02 (Gate Out 02)"}
+                        title={
+                            t("exitCameraTitle") ||
+                            "Camera Cổng Ra 02 (Gate Out 02)"
+                        }
                         mode="exit"
                         detectedPlate={detectedExitPlate}
                         confidence={0.99}
@@ -339,7 +348,8 @@ export function StaffExitPage() {
 
                         <div className="staff-form-group">
                             <label htmlFor="staff-qr-input">
-                                {t("exitScanQrLabel")} (Tự động nhận diện từ Camera thật hoặc dán mã)
+                                {t("exitScanQrLabel")} (Tự động nhận diện từ
+                                Camera thật hoặc dán mã)
                             </label>
                             <div className="staff-input-group">
                                 <input
@@ -466,7 +476,8 @@ export function StaffExitPage() {
                                                     {t("exitCheckQrScanned")}
                                                 </span>
                                                 <code className="staff-code-pill">
-                                                    {scannedSession?.qrToken || "Đã xác minh thủ công"}
+                                                    {scannedSession?.qrToken ||
+                                                        "Đã xác minh thủ công"}
                                                 </code>
                                             </>
                                         ) : (
@@ -595,7 +606,11 @@ export function StaffExitPage() {
                                                 </span>
                                             ) : (
                                                 <span className="text-danger">
-                                                    Còn nợ: {formatVnd(scannedSession.amountDueVnd ?? 0)}
+                                                    Còn nợ:{" "}
+                                                    {formatVnd(
+                                                        scannedSession.amountDueVnd ??
+                                                            0,
+                                                    )}
                                                 </span>
                                             )
                                         ) : (
@@ -624,7 +639,9 @@ export function StaffExitPage() {
                             <div className="staff-fee-box">
                                 <div className="staff-fee-header">
                                     <h3>{t("exitFeeTitle")}</h3>
-<PlateBadge plate={scannedSession.plateNumber} />
+                                    <PlateBadge
+                                        plate={scannedSession.plateNumber}
+                                    />
                                     <span>
                                         {t("sessionsSpot")}{" "}
                                         {scannedSession.slotCode ?? "—"}
@@ -635,7 +652,8 @@ export function StaffExitPage() {
                                     <div className="staff-fee-row">
                                         <span>{t("sessionsVehicle")}</span>
                                         <strong>
-                                            {scannedSession.vehicleType === "Car"
+                                            {scannedSession.vehicleType ===
+                                            "Car"
                                                 ? t("staffCar")
                                                 : t("staffMotorbike")}
                                         </strong>
@@ -657,7 +675,7 @@ export function StaffExitPage() {
                                             )}
                                         </strong>
                                     </div>
-<div className="fee-row">
+                                    <div className="fee-row">
                                         <span>{t("exitPrepaidWallet")}</span>
                                         <span className="text-emerald">
                                             -{" "}
@@ -669,7 +687,13 @@ export function StaffExitPage() {
                                     </div>
                                     <div className="fee-row fee-total">
                                         <span>{t("exitAmountDue")}</span>
-                                        <strong className={amountDue > 0 ? "text-danger" : "text-emerald"}>
+                                        <strong
+                                            className={
+                                                amountDue > 0
+                                                    ? "text-danger"
+                                                    : "text-emerald"
+                                            }
+                                        >
                                             {formatVnd(amountDue)}
                                         </strong>
                                     </div>
@@ -764,7 +788,7 @@ export function StaffExitPage() {
                             </button>
                         </div>
 
-<div className="staff-payment-modal-body">
+                        <div className="staff-payment-modal-body">
                             {/* Receipt Summary Card */}
                             <div className="staff-modal-receipt-card">
                                 <div className="staff-summary-row">
@@ -864,7 +888,7 @@ export function StaffExitPage() {
                                                     >
                                                         {preset.toLocaleString(
                                                             language === "vi"
-                                                                 ? "vi-VN"
+                                                                ? "vi-VN"
                                                                 : "en-US",
                                                         )}
                                                         ₫

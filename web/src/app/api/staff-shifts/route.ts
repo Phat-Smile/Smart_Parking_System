@@ -143,7 +143,9 @@ export async function POST(request: Request) {
 
         const store = readStore();
         // 1 staff 1 lot policy
-        const updated = store.filter((r) => r.accountId.toLowerCase() !== body.accountId!.toLowerCase());
+        const updated = store.filter(
+            (r) => r.accountId.toLowerCase() !== body.accountId!.toLowerCase(),
+        );
         updated.push(newRecord);
         writeStore(updated);
 

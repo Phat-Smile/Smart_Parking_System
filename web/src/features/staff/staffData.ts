@@ -122,7 +122,10 @@ export const staffStore = {
 
     /** Called after Parking opened the session; counts and the list are read again from Parking. */
     addSession: (session: StaffSession) => {
-        sessionsState = [session, ...sessionsState.filter((s) => s.id !== session.id)];
+        sessionsState = [
+            session,
+            ...sessionsState.filter((s) => s.id !== session.id),
+        ];
         addActivity({
             id: `act-${session.id || Date.now()}`,
             type: "entry",
@@ -206,7 +209,8 @@ export function useStaffData() {
     const activeSessions = sessions.filter((s) => s.status === "Active");
     const pendingIssues = issues.filter((i) => i.status === "Pending");
 
-    const totalCap = assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
+    const totalCap =
+        assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
     const occupied = activeSessions.length;
 
     const occupancy: OccupancyStats = {

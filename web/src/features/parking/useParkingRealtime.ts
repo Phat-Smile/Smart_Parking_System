@@ -32,8 +32,10 @@ export function useParkingRealtime({
     onLotOccupancyChanged,
 }: UseParkingRealtimeOptions) {
     const [isConnected, setIsConnected] = useState(false);
-    const [lastSlotChange, setLastSlotChange] = useState<SlotStatusChangedEvent | null>(null);
-    const [lastOccupancyChange, setLastOccupancyChange] = useState<LotOccupancyChangedEvent | null>(null);
+    const [lastSlotChange, setLastSlotChange] =
+        useState<SlotStatusChangedEvent | null>(null);
+    const [lastOccupancyChange, setLastOccupancyChange] =
+        useState<LotOccupancyChangedEvent | null>(null);
 
     const slotCbRef = useRef(onSlotStatusChanged);
     slotCbRef.current = onSlotStatusChanged;
@@ -51,7 +53,10 @@ export function useParkingRealtime({
                 hubPath: "/hubs/parking",
             });
         } catch (err) {
-            console.warn("Failed to create SignalR connection for parking hub", err);
+            console.warn(
+                "Failed to create SignalR connection for parking hub",
+                err,
+            );
             return;
         }
 
@@ -61,11 +66,14 @@ export function useParkingRealtime({
             slotCbRef.current?.(event);
         });
 
-        connection.on("LotOccupancyChanged", (event: LotOccupancyChangedEvent) => {
-            if (!isMounted) return;
-            setLastOccupancyChange(event);
-            occCbRef.current?.(event);
-        });
+        connection.on(
+            "LotOccupancyChanged",
+            (event: LotOccupancyChangedEvent) => {
+                if (!isMounted) return;
+                setLastOccupancyChange(event);
+                occCbRef.current?.(event);
+            },
+        );
 
         async function start() {
             try {

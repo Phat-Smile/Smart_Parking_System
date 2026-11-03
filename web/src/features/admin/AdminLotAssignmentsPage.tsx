@@ -30,48 +30,60 @@ export function AdminLotAssignmentsPage() {
         Map<string, { lotId: string; lotName: string }>
     >(new Map());
 
-    const refreshAllAssigned = useCallback(async (lotList: AdminParkingLot[]) => {
-        if (!lotList || lotList.length === 0) return;
-        const mapping = new Map<string, { lotId: string; lotName: string }>();
-        const lotNames = new Map<string, string>(lotList.map((l) => [l.id.toLowerCase(), l.name]));
+    const refreshAllAssigned = useCallback(
+        async (lotList: AdminParkingLot[]) => {
+            if (!lotList || lotList.length === 0) return;
+            const mapping = new Map<
+                string,
+                { lotId: string; lotName: string }
+            >();
+            const lotNames = new Map<string, string>(
+                lotList.map((l) => [l.id.toLowerCase(), l.name]),
+            );
 
-        try {
-            const shiftRes = await fetch("/api/staff-shifts");
-            if (shiftRes.ok) {
-                const shiftList = await shiftRes.json();
-                if (Array.isArray(shiftList)) {
-                    shiftList.forEach((s: { accountId?: string; lotId?: string }) => {
-                        if (s.accountId && s.lotId) {
-                            mapping.set(s.accountId.toLowerCase(), {
-                                lotId: s.lotId,
-                                lotName: lotNames.get(s.lotId.toLowerCase()) || "Bãi đỗ khác",
-                            });
-                        }
-                    });
+            try {
+                const shiftRes = await fetch("/api/staff-shifts");
+                if (shiftRes.ok) {
+                    const shiftList = await shiftRes.json();
+                    if (Array.isArray(shiftList)) {
+                        shiftList.forEach(
+                            (s: { accountId?: string; lotId?: string }) => {
+                                if (s.accountId && s.lotId) {
+                                    mapping.set(s.accountId.toLowerCase(), {
+                                        lotId: s.lotId,
+                                        lotName:
+                                            lotNames.get(
+                                                s.lotId.toLowerCase(),
+                                            ) || "Bãi đỗ khác",
+                                    });
+                                }
+                            },
+                        );
+                    }
                 }
+            } catch {
+                // ignore
             }
-        } catch {
-            // ignore
-        }
 
-        await Promise.allSettled(
-            lotList.map(async (lot) => {
-                try {
-                    const members = await getLotAssignments(lot.id);
-                    members.forEach((m) => {
-                        mapping.set(m.accountId.toLowerCase(), {
-                            lotId: lot.id,
-                            lotName: lot.name,
+            await Promise.allSettled(
+                lotList.map(async (lot) => {
+                    try {
+                        const members = await getLotAssignments(lot.id);
+                        members.forEach((m) => {
+                            mapping.set(m.accountId.toLowerCase(), {
+                                lotId: lot.id,
+                                lotName: lot.name,
+                            });
                         });
-                    });
-                } catch {
-                    // ignore
-                }
-            }),
-        );
-        setAllAssignedMap(mapping);
-    }, []);
-
+                    } catch {
+                        // ignore
+                    }
+                }),
+            );
+            setAllAssignedMap(mapping);
+        },
+        [],
+    );
 
     const [loadingLots, setLoadingLots] = useState(false);
     const [loadingAssignments, setLoadingAssignments] = useState(false);
@@ -204,10 +216,12 @@ export function AdminLotAssignmentsPage() {
         e.preventDefault();
         if (!selectedLotId || !selectedAccountId) return;
 
-        const alreadyAssigned = allAssignedMap.get(selectedAccountId.toLowerCase());
+        const alreadyAssigned = allAssignedMap.get(
+            selectedAccountId.toLowerCase(),
+        );
         if (alreadyAssigned) {
             setRawError(
-                `Nhân viên này đã được phân công trực tại "${alreadyAssigned.lotName}". Hệ thống quy định mỗi nhân viên chỉ trực 1 bãi duy nhất. Vui lòng gỡ nhân viên khỏi bãi cũ trước khi phân công bãi mới.`
+                `Nhân viên này đã được phân công trực tại "${alreadyAssigned.lotName}". Hệ thống quy định mỗi nhân viên chỉ trực 1 bãi duy nhất. Vui lòng gỡ nhân viên khỏi bãi cũ trước khi phân công bãi mới.`,
             );
             return;
         }
@@ -650,7 +664,8 @@ export function AdminLotAssignmentsPage() {
                                                 color: "#111827",
                                             }}
                                         >
-                                            {staff.fullName} ({staff.email}) — Sẵn sàng phân công
+                                            {staff.fullName} ({staff.email}) —
+                                            Sẵn sàng phân công
                                         </option>
                                     ))}
                                     {busyStaff.map(({ staff, assignedTo }) => (
@@ -663,7 +678,9 @@ export function AdminLotAssignmentsPage() {
                                                 color: "#9ca3af",
                                             }}
                                         >
-                                            🔒 {staff.fullName} (Đã trực tại: {assignedTo.lotName} - 1 người/1 bãi)
+                                            🔒 {staff.fullName} (Đã trực tại:{" "}
+                                            {assignedTo.lotName} - 1 người/1
+                                            bãi)
                                         </option>
                                     ))}
                                 </select>
