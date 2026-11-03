@@ -170,15 +170,18 @@ export async function getLotAssignments(
 
     return rows.map((row) => {
         const shiftRecord = shiftMap.get(row.accountId.toLowerCase());
-        return {
+        const base: ParkingLotAssignmentMember = {
             lotId,
             accountId: row.accountId,
             role: row.role,
             assignedAtUtc: row.assignedAtUtc,
-            shift: shiftRecord?.shift || "morning",
-            shiftName: shiftRecord?.shiftName || "Ca 1 - Sáng",
-            hours: shiftRecord?.hours || "06:00 - 14:00",
         };
+        if (shiftRecord) {
+            base.shift = shiftRecord.shift;
+            base.shiftName = shiftRecord.shiftName;
+            base.hours = shiftRecord.hours;
+        }
+        return base;
     });
 }
 

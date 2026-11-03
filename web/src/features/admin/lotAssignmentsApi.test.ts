@@ -109,11 +109,13 @@ describe("lotAssignmentsApi integration", () => {
             // The list comes from the backend; there is no local fallback any more.
             vi.stubGlobal(
                 "fetch",
-                vi.fn().mockResolvedValue(
-                    new Response("[]", {
-                        status: 200,
-                        headers: { "Content-Type": "application/json" },
-                    }),
+                vi.fn().mockImplementation(() =>
+                    Promise.resolve(
+                        new Response("[]", {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        }),
+                    ),
                 ),
             );
             const list = await getLotAssignments(lotId);
