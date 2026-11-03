@@ -14,9 +14,25 @@ permissions:
   contents: read
 
 jobs:
-  dotnet:
-    name: .NET / Build & Test
+  dotnet-test:
+    name: .NET / ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Identity"
+            project: "tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj"
+          - name: "Parking"
+            project: "tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj"
+          - name: "Booking"
+            project: "tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj"
+          - name: "Payment"
+            project: "tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj"
+          - name: "Notification"
+            project: "tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj"
+          - name: "Architecture"
+            project: "tests/ArchitectureTests/ArchitectureTests.csproj"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -29,29 +45,10 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
-      - run: dotnet tool restore
-      - run: dotnet restore ParkingSystem.slnx -m:1 --disable-build-servers
-      - run: dotnet build ParkingSystem.slnx --no-restore -m:1 --disable-build-servers
-      - name: Run Unit & Architecture Tests
-        run: |
-          dotnet test tests/Identity/Identity.UnitTests/Identity.UnitTests.csproj --no-build
-          dotnet test tests/Parking/Parking.UnitTests/Parking.UnitTests.csproj --no-build
-          dotnet test tests/Booking/Booking.UnitTests/Booking.UnitTests.csproj --no-build
-          dotnet test tests/Payment/Payment.UnitTests/Payment.UnitTests.csproj --no-build
-          dotnet test tests/Notification/Notification.UnitTests/Notification.UnitTests.csproj --no-build
-          dotnet test tests/ArchitectureTests/ArchitectureTests.csproj --no-build
-      - name: Generate Test Summary
-        if: always()
-        run: |
-          echo "### 🧪 .NET Unit & Architecture Tests Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Service Project | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Identity.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Parking.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Booking.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Payment.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Notification.UnitTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| ArchitectureTests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+      - name: Build Service
+        run: dotnet build ${{ matrix.project }} -m:1 --disable-build-servers
+      - name: Run Tests
+        run: dotnet test --project ${{ matrix.project }} --no-build
 
   ai:
     name: AI / Test
