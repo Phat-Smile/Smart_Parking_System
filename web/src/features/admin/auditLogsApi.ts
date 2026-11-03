@@ -40,8 +40,10 @@ export async function getAdminAuditLogs(
     const params = new URLSearchParams();
     params.set("page", String(query.page ?? 1));
     params.set("pageSize", String(query.pageSize ?? 20));
-    if (query.actionType?.trim()) params.set("actionType", query.actionType.trim());
-    if (query.parkingLotId?.trim()) params.set("parkingLotId", query.parkingLotId.trim());
+    if (query.actionType?.trim())
+        params.set("actionType", query.actionType.trim());
+    if (query.parkingLotId?.trim())
+        params.set("parkingLotId", query.parkingLotId.trim());
     if (query.actorId?.trim()) params.set("actorId", query.actorId.trim());
     if (query.fromUtc?.trim()) params.set("fromUtc", query.fromUtc.trim());
     if (query.toUtc?.trim()) params.set("toUtc", query.toUtc.trim());

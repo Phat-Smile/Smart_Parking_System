@@ -116,8 +116,7 @@ export function describeWalletError(error: unknown): string {
         return "Không kết nối được máy chủ. Vui lòng thử lại.";
     if (error.status === 401)
         return "Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.";
-    if (error.status === 403)
-        return "Chỉ tài khoản khách hàng mới có ví.";
+    if (error.status === 403) return "Chỉ tài khoản khách hàng mới có ví.";
     const code = error.problem?.errorCode;
     return (
         (code && WALLET_MESSAGES[code]) ||

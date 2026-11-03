@@ -479,7 +479,9 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
     const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
     const [modal, setModal] = useState<Modal>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
+    const [settingDefaultId, setSettingDefaultId] = useState<string | null>(
+        null,
+    );
 
     async function handleSetDefault(vehicleId: string) {
         setSettingDefaultId(vehicleId);
@@ -775,8 +777,12 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
             }
         }
         setVehicles((current) => {
-            const remaining = current.filter((vehicle) => vehicle.id !== selectedId);
-            const wasDefault = current.find((vehicle) => vehicle.id === selectedId)?.isDefault;
+            const remaining = current.filter(
+                (vehicle) => vehicle.id !== selectedId,
+            );
+            const wasDefault = current.find(
+                (vehicle) => vehicle.id === selectedId,
+            )?.isDefault;
             if (wasDefault && remaining.length > 0) {
                 remaining[0] = { ...remaining[0], isDefault: true };
             }
@@ -902,7 +908,15 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                         </span>
                                                     )}
                                                 {vehicle.isDefault && (
-                                                    <span className="vehicles-badge default" style={{ background: "#059669", color: "#ffffff", fontWeight: 600 }}>
+                                                    <span
+                                                        className="vehicles-badge default"
+                                                        style={{
+                                                            background:
+                                                                "#059669",
+                                                            color: "#ffffff",
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
                                                         ★ Mặc định
                                                     </span>
                                                 )}
@@ -982,23 +996,48 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             )}
                                         </div>
                                         <div className="vehicles-card-actions">
-                                            {session && !vehicle.draft && (
-                                                vehicle.isDefault ? (
-                                                    <span style={{ fontSize: "0.85rem", color: "#059669", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px", padding: "6px 8px" }}>
+                                            {session &&
+                                                !vehicle.draft &&
+                                                (vehicle.isDefault ? (
+                                                    <span
+                                                        style={{
+                                                            fontSize: "0.85rem",
+                                                            color: "#059669",
+                                                            fontWeight: 600,
+                                                            display:
+                                                                "inline-flex",
+                                                            alignItems:
+                                                                "center",
+                                                            gap: "4px",
+                                                            padding: "6px 8px",
+                                                        }}
+                                                    >
                                                         ✓ Xe chính
                                                     </span>
                                                 ) : (
                                                     <button
                                                         type="button"
                                                         className="secondary"
-                                                        onClick={() => handleSetDefault(vehicle.id)}
-                                                        disabled={settingDefaultId === vehicle.id}
-                                                        style={{ fontSize: "0.85rem", cursor: "pointer" }}
+                                                        onClick={() =>
+                                                            handleSetDefault(
+                                                                vehicle.id,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            settingDefaultId ===
+                                                            vehicle.id
+                                                        }
+                                                        style={{
+                                                            fontSize: "0.85rem",
+                                                            cursor: "pointer",
+                                                        }}
                                                     >
-                                                        {settingDefaultId === vehicle.id ? "Đang đặt..." : "⭐ Đặt mặc định"}
+                                                        {settingDefaultId ===
+                                                        vehicle.id
+                                                            ? "Đang đặt..."
+                                                            : "⭐ Đặt mặc định"}
                                                     </button>
-                                                )
-                                            )}
+                                                ))}
                                             {(!session || vehicle.draft) && (
                                                 <button
                                                     type="button"

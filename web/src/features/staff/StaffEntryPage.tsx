@@ -119,7 +119,10 @@ export function StaffEntryPage() {
             });
 
             // If Guest or UnregisteredWalkIn, auto prompt QR ticket modal
-            if (res.customerType === "Guest" || res.customerType === "UnregisteredWalkIn") {
+            if (
+                res.customerType === "Guest" ||
+                res.customerType === "UnregisteredWalkIn"
+            ) {
                 setShowQrModal(true);
             }
 
@@ -224,7 +227,10 @@ export function StaffEntryPage() {
                 <button
                     type="button"
                     className="staff-preset-chip"
-                    style={{ borderColor: "rgba(59, 130, 246, 0.4)", color: "#60a5fa" }}
+                    style={{
+                        borderColor: "rgba(59, 130, 246, 0.4)",
+                        color: "#60a5fa",
+                    }}
                     onClick={() =>
                         loadPreset("51H-999.88", "Car", "Booking", 0.99)
                     }
@@ -585,7 +591,8 @@ export function StaffEntryPage() {
                                             alignItems: "center",
                                             marginBottom: "8px",
                                             padding: "6px 10px",
-                                            background: "rgba(59, 130, 246, 0.15)",
+                                            background:
+                                                "rgba(59, 130, 246, 0.15)",
                                             borderRadius: "4px",
                                             border: "1px solid rgba(59, 130, 246, 0.3)",
                                         }}
@@ -605,7 +612,11 @@ export function StaffEntryPage() {
                                                 color: "#93c5fd",
                                             }}
                                         >
-                                            #{lastOpened.reservationId.slice(0, 8)}
+                                            #
+                                            {lastOpened.reservationId.slice(
+                                                0,
+                                                8,
+                                            )}
                                         </code>
                                     </div>
                                 )}

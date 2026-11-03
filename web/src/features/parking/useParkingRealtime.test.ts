@@ -22,7 +22,9 @@ describe("useParkingRealtime", () => {
             on: vi.fn((event: string, cb: (data: unknown) => void) => {
                 mockOn[event] = cb;
             }),
-        } as unknown as ReturnType<typeof realtimeConn.createRealtimeConnection>);
+        } as unknown as ReturnType<
+            typeof realtimeConn.createRealtimeConnection
+        >);
     });
 
     it("connects and joins lot group when lotId is provided", async () => {
