@@ -116,6 +116,93 @@ public sealed class OwnerParkingLayoutIntegrationTests(PostgreSqlContainerFixtur
         Assert.Equal(ParkingLayoutErrors.StaleVersion, stale.Error);
     }
 
+    [Fact]
+    public async Task Public_layout_only_exposes_approved_lots_and_matches_owner_geometry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var zone = new LayoutZoneInput(Guid.NewGuid(), "A", "Car", 1, true,
+            [new LayoutSlotInput(Guid.NewGuid(), "A1", null, new GridPoint(4, 5))]);
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Ground", [zone]);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            var pending = await sender.Send(new GetPublicParkingLayoutQuery(lot), ct);
+            Assert.Equal(ParkingLayoutErrors.LotNotFound, pending.Error);
+            var missing = await sender.Send(new GetPublicParkingLayoutQuery(Guid.NewGuid()), ct);
+            Assert.Equal(ParkingLayoutErrors.LotNotFound, missing.Error);
+        }
+
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"""UPDATE parking.parking_lots SET approval_status = 'Approved' WHERE id = {lot}""", ct);
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            var approved = await sender.Send(new GetPublicParkingLayoutQuery(lot), ct);
+            Assert.True(approved.IsSuccess);
+            Assert.Equal(new GridPoint(4, 5), approved.Value!.Floors.Single().Zones.Single().Slots.Single().Position);
+            Assert.Equal("Available", approved.Value.Floors.Single().Zones.Single().Slots.Single().EffectiveStatus);
+        }
+    }
+
+    [Fact]
+    public async Task Public_layout_reads_current_slot_state_without_mutating_layout_version()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var slot = new LayoutSlotInput(Guid.NewGuid(), "A1", null, new GridPoint(1, 1));
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Ground", [
+            new LayoutZoneInput(Guid.NewGuid(), "A", "Car", 1, true, [slot])]);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""UPDATE parking.parking_lots SET approval_status = 'Approved' WHERE id = {lot}""", ct);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var before = await sender.Send(new GetPublicParkingLayoutQuery(lot), ct);
+        Assert.True(before.IsSuccess);
+        Assert.Equal("Available", before.Value!.Floors.Single().Zones.Single().Slots.Single().EffectiveStatus);
+
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""UPDATE parking.parking_slots SET sensor_state = 'Occupied', effective_status = 'Occupied', row_version = row_version + 1 WHERE id = {slot.Id}""", ct);
+        var after = await sender.Send(new GetPublicParkingLayoutQuery(lot), ct);
+        Assert.True(after.IsSuccess);
+        Assert.Equal(before.Value.Version, after.Value!.Version);
+        Assert.Equal("Occupied", after.Value.Floors.Single().Zones.Single().Slots.Single().EffectiveStatus);
+    }
+
+    [Fact]
+    public async Task Zone_utilization_is_owner_scoped_and_reflects_sensor_state()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var slot = new LayoutSlotInput(Guid.NewGuid(), "A1", null, new GridPoint(0, 0));
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Ground", [
+            new LayoutZoneInput(Guid.NewGuid(), "A", "Car", 1, true, [slot])]);
+        Assert.True((await SaveAsync(provider, lot, owner, 0, [floor], ct)).IsSuccess);
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"""UPDATE parking.parking_slots SET sensor_state = 'Occupied', effective_status = 'Occupied', row_version = row_version + 1 WHERE id = {slot.Id}""", ct);
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            var denied = await sender.Send(new GetOwnerZoneUtilizationQuery(lot, Guid.NewGuid()), ct);
+            Assert.Equal(ParkingLayoutErrors.OwnerRequired, denied.Error);
+            var accepted = await sender.Send(new GetOwnerZoneUtilizationQuery(lot, owner), ct);
+            Assert.True(accepted.IsSuccess);
+            var usage = Assert.Single(accepted.Value!.Zones);
+            Assert.Equal(1, usage.Occupied);
+            Assert.Equal(1, usage.InUse);
+            Assert.Equal(100, usage.UtilizationPercent);
+        }
+    }
+
     private async Task<ServiceProvider> CreateProviderAsync(CancellationToken ct)
     {
         var services = new ServiceCollection();

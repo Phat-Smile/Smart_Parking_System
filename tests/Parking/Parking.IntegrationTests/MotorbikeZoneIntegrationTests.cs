@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
@@ -180,6 +181,7 @@ public sealed class MotorbikeZoneIntegrationTests(PostgreSqlContainerFixture pos
         services.AddLogging();
         services.AddPersistence(PostgreSqlTestConfiguration.Create(postgres.ConnectionString));
         services.AddApplicationServices();
+        services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
         var serviceProvider = services.BuildServiceProvider(validateScopes: true);

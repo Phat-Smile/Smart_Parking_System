@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
@@ -137,6 +138,7 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
         services.AddLogging();
         services.AddPersistence(PostgreSqlTestConfiguration.Create(postgres.ConnectionString));
         services.AddApplicationServices();
+        services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
         // Booking contract #4 is still a stub returning 0; the test sets how many reservations are held.
