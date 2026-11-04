@@ -99,13 +99,40 @@ public sealed class CheckInReservationCommandHandlerTests
         Assert.False(resEmptyPlate.IsValid);
     }
 
-    private static Reservation CreateConfirmedReservation(DateTimeOffset apptTime)
+    [Theory]
+    [InlineData("51A-123.45")]
+    [InlineData("51a 123.45")]
+    [InlineData("51A12345")]
+    [Trait("Requirement", "N1")]
+    public async Task Handle_WhenPlateIsCanonicalInDb_AndCheckInPlateIsFormatted_FindsAndUsesReservation(string checkInPlate)
+    {
+        var apptTime = DateTimeOffset.UtcNow;
+        // In DB, plate is stored canonically as "51A12345"
+        var reservation = CreateConfirmedReservationWithPlate(apptTime, "51A12345");
+        _repository.Add(reservation);
+
+        var handler = new CheckInReservationCommandHandler(_repository);
+        var sessionId = Guid.NewGuid();
+        var command = new CheckInReservationCommand(LotId, checkInPlate, apptTime, sessionId);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value!.HasReservation);
+        Assert.Equal(reservation.Id, result.Value.ReservationId);
+        Assert.Equal(ReservationStatus.Used, reservation.Status);
+    }
+
+    private static Reservation CreateConfirmedReservation(DateTimeOffset apptTime) =>
+        CreateConfirmedReservationWithPlate(apptTime, PlateNumber);
+
+    private static Reservation CreateConfirmedReservationWithPlate(DateTimeOffset apptTime, string plateNumber)
     {
         var res = Reservation.CreateTemporaryHold(
             Guid.NewGuid(),
             UserId,
             VehicleId,
-            PlateNumber,
+            plateNumber,
             LotId,
             VehicleGroup.Car,
             ReservationType.Scheduled,
@@ -137,10 +164,10 @@ public sealed class CheckInReservationCommandHandlerTests
             DateTimeOffset arrivalTime,
             CancellationToken cancellationToken)
         {
-            var normalized = plateNumber.Trim().ToUpperInvariant();
+            var normalized = LicensePlateNormalizer.Normalize(plateNumber);
             var res = _list.FirstOrDefault(r =>
                 r.LotId == lotId &&
-                r.PlateNumber.Trim().ToUpperInvariant() == normalized &&
+                LicensePlateNormalizer.Normalize(r.PlateNumber) == normalized &&
                 r.Status == ReservationStatus.Confirmed &&
                 arrivalTime >= r.WindowStartAt.AddMinutes(-15) &&
                 arrivalTime <= r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes));
