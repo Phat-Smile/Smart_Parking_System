@@ -20,14 +20,6 @@ public sealed class IdentityVehicleGrpcClient(
     IOptions<ServiceKeyOptions>? serviceKeyOptions,
     ILogger<IdentityVehicleGrpcClient> logger) : IVehicleOwnershipClient
 {
-    public IdentityVehicleGrpcClient(
-        IdentityVehicleContract.IdentityVehicleContractClient client,
-        IOptions<IdentityServiceOptions> options,
-        ILogger<IdentityVehicleGrpcClient> logger)
-        : this(client, options, null, logger)
-    {
-    }
-
     public async Task<Result<VehicleOwnershipInfo>> VerifyOwnershipAsync(
         string rawOrCanonicalPlate,
         Guid expectedUserId,

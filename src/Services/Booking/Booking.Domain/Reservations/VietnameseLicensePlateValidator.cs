@@ -7,7 +7,7 @@ namespace ParkingSystem.Booking.Domain.Reservations;
 /// Reuses <see cref="LicensePlateNormalizer"/> for canonicalization (stripping whitespace, hyphens, dots).
 ///
 /// Syntax specification:
-/// - 2 digits (province code: 11-99)
+/// - 2 digits (province code: 00-99)
 /// - 1 series letter [A-Z]
 /// - Optional 1 letter or digit [A-Z0-9] (supports 2-letter series such as 51LD, 29NN, or 4-digit sub-series)
 /// - 4 to 5 digits (serial registration number)

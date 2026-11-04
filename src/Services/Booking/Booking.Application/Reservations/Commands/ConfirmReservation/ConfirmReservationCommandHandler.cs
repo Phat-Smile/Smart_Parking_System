@@ -12,6 +12,8 @@ public sealed class ConfirmReservationCommandHandler(
     ILogger<ConfirmReservationCommandHandler> logger)
     : IRequestHandler<ConfirmReservationCommand, Result<ConfirmedReservationDto>>
 {
+    private static readonly EventId PaymentNotAvailableEventId = new(1001, "PaymentNotAvailable");
+
     public async Task<Result<ConfirmedReservationDto>> Handle(
         ConfirmReservationCommand request,
         CancellationToken cancellationToken)
@@ -64,6 +66,33 @@ public sealed class ConfirmReservationCommandHandler(
             }
 
             return Result<ConfirmedReservationDto>.Failure(ReservationErrors.HoldExpired);
+        }
+
+        // Gate: Free HoldWhileDriving reservations (PrepaidAmount == 0) can be confirmed immediately without payment.
+        // All others require Payment service (US-RES-003/004), which is not yet available.
+        // [NOTE]: This gate will be removed once Payment Service integration is in place.
+        var canConfirmWithoutPayment = reservation.ReservationType == ReservationType.HoldWhileDriving &&
+                                       reservation.PrepaidAmount == 0m;
+
+        if (!canConfirmWithoutPayment)
+        {
+            var reason = reservation.PrepaidAmount > 0m
+                ? "PaymentRequired"
+                : "AmountNotServerDerived";
+
+            logger.LogError(
+                PaymentNotAvailableEventId,
+                "Cannot confirm reservation {ReservationId} because payment function is unavailable. UserId: {UserId}, LotId: {LotId}, ReservationType: {ReservationType}, Status: {Status}, PrepaidAmount: {PrepaidAmount}, TempHoldExpiresAt: {TempHoldExpiresAt}, Reason: {Reason}.",
+                reservation.Id,
+                reservation.UserId,
+                reservation.LotId,
+                reservation.ReservationType,
+                reservation.Status,
+                reservation.PrepaidAmount,
+                reservation.TempHoldExpiresAt,
+                reason);
+
+            return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentNotAvailable);
         }
 
         try

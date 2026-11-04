@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ParkingSystem.Booking.Application.Parking;
+using ParkingSystem.Booking.Application.Vehicles;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
@@ -12,6 +13,7 @@ namespace ParkingSystem.Booking.Application.Reservations.Commands.CreateTemporar
 /// Inter-service queries to Parking are executed BEFORE opening the local database transaction.
 /// </summary>
 public sealed class CreateTemporaryHoldCommandHandler(
+    IVehicleOwnershipClient vehicleOwnershipClient,
     IParkingLotCapacityProvider capacityProvider,
     IReservationCapacityCoordinator capacityCoordinator,
     IClock clock,
@@ -25,13 +27,45 @@ public sealed class CreateTemporaryHoldCommandHandler(
         CreateTemporaryHoldCommand request,
         CancellationToken cancellationToken)
     {
-        // 1. Vehicle group invariant: Only cars are permitted for reservation (BR-01.a)
-        if (request.VehicleGroup != VehicleGroup.Car)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // 1. Verify vehicle registration and user ownership against Identity Service
+        var ownershipResult = await vehicleOwnershipClient.VerifyOwnershipAsync(
+            request.PlateNumber,
+            request.UserId,
+            cancellationToken);
+
+        if (ownershipResult.IsFailure || ownershipResult.Value is null)
         {
-            logger.LogInformation("Rejected reservation request {ReservationId} because vehicle group '{VehicleGroup}' is not eligible for reservations.",
-                request.ReservationId, request.VehicleGroup);
-            return Result<Reservation>.Failure(ReservationCapacityErrors.VehicleGroupNotReservable);
+            var error = ownershipResult.Error ?? VehicleOwnershipErrors.CommunicationFailed;
+            if (error == VehicleOwnershipErrors.ServiceAuthFailed || error == VehicleOwnershipErrors.CommunicationFailed)
+            {
+                logger.LogError("Vehicle ownership verification failed due to infrastructure error {ErrorCode} for user {UserId}.",
+                    error.Code, request.UserId);
+            }
+            else if (error == VehicleOwnershipErrors.DeadlineExceeded ||
+                     error == VehicleOwnershipErrors.ServiceUnavailable ||
+                     error == VehicleOwnershipErrors.RequestCancelled)
+            {
+                logger.LogWarning("Vehicle ownership verification unavailable with {ErrorCode} for user {UserId}.",
+                    error.Code, request.UserId);
+            }
+            else if (error == VehicleOwnershipErrors.VehicleNotRegistered ||
+                     error == VehicleOwnershipErrors.VehicleOwnershipMismatch ||
+                     error == VehicleOwnershipErrors.AccountNotEligible)
+            {
+                logger.LogInformation("Vehicle ownership verification rejected with {ErrorCode} for user {UserId}.",
+                    error.Code, request.UserId);
+            }
+            // EmptyPlate, InvalidPlateFormat, UnsupportedVehicleType: no log per Table 4.3
+
+            return Result<Reservation>.Failure(error);
         }
+
+        var ownershipInfo = ownershipResult.Value;
+        var canonicalPlate = ownershipInfo.CanonicalPlate;
+        var verifiedVehicleId = ownershipInfo.VehicleId;
+        const VehicleGroup verifiedVehicleGroup = VehicleGroup.Car; // Identity verified Car
 
         // 2. Validate time window invariants
         if (request.ReservationType == ReservationType.Scheduled && (!request.DurationMinutes.HasValue || request.DurationMinutes.Value <= 0))
@@ -77,11 +111,20 @@ public sealed class CreateTemporaryHoldCommandHandler(
         if (capacityInfo.ValidCapacity < 0 ||
             capacityInfo.ReservationRatioPercent < 0 ||
             capacityInfo.ReservationRatioPercent > 100 ||
-            capacityInfo.AvailableSlotCount < 0)
+            capacityInfo.AvailableSlotCount < 0 ||
+            capacityInfo.DepositAmount < 0m ||
+            capacityInfo.DepositAmount % 1m != 0m)
         {
-            logger.LogError("Parking service returned abnormal capacity figures for lot {LotId}: ValidCapacity={ValidCapacity}, Ratio={Ratio}, AvailableSlots={AvailableSlots}.",
-                request.LotId, capacityInfo.ValidCapacity, capacityInfo.ReservationRatioPercent, capacityInfo.AvailableSlotCount);
+            logger.LogError("Parking service returned abnormal capacity figures for lot {LotId}: ValidCapacity={ValidCapacity}, Ratio={Ratio}, AvailableSlots={AvailableSlots}, DepositAmount={DepositAmount}.",
+                request.LotId, capacityInfo.ValidCapacity, capacityInfo.ReservationRatioPercent, capacityInfo.AvailableSlotCount, capacityInfo.DepositAmount);
             return Result<Reservation>.Failure(ReservationCapacityErrors.CapacityInfoUnavailable);
+        }
+
+        // Check if reservations are enabled for this parking lot (US-OWNER-006 AC 2)
+        if (!capacityInfo.ReservationEnabled)
+        {
+            logger.LogInformation("Rejected reservation request for lot {LotId} because reservations are currently disabled.", request.LotId);
+            return Result<Reservation>.Failure(ReservationCapacityErrors.LotReservationsDisabled);
         }
 
         // 4. Calculate ceiling capacity: floor(validCapacity * ratioPercent / 100) (BR-02.b)
@@ -95,19 +138,25 @@ public sealed class CreateTemporaryHoldCommandHandler(
 
         // 6. Build reservation aggregate with temporary hold status (BR-01.b, 10 min expiry)
         var tempHoldExpiresAt = now.AddMinutes(_options.TempHoldDurationMinutes);
+
+        // Deposit amount policy: HoldWhileDriving takes authoritative deposit from Parking; Scheduled uses client amount
+        var effectivePrepaidAmount = request.ReservationType == ReservationType.HoldWhileDriving
+            ? capacityInfo.DepositAmount
+            : request.PrepaidAmount;
+
         Reservation reservation;
         try
         {
             reservation = Reservation.CreateTemporaryHold(
                 id: request.ReservationId,
                 userId: request.UserId,
-                vehicleId: request.VehicleId,
-                plateNumber: request.PlateNumber,
+                vehicleId: verifiedVehicleId,
+                plateNumber: canonicalPlate,
                 lotId: request.LotId,
-                vehicleGroup: request.VehicleGroup,
+                vehicleGroup: verifiedVehicleGroup,
                 reservationType: request.ReservationType,
                 appointmentTime: request.AppointmentTime,
-                prepaidAmount: request.PrepaidAmount,
+                prepaidAmount: effectivePrepaidAmount,
                 createdAt: now,
                 durationMinutes: request.DurationMinutes,
                 tempHoldExpiresAt: tempHoldExpiresAt,

@@ -30,5 +30,8 @@ public static class ReservationCapacityErrors
 
     public static readonly Error PlateReservationOverlap =
         new("booking.reservation.plate_overlap", "An active reservation already exists for this vehicle plate during the requested time window.");
+
+    public static readonly Error LotReservationsDisabled =
+        new("booking.reservation.lot_reservations_disabled", "Bãi này hiện không nhận đặt chỗ.");
 }
 
