@@ -73,6 +73,9 @@ public class ProcessVnpayIpnCommandHandlerTests
                 .ToList();
             return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
         }
+
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentExpiredTopupsByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<VnpayTransaction>>(Array.Empty<VnpayTransaction>());
     }
 
     private class FakeWalletRepository : IWalletRepository

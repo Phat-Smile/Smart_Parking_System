@@ -15,6 +15,7 @@ import { getMyWallet } from "../../wallet/walletApi";
 import { ApiError } from "@/shared/errors/api-error";
 import type { ParkingLotDetailView } from "../../ParkingLotDetailExperience";
 import type { RegisteredVehicle } from "../../myVehiclesApi";
+import { useCustomerLanguage } from "../../i18n/customerLanguage";
 
 interface ParkingLotBookingDialogProps {
     isOpen: boolean;
@@ -39,6 +40,7 @@ export function ParkingLotBookingDialog({
     selectedSpot,
     depositRequired = 50000,
 }: ParkingLotBookingDialogProps) {
+    const { copy } = useCustomerLanguage();
     const [bookingHold, setBookingHold] =
         useState<ReservationHoldResponse | null>(null);
     const [bookingConfirmed, setBookingConfirmed] =
@@ -94,12 +96,14 @@ export function ParkingLotBookingDialog({
                 setErrorMessage(
                     err.problem?.detail ||
                         err.message ||
-                        "Không thể giữ chỗ trong khung giờ này.",
+                        "Could not hold a spot for this time slot.",
                 );
             } else if (err instanceof Error) {
                 setErrorMessage(err.message);
             } else {
-                setErrorMessage("Có lỗi xảy ra khi tạo yêu cầu giữ chỗ.");
+                setErrorMessage(
+                    "Something went wrong while holding your spot.",
+                );
             }
         } finally {
             setIsHolding(false);
@@ -125,12 +129,14 @@ export function ParkingLotBookingDialog({
                 setErrorMessage(
                     err.problem?.detail ||
                         err.message ||
-                        "Xác nhận đặt cọc không thành công.",
+                        "Could not confirm the deposit.",
                 );
             } else if (err instanceof Error) {
                 setErrorMessage(err.message);
             } else {
-                setErrorMessage("Có lỗi xảy ra khi xác nhận đặt cọc.");
+                setErrorMessage(
+                    "Something went wrong while confirming the deposit.",
+                );
             }
         } finally {
             setIsConfirming(false);
@@ -139,7 +145,7 @@ export function ParkingLotBookingDialog({
 
     const estimatedTotal =
         lot.hourlyPrice === undefined
-            ? "Chưa có biểu phí"
+            ? "Pricing unavailable"
             : `${(lot.hourlyPrice * duration).toLocaleString("vi-VN")} đ`;
 
     return (
@@ -166,8 +172,14 @@ export function ParkingLotBookingDialog({
                     >
                         <h2 id="lot-detail-dialog-title" style={{ margin: 0 }}>
                             {bookingHold
-                                ? "Thanh toán cọc giữ chỗ"
-                                : "Xác nhận thông tin đặt chỗ"}
+                                ? copy(
+                                      "Pay booking deposit",
+                                      "Thanh toán cọc giữ chỗ",
+                                  )
+                                : copy(
+                                      "Review booking details",
+                                      "Xác nhận thông tin đặt chỗ",
+                                  )}
                         </h2>
                         <button
                             type="button"
@@ -179,7 +191,7 @@ export function ParkingLotBookingDialog({
                                 color: "#8790a3",
                                 padding: "4px",
                             }}
-                            aria-label="Đóng"
+                            aria-label={copy("Close", "Đóng")}
                         >
                             <X size={20} />
                         </button>
@@ -194,14 +206,17 @@ export function ParkingLotBookingDialog({
                                 expiresAt={bookingHold.tempHoldExpiresAt || ""}
                                 onExpire={() => {
                                     setErrorMessage(
-                                        "Hết thời gian giữ chỗ tạm thời (15 phút). Vui lòng đặt lại.",
+                                        copy(
+                                            "Your 15-minute hold has expired. Please book again.",
+                                            "Thời gian giữ chỗ 15 phút đã hết. Vui lòng đặt lại.",
+                                        ),
                                     );
                                 }}
                             />
 
                             <dl style={{ marginTop: "14px" }}>
                                 <div>
-                                    <dt>Mã giữ chỗ</dt>
+                                    <dt>{copy("Hold ID", "Mã giữ chỗ")}</dt>
                                     <dd className="font-mono">
                                         #
                                         {bookingHold.reservationId
@@ -210,17 +225,26 @@ export function ParkingLotBookingDialog({
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt>Biển số xe</dt>
+                                    <dt>
+                                        {copy("License plate", "Biển số xe")}
+                                    </dt>
                                     <dd>{bookingHold.plateNumber}</dd>
                                 </div>
                                 <div>
-                                    <dt>Thời gian hẹn</dt>
+                                    <dt>
+                                        {copy("Entry time", "Thời gian hẹn")}
+                                    </dt>
                                     <dd>
                                         {date} · {time}
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt>Tiền cọc giữ chỗ</dt>
+                                    <dt>
+                                        {copy(
+                                            "Booking deposit",
+                                            "Tiền cọc giữ chỗ",
+                                        )}
+                                    </dt>
                                     <dd
                                         style={{
                                             color: "#168844",
@@ -234,11 +258,16 @@ export function ParkingLotBookingDialog({
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt>Số dư Ví ParkWise</dt>
+                                    <dt>
+                                        {copy(
+                                            "ParkWise Wallet balance",
+                                            "Số dư Ví ParkWise",
+                                        )}
+                                    </dt>
                                     <dd style={{ fontWeight: "bold" }}>
                                         {walletBalance !== null
                                             ? `${walletBalance.toLocaleString("vi-VN")} đ`
-                                            : "Đang tải..."}
+                                            : copy("Loading...", "Đang tải...")}
                                     </dd>
                                 </div>
                             </dl>
@@ -272,15 +301,21 @@ export function ParkingLotBookingDialog({
                                     }}
                                 >
                                     <p style={{ margin: 0, fontWeight: "600" }}>
-                                        ⚠️ Số dư ví không đủ (thiếu{" "}
+                                        ⚠️{" "}
+                                        {copy(
+                                            "Insufficient wallet balance (short by",
+                                            "Số dư ví không đủ (thiếu",
+                                        )}{" "}
                                         {(
                                             depositRequired - walletBalance
                                         ).toLocaleString("vi-VN")}{" "}
-                                        đ).
+                                        VND).
                                     </p>
                                     <p style={{ margin: "4px 0 8px 0" }}>
-                                        Vui lòng nạp thêm tiền vào ví để hoàn
-                                        tất đặt chỗ.
+                                        {copy(
+                                            "Please top up your wallet to complete your booking.",
+                                            "Vui lòng nạp thêm tiền để hoàn tất đặt chỗ.",
+                                        )}
                                     </p>
                                     <Link
                                         href="/customer/wallet"
@@ -298,7 +333,8 @@ export function ParkingLotBookingDialog({
                                             fontSize: "12px",
                                         }}
                                     >
-                                        <Wallet size={14} /> Nạp ví ngay →
+                                        <Wallet size={14} />{" "}
+                                        {copy("Top up wallet", "Nạp ví ngay")} →
                                     </Link>
                                 </div>
                             ) : (
@@ -321,8 +357,11 @@ export function ParkingLotBookingDialog({
                                     }}
                                 >
                                     {isConfirming
-                                        ? "Đang xác nhận cọc..."
-                                        : `Trừ ví ${depositRequired.toLocaleString("vi-VN")} đ & Nhận vé`}
+                                        ? copy(
+                                              "Confirming deposit...",
+                                              "Đang xác nhận cọc...",
+                                          )
+                                        : `${copy("Pay", "Trừ ví")} ${depositRequired.toLocaleString("vi-VN")} đ ${copy("from wallet and get pass", "và nhận vé")}`}
                                 </button>
                             )}
 
@@ -341,7 +380,7 @@ export function ParkingLotBookingDialog({
                                     cursor: "pointer",
                                 }}
                             >
-                                Đóng
+                                {copy("Close", "Đóng")}
                             </button>
                         </div>
                     ) : (
@@ -351,35 +390,54 @@ export function ParkingLotBookingDialog({
                         >
                             <dl>
                                 <div>
-                                    <dt>Bãi đỗ xe</dt>
+                                    <dt>{copy("Parking lot", "Bãi đỗ xe")}</dt>
                                     <dd>{lot.name}</dd>
                                 </div>
                                 <div>
-                                    <dt>Xe đăng ký</dt>
+                                    <dt>{copy("Vehicle", "Xe đăng ký")}</dt>
                                     <dd>{vehicle.licensePlate}</dd>
                                 </div>
                                 <div>
-                                    <dt>Thời gian hẹn</dt>
+                                    <dt>
+                                        {copy("Entry time", "Thời gian hẹn")}
+                                    </dt>
                                     <dd>
                                         {date} · {time}
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt>Thời lượng</dt>
-                                    <dd>{duration} giờ</dd>
+                                    <dt>{copy("Duration", "Thời lượng")}</dt>
+                                    <dd>
+                                        {duration} {copy("hours", "giờ")}
+                                    </dd>
                                 </div>
                                 {selectedSpot && (
                                     <div>
-                                        <dt>Vị trí ưa thích</dt>
+                                        <dt>
+                                            {copy(
+                                                "Preferred spot",
+                                                "Vị trí ưa thích",
+                                            )}
+                                        </dt>
                                         <dd>{selectedSpot}</dd>
                                     </div>
                                 )}
                                 <div>
-                                    <dt>Ước tính phí đỗ</dt>
+                                    <dt>
+                                        {copy(
+                                            "Estimated parking fee",
+                                            "Ước tính phí đỗ",
+                                        )}
+                                    </dt>
                                     <dd>{estimatedTotal}</dd>
                                 </div>
                                 <div>
-                                    <dt>Tiền cọc giữ chỗ</dt>
+                                    <dt>
+                                        {copy(
+                                            "Booking deposit",
+                                            "Tiền cọc giữ chỗ",
+                                        )}
+                                    </dt>
                                     <dd
                                         style={{
                                             color: "#168844",
@@ -429,8 +487,11 @@ export function ParkingLotBookingDialog({
                                 }}
                             >
                                 {isHolding
-                                    ? "Đang giữ chỗ..."
-                                    : "Xác nhận & Giữ chỗ 15 phút"}
+                                    ? copy("Holding spot...", "Đang giữ chỗ...")
+                                    : copy(
+                                          "Confirm and hold for 15 minutes",
+                                          "Xác nhận và giữ chỗ 15 phút",
+                                      )}
                             </button>
 
                             <button
@@ -448,7 +509,7 @@ export function ParkingLotBookingDialog({
                                     cursor: "pointer",
                                 }}
                             >
-                                Đóng
+                                {copy("Close", "Đóng")}
                             </button>
                         </div>
                     )}

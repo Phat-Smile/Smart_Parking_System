@@ -54,10 +54,30 @@ public class VnpayTransactionRepository : IVnpayTransactionRepository
         int limit,
         CancellationToken cancellationToken)
     {
+        var nowUtc = DateTimeOffset.UtcNow;
         return await _dbContext.VnpayTransactions
             .AsNoTracking()
-            .Where(t => t.WalletId == walletId && t.Status == VnpayTransactionStatus.Pending)
+            .Where(t => t.WalletId == walletId
+                && t.Status == VnpayTransactionStatus.Pending
+                && t.ExpiresAt > nowUtc)
             .OrderByDescending(t => t.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<VnpayTransaction>> GetRecentExpiredTopupsByWalletIdAsync(
+        Guid walletId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var nowUtc = DateTimeOffset.UtcNow;
+        return await _dbContext.VnpayTransactions
+            .AsNoTracking()
+            .Where(t => t.WalletId == walletId
+                && t.Purpose == VnpayTransactionPurpose.WalletTopUp
+                && (t.Status == VnpayTransactionStatus.Expired
+                    || (t.Status == VnpayTransactionStatus.Pending && t.ExpiresAt <= nowUtc)))
+            .OrderByDescending(t => t.ExpiresAt)
             .Take(limit)
             .ToListAsync(cancellationToken);
     }

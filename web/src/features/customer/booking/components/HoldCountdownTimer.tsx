@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Clock, AlertTriangle } from "lucide-react";
+import { useCustomerLanguage } from "../../i18n/customerLanguage";
 
 interface HoldCountdownTimerProps {
     expiresAt: string | Date;
@@ -14,6 +15,7 @@ export function HoldCountdownTimer({
     onExpire,
     className = "",
 }: HoldCountdownTimerProps) {
+    const { copy } = useCustomerLanguage();
     const [timeLeftMs, setTimeLeftMs] = useState<number>(() => {
         const target = new Date(expiresAt).getTime();
         return Math.max(0, target - Date.now());
@@ -49,7 +51,12 @@ export function HoldCountdownTimer({
                 role="status"
             >
                 <AlertTriangle size={16} />
-                <span>Thời gian giữ chỗ đã hết hạn</span>
+                <span>
+                    {copy(
+                        "Your hold has expired",
+                        "Thời gian giữ chỗ đã hết hạn",
+                    )}
+                </span>
             </div>
         );
     }
@@ -66,7 +73,7 @@ export function HoldCountdownTimer({
         >
             <Clock size={16} />
             <span>
-                Giữ chỗ tạm thời:{" "}
+                {copy("Spot held for:", "Giữ chỗ tạm thời:")}{" "}
                 <strong className="font-mono text-base">{formatted}</strong>
             </span>
         </div>

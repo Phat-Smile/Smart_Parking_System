@@ -70,7 +70,7 @@ describe("lot detail texts", () => {
                     overnightFee: 0,
                 },
             ]),
-        ).toBe("Ô tô 30.000 ₫/60 phút · Xe máy 5.000 ₫/lượt");
+        ).toBe("Car 30.000 ₫/60 min · Motorbike 5.000 ₫/visit");
     });
 
     it("says there is no price when the owner has not set one", () => {
@@ -84,10 +84,10 @@ describe("lot detail texts", () => {
                 car: { available: 7 },
                 motorbike: { capacity: 40, available: 30 },
             }),
-        ).toBe("7 ô tô · 30 xe máy");
+        ).toBe("7 cars · 30 motorbikes");
         expect(
             describeLotAvailability({ car: { available: 3 }, motorbike: null }),
-        ).toBe("3 ô tô");
+        ).toBe("3 cars");
         expect(describeLotAvailability(null)).toBeNull();
     });
 });

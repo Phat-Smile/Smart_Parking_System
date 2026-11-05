@@ -69,12 +69,23 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
             // Lay toi da 10 khoan nap dang cho xu ly de FE theo doi
             var pendingTxns = await _transactionRepository.GetRecentPendingByWalletIdAsync(
                 wallet.Id, 10, cancellationToken);
+            var expiredTxns = await _transactionRepository.GetRecentExpiredTopupsByWalletIdAsync(
+                wallet.Id, 10, cancellationToken);
 
             var pendingDtos = pendingTxns.Select(t => new PendingTopUpDto
             {
                 TopupId = t.TxnRef,
                 Amount = t.Amount,
-                CreatedAtUtc = t.CreatedAt
+                CreatedAtUtc = t.CreatedAt,
+                ExpiresAtUtc = t.ExpiresAt
+            }).ToList();
+
+            var expiredDtos = expiredTxns.Select(t => new ExpiredTopUpDto
+            {
+                TopupId = t.TxnRef,
+                Amount = t.Amount,
+                CreatedAtUtc = t.CreatedAt,
+                ExpiresAtUtc = t.ExpiresAt
             }).ToList();
 
             var activeDto = new WalletBalanceDto
@@ -86,7 +97,8 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
                 DemoNotice = demoNotice,
                 Limits = limits,
                 GatewayMode = _vnpayOptions.Mode,
-                PendingTopUps = pendingDtos
+                PendingTopUps = pendingDtos,
+                ExpiredTopUps = expiredDtos
             };
 
             return Result<WalletBalanceDto>.Success(activeDto);

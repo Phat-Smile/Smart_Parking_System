@@ -99,7 +99,7 @@ describe("CustomerSessionsList", () => {
         render(<CustomerSessionsList />);
 
         expect(
-            await screen.findByText(/chưa có phiên đỗ nào đang mở/i),
+            await screen.findByText(/You have no active parking sessions/i),
         ).toBeInTheDocument();
     });
 
@@ -121,7 +121,7 @@ describe("ActiveSessionCard", () => {
         render(<ActiveSessionCard />);
 
         expect(
-            await screen.findByText(/chưa có phiên đỗ nào đang mở/i),
+            await screen.findByText(/You have no active parking sessions/i),
         ).toBeInTheDocument();
         expect(screen.queryByText(/Demo preview/i)).not.toBeInTheDocument();
     });

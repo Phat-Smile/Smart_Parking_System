@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import Link from "next/link";
+import { useCustomerLanguage } from "../../i18n/customerLanguage";
 
 interface BookingPassModalProps {
     isOpen: boolean;
@@ -37,16 +38,20 @@ export function BookingPassModal({
     qrCodeToken,
     prepaidAmount,
 }: BookingPassModalProps) {
+    const { copy, language } = useCustomerLanguage();
     if (!isOpen) return null;
 
     const shortId = `BK-${reservationId.slice(0, 8).toUpperCase()}`;
     const arrivalDate = new Date(appointmentTime);
-    const dateFormatted = arrivalDate.toLocaleDateString("vi-VN", {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    });
+    const dateFormatted = arrivalDate.toLocaleDateString(
+        language === "vi" ? "vi-VN" : "en-GB",
+        {
+            weekday: "short",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        },
+    );
     const timeFormatted = arrivalDate.toLocaleTimeString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
@@ -66,24 +71,24 @@ export function BookingPassModal({
                         type="button"
                         onClick={onClose}
                         className="absolute top-5 right-5 text-white/80 hover:text-white transition-colors p-1"
-                        aria-label="Đóng"
+                        aria-label={copy("Close", "Đóng")}
                     >
                         <X size={22} />
                     </button>
                     <div className="flex items-center gap-2 mb-2">
                         <CheckCircle size={20} className="text-emerald-300" />
                         <span className="text-xs font-semibold uppercase tracking-wider text-emerald-200 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-                            Đặt chỗ thành công
+                            {copy("Booking confirmed", "Đặt chỗ thành công")}
                         </span>
                     </div>
                     <h2
                         id="booking-pass-title"
                         className="text-2xl font-black tracking-tight"
                     >
-                        Vé Đặt Chỗ (Booking Pass)
+                        {copy("Booking Pass", "Vé đặt chỗ")}
                     </h2>
                     <p className="text-white/80 text-sm mt-0.5 font-mono">
-                        Mã vé:{" "}
+                        {copy("Pass ID:", "Mã vé:")}{" "}
                         <strong className="text-white font-bold">
                             {shortId}
                         </strong>
@@ -106,8 +111,11 @@ export function BookingPassModal({
                             />
                         </div>
                         <p className="text-gray-600 text-xs mt-3 flex items-center gap-1.5 font-medium">
-                            <QrIcon size={14} /> Quét mã này tại Barrier hoặc
-                            xuất trình cho bảo vệ khi vào bãi
+                            <QrIcon size={14} />{" "}
+                            {copy(
+                                "Scan this code at the gate or show it to the attendant when entering",
+                                "Quét mã tại cổng hoặc xuất trình cho nhân viên khi vào bãi",
+                            )}
                         </p>
                     </div>
 
@@ -115,7 +123,8 @@ export function BookingPassModal({
                     <div className="bg-[#101426] border border-white/10 rounded-2xl p-4.5 space-y-3 text-sm">
                         <div className="flex justify-between items-start gap-4">
                             <span className="text-[#8790a3] flex items-center gap-2 shrink-0">
-                                <MapPin size={15} /> Bãi đỗ xe
+                                <MapPin size={15} />{" "}
+                                {copy("Parking lot", "Bãi đỗ xe")}
                             </span>
                             <div className="text-right">
                                 <span className="text-white font-semibold block">
@@ -131,7 +140,8 @@ export function BookingPassModal({
 
                         <div className="flex justify-between items-center">
                             <span className="text-[#8790a3] flex items-center gap-2">
-                                <Car size={15} /> Biển số xe
+                                <Car size={15} />{" "}
+                                {copy("License plate", "Biển số xe")}
                             </span>
                             <span className="text-white font-mono font-bold text-base px-2.5 py-0.5 rounded bg-white/5 border border-white/10">
                                 {plateNumber}
@@ -140,7 +150,8 @@ export function BookingPassModal({
 
                         <div className="flex justify-between items-center">
                             <span className="text-[#8790a3] flex items-center gap-2">
-                                <Calendar size={15} /> Ngày hẹn
+                                <Calendar size={15} />{" "}
+                                {copy("Entry date", "Ngày hẹn")}
                             </span>
                             <span className="text-white font-medium">
                                 {dateFormatted}
@@ -149,19 +160,23 @@ export function BookingPassModal({
 
                         <div className="flex justify-between items-center">
                             <span className="text-[#8790a3] flex items-center gap-2">
-                                <Clock size={15} /> Giờ hẹn / Thời lượng
+                                <Clock size={15} />{" "}
+                                {copy(
+                                    "Entry time / Duration",
+                                    "Giờ hẹn / Thời lượng",
+                                )}
                             </span>
                             <span className="text-white font-medium">
                                 {timeFormatted}{" "}
                                 {durationMinutes
-                                    ? `(${durationMinutes} phút)`
+                                    ? `(${durationMinutes} ${copy("minutes", "phút")})`
                                     : ""}
                             </span>
                         </div>
 
                         <div className="border-t border-white/10 pt-3 flex justify-between items-center">
                             <span className="text-[#8790a3]">
-                                Tiền cọc đã thanh toán
+                                {copy("Deposit paid", "Tiền cọc đã thanh toán")}
                             </span>
                             <span className="text-emerald-400 font-bold text-base">
                                 {prepaidAmount.toLocaleString("vi-VN")} đ
@@ -172,18 +187,18 @@ export function BookingPassModal({
                     {/* Actions */}
                     <div className="flex gap-3">
                         <Link
-                            href="/dashboard/bookings"
+                            href="/customer/bookings"
                             className="flex-1 py-3 px-4 rounded-xl font-bold text-center bg-[#6246ea] hover:bg-[#7c5cff] text-white transition-colors text-sm shadow-glow-purple"
                             onClick={onClose}
                         >
-                            Quản lý đặt chỗ của tôi
+                            {copy("Manage my bookings", "Quản lý đặt chỗ")}
                         </Link>
                         <button
                             type="button"
                             onClick={onClose}
                             className="py-3 px-5 rounded-xl font-semibold bg-white/10 hover:bg-white/15 text-white transition-colors text-sm"
                         >
-                            Đóng
+                            {copy("Close", "Đóng")}
                         </button>
                     </div>
                 </div>

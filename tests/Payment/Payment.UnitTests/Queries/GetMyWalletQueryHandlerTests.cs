@@ -83,8 +83,24 @@ public class GetMyWalletQueryHandlerTests
         public Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
         {
             var items = Transactions
-                .Where(t => t.WalletId == walletId && t.Status == VnpayTransactionStatus.Pending)
+                .Where(t => t.WalletId == walletId
+                    && t.Status == VnpayTransactionStatus.Pending
+                    && t.ExpiresAt > DateTimeOffset.UtcNow)
                 .OrderByDescending(t => t.CreatedAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
+        }
+
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentExpiredTopupsByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
+        {
+            var nowUtc = DateTimeOffset.UtcNow;
+            var items = Transactions
+                .Where(t => t.WalletId == walletId
+                    && t.Purpose == VnpayTransactionPurpose.WalletTopUp
+                    && (t.Status == VnpayTransactionStatus.Expired
+                        || (t.Status == VnpayTransactionStatus.Pending && t.ExpiresAt <= nowUtc)))
+                .OrderByDescending(t => t.ExpiresAt)
                 .Take(limit)
                 .ToList();
             return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
@@ -255,6 +271,28 @@ public class GetMyWalletQueryHandlerTests
         Assert.Equal(2, result.Value.PendingTopUps.Count);
         Assert.Equal(txn2.TxnRef, result.Value.PendingTopUps[0].TopupId); // Mới nhất lên đầu
         Assert.Equal(100000m, result.Value.PendingTopUps[0].Amount);
+        Assert.Equal(txn2.ExpiresAt, result.Value.PendingTopUps[0].ExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTopupLinkExpired_DoesNotListItAsPending()
+    {
+        var userId = Guid.NewGuid();
+        var wallet = Wallet.Create(userId);
+        _fakeRepository.SeedWallet(wallet);
+        var createdAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+        var expiredTxn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(), Guid.NewGuid().ToString("N"), wallet.Id, 50000m,
+            "expired-key", createdAt, createdAt.AddMinutes(5));
+        _fakeTxnRepository.Transactions.Add(expiredTxn);
+
+        var result = await CreateHandler().Handle(new GetMyWalletQuery(userId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value!.PendingTopUps);
+        Assert.Single(result.Value.ExpiredTopUps);
+        Assert.Equal(expiredTxn.TxnRef, result.Value.ExpiredTopUps[0].TopupId);
+        Assert.Equal(VnpayTransactionStatus.Pending, expiredTxn.Status);
     }
 
     [Fact]
