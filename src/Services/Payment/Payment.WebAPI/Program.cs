@@ -63,5 +63,4 @@ app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
 app.MapAuditLogEndpoints();
-app.MapParkingFeeEndpoints();
 app.Run();
