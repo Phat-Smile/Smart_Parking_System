@@ -348,7 +348,8 @@ public static class ParkingDataSeeder
                 ParkingSeedConstants.UserU1,
                 ParkingSeedConstants.VehicleV1,
                 ParkingSeedConstants.ZoneA_L1);
-            s2.Complete();
+            s2.MarkPaid(now.AddDays(-1).AddHours(2));
+            s2.Complete(now.AddDays(-1).AddHours(2).AddMinutes(5));
             dbContext.ParkingSessions.Add(s2);
         }
 

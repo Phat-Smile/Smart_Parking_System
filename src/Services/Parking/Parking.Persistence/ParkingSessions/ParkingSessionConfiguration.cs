@@ -53,6 +53,8 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
             .HasColumnName("qr_token")
             .HasMaxLength(ParkingSession.QrTokenMaxLength)
             .IsRequired();
+        builder.Property(session => session.LastPaidAt).HasColumnName("last_paid_at");
+        builder.Property(session => session.ExitTime).HasColumnName("exit_time");
         builder.Property(session => session.UserId).HasColumnName("user_id");
         builder.Property(session => session.VehicleId).HasColumnName("vehicle_id");
         builder.Property(session => session.ReservationId).HasColumnName("reservation_id");
@@ -70,6 +72,7 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
             .HasColumnName("cancel_reason")
             .HasMaxLength(ParkingSession.CancelReasonMaxLength);
         builder.Ignore(session => session.CustomerType); // derived, not stored
+        builder.Ignore(session => session.ExitWindowEndsAt); // derived, not stored
 
         builder.HasIndex(session => session.QrToken)
             .IsUnique()

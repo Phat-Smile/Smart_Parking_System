@@ -350,6 +350,8 @@ public sealed class StaffSessionQueriesHttpTests
         public Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
+
         public void Add(ParkingSession session) => throw new InvalidOperationException();
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }

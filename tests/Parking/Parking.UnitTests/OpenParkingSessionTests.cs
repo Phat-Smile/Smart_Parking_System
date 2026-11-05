@@ -444,6 +444,8 @@ public sealed class OpenParkingSessionTests
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(Added.FirstOrDefault(session => session.Id == sessionId));
 
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
+
         public void Add(ParkingSession session) => Added.Add(session);
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)
