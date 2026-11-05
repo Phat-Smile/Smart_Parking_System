@@ -108,20 +108,29 @@ export function ParkWiseNavbar({
         if (variant !== "customer") return;
         document.documentElement.lang = language;
         return () => {
-            document.documentElement.lang = window.localStorage.getItem("smartpark_language") === "en" ? "en" : "vi";
+            document.documentElement.lang =
+                window.localStorage.getItem("smartpark_language") === "en"
+                    ? "en"
+                    : "vi";
         };
     }, [variant, language]);
 
     const dark = scrolled && !menuOpen;
     const customerLabels: Record<string, string> = {
-        Home: "Trang chủ", Customer: "Khách hàng", "Find Parking": "Tìm bãi đỗ",
-        "My Bookings": "Đặt chỗ của tôi", "My Vehicles": "Xe của tôi",
-        "Parking History": "Lịch sử đỗ xe", "My Profile": "Hồ sơ của tôi",
-        "How It Works": "Cách hoạt động", About: "Giới thiệu",
+        Home: "Trang chủ",
+        Customer: "Khách hàng",
+        "Find Parking": "Tìm bãi đỗ",
+        "My Bookings": "Đặt chỗ của tôi",
+        "My Vehicles": "Xe của tôi",
+        "Parking History": "Lịch sử đỗ xe",
+        "My Profile": "Hồ sơ của tôi",
+        "How It Works": "Cách hoạt động",
+        About: "Giới thiệu",
     };
-    const customerLabel = (label: string) => variant === "customer" && language === "vi"
-        ? customerLabels[label] ?? label
-        : label;
+    const customerLabel = (label: string) =>
+        variant === "customer" && language === "vi"
+            ? (customerLabels[label] ?? label)
+            : label;
 
     return (
         <>
@@ -159,7 +168,9 @@ export function ParkWiseNavbar({
                                 {copy("My Profile", "Hồ sơ của tôi")}
                             </Link>
                         )}
-                        {menuOpen && variant === "customer" && <CustomerLanguageSwitcher mobile />}
+                        {menuOpen && variant === "customer" && (
+                            <CustomerLanguageSwitcher mobile />
+                        )}
                         {!session && (
                             <div className="parkwise-mobile-auth">
                                 <Link
@@ -169,13 +180,17 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        {variant === "customer" ? copy("Login", "Đăng nhập") : "Login"}
+                                        {variant === "customer"
+                                            ? copy("Login", "Đăng nhập")
+                                            : "Login"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        {variant === "customer" ? copy("Login", "Đăng nhập") : "Login"}
+                                        {variant === "customer"
+                                            ? copy("Login", "Đăng nhập")
+                                            : "Login"}
                                     </span>
                                 </Link>
                                 <Link
@@ -185,13 +200,17 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        {variant === "customer" ? copy("Sign Up", "Đăng ký") : "Sign Up"}
+                                        {variant === "customer"
+                                            ? copy("Sign Up", "Đăng ký")
+                                            : "Sign Up"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        {variant === "customer" ? copy("Sign Up", "Đăng ký") : "Sign Up"}
+                                        {variant === "customer"
+                                            ? copy("Sign Up", "Đăng ký")
+                                            : "Sign Up"}
                                     </span>
                                 </Link>
                                 <Link
@@ -201,13 +220,23 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        {variant === "customer" ? copy("For Lot Owners", "Dành cho chủ bãi") : "For Lot Owners"}
+                                        {variant === "customer"
+                                            ? copy(
+                                                  "For Lot Owners",
+                                                  "Dành cho chủ bãi",
+                                              )
+                                            : "For Lot Owners"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        {variant === "customer" ? copy("For Lot Owners", "Dành cho chủ bãi") : "For Lot Owners"}
+                                        {variant === "customer"
+                                            ? copy(
+                                                  "For Lot Owners",
+                                                  "Dành cho chủ bãi",
+                                              )
+                                            : "For Lot Owners"}
                                     </span>
                                 </Link>
                             </div>

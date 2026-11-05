@@ -87,10 +87,13 @@ export function CustomerDashboardPage({
               : hour < 17
                 ? copy("Good afternoon,", "Chào buổi chiều,")
                 : copy("Good evening,", "Chào buổi tối,");
-    const localTime = localNow?.toLocaleTimeString(language === "vi" ? "vi-VN" : "en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-    });
+    const localTime = localNow?.toLocaleTimeString(
+        language === "vi" ? "vi-VN" : "en-US",
+        {
+            hour: "numeric",
+            minute: "2-digit",
+        },
+    );
     const [tab, setTab] = useState<SearchTab>("find");
     const [destination, setDestination] = useState("");
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -231,10 +234,19 @@ export function CustomerDashboardPage({
                     <div className="dashboard-container dashboard-hero-copy">
                         <p>{greeting}</p>
                         <h1 id="dashboard-title">
-                            {displayName || copy("Find your space", "Tìm chỗ đỗ của bạn")}{" "}
+                            {displayName ||
+                                copy(
+                                    "Find your space",
+                                    "Tìm chỗ đỗ của bạn",
+                                )}{" "}
                             <span aria-hidden="true">👋</span>
                         </h1>
-                        <h2>{copy("Smarter parking. Brighter journeys.", "Đỗ xe thông minh. Hành trình thuận tiện.")}</h2>
+                        <h2>
+                            {copy(
+                                "Smarter parking. Brighter journeys.",
+                                "Đỗ xe thông minh. Hành trình thuận tiện.",
+                            )}
+                        </h2>
                         <button
                             className="dashboard-weather"
                             type="button"
@@ -242,10 +254,16 @@ export function CustomerDashboardPage({
                             disabled={locating}
                             aria-label={
                                 temperature === null
-                                    ? copy("Get local weather and time", "Xem thời tiết và giờ địa phương")
+                                    ? copy(
+                                          "Get local weather and time",
+                                          "Xem thời tiết và giờ địa phương",
+                                      )
                                     : `${copy("Local temperature", "Nhiệt độ địa phương")} ${temperature} ${copy("degrees Celsius", "độ C")}, ${localTime ?? copy("time loading", "đang tải giờ")}`
                             }
-                            title={copy("Use my location for weather and parking", "Dùng vị trí của tôi để xem thời tiết và bãi đỗ")}
+                            title={copy(
+                                "Use my location for weather and parking",
+                                "Dùng vị trí của tôi để xem thời tiết và bãi đỗ",
+                            )}
                         >
                             <span className="dashboard-weather-icon">
                                 <CustomerIcon name="cloud" size={22} />
@@ -273,7 +291,10 @@ export function CustomerDashboardPage({
                         <div
                             className="dashboard-tabs"
                             role="tablist"
-                            aria-label={copy("Parking shortcuts", "Lối tắt tìm bãi đỗ")}
+                            aria-label={copy(
+                                "Parking shortcuts",
+                                "Lối tắt tìm bãi đỗ",
+                            )}
                         >
                             <button
                                 type="button"
@@ -282,7 +303,8 @@ export function CustomerDashboardPage({
                                 className={tab === "find" ? "active" : ""}
                                 onClick={() => setTab("find")}
                             >
-                                <CustomerIcon name="search" size={23} /> {copy("Find Parking", "Tìm bãi đỗ")}
+                                <CustomerIcon name="search" size={23} />{" "}
+                                {copy("Find Parking", "Tìm bãi đỗ")}
                             </button>
                             <button
                                 type="button"
@@ -291,7 +313,8 @@ export function CustomerDashboardPage({
                                 className={tab === "quick" ? "active" : ""}
                                 onClick={() => setTab("quick")}
                             >
-                                <CustomerIcon name="clock" size={23} /> {copy("Quick Search", "Tìm nhanh")}
+                                <CustomerIcon name="clock" size={23} />{" "}
+                                {copy("Quick Search", "Tìm nhanh")}
                             </button>
                             <button
                                 type="button"
@@ -300,7 +323,8 @@ export function CustomerDashboardPage({
                                 className={tab === "saved" ? "active" : ""}
                                 onClick={() => setTab("saved")}
                             >
-                                <CustomerIcon name="bookmark" size={23} /> {copy("Saved Places", "Địa điểm đã lưu")}
+                                <CustomerIcon name="bookmark" size={23} />{" "}
+                                {copy("Saved Places", "Địa điểm đã lưu")}
                             </button>
                         </div>
                         {tab === "saved" ? (
@@ -323,7 +347,16 @@ export function CustomerDashboardPage({
                                             />
                                         </span>
                                         <span>
-                                            <strong>{place.name === "Work" ? copy("Work", "Cơ quan") : place.name === "Home" ? copy("Home", "Nhà") : copy("Favorite", "Yêu thích")}</strong>
+                                            <strong>
+                                                {place.name === "Work"
+                                                    ? copy("Work", "Cơ quan")
+                                                    : place.name === "Home"
+                                                      ? copy("Home", "Nhà")
+                                                      : copy(
+                                                            "Favorite",
+                                                            "Yêu thích",
+                                                        )}
+                                            </strong>
                                             <small>{place.detail}</small>
                                         </span>
                                         <CustomerIcon name="arrow" size={18} />
@@ -336,9 +369,17 @@ export function CustomerDashboardPage({
                                 role="tabpanel"
                             >
                                 <div className="dashboard-quick-heading">
-                                    <strong>{copy("Search in one click", "Tìm kiếm chỉ với một lần nhấn")}</strong>
+                                    <strong>
+                                        {copy(
+                                            "Search in one click",
+                                            "Tìm kiếm chỉ với một lần nhấn",
+                                        )}
+                                    </strong>
                                     <span>
-                                        {copy("Choose a popular destination. We’ll look for parking now.", "Chọn điểm đến phổ biến. Chúng tôi sẽ tìm bãi đỗ ngay.")}
+                                        {copy(
+                                            "Choose a popular destination. We’ll look for parking now.",
+                                            "Chọn điểm đến phổ biến. Chúng tôi sẽ tìm bãi đỗ ngay.",
+                                        )}
                                     </span>
                                 </div>
                                 <div className="dashboard-quick-places">
@@ -379,7 +420,10 @@ export function CustomerDashboardPage({
                                                 className="dashboard-field-label"
                                                 htmlFor="dashboard-destination-input"
                                             >
-                                                {copy("Destination", "Điểm đến")}
+                                                {copy(
+                                                    "Destination",
+                                                    "Điểm đến",
+                                                )}
                                             </label>
                                             <input
                                                 id="dashboard-destination-input"
@@ -390,7 +434,10 @@ export function CustomerDashboardPage({
                                                     );
                                                     setSearchError("");
                                                 }}
-                                                placeholder={copy("Enter an address or landmark", "Nhập địa chỉ hoặc địa điểm")}
+                                                placeholder={copy(
+                                                    "Enter an address or landmark",
+                                                    "Nhập địa chỉ hoặc địa điểm",
+                                                )}
                                                 aria-invalid={Boolean(
                                                     searchError,
                                                 )}
@@ -406,8 +453,14 @@ export function CustomerDashboardPage({
                                             type="button"
                                             onClick={locateCurrentPosition}
                                             disabled={locating}
-                                            aria-label={copy("Use my current location", "Dùng vị trí hiện tại")}
-                                            title={copy("Use my current location", "Dùng vị trí hiện tại")}
+                                            aria-label={copy(
+                                                "Use my current location",
+                                                "Dùng vị trí hiện tại",
+                                            )}
+                                            title={copy(
+                                                "Use my current location",
+                                                "Dùng vị trí hiện tại",
+                                            )}
                                         >
                                             <CustomerIcon
                                                 name="target"
@@ -455,9 +508,32 @@ export function CustomerDashboardPage({
                                     <div className="dashboard-search-field dashboard-vehicle-field">
                                         <CustomerIcon name="car" size={23} />
                                         <CustomerSearchDropdown
-                                            label={copy("My Vehicle", "Xe của tôi")}
+                                            label={copy(
+                                                "My Vehicle",
+                                                "Xe của tôi",
+                                            )}
                                             value={vehicle}
-                                            options={vehicleOptions.map((option) => ({ ...option, label: option.value === "any" ? copy("Any vehicle", "Mọi loại xe") : option.value === "car" ? copy("Car", "Ô tô") : copy("Motorbike", "Xe máy") }))}
+                                            options={vehicleOptions.map(
+                                                (option) => ({
+                                                    ...option,
+                                                    label:
+                                                        option.value === "any"
+                                                            ? copy(
+                                                                  "Any vehicle",
+                                                                  "Mọi loại xe",
+                                                              )
+                                                            : option.value ===
+                                                                "car"
+                                                              ? copy(
+                                                                    "Car",
+                                                                    "Ô tô",
+                                                                )
+                                                              : copy(
+                                                                    "Motorbike",
+                                                                    "Xe máy",
+                                                                ),
+                                                }),
+                                            )}
                                             onChange={setVehicle}
                                             variant="field"
                                             align="right"
@@ -468,7 +544,9 @@ export function CustomerDashboardPage({
                                         type="submit"
                                     >
                                         <CustomerIcon name="search" size={24} />
-                                        <span>{copy("Find Parking", "Tìm bãi đỗ")}</span>
+                                        <span>
+                                            {copy("Find Parking", "Tìm bãi đỗ")}
+                                        </span>
                                         <CustomerIcon name="arrow" size={21} />
                                     </button>
                                 </form>
@@ -495,7 +573,10 @@ export function CustomerDashboardPage({
                                             name="history"
                                             size={19}
                                         />
-                                        {copy("Suggested places:", "Địa điểm gợi ý:")}
+                                        {copy(
+                                            "Suggested places:",
+                                            "Địa điểm gợi ý:",
+                                        )}
                                     </span>
                                     <div>
                                         {recentPlaces.map((place) => (
@@ -530,7 +611,10 @@ export function CustomerDashboardPage({
                                         <CustomerIcon name="car" size={27} />
                                     </span>
                                     <h2 id="dashboard-session-title">
-                                        {copy("Active Parking Session", "Phiên đỗ đang hoạt động")}
+                                        {copy(
+                                            "Active Parking Session",
+                                            "Phiên đỗ đang hoạt động",
+                                        )}
                                     </h2>
                                 </div>
                                 <Link href="/customer/sessions">
@@ -556,7 +640,10 @@ export function CustomerDashboardPage({
                                         />
                                     </span>
                                     <h2 id="dashboard-booking-title">
-                                        {copy("Upcoming Booking", "Đặt chỗ sắp tới")}
+                                        {copy(
+                                            "Upcoming Booking",
+                                            "Đặt chỗ sắp tới",
+                                        )}
                                     </h2>
                                     <span className="dashboard-status blue">
                                         {copy("Demo data", "Dữ liệu mẫu")}
@@ -633,10 +720,19 @@ export function CustomerDashboardPage({
                             </span>
                             <div>
                                 <h2 id="dashboard-places-title">
-                                    {copy("Your Saved Places", "Địa điểm đã lưu")} <small>{copy("Demo data", "Dữ liệu mẫu")}</small>
+                                    {copy(
+                                        "Your Saved Places",
+                                        "Địa điểm đã lưu",
+                                    )}{" "}
+                                    <small>
+                                        {copy("Demo data", "Dữ liệu mẫu")}
+                                    </small>
                                 </h2>
                                 <p>
-                                    {copy("Quick access to your favorite locations and parking recommendations.", "Truy cập nhanh các địa điểm yêu thích và gợi ý bãi đỗ.")}
+                                    {copy(
+                                        "Quick access to your favorite locations and parking recommendations.",
+                                        "Truy cập nhanh các địa điểm yêu thích và gợi ý bãi đỗ.",
+                                    )}
                                 </p>
                                 <button
                                     type="button"
@@ -651,7 +747,10 @@ export function CustomerDashboardPage({
                                             });
                                     }}
                                 >
-                                    {copy("View All Places", "Xem mọi địa điểm")}{" "}
+                                    {copy(
+                                        "View All Places",
+                                        "Xem mọi địa điểm",
+                                    )}{" "}
                                     <CustomerIcon name="arrow" size={16} />
                                 </button>
                             </div>
@@ -680,7 +779,16 @@ export function CustomerDashboardPage({
                                         />
                                     </span>
                                     <span>
-                                        <strong>{place.name === "Work" ? copy("Work", "Cơ quan") : place.name === "Home" ? copy("Home", "Nhà") : copy("Favorite", "Yêu thích")}</strong>
+                                        <strong>
+                                            {place.name === "Work"
+                                                ? copy("Work", "Cơ quan")
+                                                : place.name === "Home"
+                                                  ? copy("Home", "Nhà")
+                                                  : copy(
+                                                        "Favorite",
+                                                        "Yêu thích",
+                                                    )}
+                                        </strong>
                                         <small>{place.detail}</small>
                                     </span>
                                 </button>

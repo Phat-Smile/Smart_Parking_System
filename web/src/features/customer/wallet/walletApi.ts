@@ -110,7 +110,8 @@ export async function getWalletTransactions(
 const WALLET_MESSAGES: Record<string, string> = {
     "payment.idempotency_key_reused":
         "This top-up request was used with a different amount. Start a new top-up.",
-    "payment.topup_expired": "This top-up request has expired. Start a new top-up.",
+    "payment.topup_expired":
+        "This top-up request has expired. Start a new top-up.",
     "payment.balance_limit_exceeded":
         "The top-up would exceed your wallet balance limit.",
     "payment.topup_not_found": "This top-up could not be found.",

@@ -38,7 +38,9 @@ export default function ParkingHistoryPage() {
                         "Could not load parking history.",
                 );
             } else if (err instanceof TypeError) {
-                setError("Could not connect to load parking history. Please try again later.");
+                setError(
+                    "Could not connect to load parking history. Please try again later.",
+                );
             } else if (err instanceof Error) {
                 setError(err.message);
             } else {
@@ -67,7 +69,10 @@ export default function ParkingHistoryPage() {
                         {copy("Parking History", "Lịch sử đỗ xe")}
                     </h1>
                     <p className="text-[#8790a3] text-sm">
-                        {copy("Your parking sessions across the ParkWise network.", "Các phiên đỗ của bạn trong hệ thống ParkWise.")}
+                        {copy(
+                            "Your parking sessions across the ParkWise network.",
+                            "Các phiên đỗ của bạn trong hệ thống ParkWise.",
+                        )}
                     </p>
                 </div>
                 <button
@@ -126,17 +131,24 @@ export default function ParkingHistoryPage() {
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white mb-1">
-                            {copy("No parking history yet", "Chưa có lịch sử đỗ xe")}
+                            {copy(
+                                "No parking history yet",
+                                "Chưa có lịch sử đỗ xe",
+                            )}
                         </h3>
                         <p className="text-[#8790a3] text-sm max-w-md mx-auto">
-                            {copy("Your completed and active parking sessions will appear here after you enter a ParkWise parking lot.", "Các phiên đỗ đang hoạt động và đã hoàn thành sẽ xuất hiện sau khi bạn vào bãi ParkWise.")}
+                            {copy(
+                                "Your completed and active parking sessions will appear here after you enter a ParkWise parking lot.",
+                                "Các phiên đỗ đang hoạt động và đã hoàn thành sẽ xuất hiện sau khi bạn vào bãi ParkWise.",
+                            )}
                         </p>
                     </div>
                     <Link
                         href="/search"
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6246ea] hover:bg-[#7c5cff] text-white font-bold text-sm transition-colors shadow-glow-purple"
                     >
-                        <Search size={16} /> {copy("Find nearby parking", "Tìm bãi đỗ gần đây")}
+                        <Search size={16} />{" "}
+                        {copy("Find nearby parking", "Tìm bãi đỗ gần đây")}
                     </Link>
                 </div>
             )}
@@ -179,8 +191,14 @@ export default function ParkingHistoryPage() {
                                             }`}
                                         >
                                             {isOpen
-                                                ? copy("Parking now", "Đang đỗ xe")
-                                                : copy("Completed", "Đã hoàn thành")}
+                                                ? copy(
+                                                      "Parking now",
+                                                      "Đang đỗ xe",
+                                                  )
+                                                : copy(
+                                                      "Completed",
+                                                      "Đã hoàn thành",
+                                                  )}
                                         </span>
                                         <span className="text-xs font-mono text-[#8790a3]">
                                             ID: #
@@ -191,20 +209,25 @@ export default function ParkingHistoryPage() {
                                     </div>
 
                                     <h3 className="text-lg font-bold text-white mb-1">
-                                        {copy("Parking lot", "Bãi đỗ xe")} #{session.lotId.slice(0, 8)}
+                                        {copy("Parking lot", "Bãi đỗ xe")} #
+                                        {session.lotId.slice(0, 8)}
                                     </h3>
                                     <p className="text-xs text-[#8790a3] flex items-center gap-1.5 mb-4">
                                         <MapPin
                                             size={13}
                                             className="text-[#6246ea]"
                                         />
-                                        {copy("ParkWise parking network", "Hệ thống bãi đỗ ParkWise")}
+                                        {copy(
+                                            "ParkWise parking network",
+                                            "Hệ thống bãi đỗ ParkWise",
+                                        )}
                                     </p>
 
                                     <div className="bg-[#101426] border border-white/5 rounded-xl p-3.5 space-y-2 text-xs">
                                         <div className="flex justify-between">
                                             <span className="text-[#8790a3] flex items-center gap-1.5">
-                                                <Car size={13} /> {copy("Plate", "Biển số")}
+                                                <Car size={13} />{" "}
+                                                {copy("Plate", "Biển số")}
                                             </span>
                                             <span className="text-white font-mono font-bold">
                                                 {session.plateNumber} (
@@ -213,7 +236,8 @@ export default function ParkingHistoryPage() {
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-[#8790a3] flex items-center gap-1.5">
-                                                <Calendar size={13} /> {copy("Entry time", "Giờ vào")}
+                                                <Calendar size={13} />{" "}
+                                                {copy("Entry time", "Giờ vào")}
                                             </span>
                                             <span className="text-white font-medium">
                                                 {timeFormatted} ·{" "}
@@ -223,7 +247,10 @@ export default function ParkingHistoryPage() {
                                         {session.floorName && (
                                             <div className="flex justify-between">
                                                 <span className="text-[#8790a3]">
-                                                    {copy("Floor / Zone", "Tầng / Khu vực")}
+                                                    {copy(
+                                                        "Floor / Zone",
+                                                        "Tầng / Khu vực",
+                                                    )}
                                                 </span>
                                                 <span className="text-white font-medium">
                                                     {session.floorName}{" "}
@@ -239,13 +266,20 @@ export default function ParkingHistoryPage() {
                                 {isOpen && (
                                     <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center text-xs">
                                         <span className="text-[#8790a3]">
-                                            {copy("Active session", "Phiên đỗ đang mở")}
+                                            {copy(
+                                                "Active session",
+                                                "Phiên đỗ đang mở",
+                                            )}
                                         </span>
                                         <Link
                                             href="/customer/sessions"
                                             className="text-[#a28aff] hover:underline font-bold"
                                         >
-                                            {copy("View exit QR", "Xem QR ra cổng")} →
+                                            {copy(
+                                                "View exit QR",
+                                                "Xem QR ra cổng",
+                                            )}{" "}
+                                            →
                                         </Link>
                                     </div>
                                 )}

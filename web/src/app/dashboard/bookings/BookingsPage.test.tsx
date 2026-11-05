@@ -165,12 +165,12 @@ describe("BookingsPage", () => {
             expect(screen.getByText("51H-999.88")).toBeInTheDocument();
         });
 
-        const viewQrBtn = screen.getByRole("button", { name: /View pass \/ QR/ });
+        const viewQrBtn = screen.getByRole("button", {
+            name: /View pass \/ QR/,
+        });
         fireEvent.click(viewQrBtn);
 
-        expect(
-            screen.getByText("Booking Pass"),
-        ).toBeInTheDocument();
+        expect(screen.getByText("Booking Pass")).toBeInTheDocument();
         expect(
             screen.getAllByText("BK-11111111").length,
         ).toBeGreaterThanOrEqual(2);
@@ -182,9 +182,7 @@ describe("BookingsPage", () => {
         render(<BookingsPage />);
 
         await waitFor(() => {
-            expect(
-                screen.getByText("No bookings yet"),
-            ).toBeInTheDocument();
+            expect(screen.getByText("No bookings yet")).toBeInTheDocument();
         });
         expect(screen.getByText("0/3")).toBeInTheDocument();
     });

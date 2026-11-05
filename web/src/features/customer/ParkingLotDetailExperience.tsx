@@ -78,7 +78,10 @@ const vehicleLabels: Record<string, string> = {
     large: "Large vehicle",
 };
 const vehicleLabelsVi: Record<string, string> = {
-    car: "Ô tô", motorbike: "Xe máy", ev: "Xe điện", large: "Xe cỡ lớn",
+    car: "Ô tô",
+    motorbike: "Xe máy",
+    ev: "Xe điện",
+    large: "Xe cỡ lớn",
 };
 
 const amenityLabels: Record<string, string> = {
@@ -92,9 +95,14 @@ const amenityLabels: Record<string, string> = {
     "security-staff": "Security staff",
 };
 const amenityLabelsVi: Record<string, string> = {
-    covered: "Có mái che", "always-open": "Mở cửa 24/7", cctv: "Camera an ninh",
-    "ev-charging": "Sạc xe điện", restrooms: "Nhà vệ sinh", lighting: "Chiếu sáng",
-    accessible: "Lối đi cho người khuyết tật", "security-staff": "Nhân viên bảo vệ",
+    covered: "Có mái che",
+    "always-open": "Mở cửa 24/7",
+    cctv: "Camera an ninh",
+    "ev-charging": "Sạc xe điện",
+    restrooms: "Nhà vệ sinh",
+    lighting: "Chiếu sáng",
+    accessible: "Lối đi cho người khuyết tật",
+    "security-staff": "Nhân viên bảo vệ",
 };
 
 function vehicleIcon(kind: string) {
@@ -140,7 +148,15 @@ const weekdayNames = [
     "Friday",
     "Saturday",
 ];
-const weekdayNamesVi = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
+const weekdayNamesVi = [
+    "Chủ nhật",
+    "Thứ hai",
+    "Thứ ba",
+    "Thứ tư",
+    "Thứ năm",
+    "Thứ sáu",
+    "Thứ bảy",
+];
 
 function formatMoney(amount: number) {
     return `${amount.toLocaleString("vi-VN")} ₫`;
@@ -303,7 +319,8 @@ export function ParkingLotDetailExperience({
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        {copy("View on map", "Xem trên bản đồ")} <ArrowRight size={15} />
+                                        {copy("View on map", "Xem trên bản đồ")}{" "}
+                                        <ArrowRight size={15} />
                                     </a>
                                 )}
                             </div>
@@ -313,7 +330,8 @@ export function ParkingLotDetailExperience({
                                         <Star size={17} fill="currentColor" />
                                         <strong>{lot.rating.toFixed(1)}</strong>
                                         <small>
-                                            ({lot.reviewCount} {copy("reviews", "đánh giá")})
+                                            ({lot.reviewCount}{" "}
+                                            {copy("reviews", "đánh giá")})
                                         </small>
                                     </span>
                                 )}
@@ -325,7 +343,9 @@ export function ParkingLotDetailExperience({
                                 {lot.compatible?.map((item) => (
                                     <span key={item}>
                                         {vehicleIcon(item)}{" "}
-                                        {language === "vi" ? vehicleLabelsVi[item] ?? item : vehicleLabels[item] ?? item}
+                                        {language === "vi"
+                                            ? (vehicleLabelsVi[item] ?? item)
+                                            : (vehicleLabels[item] ?? item)}
                                     </span>
                                 ))}
                             </div>
@@ -333,7 +353,10 @@ export function ParkingLotDetailExperience({
 
                         <div
                             className="lot-detail-metrics"
-                            aria-label={copy("Parking summary", "Tóm tắt bãi đỗ")}
+                            aria-label={copy(
+                                "Parking summary",
+                                "Tóm tắt bãi đỗ",
+                            )}
                         >
                             <div>
                                 <Navigation size={21} />
@@ -345,8 +368,14 @@ export function ParkingLotDetailExperience({
                                     </strong>
                                     <small>
                                         {lot.isPreview
-                                            ? copy("from your location", "từ vị trí của bạn")
-                                            : copy("distance unavailable", "chưa có khoảng cách")}
+                                            ? copy(
+                                                  "from your location",
+                                                  "từ vị trí của bạn",
+                                              )
+                                            : copy(
+                                                  "distance unavailable",
+                                                  "chưa có khoảng cách",
+                                              )}
                                     </small>
                                 </span>
                             </div>
@@ -360,8 +389,14 @@ export function ParkingLotDetailExperience({
                                     </strong>
                                     <small>
                                         {lot.travelMinutes === undefined
-                                            ? copy("travel time unavailable", "chưa có thời gian di chuyển")
-                                            : copy("estimated travel time", "thời gian di chuyển dự kiến")}
+                                            ? copy(
+                                                  "travel time unavailable",
+                                                  "chưa có thời gian di chuyển",
+                                              )
+                                            : copy(
+                                                  "estimated travel time",
+                                                  "thời gian di chuyển dự kiến",
+                                              )}
                                     </small>
                                 </span>
                             </div>
@@ -376,8 +411,14 @@ export function ParkingLotDetailExperience({
                                     </strong>
                                     <small>
                                         {lot.priceText
-                                            ? copy("current price", "giá hiện tại")
-                                            : copy("no price set yet", "chưa có giá")}
+                                            ? copy(
+                                                  "current price",
+                                                  "giá hiện tại",
+                                              )
+                                            : copy(
+                                                  "no price set yet",
+                                                  "chưa có giá",
+                                              )}
                                     </small>
                                 </span>
                             </div>
@@ -435,7 +476,11 @@ export function ParkingLotDetailExperience({
                                     />
                                     <span className="lot-detail-gallery-count">
                                         <Images size={14} aria-hidden="true" />{" "}
-                                        {copy("View all photos", "Xem tất cả ảnh")} ({photos.length})
+                                        {copy(
+                                            "View all photos",
+                                            "Xem tất cả ảnh",
+                                        )}{" "}
+                                        ({photos.length})
                                     </span>
                                     {photos.length > 1 && (
                                         <>
@@ -476,41 +521,80 @@ export function ParkingLotDetailExperience({
 
                             <section
                                 className="lot-detail-info-card"
-                                aria-label={copy("About this parking lot", "Về bãi đỗ này")}
+                                aria-label={copy(
+                                    "About this parking lot",
+                                    "Về bãi đỗ này",
+                                )}
                             >
-                                <h2>{copy("About this parking lot", "Về bãi đỗ này")}</h2>
+                                <h2>
+                                    {copy(
+                                        "About this parking lot",
+                                        "Về bãi đỗ này",
+                                    )}
+                                </h2>
                                 <p>
                                     {lot.isPreview
-                                        ? copy(`${lot.name} is a modern parking facility in the heart of District 1, Ho Chi Minh City. Conveniently situated near Nguyen Hue Walking Street, shopping centers, and business districts.`, `${lot.name} là bãi đỗ hiện đại tại trung tâm Quận 1, TP. Hồ Chí Minh, gần phố đi bộ Nguyễn Huệ và các trung tâm mua sắm.`)
-                                        : copy(`${lot.name} is an approved ${lot.type.toLowerCase()} at ${lot.address}. Additional facility details have not been published yet.`, `${lot.name} là bãi đỗ đã được duyệt tại ${lot.address}. Chưa có thêm thông tin về cơ sở vật chất.`)}
+                                        ? copy(
+                                              `${lot.name} is a modern parking facility in the heart of District 1, Ho Chi Minh City. Conveniently situated near Nguyen Hue Walking Street, shopping centers, and business districts.`,
+                                              `${lot.name} là bãi đỗ hiện đại tại trung tâm Quận 1, TP. Hồ Chí Minh, gần phố đi bộ Nguyễn Huệ và các trung tâm mua sắm.`,
+                                          )
+                                        : copy(
+                                              `${lot.name} is an approved ${lot.type.toLowerCase()} at ${lot.address}. Additional facility details have not been published yet.`,
+                                              `${lot.name} là bãi đỗ đã được duyệt tại ${lot.address}. Chưa có thêm thông tin về cơ sở vật chất.`,
+                                          )}
                                 </p>
                                 <div className="lot-detail-info-split">
                                     <div>
                                         <h3>
-                                            <Clock3 size={18} /> {copy("Opening hours", "Giờ mở cửa")}
+                                            <Clock3 size={18} />{" "}
+                                            {copy(
+                                                "Opening hours",
+                                                "Giờ mở cửa",
+                                            )}
                                         </h3>
                                         {lot.openingHours?.length ? (
                                             <details className="lot-detail-hours-details">
                                                 <summary>
-                                                    {copy("View weekly schedule", "Xem lịch trong tuần")}
+                                                    {copy(
+                                                        "View weekly schedule",
+                                                        "Xem lịch trong tuần",
+                                                    )}
                                                 </summary>
                                                 {lot.openingHours.map((day) => (
                                                     <div key={day.dayOfWeek}>
                                                         <span>
                                                             {
-                                                                (language === "vi" ? weekdayNamesVi : weekdayNames)[
+                                                                (language ===
+                                                                "vi"
+                                                                    ? weekdayNamesVi
+                                                                    : weekdayNames)[
                                                                     day
                                                                         .dayOfWeek
                                                                 ]
                                                             }
                                                         </span>
                                                         <strong>
-                                                            {copy(hoursLabel(day), day.isClosed ? "Đóng cửa" : day.is24Hours ? "Mở cửa 24 giờ" : hoursLabel(day).replace(" (next day)", " (hôm sau)"))}
+                                                            {copy(
+                                                                hoursLabel(day),
+                                                                day.isClosed
+                                                                    ? "Đóng cửa"
+                                                                    : day.is24Hours
+                                                                      ? "Mở cửa 24 giờ"
+                                                                      : hoursLabel(
+                                                                            day,
+                                                                        ).replace(
+                                                                            " (next day)",
+                                                                            " (hôm sau)",
+                                                                        ),
+                                                            )}
                                                         </strong>
                                                     </div>
                                                 ))}
                                                 <small>
-                                                    {copy("Vietnam time (UTC+7)", "Giờ Việt Nam (UTC+7)")}
+                                                    {copy(
+                                                        "Vietnam time (UTC+7)",
+                                                        "Giờ Việt Nam (UTC+7)",
+                                                    )}
                                                 </small>
                                             </details>
                                         ) : (
@@ -519,33 +603,55 @@ export function ParkingLotDetailExperience({
                                                 lot.amenities?.includes(
                                                     "always-open",
                                                 )
-                                                    ? copy("24/7 access", "Mở cửa 24/7")
-                                                    : copy("Hours not published", "Chưa công bố giờ mở cửa")}
+                                                    ? copy(
+                                                          "24/7 access",
+                                                          "Mở cửa 24/7",
+                                                      )
+                                                    : copy(
+                                                          "Hours not published",
+                                                          "Chưa công bố giờ mở cửa",
+                                                      )}
                                             </p>
                                         )}
                                     </div>
                                     <div>
                                         <h3>
-                                            <Layers3 size={18} /> {copy("Amenities", "Tiện ích")}
+                                            <Layers3 size={18} />{" "}
+                                            {copy("Amenities", "Tiện ích")}
                                         </h3>
                                         {lot.amenities?.length ? (
                                             <ul className="lot-detail-amenities">
                                                 {lot.amenities.map((item) => (
                                                     <li key={item}>
                                                         {amenityIcon(item)}
-                                                        {language === "vi" ? amenityLabelsVi[item] ?? item : amenityLabels[item] ?? item}
+                                                        {language === "vi"
+                                                            ? (amenityLabelsVi[
+                                                                  item
+                                                              ] ?? item)
+                                                            : (amenityLabels[
+                                                                  item
+                                                              ] ?? item)}
                                                     </li>
                                                 ))}
                                             </ul>
                                         ) : (
-                                            <p>{copy("Amenities not published", "Chưa công bố tiện ích")}</p>
+                                            <p>
+                                                {copy(
+                                                    "Amenities not published",
+                                                    "Chưa công bố tiện ích",
+                                                )}
+                                            </p>
                                         )}
                                     </div>
                                 </div>
                                 <div className="lot-detail-info-split lot-detail-info-bottom">
                                     <div>
                                         <h3>
-                                            <CreditCard size={18} /> {copy("Payment methods", "Phương thức thanh toán")}
+                                            <CreditCard size={18} />{" "}
+                                            {copy(
+                                                "Payment methods",
+                                                "Phương thức thanh toán",
+                                            )}
                                         </h3>
                                         {lot.isPreview ? (
                                             <div
@@ -563,28 +669,52 @@ export function ParkingLotDetailExperience({
                                                 </span>
                                             </div>
                                         ) : (
-                                            <p>{copy("Not published", "Chưa công bố")}</p>
+                                            <p>
+                                                {copy(
+                                                    "Not published",
+                                                    "Chưa công bố",
+                                                )}
+                                            </p>
                                         )}
                                     </div>
                                     <div>
                                         <h3>
-                                            <ShieldCheck size={18} /> {copy("Parking rules", "Quy định đỗ xe")}
+                                            <ShieldCheck size={18} />{" "}
+                                            {copy(
+                                                "Parking rules",
+                                                "Quy định đỗ xe",
+                                            )}
                                         </h3>
                                         {lot.isPreview ? (
                                             <ul className="lot-detail-rules">
                                                 <li>
-                                                    <Check size={14} /> {copy("Follow staff instructions", "Làm theo hướng dẫn của nhân viên")}
+                                                    <Check size={14} />{" "}
+                                                    {copy(
+                                                        "Follow staff instructions",
+                                                        "Làm theo hướng dẫn của nhân viên",
+                                                    )}
                                                 </li>
                                                 <li>
-                                                    <Check size={14} /> {copy("Park within marked spaces", "Đỗ xe đúng vị trí đã kẻ")}
+                                                    <Check size={14} />{" "}
+                                                    {copy(
+                                                        "Park within marked spaces",
+                                                        "Đỗ xe đúng vị trí đã kẻ",
+                                                    )}
                                                 </li>
                                                 <li>
-                                                    <Check size={14} /> {copy("Keep valuables secure", "Tự bảo quản tài sản có giá trị")}
+                                                    <Check size={14} />{" "}
+                                                    {copy(
+                                                        "Keep valuables secure",
+                                                        "Tự bảo quản tài sản có giá trị",
+                                                    )}
                                                 </li>
                                             </ul>
                                         ) : (
                                             <p>
-                                                {copy("Ask the parking operator for current rules.", "Liên hệ đơn vị vận hành để biết quy định hiện tại.")}
+                                                {copy(
+                                                    "Ask the parking operator for current rules.",
+                                                    "Liên hệ đơn vị vận hành để biết quy định hiện tại.",
+                                                )}
                                             </p>
                                         )}
                                     </div>
@@ -614,7 +744,9 @@ export function ParkingLotDetailExperience({
                                 <span>
                                     <CarFront size={21} />
                                 </span>
-                                <small>{copy("Your vehicle", "Xe của bạn")}</small>
+                                <small>
+                                    {copy("Your vehicle", "Xe của bạn")}
+                                </small>
                                 <select
                                     value={vehicleId}
                                     onChange={(event) =>
@@ -629,10 +761,19 @@ export function ParkingLotDetailExperience({
                                     {compatibleVehicles.length === 0 && (
                                         <option value="">
                                             {!session
-                                                ? copy("Sign in to choose a vehicle", "Đăng nhập để chọn xe")
+                                                ? copy(
+                                                      "Sign in to choose a vehicle",
+                                                      "Đăng nhập để chọn xe",
+                                                  )
                                                 : vehiclesState === "loading"
-                                                  ? copy("Loading vehicles", "Đang tải xe")
-                                                  : copy("Add a vehicle to continue", "Thêm xe để tiếp tục")}
+                                                  ? copy(
+                                                        "Loading vehicles",
+                                                        "Đang tải xe",
+                                                    )
+                                                  : copy(
+                                                        "Add a vehicle to continue",
+                                                        "Thêm xe để tiếp tục",
+                                                    )}
                                         </option>
                                     )}
                                     {compatibleVehicles.map((item) => (
@@ -658,8 +799,14 @@ export function ParkingLotDetailExperience({
                                     }
                                 >
                                     {session
-                                        ? copy("Manage my vehicles", "Quản lý xe của tôi")
-                                        : copy("Sign in to use My Vehicles", "Đăng nhập để dùng mục Xe của tôi")}
+                                        ? copy(
+                                              "Manage my vehicles",
+                                              "Quản lý xe của tôi",
+                                          )
+                                        : copy(
+                                              "Sign in to use My Vehicles",
+                                              "Đăng nhập để dùng mục Xe của tôi",
+                                          )}
                                 </Link>
                             </div>
                             <label>
@@ -703,7 +850,10 @@ export function ParkingLotDetailExperience({
                                     {[1, 2, 3, 4, 6, 8].map((hours) => (
                                         <option key={hours} value={hours}>
                                             {hours}{" "}
-                                            {copy(hours === 1 ? "hour" : "hours", "giờ")}
+                                            {copy(
+                                                hours === 1 ? "hour" : "hours",
+                                                "giờ",
+                                            )}
                                         </option>
                                     ))}
                                 </select>
@@ -711,7 +861,9 @@ export function ParkingLotDetailExperience({
                         </div>
                         <div className="lot-detail-booking-total">
                             <div>
-                                <span>{copy("Hourly rate", "Giá theo giờ")}</span>
+                                <span>
+                                    {copy("Hourly rate", "Giá theo giờ")}
+                                </span>
                                 <strong>
                                     {lot.hourlyPrice === undefined
                                         ? copy("Unavailable", "Chưa có")
@@ -722,11 +874,19 @@ export function ParkingLotDetailExperience({
                                 <span>{copy("Duration", "Thời lượng")}</span>
                                 <strong>
                                     {duration}{" "}
-                                    {copy(duration === 1 ? "hour" : "hours", "giờ")}
+                                    {copy(
+                                        duration === 1 ? "hour" : "hours",
+                                        "giờ",
+                                    )}
                                 </strong>
                             </div>
                             <div>
-                                <span>{copy("Estimated total", "Tổng tiền dự kiến")}</span>
+                                <span>
+                                    {copy(
+                                        "Estimated total",
+                                        "Tổng tiền dự kiến",
+                                    )}
+                                </span>
                                 <strong>
                                     {lot.hourlyPrice === undefined
                                         ? copy("Unavailable", "Chưa có")
@@ -741,7 +901,11 @@ export function ParkingLotDetailExperience({
                                 <CarFront size={20} aria-hidden="true" />
                                 <span>
                                     <strong>
-                                        {lot.spaces} {copy("spaces available", "chỗ còn trống")}
+                                        {lot.spaces}{" "}
+                                        {copy(
+                                            "spaces available",
+                                            "chỗ còn trống",
+                                        )}
                                     </strong>
                                 </span>
                             </div>
@@ -759,13 +923,15 @@ export function ParkingLotDetailExperience({
                             className="lot-detail-book-now"
                             onClick={startBooking}
                         >
-                            {copy("Book Now", "Đặt ngay")} <ArrowRight size={18} />
+                            {copy("Book Now", "Đặt ngay")}{" "}
+                            <ArrowRight size={18} />
                         </button>
                     </aside>
                 </div>
 
                 <Link href="/search" className="lot-detail-bottom-back">
-                    <ArrowLeft size={16} /> {copy("Back to Find Parking", "Quay lại tìm bãi đỗ")}
+                    <ArrowLeft size={16} />{" "}
+                    {copy("Back to Find Parking", "Quay lại tìm bãi đỗ")}
                 </Link>
             </main>
             <CustomerFooter />

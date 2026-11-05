@@ -71,10 +71,11 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
     const pendingKey = useRef<{ amount: number; key: string } | null>(null);
     const pendingIds =
         wallet?.pendingTopUps.map((topup) => topup.topupId).join(",") ?? "";
-    const activePendingTopUps = wallet?.pendingTopUps.filter((topup) => {
-        const expiry = Date.parse(topup.expiresAtUtc ?? "");
-        return !Number.isFinite(expiry) || expiry > nowMs;
-    }) ?? [];
+    const activePendingTopUps =
+        wallet?.pendingTopUps.filter((topup) => {
+            const expiry = Date.parse(topup.expiresAtUtc ?? "");
+            return !Number.isFinite(expiry) || expiry > nowMs;
+        }) ?? [];
 
     useEffect(() => {
         if (!pendingIds) return;
@@ -228,14 +229,19 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                         </span>
                     </div>
                     <div className="wallet-balance-content">
-                        <h2 id="wallet-balance-title">{copy("Available balance", "Số dư khả dụng")}</h2>
+                        <h2 id="wallet-balance-title">
+                            {copy("Available balance", "Số dư khả dụng")}
+                        </h2>
                         {walletError ? (
                             <p className="wallet-balance-error" role="alert">
                                 {walletError}
                             </p>
                         ) : !wallet ? (
                             <p className="wallet-balance-loading">
-                                {copy("Loading balance...", "Đang tải số dư...")}
+                                {copy(
+                                    "Loading balance...",
+                                    "Đang tải số dư...",
+                                )}
                             </p>
                         ) : (
                             <p
@@ -246,19 +252,30 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                             </p>
                         )}
                         <p className="wallet-balance-caption">
-                            {copy("Ready for your next parking trip", "Sẵn sàng cho chuyến đỗ xe tiếp theo")}
+                            {copy(
+                                "Ready for your next parking trip",
+                                "Sẵn sàng cho chuyến đỗ xe tiếp theo",
+                            )}
                         </p>
                     </div>
                     <div className="wallet-balance-card-bottom">
                         <span>
-                            <ShieldCheck size={17} aria-hidden="true" /> {copy("Your ParkWise wallet", "Ví ParkWise của bạn")}
+                            <ShieldCheck size={17} aria-hidden="true" />{" "}
+                            {copy(
+                                "Your ParkWise wallet",
+                                "Ví ParkWise của bạn",
+                            )}
                         </span>
                         <button
                             type="button"
                             onClick={refreshWallet}
-                            aria-label={copy("Refresh wallet and transaction history", "Làm mới ví và lịch sử giao dịch")}
+                            aria-label={copy(
+                                "Refresh wallet and transaction history",
+                                "Làm mới ví và lịch sử giao dịch",
+                            )}
                         >
-                            <RefreshCw size={17} aria-hidden="true" /> {copy("Refresh", "Làm mới")}
+                            <RefreshCw size={17} aria-hidden="true" />{" "}
+                            {copy("Refresh", "Làm mới")}
                         </button>
                     </div>
                 </section>
@@ -267,7 +284,10 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                     <p className="wallet-demo-notice">
                         <ShieldCheck size={18} aria-hidden="true" />
                         <span>
-                            {copy("This wallet balance is for sandbox testing only. It cannot be withdrawn, transferred, or linked to a bank account.", "Số dư ví chỉ dùng để thử nghiệm. Không thể rút, chuyển nhượng hoặc liên kết tài khoản ngân hàng.")}
+                            {copy(
+                                "This wallet balance is for sandbox testing only. It cannot be withdrawn, transferred, or linked to a bank account.",
+                                "Số dư ví chỉ dùng để thử nghiệm. Không thể rút, chuyển nhượng hoặc liên kết tài khoản ngân hàng.",
+                            )}
                         </span>
                     </p>
                 )}
@@ -281,11 +301,17 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                             <span className="wallet-eyebrow">
                                 {copy("YOUR ACTIVITY", "HOẠT ĐỘNG CỦA BẠN")}
                             </span>
-                            <h2 id="wallet-history-title">{copy("Transaction history", "Lịch sử giao dịch")}</h2>
+                            <h2 id="wallet-history-title">
+                                {copy(
+                                    "Transaction history",
+                                    "Lịch sử giao dịch",
+                                )}
+                            </h2>
                         </div>
                         {history && (
                             <span className="wallet-history-count">
-                                {history.totalItems} {copy("transactions", "giao dịch")}
+                                {history.totalItems}{" "}
+                                {copy("transactions", "giao dịch")}
                             </span>
                         )}
                     </div>
@@ -300,9 +326,17 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                     ) : history.items.length === 0 ? (
                         <div className="wallet-history-empty">
                             <History size={28} aria-hidden="true" />
-                            <strong>{copy("No transactions yet", "Chưa có giao dịch")}</strong>
+                            <strong>
+                                {copy(
+                                    "No transactions yet",
+                                    "Chưa có giao dịch",
+                                )}
+                            </strong>
                             <span>
-                                {copy("Your top-ups and payments will appear here.", "Các lần nạp tiền và thanh toán sẽ xuất hiện tại đây.")}
+                                {copy(
+                                    "Your top-ups and payments will appear here.",
+                                    "Các lần nạp tiền và thanh toán sẽ xuất hiện tại đây.",
+                                )}
                             </span>
                         </div>
                     ) : (
@@ -331,7 +365,18 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                                         </span>
                                         <span className="wallet-transaction-detail">
                                             <strong>
-                                                {copy(transactionLabel(item), item.entryType === "TopUp" ? "Nạp tiền" : item.entryType === "FeePayment" ? "Thanh toán phí đỗ" : item.entryType === "Refund" ? "Hoàn tiền" : item.entryType)}
+                                                {copy(
+                                                    transactionLabel(item),
+                                                    item.entryType === "TopUp"
+                                                        ? "Nạp tiền"
+                                                        : item.entryType ===
+                                                            "FeePayment"
+                                                          ? "Thanh toán phí đỗ"
+                                                          : item.entryType ===
+                                                              "Refund"
+                                                            ? "Hoàn tiền"
+                                                            : item.entryType,
+                                                )}
                                             </strong>
                                             <small>
                                                 {transactionDate(
@@ -372,7 +417,10 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                             {history.totalPages > 1 && (
                                 <nav
                                     className="wallet-history-pagination"
-                                    aria-label={copy("Transaction history pages", "Các trang lịch sử giao dịch")}
+                                    aria-label={copy(
+                                        "Transaction history pages",
+                                        "Các trang lịch sử giao dịch",
+                                    )}
                                 >
                                     <button
                                         type="button"
@@ -415,14 +463,19 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                             <span className="wallet-eyebrow">
                                 {copy("QUICK WALLET TOP-UP", "NẠP VÍ NHANH")}
                             </span>
-                            <h2 id="wallet-topup-title">{copy("Add money", "Nạp tiền")}</h2>
+                            <h2 id="wallet-topup-title">
+                                {copy("Add money", "Nạp tiền")}
+                            </h2>
                         </div>
                         <span className="wallet-heading-icon">
                             <CreditCard size={21} aria-hidden="true" />
                         </span>
                     </div>
                     <p className="wallet-panel-intro">
-                        {copy("Choose an amount, then pay securely through VNPay.", "Chọn số tiền, sau đó thanh toán an toàn qua VNPay.")}
+                        {copy(
+                            "Choose an amount, then pay securely through VNPay.",
+                            "Chọn số tiền, sau đó thanh toán an toàn qua VNPay.",
+                        )}
                     </p>
                     <label
                         className="wallet-field-label"
@@ -456,7 +509,10 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                     <p className="wallet-field-hint" id="wallet-topup-hint">
                         {wallet
                             ? `${copy("From", "Từ")} ${formatVnd(wallet.limits.minTopUp)} ${copy("to", "đến")} ${formatVnd(wallet.limits.maxTopUp)} ${copy("per top-up.", "mỗi lần nạp.")}`
-                            : copy("Enter the amount to add to your wallet.", "Nhập số tiền muốn nạp vào ví.")}
+                            : copy(
+                                  "Enter the amount to add to your wallet.",
+                                  "Nhập số tiền muốn nạp vào ví.",
+                              )}
                     </p>
                     <div
                         className="wallet-amount-options"
@@ -498,14 +554,21 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                         disabled={submitting || !wallet}
                     >
                         {submitting
-                            ? copy("Creating payment...", "Đang tạo thanh toán...")
+                            ? copy(
+                                  "Creating payment...",
+                                  "Đang tạo thanh toán...",
+                              )
                             : copy("Top up with VNPay", "Nạp tiền qua VNPay")}
                         {!submitting && (
                             <ArrowRight size={19} aria-hidden="true" />
                         )}
                     </button>
                     <p className="wallet-payment-note">
-                        <ShieldCheck size={16} aria-hidden="true" /> {copy("Payment is processed by VNPay", "Thanh toán được xử lý qua VNPay")}
+                        <ShieldCheck size={16} aria-hidden="true" />{" "}
+                        {copy(
+                            "Payment is processed by VNPay",
+                            "Thanh toán được xử lý qua VNPay",
+                        )}
                     </p>
                 </section>
 
@@ -516,23 +579,46 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                     >
                         <div className="wallet-panel-heading">
                             <div>
-                                <span className="wallet-eyebrow">{copy("PAST REQUESTS", "YÊU CẦU TRƯỚC ĐÂY")}</span>
-                                <h2 id="wallet-expired-title">{copy("Recent expired top-ups", "Yêu cầu nạp đã hết hạn")}</h2>
+                                <span className="wallet-eyebrow">
+                                    {copy("PAST REQUESTS", "YÊU CẦU TRƯỚC ĐÂY")}
+                                </span>
+                                <h2 id="wallet-expired-title">
+                                    {copy(
+                                        "Recent expired top-ups",
+                                        "Yêu cầu nạp đã hết hạn",
+                                    )}
+                                </h2>
                             </div>
                             <Clock3 size={20} aria-hidden="true" />
                         </div>
                         <p className="wallet-expired-intro">
-                            {copy("These payment links expired. If you paid before the deadline, a later VNPay confirmation can still update your balance.", "Các liên kết thanh toán này đã hết hạn. Nếu bạn đã trả tiền trước hạn, số dư vẫn có thể cập nhật khi VNPay xác nhận sau đó.")}
+                            {copy(
+                                "These payment links expired. If you paid before the deadline, a later VNPay confirmation can still update your balance.",
+                                "Các liên kết thanh toán này đã hết hạn. Nếu bạn đã trả tiền trước hạn, số dư vẫn có thể cập nhật khi VNPay xác nhận sau đó.",
+                            )}
                         </p>
                         <ul className="wallet-expired-list">
                             {wallet.expiredTopUps.map((topup) => (
                                 <li key={topup.topupId}>
                                     <span>
-                                        <strong>{formatVnd(topup.amount)}</strong>
-                                        <small>{copy("Expired", "Hết hạn")} {transactionDate(topup.expiresAtUtc)}</small>
+                                        <strong>
+                                            {formatVnd(topup.amount)}
+                                        </strong>
+                                        <small>
+                                            {copy("Expired", "Hết hạn")}{" "}
+                                            {transactionDate(
+                                                topup.expiresAtUtc,
+                                            )}
+                                        </small>
                                     </span>
-                                    <Link href={`/payment/vnpay-return?vnp_TxnRef=${encodeURIComponent(topup.topupId)}`}>
-                                        {copy("View details", "Xem chi tiết")} <ArrowRight size={15} aria-hidden="true" />
+                                    <Link
+                                        href={`/payment/vnpay-return?vnp_TxnRef=${encodeURIComponent(topup.topupId)}`}
+                                    >
+                                        {copy("View details", "Xem chi tiết")}{" "}
+                                        <ArrowRight
+                                            size={15}
+                                            aria-hidden="true"
+                                        />
                                     </Link>
                                 </li>
                             ))}
@@ -548,10 +634,16 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                         <div className="wallet-panel-heading">
                             <div>
                                 <span className="wallet-eyebrow">
-                                    {copy("PAYMENT IN PROGRESS", "ĐANG THANH TOÁN")}
+                                    {copy(
+                                        "PAYMENT IN PROGRESS",
+                                        "ĐANG THANH TOÁN",
+                                    )}
                                 </span>
                                 <h2 id="wallet-pending-title">
-                                    {copy("Awaiting confirmation", "Đang chờ xác nhận")}
+                                    {copy(
+                                        "Awaiting confirmation",
+                                        "Đang chờ xác nhận",
+                                    )}
                                 </h2>
                             </div>
                             <Clock3 size={20} aria-hidden="true" />
@@ -559,23 +651,44 @@ export function CustomerWallet({ onRedirect, onOpenStatus, newKey }: Props) {
                         <ul>
                             {activePendingTopUps.map((topup) => {
                                 const timeLeft = topup.expiresAtUtc
-                                    ? formatTimeRemaining(topup.expiresAtUtc, nowMs)
+                                    ? formatTimeRemaining(
+                                          topup.expiresAtUtc,
+                                          nowMs,
+                                      )
                                     : null;
                                 return (
                                     <li key={topup.topupId}>
                                         <span>
-                                            <strong>{formatVnd(topup.amount)}</strong>
-                                            <small>{transactionDate(topup.createdAtUtc)}</small>
+                                            <strong>
+                                                {formatVnd(topup.amount)}
+                                            </strong>
+                                            <small>
+                                                {transactionDate(
+                                                    topup.createdAtUtc,
+                                                )}
+                                            </small>
                                             {timeLeft && (
-                                                <small>{timeLeft} {copy("remaining to pay", "còn lại để thanh toán")}</small>
+                                                <small>
+                                                    {timeLeft}{" "}
+                                                    {copy(
+                                                        "remaining to pay",
+                                                        "còn lại để thanh toán",
+                                                    )}
+                                                </small>
                                             )}
                                         </span>
                                         <Link
                                             href={`/payment/vnpay-return?vnp_TxnRef=${encodeURIComponent(topup.topupId)}`}
                                             aria-label={`${copy("View status of", "Xem trạng thái yêu cầu nạp")} ${formatVnd(topup.amount)}`}
                                         >
-                                            {copy("View status", "Xem trạng thái")}{" "}
-                                            <ArrowRight size={15} aria-hidden="true" />
+                                            {copy(
+                                                "View status",
+                                                "Xem trạng thái",
+                                            )}{" "}
+                                            <ArrowRight
+                                                size={15}
+                                                aria-hidden="true"
+                                            />
                                         </Link>
                                     </li>
                                 );

@@ -43,12 +43,15 @@ export function BookingPassModal({
 
     const shortId = `BK-${reservationId.slice(0, 8).toUpperCase()}`;
     const arrivalDate = new Date(appointmentTime);
-    const dateFormatted = arrivalDate.toLocaleDateString(language === "vi" ? "vi-VN" : "en-GB", {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    });
+    const dateFormatted = arrivalDate.toLocaleDateString(
+        language === "vi" ? "vi-VN" : "en-GB",
+        {
+            weekday: "short",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        },
+    );
     const timeFormatted = arrivalDate.toLocaleTimeString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
@@ -108,7 +111,11 @@ export function BookingPassModal({
                             />
                         </div>
                         <p className="text-gray-600 text-xs mt-3 flex items-center gap-1.5 font-medium">
-                            <QrIcon size={14} /> {copy("Scan this code at the gate or show it to the attendant when entering", "Quét mã tại cổng hoặc xuất trình cho nhân viên khi vào bãi")}
+                            <QrIcon size={14} />{" "}
+                            {copy(
+                                "Scan this code at the gate or show it to the attendant when entering",
+                                "Quét mã tại cổng hoặc xuất trình cho nhân viên khi vào bãi",
+                            )}
                         </p>
                     </div>
 
@@ -116,7 +123,8 @@ export function BookingPassModal({
                     <div className="bg-[#101426] border border-white/10 rounded-2xl p-4.5 space-y-3 text-sm">
                         <div className="flex justify-between items-start gap-4">
                             <span className="text-[#8790a3] flex items-center gap-2 shrink-0">
-                                <MapPin size={15} /> {copy("Parking lot", "Bãi đỗ xe")}
+                                <MapPin size={15} />{" "}
+                                {copy("Parking lot", "Bãi đỗ xe")}
                             </span>
                             <div className="text-right">
                                 <span className="text-white font-semibold block">
@@ -132,7 +140,8 @@ export function BookingPassModal({
 
                         <div className="flex justify-between items-center">
                             <span className="text-[#8790a3] flex items-center gap-2">
-                                <Car size={15} /> {copy("License plate", "Biển số xe")}
+                                <Car size={15} />{" "}
+                                {copy("License plate", "Biển số xe")}
                             </span>
                             <span className="text-white font-mono font-bold text-base px-2.5 py-0.5 rounded bg-white/5 border border-white/10">
                                 {plateNumber}
@@ -141,7 +150,8 @@ export function BookingPassModal({
 
                         <div className="flex justify-between items-center">
                             <span className="text-[#8790a3] flex items-center gap-2">
-                                <Calendar size={15} /> {copy("Entry date", "Ngày hẹn")}
+                                <Calendar size={15} />{" "}
+                                {copy("Entry date", "Ngày hẹn")}
                             </span>
                             <span className="text-white font-medium">
                                 {dateFormatted}
@@ -150,7 +160,11 @@ export function BookingPassModal({
 
                         <div className="flex justify-between items-center">
                             <span className="text-[#8790a3] flex items-center gap-2">
-                                <Clock size={15} /> {copy("Entry time / Duration", "Giờ hẹn / Thời lượng")}
+                                <Clock size={15} />{" "}
+                                {copy(
+                                    "Entry time / Duration",
+                                    "Giờ hẹn / Thời lượng",
+                                )}
                             </span>
                             <span className="text-white font-medium">
                                 {timeFormatted}{" "}

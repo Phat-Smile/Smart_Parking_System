@@ -115,7 +115,10 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                     <ul className="list-disc pl-4 space-y-1">
                         <li>Book up to 7 days ahead.</li>
                         <li>Available for cars only.</li>
-                        <li>Booking deposit: 20,000 VND (deducted from your wallet).</li>
+                        <li>
+                            Booking deposit: 20,000 VND (deducted from your
+                            wallet).
+                        </li>
                     </ul>
                 </div>
 

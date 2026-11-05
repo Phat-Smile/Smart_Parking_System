@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
-import { CustomerFooter, CustomerHeader } from "@/features/customer/CustomerShell";
+import {
+    CustomerFooter,
+    CustomerHeader,
+} from "@/features/customer/CustomerShell";
 import { CustomerProfilePage } from "@/features/customer/CustomerProfilePage";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
 import "../../parkwise.css";
@@ -12,9 +15,13 @@ export const metadata: Metadata = { title: "My Profile | ParkWise" };
 export default function ProfileRoute() {
     return (
         <CustomerAccessGuard>
-            <div className={`parkwise-page customer-shell-page customer-account-page ${parkwiseFont.className}`}>
+            <div
+                className={`parkwise-page customer-shell-page customer-account-page ${parkwiseFont.className}`}
+            >
                 <CustomerHeader active="profile" />
-                <main className="customer-account-main"><CustomerProfilePage /></main>
+                <main className="customer-account-main">
+                    <CustomerProfilePage />
+                </main>
                 <CustomerFooter />
             </div>
         </CustomerAccessGuard>

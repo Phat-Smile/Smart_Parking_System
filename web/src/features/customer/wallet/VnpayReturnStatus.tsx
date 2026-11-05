@@ -53,7 +53,10 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
     // relay its signed browser return to the existing public IPN endpoint.
     // Payment verifies the signature, amount, transaction and idempotency.
     useEffect(() => {
-        if (!topupId || !["localhost", "127.0.0.1"].includes(window.location.hostname))
+        if (
+            !topupId ||
+            !["localhost", "127.0.0.1"].includes(window.location.hostname)
+        )
             return;
         const params = new URLSearchParams(window.location.search);
         if (
@@ -62,7 +65,8 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
             !params.get("vnp_Amount") ||
             !params.get("vnp_ResponseCode") ||
             !params.get("vnp_TransactionStatus")
-        ) return;
+        )
+            return;
 
         const ipnUrl = new URL("/api/payment/vnpay/ipn", getGatewayBaseUrl());
         ipnUrl.search = window.location.search;
@@ -99,7 +103,11 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                 setStatus(current);
                 if (current.status === "Pending") {
                     const expiry = Date.parse(current.expiresAtUtc);
-                    if (Number.isFinite(expiry) ? Date.now() <= expiry + POLL_MS : polls < MAX_POLLS)
+                    if (
+                        Number.isFinite(expiry)
+                            ? Date.now() <= expiry + POLL_MS
+                            : polls < MAX_POLLS
+                    )
                         timer = setTimeout(poll, POLL_MS);
                     else setGaveUp(true);
                 }
@@ -119,12 +127,21 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
         return (
             <div className="wallet-return-state" role="alert">
                 <AlertCircle size={46} aria-hidden="true" />
-                <h2>{copy("Missing transaction reference", "Thiếu mã giao dịch")}</h2>
+                <h2>
+                    {copy(
+                        "Missing transaction reference",
+                        "Thiếu mã giao dịch",
+                    )}
+                </h2>
                 <p>
-                    {copy("The VNPay transaction reference is missing. Please check your wallet balance.", "Không có mã giao dịch VNPay. Vui lòng kiểm tra số dư ví.")}
+                    {copy(
+                        "The VNPay transaction reference is missing. Please check your wallet balance.",
+                        "Không có mã giao dịch VNPay. Vui lòng kiểm tra số dư ví.",
+                    )}
                 </p>
                 <Link href="/customer/wallet">
-                    <ArrowLeft size={17} aria-hidden="true" /> {copy("Back to My Wallet", "Về Ví của tôi")}
+                    <ArrowLeft size={17} aria-hidden="true" />{" "}
+                    {copy("Back to My Wallet", "Về Ví của tôi")}
                 </Link>
             </div>
         );
@@ -132,10 +149,16 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
         return (
             <div className="wallet-return-state" role="alert">
                 <AlertCircle size={46} aria-hidden="true" />
-                <h2>{copy("Could not check this transaction", "Không thể kiểm tra giao dịch")}</h2>
+                <h2>
+                    {copy(
+                        "Could not check this transaction",
+                        "Không thể kiểm tra giao dịch",
+                    )}
+                </h2>
                 <p>{error}</p>
                 <Link href="/customer/wallet">
-                    <ArrowLeft size={17} aria-hidden="true" /> {copy("Back to My Wallet", "Về Ví của tôi")}
+                    <ArrowLeft size={17} aria-hidden="true" />{" "}
+                    {copy("Back to My Wallet", "Về Ví của tôi")}
                 </Link>
             </div>
         );
@@ -143,8 +166,18 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
         return (
             <div className="wallet-return-state">
                 <Clock3 size={46} aria-hidden="true" />
-                <h2>{copy("Checking your transaction...", "Đang kiểm tra giao dịch...")}</h2>
-                <p>{copy("ParkWise is checking the payment status.", "ParkWise đang kiểm tra trạng thái thanh toán.")}</p>
+                <h2>
+                    {copy(
+                        "Checking your transaction...",
+                        "Đang kiểm tra giao dịch...",
+                    )}
+                </h2>
+                <p>
+                    {copy(
+                        "ParkWise is checking the payment status.",
+                        "ParkWise đang kiểm tra trạng thái thanh toán.",
+                    )}
+                </p>
             </div>
         );
 
@@ -157,48 +190,84 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
             : copy("Failed", "Thất bại");
 
     return (
-        <div className={`wallet-return-result-grid wallet-return-${status.status.toLowerCase()}`}>
-            <section className="wallet-return-result-card" aria-labelledby="wallet-return-heading">
+        <div
+            className={`wallet-return-result-grid wallet-return-${status.status.toLowerCase()}`}
+        >
+            <section
+                className="wallet-return-result-card"
+                aria-labelledby="wallet-return-heading"
+            >
                 <div className="wallet-return-status-icon">
                     {succeeded ? (
                         <CircleCheck size={34} aria-hidden="true" />
-                    ) : status.status === "Pending" || status.status === "Expired" ? (
+                    ) : status.status === "Pending" ||
+                      status.status === "Expired" ? (
                         <Clock3 size={34} aria-hidden="true" />
                     ) : (
                         <CircleX size={34} aria-hidden="true" />
                     )}
                 </div>
-                <span className="wallet-return-eyebrow">{copy("WALLET TOP-UP", "GIAO DỊCH NẠP VÍ")}</span>
+                <span className="wallet-return-eyebrow">
+                    {copy("WALLET TOP-UP", "GIAO DỊCH NẠP VÍ")}
+                </span>
                 <h2 id="wallet-return-heading">
                     {succeeded
                         ? copy("Top-up successful", "Nạp tiền thành công")
                         : status.status === "Pending"
-                          ? copy("Waiting for confirmation", "Đang chờ xác nhận")
+                          ? copy(
+                                "Waiting for confirmation",
+                                "Đang chờ xác nhận",
+                            )
                           : status.status === "Expired"
-                            ? copy("Payment link expired", "Liên kết thanh toán đã hết hạn")
+                            ? copy(
+                                  "Payment link expired",
+                                  "Liên kết thanh toán đã hết hạn",
+                              )
                             : copy("Top-up failed", "Nạp tiền thất bại")}
                 </h2>
                 <p className="wallet-return-result-copy">
                     {succeeded
-                        ? copy("The amount has been added to your ParkWise wallet.", "Số tiền đã được cộng vào Ví ParkWise của bạn.")
+                        ? copy(
+                              "The amount has been added to your ParkWise wallet.",
+                              "Số tiền đã được cộng vào Ví ParkWise của bạn.",
+                          )
                         : status.status === "Pending"
                           ? gaveUp
-                              ? copy("Confirmation is taking longer than expected. Check your wallet again in a few minutes.", "Xác nhận đang lâu hơn dự kiến. Vui lòng kiểm tra lại ví sau vài phút.")
-                              : copy("ParkWise is waiting for confirmation from VNPay.", "ParkWise đang chờ VNPay xác nhận.")
+                              ? copy(
+                                    "Confirmation is taking longer than expected. Check your wallet again in a few minutes.",
+                                    "Xác nhận đang lâu hơn dự kiến. Vui lòng kiểm tra lại ví sau vài phút.",
+                                )
+                              : copy(
+                                    "ParkWise is waiting for confirmation from VNPay.",
+                                    "ParkWise đang chờ VNPay xác nhận.",
+                                )
                           : status.status === "Expired"
-                            ? copy("This payment link has expired. If you already paid, your balance may still update when VNPay confirms it.", "Liên kết thanh toán đã hết hạn. Nếu đã thanh toán, số dư vẫn có thể cập nhật khi VNPay xác nhận.")
-                            : copy("This amount has not been added to your wallet.", "Số tiền này chưa được cộng vào ví.")}
+                            ? copy(
+                                  "This payment link has expired. If you already paid, your balance may still update when VNPay confirms it.",
+                                  "Liên kết thanh toán đã hết hạn. Nếu đã thanh toán, số dư vẫn có thể cập nhật khi VNPay xác nhận.",
+                              )
+                            : copy(
+                                  "This amount has not been added to your wallet.",
+                                  "Số tiền này chưa được cộng vào ví.",
+                              )}
                 </p>
-                {status.status === "Pending" && remainingSeconds !== null && !gaveUp && (
-                    <p className="wallet-return-countdown">
-                        {remainingSeconds > 0
-                            ? `${copy("Time remaining to pay:", "Thời gian thanh toán còn:")} ${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`
-                            : copy("Payment time ended. Checking the final status...", "Hết thời gian thanh toán. Đang kiểm tra kết quả cuối cùng...")}
-                    </p>
-                )}
+                {status.status === "Pending" &&
+                    remainingSeconds !== null &&
+                    !gaveUp && (
+                        <p className="wallet-return-countdown">
+                            {remainingSeconds > 0
+                                ? `${copy("Time remaining to pay:", "Thời gian thanh toán còn:")} ${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`
+                                : copy(
+                                      "Payment time ended. Checking the final status...",
+                                      "Hết thời gian thanh toán. Đang kiểm tra kết quả cuối cùng...",
+                                  )}
+                        </p>
+                    )}
                 <div className="wallet-return-amount-block">
                     <span>{copy("TOP-UP AMOUNT", "SỐ TIỀN NẠP")}</span>
-                    <strong className="wallet-return-amount">{formatVnd(status.amount)}</strong>
+                    <strong className="wallet-return-amount">
+                        {formatVnd(status.amount)}
+                    </strong>
                 </div>
                 {succeeded && wallet && (
                     <div className="wallet-return-balance">
@@ -206,18 +275,32 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                             <Wallet size={22} aria-hidden="true" />
                         </span>
                         <span>
-                            {copy("Current wallet balance", "Số dư ví hiện tại")}
-                            <strong data-testid="return-balance">{formatVnd(wallet.balance)}</strong>
+                            {copy(
+                                "Current wallet balance",
+                                "Số dư ví hiện tại",
+                            )}
+                            <strong data-testid="return-balance">
+                                {formatVnd(wallet.balance)}
+                            </strong>
                         </span>
                     </div>
                 )}
                 <Link className="wallet-return-action" href="/customer/wallet">
-                    {copy("Back to My Wallet", "Về Ví của tôi")} <ArrowRight size={18} aria-hidden="true" />
+                    {copy("Back to My Wallet", "Về Ví của tôi")}{" "}
+                    <ArrowRight size={18} aria-hidden="true" />
                 </Link>
             </section>
 
-            <aside className="wallet-return-detail-card" aria-label={copy("Top-up transaction details", "Chi tiết giao dịch nạp ví")}>
-                <span className="wallet-return-eyebrow">{copy("TRANSACTION DETAILS", "THÔNG TIN GIAO DỊCH")}</span>
+            <aside
+                className="wallet-return-detail-card"
+                aria-label={copy(
+                    "Top-up transaction details",
+                    "Chi tiết giao dịch nạp ví",
+                )}
+            >
+                <span className="wallet-return-eyebrow">
+                    {copy("TRANSACTION DETAILS", "THÔNG TIN GIAO DỊCH")}
+                </span>
                 <h3>{copy("Top-up details", "Chi tiết nạp ví")}</h3>
                 <dl>
                     <div>
@@ -226,16 +309,27 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                     </div>
                     <div>
                         <dt>{copy("Status", "Trạng thái")}</dt>
-                        <dd><span className="wallet-return-status-badge">{statusLabel}</span></dd>
+                        <dd>
+                            <span className="wallet-return-status-badge">
+                                {statusLabel}
+                            </span>
+                        </dd>
                     </div>
                     <div>
                         <dt>{copy("Transaction reference", "Mã giao dịch")}</dt>
-                        <dd><code>{status.topupId}</code></dd>
+                        <dd>
+                            <code>{status.topupId}</code>
+                        </dd>
                     </div>
                 </dl>
                 <div className="wallet-return-note">
                     <ShieldCheck size={20} aria-hidden="true" />
-                    <p>{copy("Payments are processed securely by VNPay.", "Thanh toán được xử lý an toàn qua VNPay.")}</p>
+                    <p>
+                        {copy(
+                            "Payments are processed securely by VNPay.",
+                            "Thanh toán được xử lý an toàn qua VNPay.",
+                        )}
+                    </p>
                 </div>
             </aside>
         </div>

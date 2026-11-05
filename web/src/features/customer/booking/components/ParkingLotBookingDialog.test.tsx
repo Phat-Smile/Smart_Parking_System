@@ -65,15 +65,15 @@ describe("ParkingLotBookingDialog", () => {
             />,
         );
 
-        expect(
-            screen.getByText("Review booking details"),
-        ).toBeInTheDocument();
+        expect(screen.getByText("Review booking details")).toBeInTheDocument();
         expect(screen.getByText("ParkWise Central Saigon")).toBeInTheDocument();
         expect(screen.getByText("51H-999.88")).toBeInTheDocument();
         expect(screen.getByText("50.000 đ")).toBeInTheDocument();
         expect(screen.getByText("A-01")).toBeInTheDocument();
         expect(
-            screen.getByRole("button", { name: "Confirm and hold for 15 minutes" }),
+            screen.getByRole("button", {
+                name: "Confirm and hold for 15 minutes",
+            }),
         ).toBeInTheDocument();
     });
 
@@ -176,9 +176,7 @@ describe("ParkingLotBookingDialog", () => {
         });
 
         // Vé đặt chỗ BookingPassModal xuất hiện với mã QR
-        expect(
-            screen.getByText("Booking Pass"),
-        ).toBeInTheDocument();
+        expect(screen.getByText("Booking Pass")).toBeInTheDocument();
         expect(screen.getByText("BK-RES-HOLD")).toBeInTheDocument();
     });
 
@@ -233,11 +231,15 @@ describe("ParkingLotBookingDialog", () => {
         );
 
         fireEvent.click(
-            screen.getByRole("button", { name: "Confirm and hold for 15 minutes" }),
+            screen.getByRole("button", {
+                name: "Confirm and hold for 15 minutes",
+            }),
         );
 
         await waitFor(() => {
-            expect(screen.getByText(/Insufficient wallet balance/)).toBeInTheDocument();
+            expect(
+                screen.getByText(/Insufficient wallet balance/),
+            ).toBeInTheDocument();
             expect(screen.getByText("Top up wallet →")).toBeInTheDocument();
         });
     });

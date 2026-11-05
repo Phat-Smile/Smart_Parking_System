@@ -10,7 +10,10 @@ export const metadata: Metadata = { title: "Parking History | ParkWise" };
 
 export default function ParkingHistoryRoute() {
     return (
-        <CustomerDataShell active="history" fontClassName={parkwiseFont.className}>
+        <CustomerDataShell
+            active="history"
+            fontClassName={parkwiseFont.className}
+        >
             <CustomerParkingHistoryPage />
         </CustomerDataShell>
     );

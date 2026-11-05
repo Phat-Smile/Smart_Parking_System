@@ -60,7 +60,9 @@
     font-weight: 750;
     white-space: nowrap;
     cursor: pointer;
-    transition: background-color 180ms ease, transform 180ms ease;
+    transition:
+        background-color 180ms ease,
+        transform 180ms ease;
 }
 
 .customer-account-primary {

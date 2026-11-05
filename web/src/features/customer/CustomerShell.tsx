@@ -198,7 +198,16 @@ export function CustomerIcon({
 export function CustomerHeader({
     active,
 }: {
-    active: "home" | "search" | "detail" | "wallet" | "bookings" | "history" | "sessions" | "profile" | "notifications";
+    active:
+        | "home"
+        | "search"
+        | "detail"
+        | "wallet"
+        | "bookings"
+        | "history"
+        | "sessions"
+        | "profile"
+        | "notifications";
 }) {
     const activeHref = {
         home: "/customer/dashboard",
@@ -276,9 +285,15 @@ function CustomerNotifications() {
                 >
                     <strong>{copy("Notifications", "Thông báo")}</strong>
                     <p>
-                        {copy("Booking and parking updates will appear here when notifications are available.", "Cập nhật đặt chỗ và đỗ xe sẽ xuất hiện tại đây khi có thông báo.")}
+                        {copy(
+                            "Booking and parking updates will appear here when notifications are available.",
+                            "Cập nhật đặt chỗ và đỗ xe sẽ xuất hiện tại đây khi có thông báo.",
+                        )}
                     </p>
-                    <Link href="/customer/notifications" onClick={() => setOpen(false)}>
+                    <Link
+                        href="/customer/notifications"
+                        onClick={() => setOpen(false)}
+                    >
                         {copy("Open notifications", "Xem thông báo")}
                     </Link>
                 </div>
@@ -302,10 +317,18 @@ const accountLinks: {
     { href: "/customer/vehicles", label: "My Vehicles", icon: "car" },
     { href: "/customer/bookings", label: "My Bookings", icon: "calendar" },
     { href: "/customer/sessions", label: "My Sessions", icon: "clock" },
-    { href: "/customer/parking-history", label: "Parking History", icon: "history" },
+    {
+        href: "/customer/parking-history",
+        label: "Parking History",
+        icon: "history",
+    },
     { href: "/customer/wallet", label: "Wallet", icon: "price" },
     { href: "/customer/notifications", label: "Notifications", icon: "bell" },
-    { href: "/customer/complete-profile", label: "Complete Profile", icon: "id-card" },
+    {
+        href: "/customer/complete-profile",
+        label: "Complete Profile",
+        icon: "id-card",
+    },
 ];
 
 function initials(name: string) {
@@ -340,13 +363,23 @@ export function CustomerAccountMenu({
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuId = useId();
     const accountName =
-        session?.displayName || session?.account.email || copy("Sign in required", "Cần đăng nhập");
-    const accountEmail = session?.account.email || copy("No account email available", "Chưa có email tài khoản");
+        session?.displayName ||
+        session?.account.email ||
+        copy("Sign in required", "Cần đăng nhập");
+    const accountEmail =
+        session?.account.email ||
+        copy("No account email available", "Chưa có email tài khoản");
     const accountLabels: Record<string, string> = {
-        "My Profile": "Hồ sơ của tôi", Dashboard: "Trang chủ", "Find Parking": "Tìm bãi đỗ",
-        "My Vehicles": "Xe của tôi", "My Bookings": "Đặt chỗ của tôi",
-        "My Sessions": "Phiên đỗ của tôi", "Parking History": "Lịch sử đỗ xe",
-        Wallet: "Ví của tôi", Notifications: "Thông báo", "Complete Profile": "Hoàn thiện hồ sơ",
+        "My Profile": "Hồ sơ của tôi",
+        Dashboard: "Trang chủ",
+        "Find Parking": "Tìm bãi đỗ",
+        "My Vehicles": "Xe của tôi",
+        "My Bookings": "Đặt chỗ của tôi",
+        "My Sessions": "Phiên đỗ của tôi",
+        "Parking History": "Lịch sử đỗ xe",
+        Wallet: "Ví của tôi",
+        Notifications: "Thông báo",
+        "Complete Profile": "Hoàn thiện hồ sơ",
     };
 
     useEffect(() => {
@@ -376,7 +409,12 @@ export function CustomerAccountMenu({
             await logoutParkWiseAccount();
             router.replace("/login");
         } catch {
-            setLogoutError(copy("We couldn't sign you out. Please try again.", "Không thể đăng xuất. Vui lòng thử lại."));
+            setLogoutError(
+                copy(
+                    "We couldn't sign you out. Please try again.",
+                    "Không thể đăng xuất. Vui lòng thử lại.",
+                ),
+            );
         } finally {
             setLoggingOut(false);
         }
@@ -422,7 +460,10 @@ export function CustomerAccountMenu({
                 <nav
                     id={menuId}
                     className="customer-account-panel"
-                    aria-label={copy("Account navigation", "Điều hướng tài khoản")}
+                    aria-label={copy(
+                        "Account navigation",
+                        "Điều hướng tài khoản",
+                    )}
                 >
                     <div className="customer-account-identity">
                         <span
@@ -448,7 +489,11 @@ export function CustomerAccountMenu({
                                 onClick={() => setOpen(false)}
                             >
                                 <CustomerIcon name={icon} size={21} />
-                                <span>{isVietnamese ? accountLabels[label] ?? label : label}</span>
+                                <span>
+                                    {isVietnamese
+                                        ? (accountLabels[label] ?? label)
+                                        : label}
+                                </span>
                                 <CustomerIcon name="chevron-right" size={17} />
                             </Link>
                         ))}
@@ -462,7 +507,12 @@ export function CustomerAccountMenu({
                             >
                                 <CustomerIcon name="sign-out" size={21} />
                                 <span>
-                                    {loggingOut ? copy("Signing out…", "Đang đăng xuất…") : copy("Log out", "Đăng xuất")}
+                                    {loggingOut
+                                        ? copy(
+                                              "Signing out…",
+                                              "Đang đăng xuất…",
+                                          )
+                                        : copy("Log out", "Đăng xuất")}
                                 </span>
                                 <CustomerIcon name="chevron-right" size={17} />
                             </button>

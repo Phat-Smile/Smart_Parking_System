@@ -1,8 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 
-export function ParkWiseFooter({ language = "en" }: { language?: "en" | "vi" }) {
-    const copy = (english: string, vietnamese: string) => language === "vi" ? vietnamese : english;
+export function ParkWiseFooter({
+    language = "en",
+}: {
+    language?: "en" | "vi";
+}) {
+    const copy = (english: string, vietnamese: string) =>
+        language === "vi" ? vietnamese : english;
     return (
         <footer className="parkwise-footer">
             <div className="parkwise-container">
@@ -14,13 +19,22 @@ export function ParkWiseFooter({ language = "en" }: { language?: "en" | "vi" }) 
                             width={707}
                             height={353}
                         />
-                        <p>{copy("Find Convenient and Affordable Parking.", "Tìm chỗ đỗ xe thuận tiện với giá hợp lý.")}</p>
+                        <p>
+                            {copy(
+                                "Find Convenient and Affordable Parking.",
+                                "Tìm chỗ đỗ xe thuận tiện với giá hợp lý.",
+                            )}
+                        </p>
                     </div>
                     <div className="parkwise-footer-column">
                         <h3>{copy("Explore", "Khám phá")}</h3>
                         <div className="parkwise-footer-links">
-                            <Link href="/#about">{copy("About Us", "Về chúng tôi")}</Link>
-                            <Link href="/#how-it-works">{copy("How It Works", "Cách hoạt động")}</Link>
+                            <Link href="/#about">
+                                {copy("About Us", "Về chúng tôi")}
+                            </Link>
+                            <Link href="/#how-it-works">
+                                {copy("How It Works", "Cách hoạt động")}
+                            </Link>
                         </div>
                     </div>
                     <div className="parkwise-footer-column">
@@ -33,9 +47,14 @@ export function ParkWiseFooter({ language = "en" }: { language?: "en" | "vi" }) 
                     <div className="parkwise-footer-column">
                         <h3>{copy("Legal", "Pháp lý")}</h3>
                         <div className="parkwise-footer-links">
-                            <Link href="/privacy-policy">{copy("Privacy Policy", "Chính sách bảo mật")}</Link>
+                            <Link href="/privacy-policy">
+                                {copy("Privacy Policy", "Chính sách bảo mật")}
+                            </Link>
                             <Link href="/terms-and-conditions">
-                                {copy("Terms & Conditions", "Điều khoản sử dụng")}
+                                {copy(
+                                    "Terms & Conditions",
+                                    "Điều khoản sử dụng",
+                                )}
                             </Link>
                         </div>
                     </div>
@@ -60,7 +79,9 @@ export function ParkWiseFooter({ language = "en" }: { language?: "en" | "vi" }) 
                         educational purposes only.
                     </p>
                     <div>
-                        <Link href="/privacy-policy">{copy("Privacy Policy", "Chính sách bảo mật")}</Link>
+                        <Link href="/privacy-policy">
+                            {copy("Privacy Policy", "Chính sách bảo mật")}
+                        </Link>
                         <Link href="/terms-and-conditions">
                             {copy("Terms & Conditions", "Điều khoản sử dụng")}
                         </Link>

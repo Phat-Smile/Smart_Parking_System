@@ -10,7 +10,10 @@ export const metadata: Metadata = { title: "My Bookings | ParkWise" };
 
 export default function BookingsRoute() {
     return (
-        <CustomerDataShell active="bookings" fontClassName={parkwiseFont.className}>
+        <CustomerDataShell
+            active="bookings"
+            fontClassName={parkwiseFont.className}
+        >
             <CustomerBookingsPage />
         </CustomerDataShell>
     );

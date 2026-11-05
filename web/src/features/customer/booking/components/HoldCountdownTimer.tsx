@@ -51,7 +51,12 @@ export function HoldCountdownTimer({
                 role="status"
             >
                 <AlertTriangle size={16} />
-                <span>{copy("Your hold has expired", "Thời gian giữ chỗ đã hết hạn")}</span>
+                <span>
+                    {copy(
+                        "Your hold has expired",
+                        "Thời gian giữ chỗ đã hết hạn",
+                    )}
+                </span>
             </div>
         );
     }

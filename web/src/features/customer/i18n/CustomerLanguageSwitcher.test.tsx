@@ -20,13 +20,27 @@ it("switches Customer wallet copy and keeps the selected language after remount"
 
     expect(screen.getAllByText("My Wallet")).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Tiếng Việt" }));
-    expect(screen.getByRole("heading", { name: "Ví của tôi" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Kết quả nạp tiền" })).toBeInTheDocument();
+    expect(
+        screen.getByRole("heading", { name: "Ví của tôi" }),
+    ).toBeInTheDocument();
+    expect(
+        screen.getByRole("heading", { name: "Kết quả nạp tiền" }),
+    ).toBeInTheDocument();
     expect(localStorage.getItem("parkwise_customer_language")).toBe("vi");
 
     unmount();
-    render(<><CustomerLanguageSwitcher /><WalletPageIntro /></>);
-    expect(screen.getByRole("button", { name: "Tiếng Việt" })).toHaveAttribute("aria-pressed", "true");
+    render(
+        <>
+            <CustomerLanguageSwitcher />
+            <WalletPageIntro />
+        </>,
+    );
+    expect(screen.getByRole("button", { name: "Tiếng Việt" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+    );
     await user.click(screen.getByRole("button", { name: "English" }));
-    expect(screen.getByRole("heading", { name: "My Wallet" })).toBeInTheDocument();
+    expect(
+        screen.getByRole("heading", { name: "My Wallet" }),
+    ).toBeInTheDocument();
 });

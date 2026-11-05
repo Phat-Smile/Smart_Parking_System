@@ -13,7 +13,8 @@ import "./wallet.css";
 
 export const metadata: Metadata = {
     title: "My Wallet | ParkWise",
-    description: "Check your balance, top up with VNPay, and view wallet activity.",
+    description:
+        "Check your balance, top up with VNPay, and view wallet activity.",
 };
 
 export default function CustomerWalletRoute() {

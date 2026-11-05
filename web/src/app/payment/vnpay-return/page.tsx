@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
 import { VnpayReturnScreen } from "@/features/customer/wallet/WalletRoutes";
 import { VnpayReturnIntro } from "@/features/customer/wallet/WalletPageCopy";
-import { CustomerFooter, CustomerHeader } from "@/features/customer/CustomerShell";
+import {
+    CustomerFooter,
+    CustomerHeader,
+} from "@/features/customer/CustomerShell";
 import "../../parkwise.css";
 import "@/features/customer/customer-shell.css";
 import "../../customer/wallet/wallet.css";
@@ -22,7 +25,9 @@ export default async function VnpayReturnRoute({
     const topupId =
         typeof vnp_TxnRef === "string" && vnp_TxnRef ? vnp_TxnRef : null;
     return (
-        <div className={`parkwise-page customer-shell-page customer-wallet-page wallet-return-page ${parkwiseFont.className}`}>
+        <div
+            className={`parkwise-page customer-shell-page customer-wallet-page wallet-return-page ${parkwiseFont.className}`}
+        >
             <CustomerHeader active="wallet" />
             <main className="wallet-return-main">
                 <VnpayReturnIntro />

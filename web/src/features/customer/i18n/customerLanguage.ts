@@ -38,9 +38,14 @@ export function setCustomerLanguage(language: CustomerLanguage) {
 }
 
 export function useCustomerLanguage() {
-    const language = useSyncExternalStore<CustomerLanguage>(subscribe, getSnapshot, () => "en");
+    const language = useSyncExternalStore<CustomerLanguage>(
+        subscribe,
+        getSnapshot,
+        () => "en",
+    );
     const copy = useCallback(
-        (english: string, vietnamese: string) => language === "vi" ? vietnamese : english,
+        (english: string, vietnamese: string) =>
+            language === "vi" ? vietnamese : english,
         [language],
     );
     return {

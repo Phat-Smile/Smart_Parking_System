@@ -5,10 +5,7 @@ import Link from "next/link";
 import { en } from "@/features/customer/i18n/en";
 import { vi as viCopy } from "@/features/customer/i18n/vi";
 import { useCustomerLanguage } from "@/features/customer/i18n/customerLanguage";
-import {
-    BookingBadge,
-    BookingStatus,
-} from "./components/BookingBadge";
+import { BookingBadge, BookingStatus } from "./components/BookingBadge";
 import { BookingPassModal } from "./components/BookingPassModal";
 import {
     getMyReservations,
@@ -78,7 +75,9 @@ export default function BookingsPage() {
                         "Could not load your bookings.",
                 );
             } else if (err instanceof TypeError) {
-                setError("Could not connect to load your bookings. Please try again later.");
+                setError(
+                    "Could not connect to load your bookings. Please try again later.",
+                );
             } else if (err instanceof Error) {
                 setError(err.message);
             } else {
@@ -138,7 +137,9 @@ export default function BookingsPage() {
             } else if (err instanceof Error) {
                 setCancelError(err.message);
             } else {
-                setCancelError("Something went wrong while cancelling the booking.");
+                setCancelError(
+                    "Something went wrong while cancelling the booking.",
+                );
             }
         } finally {
             setIsCancelling(false);
@@ -289,12 +290,21 @@ export default function BookingsPage() {
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white mb-1">
-                            {copy("No bookings yet", "Chưa có lượt đặt chỗ nào")}
+                            {copy(
+                                "No bookings yet",
+                                "Chưa có lượt đặt chỗ nào",
+                            )}
                         </h3>
                         <p className="text-[#8790a3] text-sm max-w-md mx-auto">
                             {activeTab === "active"
-                                ? copy("You have no active holds or confirmed bookings.", "Bạn không có lượt giữ chỗ hoặc đặt chỗ nào đang hiệu lực.")
-                                : copy("Find a parking lot and book ahead to secure a spot.", "Tìm bãi đỗ và đặt trước để giữ chỗ.")}
+                                ? copy(
+                                      "You have no active holds or confirmed bookings.",
+                                      "Bạn không có lượt giữ chỗ hoặc đặt chỗ nào đang hiệu lực.",
+                                  )
+                                : copy(
+                                      "Find a parking lot and book ahead to secure a spot.",
+                                      "Tìm bãi đỗ và đặt trước để giữ chỗ.",
+                                  )}
                         </p>
                     </div>
                     <Link
@@ -344,7 +354,8 @@ export default function BookingsPage() {
                                 </div>
 
                                 <h3 className="text-lg font-bold text-white mb-1 truncate">
-                                    {copy("Parking lot", "Bãi đỗ xe")} #{booking.lotId.slice(0, 8)}
+                                    {copy("Parking lot", "Bãi đỗ xe")} #
+                                    {booking.lotId.slice(0, 8)}
                                 </h3>
                                 <p className="text-[#8790a3] text-sm flex items-center gap-2 mb-5 truncate">
                                     <MapPin
@@ -357,7 +368,11 @@ export default function BookingsPage() {
                                 <div className="mt-auto space-y-2.5 bg-[#101426] rounded-xl p-4 border border-white/5 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-[#8790a3] flex items-center gap-2">
-                                            <Car size={14} /> {copy("License plate", "Biển số xe")}
+                                            <Car size={14} />{" "}
+                                            {copy(
+                                                "License plate",
+                                                "Biển số xe",
+                                            )}
                                         </span>
                                         <span className="text-white font-mono font-bold">
                                             {booking.plateNumber}
@@ -365,7 +380,8 @@ export default function BookingsPage() {
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-[#8790a3] flex items-center gap-2">
-                                            <Calendar size={14} /> {copy("Entry date", "Ngày hẹn")}
+                                            <Calendar size={14} />{" "}
+                                            {copy("Entry date", "Ngày hẹn")}
                                         </span>
                                         <span className="text-white font-medium">
                                             {dateStr}
@@ -373,7 +389,8 @@ export default function BookingsPage() {
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-[#8790a3] flex items-center gap-2">
-                                            <Clock size={14} /> {copy("Entry time", "Giờ hẹn")}
+                                            <Clock size={14} />{" "}
+                                            {copy("Entry time", "Giờ hẹn")}
                                         </span>
                                         <span className="text-white font-medium">
                                             {timeStr}{" "}
@@ -406,7 +423,11 @@ export default function BookingsPage() {
                                                 }
                                                 className="flex-1 py-2.5 px-3 bg-[#6246ea]/20 hover:bg-[#6246ea]/30 text-[#a28aff] border border-[#6246ea]/30 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors text-xs"
                                             >
-                                                <QrCode size={15} /> {copy("View pass / QR", "Xem vé / QR")}
+                                                <QrCode size={15} />{" "}
+                                                {copy(
+                                                    "View pass / QR",
+                                                    "Xem vé / QR",
+                                                )}
                                             </button>
                                         )}
 
@@ -424,7 +445,10 @@ export default function BookingsPage() {
                                             }}
                                             className="flex-1 py-2.5 px-3 border border-[#ff9388]/30 text-[#ff9388] rounded-xl font-bold hover:bg-[#ff9388]/10 transition-colors text-xs"
                                         >
-                                            {copy("Cancel booking", "Hủy đặt chỗ")}
+                                            {copy(
+                                                "Cancel booking",
+                                                "Hủy đặt chỗ",
+                                            )}
                                         </button>
                                     )}
                                 </div>
@@ -455,7 +479,10 @@ export default function BookingsPage() {
                             id="cancel-booking-title"
                             className="text-xl font-bold text-white mb-2"
                         >
-                            {copy("Confirm cancellation", "Xác nhận hủy đặt chỗ")}
+                            {copy(
+                                "Confirm cancellation",
+                                "Xác nhận hủy đặt chỗ",
+                            )}
                         </h2>
                         <p className="text-[#8790a3] text-sm mb-4">
                             {copy("Booking ID:", "Mã đặt chỗ:")}{" "}
@@ -465,20 +492,27 @@ export default function BookingsPage() {
                                     .slice(0, 8)
                                     .toUpperCase()}
                             </strong>{" "}
-                            ({cancelTarget.plateNumber}). {copy("Deposit", "Tiền cọc")}{" "}
+                            ({cancelTarget.plateNumber}).{" "}
+                            {copy("Deposit", "Tiền cọc")}{" "}
                             <strong className="text-emerald-400">
                                 {cancelTarget.prepaidAmount.toLocaleString(
                                     "vi-VN",
                                 )}{" "}
                                 đ
                             </strong>{" "}
-                            {copy("will be refunded to your ParkWise Wallet.", "sẽ được hoàn về Ví ParkWise của bạn.")}
+                            {copy(
+                                "will be refunded to your ParkWise Wallet.",
+                                "sẽ được hoàn về Ví ParkWise của bạn.",
+                            )}
                         </p>
 
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm text-[#8790a3] mb-1.5">
-                                    {copy("Reason for cancellation", "Lý do hủy đặt chỗ")}
+                                    {copy(
+                                        "Reason for cancellation",
+                                        "Lý do hủy đặt chỗ",
+                                    )}
                                 </label>
                                 <select
                                     value={cancelReason}
@@ -488,16 +522,28 @@ export default function BookingsPage() {
                                     className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors text-sm"
                                 >
                                     <option value="Change of plans">
-                                        {copy("Change of plans", "Thay đổi lịch trình")}
+                                        {copy(
+                                            "Change of plans",
+                                            "Thay đổi lịch trình",
+                                        )}
                                     </option>
                                     <option value="Found another parking spot">
-                                        {copy("Found another parking spot", "Đã tìm được chỗ đỗ khác")}
+                                        {copy(
+                                            "Found another parking spot",
+                                            "Đã tìm được chỗ đỗ khác",
+                                        )}
                                     </option>
                                     <option value="Wait time is too long">
-                                        {copy("Wait time is too long", "Thời gian chờ quá lâu")}
+                                        {copy(
+                                            "Wait time is too long",
+                                            "Thời gian chờ quá lâu",
+                                        )}
                                     </option>
                                     <option value="Other personal reason">
-                                        {copy("Other personal reason", "Lý do cá nhân khác")}
+                                        {copy(
+                                            "Other personal reason",
+                                            "Lý do cá nhân khác",
+                                        )}
                                     </option>
                                 </select>
                             </div>
@@ -517,7 +563,10 @@ export default function BookingsPage() {
                                 >
                                     {isCancelling
                                         ? copy("Cancelling...", "Đang hủy...")
-                                        : copy("Cancel and refund deposit", "Hủy và hoàn tiền cọc")}
+                                        : copy(
+                                              "Cancel and refund deposit",
+                                              "Hủy và hoàn tiền cọc",
+                                          )}
                                 </button>
                                 <button
                                     type="button"

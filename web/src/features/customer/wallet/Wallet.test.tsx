@@ -81,7 +81,9 @@ describe("walletApi", () => {
             title: "t",
             errorCode: "payment.idempotency_key_reused",
         } as never);
-        expect(api.describeWalletError(err)).toMatch(/used with a different amount/);
+        expect(api.describeWalletError(err)).toMatch(
+            /used with a different amount/,
+        );
         expect(api.describeWalletError(new TypeError("x"))).toMatch(/server/);
     });
 });
@@ -164,12 +166,14 @@ describe("CustomerWallet", () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         vi.spyOn(api, "getMyWallet").mockResolvedValue({
             ...WALLET,
-            pendingTopUps: [{
-                topupId: "T1",
-                amount: 50000,
-                createdAtUtc: new Date().toISOString(),
-                expiresAtUtc: new Date(Date.now() + 2000).toISOString(),
-            }],
+            pendingTopUps: [
+                {
+                    topupId: "T1",
+                    amount: 50000,
+                    createdAtUtc: new Date().toISOString(),
+                    expiresAtUtc: new Date(Date.now() + 2000).toISOString(),
+                },
+            ],
         });
         render(
             <CustomerWallet
@@ -179,22 +183,28 @@ describe("CustomerWallet", () => {
             />,
         );
 
-        expect(await screen.findByText(/00:02 remaining to pay/i)).toBeInTheDocument();
+        expect(
+            await screen.findByText(/00:02 remaining to pay/i),
+        ).toBeInTheDocument();
         await act(async () => {
             await vi.advanceTimersByTimeAsync(2000);
         });
-        expect(screen.queryByRole("heading", { name: "Awaiting confirmation" })).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole("heading", { name: "Awaiting confirmation" }),
+        ).not.toBeInTheDocument();
     });
 
     it("keeps expired top-up requests visible without adding them to the balance", async () => {
         vi.spyOn(api, "getMyWallet").mockResolvedValue({
             ...WALLET,
-            expiredTopUps: [{
-                topupId: "expired-1",
-                amount: 50000,
-                createdAtUtc: "2026-10-30T02:00:00Z",
-                expiresAtUtc: "2026-10-30T02:15:00Z",
-            }],
+            expiredTopUps: [
+                {
+                    topupId: "expired-1",
+                    amount: 50000,
+                    createdAtUtc: "2026-10-30T02:00:00Z",
+                    expiresAtUtc: "2026-10-30T02:15:00Z",
+                },
+            ],
         });
 
         render(
@@ -205,12 +215,16 @@ describe("CustomerWallet", () => {
             />,
         );
 
-        const expiredHeading = await screen.findByRole("heading", { name: "Recent expired top-ups" });
-        expect(expiredHeading.closest(".wallet-side-column")).toBeInTheDocument();
+        const expiredHeading = await screen.findByRole("heading", {
+            name: "Recent expired top-ups",
+        });
+        expect(
+            expiredHeading.closest(".wallet-side-column"),
+        ).toBeInTheDocument();
         expect(screen.getByTestId("wallet-balance")).toHaveTextContent("0 ₫");
-        expect(screen.getByRole("link", { name: /View details/i })).toHaveAttribute(
-            "href", "/payment/vnpay-return?vnp_TxnRef=expired-1",
-        );
+        expect(
+            screen.getByRole("link", { name: /View details/i }),
+        ).toHaveAttribute("href", "/payment/vnpay-return?vnp_TxnRef=expired-1");
     });
 
     it("loads another history page when the customer selects Next", async () => {
@@ -298,7 +312,9 @@ describe("CustomerWallet", () => {
         await user.clear(input);
         await user.type(input, "500000");
         expect(input).toHaveValue("500.000");
-        await user.click(screen.getByRole("button", { name: /Top up with VNPay/i }));
+        await user.click(
+            screen.getByRole("button", { name: /Top up with VNPay/i }),
+        );
 
         expect(create).toHaveBeenCalledWith(500000, "key-3");
     });
@@ -443,7 +459,9 @@ describe("wallet replay and history", () => {
             />,
         );
 
-        expect(await screen.findByText(/No balance change/i)).toBeInTheDocument();
+        expect(
+            await screen.findByText(/No balance change/i),
+        ).toBeInTheDocument();
     });
 });
 
@@ -470,15 +488,23 @@ describe("VnpayReturnStatus", () => {
             });
 
         render(<VnpayReturnStatus topupId="T1" />);
-        expect(await screen.findByText(/Time remaining to pay: 00:03/i)).toBeInTheDocument();
+        expect(
+            await screen.findByText(/Time remaining to pay: 00:03/i),
+        ).toBeInTheDocument();
         await act(async () => {
             await vi.advanceTimersByTimeAsync(3000);
         });
-        expect(await screen.findByRole("heading", { name: /Payment link expired/i })).toBeInTheDocument();
+        expect(
+            await screen.findByRole("heading", {
+                name: /Payment link expired/i,
+            }),
+        ).toBeInTheDocument();
     });
 
     it("relays a signed sandbox return on localhost, but not a status-only link", async () => {
-        const fetchMock = vi.fn().mockResolvedValue(new Response('{"RspCode":"00"}'));
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue(new Response('{"RspCode":"00"}'));
         vi.stubGlobal("fetch", fetchMock);
         vi.spyOn(api, "getWalletTopup").mockResolvedValue({
             topupId: "T1",
@@ -489,7 +515,11 @@ describe("VnpayReturnStatus", () => {
             expiresAtUtc: "",
         });
 
-        window.history.replaceState({}, "", "/payment/vnpay-return?vnp_TxnRef=T1");
+        window.history.replaceState(
+            {},
+            "",
+            "/payment/vnpay-return?vnp_TxnRef=T1",
+        );
         const first = render(<VnpayReturnStatus topupId="T1" />);
         expect(fetchMock).not.toHaveBeenCalled();
         first.unmount();
@@ -501,7 +531,9 @@ describe("VnpayReturnStatus", () => {
         );
         render(<VnpayReturnStatus topupId="T1" />);
         await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-        expect(String(fetchMock.mock.calls[0][0])).toContain("/api/payment/vnpay/ipn?");
+        expect(String(fetchMock.mock.calls[0][0])).toContain(
+            "/api/payment/vnpay/ipn?",
+        );
     });
 
     it("after a credited top-up it reads the new balance from Payment", async () => {
@@ -567,7 +599,9 @@ describe("VnpayReturnStatus", () => {
         render(<VnpayReturnStatus topupId="T1" />);
 
         expect(
-            await screen.findByText(/ParkWise is waiting for confirmation from VNPay/i),
+            await screen.findByText(
+                /ParkWise is waiting for confirmation from VNPay/i,
+            ),
         ).toBeInTheDocument();
         await act(async () => {
             await vi.advanceTimersByTimeAsync(3000);

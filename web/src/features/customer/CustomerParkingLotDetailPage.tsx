@@ -64,7 +64,16 @@ export function CustomerParkingLotDetailPage({
                     id: lot.id,
                     name: lot.name,
                     address: lot.address,
-                    type: copy(typeLabels[lot.type] ?? lot.type, ({ MultiStorey: "Bãi đỗ nhiều tầng", Underground: "Bãi đỗ ngầm", Outdoor: "Bãi đỗ ngoài trời" } as Record<string, string>)[lot.type] ?? lot.type),
+                    type: copy(
+                        typeLabels[lot.type] ?? lot.type,
+                        (
+                            {
+                                MultiStorey: "Bãi đỗ nhiều tầng",
+                                Underground: "Bãi đỗ ngầm",
+                                Outdoor: "Bãi đỗ ngoài trời",
+                            } as Record<string, string>
+                        )[lot.type] ?? lot.type,
+                    ),
                     image: "/images/parkwise/dashboard-parking-structure.webp",
                     photos: [
                         "/images/parkwise/dashboard-parking-structure.webp",
@@ -89,29 +98,55 @@ export function CustomerParkingLotDetailPage({
             <CustomerHeader active="detail" />
             <main className="parkwise-container lot-detail-main">
                 <Link href="/search" className="lot-detail-bottom-back">
-                    <ArrowLeft size={18} /> {copy("Back to Find Parking", "Quay lại tìm bãi đỗ")}
+                    <ArrowLeft size={18} />{" "}
+                    {copy("Back to Find Parking", "Quay lại tìm bãi đỗ")}
                 </Link>
                 <div
                     className="lot-detail-state"
                     role={visibleState === "error" ? "alert" : "status"}
                 >
                     {visibleState === "loading" ? (
-                        <p>{copy("Loading parking details…", "Đang tải thông tin bãi đỗ…")}</p>
+                        <p>
+                            {copy(
+                                "Loading parking details…",
+                                "Đang tải thông tin bãi đỗ…",
+                            )}
+                        </p>
                     ) : visibleState === "not-found" ? (
                         <>
-                            <h1>{copy("Parking lot not found", "Không tìm thấy bãi đỗ")}</h1>
+                            <h1>
+                                {copy(
+                                    "Parking lot not found",
+                                    "Không tìm thấy bãi đỗ",
+                                )}
+                            </h1>
                             <p>
-                                {copy("This lot may be unavailable or is not approved for public viewing.", "Bãi đỗ có thể không còn hoạt động hoặc chưa được duyệt để hiển thị.")}
+                                {copy(
+                                    "This lot may be unavailable or is not approved for public viewing.",
+                                    "Bãi đỗ có thể không còn hoạt động hoặc chưa được duyệt để hiển thị.",
+                                )}
                             </p>
                         </>
                     ) : (
                         <>
-                            <h1>{copy("Parking details are unavailable", "Chưa thể xem thông tin bãi đỗ")}</h1>
-                            <p>{copy("Please try again later.", "Vui lòng thử lại sau.")}</p>
+                            <h1>
+                                {copy(
+                                    "Parking details are unavailable",
+                                    "Chưa thể xem thông tin bãi đỗ",
+                                )}
+                            </h1>
+                            <p>
+                                {copy(
+                                    "Please try again later.",
+                                    "Vui lòng thử lại sau.",
+                                )}
+                            </p>
                         </>
                     )}
                     {visibleState !== "loading" && (
-                        <Link href="/search">{copy("Browse parking lots", "Xem các bãi đỗ")}</Link>
+                        <Link href="/search">
+                            {copy("Browse parking lots", "Xem các bãi đỗ")}
+                        </Link>
                     )}
                 </div>
             </main>

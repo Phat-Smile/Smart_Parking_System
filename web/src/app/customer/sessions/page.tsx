@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
 import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
-import { CustomerSessionsIntro, CustomerSessionsList } from "@/features/customer/CustomerSessions";
-import { CustomerFooter, CustomerHeader } from "@/features/customer/CustomerShell";
+import {
+    CustomerSessionsIntro,
+    CustomerSessionsList,
+} from "@/features/customer/CustomerSessions";
+import {
+    CustomerFooter,
+    CustomerHeader,
+} from "@/features/customer/CustomerShell";
 import "../../parkwise.css";
 import "@/features/customer/customer-shell.css";
 import "./sessions.css";
