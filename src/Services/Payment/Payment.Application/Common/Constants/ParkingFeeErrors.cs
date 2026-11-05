@@ -89,6 +89,18 @@ public static class PayParkingFeeErrors
     public static readonly Error VnPayUrlGenerationFailed = 
         new("payment.vnpay_url_generation_failed", 
             "Failed to generate VNPay payment URL.");
+    public static readonly Error RoleNotAllowedCash = 
+        new("payment.role_not_allowed", 
+            "Only staff or parking lot owner can confirm cash payment.");
+    public static readonly Error LotAccessDenied = 
+        new("payment.lot_access_denied", 
+            "You do not have permission to confirm payment for this parking lot.");
+    public static readonly Error PaymentAlreadyInProgress = 
+        new("payment.payment_already_in_progress", 
+            "Another payment is already in progress for this session.");
+    public static readonly Error ReasonTooLong = 
+        new("payment.reason_too_long", 
+            "Reason cannot exceed 500 characters.");
 }
 
 // Danh mục lỗi khi tra cứu trạng thái hóa đơn
