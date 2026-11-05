@@ -37,7 +37,10 @@ export function VnpayReturnScreen({ topupId }: { topupId: string | null }) {
         () => null,
     );
 
-    useEffect(() => setHydrated(true), []);
+    useEffect(() => {
+        const timer = window.setTimeout(() => setHydrated(true), 0);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         if (!hydrated || session) return;
