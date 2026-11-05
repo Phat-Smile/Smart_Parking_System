@@ -13,6 +13,8 @@ import {
     subscribeAuthSession,
 } from "@/features/auth/authSession";
 import { CUSTOMER_UI_PREVIEW } from "@/features/customer/customerUiPreview";
+import { CustomerLanguageSwitcher } from "@/features/customer/i18n/CustomerLanguageSwitcher";
+import { useCustomerLanguage } from "@/features/customer/i18n/customerLanguage";
 
 const landingNavigation = [
     { label: "Home", href: "/" },
@@ -28,8 +30,9 @@ const customerNavigation = [
 const dashboardNavigation = [
     { label: "Home", href: "/customer/dashboard" },
     { label: "Find Parking", href: "/search" },
-    { label: "My Bookings", href: "/customer/dashboard#upcoming-booking" },
+    { label: "My Bookings", href: "/customer/bookings" },
     { label: "My Vehicles", href: "/customer/vehicles" },
+    { label: "Parking History", href: "/customer/parking-history" },
 ];
 
 const customerLandingNavigation = [
@@ -57,6 +60,7 @@ export function ParkWiseNavbar({
         () => null,
     );
     const isCustomer = session?.account.role === "Customer";
+    const { language, copy } = useCustomerLanguage();
     const canViewCustomer = CUSTOMER_UI_PREVIEW || isCustomer;
     const navigation = canViewCustomer
         ? navigationMode === "dashboard"
@@ -72,9 +76,9 @@ export function ParkWiseNavbar({
             canViewCustomer ? (
                 <Link
                     className="parkwise-customer-account-link"
-                    href="/customer/complete-profile"
+                    href="/customer/profile"
                 >
-                    My Profile
+                    {copy("My Profile", "Hồ sơ của tôi")}
                 </Link>
             ) : (
                 <span className="parkwise-signed-in-account">
@@ -100,7 +104,33 @@ export function ParkWiseNavbar({
         };
     }, [menuOpen]);
 
+    useEffect(() => {
+        if (variant !== "customer") return;
+        document.documentElement.lang = language;
+        return () => {
+            document.documentElement.lang =
+                window.localStorage.getItem("smartpark_language") === "en"
+                    ? "en"
+                    : "vi";
+        };
+    }, [variant, language]);
+
     const dark = scrolled && !menuOpen;
+    const customerLabels: Record<string, string> = {
+        Home: "Trang chủ",
+        Customer: "Khách hàng",
+        "Find Parking": "Tìm bãi đỗ",
+        "My Bookings": "Đặt chỗ của tôi",
+        "My Vehicles": "Xe của tôi",
+        "Parking History": "Lịch sử đỗ xe",
+        "My Profile": "Hồ sơ của tôi",
+        "How It Works": "Cách hoạt động",
+        About: "Giới thiệu",
+    };
+    const customerLabel = (label: string) =>
+        variant === "customer" && language === "vi"
+            ? (customerLabels[label] ?? label)
+            : label;
 
     return (
         <>
@@ -121,11 +151,11 @@ export function ParkWiseNavbar({
                                         activeHref === href ? "page" : undefined
                                     }
                                 >
-                                    {label}
+                                    {customerLabel(label)}
                                 </Link>
                             ) : (
                                 <span key={label} aria-disabled="true">
-                                    {label}
+                                    {customerLabel(label)}
                                 </span>
                             ),
                         )}
@@ -135,8 +165,11 @@ export function ParkWiseNavbar({
                                 onClick={() => setMenuOpen(false)}
                                 tabIndex={menuOpen ? 0 : -1}
                             >
-                                My Profile
+                                {copy("My Profile", "Hồ sơ của tôi")}
                             </Link>
+                        )}
+                        {menuOpen && variant === "customer" && (
+                            <CustomerLanguageSwitcher mobile />
                         )}
                         {!session && (
                             <div className="parkwise-mobile-auth">
@@ -147,13 +180,17 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        Login
+                                        {variant === "customer"
+                                            ? copy("Login", "Đăng nhập")
+                                            : "Login"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        Login
+                                        {variant === "customer"
+                                            ? copy("Login", "Đăng nhập")
+                                            : "Login"}
                                     </span>
                                 </Link>
                                 <Link
@@ -163,13 +200,17 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        Sign Up
+                                        {variant === "customer"
+                                            ? copy("Sign Up", "Đăng ký")
+                                            : "Sign Up"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        Sign Up
+                                        {variant === "customer"
+                                            ? copy("Sign Up", "Đăng ký")
+                                            : "Sign Up"}
                                     </span>
                                 </Link>
                                 <Link
@@ -179,13 +220,23 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        For Lot Owners
+                                        {variant === "customer"
+                                            ? copy(
+                                                  "For Lot Owners",
+                                                  "Dành cho chủ bãi",
+                                              )
+                                            : "For Lot Owners"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        For Lot Owners
+                                        {variant === "customer"
+                                            ? copy(
+                                                  "For Lot Owners",
+                                                  "Dành cho chủ bãi",
+                                              )
+                                            : "For Lot Owners"}
                                     </span>
                                 </Link>
                             </div>
@@ -229,11 +280,11 @@ export function ParkWiseNavbar({
                                         activeHref === href ? "page" : undefined
                                     }
                                 >
-                                    {label}
+                                    {customerLabel(label)}
                                 </Link>
                             ) : (
                                 <span key={label} aria-disabled="true">
-                                    {label}
+                                    {customerLabel(label)}
                                 </span>
                             ),
                         )}

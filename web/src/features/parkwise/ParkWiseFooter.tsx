@@ -1,7 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 
-export function ParkWiseFooter() {
+export function ParkWiseFooter({
+    language = "en",
+}: {
+    language?: "en" | "vi";
+}) {
+    const copy = (english: string, vietnamese: string) =>
+        language === "vi" ? vietnamese : english;
     return (
         <footer className="parkwise-footer">
             <div className="parkwise-container">
@@ -13,33 +19,47 @@ export function ParkWiseFooter() {
                             width={707}
                             height={353}
                         />
-                        <p>Find Convenient and Affordable Parking.</p>
+                        <p>
+                            {copy(
+                                "Find Convenient and Affordable Parking.",
+                                "Tìm chỗ đỗ xe thuận tiện với giá hợp lý.",
+                            )}
+                        </p>
                     </div>
                     <div className="parkwise-footer-column">
-                        <h3>Explore</h3>
+                        <h3>{copy("Explore", "Khám phá")}</h3>
                         <div className="parkwise-footer-links">
-                            <Link href="/#about">About Us</Link>
-                            <Link href="/#how-it-works">How It Works</Link>
+                            <Link href="/#about">
+                                {copy("About Us", "Về chúng tôi")}
+                            </Link>
+                            <Link href="/#how-it-works">
+                                {copy("How It Works", "Cách hoạt động")}
+                            </Link>
                         </div>
                     </div>
                     <div className="parkwise-footer-column">
-                        <h3>Support</h3>
+                        <h3>{copy("Support", "Hỗ trợ")}</h3>
                         <div className="parkwise-footer-links">
-                            <span>Contact Us</span>
-                            <span>FAQs</span>
+                            <span>{copy("Contact Us", "Liên hệ")}</span>
+                            <span>{copy("FAQs", "Câu hỏi thường gặp")}</span>
                         </div>
                     </div>
                     <div className="parkwise-footer-column">
-                        <h3>Legal</h3>
+                        <h3>{copy("Legal", "Pháp lý")}</h3>
                         <div className="parkwise-footer-links">
-                            <Link href="/privacy-policy">Privacy Policy</Link>
+                            <Link href="/privacy-policy">
+                                {copy("Privacy Policy", "Chính sách bảo mật")}
+                            </Link>
                             <Link href="/terms-and-conditions">
-                                Terms &amp; Conditions
+                                {copy(
+                                    "Terms & Conditions",
+                                    "Điều khoản sử dụng",
+                                )}
                             </Link>
                         </div>
                     </div>
                     <div className="parkwise-footer-column parkwise-footer-social-column">
-                        <h3>Follow Us</h3>
+                        <h3>{copy("Follow Us", "Theo dõi chúng tôi")}</h3>
                         <div className="parkwise-socials" aria-hidden="true">
                             {[1, 2, 3, 4, 5].map((number) => (
                                 <Image
@@ -59,9 +79,11 @@ export function ParkWiseFooter() {
                         educational purposes only.
                     </p>
                     <div>
-                        <Link href="/privacy-policy">Privacy Policy</Link>
+                        <Link href="/privacy-policy">
+                            {copy("Privacy Policy", "Chính sách bảo mật")}
+                        </Link>
                         <Link href="/terms-and-conditions">
-                            Terms &amp; Conditions
+                            {copy("Terms & Conditions", "Điều khoản sử dụng")}
                         </Link>
                     </div>
                 </div>

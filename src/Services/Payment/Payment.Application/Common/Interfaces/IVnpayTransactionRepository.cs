@@ -20,4 +20,6 @@ public interface IVnpayTransactionRepository
 
     // Lay danh sach giao dich nap dang cho xu ly gan nhat cua vi
     Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<VnpayTransaction>> GetRecentExpiredTopupsByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken);
 }

@@ -13,7 +13,7 @@ describe("HoldCountdownTimer", () => {
 
         const timer = screen.getByRole("timer");
         expect(timer).toBeInTheDocument();
-        expect(timer.textContent).toContain("Giữ chỗ tạm thời:");
+        expect(timer.textContent).toContain("Spot held for:");
         expect(timer.textContent).toMatch(/10:[23]\d/);
     });
 
@@ -37,6 +37,6 @@ describe("HoldCountdownTimer", () => {
         );
 
         const status = screen.getByRole("status");
-        expect(status.textContent).toContain("Thời gian giữ chỗ đã hết hạn");
+        expect(status.textContent).toContain("Your hold has expired");
     });
 });

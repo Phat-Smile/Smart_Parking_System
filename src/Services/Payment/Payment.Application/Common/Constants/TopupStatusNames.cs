@@ -10,4 +10,7 @@ public static class TopupStatusNames
 
     // Giao dich nap tien that bai
     public const string Failed = "Failed";
+
+    // Link thanh toan da qua han, ket qua VNPay den muon van co the cap nhat giao dich.
+    public const string Expired = "Expired";
 }

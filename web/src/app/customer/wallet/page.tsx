@@ -1,29 +1,35 @@
 import type { Metadata } from "next";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
 import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
+import {
+    CustomerFooter,
+    CustomerHeader,
+} from "@/features/customer/CustomerShell";
 import { CustomerWalletScreen } from "@/features/customer/wallet/WalletRoutes";
+import { WalletPageIntro } from "@/features/customer/wallet/WalletPageCopy";
 import "../../parkwise.css";
 import "@/features/customer/customer-shell.css";
+import "./wallet.css";
 
 export const metadata: Metadata = {
-    title: "Wallet | ParkWise",
-    description: "Wallet balance, VNPay sandbox top-up and history.",
+    title: "My Wallet | ParkWise",
+    description:
+        "Check your balance, top up with VNPay, and view wallet activity.",
 };
 
 export default function CustomerWalletRoute() {
     return (
         <CustomerAccessGuard>
-            <main
-                className={parkwiseFont.className}
-                style={{
-                    maxWidth: 880,
-                    margin: "0 auto",
-                    padding: "32px 16px",
-                }}
+            <div
+                className={`parkwise-page customer-shell-page customer-wallet-page ${parkwiseFont.className}`}
             >
-                <h1>Ví của tôi</h1>
-                <CustomerWalletScreen />
-            </main>
+                <CustomerHeader active="wallet" />
+                <main className="wallet-page-main">
+                    <WalletPageIntro />
+                    <CustomerWalletScreen />
+                </main>
+                <CustomerFooter />
+            </div>
         </CustomerAccessGuard>
     );
 }
