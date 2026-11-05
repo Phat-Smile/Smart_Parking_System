@@ -45,12 +45,10 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<WalletTopUpCompletedIntegrationEvent>(
             "payment.wallet-topup-completed.v1", 1);
-        services.AddIntegrationEvent<WalletTopUpCompletedIntegrationEvent>(
-            "payment.wallet-topup-completed.v1", 1);
-        services.AddIntegrationEvent<ParkingSessionPaidIntegrationEvent>(
-            "payment.session-paid.v1", 1);
         services.AddIntegrationEvent<DirectPaymentCompletedIntegrationEvent>(
             "payment.direct-payment-completed.v1", 1);
+        services.AddIntegrationEvent<ParkingSessionPaidIntegrationEvent>(
+            "payment.session-paid.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()
@@ -73,7 +71,7 @@ public static class DependencyInjection
         // Stub: tạm thời khi chưa có gRPC chính thức
         services.AddScoped<IParkingSessionGateway, StubParkingSessionGateway>();
         services.AddScoped<IPaymentGateway, VnpayPaymentGateway>();
-        services.AddScoped<IParkingSessionGateway, StubParkingSessionGateway>();
+        services.AddScoped<IVnpayPaymentGateway, VnpayPaymentGateway>();
         return services;
     }
 }

@@ -32,6 +32,15 @@ public sealed class WalletConcurrencyIntegrationTests(PostgreSqlContainerFixture
             => true;
     }
 
+    private sealed class FakeParkingFeeIpnHandler : IParkingFeeIpnHandler
+    {
+        public Task<VnpayIpnResponseDto> HandleAsync(
+            IReadOnlyDictionary<string, string> query,
+            string txnRef,
+            CancellationToken cancellationToken)
+            => Task.FromResult(VnpayIpnResponseDto.Success());
+    }
+
     private ServiceProvider CreateServiceProvider(IConfiguration configuration)
     {
         var services = new ServiceCollection();
@@ -55,6 +64,7 @@ public sealed class WalletConcurrencyIntegrationTests(PostgreSqlContainerFixture
         }));
 
         services.AddScoped<IVnpayResultHandler, WalletTopUpResultHandler>();
+        services.AddScoped<IParkingFeeIpnHandler, FakeParkingFeeIpnHandler>();
         services.AddScoped<CreateWalletTopupCommandHandler>();
         services.AddScoped<ProcessVnpayIpnCommandHandler>();
 

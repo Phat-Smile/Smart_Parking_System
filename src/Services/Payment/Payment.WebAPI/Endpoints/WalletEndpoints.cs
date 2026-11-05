@@ -20,7 +20,7 @@ public static class WalletEndpoints
     public static IEndpointRouteBuilder MapWalletEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/payment/wallets")
-            .RequireAuthorization(PaymentAuthorization.CustomerPolicy);
+            .RequireAuthorization();
 
         // Tra cứu số dư ví của người dùng hiện tại
         group.MapGet("/me", async (

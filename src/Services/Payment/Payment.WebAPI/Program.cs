@@ -39,6 +39,7 @@ app.UseParkingSystemWebFoundation();
 app.UseParkingSystemServiceSecurity();
 app.MapVnpayEndpoints();
 app.MapWalletEndpoints();
+app.MapParkingFeeEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
