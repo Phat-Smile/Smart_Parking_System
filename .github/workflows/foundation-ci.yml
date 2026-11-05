@@ -71,3 +71,14 @@ jobs:
       - run: npm run format:check
       - run: npm run test:run
       - run: npm run build
+
+  iot-simulator-tests:
+    name: Python / IoT Simulator unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: IoT simulator tests (no external broker)
+        run: python -m unittest discover -s edge/iot-simulator/src -p 'test_*.py' -v
