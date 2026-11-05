@@ -219,7 +219,7 @@ public sealed class ConfirmReservationPaymentGateTests
         var coordinator = new FakeCoordinator();
         var ownership = new FakeOwnership();
 
-        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>());
+        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>(), new UnconfiguredParkingPricingProvider());
         var command = new CreateTemporaryHoldCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A12345", Guid.NewGuid(), VehicleGroup.Car, ReservationType.HoldWhileDriving, Now.AddMinutes(20), null, 0m);
 
@@ -246,7 +246,7 @@ public sealed class ConfirmReservationPaymentGateTests
         var coordinator = new FakeCoordinator();
         var ownership = new FakeOwnership();
 
-        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>());
+        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>(), new UnconfiguredParkingPricingProvider());
         var command = new CreateTemporaryHoldCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A12345", Guid.NewGuid(), VehicleGroup.Car, ReservationType.HoldWhileDriving, Now.AddMinutes(20), null, clientPrepaid);
 
@@ -269,7 +269,7 @@ public sealed class ConfirmReservationPaymentGateTests
         var coordinator = new FakeCoordinator();
         var ownership = new FakeOwnership();
 
-        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>());
+        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>(), new UnconfiguredParkingPricingProvider());
         var command = new CreateTemporaryHoldCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A12345", Guid.NewGuid(), VehicleGroup.Car, ReservationType.HoldWhileDriving, Now.AddMinutes(20), null, 50000m);
 
@@ -295,7 +295,7 @@ public sealed class ConfirmReservationPaymentGateTests
         var coordinator = new FakeCoordinator();
         var ownership = new FakeOwnership();
 
-        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>());
+        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>(), new UnconfiguredParkingPricingProvider());
         var command = new CreateTemporaryHoldCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A12345", Guid.NewGuid(), VehicleGroup.Car, ReservationType.HoldWhileDriving, Now.AddMinutes(20), null, 0m);
 
@@ -307,10 +307,10 @@ public sealed class ConfirmReservationPaymentGateTests
     }
 
     // =========================================================================
-    // T-P5: Scheduled -> PrepaidAmount vẫn theo client gửi
+    // T-P5: Scheduled -> Tính tiền theo Provider, không tin PrepaidAmount client gửi (BR-10.a)
     // =========================================================================
     [Fact]
-    public async Task T_P5_Scheduled_preserves_client_prepaid_amount_as_documented_risk()
+    public async Task T_P5_Scheduled_ignores_client_prepaid_amount_and_calculates_from_provider()
     {
         const decimal clientAmount = 75000m;
         var capacityProvider = new FakeCapacityProvider
@@ -319,15 +319,19 @@ public sealed class ConfirmReservationPaymentGateTests
         };
         var coordinator = new FakeCoordinator();
         var ownership = new FakeOwnership();
+        var pricingProvider = new FakePricingProvider
+        {
+            InfoToReturn = new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 30000m, "PerEntry", null, 0m)
+        };
 
-        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>());
+        var handler = new CreateTemporaryHoldCommandHandler(ownership, capacityProvider, coordinator, _clock, new TestLogger<CreateTemporaryHoldCommandHandler>(), pricingProvider);
         var command = new CreateTemporaryHoldCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A12345", Guid.NewGuid(), VehicleGroup.Car, ReservationType.Scheduled, Now.AddHours(2), 60, clientAmount);
 
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(clientAmount, coordinator.CapturedReservation!.PrepaidAmount);
+        Assert.Equal(30000m, coordinator.CapturedReservation!.PrepaidAmount);
     }
 
     // Doubles
@@ -377,6 +381,14 @@ public sealed class ConfirmReservationPaymentGateTests
             CapturedReservation = reservation;
             return Task.FromResult(Result<Reservation>.Success(reservation));
         }
+    }
+
+    private sealed class FakePricingProvider : IParkingPricingProvider
+    {
+        public ParkingPricingInfo InfoToReturn { get; set; } = new(Guid.NewGuid(), VehicleGroup.Car, 30000m, "PerEntry", null, 0m);
+
+        public Task<Result<ParkingPricingInfo>> GetPricingInfoAsync(Guid lotId, VehicleGroup vehicleGroup, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingPricingInfo>.Success(InfoToReturn));
     }
 
     private sealed class FakeOwnership : IVehicleOwnershipClient

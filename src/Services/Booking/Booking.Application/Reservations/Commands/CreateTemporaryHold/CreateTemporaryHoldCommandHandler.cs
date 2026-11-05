@@ -20,7 +20,7 @@ public sealed class CreateTemporaryHoldCommandHandler : IRequestHandler<CreateTe
     private readonly IReservationCapacityCoordinator _capacityCoordinator;
     private readonly IClock _clock;
     private readonly ILogger<CreateTemporaryHoldCommandHandler> _logger;
-    private readonly IParkingPricingProvider? _pricingProvider;
+    private readonly IParkingPricingProvider _pricingProvider;
     private readonly BookingCapacityOptions _options;
 
     public CreateTemporaryHoldCommandHandler(
@@ -29,18 +29,7 @@ public sealed class CreateTemporaryHoldCommandHandler : IRequestHandler<CreateTe
         IReservationCapacityCoordinator capacityCoordinator,
         IClock clock,
         ILogger<CreateTemporaryHoldCommandHandler> logger,
-        BookingCapacityOptions? options = null)
-        : this(vehicleOwnershipClient, capacityProvider, capacityCoordinator, clock, logger, null, options)
-    {
-    }
-
-    public CreateTemporaryHoldCommandHandler(
-        IVehicleOwnershipClient vehicleOwnershipClient,
-        IParkingLotCapacityProvider capacityProvider,
-        IReservationCapacityCoordinator capacityCoordinator,
-        IClock clock,
-        ILogger<CreateTemporaryHoldCommandHandler> logger,
-        IParkingPricingProvider? pricingProvider,
+        IParkingPricingProvider pricingProvider,
         BookingCapacityOptions? options = null)
     {
         _vehicleOwnershipClient = vehicleOwnershipClient;
@@ -174,13 +163,13 @@ public sealed class CreateTemporaryHoldCommandHandler : IRequestHandler<CreateTe
             ? capacityInfo.AvailableSlotCount
             : null;
 
-        // 6. Pricing & Price snapshot calculation (US-RES-002 Section 3.5)
+        // 6. Pricing & Price snapshot calculation (US-RES-002 Section 3.5, BR-10.a, BR-09.b)
         // For Scheduled reservations: query authoritative pricing from Parking service and compute 100% upfront amount.
         // Client-supplied PrepaidAmount and PriceSnapshot are NEVER trusted.
         decimal effectivePrepaidAmount;
         string? effectivePriceSnapshot;
 
-        if (request.ReservationType == ReservationType.Scheduled && _pricingProvider != null)
+        if (request.ReservationType == ReservationType.Scheduled)
         {
             var pricingResult = await _pricingProvider.GetPricingInfoAsync(request.LotId, verifiedVehicleGroup, cancellationToken);
             if (pricingResult.IsFailure || pricingResult.Value is null)
@@ -194,48 +183,70 @@ public sealed class CreateTemporaryHoldCommandHandler : IRequestHandler<CreateTe
 
             if (pricingInfo.Price <= 0m ||
                 pricingInfo.Price % 1m != 0m ||
+                pricingInfo.OvernightFee < 0m ||
+                pricingInfo.OvernightFee % 1m != 0m ||
                 (pricingInfo.BlockMinutes.HasValue && pricingInfo.BlockMinutes.Value <= 0) ||
                 !string.Equals(pricingInfo.Currency, "VND", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogError("Parking service returned invalid pricing figures for lot {LotId}: Price={Price}, BlockMinutes={BlockMinutes}, Currency={Currency}.",
-                    request.LotId, pricingInfo.Price, pricingInfo.BlockMinutes, pricingInfo.Currency);
+                _logger.LogError("Parking service returned invalid pricing figures for lot {LotId}: Price={Price}, BlockMinutes={BlockMinutes}, OvernightFee={OvernightFee}, Currency={Currency}.",
+                    request.LotId, pricingInfo.Price, pricingInfo.BlockMinutes, pricingInfo.OvernightFee, pricingInfo.Currency);
                 return Result<Reservation>.Failure(ReservationCapacityErrors.CapacityInfoUnavailable);
             }
 
-            int blockMinutes = (pricingInfo.BlockMinutes.HasValue && pricingInfo.BlockMinutes.Value > 0)
-                ? pricingInfo.BlockMinutes.Value
-                : 60;
-            int duration = request.DurationMinutes!.Value;
-            int blocks = (int)Math.Ceiling((double)duration / blockMinutes);
-            decimal totalAmount = checked(blocks * pricingInfo.Price);
+            var appointmentTime = request.AppointmentTime;
+            int durationMinutes = request.DurationMinutes!.Value;
+            var endTime = appointmentTime.AddMinutes(durationMinutes);
+
+            decimal totalAmount;
+            int overnightMarks;
+            try
+            {
+                totalAmount = ScheduledPrepaymentCalculator.Calculate(
+                    pricingInfo.BillingMode,
+                    pricingInfo.BlockMinutes,
+                    pricingInfo.Price,
+                    pricingInfo.OvernightFee,
+                    pricingInfo.OvernightTimeMark,
+                    appointmentTime,
+                    endTime);
+
+                overnightMarks = ScheduledPrepaymentCalculator.CountOvernightMarks(
+                    appointmentTime,
+                    endTime,
+                    pricingInfo.OvernightTimeMark ?? ScheduledPrepaymentCalculator.DefaultOvernightTimeMark);
+            }
+            catch (ReservationDomainException ex)
+            {
+                _logger.LogError(ex, "Domain exception while calculating scheduled prepayment for lot {LotId}: {Message}",
+                    request.LotId, ex.Message);
+                return Result<Reservation>.Failure(ReservationCapacityErrors.CapacityInfoUnavailable);
+            }
 
             var snapshotObj = new
             {
                 lotId = request.LotId,
                 vehicleGroup = verifiedVehicleGroup.ToString(),
                 billingMode = pricingInfo.BillingMode,
-                blockMinutes = blockMinutes,
+                blockMinutes = pricingInfo.BlockMinutes,
                 unitPrice = pricingInfo.Price,
-                durationMinutes = duration,
+                durationMinutes = durationMinutes,
+                overnightFee = pricingInfo.OvernightFee,
+                overnightTimeMark = pricingInfo.OvernightTimeMark?.ToString() ?? "00:00:00",
+                overnightMarks = overnightMarks,
                 calculatedTotal = totalAmount,
                 currency = pricingInfo.Currency,
+                policyVersion = pricingInfo.PolicyVersion,
                 calculatedAt = now
             };
 
             effectivePrepaidAmount = totalAmount;
             effectivePriceSnapshot = JsonSerializer.Serialize(snapshotObj);
         }
-        else if (request.ReservationType == ReservationType.Scheduled)
-        {
-            // Backward compatibility when pricing provider is not configured: uses request values
-            effectivePrepaidAmount = request.PrepaidAmount;
-            effectivePriceSnapshot = request.PriceSnapshot;
-        }
         else
         {
-            // HoldWhileDriving: takes authoritative deposit from Parking
+            // HoldWhileDriving: takes authoritative deposit from Parking, client snapshot is never stored (B5)
             effectivePrepaidAmount = capacityInfo.DepositAmount;
-            effectivePriceSnapshot = request.PriceSnapshot;
+            effectivePriceSnapshot = null;
         }
 
         // 7. Build reservation aggregate with temporary hold status (BR-01.b, 10 min expiry)

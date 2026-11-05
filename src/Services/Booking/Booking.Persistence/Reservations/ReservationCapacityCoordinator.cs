@@ -162,6 +162,7 @@ public sealed class ReservationCapacityCoordinator(
 
                 // Step 8: Condition (ii) - If the reservation window has already started at 'now',
                 // count current active holds against availableSlotCount
+                // (BR-02.a/e: held slots use the hold window HoldEndAt)
                 if (availableSlotCount.HasValue)
                 {
                     var currentActiveHolds = await dbContext.Reservations
@@ -170,7 +171,7 @@ public sealed class ReservationCapacityCoordinator(
                                     (r.Status == ReservationStatus.Confirmed ||
                                      (r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt > now)) &&
                                     r.WindowStartAt <= now &&
-                                    r.WindowEndAt > now)
+                                    r.HoldEndAt > now)
                         .CountAsync(cancellationToken);
 
                     if (currentActiveHolds >= availableSlotCount.Value)

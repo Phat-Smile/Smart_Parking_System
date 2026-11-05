@@ -5,7 +5,7 @@ using ParkingSystem.BuildingBlocks.Results;
 namespace ParkingSystem.Booking.Application.Parking;
 
 /// <summary>
-/// Authoritative parking pricing information returned by the Parking service (Section 3.5).
+/// Authoritative parking pricing information returned by the Parking service (Section 3.5, BR-10.a).
 /// </summary>
 public sealed record ParkingPricingInfo(
     Guid LotId,
@@ -14,7 +14,9 @@ public sealed record ParkingPricingInfo(
     string BillingMode,
     int? BlockMinutes,
     decimal OvernightFee,
-    string Currency = "VND");
+    string Currency = "VND",
+    TimeSpan? OvernightTimeMark = null,
+    int? PolicyVersion = null);
 
 /// <summary>
 /// Port abstraction owned by Booking to query parking pricing from Parking service.
@@ -40,4 +42,3 @@ public sealed class UnconfiguredParkingPricingProvider : IParkingPricingProvider
         return Task.FromResult(Result<ParkingPricingInfo>.Failure(ReservationCapacityErrors.CapacityInfoUnavailable));
     }
 }
-

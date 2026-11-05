@@ -183,6 +183,7 @@ public sealed class ReservationEndpointErrorMapperTests
         services.AddApplicationServices(new BookingCapacityOptions());
         BookingIdentityClientRegistration.AddIdentityServiceClient(services, config);
         services.AddSingleton<IParkingLotCapacityProvider, DummyCapacityProvider>();
+        services.AddSingleton<IParkingPricingProvider>(new UnconfiguredParkingPricingProvider());
         services.AddSingleton<IReservationCapacityCoordinator, DummyCoordinator>();
         services.AddSingleton<IClock, DummyClock>();
 

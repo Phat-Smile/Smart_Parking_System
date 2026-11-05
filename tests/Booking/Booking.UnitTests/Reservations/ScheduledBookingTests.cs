@@ -529,7 +529,7 @@ public sealed class ScheduledBookingTests
     {
         // 20,000 VND / 60 min block. Duration: 120 min -> 2 blocks -> 40,000 VND
         _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
-            new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "BLOCK", 60, 0m, "VND"));
+            new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "Block", 60, 0m, "VND"));
 
         var handler = CreateHandler();
         var command = CreateScheduledCommand(durationMinutes: 120, prepaidAmount: 99999m); // client amount ignored
@@ -540,13 +540,52 @@ public sealed class ScheduledBookingTests
         Assert.Equal(40000m, result.Value!.PrepaidAmount);
     }
 
+    [Fact]
+    public async Task SCH_35b_PerEntry_mode_end_to_end_prepayment_is_independent_of_duration_and_client_amount_is_ignored()
+    {
+        var lotId = Guid.NewGuid();
+        _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
+            new ParkingPricingInfo(lotId, VehicleGroup.Car, 30000m, "PerEntry", null, 0m, "VND", PolicyVersion: 2));
+
+        var handler = CreateHandler();
+        var command = CreateScheduledCommand(lotId: lotId, durationMinutes: 240, prepaidAmount: 999999m);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(30000m, result.Value!.PrepaidAmount);
+        Assert.NotNull(result.Value.PriceSnapshot);
+
+        using var doc = JsonDocument.Parse(result.Value.PriceSnapshot!);
+        Assert.Equal("PerEntry", doc.RootElement.GetProperty("billingMode").GetString());
+        Assert.Equal(30000m, doc.RootElement.GetProperty("calculatedTotal").GetDecimal());
+        Assert.Equal(30000m, doc.RootElement.GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(2, doc.RootElement.GetProperty("policyVersion").GetInt32());
+    }
+
     [Theory]
     [InlineData(-20000)]
     [InlineData(0)]
     public async Task SCH_36_Invalid_or_negative_price_is_rejected_safely(decimal price)
     {
         _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
-            new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, price, "BLOCK", 60, 0m, "VND"));
+            new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, price, "Block", 60, 0m, "VND"));
+
+        var handler = CreateHandler();
+        var command = CreateScheduledCommand();
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationCapacityErrors.CapacityInfoUnavailable, result.Error);
+        Assert.Equal(0, _coordinator.CallCount);
+    }
+
+    [Fact]
+    public async Task SCH_36b_Invalid_pricing_data_negative_overnight_fee_or_invalid_block_fails_closed_and_never_calls_coordinator()
+    {
+        _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
+            new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "Block", 60, -1000m, "VND"));
 
         var handler = CreateHandler();
         var command = CreateScheduledCommand();
@@ -574,43 +613,106 @@ public sealed class ScheduledBookingTests
     }
 
     [Fact]
-    public async Task SCH_38_Price_snapshot_saved_matches_authoritative_calculation()
+    public async Task SCH_38_Price_snapshot_saved_matches_authoritative_calculation_including_overnight_and_policy()
     {
         var lotId = Guid.NewGuid();
+        // Appointment: 22:00 UTC+7 to 02:00 UTC+7 next day (4 hours = 240m).
+        // 4 blocks * 20,000 + 1 * 10,000 = 90,000 VND
+        var startLocal = new DateTimeOffset(2026, 11, 5, 22, 0, 0, TimeSpan.FromHours(7));
         _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
-            new ParkingPricingInfo(lotId, VehicleGroup.Car, 25000m, "BLOCK", 60, 0m, "VND"));
+            new ParkingPricingInfo(
+                lotId,
+                VehicleGroup.Car,
+                20000m,
+                "Block",
+                60,
+                10000m,
+                "VND",
+                OvernightTimeMark: TimeSpan.Zero,
+                PolicyVersion: 5));
 
         var handler = CreateHandler();
-        var command = CreateScheduledCommand(lotId: lotId, durationMinutes: 180);
+        var command = CreateScheduledCommand(lotId: lotId, appointmentTime: startLocal, durationMinutes: 240);
 
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(75000m, result.Value!.PrepaidAmount);
+        Assert.Equal(90000m, result.Value!.PrepaidAmount);
         Assert.NotNull(result.Value.PriceSnapshot);
 
         using var doc = JsonDocument.Parse(result.Value.PriceSnapshot!);
-        Assert.Equal(75000m, doc.RootElement.GetProperty("calculatedTotal").GetDecimal());
-        Assert.Equal(25000m, doc.RootElement.GetProperty("unitPrice").GetDecimal());
-        Assert.Equal(180, doc.RootElement.GetProperty("durationMinutes").GetInt32());
+        Assert.Equal(90000m, doc.RootElement.GetProperty("calculatedTotal").GetDecimal());
+        Assert.Equal(20000m, doc.RootElement.GetProperty("unitPrice").GetDecimal());
+        Assert.Equal("Block", doc.RootElement.GetProperty("billingMode").GetString());
+        Assert.Equal(60, doc.RootElement.GetProperty("blockMinutes").GetInt32());
+        Assert.Equal(10000m, doc.RootElement.GetProperty("overnightFee").GetDecimal());
+        Assert.Equal("00:00:00", doc.RootElement.GetProperty("overnightTimeMark").GetString());
+        Assert.Equal(1, doc.RootElement.GetProperty("overnightMarks").GetInt32());
+        Assert.Equal(5, doc.RootElement.GetProperty("policyVersion").GetInt32());
+        Assert.Equal(240, doc.RootElement.GetProperty("durationMinutes").GetInt32());
         Assert.Equal("VND", doc.RootElement.GetProperty("currency").GetString());
     }
 
     [Fact]
-    public void SCH_39_Parking_price_changes_after_confirmation_does_not_change_snapshot()
+    public async Task SCH_38b_Client_supplied_PriceSnapshot_is_never_stored_for_Scheduled_or_HoldWhileDriving()
     {
-        var res = Reservation.CreateTemporaryHold(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A12345", Guid.NewGuid(),
-            VehicleGroup.Car, ReservationType.Scheduled, Now.AddHours(2), 50000m, Now,
-            durationMinutes: 120, tempHoldExpiresAt: Now.AddMinutes(10),
-            priceSnapshot: "{\"unitPrice\":25000,\"calculatedTotal\":50000}");
+        // 1. Scheduled
+        var lotId = Guid.NewGuid();
+        _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
+            new ParkingPricingInfo(lotId, VehicleGroup.Car, 30000m, "PerEntry", null, 0m, "VND"));
 
+        var handler = CreateHandler();
+        var scheduledCmd = CreateScheduledCommand(lotId: lotId, priceSnapshot: "{\"malicious\":true}");
+
+        var scheduledResult = await handler.Handle(scheduledCmd, CancellationToken.None);
+        Assert.True(scheduledResult.IsSuccess);
+        Assert.DoesNotContain("malicious", scheduledResult.Value!.PriceSnapshot!);
+
+        // 2. HoldWhileDriving
+        var hwdCmd = new CreateTemporaryHoldCommand(
+            ReservationId: Guid.NewGuid(),
+            UserId: Guid.NewGuid(),
+            VehicleId: Guid.NewGuid(),
+            PlateNumber: "51A-123.45",
+            LotId: lotId,
+            VehicleGroup: VehicleGroup.Car,
+            ReservationType: ReservationType.HoldWhileDriving,
+            AppointmentTime: Now.AddMinutes(20),
+            DurationMinutes: null,
+            PrepaidAmount: 99999m,
+            PriceSnapshot: "{\"malicious\":true}");
+
+        var hwdResult = await handler.Handle(hwdCmd, CancellationToken.None);
+        Assert.True(hwdResult.IsSuccess);
+        Assert.Null(hwdResult.Value!.PriceSnapshot); // B5: client snapshot is null for HoldWhileDriving
+    }
+
+    [Fact]
+    public async Task SCH_39_Parking_price_changes_after_creation_stored_snapshot_and_amount_stay_the_same()
+    {
+        var lotId = Guid.NewGuid();
+        _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
+            new ParkingPricingInfo(lotId, VehicleGroup.Car, 25000m, "Block", 60, 0m, "VND"));
+
+        var handler = CreateHandler();
+        var command = CreateScheduledCommand(lotId: lotId, durationMinutes: 120);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        var res = result.Value!;
+        var originalAmount = res.PrepaidAmount;
+        var originalSnapshot = res.PriceSnapshot;
+
+        // Change provider's price to 60,000 VND
+        _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
+            new ParkingPricingInfo(lotId, VehicleGroup.Car, 60000m, "Block", 60, 0m, "VND"));
+
+        // Confirm reservation
         res.Confirm(Now.AddMinutes(1));
 
-        // External price increases to 60,000 VND
-        // Assert stored snapshot and prepaid amount on reservation remain intact
-        Assert.Equal(50000m, res.PrepaidAmount);
-        Assert.Equal("{\"unitPrice\":25000,\"calculatedTotal\":50000}", res.PriceSnapshot);
+        // Stored snapshot and amount on reservation remain immutable
+        Assert.Equal(originalAmount, res.PrepaidAmount);
+        Assert.Equal(originalSnapshot, res.PriceSnapshot);
     }
 
     [Fact]
@@ -632,15 +734,34 @@ public sealed class ScheduledBookingTests
     // =========================================================================
 
     [Fact]
-    public void SCH_48_Failed_payment_does_not_emit_confirmed_state()
+    public async Task SCH_48_ConfirmReservationCommandHandler_on_scheduled_hold_fails_with_PaymentNotAvailable_and_stays_TemporaryHold()
     {
-        var res = Reservation.CreateTemporaryHold(
+        var repo = new FakeReservationRepository();
+        var hold = Reservation.CreateTemporaryHold(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "51A12345", Guid.NewGuid(),
             VehicleGroup.Car, ReservationType.Scheduled, Now.AddHours(2), 40000m, Now,
             durationMinutes: 120, tempHoldExpiresAt: Now.AddMinutes(10));
+        repo.Add(hold);
 
-        // Under payment gate, reservation remains in TemporaryHold or moves to Expired/Cancelled
-        Assert.NotEqual(ReservationStatus.Confirmed, res.Status);
+        var confirmHandler = new ConfirmReservationCommandHandler(
+            repo,
+            _clock,
+            NullLogger<ConfirmReservationCommandHandler>.Instance);
+
+        var confirmCommand = new ConfirmReservationCommand(
+            hold.Id,
+            hold.UserId,
+            PaymentMethod: "Wallet",
+            DepositAmount: 40000m);
+
+        var result = await confirmHandler.Handle(confirmCommand, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationErrors.PaymentNotAvailable, result.Error);
+
+        var stored = await repo.FindByIdAsync(hold.Id);
+        Assert.NotNull(stored);
+        Assert.Equal(ReservationStatus.TemporaryHold, stored.Status); // Stays TemporaryHold, not Confirmed!
     }
 
     [Fact]
@@ -667,6 +788,27 @@ public sealed class ScheduledBookingTests
         public DateTimeOffset UtcNow { get; set; } = utcNow;
     }
 
+    private sealed class FakeReservationRepository : IReservationRepository
+    {
+        private readonly List<Reservation> _list = [];
+
+        public void Add(Reservation r) => _list.Add(r);
+
+        public Task<Reservation?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_list.FirstOrDefault(r => r.Id == id));
+
+        public Task<IReadOnlyList<Reservation>> ListByUserIdAsync(Guid userId, ReservationStatus? status, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.UserId == userId && (!status.HasValue || r.Status == status.Value)).ToList());
+
+        public Task<IReadOnlyList<Reservation>> ListActiveByLotIdAsync(Guid lotId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.LotId == lotId && (r.Status == ReservationStatus.TemporaryHold || r.Status == ReservationStatus.Confirmed)).ToList());
+
+        public Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(Guid lotId, string plateNumber, DateTimeOffset arrivalTime, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_list.FirstOrDefault(r => r.LotId == lotId && r.PlateNumber == plateNumber && r.Status == ReservationStatus.Confirmed));
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     private sealed class FakeParkingLotCapacityProvider : IParkingLotCapacityProvider
     {
         public Result<ParkingLotCapacityInfo> ResultToReturn { get; set; } =
@@ -679,7 +821,7 @@ public sealed class ScheduledBookingTests
     private sealed class FakeParkingPricingProvider : IParkingPricingProvider
     {
         public Result<ParkingPricingInfo> ResultToReturn { get; set; } =
-            Result<ParkingPricingInfo>.Success(new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "BLOCK", 60, 0m, "VND"));
+            Result<ParkingPricingInfo>.Success(new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "Block", 60, 0m, "VND"));
 
         public Task<Result<ParkingPricingInfo>> GetPricingInfoAsync(Guid lotId, VehicleGroup vehicleGroup, CancellationToken cancellationToken = default) =>
             Task.FromResult(ResultToReturn);

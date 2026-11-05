@@ -26,6 +26,8 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
         LockTimeoutSeconds = 5
     };
 
+    private readonly FakeParkingPricingProvider _pricingProvider = new();
+
     private CreateTemporaryHoldCommandHandler CreateHandler()
     {
         return new CreateTemporaryHoldCommandHandler(
@@ -34,6 +36,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
             _coordinator,
             _clock,
             NullLogger<CreateTemporaryHoldCommandHandler>.Instance,
+            _pricingProvider,
             _options);
     }
 
@@ -207,12 +210,17 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
             LockTimeoutSeconds = 8
         };
 
+        var fakePricing = new FakeParkingPricingProvider();
+        fakePricing.ResultToReturn = Result<ParkingPricingInfo>.Success(
+            new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "PerEntry", null, 0m));
+
         var handler = new CreateTemporaryHoldCommandHandler(
             _ownershipClient,
             _capacityProvider,
             _coordinator,
             _clock,
             NullLogger<CreateTemporaryHoldCommandHandler>.Instance,
+            fakePricing,
             customOptions);
 
         _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5, true, 0m));
@@ -326,6 +334,20 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
                     canonical,
                     SupportedVehicleType.Car,
                     true)));
+        }
+    }
+
+    private sealed class FakeParkingPricingProvider : IParkingPricingProvider
+    {
+        public Result<ParkingPricingInfo> ResultToReturn { get; set; } =
+            Result<ParkingPricingInfo>.Success(new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "PerEntry", null, 0m));
+
+        public Task<Result<ParkingPricingInfo>> GetPricingInfoAsync(
+            Guid lotId,
+            VehicleGroup vehicleGroup,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(ResultToReturn);
         }
     }
 }
