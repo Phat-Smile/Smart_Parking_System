@@ -93,6 +93,38 @@ public class ParkingFeePayment
         };
     }
 
+    // Tao hoa don thu tien mat tai bai
+    public static ParkingFeePayment CreateCashPayment(
+        Guid sessionId,
+        Guid parkingLotId,
+        Guid? accountId,
+        string plateNumber,
+        string vehicleType,
+        long totalFee,
+        long prepaidAmount,
+        long amountPaid,
+        DateTimeOffset paymentTimeUtc,
+        DateTimeOffset exitWindowExpiresUtc)
+    {
+        return new ParkingFeePayment
+        {
+            Id = Guid.NewGuid(),
+            SessionId = sessionId,
+            ParkingLotId = parkingLotId,
+            AccountId = accountId,
+            PlateNumber = plateNumber,
+            VehicleType = vehicleType,
+            PaymentMethod = Constants.PaymentMethod.Cash,
+            TotalFee = totalFee,
+            PrepaidAmount = prepaidAmount,
+            AmountPaid = amountPaid,
+            PaymentTimeUtc = paymentTimeUtc,
+            ExitWindowExpiresUtc = exitWindowExpiresUtc,
+            Status = Constants.PaymentStatus.Succeeded,
+            ConfirmedAtUtc = paymentTimeUtc
+        };
+    }
+
     // Tạo hóa đơn chờ quét mã VNPay
     public static ParkingFeePayment CreateVnPayPayment(
         Guid sessionId,

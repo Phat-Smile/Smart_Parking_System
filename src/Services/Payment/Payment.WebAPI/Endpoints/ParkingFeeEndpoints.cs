@@ -3,6 +3,7 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Features.ParkingFeePayments.Queries.GetParkingFeePaymentStatus;
+using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.ConfirmCashParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.CreateVnPayParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.PayParkingFeeByWallet;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingSessionFee;
@@ -15,6 +16,9 @@ public sealed record PayParkingFeeByWalletRequest(long ExpectedAmountDue);
 
 // Yêu cầu thanh toán tiền gửi xe qua VNPay
 public sealed record PayParkingFeeByVnPayRequest(long ExpectedAmountDue);
+
+// Yêu cầu xác nhận thu tiền mặt phí đỗ xe
+public sealed record PayParkingFeeByCashRequest(long ExpectedAmountDue, string? Reason = null);
 
 internal static class ParkingFeeEndpoints
 {
@@ -211,6 +215,86 @@ internal static class ParkingFeeEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
+        // Xác nhận thu tiền mặt phí đỗ xe tại quầy
+        app.MapPost("/api/payment/parking-sessions/{sessionId}/pay/cash", async (
+                string sessionId,
+                PayParkingFeeByCashRequest? body,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                // 1. Kiểm tra header chống ghi nhận tiền mặt lặp lại
+                if (!httpContext.Request.Headers.TryGetValue("X-Idempotency-Key", out var rawKey) ||
+                    string.IsNullOrWhiteSpace(rawKey) ||
+                    !Guid.TryParse(rawKey, out _))
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.IdempotencyKeyInvalid);
+                }
+
+                // 2. Kiểm tra định dạng mã phiên xe
+                if (!Guid.TryParse(sessionId, out var sessionGuid) || sessionGuid == Guid.Empty)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.SessionIdInvalid);
+                }
+
+                // 3. Kiểm tra số tiền nhân viên xác nhận thu
+                if (body is null || body.ExpectedAmountDue <= 0)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.ExpectedAmountInvalid);
+                }
+
+                // 4. Kiểm tra độ dài lý do ghi chú
+                if (body.Reason is not null && body.Reason.Length > 500)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.ReasonTooLong);
+                }
+
+                var callerAccountId = Guid.TryParse(
+                    httpContext.User.FindFirst("sub")?.Value, out var id)
+                    ? id : Guid.Empty;
+                var callerRole = httpContext.User.FindFirst("role")?.Value
+                    ?? string.Empty;
+                var staffLotId = Guid.TryParse(
+                    httpContext.User.FindFirst("parking_lot_id")?.Value, out var lotId)
+                    ? lotId : (Guid?)null;
+
+                var command = new ConfirmCashParkingFeePaymentCommand(
+                    sessionGuid,
+                    callerAccountId,
+                    callerRole,
+                    staffLotId,
+                    rawKey.ToString(),
+                    body.ExpectedAmountDue,
+                    body.Reason);
+
+                var result = await sender.Send(command, cancellationToken);
+
+                if (result.IsSuccess)
+                {
+                    return Results.Ok(result.Value);
+                }
+
+                return MapPayError(result.Error!, httpContext);
+            })
+            .RequireAuthorization(PaymentAuthorization.ConfirmCashPaymentPolicy)
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("ConfirmCashParkingFeePayment")
+            .WithSummary("Nhân viên xác nhận thu tiền mặt phí đỗ xe")
+            .WithDescription("Xác nhận tiền mặt tại bãi, ghi sổ thanh toán, lập audit log và phát sự kiện mở cổng ra.")
+            .Produces<ConfirmCashParkingFeePaymentResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
         // Tra cứu trạng thái hóa đơn thanh toán tiền gửi xe
         app.MapGet("/api/payment/parking-fee-payments/{transactionId}", async (
                 string transactionId,
@@ -315,7 +399,9 @@ internal static class ParkingFeeEndpoints
         }
 
         if (error.Code == PayParkingFeeErrors.RoleNotAllowed.Code ||
-            error.Code == PayParkingFeeErrors.SessionAccessDenied.Code)
+            error.Code == PayParkingFeeErrors.RoleNotAllowedCash.Code ||
+            error.Code == PayParkingFeeErrors.SessionAccessDenied.Code ||
+            error.Code == PayParkingFeeErrors.LotAccessDenied.Code)
         {
             return BusinessProblem.Create(httpContext, StatusCodes.Status403Forbidden, error);
         }
@@ -328,11 +414,17 @@ internal static class ParkingFeeEndpoints
 
         if (error.Code == PayParkingFeeErrors.SessionNotActive.Code ||
             error.Code == PayParkingFeeErrors.SessionAlreadyPaid.Code ||
+            error.Code == PayParkingFeeErrors.PaymentAlreadyInProgress.Code ||
             error.Code == PayParkingFeeErrors.NoAmountDue.Code ||
             error.Code == PayParkingFeeErrors.FeeChanged.Code ||
             error.Code == PayParkingFeeErrors.IdempotencyKeyReused.Code)
         {
             return BusinessProblem.Create(httpContext, StatusCodes.Status409Conflict, error);
+        }
+
+        if (error.Code == PayParkingFeeErrors.ReasonTooLong.Code)
+        {
+            return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, error);
         }
 
         return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, error);
