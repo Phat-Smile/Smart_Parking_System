@@ -187,6 +187,8 @@ public sealed class CancelParkingSessionTests
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(session?.Id == sessionId ? session : null);
 
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
+
         public void Add(ParkingSession added) => throw new NotSupportedException();
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken)

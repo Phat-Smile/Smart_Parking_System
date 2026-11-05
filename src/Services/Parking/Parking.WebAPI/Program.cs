@@ -9,6 +9,7 @@ using ParkingSystem.Parking.Application.Common.Realtime;
 using ParkingSystem.Parking.Infrastructure.Booking;
 using ParkingSystem.Parking.Infrastructure.Mapbox;
 using ParkingSystem.Parking.Infrastructure;
+using ParkingSystem.Parking.Infrastructure.Messaging.Consumers;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
 using ParkingSystem.Parking.WebAPI.OpenApi;
@@ -45,7 +46,8 @@ builder.Services.AddSingleton<IMapboxGeoRouting>(_ => new MapboxGeoRoutingClient
     new HttpClient { Timeout = TimeSpan.FromSeconds(6), MaxResponseContentBufferSize = 1024 * 1024 },
     builder.Configuration["Mapbox:AccessToken"] ?? string.Empty));
 builder.Services.AddPersistence(builder.Configuration);
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddIdempotentConsumer<ParkingSessionPaidConsumer>("parking.session-paid.v1");
+builder.Services.AddInfrastructure(builder.Configuration, bus => bus.AddConsumer<ParkingSessionPaidConsumer>());
 builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSection(BookingServiceOptions.SectionName));
 builder.Services.AddHttpClient<IBookingCheckInClient, BookingCheckInHttpClient>();

@@ -507,6 +507,14 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("entry_time");
 
+                    b.Property<DateTimeOffset?>("ExitTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("exit_time");
+
+                    b.Property<DateTimeOffset?>("LastPaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_paid_at");
+
                     b.Property<Guid>("LotId")
                         .HasColumnType("uuid")
                         .HasColumnName("lot_id");
