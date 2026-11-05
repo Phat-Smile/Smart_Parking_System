@@ -16,9 +16,10 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.Common.Auditing;
-using ParkingSystem.Parking.Application.GateReadings;
+using ParkingSystem.Parking.Application.Incidents;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.GateReadings;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.WebAPI.Endpoints;
 using ParkingSystem.Parking.WebAPI.Security;
 using Xunit;
@@ -70,7 +71,8 @@ public sealed class GateReadingHttpTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Equal(nameof(GateReadingDecision.AutoAccepted), body.GetProperty("decision").GetString());
         Assert.Equal("51A-123.45", body.GetProperty("plateNumber").GetString());
-        Assert.True(body.TryGetProperty("readingId", out _));
+        // Nothing for staff to confirm, so no incident.
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("incidentId").ValueKind);
     }
 
     [Fact]
@@ -83,6 +85,7 @@ public sealed class GateReadingHttpTests
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Equal(nameof(GateReadingDecision.PendingStaff), body.GetProperty("decision").GetString());
+        Assert.NotEqual(Guid.Empty, body.GetProperty("incidentId").GetGuid());
     }
 
     [Fact]
@@ -128,12 +131,14 @@ public sealed class GateReadingHttpTests
     {
         await using var app = await CreateAppAsync();
         using var recorded = await SendAsync(app, "Staff", Reading(AssignedLotId, confidence: 0.5m));
-        var readingId = (await recorded.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("readingId").GetGuid();
+        var incidentId = (await recorded.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("incidentId").GetGuid();
 
         var queue = await GetJsonAsync(app, $"{Route}/pending?lotId={AssignedLotId}", "Staff");
-        Assert.Equal(readingId, Assert.Single(queue.EnumerateArray()).GetProperty("readingId").GetGuid());
+        var item = Assert.Single(queue.EnumerateArray());
+        Assert.Equal(incidentId, item.GetProperty("incidentId").GetGuid());
+        Assert.Equal("51A-123.45", item.GetProperty("observedPlate").GetString());
 
-        using var confirmed = await PostAsync(app, $"{Route}/{readingId}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
+        using var confirmed = await PostAsync(app, $"{Route}/{incidentId}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
         var body = await confirmed.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
         Assert.Equal("StaffConfirmed", body.GetProperty("decision").GetString());
@@ -142,13 +147,15 @@ public sealed class GateReadingHttpTests
     }
 
     [Fact]
-    public async Task Confirming_an_auto_accepted_reading_returns_409_not_pending()
+    public async Task Confirming_an_already_confirmed_reading_returns_409_not_pending()
     {
         await using var app = await CreateAppAsync();
-        using var recorded = await SendAsync(app, "Staff", Reading(AssignedLotId, confidence: 0.99m));
-        var readingId = (await recorded.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("readingId").GetGuid();
+        using var recorded = await SendAsync(app, "Staff", Reading(AssignedLotId, confidence: 0.5m));
+        var incidentId = (await recorded.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken)).GetProperty("incidentId").GetGuid();
+        using var first = await PostAsync(app, $"{Route}/{incidentId}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 
-        using var response = await PostAsync(app, $"{Route}/{readingId}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
+        using var response = await PostAsync(app, $"{Route}/{incidentId}/confirm", "Staff", new { plateNumber = "51A-123.45", vehicleType = "Car" });
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -238,7 +245,7 @@ public sealed class GateReadingHttpTests
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
         builder.Services.AddSingleton<IParkingLotDetailReader, KnownLots>();
         builder.Services.AddSingleton<IParkingLotAccess, AssignedLotOnly>();
-        builder.Services.AddSingleton<IGateReadingRepository, InMemoryReadings>();
+        builder.Services.AddSingleton<IIncidentRepository, InMemoryIncidents>();
         builder.Services.AddSingleton<IAuditLog, NoAudit>();
 
         var app = builder.Build();
@@ -291,22 +298,22 @@ public sealed class GateReadingHttpTests
             Task.FromResult(lotId == AssignedLotId);
     }
 
-    // Readings live for one app instance, so a test can record a reading and then confirm it.
-    private sealed class InMemoryReadings : IGateReadingRepository
+    // Incidents live for one app instance, so a test can record a reading and then confirm it.
+    private sealed class InMemoryIncidents : IIncidentRepository
     {
-        private readonly List<GateReading> stored = [];
+        private readonly List<Incident> stored = [];
 
-        public void Add(GateReading reading) => stored.Add(reading);
+        public void Add(Incident incident) => stored.Add(incident);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<GateReading?> FindByIdAsync(Guid readingId, CancellationToken cancellationToken) =>
-            Task.FromResult(stored.FirstOrDefault(reading => reading.Id == readingId));
+        public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) =>
+            Task.FromResult(stored.FirstOrDefault(incident => incident.Id == incidentId));
 
-        public Task<IReadOnlyList<GateReading>> ListPendingByLotAsync(Guid lotId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<GateReading>>(stored
-                .Where(reading => reading.LotId == lotId && reading.Decision == GateReadingDecision.PendingStaff)
-                .OrderBy(reading => reading.ReceivedAt)
+        public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Incident>>(stored
+                .Where(incident => incident.LotId == lotId && incident.Status == IncidentStatus.Open && incident.IncidentType == incidentType)
+                .OrderBy(incident => incident.OccurredAt)
                 .ToList());
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
