@@ -36,10 +36,13 @@ public static class ReservationEndpoints
             }
 
             var vehicleGroup = VehicleGroup.Car;
-            if (!string.IsNullOrWhiteSpace(request.VehicleGroup) &&
-                !Enum.TryParse<VehicleGroup>(request.VehicleGroup, ignoreCase: true, out vehicleGroup))
+            if (!string.IsNullOrWhiteSpace(request.VehicleGroup))
             {
-                return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, ReservationCapacityErrors.VehicleGroupNotReservable);
+                if (!Enum.TryParse<VehicleGroup>(request.VehicleGroup, ignoreCase: true, out vehicleGroup) ||
+                    vehicleGroup != VehicleGroup.Car)
+                {
+                    return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, ReservationCapacityErrors.VehicleGroupNotReservable);
+                }
             }
 
             var resType = ReservationType.Scheduled;

@@ -40,6 +40,7 @@ public static class ParkingClientRegistration
 
         services.AddScoped<IParkingAvailabilityClient, ParkingAvailabilityGrpcClient>();
         services.AddScoped<IParkingLotCapacityProvider, UnconfiguredParkingLotCapacityProvider>();
+        services.AddScoped<IParkingPricingProvider, UnconfiguredParkingPricingProvider>();
 
         return services;
     }
