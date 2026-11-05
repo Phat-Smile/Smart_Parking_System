@@ -1,0 +1,34 @@
+.customer-sessions-page {
+    background: #f6f9f7;
+}
+
+.customer-sessions-main {
+    width: min(calc(100% - 48px), 1080px);
+    min-height: 72vh;
+    margin: 0 auto;
+    padding: 44px 0 80px;
+}
+
+.customer-sessions-main h1 {
+    margin: 0 0 8px;
+    font-size: clamp(30px, 3.3vw, 42px);
+    letter-spacing: -0.04em;
+}
+
+.customer-sessions-main > p {
+    margin: 0 0 24px;
+    color: #617087;
+    line-height: 1.6;
+}
+
+.customer-sessions-main ul li {
+    background: #fff;
+    color: #17213e;
+}
+
+@media (max-width: 640px) {
+    .customer-sessions-main {
+        width: min(calc(100% - 24px), 1080px);
+        padding: 28px 0 56px;
+    }
+}

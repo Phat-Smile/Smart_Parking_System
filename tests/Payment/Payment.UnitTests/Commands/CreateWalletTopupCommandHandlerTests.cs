@@ -109,6 +109,9 @@ public class CreateWalletTopupCommandHandlerTests
             return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
         }
 
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentExpiredTopupsByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<VnpayTransaction>>(Array.Empty<VnpayTransaction>());
+
         public Func<Task>? OnSaveChangesAsync { get; set; }
 
         public async Task SaveChangesAsync(CancellationToken cancellationToken)

@@ -59,6 +59,9 @@ public class GetWalletTopupStatusQueryHandlerTests
             return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
         }
 
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentExpiredTopupsByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<VnpayTransaction>>(Array.Empty<VnpayTransaction>());
+
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
@@ -99,6 +102,44 @@ public class GetWalletTopupStatusQueryHandlerTests
         Assert.Equal(100000, result.Value.Amount);
         Assert.Equal("Pending", result.Value.Status);
         Assert.Null(result.Value.CompletedAtUtc);
+    }
+
+    [Fact]
+    public async Task Handle_WhenPendingLinkHasExpired_ReturnsExpiredWithoutChangingTransaction()
+    {
+        var userId = Guid.NewGuid();
+        var txnRef = Guid.NewGuid().ToString("N");
+        var createdAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+        var txn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(), txnRef, Guid.NewGuid(), 50000m, "expired-request-key",
+            createdAt, createdAt.AddMinutes(5));
+        _repo.SeedTransaction(txn, userId);
+
+        var result = await new GetWalletTopupStatusQueryHandler(_repo)
+            .Handle(new GetWalletTopupStatusQuery(userId, txnRef), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Expired", result.Value!.Status);
+        Assert.Equal(VnpayTransactionStatus.Pending, txn.Status);
+    }
+
+    [Fact]
+    public async Task Handle_WhenLateVnpaySuccessArrives_ReturnsSucceededAfterExpiry()
+    {
+        var userId = Guid.NewGuid();
+        var txnRef = Guid.NewGuid().ToString("N");
+        var createdAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+        var txn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(), txnRef, Guid.NewGuid(), 50000m, "late-request-key",
+            createdAt, createdAt.AddMinutes(5));
+        txn.MarkAsSuccess("VNP123", "NCB", "00", DateTimeOffset.UtcNow);
+        _repo.SeedTransaction(txn, userId);
+
+        var result = await new GetWalletTopupStatusQueryHandler(_repo)
+            .Handle(new GetWalletTopupStatusQuery(userId, txnRef), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Succeeded", result.Value!.Status);
     }
 
     [Fact]

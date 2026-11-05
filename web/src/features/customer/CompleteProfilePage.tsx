@@ -16,6 +16,8 @@ import {
     subscribeAuthSession,
 } from "@/features/auth/authSession";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
+import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
+import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerAccountMenu } from "./CustomerShell";
 import { VneidAuthModal } from "@/features/simulator/vneid/VneidAuthModal";
@@ -320,6 +322,7 @@ export function CompleteProfilePage({
 }: {
     fontClassName: string;
 }) {
+    const { language, copy } = useCustomerLanguage();
     const authSession = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
@@ -357,9 +360,7 @@ export function CompleteProfilePage({
         setIssueDate(profile.issueDate);
         setIssuedBy("Cục Cảnh sát QLHC về TTXH");
         setVneidVerified(true);
-        setNotice(
-            `Đã điền tự động và đối soát thành công qua VNeID Mức 2 (CCCD: ${profile.cccd}).`,
-        );
+        setNotice(`Your details were filled and verified through VNeID Level 2 (ID: ${profile.cccd}).`);
         setVneidModalOpen(false);
     }
     const [validationErrors, setValidationErrors] = useState({
@@ -616,17 +617,21 @@ export function CompleteProfilePage({
 
     return (
         <div
-            lang="en"
+            lang={language}
             className={`parkwise-page parkwise-profile-page ${fontClassName}`}
         >
             <ParkWiseNavbar
                 variant="customer"
-                navigationMode="customer"
+                navigationMode="dashboard"
+                activeHref="/customer/complete-profile"
                 accountControl={
-                    <CustomerAccountMenu
-                        activeHref="/customer/complete-profile"
-                        profilePhotoUrl={profilePhoto?.previewUrl}
-                    />
+                    <div className="dashboard-header-actions">
+                        <CustomerLanguageSwitcher />
+                        <CustomerAccountMenu
+                            activeHref="/customer/complete-profile"
+                            profilePhotoUrl={profilePhoto?.previewUrl}
+                        />
+                    </div>
                 }
             />
 
@@ -634,22 +639,21 @@ export function CompleteProfilePage({
                 <div className="parkwise-profile-grid">
                     <div className="parkwise-profile-primary">
                         <div className="parkwise-profile-heading">
-                            <h1>Complete Your Profile</h1>
+                            <h1>{copy("Complete Your Profile", "Hoàn thiện hồ sơ")}</h1>
                             <p>
-                                Add a few details to get the most out of
-                                ParkWise.
+                                {copy("Add a few details to get the most out of ParkWise.", "Thêm một vài thông tin để sử dụng ParkWise thuận tiện hơn.")}
                             </p>
                         </div>
                         <section
                             className="parkwise-profile-progress-card"
-                            aria-label="Profile completion progress"
+                            aria-label={copy("Profile completion progress", "Tiến độ hoàn thiện hồ sơ")}
                         >
                             <div className="parkwise-profile-progress-top">
-                                <strong>Profile completion</strong>
+                                <strong>{copy("Profile completion", "Hoàn thiện hồ sơ")}</strong>
                                 <span>
                                     {personalComplete
-                                        ? "Required details added"
-                                        : "Add your name and phone number"}
+                                        ? copy("Required details added", "Đã thêm thông tin bắt buộc")
+                                        : copy("Add your name and phone number", "Thêm tên và số điện thoại")}
                                 </span>
                             </div>
                             <div
@@ -672,10 +676,9 @@ export function CompleteProfilePage({
                                     <ProfileIcon />
                                 </span>
                                 <div>
-                                    <h2>Personal Information</h2>
+                                    <h2>{copy("Personal Information", "Thông tin cá nhân")}</h2>
                                     <p>
-                                        Use accurate details to help us keep
-                                        your account up to date.
+                                        {copy("Use accurate details to help us keep your account up to date.", "Nhập thông tin chính xác để hồ sơ luôn được cập nhật.")}
                                     </p>
                                 </div>
                             </div>
@@ -683,7 +686,7 @@ export function CompleteProfilePage({
                             <div className="parkwise-profile-photo-row">
                                 <div className="parkwise-profile-photo-field">
                                     <label>
-                                        Profile Photo <em>(Optional)</em>
+                                        {copy("Profile Photo", "Ảnh đại diện")} <em>{copy("(Optional)", "(Không bắt buộc)")}</em>
                                     </label>
                                     <div className="parkwise-profile-photo-assets">
                                         <div className="parkwise-profile-avatar-wrap">
@@ -736,8 +739,8 @@ export function CompleteProfilePage({
                                             >
                                                 <UploadIcon />
                                                 {profilePhoto
-                                                    ? "Change Avatar"
-                                                    : "Upload Avatar"}
+                                                    ? copy("Change Avatar", "Đổi ảnh đại diện")
+                                                    : copy("Upload Avatar", "Tải ảnh đại diện")}
                                             </button>
                                             <small>
                                                 JPG, PNG or WebP · Max 5 MB
@@ -748,7 +751,7 @@ export function CompleteProfilePage({
                                                     className="parkwise-profile-file-remove"
                                                     onClick={removeProfilePhoto}
                                                 >
-                                                    Remove photo
+                                                    {copy("Remove photo", "Xóa ảnh")}
                                                 </button>
                                             )}
                                         </div>
@@ -763,7 +766,7 @@ export function CompleteProfilePage({
                                 </div>
                                 <div className="parkwise-profile-field parkwise-profile-name-field">
                                     <label htmlFor="profile-full-name">
-                                        Full Name <span>*</span>
+                                        {copy("Full Name", "Họ và tên")} <span>*</span>
                                     </label>
                                     <div className="parkwise-profile-input-with-icon">
                                         <ProfileIcon />
@@ -772,7 +775,7 @@ export function CompleteProfilePage({
                                             name="fullName"
                                             type="text"
                                             autoComplete="name"
-                                            placeholder="Enter your full name"
+                                            placeholder={copy("Enter your full name", "Nhập họ và tên")}
                                             minLength={2}
                                             maxLength={100}
                                             value={fullName}
@@ -808,12 +811,12 @@ export function CompleteProfilePage({
                             </div>
 
                             <div className="parkwise-profile-section-title">
-                                <h3>Contact Information</h3>
+                                <h3>{copy("Contact Information", "Thông tin liên hệ")}</h3>
                             </div>
                             <div className="parkwise-profile-contact-grid">
                                 <div className="parkwise-profile-field">
                                     <label htmlFor="profile-phone">
-                                        Phone Number <span>*</span>
+                                        {copy("Phone Number", "Số điện thoại")} <span>*</span>
                                     </label>
                                     <div className="parkwise-profile-input-with-icon">
                                         <PhoneIcon />
@@ -876,7 +879,7 @@ export function CompleteProfilePage({
                             <div className="parkwise-profile-fields profile-additional-fields">
                                 <div className="parkwise-profile-field">
                                     <label htmlFor="profile-birth-date">
-                                        Date of Birth <em>(Optional)</em>
+                                        {copy("Date of Birth", "Ngày sinh")} <em>{copy("(Optional)", "(Không bắt buộc)")}</em>
                                     </label>
                                     <div className="parkwise-profile-date-control">
                                         <input
@@ -958,7 +961,7 @@ export function CompleteProfilePage({
                                 </div>
                                 <div className="parkwise-profile-field">
                                     <label htmlFor="profile-address">
-                                        Address <em>(Optional)</em>
+                                        {copy("Address", "Địa chỉ")} <em>{copy("(Optional)", "(Không bắt buộc)")}</em>
                                     </label>
                                     <div className="parkwise-profile-input-with-icon">
                                         <PinIcon />
@@ -983,7 +986,7 @@ export function CompleteProfilePage({
                                 </span>
                                 <div>
                                     <strong>
-                                        Identity Documents <em>(Optional)</em>
+                                        {copy("Identity Documents", "Giấy tờ tùy thân")} <em>{copy("(Optional)", "(Không bắt buộc)")}</em>
                                     </strong>
                                 </div>
                                 <label className="parkwise-profile-switch">
@@ -995,14 +998,14 @@ export function CompleteProfilePage({
                                                 event.target.checked,
                                             )
                                         }
-                                        aria-label="Add identity documents"
+                                        aria-label={copy("Add identity documents", "Thêm giấy tờ tùy thân")}
                                     />
                                     <span />
                                 </label>
                                 <div className="parkwise-profile-switch-copy">
-                                    <strong>Add identity documents</strong>
+                                    <strong>{copy("Add identity documents", "Thêm giấy tờ tùy thân")}</strong>
                                     <small>
-                                        Choose CCCD or driver&apos;s license
+                                        {copy("Choose CCCD or driver's license", "Chọn CCCD hoặc giấy phép lái xe")}
                                     </small>
                                 </div>
                             </div>
@@ -1015,12 +1018,11 @@ export function CompleteProfilePage({
                                     <div className="parkwise-profile-document-title">
                                         <div>
                                             <h3 id="document-heading">
-                                                Identity Verification{" "}
-                                                <em>(Optional)</em>
+                                                {copy("Identity Verification", "Xác minh danh tính")}{" "}
+                                                <em>{copy("(Optional)", "(Không bắt buộc)")}</em>
                                             </h3>
                                             <p>
-                                                Documents are optional for basic
-                                                profile completion.
+                                                {copy("Documents are optional for basic profile completion.", "Giấy tờ không bắt buộc để hoàn thiện hồ sơ cơ bản.")}
                                             </p>
                                         </div>
                                         <ShieldIcon />
@@ -1028,7 +1030,7 @@ export function CompleteProfilePage({
                                     <div
                                         className="parkwise-profile-id-toggle"
                                         role="group"
-                                        aria-label="Document type"
+                                        aria-label={copy("Document type", "Loại giấy tờ")}
                                     >
                                         <button
                                             type="button"
@@ -1046,10 +1048,10 @@ export function CompleteProfilePage({
                                         >
                                             <IdCardIcon />
                                             <strong>
-                                                Citizen ID Card (CCCD)
+                                                {copy("Citizen ID Card (CCCD)", "Căn cước công dân (CCCD)")}
                                             </strong>
                                             <small>
-                                                Citizen identification
+                                                {copy("Citizen identification", "Giấy tờ định danh")}
                                             </small>
                                             <i />
                                         </button>
@@ -1071,9 +1073,9 @@ export function CompleteProfilePage({
                                         >
                                             <CarIcon />
                                             <strong>
-                                                Driver&apos;s License (GPLX)
+                                                {copy("Driver's License (GPLX)", "Giấy phép lái xe (GPLX)")}
                                             </strong>
-                                            <small>Driving license</small>
+                                            <small>{copy("Driving license", "Bằng lái xe")}</small>
                                             <i />
                                         </button>
                                     </div>
@@ -1110,8 +1112,7 @@ export function CompleteProfilePage({
                                                         "0 2px 6px rgba(185, 28, 28, 0.25)",
                                                 }}
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID (Level 2
-                                                eID)
+                                                🇻🇳 {copy("Fill details with VNeID (Level 2 eID)", "Điền thông tin bằng VNeID (định danh mức 2)")}
                                             </button>
                                             {vneidVerified && (
                                                 <span
@@ -1129,8 +1130,7 @@ export function CompleteProfilePage({
                                                         fontWeight: 600,
                                                     }}
                                                 >
-                                                    ✓ Đã đối soát CSDL Dân cư
-                                                    Quốc gia VNeID
+                                                    ✓ {copy("Verified through the VNeID national population database", "Đã xác minh qua cơ sở dữ liệu dân cư VNeID")}
                                                 </span>
                                             )}
                                         </div>
@@ -1141,7 +1141,7 @@ export function CompleteProfilePage({
                                             <div className="parkwise-profile-fields document-fields">
                                                 <div className="parkwise-profile-field">
                                                     <label htmlFor="document-number">
-                                                        Document Number
+                                                        {copy("Document Number", "Số giấy tờ")}
                                                     </label>
                                                     <input
                                                         id="document-number"
@@ -1149,7 +1149,7 @@ export function CompleteProfilePage({
                                                         type="text"
                                                         inputMode="numeric"
                                                         autoComplete="off"
-                                                        placeholder="Enter document number"
+                                                        placeholder={copy("Enter document number", "Nhập số giấy tờ")}
                                                         maxLength={12}
                                                         value={documentNumber}
                                                         onChange={(event) =>
@@ -1162,7 +1162,7 @@ export function CompleteProfilePage({
                                                 </div>
                                                 <div className="parkwise-profile-field">
                                                     <label htmlFor="document-issue-date">
-                                                        Issue Date
+                                                        {copy("Issue Date", "Ngày cấp")}
                                                     </label>
                                                     <div className="parkwise-profile-date-control">
                                                         <input
@@ -1221,7 +1221,7 @@ export function CompleteProfilePage({
                                                 </div>
                                                 <div className="parkwise-profile-field">
                                                     <label htmlFor="document-issued-by">
-                                                        Issuing Authority
+                                                        {copy("Issuing Authority", "Nơi cấp")}
                                                     </label>
                                                     <div className="parkwise-profile-select">
                                                         <select
@@ -1250,22 +1250,20 @@ export function CompleteProfilePage({
                                                             }}
                                                         >
                                                             <option value="">
-                                                                Select an
-                                                                authority
+                                                                {copy("Select an authority", "Chọn nơi cấp")}
                                                             </option>
                                                             <option value="other">
-                                                                Other (enter
-                                                                manually)
+                                                                {copy("Other (enter manually)", "Khác (nhập thủ công)")}
                                                             </option>
                                                         </select>
                                                         <ChevronDownIcon />
                                                     </div>
                                                     {authorityOther && (
                                                         <input
-                                                            aria-label="Enter issuing authority"
+                                                            aria-label={copy("Enter issuing authority", "Nhập nơi cấp")}
                                                             name="issuedBy"
                                                             type="text"
-                                                            placeholder="Enter the issuing authority"
+                                                            placeholder={copy("Enter the issuing authority", "Nhập nơi cấp")}
                                                             value={issuedBy}
                                                             onChange={(event) =>
                                                                 setIssuedBy(
@@ -1278,11 +1276,9 @@ export function CompleteProfilePage({
                                                 </div>
                                             </div>
                                             <div className="parkwise-profile-field parkwise-profile-document-uploads">
-                                                <label>Document Images</label>
+                                                <label>{copy("Document Images", "Ảnh giấy tờ")}</label>
                                                 <small>
-                                                    Upload clear, readable
-                                                    images. JPG, PNG, WebP or
-                                                    PDF · Max 5 MB per file.
+                                                    {copy("Upload clear, readable images. JPG, PNG, WebP or PDF · Max 5 MB per file.", "Tải ảnh rõ nét, dễ đọc. JPG, PNG, WebP hoặc PDF · tối đa 5 MB mỗi tệp.")}
                                                 </small>
                                                 <div className="parkwise-profile-upload-grid">
                                                     {(
@@ -1297,8 +1293,8 @@ export function CompleteProfilePage({
                                                             ];
                                                         const label =
                                                             side === "front"
-                                                                ? "Front image"
-                                                                : "Back image";
+                                                                ? copy("Front image", "Mặt trước")
+                                                                : copy("Back image", "Mặt sau");
                                                         const inputId = `document-${side}-upload`;
                                                         return (
                                                             <div
@@ -1334,8 +1330,8 @@ export function CompleteProfilePage({
                                                                 >
                                                                     <strong>
                                                                         {upload
-                                                                            ? "Change file"
-                                                                            : "↑ Upload image"}
+                                                                            ? copy("Change file", "Đổi tệp")
+                                                                            : copy("↑ Upload image", "↑ Tải ảnh lên")}
                                                                     </strong>
                                                                     <small>
                                                                         {upload
@@ -1393,24 +1389,24 @@ export function CompleteProfilePage({
                                 />
                                 <span>
                                     <label htmlFor="profile-consent">
-                                        I agree to the
+                                        {copy("I agree to the", "Tôi đồng ý với")}
                                     </label>{" "}
                                     <Link
                                         href="/terms-and-conditions?from=complete-profile"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        Terms &amp; Conditions
+                                        {copy("Terms & Conditions", "Điều khoản sử dụng")}
                                     </Link>{" "}
-                                    and{" "}
+                                    {copy("and", "và")}{" "}
                                     <Link
                                         href="/privacy-policy?from=complete-profile"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        Privacy Policy
+                                        {copy("Privacy Policy", "Chính sách bảo mật")}
                                     </Link>{" "}
-                                    of ParkWise.
+                                    {copy("of ParkWise.", "của ParkWise.")}
                                 </span>
                             </div>
                             {error && (
@@ -1436,13 +1432,13 @@ export function CompleteProfilePage({
                                     className="parkwise-profile-draft"
                                     onClick={saveDraft}
                                 >
-                                    <IdCardIcon /> Save Draft
+                                    <IdCardIcon /> {copy("Save Draft", "Lưu bản nháp")}
                                 </button>
                                 <button
                                     className="parkwise-profile-submit"
                                     type="submit"
                                 >
-                                    Complete Profile
+                                    {copy("Complete Profile", "Hoàn thiện hồ sơ")}
                                     <span aria-hidden="true">→</span>
                                 </button>
                             </div>
@@ -1455,7 +1451,7 @@ export function CompleteProfilePage({
                             aria-labelledby="profile-status-title"
                         >
                             <h2 id="profile-status-title">
-                                <IdCardIcon /> Profile Status
+                                <IdCardIcon /> {copy("Profile Status", "Trạng thái hồ sơ")}
                             </h2>
                             <div className="parkwise-profile-score">
                                 <div
@@ -1465,21 +1461,21 @@ export function CompleteProfilePage({
                                     <span>{completion}%</span>
                                 </div>
                                 <p>
-                                    Your profile
+                                    {copy("Your profile", "Hồ sơ của bạn")}
                                     <strong>
                                         {completion === 100 ? (
-                                            <>Ready to submit</>
+                                            <>{copy("Ready to submit", "Sẵn sàng gửi")}</>
                                         ) : (
                                             <>
-                                                In progress{" "}
+                                                {copy("In progress", "Đang hoàn thiện")}{" "}
                                                 <em>{completion}%</em>
                                             </>
                                         )}
                                     </strong>
                                     <small>
                                         {completion === 100
-                                            ? "Your required details are ready to submit."
-                                            : "Add your required details to continue."}
+                                            ? copy("Your required details are ready to submit.", "Thông tin bắt buộc đã sẵn sàng để gửi.")
+                                            : copy("Add your required details to continue.", "Thêm thông tin bắt buộc để tiếp tục.")}
                                     </small>
                                 </p>
                             </div>
@@ -1497,13 +1493,13 @@ export function CompleteProfilePage({
                                         <small>
                                             {emailVerified
                                                 ? accountEmail
-                                                : "Sign in to verify your email"}
+                                                : copy("Sign in to verify your email", "Đăng nhập để xác minh email")}
                                         </small>
                                     </p>
                                     <b>
                                         {emailVerified
-                                            ? "Verified"
-                                            : "Required"}
+                                            ? copy("Verified", "Đã xác minh")
+                                            : copy("Required", "Bắt buộc")}
                                     </b>
                                 </div>
                                 <div
@@ -1517,15 +1513,15 @@ export function CompleteProfilePage({
                                         {personalComplete ? <CheckIcon /> : ""}
                                     </span>
                                     <p>
-                                        <strong>Basic Information</strong>
+                                        <strong>{copy("Basic Information", "Thông tin cơ bản")}</strong>
                                         <small>
-                                            Full name and phone number
+                                            {copy("Full name and phone number", "Họ tên và số điện thoại")}
                                         </small>
                                     </p>
                                     <b>
                                         {personalComplete
-                                            ? "Complete"
-                                            : "Required"}
+                                            ? copy("Complete", "Hoàn tất")
+                                            : copy("Required", "Bắt buộc")}
                                     </b>
                                 </div>
                                 <div
@@ -1539,13 +1535,13 @@ export function CompleteProfilePage({
                                         {identityComplete ? <CheckIcon /> : ""}
                                     </span>
                                     <p>
-                                        <strong>Identity Documents</strong>
-                                        <small>CCCD/GPLX (optional)</small>
+                                        <strong>{copy("Identity Documents", "Giấy tờ tùy thân")}</strong>
+                                        <small>{copy("CCCD/GPLX (optional)", "CCCD/GPLX (không bắt buộc)")}</small>
                                     </p>
                                     <b>
                                         {identityComplete
-                                            ? "Added"
-                                            : "Optional"}
+                                            ? copy("Added", "Đã thêm")
+                                            : copy("Optional", "Không bắt buộc")}
                                     </b>
                                 </div>
                             </div>
@@ -1556,7 +1552,7 @@ export function CompleteProfilePage({
                                 <span>
                                     <LockIcon />
                                 </span>{" "}
-                                Your information is protected
+                                {copy("Your information is protected", "Thông tin của bạn được bảo vệ")}
                             </h2>
                             <ul>
                                 <li>
@@ -1564,8 +1560,7 @@ export function CompleteProfilePage({
                                         <ShieldIcon />
                                     </span>
                                     <p>
-                                        We use your details to provide ParkWise
-                                        services.
+                                        {copy("We use your details to provide ParkWise services.", "Chúng tôi dùng thông tin này để cung cấp dịch vụ ParkWise.")}
                                     </p>
                                 </li>
                                 <li>
@@ -1573,8 +1568,7 @@ export function CompleteProfilePage({
                                         <LockIcon />
                                     </span>
                                     <p>
-                                        You can review or update your profile
-                                        information at any time.
+                                        {copy("You can review or update your profile information at any time.", "Bạn có thể xem hoặc cập nhật hồ sơ bất cứ lúc nào.")}
                                     </p>
                                 </li>
                             </ul>
@@ -1585,13 +1579,12 @@ export function CompleteProfilePage({
                                 <SupportIcon />
                             </span>
                             <div>
-                                <h2>Need Help?</h2>
+                                <h2>{copy("Need Help?", "Cần hỗ trợ?")}</h2>
                                 <p>
-                                    Visit ParkWise to learn more about our
-                                    services.
+                                    {copy("Visit ParkWise to learn more about our services.", "Truy cập ParkWise để tìm hiểu thêm về dịch vụ.")}
                                 </p>
                                 <Link href="/#about">
-                                    About ParkWise{" "}
+                                    {copy("About ParkWise", "Về ParkWise")}{" "}
                                     <span aria-hidden="true">→</span>
                                 </Link>
                             </div>
@@ -1599,15 +1592,15 @@ export function CompleteProfilePage({
                     </aside>
                 </div>
             </main>
-            <ParkWiseFooter />
+            <ParkWiseFooter language={language} />
 
             <VneidAuthModal
                 isOpen={vneidModalOpen}
                 onClose={() => setVneidModalOpen(false)}
                 onConfirm={handleVneidConfirm}
                 defaultCccd="000000000001"
-                title="Xác thực Căn cước công dân qua VNeID"
-                subtitle="Chia sẻ thông tin công dân để hoàn tất hồ sơ khách hàng ParkWise"
+                title={copy("Verify your national ID with VNeID", "Xác minh CCCD với VNeID")}
+                subtitle={copy("Share your identity details to complete your ParkWise profile", "Chia sẻ thông tin định danh để hoàn thiện hồ sơ ParkWise")}
             />
         </div>
     );

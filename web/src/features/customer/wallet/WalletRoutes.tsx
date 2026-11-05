@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
     getAuthSessionSnapshot,
@@ -25,23 +25,26 @@ export function CustomerWalletScreen() {
 }
 
 /**
- * VNPay returns with a full page load, and the sign-in lives in memory only, so the customer may have to
- * sign in again; the login page then brings them back to this transaction.
+ * VNPay returns with a full page load. Let browser storage hydrate before deciding
+ * whether the customer needs to sign in again.
  */
 export function VnpayReturnScreen({ topupId }: { topupId: string | null }) {
     const router = useRouter();
+    const [hydrated, setHydrated] = useState(false);
     const session = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
         () => null,
     );
 
+    useEffect(() => setHydrated(true), []);
+
     useEffect(() => {
-        if (session) return;
+        if (!hydrated || session) return;
         const back = `${window.location.pathname}${window.location.search}`;
         router.replace(`/login?redirect=${encodeURIComponent(back)}`);
-    }, [router, session]);
+    }, [hydrated, router, session]);
 
-    if (!session) return <p>Đang chuyển đến trang đăng nhập...</p>;
+    if (!session) return <p>Redirecting to login...</p>;
     return <VnpayReturnStatus topupId={topupId} />;
 }

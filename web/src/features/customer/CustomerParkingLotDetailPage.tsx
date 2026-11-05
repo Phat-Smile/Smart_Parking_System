@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { CustomerFooter, CustomerHeader } from "./CustomerShell";
+import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkingLotDetailExperience } from "./ParkingLotDetailExperience";
 import {
     describeLotAvailability,
@@ -26,6 +27,7 @@ export function CustomerParkingLotDetailPage({
     id: string;
     fontClassName: string;
 }) {
+    const { language, copy } = useCustomerLanguage();
     const [lot, setLot] = useState<ParkingLotDetail | null>(null);
     const [state, setState] = useState<
         "loading" | "ready" | "not-found" | "error"
@@ -62,7 +64,7 @@ export function CustomerParkingLotDetailPage({
                     id: lot.id,
                     name: lot.name,
                     address: lot.address,
-                    type: typeLabels[lot.type] ?? lot.type,
+                    type: copy(typeLabels[lot.type] ?? lot.type, ({ MultiStorey: "Bãi đỗ nhiều tầng", Underground: "Bãi đỗ ngầm", Outdoor: "Bãi đỗ ngoài trời" } as Record<string, string>)[lot.type] ?? lot.type),
                     image: "/images/parkwise/dashboard-parking-structure.webp",
                     photos: [
                         "/images/parkwise/dashboard-parking-structure.webp",
@@ -81,36 +83,35 @@ export function CustomerParkingLotDetailPage({
     const visibleState = validId ? state : "not-found";
     return (
         <div
-            lang="en"
+            lang={language}
             className={`parkwise-page customer-shell-page lot-detail-page ${fontClassName}`}
         >
             <CustomerHeader active="detail" />
             <main className="parkwise-container lot-detail-main">
                 <Link href="/search" className="lot-detail-bottom-back">
-                    <ArrowLeft size={18} /> Back to Find Parking
+                    <ArrowLeft size={18} /> {copy("Back to Find Parking", "Quay lại tìm bãi đỗ")}
                 </Link>
                 <div
                     className="lot-detail-state"
                     role={visibleState === "error" ? "alert" : "status"}
                 >
                     {visibleState === "loading" ? (
-                        <p>Loading parking details…</p>
+                        <p>{copy("Loading parking details…", "Đang tải thông tin bãi đỗ…")}</p>
                     ) : visibleState === "not-found" ? (
                         <>
-                            <h1>Parking lot not found</h1>
+                            <h1>{copy("Parking lot not found", "Không tìm thấy bãi đỗ")}</h1>
                             <p>
-                                This lot may be unavailable or is not approved
-                                for public viewing.
+                                {copy("This lot may be unavailable or is not approved for public viewing.", "Bãi đỗ có thể không còn hoạt động hoặc chưa được duyệt để hiển thị.")}
                             </p>
                         </>
                     ) : (
                         <>
-                            <h1>Parking details are unavailable</h1>
-                            <p>Please try again later.</p>
+                            <h1>{copy("Parking details are unavailable", "Chưa thể xem thông tin bãi đỗ")}</h1>
+                            <p>{copy("Please try again later.", "Vui lòng thử lại sau.")}</p>
                         </>
                     )}
                     {visibleState !== "loading" && (
-                        <Link href="/search">Browse parking lots</Link>
+                        <Link href="/search">{copy("Browse parking lots", "Xem các bãi đỗ")}</Link>
                     )}
                 </div>
             </main>

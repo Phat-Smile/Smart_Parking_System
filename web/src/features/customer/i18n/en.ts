@@ -1,0 +1,65 @@
+import type { TranslationKey } from "./vi";
+
+export const en = {
+    dashboard: {
+        title: "Home", search: "Find Parking", bookings: "Bookings", wallet: "Wallet",
+        profile: "Profile", vehicles: "My Vehicles", history: "Parking History",
+        transactions: "Wallet Transactions", recommendations: "Recommended Parking",
+        myBookings: "My Bookings", notifications: "Notifications",
+    },
+    searchPage: {
+        placeholder: "Enter an address, parking lot, or area...",
+        button: "Search", recent: "Recent searches",
+    },
+    bookingsPage: {
+        title: "My Bookings", activeCount: "active", newBooking: "New Booking",
+        status: {
+            holding: "On hold", confirmed: "Confirmed", used: "Used",
+            cancelled: "Cancelled", expired: "Expired",
+        },
+        empty: "You have no bookings yet",
+        form: {
+            selectParking: "Choose a parking lot", selectVehicle: "Choose a vehicle",
+            date: "Date", time: "Entry time", submit: "Confirm booking",
+        },
+    },
+    hero: {
+        empty: {
+            title: "No activity yet", findSpot: "Find Parking", reserveSpot: "Reserve a Spot",
+            bookAhead: "Book Ahead", motorcycleTooltip: "Cars only",
+        },
+        holding: { title: "Spot on hold", description: "Complete your deposit within", cancel: "Cancel" },
+        confirmed: {
+            title: "Confirmed", cancel: "Cancel",
+            reserveNote: "Full refund if cancelled at least 30 minutes before entry",
+            gracePeriod: "Within the grace period", assignedAtGate: "Your spot is assigned at the gate",
+            refund100: "Full deposit refund if cancelled within",
+        },
+        active: {
+            title: "Parking now", plate: "Plate", spot: "Spot", entryTime: "Entry time",
+            duration: "Duration", tempFee: "Estimated fee", prepaid: "Prepaid",
+            showQr: "Show session QR", pay: "Pay",
+        },
+        paid: { title: "Paid", exitIn: "Please leave within", warning: "Overstay fees may apply" },
+        overstay: {
+            title: "Additional payment required", description: "Pay the extra fee before leaving",
+            contact: "Contact staff to reissue your QR code",
+        },
+    },
+    wallet: {
+        balance: "Wallet balance", topUp: "Top up",
+        policy: "No withdrawals, transfers, or bank account linking",
+        lowBalance: "Low balance. Please top up.", transactionsTitle: "Recent transactions",
+    },
+    transactionsPage: {
+        title: "Wallet Transactions",
+        filters: {
+            all: "All", topup: "Top-up", deposit: "Deposit", prepay: "Prepayment",
+            fee: "Parking fee", refund: "Refund",
+        },
+        explain: "Details", empty: "No transactions yet",
+    },
+    vehicles: { title: "My Vehicles", add: "Add vehicle", plate: "Plate", type: "Vehicle type", default: "Default" },
+    recommend: { title: "Recommended Parking", probability: "Availability chance", noDriveTime: "Drive time unavailable" },
+    common: { loading: "Loading...", error: "Something went wrong", retry: "Try again", demoPanel: "Demo state" },
+} satisfies TranslationKey;

@@ -66,14 +66,14 @@ describe("ParkingLotBookingDialog", () => {
         );
 
         expect(
-            screen.getByText("Xác nhận thông tin đặt chỗ"),
+            screen.getByText("Review booking details"),
         ).toBeInTheDocument();
         expect(screen.getByText("ParkWise Central Saigon")).toBeInTheDocument();
         expect(screen.getByText("51H-999.88")).toBeInTheDocument();
         expect(screen.getByText("50.000 đ")).toBeInTheDocument();
         expect(screen.getByText("A-01")).toBeInTheDocument();
         expect(
-            screen.getByRole("button", { name: "Xác nhận & Giữ chỗ 15 phút" }),
+            screen.getByRole("button", { name: "Confirm and hold for 15 minutes" }),
         ).toBeInTheDocument();
     });
 
@@ -140,7 +140,7 @@ describe("ParkingLotBookingDialog", () => {
 
         // Bấm Giữ chỗ
         const holdBtn = screen.getByRole("button", {
-            name: "Xác nhận & Giữ chỗ 15 phút",
+            name: "Confirm and hold for 15 minutes",
         });
         fireEvent.click(holdBtn);
 
@@ -155,13 +155,13 @@ describe("ParkingLotBookingDialog", () => {
         });
 
         // Đã vào bước giữ chỗ với đồng hồ 15 phút
-        expect(screen.getByText("Thanh toán cọc giữ chỗ")).toBeInTheDocument();
+        expect(screen.getByText("Pay booking deposit")).toBeInTheDocument();
         expect(screen.getByRole("timer")).toBeInTheDocument();
         expect(screen.getByText("150.000 đ")).toBeInTheDocument();
 
         // Bấm trừ cọc ví
         const confirmBtn = screen.getByRole("button", {
-            name: "Trừ ví 50.000 đ & Nhận vé",
+            name: "Pay 50.000 đ from wallet and get pass",
         });
         fireEvent.click(confirmBtn);
 
@@ -177,7 +177,7 @@ describe("ParkingLotBookingDialog", () => {
 
         // Vé đặt chỗ BookingPassModal xuất hiện với mã QR
         expect(
-            screen.getByText("Vé Đặt Chỗ (Booking Pass)"),
+            screen.getByText("Booking Pass"),
         ).toBeInTheDocument();
         expect(screen.getByText("BK-RES-HOLD")).toBeInTheDocument();
     });
@@ -233,12 +233,12 @@ describe("ParkingLotBookingDialog", () => {
         );
 
         fireEvent.click(
-            screen.getByRole("button", { name: "Xác nhận & Giữ chỗ 15 phút" }),
+            screen.getByRole("button", { name: "Confirm and hold for 15 minutes" }),
         );
 
         await waitFor(() => {
-            expect(screen.getByText(/Số dư ví không đủ/)).toBeInTheDocument();
-            expect(screen.getByText("Nạp ví ngay →")).toBeInTheDocument();
+            expect(screen.getByText(/Insufficient wallet balance/)).toBeInTheDocument();
+            expect(screen.getByText("Top up wallet →")).toBeInTheDocument();
         });
     });
 });

@@ -255,6 +255,39 @@
 .parkwise-navbar-account-slot {
     margin-left: auto;
 }
+.customer-language-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid #dce4ee;
+    border-radius: 12px;
+    background: #fff;
+    white-space: nowrap;
+}
+.customer-language-switcher button {
+    min-width: 34px;
+    min-height: 34px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #496079;
+    font-size: 12px;
+    font-weight: 750;
+    cursor: pointer;
+}
+.customer-language-switcher button[aria-pressed="true"] {
+    background: #172a3e;
+    color: #fff;
+}
+.customer-language-switcher button:focus-visible {
+    outline: 2px solid #1764e8;
+    outline-offset: 2px;
+}
+.customer-language-switcher.is-mobile {
+    align-self: flex-start;
+    margin-top: 12px;
+}
 .parkwise-customer-account-link {
     display: inline-flex;
     align-items: center;

@@ -11,6 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CustomerMap } from "./CustomerMap";
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
+import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import {
@@ -71,6 +72,7 @@ export function CustomerFindParkingPage({
         vehicle: string;
     };
 }) {
+    const { copy, language } = useCustomerLanguage();
     const [destination, setDestination] = useState(initialSearch.destination);
     const [parkingDate, setParkingDate] = useState(initialSearch.date);
     const [parkingTime, setParkingTime] = useState(initialSearch.time);
@@ -480,36 +482,35 @@ export function CustomerFindParkingPage({
     }
 
     const distanceLabels: Record<string, string> = {
-        "1": "Within 1 km",
-        "2": "Within 2 km",
-        "5": "Within 5 km",
+        "1": copy("Within 1 km", "Trong 1 km"),
+        "2": copy("Within 2 km", "Trong 2 km"),
+        "5": copy("Within 5 km", "Trong 5 km"),
     };
     const compatibilityLabels: Record<string, string> = {
-        car: "Car",
-        motorbike: "Motorbike",
-        ev: "Electric vehicle (EV)",
-        large: "Large vehicle",
+        car: copy("Car", "Ô tô"),
+        motorbike: copy("Motorbike", "Xe máy"),
+        ev: copy("Electric vehicle (EV)", "Xe điện"),
+        large: copy("Large vehicle", "Xe cỡ lớn"),
     };
     const amenityLabels: Record<string, string> = {
-        "ev-charging": "EV Charging",
-        covered: "Covered Parking",
-        "always-open": "24/7 Access",
+        "ev-charging": copy("EV Charging", "Sạc xe điện"),
+        covered: copy("Covered Parking", "Có mái che"),
+        "always-open": copy("24/7 Access", "Mở cửa 24/7"),
         cctv: "CCTV",
     };
 
     return (
         <div
-            lang="en"
+            lang={language}
             className={`parkwise-page customer-shell-page customer-search-page ${fontClassName}`}
         >
             <CustomerHeader active="search" />
             <main className="customer-shell-container customer-search-main">
                 <div className="customer-search-intro">
-                    <p className="customer-search-kicker">FIND YOUR SPACE</p>
-                    <h1>Find parking near your destination.</h1>
+                    <p className="customer-search-kicker">{copy("FIND YOUR SPACE", "TÌM CHỖ ĐỖ")}</p>
+                    <h1>{copy("Find parking near your destination.", "Tìm bãi đỗ gần điểm đến của bạn.")}</h1>
                     <p>
-                        Compare locations and plan your trip with a clearer view
-                        of the city.
+                        {copy("Compare locations and plan your trip with a clearer view of the city.", "So sánh các địa điểm và lên kế hoạch di chuyển thuận tiện hơn.")}
                     </p>
                 </div>
                 <form className="customer-search-form" onSubmit={handleSearch}>
@@ -528,12 +529,12 @@ export function CustomerFindParkingPage({
                         <CustomerIcon name="location" size={21} />
                         <span>
                             <label htmlFor="customer-search-destination-input">
-                                Destination
+                                {copy("Destination", "Điểm đến")}
                             </label>
                             <input
                                 ref={destinationInputRef}
                                 id="customer-search-destination-input"
-                                aria-label="Destination"
+                                aria-label={copy("Destination", "Điểm đến")}
                                 role="combobox"
                                 aria-autocomplete="list"
                                 aria-expanded={suggestionsOpen}
@@ -584,7 +585,7 @@ export function CustomerFindParkingPage({
                                 }}
                                 onKeyDown={handleDestinationKeyDown}
                                 maxLength={256}
-                                placeholder="Enter an address or landmark"
+                                placeholder={copy("Enter an address or landmark", "Nhập địa chỉ hoặc địa điểm")}
                                 autoComplete="off"
                             />
                         </span>
@@ -593,8 +594,8 @@ export function CustomerFindParkingPage({
                             className="customer-search-locate"
                             onClick={useCurrentLocation}
                             disabled={locationBusy}
-                            aria-label="Use my current location"
-                            title="Use my current location"
+                            aria-label={copy("Use my current location", "Dùng vị trí hiện tại")}
+                            title={copy("Use my current location", "Dùng vị trí hiện tại")}
                         >
                             <CustomerIcon name="location" size={19} />
                         </button>
@@ -603,29 +604,28 @@ export function CustomerFindParkingPage({
                                 id="customer-destination-suggestions"
                                 className="customer-search-suggestions"
                                 role="listbox"
-                                aria-label="Destination suggestions"
+                                aria-label={copy("Destination suggestions", "Gợi ý điểm đến")}
                             >
                                 {suggestionsBusy ? (
                                     <p
                                         className="customer-search-suggestions-state"
                                         role="status"
                                     >
-                                        Searching places…
+                                        {copy("Searching places…", "Đang tìm địa điểm…")}
                                     </p>
                                 ) : suggestionsError ? (
                                     <p
                                         className="customer-search-suggestions-state"
                                         role="status"
                                     >
-                                        Places are unavailable. Try again
-                                        shortly.
+                                        {copy("Places are unavailable. Try again shortly.", "Không thể tải địa điểm. Vui lòng thử lại sau.")}
                                     </p>
                                 ) : suggestions.length === 0 ? (
                                     <p
                                         className="customer-search-suggestions-state"
                                         role="status"
                                     >
-                                        No matching places found.
+                                        {copy("No matching places found.", "Không tìm thấy địa điểm phù hợp.")}
                                     </p>
                                 ) : (
                                     suggestions.map((suggestion, index) => (
@@ -668,7 +668,7 @@ export function CustomerFindParkingPage({
                                     ))
                                 )}
                                 <span className="customer-search-suggestions-credit">
-                                    Search by Mapbox
+                                    {copy("Search by Mapbox", "Tìm kiếm bằng Mapbox")}
                                 </span>
                             </div>
                         )}
@@ -676,9 +676,9 @@ export function CustomerFindParkingPage({
                     <label className="customer-search-field">
                         <CustomerIcon name="calendar" size={21} />
                         <span>
-                            <strong>Date</strong>
+                            <strong>{copy("Date", "Ngày")}</strong>
                             <input
-                                aria-label="Parking date"
+                                aria-label={copy("Parking date", "Ngày đỗ xe")}
                                 type="date"
                                 value={parkingDate}
                                 onChange={(event) =>
@@ -690,9 +690,9 @@ export function CustomerFindParkingPage({
                     <label className="customer-search-field">
                         <CustomerIcon name="clock" size={21} />
                         <span>
-                            <strong>Time</strong>
+                            <strong>{copy("Time", "Giờ")}</strong>
                             <input
-                                aria-label="Parking time"
+                                aria-label={copy("Parking time", "Giờ đỗ xe")}
                                 type="time"
                                 value={parkingTime}
                                 onChange={(event) =>
@@ -704,9 +704,9 @@ export function CustomerFindParkingPage({
                     <div className="customer-search-field customer-search-vehicle-field">
                         <CustomerIcon name="car" size={22} />
                         <CustomerSearchDropdown
-                            label="Vehicle type"
+                            label={copy("Vehicle type", "Loại xe")}
                             value={vehicleType}
-                            options={filterOptions.vehicle}
+                            options={filterOptions.vehicle.map((option) => ({ ...option, label: option.value === "any" ? copy("Any vehicle", "Mọi loại xe") : option.value === "car" ? copy("Car", "Ô tô") : copy("Motorbike", "Xe máy") }))}
                             onChange={setVehicleType}
                             variant="field"
                             align="right"
@@ -719,7 +719,7 @@ export function CustomerFindParkingPage({
                     >
                         <CustomerIcon name="search" size={21} />
                         <span>
-                            {searchBusy ? "Searching map…" : "Find Parking"}
+                            {searchBusy ? copy("Searching map…", "Đang tìm trên bản đồ…") : copy("Find Parking", "Tìm bãi đỗ")}
                         </span>
                         <CustomerIcon name="arrow" size={19} />
                     </button>
@@ -742,7 +742,7 @@ export function CustomerFindParkingPage({
                             >
                                 <CustomerIcon name="filter" size={17} />
                                 <span>
-                                    All Filters
+                                    {copy("All Filters", "Bộ lọc")}
                                     {activeFilterCount > 0
                                         ? ` (${activeFilterCount})`
                                         : ""}
@@ -759,9 +759,9 @@ export function CustomerFindParkingPage({
                                             maxPrice: MAX_PRICE,
                                         }))
                                     }
-                                    aria-label="Remove price filter"
+                                    aria-label={copy("Remove price filter", "Bỏ lọc giá")}
                                 >
-                                    Price: Under{" "}
+                                    {copy("Price: Under", "Giá: Dưới")}{" "}
                                     {filters.maxPrice.toLocaleString("vi-VN")}₫{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
@@ -776,9 +776,9 @@ export function CustomerFindParkingPage({
                                             distance: "any",
                                         }))
                                     }
-                                    aria-label="Remove distance filter"
+                                    aria-label={copy("Remove distance filter", "Bỏ lọc khoảng cách")}
                                 >
-                                    Distance: {distanceLabels[filters.distance]}{" "}
+                                    {copy("Distance:", "Khoảng cách:")} {distanceLabels[filters.distance]}{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
                             )}
@@ -792,11 +792,11 @@ export function CustomerFindParkingPage({
                                             availability: "any",
                                         }))
                                     }
-                                    aria-label="Remove availability filter"
+                                    aria-label={copy("Remove availability filter", "Bỏ lọc tình trạng chỗ")}
                                 >
                                     {filters.availability === "available"
-                                        ? "Available now"
-                                        : "Pre-bookable"}{" "}
+                                        ? copy("Available now", "Còn chỗ")
+                                        : copy("Pre-bookable", "Có thể đặt trước")}{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
                             )}
@@ -810,9 +810,9 @@ export function CustomerFindParkingPage({
                                             compatibility: [],
                                         }))
                                     }
-                                    aria-label="Remove vehicle compatibility filter"
+                                    aria-label={copy("Remove vehicle compatibility filter", "Bỏ lọc loại xe")}
                                 >
-                                    Vehicle:{" "}
+                                    {copy("Vehicle:", "Loại xe:")}{" "}
                                     {filters.compatibility
                                         .map(
                                             (type) => compatibilityLabels[type],
@@ -831,9 +831,9 @@ export function CustomerFindParkingPage({
                                             amenities: [],
                                         }))
                                     }
-                                    aria-label="Remove amenities filter"
+                                    aria-label={copy("Remove amenities filter", "Bỏ lọc tiện ích")}
                                 >
-                                    Amenities:{" "}
+                                    {copy("Amenities:", "Tiện ích:")}{" "}
                                     {filters.amenities
                                         .map(
                                             (amenity) => amenityLabels[amenity],
@@ -850,7 +850,7 @@ export function CustomerFindParkingPage({
                             disabled={!canClearFilters}
                         >
                             <CustomerIcon name="history" size={17} />
-                            Clear filters
+                            {copy("Clear filters", "Xóa bộ lọc")}
                         </button>
                     </div>
                     <div
@@ -859,14 +859,14 @@ export function CustomerFindParkingPage({
                         hidden={!filtersOpen}
                     >
                         <fieldset className="customer-search-filter-group customer-search-price-group">
-                            <legend>Price (₫/hour)</legend>
+                            <legend>{copy("Price (₫/hour)", "Giá (₫/giờ)")}</legend>
                             <input
                                 type="range"
                                 min="0"
                                 max={MAX_PRICE}
                                 step="5000"
                                 value={filters.maxPrice}
-                                aria-label="Maximum price per hour"
+                                aria-label={copy("Maximum price per hour", "Giá tối đa mỗi giờ")}
                                 onChange={(event) =>
                                     setFilters((current) => ({
                                         ...current,
@@ -878,7 +878,7 @@ export function CustomerFindParkingPage({
                                 <span>0₫</span>
                                 <label>
                                     <span className="customer-search-sr-only">
-                                        Maximum price per hour in dong
+                                        {copy("Maximum price per hour in dong", "Giá tối đa mỗi giờ bằng đồng")}
                                     </span>
                                     <input
                                         type="number"
@@ -906,13 +906,13 @@ export function CustomerFindParkingPage({
                             </div>
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Distance</legend>
+                            <legend>{copy("Distance", "Khoảng cách")}</legend>
                             {[
                                 ["any", "Any"],
                                 ["1", "Within 1 km"],
                                 ["2", "Within 2 km"],
                                 ["5", "Within 5 km"],
-                            ].map(([value, label]) => (
+                            ].map(([value]) => (
                                 <label
                                     className="customer-search-filter-choice"
                                     key={value}
@@ -929,17 +929,17 @@ export function CustomerFindParkingPage({
                                             }))
                                         }
                                     />
-                                    <span>{label}</span>
+                                    <span>{value === "any" ? copy("Any", "Bất kỳ") : distanceLabels[value]}</span>
                                 </label>
                             ))}
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Availability</legend>
+                            <legend>{copy("Availability", "Tình trạng chỗ")}</legend>
                             {[
                                 ["any", "Any"],
                                 ["available", "Available now"],
                                 ["prebookable", "Pre-bookable"],
-                            ].map(([value, label]) => (
+                            ].map(([value]) => (
                                 <label
                                     className="customer-search-filter-choice"
                                     key={value}
@@ -956,12 +956,12 @@ export function CustomerFindParkingPage({
                                             }))
                                         }
                                     />
-                                    <span>{label}</span>
+                                    <span>{value === "any" ? copy("Any", "Bất kỳ") : value === "available" ? copy("Available now", "Còn chỗ") : copy("Pre-bookable", "Có thể đặt trước")}</span>
                                 </label>
                             ))}
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Vehicle compatibility</legend>
+                            <legend>{copy("Vehicle compatibility", "Loại xe phù hợp")}</legend>
                             {Object.entries(compatibilityLabels).map(
                                 ([value, label]) => (
                                     <label
@@ -986,7 +986,7 @@ export function CustomerFindParkingPage({
                             )}
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Amenities</legend>
+                            <legend>{copy("Amenities", "Tiện ích")}</legend>
                             {Object.entries(amenityLabels).map(
                                 ([value, label]) => (
                                     <label
@@ -1013,16 +1013,14 @@ export function CustomerFindParkingPage({
                     </div>
                     <div className="customer-search-results-toolbar">
                         <span className="customer-search-preview-count">
-                            {visibleParkings.length} parking{" "}
-                            {visibleParkings.length === 1 ? "lot" : "lots"}{" "}
-                            found
+                            {visibleParkings.length} {copy(visibleParkings.length === 1 ? "parking lot found" : "parking lots found", "bãi đỗ được tìm thấy")}
                         </span>
                         <div className="customer-search-sort-control">
-                            <span>Sort by</span>
+                            <span>{copy("Sort by", "Sắp xếp")}</span>
                             <CustomerSearchDropdown
-                                label="Sort by"
+                                label={copy("Sort by", "Sắp xếp")}
                                 value={filters.sort}
-                                options={filterOptions.sort}
+                                options={filterOptions.sort.map((option) => ({ ...option, label: option.value === "recommended" ? copy("Best match", "Phù hợp nhất") : option.value === "name" ? copy("Name A–Z", "Tên A–Z") : option.value === "price" ? copy("Lowest price", "Giá thấp nhất") : copy("Nearest", "Gần nhất") }))}
                                 onChange={(sort) =>
                                     setFilters((current) => ({
                                         ...current,
@@ -1040,12 +1038,12 @@ export function CustomerFindParkingPage({
                             <CustomerIcon name="location" size={17} />
                             <span>
                                 {resultsState === "loading"
-                                    ? "Loading approved parking lots…"
+                                    ? copy("Loading approved parking lots…", "Đang tải bãi đỗ đã duyệt…")
                                     : resultsState === "error"
-                                      ? "Parking search is unavailable right now. Try again later."
+                                      ? copy("Parking search is unavailable right now. Try again later.", "Không thể tìm bãi đỗ lúc này. Vui lòng thử lại sau.")
                                       : searchOrigin
-                                        ? `Approved parking lots within ${radiusKm} km. Price and free spaces are on each lot's page.`
-                                        : "All approved parking lots. Search a destination to see the nearest ones."}
+                                        ? `${copy("Approved parking lots within", "Bãi đỗ đã duyệt trong phạm vi")} ${radiusKm} km. ${copy("Price and free spaces are on each lot's page.", "Xem giá và chỗ trống trong trang từng bãi.")}`
+                                        : copy("All approved parking lots. Search a destination to see the nearest ones.", "Tất cả bãi đỗ đã duyệt. Tìm điểm đến để xem bãi gần nhất.")}
                             </span>
                         </div>
                         <div className="customer-search-list">
@@ -1064,7 +1062,7 @@ export function CustomerFindParkingPage({
                                                     name="check"
                                                     size={15}
                                                 />{" "}
-                                                Selected on map
+                                                {copy("Selected on map", "Đã chọn trên bản đồ")}
                                             </strong>
                                         )}
                                     </div>
@@ -1072,7 +1070,7 @@ export function CustomerFindParkingPage({
                                         <div className="customer-search-result-photo">
                                             <Image
                                                 src="/images/parkwise/dashboard-parking-structure.webp"
-                                                alt="Illustration of a parking facility"
+                                                alt={copy("Illustration of a parking facility", "Minh họa bãi đỗ xe")}
                                                 fill
                                                 sizes="(max-width: 700px) 100vw, 200px"
                                             />
@@ -1092,7 +1090,7 @@ export function CustomerFindParkingPage({
                                                         name="location"
                                                         size={17}
                                                     />
-                                                    <small>Distance</small>
+                                                    <small>{copy("Distance", "Khoảng cách")}</small>
                                                     <b>
                                                         {parking.distanceKm ===
                                                         undefined
@@ -1111,7 +1109,7 @@ export function CustomerFindParkingPage({
                                                         )
                                                     }
                                                 >
-                                                    View on map{" "}
+                                                    {copy("View on map", "Xem trên bản đồ")}{" "}
                                                     <CustomerIcon
                                                         name="arrow"
                                                         size={15}
@@ -1121,7 +1119,7 @@ export function CustomerFindParkingPage({
                                                     href={`/parking-lots/${parking.id}`}
                                                     className="customer-shell-primary"
                                                 >
-                                                    View details
+                                                    {copy("View details", "Xem chi tiết")}
                                                     <CustomerIcon
                                                         name="arrow"
                                                         size={15}
@@ -1138,26 +1136,25 @@ export function CustomerFindParkingPage({
                                 <div className="customer-search-empty">
                                     <CustomerIcon name="search" size={28} />
                                     <strong>
-                                        No approved parking lots found
+                                        {copy("No approved parking lots found", "Không tìm thấy bãi đỗ đã duyệt")}
                                     </strong>
                                     <p>
-                                        Try another destination or a larger
-                                        distance.
+                                        {copy("Try another destination or a larger distance.", "Thử điểm đến khác hoặc tăng khoảng cách tìm kiếm.")}
                                     </p>
                                     <button
                                         type="button"
                                         className="customer-shell-secondary"
                                         onClick={clearFilters}
                                     >
-                                        Clear filters
+                                        {copy("Clear filters", "Xóa bộ lọc")}
                                     </button>
                                 </div>
                             )}
                     </div>
                     <div className="customer-search-map-column">
                         <div className="customer-search-map-header">
-                            <strong>Parking map</strong>
-                            <span>Ho Chi Minh City</span>
+                            <strong>{copy("Parking map", "Bản đồ bãi đỗ")}</strong>
+                            <span>{copy("Ho Chi Minh City", "Thành phố Hồ Chí Minh")}</span>
                         </div>
                         <CustomerMap
                             selectedId={activeSelectedId}
@@ -1169,10 +1166,10 @@ export function CustomerFindParkingPage({
                         <div className="customer-search-map-footer">
                             <span>
                                 <i className="customer-search-map-dot" />{" "}
-                                Approved parking lot
+                                {copy("Approved parking lot", "Bãi đỗ đã duyệt")}
                             </span>
                             <Link href="/customer/vehicles">
-                                Manage vehicles{" "}
+                                {copy("Manage vehicles", "Quản lý xe")}{" "}
                                 <CustomerIcon name="arrow" size={15} />
                             </Link>
                         </div>

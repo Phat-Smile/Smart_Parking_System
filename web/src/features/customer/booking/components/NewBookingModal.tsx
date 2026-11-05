@@ -1,6 +1,6 @@
 "use client";
 
-import { vi } from "../../i18n/vi";
+import { en } from "../../i18n/en";
 import { X, Calendar, Clock, Car, MapPin } from "lucide-react";
 import { useState } from "react";
 
@@ -34,18 +34,18 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                 </button>
 
                 <h2 className="text-xl font-bold text-white mb-6">
-                    {vi.bookingsPage.newBooking}
+                    {en.bookingsPage.newBooking}
                 </h2>
 
                 <div className="space-y-4">
                     {/* Bãi đỗ */}
                     <div>
                         <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
-                            <MapPin size={16} /> Nhập tên bãi đỗ hoặc địa chỉ
+                            <MapPin size={16} /> Enter a parking lot or address
                         </label>
                         <input
                             type="text"
-                            placeholder="VD: Vincom Center Đồng Khởi..."
+                            placeholder="e.g. Vincom Center Dong Khoi..."
                             className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors placeholder-[#8790a3]/50"
                         />
                     </div>
@@ -54,28 +54,28 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                     <div className="grid grid-cols-3 gap-4">
                         <div className="col-span-2">
                             <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
-                                <Car size={16} /> Nhập biển số xe
+                                <Car size={16} /> Enter license plate
                             </label>
                             <input
                                 type="text"
-                                placeholder="VD: 29A-12345"
+                                placeholder="e.g. 29A-12345"
                                 className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors placeholder-[#8790a3]/50 uppercase"
                             />
                         </div>
                         <div className="col-span-1">
                             <label className="block text-sm text-[#8790a3] mb-1.5">
-                                Loại xe
+                                Vehicle type
                             </label>
                             <select className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors">
                                 <option value="car" className="bg-[#0b0c17]">
-                                    Ô tô con
+                                    Car
                                 </option>
                                 <option
                                     value="motorcycle"
                                     className="bg-[#0b0c17]"
                                     disabled
                                 >
-                                    Xe máy
+                                    Motorbike
                                 </option>
                             </select>
                         </div>
@@ -86,7 +86,7 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                         <div>
                             <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
                                 <Calendar size={16} />{" "}
-                                {vi.bookingsPage.form.date}
+                                {en.bookingsPage.form.date}
                             </label>
                             <input
                                 type="date"
@@ -99,7 +99,7 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                         </div>
                         <div>
                             <label className="block text-sm text-[#8790a3] mb-1.5 flex items-center gap-2">
-                                <Clock size={16} /> {vi.bookingsPage.form.time}
+                                <Clock size={16} /> {en.bookingsPage.form.time}
                             </label>
                             <input
                                 type="time"
@@ -113,9 +113,9 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
 
                 <div className="mt-6 p-3 bg-[#6246ea]/10 border border-[#6246ea]/20 rounded-xl text-xs text-[#d5d8e3]">
                     <ul className="list-disc pl-4 space-y-1">
-                        <li>Đặt trước tối đa 7 ngày.</li>
-                        <li>Chỉ áp dụng cho ô tô con.</li>
-                        <li>Phí cọc giữ chỗ: 20.000đ (trừ vào ví).</li>
+                        <li>Book up to 7 days ahead.</li>
+                        <li>Available for cars only.</li>
+                        <li>Booking deposit: 20,000 VND (deducted from your wallet).</li>
                     </ul>
                 </div>
 
@@ -127,7 +127,7 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                         onClose();
                     }}
                 >
-                    {vi.bookingsPage.form.submit}
+                    {en.bookingsPage.form.submit}
                 </button>
             </div>
         </div>

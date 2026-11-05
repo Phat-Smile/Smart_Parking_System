@@ -25,6 +25,59 @@
     outline: 2px solid #1764e8;
     outline-offset: 3px;
 }
+.dashboard-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.dashboard-notification {
+    position: relative;
+}
+.dashboard-notification > button {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 1px solid #e1e8f0;
+    border-radius: 15px;
+    background: #fff;
+    color: #30456f;
+}
+.dashboard-notification > button:hover,
+.dashboard-notification > button[aria-expanded="true"] {
+    border-color: #b8ceeb;
+    background: #f5f9ff;
+}
+.dashboard-notification-panel {
+    position: absolute;
+    z-index: 130;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(300px, calc(100vw - 30px));
+    padding: 18px;
+    border: 1px solid #e1e8f0;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 16px 38px #263d5c24;
+    color: #17213e;
+}
+.dashboard-notification-panel strong {
+    font-size: 16px;
+    font-weight: 850;
+}
+.dashboard-notification-panel p {
+    margin-top: 7px;
+    color: #667794;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.dashboard-notification-panel a {
+    display: inline-flex;
+    margin-top: 12px;
+    color: #2e6240;
+    font-size: 13px;
+    font-weight: 750;
+}
 .customer-shell-container {
     width: min(calc(100% - 48px), 1300px);
     margin-inline: auto;
@@ -153,6 +206,8 @@
     right: 0;
     z-index: 120;
     width: min(220px, calc(100vw - 24px));
+    max-height: calc(100dvh - 90px);
+    overflow-y: auto;
     padding: 7px 15px 15px;
     border: 1px solid #e1e5eb;
     border-radius: 16px;

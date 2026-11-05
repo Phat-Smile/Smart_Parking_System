@@ -20,20 +20,20 @@ describe("BookingPassModal", () => {
         render(<BookingPassModal {...defaultProps} />);
 
         expect(
-            screen.getByText("Vé Đặt Chỗ (Booking Pass)"),
+            screen.getByText("Booking Pass"),
         ).toBeInTheDocument();
         expect(screen.getByText("BK-12345678")).toBeInTheDocument();
         expect(screen.getByText("ParkWise Central Tower")).toBeInTheDocument();
         expect(screen.getByText("51H-999.88")).toBeInTheDocument();
         expect(screen.getByText("50.000 đ")).toBeInTheDocument();
-        expect(screen.getByText(/Quét mã này tại Barrier/)).toBeInTheDocument();
+        expect(screen.getByText(/Scan this code at the gate/)).toBeInTheDocument();
     });
 
     it("calls onClose when clicking close button", () => {
         const onClose = vi.fn();
         render(<BookingPassModal {...defaultProps} onClose={onClose} />);
 
-        const closeBtns = screen.getAllByRole("button", { name: "Đóng" });
+        const closeBtns = screen.getAllByRole("button", { name: "Close" });
         fireEvent.click(closeBtns[0]);
         expect(onClose).toHaveBeenCalled();
     });

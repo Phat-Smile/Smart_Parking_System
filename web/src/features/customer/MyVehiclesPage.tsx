@@ -10,6 +10,8 @@ import {
 } from "react";
 import Image from "next/image";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
+import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
+import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerAccountMenu } from "./CustomerShell";
 import { VehicleDropdown } from "./VehicleDropdown";
@@ -57,6 +59,34 @@ type Vehicle = {
 };
 type VehicleCategory =
     "motorbike" | "electric-motorbike" | "bicycle" | "car" | "electric-car";
+const vehicleLabelsVi: Record<string, string> = {
+    Motorbike: "Xe máy",
+    "Electric motorbike": "Xe máy điện",
+    Bicycle: "Xe đạp",
+    Car: "Ô tô",
+    "Electric car": "Ô tô điện",
+    "Motorbike area": "Khu xe máy",
+    "Electric motorbike area": "Khu xe máy điện",
+    "Bicycle area": "Khu xe đạp",
+    "Bicycle area · photo required": "Khu xe đạp · cần ảnh",
+    "Car area": "Khu ô tô",
+    "Electric car area": "Khu ô tô điện",
+    "Two-wheelers": "Xe hai bánh",
+    "Motorbike or bicycle": "Xe máy hoặc xe đạp",
+    "Fuel or electric": "Xăng hoặc điện",
+    Nickname: "Tên gợi nhớ",
+    "Vehicle Brand": "Hãng xe",
+    "Vehicle Model": "Dòng xe",
+    "Motorbike Type": "Loại xe máy",
+    "Body Type": "Kiểu thân xe",
+    Seats: "Số ghế",
+    "Fuel type": "Loại nhiên liệu",
+    Color: "Màu sắc",
+    Year: "Năm sản xuất",
+};
+function vehicleLabelVi(label: string) {
+    return vehicleLabelsVi[label] ?? label;
+}
 const VEHICLE_CATEGORIES: {
     value: VehicleCategory;
     label: string;
@@ -398,11 +428,12 @@ function TwoWheelerTypeSelector({
     disabled: boolean;
     onChange: (kind: "motorbike" | "electric-motorbike" | "bicycle") => void;
 }) {
+    const { copy } = useCustomerLanguage();
     if (baseCategory(category) !== "motorbike") return null;
     const options = ["motorbike", "electric-motorbike", "bicycle"] as const;
     return (
         <fieldset className="vehicles-size-field vehicles-two-wheeler-field">
-            <legend>Two-wheeler type</legend>
+            <legend>{copy("Two-wheeler type", "Loại xe hai bánh")}</legend>
             <div className="vehicles-size-options">
                 {options.map((kind) => {
                     const info = categoryInfo(kind);
@@ -420,7 +451,7 @@ function TwoWheelerTypeSelector({
                             />
                             <span className="vehicles-size-indicator" />
                             <Icon name={info.icon} size={21} />
-                            <strong>{info.label}</strong>
+                            <strong>{copy(info.label, vehicleLabelVi(info.label))}</strong>
                         </label>
                     );
                 })}
@@ -438,11 +469,12 @@ function PowerSourceSelector({
     disabled: boolean;
     onChange: (electric: boolean) => void;
 }) {
+    const { copy } = useCustomerLanguage();
     if (!isCarCategory(category)) return null;
     const electric = category === "electric-car";
     return (
         <fieldset className="vehicles-size-field vehicles-power-field">
-            <legend>Power source</legend>
+            <legend>{copy("Power source", "Nguồn năng lượng")}</legend>
             <div className="vehicles-size-options">
                 {[
                     { value: false, label: "Fuel / hybrid", icon: "fuel" },
@@ -461,7 +493,7 @@ function PowerSourceSelector({
                         />
                         <span className="vehicles-size-indicator" />
                         <Icon name={option.icon} size={23} />
-                        <strong>{option.label}</strong>
+                        <strong>{copy(option.label, option.value ? "Điện" : "Xăng / hybrid")}</strong>
                     </label>
                 ))}
             </div>
@@ -470,6 +502,7 @@ function PowerSourceSelector({
 }
 
 export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
+    const { language, copy } = useCustomerLanguage();
     const session = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
@@ -802,40 +835,43 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                 className={`parkwise-page vehicles-page ${fontClassName}`}
                 aria-live="polite"
             >
-                Loading your vehicles…
+                {copy("Loading your vehicles…", "Đang tải danh sách xe…")}
             </main>
         );
     }
 
     return (
         <div
-            lang="en"
+            lang={language}
             className={`parkwise-page vehicles-page ${fontClassName}`}
         >
             <ParkWiseNavbar
                 variant="customer"
-                navigationMode="customer"
+                navigationMode="dashboard"
                 activeHref="/customer/vehicles"
                 accountControl={
-                    <CustomerAccountMenu activeHref="/customer/vehicles" />
+                    <div className="dashboard-header-actions">
+                        <CustomerLanguageSwitcher />
+                        <CustomerAccountMenu activeHref="/customer/vehicles" />
+                    </div>
                 }
             />
             <main className="vehicles-main">
                 <div className="vehicles-layout">
                     <div className="vehicles-primary-column">
                         <div className="vehicles-heading">
-                            <h1>My Vehicles</h1>
-                            <p>Manage the vehicles you use when parking.</p>
+                            <h1>{copy("My Vehicles", "Xe của tôi")}</h1>
+                            <p>{copy("Manage the vehicles you use when parking.", "Quản lý những xe bạn sử dụng khi đỗ xe.")}</p>
                         </div>
                         <section
                             className="vehicles-summary"
-                            aria-label="My vehicles"
+                            aria-label={copy("My vehicles", "Xe của tôi")}
                         >
                             <span className="vehicles-summary-icon">
                                 <Icon name="car" size={25} />
                             </span>
                             <div className="vehicles-summary-stats">
-                                <span>My vehicles</span>
+                                <span>{copy("My vehicles", "Xe của tôi")}</span>
                                 <strong>
                                     {vehicles.length} / {MAX_VEHICLES}
                                 </strong>
@@ -843,7 +879,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                             <div
                                 className="vehicles-progress"
                                 role="progressbar"
-                                aria-label="Vehicle slots used"
+                                aria-label={copy("Vehicle slots used", "Số xe đã thêm")}
                                 aria-valuenow={vehicles.length}
                                 aria-valuemin={0}
                                 aria-valuemax={MAX_VEHICLES}
@@ -860,7 +896,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 onClick={openAdd}
                                 disabled={vehicles.length >= MAX_VEHICLES}
                             >
-                                <Icon name="plus" /> Add Vehicle
+                                <Icon name="plus" /> {copy("Add Vehicle", "Thêm xe")}
                             </button>
                         </section>
                         {notice && (
@@ -892,11 +928,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                         }
                                                         size={16}
                                                     />
-                                                    {
-                                                        categoryInfo(
-                                                            vehicle.category,
-                                                        ).label
-                                                    }
+                                                    {copy(categoryInfo(vehicle.category).label, vehicleLabelVi(categoryInfo(vehicle.category).label))}
                                                 </span>
                                                 {isCarCategory(
                                                     vehicle.category,
@@ -904,7 +936,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                     vehicle.size ===
                                                         "large" && (
                                                         <span className="vehicles-badge large">
-                                                            Large
+                                                            {copy("Large", "Cỡ lớn")}
                                                         </span>
                                                     )}
                                                 {vehicle.isDefault && (
@@ -922,7 +954,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                 )}
                                                 {vehicle.draft && (
                                                     <span className="vehicles-badge draft">
-                                                        Local draft
+                                                        {copy("Local draft", "Bản nháp trên thiết bị")}
                                                     </span>
                                                 )}
                                             </div>
@@ -955,15 +987,15 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             <h2>
                                                 {vehicle.plate ||
                                                     vehicle.brand ||
-                                                    categoryInfo(
+                                                    copy(categoryInfo(
                                                         vehicle.category,
-                                                    ).label}
+                                                    ).label, vehicleLabelVi(categoryInfo(vehicle.category).label))}
                                             </h2>
                                             <p className="vehicles-card-subtitle">
                                                 {
-                                                    categoryInfo(
+                                                    copy(categoryInfo(
                                                         vehicle.category,
-                                                    ).description
+                                                    ).description, vehicleLabelVi(categoryInfo(vehicle.category).description))
                                                 }
                                             </p>
                                             {details.length > 0 && (
@@ -981,7 +1013,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             <span className="vehicles-card-detail-copy">
                                                                 <span>
                                                                     {
-                                                                        detail.label
+                                                                        copy(detail.label, vehicleLabelVi(detail.label))
                                                                     }
                                                                 </span>
                                                                 <strong>
@@ -1049,7 +1081,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                         name="edit"
                                                         size={16}
                                                     />{" "}
-                                                    Edit
+                                                    {copy("Edit", "Sửa")}
                                                 </button>
                                             )}
                                             <button
@@ -1061,7 +1093,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                 }}
                                             >
                                                 <Icon name="trash" size={17} />{" "}
-                                                Delete
+                                                {copy("Delete", "Xóa")}
                                             </button>
                                         </div>
                                     </article>
@@ -1078,17 +1110,17 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     </span>
                                     <strong>
                                         {vehicles.length === 0
-                                            ? "No vehicles added yet"
-                                            : "Add another vehicle"}
+                                            ? copy("No vehicles added yet", "Chưa thêm xe nào")
+                                            : copy("Add another vehicle", "Thêm xe khác")}
                                     </strong>
                                     <span>
-                                        Manage up to {MAX_VEHICLES} vehicles.
+                                        {copy(`Manage up to ${MAX_VEHICLES} vehicles.`, `Quản lý tối đa ${MAX_VEHICLES} xe.`)}
                                     </span>
                                     <span className="vehicles-outline-button">
                                         <Icon name="plus" size={17} />{" "}
                                         {vehicles.length === 0
-                                            ? "Add Your First Vehicle"
-                                            : "Add Vehicle"}
+                                            ? copy("Add Your First Vehicle", "Thêm xe đầu tiên")
+                                            : copy("Add Vehicle", "Thêm xe")}
                                     </span>
                                 </button>
                             )}
@@ -1096,41 +1128,39 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                     </div>
                     <aside
                         className="vehicles-aside"
-                        aria-label="Vehicle information"
+                        aria-label={copy("Vehicle information", "Thông tin về xe")}
                     >
                         <section className="vehicles-guidelines">
                             <div className="vehicles-aside-title">
                                 <span>
                                     <Icon name="book" />
                                 </span>
-                                <h2>Vehicle guidelines</h2>
+                                <h2>{copy("Vehicle guidelines", "Hướng dẫn về xe")}</h2>
                             </div>
                             <ul>
                                 <li>
                                     <span>
                                         <Icon name="car" size={19} />
                                     </span>
-                                    Manage up to 10 vehicles.
+                                    {copy("Manage up to 10 vehicles.", "Quản lý tối đa 10 xe.")}
                                 </li>
                                 <li>
                                     <span>
                                         <Icon name="document" size={18} />
                                     </span>
-                                    Choose the parking area that matches your
-                                    vehicle.
+                                    {copy("Choose the parking area that matches your vehicle.", "Chọn khu đỗ phù hợp với xe của bạn.")}
                                 </li>
                                 <li>
                                     <span>
                                         <Icon name="bolt" size={18} />
                                     </span>
-                                    A bicycle needs a photo for identification.
+                                    {copy("A bicycle needs a photo for identification.", "Xe đạp cần có ảnh để nhận diện.")}
                                 </li>
                                 <li>
                                     <span>
                                         <Icon name="info" size={18} />
                                     </span>
-                                    Government priority vehicles do not register
-                                    here.
+                                    {copy("Government priority vehicles do not register here.", "Xe ưu tiên theo quy định không đăng ký tại đây.")}
                                 </li>
                             </ul>
                         </section>
@@ -1140,9 +1170,9 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     <Icon name="headset" size={24} />
                                 </span>
                                 <div>
-                                    <h2>Need Help?</h2>
+                                    <h2>{copy("Need Help?", "Cần hỗ trợ?")}</h2>
                                     <p>
-                                        Our support team is here to assist you.
+                                        {copy("Our support team is here to assist you.", "Đội hỗ trợ sẵn sàng giúp bạn.")}
                                     </p>
                                 </div>
                             </div>
@@ -1155,13 +1185,13 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     )
                                 }
                             >
-                                Contact Support <Icon name="arrow" size={16} />
+                                {copy("Contact Support", "Liên hệ hỗ trợ")} <Icon name="arrow" size={16} />
                             </button>
                         </section>
                     </aside>
                 </div>
             </main>
-            <ParkWiseFooter />
+            <ParkWiseFooter language={language} />
             <dialog
                 ref={dialogRef}
                 className={
@@ -1186,10 +1216,9 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                         <span className="vehicles-delete-icon">
                             <Icon name="trash" size={26} />
                         </span>
-                        <h2 id="vehicles-dialog-title">Delete Vehicle?</h2>
+                        <h2 id="vehicles-dialog-title">{copy("Delete Vehicle?", "Xóa xe?")}</h2>
                         <p>
-                            Are you sure you want to remove this vehicle from
-                            your account?
+                            {copy("Are you sure you want to remove this vehicle from your account?", "Bạn có chắc muốn xóa xe này khỏi tài khoản không?")}
                         </p>
                         <strong className="vehicles-delete-plate">
                             <Icon
@@ -1214,14 +1243,14 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 className="vehicles-light-button"
                                 onClick={closeModal}
                             >
-                                Cancel
+                                {copy("Cancel", "Hủy")}
                             </button>
                             <button
                                 type="button"
                                 className="vehicles-delete-button"
                                 onClick={removeVehicle}
                             >
-                                Delete Vehicle
+                                {copy("Delete Vehicle", "Xóa xe")}
                             </button>
                         </div>
                     </div>
@@ -1237,12 +1266,11 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 <div>
                                     <h2 id="vehicles-dialog-title">
                                         {modal === "add"
-                                            ? "Add Vehicle"
-                                            : "Edit Vehicle"}
+                                            ? copy("Add Vehicle", "Thêm xe")
+                                            : copy("Edit Vehicle", "Sửa xe")}
                                     </h2>
                                     <p>
-                                        Choose the parking area that fits this
-                                        vehicle.
+                                        {copy("Choose the parking area that fits this vehicle.", "Chọn khu đỗ phù hợp với xe này.")}
                                     </p>
                                 </div>
                                 <button
@@ -1259,7 +1287,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 style={{ padding: 24 }}
                             >
                                 <fieldset className="vehicles-size-field vehicles-category-field">
-                                    <legend>Vehicle Type</legend>
+                                    <legend>{copy("Vehicle Type", "Loại xe")}</legend>
                                     <div className="vehicles-size-options">
                                         {VEHICLE_FORM_CATEGORIES.map((item) => (
                                             <label
@@ -1289,10 +1317,10 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                 />
                                                 <span>
                                                     <strong>
-                                                        {item.label}
+                                                        {copy(item.label, vehicleLabelVi(item.label))}
                                                     </strong>
                                                     <small>
-                                                        {item.description}
+                                                        {copy(item.description, vehicleLabelVi(item.description))}
                                                     </small>
                                                 </span>
                                             </label>
@@ -1312,7 +1340,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 {needsPlate(category) && (
                                     <div className="vehicles-field">
                                         <label htmlFor="vehicles-plate">
-                                            License Plate{" "}
+                                            {copy("License Plate", "Biển số xe")}{" "}
                                             <span aria-hidden="true">*</span>
                                         </label>
                                         <input
@@ -1346,13 +1374,13 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 {!backendSupports(category) && (
                                     <div className="vehicles-field">
                                         <label htmlFor="vehicles-photo">
-                                            Vehicle photo{" "}
+                                            {copy("Vehicle photo", "Ảnh xe")}{" "}
                                             {needsPhoto(category) ? (
                                                 <span aria-hidden="true">
                                                     *
                                                 </span>
                                             ) : (
-                                                <span>(Optional)</span>
+                                                <span>{copy("(Optional)", "(Không bắt buộc)")}</span>
                                             )}
                                         </label>
                                         <input
@@ -1388,7 +1416,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 )}
                                 <div className="vehicles-field">
                                     <label htmlFor="vehicles-nickname">
-                                        Nickname <span>(Optional)</span>
+                                        {copy("Nickname", "Tên gợi nhớ")} <span>{copy("(Optional)", "(Không bắt buộc)")}</span>
                                     </label>
                                     <input
                                         id="vehicles-nickname"
@@ -1397,7 +1425,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             setBrand(event.target.value)
                                         }
                                         maxLength={50}
-                                        placeholder="e.g. My daily car"
+                                        placeholder={copy("e.g. My daily car", "Ví dụ: Xe đi hằng ngày")}
                                     />
                                 </div>
                             </div>
@@ -1407,15 +1435,15 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     className="vehicles-light-button"
                                     onClick={closeModal}
                                 >
-                                    Cancel
+                                    {copy("Cancel", "Hủy")}
                                 </button>
                                 <button
                                     type="submit"
                                     className="vehicles-dark-button"
                                 >
                                     {modal === "add"
-                                        ? "Add Vehicle"
-                                        : "Save Changes"}{" "}
+                                        ? copy("Add Vehicle", "Thêm xe")
+                                        : copy("Save Changes", "Lưu thay đổi")}{" "}
                                     <Icon name="arrow" size={17} />
                                 </button>
                             </div>
@@ -1430,13 +1458,13 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 <div>
                                     <h2 id="vehicles-dialog-title">
                                         {modal === "add"
-                                            ? "Add Vehicle"
-                                            : "Edit Vehicle"}
+                                            ? copy("Add Vehicle", "Thêm xe")
+                                            : copy("Edit Vehicle", "Sửa xe")}
                                     </h2>
                                     <p>
                                         {modal === "add"
-                                            ? "Choose the parking area that fits this vehicle."
-                                            : "Update this vehicle's details."}
+                                            ? copy("Choose the parking area that fits this vehicle.", "Chọn khu đỗ phù hợp với xe này.")
+                                            : copy("Update this vehicle's details.", "Cập nhật thông tin xe này.")}
                                     </p>
                                 </div>
                                 <button
@@ -1483,7 +1511,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             />
                                         </span>
                                         <strong>
-                                            Upload Vehicle Photo{" "}
+                                            {copy("Upload Vehicle Photo", "Tải ảnh xe lên")}{" "}
                                             {needsPhoto(category) && (
                                                 <span aria-hidden="true">
                                                     *
@@ -1496,11 +1524,11 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         <span className="vehicles-photo-button">
                                             <Icon name="upload" size={19} />
                                             {photo
-                                                ? "Change Photo"
-                                                : "Choose Photo"}
+                                                ? copy("Change Photo", "Đổi ảnh")
+                                                : copy("Choose Photo", "Chọn ảnh")}
                                         </span>
                                         <span className="vehicles-upload-divider">
-                                            <span>or</span>
+                                            <span>{copy("or", "hoặc")}</span>
                                         </span>
                                         <span className="vehicles-upload-preview">
                                             {photo || needsPlate(category) ? (
@@ -1538,10 +1566,10 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         </span>
                                         <span className="vehicles-upload-caption">
                                             {photo
-                                                ? "Your vehicle photo is ready. Choose another photo to replace it."
+                                                ? copy("Your vehicle photo is ready. Choose another photo to replace it.", "Ảnh xe đã sẵn sàng. Chọn ảnh khác để thay thế.")
                                                 : category === "bicycle"
-                                                  ? "A photo is required to identify your bicycle."
-                                                  : "Add a photo to help you recognize your vehicle."}
+                                                  ? copy("A photo is required to identify your bicycle.", "Cần ảnh để nhận diện xe đạp của bạn.")
+                                                  : copy("Add a photo to help you recognize your vehicle.", "Thêm ảnh để dễ nhận ra xe của bạn.")}
                                         </span>
                                     </button>
                                     {photoError && (
@@ -1556,7 +1584,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                 <div className="vehicles-form-fields">
                                     <fieldset className="vehicles-size-field vehicles-category-field">
                                         <legend>
-                                            Vehicle Type{" "}
+                                            {copy("Vehicle Type", "Loại xe")}{" "}
                                             <span aria-hidden="true">*</span>
                                         </legend>
                                         <div className="vehicles-size-options">
@@ -1591,11 +1619,11 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                         />
                                                         <span>
                                                             <strong>
-                                                                {item.label}
+                                                                {copy(item.label, vehicleLabelVi(item.label))}
                                                             </strong>
                                                             <small>
                                                                 {
-                                                                    item.description
+                                                                    copy(item.description, vehicleLabelVi(item.description))
                                                                 }
                                                             </small>
                                                         </span>
@@ -1617,7 +1645,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     {needsPlate(category) && (
                                         <div className="vehicles-field">
                                             <label htmlFor="vehicles-plate">
-                                                License Plate{" "}
+                                                {copy("License Plate", "Biển số xe")}{" "}
                                                 <span aria-hidden="true">
                                                     *
                                                 </span>
@@ -1667,8 +1695,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             />
                                             {modal === "edit" && (
                                                 <small id="vehicles-plate-hint">
-                                                    The license plate cannot be
-                                                    edited.
+                                                    {copy("The license plate cannot be edited.", "Không thể sửa biển số xe.")}
                                                 </small>
                                             )}
                                             {error && (
@@ -1686,7 +1713,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         <div className="vehicles-field-grid">
                                             <div className="vehicles-field">
                                                 <label htmlFor="vehicles-brand">
-                                                    Vehicle Brand{" "}
+                                                    {copy("Vehicle Brand", "Hãng xe")}{" "}
                                                     <span aria-hidden="true">
                                                         *
                                                     </span>
@@ -1701,7 +1728,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             ? MOTORBIKE_BRAND_OPTIONS
                                                             : BRAND_OPTIONS
                                                     }
-                                                    placeholder="Select brand"
+                                                    placeholder={copy("Select brand", "Chọn hãng xe")}
                                                     onChange={(nextBrand) => {
                                                         setBrand(nextBrand);
                                                         setBrandError("");
@@ -1717,7 +1744,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             : undefined
                                                     }
                                                     searchable
-                                                    otherLabel="Other — enter a brand"
+                                                    otherLabel={copy("Other — enter a brand", "Khác — nhập hãng xe")}
                                                     leadingIcon={
                                                         <Icon
                                                             name={
@@ -1743,8 +1770,8 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             </div>
                                             <div className="vehicles-field">
                                                 <label htmlFor="vehicles-model">
-                                                    Vehicle Model{" "}
-                                                    <span>(Optional)</span>
+                                                    {copy("Vehicle Model", "Dòng xe")}{" "}
+                                                    <span>{copy("(Optional)", "(Không bắt buộc)")}</span>
                                                 </label>
                                                 <VehicleDropdown
                                                     id="vehicles-model"
@@ -1760,14 +1787,14 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                                   brand,
                                                               )
                                                     }
-                                                    placeholder="Select model"
+                                                    placeholder={copy("Select model", "Chọn dòng xe")}
                                                     onChange={setModel}
                                                     searchable
-                                                    otherLabel="Other — enter a model"
+                                                    otherLabel={copy("Other — enter a model", "Khác — nhập dòng xe")}
                                                     emptyMessage={
                                                         brand
-                                                            ? "No suggested models for this brand"
-                                                            : "Select a brand to see models"
+                                                            ? copy("No suggested models for this brand", "Chưa có dòng xe gợi ý cho hãng này")
+                                                            : copy("Select a brand to see models", "Chọn hãng để xem dòng xe")
                                                     }
                                                 />
                                             </div>
@@ -1776,9 +1803,9 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                     {isMotorbikeCategory(
                                                         category,
                                                     )
-                                                        ? "Motorbike Type"
-                                                        : "Body Type"}{" "}
-                                                    <span>(Optional)</span>
+                                                        ? copy("Motorbike Type", "Loại xe máy")
+                                                        : copy("Body Type", "Kiểu thân xe")}{" "}
+                                                    <span>{copy("(Optional)", "(Không bắt buộc)")}</span>
                                                 </label>
                                                 <VehicleDropdown
                                                     id="vehicles-type"
@@ -1790,7 +1817,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             ? MOTORBIKE_TYPE_OPTIONS
                                                             : VEHICLE_TYPE_OPTIONS
                                                     }
-                                                    placeholder="Select type"
+                                                    placeholder={copy("Select type", "Chọn loại xe")}
                                                     onChange={setVehicleType}
                                                     leadingIcon={
                                                         <Icon
@@ -1809,14 +1836,14 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             {isCarCategory(category) && (
                                                 <div className="vehicles-field">
                                                     <label htmlFor="vehicles-seats">
-                                                        Number of Seats{" "}
-                                                        <span>(Optional)</span>
+                                                        {copy("Number of Seats", "Số ghế")}{" "}
+                                                        <span>{copy("(Optional)", "(Không bắt buộc)")}</span>
                                                     </label>
                                                     <VehicleDropdown
                                                         id="vehicles-seats"
                                                         value={seats}
                                                         options={SEAT_OPTIONS}
-                                                        placeholder="Select seats"
+                                                        placeholder={copy("Select seats", "Chọn số ghế")}
                                                         onChange={setSeats}
                                                         leadingIcon={
                                                             <Icon
@@ -1832,7 +1859,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     {isCarCategory(category) && (
                                         <fieldset className="vehicles-size-field">
                                             <legend>
-                                                Parking Space Size{" "}
+                                                {copy("Parking Space Size", "Kích thước chỗ đỗ")}{" "}
                                                 <span aria-hidden="true">
                                                     *
                                                 </span>
@@ -1873,10 +1900,10 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                     />
                                                     <span>
                                                         <strong>
-                                                            Standard
+                                                            {copy("Standard", "Tiêu chuẩn")}
                                                         </strong>
                                                         <small>
-                                                            For most cars
+                                                            {copy("For most cars", "Phù hợp đa số ô tô")}
                                                         </small>
                                                     </span>
                                                 </label>
@@ -1904,10 +1931,9 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                         size={31}
                                                     />
                                                     <span>
-                                                        <strong>Large</strong>
+                                                        <strong>{copy("Large", "Cỡ lớn")}</strong>
                                                         <small>
-                                                            For larger vehicles
-                                                            (SUV, MPV, Pickup)
+                                                            {copy("For larger vehicles (SUV, MPV, Pickup)", "Cho xe lớn (SUV, MPV, bán tải)")}
                                                         </small>
                                                     </span>
                                                 </label>
@@ -1921,9 +1947,9 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                     "electric-motorbike" && (
                                                     <div className="vehicles-field">
                                                         <label htmlFor="vehicles-fuel">
-                                                            Fuel Type{" "}
+                                                            {copy("Fuel Type", "Loại nhiên liệu")}{" "}
                                                             <span>
-                                                                (Optional)
+                                                                {copy("(Optional)", "(Không bắt buộc)")}
                                                             </span>
                                                         </label>
                                                         <VehicleDropdown
@@ -1939,7 +1965,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                                     option.value !==
                                                                     "electric",
                                                             )}
-                                                            placeholder="Select fuel type"
+                                                            placeholder={copy("Select fuel type", "Chọn nhiên liệu")}
                                                             onChange={
                                                                 setFuelType
                                                             }
@@ -1954,14 +1980,14 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                 )}
                                             <div className="vehicles-field">
                                                 <label htmlFor="vehicles-color">
-                                                    Vehicle Color{" "}
-                                                    <span>(Optional)</span>
+                                                    {copy("Vehicle Color", "Màu xe")}{" "}
+                                                    <span>{copy("(Optional)", "(Không bắt buộc)")}</span>
                                                 </label>
                                                 <VehicleDropdown
                                                     id="vehicles-color"
                                                     value={color}
                                                     options={COLOR_OPTIONS}
-                                                    placeholder="Select color"
+                                                    placeholder={copy("Select color", "Chọn màu")}
                                                     onChange={setColor}
                                                     leadingIcon={
                                                         <span
@@ -1978,14 +2004,14 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             </div>
                                             <div className="vehicles-field">
                                                 <label htmlFor="vehicles-year">
-                                                    Manufacturing Year{" "}
-                                                    <span>(Optional)</span>
+                                                    {copy("Manufacturing Year", "Năm sản xuất")}{" "}
+                                                    <span>{copy("(Optional)", "(Không bắt buộc)")}</span>
                                                 </label>
                                                 <VehicleDropdown
                                                     id="vehicles-year"
                                                     value={manufacturingYear}
                                                     options={YEAR_OPTIONS}
-                                                    placeholder="Select year"
+                                                    placeholder={copy("Select year", "Chọn năm")}
                                                     onChange={
                                                         setManufacturingYear
                                                     }
@@ -2007,15 +2033,15 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     className="vehicles-light-button"
                                     onClick={closeModal}
                                 >
-                                    Cancel
+                                    {copy("Cancel", "Hủy")}
                                 </button>
                                 <button
                                     type="submit"
                                     className="vehicles-dark-button"
                                 >
                                     {modal === "add"
-                                        ? "Add Vehicle"
-                                        : "Save Changes"}
+                                        ? copy("Add Vehicle", "Thêm xe")
+                                        : copy("Save Changes", "Lưu thay đổi")}
                                     <Icon name="arrow" size={17} />
                                 </button>
                             </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import QRCode from "react-qr-code";
+import { useCustomerLanguage } from "./i18n/customerLanguage";
 import {
     getMyParkingSessions,
     getSessionLot,
@@ -61,10 +62,11 @@ function formatEntryTime(value: string) {
 
 function zoneText(session: MyParkingSession) {
     const parts = [session.floorName, session.zoneCode].filter(Boolean);
-    return parts.length > 0 ? parts.join(" · ") : "Chưa có khu";
+    return parts.length > 0 ? parts.join(" · ") : "Zone not assigned";
 }
 
 function SessionQr({ session }: { session: MyParkingSession }) {
+    const { copy } = useCustomerLanguage();
     return (
         <div
             data-testid={`session-qr-${session.sessionId}`}
@@ -82,7 +84,7 @@ function SessionQr({ session }: { session: MyParkingSession }) {
                 viewBox="0 0 116 116"
             />
             <small style={{ display: "block", textAlign: "center" }}>
-                QR phiên đỗ
+                {copy("Session QR", "Mã QR phiên đỗ")}
             </small>
         </div>
     );
@@ -95,27 +97,28 @@ function SessionDetails({
     session: MyParkingSession;
     lot: SessionLot | null;
 }) {
+    const { copy } = useCustomerLanguage();
     return (
         <div>
-            <h3 style={{ margin: "0 0 4px" }}>{lot?.name ?? "Bãi đỗ xe"}</h3>
+            <h3 style={{ margin: "0 0 4px" }}>{lot?.name ?? copy("Parking lot", "Bãi đỗ xe")}</h3>
             {lot?.address && <p style={{ margin: "0 0 8px" }}>{lot.address}</p>}
             <dl style={{ margin: 0, display: "grid", gap: 4 }}>
                 <div>
-                    <dt style={{ display: "inline" }}>Xe: </dt>
+                    <dt style={{ display: "inline" }}>{copy("Vehicle:", "Xe:")} </dt>
                     <dd style={{ display: "inline", margin: 0 }}>
                         {session.vehicleType} · {session.plateNumber}
                     </dd>
                 </div>
                 <div>
-                    <dt style={{ display: "inline" }}>Giờ vào: </dt>
+                    <dt style={{ display: "inline" }}>{copy("Entry time:", "Giờ vào:")} </dt>
                     <dd style={{ display: "inline", margin: 0 }}>
                         {formatEntryTime(session.entryTime)}
                     </dd>
                 </div>
                 <div>
-                    <dt style={{ display: "inline" }}>Khu: </dt>
+                    <dt style={{ display: "inline" }}>{copy("Zone:", "Khu vực:")} </dt>
                     <dd style={{ display: "inline", margin: 0 }}>
-                        {zoneText(session)}
+                        {zoneText(session) === "Zone not assigned" ? copy("Zone not assigned", "Chưa có khu vực") : zoneText(session)}
                     </dd>
                 </div>
             </dl>
@@ -123,20 +126,21 @@ function SessionDetails({
     );
 }
 
-const EMPTY_TEXT = "Bạn chưa có phiên đỗ nào đang mở.";
+const EMPTY_TEXT = "You have no active parking sessions.";
 const ERROR_TEXT =
-    "Không tải được phiên đỗ của bạn. Vui lòng thử lại sau ít phút.";
+    "Could not load your parking sessions. Please try again shortly.";
 
 /** Every open session of the customer, each with its session QR (D04.5). */
 export function CustomerSessionsList() {
+    const { copy } = useCustomerLanguage();
     const state = useMyParkingSessions();
 
-    if (state.kind === "loading") return <p>Đang tải phiên đỗ...</p>;
-    if (state.kind === "error") return <p role="alert">{ERROR_TEXT}</p>;
+    if (state.kind === "loading") return <p>{copy("Loading parking sessions...", "Đang tải phiên đỗ...")}</p>;
+    if (state.kind === "error") return <p role="alert">{copy(ERROR_TEXT, "Không thể tải phiên đỗ. Vui lòng thử lại sau.")}</p>;
     if (state.sessions.length === 0)
         return (
             <p>
-                {EMPTY_TEXT} <Link href="/search">Tìm bãi đỗ</Link>
+                {copy(EMPTY_TEXT, "Bạn chưa có phiên đỗ nào đang mở.")} <Link href="/search">{copy("Find parking", "Tìm bãi đỗ")}</Link>
             </p>
         );
 
@@ -168,15 +172,16 @@ export function CustomerSessionsList() {
 
 /** Dashboard card: the first open session, or a plain empty state. */
 export function ActiveSessionCard() {
+    const { copy } = useCustomerLanguage();
     const state = useMyParkingSessions();
 
-    if (state.kind === "loading") return <p>Đang tải phiên đỗ...</p>;
-    if (state.kind === "error") return <p role="alert">{ERROR_TEXT}</p>;
+    if (state.kind === "loading") return <p>{copy("Loading parking sessions...", "Đang tải phiên đỗ...")}</p>;
+    if (state.kind === "error") return <p role="alert">{copy(ERROR_TEXT, "Không thể tải phiên đỗ. Vui lòng thử lại sau.")}</p>;
     const [session] = state.sessions;
     if (!session)
         return (
             <p>
-                {EMPTY_TEXT} <Link href="/search">Tìm bãi đỗ</Link>
+                {copy(EMPTY_TEXT, "Bạn chưa có phiên đỗ nào đang mở.")} <Link href="/search">{copy("Find parking", "Tìm bãi đỗ")}</Link>
             </p>
         );
 
@@ -196,9 +201,17 @@ export function ActiveSessionCard() {
             <SessionQr session={session} />
             {state.sessions.length > 1 && (
                 <Link href="/customer/sessions">
-                    Xem tất cả {state.sessions.length} phiên
+                    {copy("View all", "Xem tất cả")} {state.sessions.length} {copy("sessions", "phiên đỗ")}
                 </Link>
             )}
         </div>
     );
+}
+
+export function CustomerSessionsIntro() {
+    const { copy } = useCustomerLanguage();
+    return <>
+        <h1>{copy("My Parking Sessions", "Phiên đỗ của tôi")}</h1>
+        <p>{copy("Show your session QR code to staff at the exit gate. This is not a payment code.", "Đưa mã QR phiên đỗ cho nhân viên ở cổng ra. Đây không phải mã thanh toán.")}</p>
+    </>;
 }

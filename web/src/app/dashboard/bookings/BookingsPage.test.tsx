@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import BookingsPage from "./page";
+import BookingsPage from "@/features/customer/booking/CustomerBookingsPage";
 import * as bookingApi from "../../../features/customer/booking/bookingApi";
 
 afterEach(() => {
@@ -84,8 +84,8 @@ describe("BookingsPage", () => {
 
         // 2 lượt đang có hiệu lực (Confirmed + TemporaryHold)
         expect(screen.getByText("2/3")).toBeInTheDocument();
-        expect(screen.getByText("Tất cả (3)")).toBeInTheDocument();
-        expect(screen.getByText("Đang có hiệu lực (2)")).toBeInTheDocument();
+        expect(screen.getByText("All (3)")).toBeInTheDocument();
+        expect(screen.getByText("Active (2)")).toBeInTheDocument();
     });
 
     it("filters reservations by tab correctly", async () => {
@@ -100,13 +100,13 @@ describe("BookingsPage", () => {
         });
 
         // Chuyển sang Tab "Đang có hiệu lực"
-        fireEvent.click(screen.getByText("Đang có hiệu lực (2)"));
+        fireEvent.click(screen.getByText("Active (2)"));
         expect(screen.getByText("51H-999.88")).toBeInTheDocument();
         expect(screen.getByText("30A-123.45")).toBeInTheDocument();
         expect(screen.queryByText("29A-888.88")).not.toBeInTheDocument();
 
         // Chuyển sang Tab "Đã hủy / Hết hạn"
-        fireEvent.click(screen.getByText("Đã hủy / Hết hạn"));
+        fireEvent.click(screen.getByText("Cancelled / Expired"));
         expect(screen.getByText("29A-888.88")).toBeInTheDocument();
         expect(screen.queryByText("51H-999.88")).not.toBeInTheDocument();
     });
@@ -132,24 +132,24 @@ describe("BookingsPage", () => {
 
         // Bấm nút Hủy đặt chỗ đầu tiên
         const cancelButtons = screen.getAllByRole("button", {
-            name: "Hủy đặt chỗ",
+            name: "Cancel booking",
         });
         fireEvent.click(cancelButtons[0]);
 
         // Modal xác nhận xuất hiện
-        expect(screen.getByText("Xác nhận hủy đặt chỗ")).toBeInTheDocument();
+        expect(screen.getByText("Confirm cancellation")).toBeInTheDocument();
         expect(screen.getAllByText(/50.000 đ/).length).toBeGreaterThan(0);
 
         // Bấm xác nhận hủy
         const confirmCancelBtn = screen.getByRole("button", {
-            name: "Xác nhận hủy & Hoàn cọc",
+            name: "Cancel and refund deposit",
         });
         fireEvent.click(confirmCancelBtn);
 
         await waitFor(() => {
             expect(cancelSpy).toHaveBeenCalledWith(
                 "11111111-2222-3333-4444-555555555555",
-                expect.objectContaining({ reason: "Thay đổi lịch trình" }),
+                expect.objectContaining({ reason: "Change of plans" }),
             );
         });
     });
@@ -165,11 +165,11 @@ describe("BookingsPage", () => {
             expect(screen.getByText("51H-999.88")).toBeInTheDocument();
         });
 
-        const viewQrBtn = screen.getByRole("button", { name: /Xem vé \/ QR/ });
+        const viewQrBtn = screen.getByRole("button", { name: /View pass \/ QR/ });
         fireEvent.click(viewQrBtn);
 
         expect(
-            screen.getByText("Vé Đặt Chỗ (Booking Pass)"),
+            screen.getByText("Booking Pass"),
         ).toBeInTheDocument();
         expect(
             screen.getAllByText("BK-11111111").length,
@@ -183,7 +183,7 @@ describe("BookingsPage", () => {
 
         await waitFor(() => {
             expect(
-                screen.getByText("Chưa có lượt đặt chỗ nào"),
+                screen.getByText("No bookings yet"),
             ).toBeInTheDocument();
         });
         expect(screen.getByText("0/3")).toBeInTheDocument();
