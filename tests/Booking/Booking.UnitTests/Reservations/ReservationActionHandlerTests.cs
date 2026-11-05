@@ -63,11 +63,16 @@ public sealed class ReservationActionHandlerTests
     public async Task ConfirmReservation_WhenValid_ConfirmsSuccessfullyAndGeneratesQrToken()
     {
         var userId = Guid.NewGuid();
-        var reservation = CreateTestReservation(Guid.NewGuid(), userId, tempHoldExpiresAt: _clock.UtcNow.AddMinutes(10));
+        var reservation = CreateTestReservation(
+            Guid.NewGuid(),
+            userId,
+            tempHoldExpiresAt: _clock.UtcNow.AddMinutes(10),
+            reservationType: ReservationType.HoldWhileDriving,
+            prepaidAmount: 0m);
         _repo.Add(reservation);
 
         var handler = new ConfirmReservationCommandHandler(_repo, _clock, NullLogger<ConfirmReservationCommandHandler>.Instance);
-        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 50000);
+        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 0m);
 
         var result = await handler.Handle(command, CancellationToken.None);
 
@@ -120,7 +125,9 @@ public sealed class ReservationActionHandlerTests
     private static Reservation CreateTestReservation(
         Guid reservationId,
         Guid userId,
-        DateTimeOffset? tempHoldExpiresAt = null)
+        DateTimeOffset? tempHoldExpiresAt = null,
+        ReservationType reservationType = ReservationType.HoldWhileDriving,
+        decimal prepaidAmount = 0m)
     {
         return Reservation.CreateTemporaryHold(
             reservationId,
@@ -129,11 +136,11 @@ public sealed class ReservationActionHandlerTests
             "51H-999.88",
             Guid.NewGuid(),
             VehicleGroup.Car,
-            ReservationType.Scheduled,
+            reservationType,
             DateTimeOffset.Parse("2026-10-30T14:30:00Z"),
-            50000,
+            prepaidAmount,
             DateTimeOffset.Parse("2026-10-30T10:00:00Z"),
-            durationMinutes: 120,
+            durationMinutes: reservationType == ReservationType.Scheduled ? 120 : null,
             tempHoldExpiresAt: tempHoldExpiresAt ?? DateTimeOffset.Parse("2026-10-30T10:15:00Z"));
     }
 

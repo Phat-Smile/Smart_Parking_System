@@ -53,7 +53,7 @@ public static class ReservationEndpoints
             var command = new CreateTemporaryHoldCommand(
                 reservationId,
                 userId,
-                request.VehicleId,
+                request.VehicleId ?? Guid.Empty,
                 request.PlateNumber,
                 request.LotId,
                 vehicleGroup,
@@ -66,15 +66,7 @@ public static class ReservationEndpoints
             var result = await sender.Send(command, cancellationToken);
             if (!result.IsSuccess)
             {
-                var statusCode = (result.Error == ReservationCapacityErrors.CapacityExceeded ||
-                                  result.Error == ReservationCapacityErrors.NoAvailableSlots)
-                    ? StatusCodes.Status409Conflict
-                    : (result.Error == ReservationCapacityErrors.CapacityInfoUnavailable ||
-                       result.Error == ReservationCapacityErrors.LockTimeout)
-                        ? StatusCodes.Status503ServiceUnavailable
-                        : StatusCodes.Status400BadRequest;
-
-                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+                return ReservationEndpointErrorMapper.ToProblem(httpContext, result.Error!);
             }
 
             var r = result.Value!;
@@ -98,7 +90,7 @@ public static class ReservationEndpoints
             return Results.Created($"/api/booking/reservations/{r.Id}", response);
         })
         .WithName("CreateReservationHold")
-        .WithSummary("Tạo yêu cầu giữ chỗ tạm thời 15 phút (US-RES-005)")
+        .WithSummary("Tạo yêu cầu giữ chỗ tạm thời 10 phút (US-RES-005). VehicleId và VehicleGroup từ client bị bỏ qua và được xác minh từ Identity.")
         .Produces<ReservationHoldResponse>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -124,19 +116,13 @@ public static class ReservationEndpoints
 
             if (!result.IsSuccess)
             {
-                var statusCode = result.Error == ReservationErrors.NotFound
-                    ? StatusCodes.Status404NotFound
-                    : result.Error == ReservationErrors.AccessDenied
-                        ? StatusCodes.Status403Forbidden
-                        : StatusCodes.Status400BadRequest;
-
-                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+                return ReservationEndpointErrorMapper.ToProblem(httpContext, result.Error!);
             }
 
             return Results.Ok(result.Value);
         })
         .WithName("ConfirmReservation")
-        .WithSummary("Xác nhận đặt chỗ sau khi thanh toán cọc")
+        .WithSummary("Xác nhận đặt chỗ sau khi thanh toán cọc. DepositAmount bị bỏ qua, sẽ xóa khi có Payment.")
         .Produces<ConfirmedReservationDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -246,7 +232,7 @@ public sealed record CheckInReservationApiRequest(
 
 public sealed record CreateReservationHoldRequest(
     [Required] Guid LotId,
-    [Required] Guid VehicleId,
+    Guid? VehicleId,
     [Required] string PlateNumber,
     string? VehicleGroup,
     string? ReservationType,

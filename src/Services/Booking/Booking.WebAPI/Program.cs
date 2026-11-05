@@ -26,6 +26,7 @@ builder.Services.AddInfrastructure(builder.Configuration, bus =>
     bus.AddConsumer<SlotStatusChangedConsumer>();
 });
 builder.Services.AddParkingServiceClient(builder.Configuration);
+builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<BookingDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>

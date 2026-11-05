@@ -9,6 +9,7 @@ using ParkingSystem.Booking.Application;
 using ParkingSystem.Booking.Application.Parking;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.CreateTemporaryHold;
+using ParkingSystem.Booking.Application.Vehicles;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.Booking.Persistence;
 using ParkingSystem.BuildingBlocks.Results;
@@ -28,13 +29,23 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
         public DateTimeOffset UtcNow { get; set; } = BaseTime;
     }
 
+    private sealed class TestVehicleOwnershipClient : IVehicleOwnershipClient
+    {
+        public Task<Result<VehicleOwnershipInfo>> VerifyOwnershipAsync(string plateNumber, Guid userId, CancellationToken cancellationToken = default)
+        {
+            var canonical = LicensePlateNormalizer.Normalize(plateNumber);
+            return Task.FromResult(Result<VehicleOwnershipInfo>.Success(
+                new VehicleOwnershipInfo(userId, Guid.NewGuid(), canonical, SupportedVehicleType.Car, true)));
+        }
+    }
+
     private sealed class TestParkingLotCapacityProvider : IParkingLotCapacityProvider
     {
         private readonly ConcurrentDictionary<Guid, ParkingLotCapacityInfo> _lotCapacity = new();
 
         public void SetLotCapacity(Guid lotId, int validCapacity, int ratioPercent, int availableSlots)
         {
-            _lotCapacity[lotId] = new ParkingLotCapacityInfo(validCapacity, ratioPercent, availableSlots);
+            _lotCapacity[lotId] = new ParkingLotCapacityInfo(validCapacity, ratioPercent, availableSlots, ReservationEnabled: true, DepositAmount: 0m);
         }
 
         public Task<Result<ParkingLotCapacityInfo>> GetCapacityInfoAsync(Guid lotId, CancellationToken cancellationToken = default)
@@ -45,7 +56,7 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
             }
 
             // High default capacity (100 capacity, 100% ratio, 100 available) so lot capacity never blocks limit/overlap tests
-            return Task.FromResult(Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(100, 100, 100)));
+            return Task.FromResult(Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(100, 100, 100, ReservationEnabled: true, DepositAmount: 0m)));
         }
     }
 
@@ -73,6 +84,7 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
         var capacityProvider = new TestParkingLotCapacityProvider();
 
         services.AddSingleton<IClock>(testClock);
+        services.AddSingleton<IVehicleOwnershipClient>(new TestVehicleOwnershipClient());
         services.AddSingleton<IParkingLotCapacityProvider>(capacityProvider);
         services.AddSingleton(new BookingCapacityOptions
         {
@@ -1394,6 +1406,93 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
             var res4 = await mediator.Send(cmd4);
             Assert.False(res4.IsSuccess);
             Assert.Equal(ReservationCapacityErrors.UserActiveReservationsLimitExceeded.Code, res4.Error.Code);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    // =========================================================================
+    // FIX2-18: Gửi 51A-123.45 khi đã có đặt chỗ hiệu lực 51A12345 chồng khung -> xung đột biển số
+    // =========================================================================
+    [Fact]
+    [Trait("Requirement", "FIX2-18")]
+    public async Task FIX2_18_Incoming_formatted_plate_conflicts_with_existing_unformatted_plate()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            // 1. Existing reservation with unformatted plate "51A12345"
+            var cmd1 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51A12345",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res1 = await mediator.Send(cmd1);
+            Assert.True(res1.IsSuccess);
+
+            // 2. Incoming reservation with formatted plate "51A-123.45" overlapping window
+            var cmd2 = CreateCommand(
+                userId: Guid.NewGuid(),
+                plateNumber: "51A-123.45",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res2 = await mediator.Send(cmd2);
+            Assert.False(res2.IsSuccess);
+            Assert.Equal(ReservationCapacityErrors.PlateReservationOverlap.Code, res2.Error.Code);
+        }
+        finally
+        {
+            TestExecutionLock.Release();
+        }
+    }
+
+    // =========================================================================
+    // FIX2-19: Giữ chỗ thành công -> DB lưu biển số canonical và VehicleId từ Identity (khác VehicleId client gửi)
+    // =========================================================================
+    [Fact]
+    [Trait("Requirement", "FIX2-19")]
+    public async Task FIX2_19_Hold_success_persists_canonical_plate_and_identity_vehicle_id()
+    {
+        await TestExecutionLock.WaitAsync();
+        try
+        {
+            var (provider, _, _) = CreateTestEnvironment();
+            await EnsureMigratedAsync(provider);
+
+            await using var scope = provider.CreateAsyncScope();
+            var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
+
+            var clientSuppliedVehicleId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+
+            var cmd = CreateCommand(
+                userId: userId,
+                vehicleId: clientSuppliedVehicleId,
+                plateNumber: "51A-999.99",
+                appointmentTime: BaseTime.AddHours(2),
+                durationMinutes: 60);
+
+            var res = await mediator.Send(cmd);
+            Assert.True(res.IsSuccess);
+
+            await using (var verifyScope = provider.CreateAsyncScope())
+            {
+                var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var savedReservation = await dbContext.Reservations.AsNoTracking().SingleAsync(r => r.Id == res.Value.Id);
+
+                Assert.Equal("51A99999", savedReservation.PlateNumber);
+                Assert.NotEqual(clientSuppliedVehicleId, savedReservation.VehicleId);
+            }
         }
         finally
         {

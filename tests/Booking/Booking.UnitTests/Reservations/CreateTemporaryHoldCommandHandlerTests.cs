@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using ParkingSystem.Booking.Application.Parking;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.CreateTemporaryHold;
+using ParkingSystem.Booking.Application.Vehicles;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
@@ -13,6 +14,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 15, 10, 0, 0, TimeSpan.Zero);
 
+    private readonly FakeVehicleOwnershipClient _ownershipClient = new();
     private readonly FakeParkingLotCapacityProvider _capacityProvider = new();
     private readonly FakeReservationCapacityCoordinator _coordinator = new();
     private readonly FakeClock _clock = new(Now);
@@ -27,6 +29,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
     private CreateTemporaryHoldCommandHandler CreateHandler()
     {
         return new CreateTemporaryHoldCommandHandler(
+            _ownershipClient,
             _capacityProvider,
             _coordinator,
             _clock,
@@ -43,7 +46,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
         var callOrder = new List<string>();
 
         _capacityProvider.OnCall = () => callOrder.Add("CapacityProvider.GetCapacityInfoAsync");
-        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5));
+        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5, true, 0m));
 
         _coordinator.OnCall = () => callOrder.Add("Coordinator.CreateTemporaryHoldAtomicAsync");
         _coordinator.ResultToReturn = r => Result<Reservation>.Success(r);
@@ -78,7 +81,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
         // Future reservation: appointment at 12:00, lead 30m -> window starts at 11:30.
         // Now is 10:00 (now < windowStartAt).
         // Even if AvailableSlotCount = 0, condition (ii) is NOT evaluated yet (availableSlotCount parameter passed is null).
-        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 0));
+        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 0, true, 0m));
         _coordinator.ResultToReturn = r => Result<Reservation>.Success(r);
 
         var handler = CreateHandler();
@@ -108,7 +111,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
         // Window already started: appointment at 10:15, lead 30m -> window started at 09:45.
         // Now is 10:00 (now >= windowStartAt).
         // AvailableSlotCount = 3 -> Passed to coordinator!
-        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 3));
+        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 3, true, 0m));
         _coordinator.ResultToReturn = r => Result<Reservation>.Success(r);
 
         var handler = CreateHandler();
@@ -168,7 +171,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
     public async Task U8_When_port_returns_abnormal_data_returns_CapacityInfoUnavailable_and_never_calls_coordinator(
         int validCapacity, int ratio, int availableSlots)
     {
-        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(validCapacity, ratio, availableSlots));
+        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(validCapacity, ratio, availableSlots, true, 0m));
 
         var handler = CreateHandler();
         var command = new CreateTemporaryHoldCommand(
@@ -205,13 +208,14 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
         };
 
         var handler = new CreateTemporaryHoldCommandHandler(
+            _ownershipClient,
             _capacityProvider,
             _coordinator,
             _clock,
             NullLogger<CreateTemporaryHoldCommandHandler>.Instance,
             customOptions);
 
-        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5));
+        _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5, true, 0m));
         Reservation? capturedReservation = null;
 
         _coordinator.ResultToReturn = r =>
@@ -258,7 +262,7 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
     private sealed class FakeParkingLotCapacityProvider : IParkingLotCapacityProvider
     {
         public Action? OnCall { get; set; }
-        public Result<ParkingLotCapacityInfo> ResultToReturn { get; set; } = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5));
+        public Result<ParkingLotCapacityInfo> ResultToReturn { get; set; } = Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5, true, 0m));
 
         public Task<Result<ParkingLotCapacityInfo>> GetCapacityInfoAsync(Guid lotId, CancellationToken cancellationToken = default)
         {
@@ -292,6 +296,36 @@ public sealed class CreateTemporaryHoldCommandHandlerTests
             LastMaxActiveReservationsPerUser = maxActiveReservationsPerUser;
             OnCall?.Invoke();
             return Task.FromResult(ResultToReturn(reservation));
+        }
+    }
+
+    private sealed class FakeVehicleOwnershipClient : IVehicleOwnershipClient
+    {
+        public Func<string, Guid, CancellationToken, Task<Result<VehicleOwnershipInfo>>>? OnVerify { get; set; }
+        public Action? OnCall { get; set; }
+
+        public Task<Result<VehicleOwnershipInfo>> VerifyOwnershipAsync(
+            string rawOrCanonicalPlate,
+            Guid expectedUserId,
+            CancellationToken cancellationToken = default)
+        {
+            OnCall?.Invoke();
+            if (OnVerify is not null)
+            {
+                return OnVerify(rawOrCanonicalPlate, expectedUserId, cancellationToken);
+            }
+
+            var canonical = VietnameseLicensePlateValidator.TryNormalizeAndValidate(rawOrCanonicalPlate, out var norm)
+                ? norm
+                : "51A12345";
+
+            return Task.FromResult(Result<VehicleOwnershipInfo>.Success(
+                new VehicleOwnershipInfo(
+                    expectedUserId,
+                    Guid.NewGuid(),
+                    canonical,
+                    SupportedVehicleType.Car,
+                    true)));
         }
     }
 }

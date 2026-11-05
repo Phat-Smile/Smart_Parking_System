@@ -21,4 +21,7 @@ public static class ReservationErrors
 
     public static readonly Error CannotCancel =
         new("booking.reservation.cannot_cancel", "The reservation cannot be cancelled in its current state.");
+
+    public static readonly Error PaymentNotAvailable =
+        new("booking.reservation.payment_not_available", "Chưa thể xác nhận đặt chỗ vì chức năng thanh toán tiền cọc chưa sẵn sàng. Bạn chưa bị tính phí và giữ chỗ tạm sẽ tự hết hạn.");
 }

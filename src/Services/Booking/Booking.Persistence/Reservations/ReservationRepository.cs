@@ -34,7 +34,7 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
         DateTimeOffset arrivalTime,
         CancellationToken cancellationToken)
     {
-        var normalizedPlate = plateNumber.Trim().ToUpperInvariant();
+        var normalizedPlate = LicensePlateNormalizer.Normalize(plateNumber);
         var utcArrival = arrivalTime.ToUniversalTime();
 
         var candidates = await dbContext.Reservations

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.Booking.Persistence;
 using ParkingSystem.Testing;
@@ -450,6 +451,56 @@ public sealed class ReservationPersistenceIntegrationTests(PostgreSqlContainerFi
             Assert.Null(loaded.UsedAt);
             Assert.Null(loaded.CancelledAt);
             Assert.Null(loaded.TempHoldExpiresAt);
+        }
+    }
+
+    [Theory]
+    [InlineData("51A-123.45")]
+    [InlineData("51a 123.45")]
+    [InlineData("51A12345")]
+    [Trait("Requirement", "N1")]
+    public async Task FindActiveConfirmedByLotAndPlateAsync_Matches_Unnormalized_Plates_Against_Canonical_Storage(string inputPlate)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var provider = CreateProvider();
+        await using (var migrateScope = provider.CreateAsyncScope())
+        {
+            var dbContext = migrateScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            await dbContext.Database.MigrateAsync(cancellationToken);
+        }
+
+        var lotId = Guid.NewGuid();
+        var apptTime = Now.AddHours(1);
+        const string canonicalPlate = "51A12345";
+
+        var reservation = Reservation.CreateTemporaryHold(
+            id: Guid.NewGuid(),
+            userId: Guid.NewGuid(),
+            vehicleId: Guid.NewGuid(),
+            plateNumber: canonicalPlate,
+            lotId: lotId,
+            vehicleGroup: VehicleGroup.Car,
+            reservationType: ReservationType.Scheduled,
+            appointmentTime: apptTime,
+            prepaidAmount: 20000m,
+            createdAt: Now);
+        reservation.Confirm(Now);
+
+        await using (var seedScope = provider.CreateAsyncScope())
+        {
+            var repo = seedScope.ServiceProvider.GetRequiredService<IReservationRepository>();
+            repo.Add(reservation);
+            await repo.SaveChangesAsync(cancellationToken);
+        }
+
+        await using (var queryScope = provider.CreateAsyncScope())
+        {
+            var repo = queryScope.ServiceProvider.GetRequiredService<IReservationRepository>();
+            var found = await repo.FindActiveConfirmedByLotAndPlateAsync(lotId, inputPlate, apptTime, cancellationToken);
+
+            Assert.NotNull(found);
+            Assert.Equal(reservation.Id, found.Id);
+            Assert.Equal(canonicalPlate, found.PlateNumber);
         }
     }
 }
