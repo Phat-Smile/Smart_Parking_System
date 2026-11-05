@@ -16,6 +16,7 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.Common.Interfaces;
@@ -177,6 +178,7 @@ public sealed class ParkingLotScopeHttpTests
         builder.WebHost.UseTestServer();
         builder.AddParkingSystemWebFoundation();
         builder.Services.AddApplicationServices();
+        builder.Services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
         builder.Services.AddParkingAuthorization();
         builder.Services.AddAuthentication(HeaderRoleAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderRoleAuthenticationHandler>(HeaderRoleAuthenticationHandler.SchemeName, null);

@@ -107,6 +107,7 @@ public sealed class AdminParkingLotReviewQueryTests
         public int ReadCount { get; private set; }
         public int OwnerCheckCount { get; private set; }
         public Task<bool> LotExistsAsync(Guid id, CancellationToken ct) => Task.FromResult(id == knownLot);
+        public Task<bool> IsApprovedAsync(Guid id, CancellationToken ct) => Task.FromResult(id == knownLot);
         public Task<bool> IsOwnerAsync(Guid id, Guid actor, CancellationToken ct)
         {
             OwnerCheckCount++;

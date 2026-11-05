@@ -98,6 +98,7 @@ app.MapDepositPolicyEndpoints();
 app.MapReservationRatioPolicyEndpoints();
 app.MapReservationAvailabilityPolicyEndpoints();
 app.MapParkingLayoutOwnerEndpoints();
+app.MapParkingLayoutReadEndpoints();
 app.MapSlotSensorEndpoints();
 app.MapHub<ParkingHub>("/hubs/parking");
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
