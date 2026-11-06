@@ -63,6 +63,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<ICustomerLotFeaturesReader, CustomerLotFeaturesReader>();
         services.AddScoped<ICustomerLotMetricsReader, CustomerLotMetricsReader>();
         services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
+        services.AddScoped<ParkingSystem.Parking.Application.ParkingLots.Availability.IArrivalSnapshotReader, ArrivalSnapshotReader>();
         services.AddScoped<IRegisterParkingLotRepository, RegisterParkingLotRepository>();
 
         services.AddScoped<ParkingLotAssignmentRepository>();

@@ -44,6 +44,7 @@ var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemServiceSecurity();
 app.MapReservationEndpoints();
+app.MapArrivalHeldQuotaEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

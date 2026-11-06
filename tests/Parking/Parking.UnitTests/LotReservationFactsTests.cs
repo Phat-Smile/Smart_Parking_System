@@ -243,6 +243,11 @@ public sealed class LotReservationFactsTests
                 .Where(p => p.LotId == lotId && p.VehicleType == vehicleType)
                 .OrderByDescending(p => p.Version)
                 .FirstOrDefault());
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            Task.FromResult(policies
+                .Where(p => p.LotId == lotId && p.VehicleType == vehicleType && p.EffectiveFromUtc <= at.UtcDateTime)
+                .OrderByDescending(p => p.Version)
+                .FirstOrDefault());
         public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<bool> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
     }
