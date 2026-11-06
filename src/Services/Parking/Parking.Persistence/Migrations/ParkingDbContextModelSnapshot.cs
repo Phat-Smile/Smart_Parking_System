@@ -401,6 +401,24 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("approval_status");
 
+                    b.Property<bool>("HasCctv")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("has_cctv");
+
+                    b.Property<bool>("HasEvCharging")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("has_ev_charging");
+
+                    b.Property<bool>("IsCovered")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_covered");
+
                     b.Property<decimal>("Latitude")
                         .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)")
@@ -428,6 +446,18 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("rejection_reason");
+
+                    b.Property<bool>("SupportsElectricVehicles")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("supports_electric_vehicles");
+
+                    b.Property<bool>("SupportsLargeVehicles")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("supports_large_vehicles");
 
                     b.Property<string>("Type")
                         .IsRequired()
