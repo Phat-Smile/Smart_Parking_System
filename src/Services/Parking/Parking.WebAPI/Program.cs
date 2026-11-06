@@ -18,6 +18,7 @@ using ParkingSystem.Parking.WebAPI.Hubs;
 using ParkingSystem.Parking.WebAPI.Realtime;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.Application.ParkingLots.DrivingTime;
 using ParkingSystem.Parking.WebAPI.Geocoding;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +46,7 @@ builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(clien
 builder.Services.AddSingleton<IMapboxGeoRouting>(_ => new MapboxGeoRoutingClient(
     new HttpClient { Timeout = TimeSpan.FromSeconds(6), MaxResponseContentBufferSize = 1024 * 1024 },
     builder.Configuration["Mapbox:AccessToken"] ?? string.Empty));
+builder.Services.AddScoped<ParkingDrivingTimeEstimator>();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddIdempotentConsumer<ParkingSessionPaidConsumer>("parking.session-paid.v1");
 builder.Services.AddInfrastructure(builder.Configuration, bus => bus.AddConsumer<ParkingSessionPaidConsumer>());
@@ -90,6 +92,7 @@ app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
 app.MapAdminParkingLotReviewEndpoints();
 app.MapParkingLotAddressSearchEndpoints();
+app.MapParkingDrivingTimeEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
 app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();

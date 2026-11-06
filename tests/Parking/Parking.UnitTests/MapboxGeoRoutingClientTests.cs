@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using ParkingSystem.Parking.Application.Common.Mapbox;
 using ParkingSystem.Parking.Infrastructure.Mapbox;
 using Xunit;
 
