@@ -34,7 +34,7 @@ public sealed class CreateTemporaryHoldOwnershipTests
     }
 
     private CreateTemporaryHoldCommandHandler CreateHandler() =>
-        new(_ownershipClient, _capacityProvider, _coordinator, _clock, _logger, _options);
+        new(_ownershipClient, _capacityProvider, _coordinator, _clock, _logger, new UnconfiguredParkingPricingProvider(), _options);
 
     private static CreateTemporaryHoldCommand CreateCommand(
         Guid? userId = null,

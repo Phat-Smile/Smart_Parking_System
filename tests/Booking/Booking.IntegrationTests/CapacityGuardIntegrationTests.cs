@@ -67,6 +67,18 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
         }
     }
 
+    private sealed class TestParkingPricingProvider : IParkingPricingProvider
+    {
+        public Task<Result<ParkingPricingInfo>> GetPricingInfoAsync(
+            Guid lotId,
+            VehicleGroup vehicleGroup,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<ParkingPricingInfo>.Success(
+                new ParkingPricingInfo(lotId, vehicleGroup, 20000m, "Block", 60, 0m, "VND")));
+        }
+    }
+
     private (ServiceProvider Provider, TestClock Clock, TestParkingLotCapacityProvider CapacityProvider) CreateTestEnvironment()
     {
         var builder = new NpgsqlConnectionStringBuilder(postgres.ConnectionString)
@@ -90,6 +102,7 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
         services.AddSingleton<IClock>(testClock);
         services.AddSingleton<IVehicleOwnershipClient>(new TestVehicleOwnershipClient());
         services.AddSingleton<IParkingLotCapacityProvider>(capacityProvider);
+        services.AddSingleton<IParkingPricingProvider>(new TestParkingPricingProvider());
         services.AddSingleton(new BookingCapacityOptions
         {
             LeadTimeMinutes = 30,

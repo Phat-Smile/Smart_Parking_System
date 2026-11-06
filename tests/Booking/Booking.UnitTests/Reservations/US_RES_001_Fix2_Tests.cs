@@ -37,7 +37,7 @@ public sealed class US_RES_001_Fix2_Tests
     }
 
     private CreateTemporaryHoldCommandHandler CreateHandler() =>
-        new(_ownershipClient, _capacityProvider, _coordinator, _clock, _logger, _options);
+        new(_ownershipClient, _capacityProvider, _coordinator, _clock, _logger, new UnconfiguredParkingPricingProvider(), _options);
 
     private static CreateTemporaryHoldCommand CreateCommand(
         Guid? userId = null,
@@ -262,7 +262,7 @@ public sealed class US_RES_001_Fix2_Tests
     // =========================================================================
     [Fact]
     [Trait("Requirement", "FIX2-10")]
-    public async Task FIX2_10_Scheduled_reservation_uses_client_PrepaidAmount()
+    public async Task FIX2_10_Scheduled_reservation_uses_authoritative_pricing_from_provider()
     {
         _capacityProvider.ResultToReturn = Result<ParkingLotCapacityInfo>.Success(
             new ParkingLotCapacityInfo(20, 50, 10, ReservationEnabled: true, DepositAmount: 30000m));
@@ -274,7 +274,15 @@ public sealed class US_RES_001_Fix2_Tests
             return Result<Reservation>.Success(r);
         };
 
-        var handler = CreateHandler();
+        var fakePricing = new FakeParkingPricingProvider
+        {
+            ResultToReturn = Result<ParkingPricingInfo>.Success(
+                new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "PerEntry", null, 0m))
+        };
+
+        var handler = new CreateTemporaryHoldCommandHandler(
+            _ownershipClient, _capacityProvider, _coordinator, _clock, _logger, fakePricing, _options);
+
         const decimal clientPrepaid = 15000m;
         var command = CreateCommand(resType: ReservationType.Scheduled, prepaidAmount: clientPrepaid, durationMinutes: 60);
 
@@ -282,9 +290,9 @@ public sealed class US_RES_001_Fix2_Tests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(createdReservation);
-        // Risk noted: Scheduled PrepaidAmount comes from client until Payment service is integrated
-        Assert.Equal(clientPrepaid, createdReservation.PrepaidAmount);
-        Assert.NotEqual(30000m, createdReservation.PrepaidAmount);
+        // BR-10.a: Scheduled PrepaidAmount comes from pricing provider (20,000 VND), client-supplied amount (15,000 VND) is ignored
+        Assert.Equal(20000m, createdReservation.PrepaidAmount);
+        Assert.NotEqual(clientPrepaid, createdReservation.PrepaidAmount);
     }
 
     // =========================================================================
@@ -522,6 +530,15 @@ public sealed class US_RES_001_Fix2_Tests
             OnCall?.Invoke();
             return Task.FromResult(ResultToReturn(reservation));
         }
+    }
+
+    private sealed class FakeParkingPricingProvider : IParkingPricingProvider
+    {
+        public Result<ParkingPricingInfo> ResultToReturn { get; set; } =
+            Result<ParkingPricingInfo>.Success(new ParkingPricingInfo(Guid.NewGuid(), VehicleGroup.Car, 20000m, "PerEntry", null, 0m));
+
+        public Task<Result<ParkingPricingInfo>> GetPricingInfoAsync(Guid lotId, VehicleGroup vehicleGroup, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ResultToReturn);
     }
 
     private sealed class FakeClock(DateTimeOffset utcNow) : IClock

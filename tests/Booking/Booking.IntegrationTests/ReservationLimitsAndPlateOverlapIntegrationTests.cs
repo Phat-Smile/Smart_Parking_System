@@ -39,6 +39,18 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
         }
     }
 
+    private sealed class TestParkingPricingProvider : IParkingPricingProvider
+    {
+        public Task<Result<ParkingPricingInfo>> GetPricingInfoAsync(
+            Guid lotId,
+            VehicleGroup vehicleGroup,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<ParkingPricingInfo>.Success(
+                new ParkingPricingInfo(lotId, vehicleGroup, 20000m, "Block", 60, 0m, "VND")));
+        }
+    }
+
     private sealed class TestParkingLotCapacityProvider : IParkingLotCapacityProvider
     {
         private readonly ConcurrentDictionary<Guid, ParkingLotCapacityInfo> _lotCapacity = new();
@@ -86,6 +98,7 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
         services.AddSingleton<IClock>(testClock);
         services.AddSingleton<IVehicleOwnershipClient>(new TestVehicleOwnershipClient());
         services.AddSingleton<IParkingLotCapacityProvider>(capacityProvider);
+        services.AddSingleton<IParkingPricingProvider>(new TestParkingPricingProvider());
         services.AddSingleton(new BookingCapacityOptions
         {
             LeadTimeMinutes = 30,
@@ -732,7 +745,7 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
             await using (var verifyScope = provider.CreateAsyncScope())
             {
                 var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
-                var plateCount = await dbContext.Reservations.CountAsync(r => r.PlateNumber == plate);
+                var plateCount = await dbContext.Reservations.CountAsync(r => r.PlateNumber == LicensePlateNormalizer.Normalize(plate));
                 Assert.Equal(1, plateCount);
             }
         }
@@ -780,7 +793,7 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
             await using (var verifyScope = provider.CreateAsyncScope())
             {
                 var dbContext = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
-                var count = await dbContext.Reservations.CountAsync(r => r.PlateNumber == plate);
+                var count = await dbContext.Reservations.CountAsync(r => r.PlateNumber == LicensePlateNormalizer.Normalize(plate));
                 Assert.Equal(3, count);
             }
         }
@@ -1414,7 +1427,7 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
     }
 
     // =========================================================================
-    // FIX2-18: Gửi 51A-123.45 khi đã có đặt chỗ hiệu lực 51A12345 chồng khung -> xung đột biển số
+    // FIX2-18: Gửi 51Z-123.45 khi đã có đặt chỗ hiệu lực 51Z12345 chồng khung -> xung đột biển số
     // =========================================================================
     [Fact]
     [Trait("Requirement", "FIX2-18")]
@@ -1429,20 +1442,20 @@ public sealed class ReservationLimitsAndPlateOverlapIntegrationTests(PostgreSqlC
             await using var scope = provider.CreateAsyncScope();
             var mediator = scope.ServiceProvider.GetRequiredService<MediatR.IMediator>();
 
-            // 1. Existing reservation with unformatted plate "51A12345"
+            // 1. Existing reservation with unformatted plate "51Z12345"
             var cmd1 = CreateCommand(
                 userId: Guid.NewGuid(),
-                plateNumber: "51A12345",
+                plateNumber: "51Z12345",
                 appointmentTime: BaseTime.AddHours(2),
                 durationMinutes: 60);
 
             var res1 = await mediator.Send(cmd1);
             Assert.True(res1.IsSuccess);
 
-            // 2. Incoming reservation with formatted plate "51A-123.45" overlapping window
+            // 2. Incoming reservation with formatted plate "51Z-123.45" overlapping window
             var cmd2 = CreateCommand(
                 userId: Guid.NewGuid(),
-                plateNumber: "51A-123.45",
+                plateNumber: "51Z-123.45",
                 appointmentTime: BaseTime.AddHours(2),
                 durationMinutes: 60);
 
