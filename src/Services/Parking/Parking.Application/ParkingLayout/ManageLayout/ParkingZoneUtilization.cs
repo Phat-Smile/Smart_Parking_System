@@ -64,3 +64,22 @@ public sealed class GetOwnerZoneUtilizationQueryHandler(IManageParkingLayoutRepo
         return Result<ParkingLotZoneUtilization>.Success(ParkingZoneUtilizationCalculator.Calculate(layout));
     }
 }
+
+// Public utilization follows the approved-lot visibility rule of the public layout endpoint.
+// Reuse that query so pending/rejected owner drafts never leak through the summary API.
+public sealed record GetPublicZoneUtilizationQuery(Guid LotId)
+    : IRequest<Result<ParkingLotZoneUtilization>>;
+
+public sealed class GetPublicZoneUtilizationQueryHandler(ISender sender)
+    : IRequestHandler<GetPublicZoneUtilizationQuery, Result<ParkingLotZoneUtilization>>
+{
+    public async Task<Result<ParkingLotZoneUtilization>> Handle(GetPublicZoneUtilizationQuery request, CancellationToken cancellationToken)
+    {
+        var publicLayout = await sender.Send(new GetPublicParkingLayoutQuery(request.LotId), cancellationToken);
+        if (publicLayout.IsFailure)
+            return Result<ParkingLotZoneUtilization>.Failure(publicLayout.Error!);
+
+        return Result<ParkingLotZoneUtilization>.Success(
+            ParkingZoneUtilizationCalculator.Calculate(publicLayout.Value!));
+    }
+}
