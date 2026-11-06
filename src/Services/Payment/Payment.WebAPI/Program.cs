@@ -7,6 +7,7 @@ using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Infrastructure;
 using ParkingSystem.Payment.Persistence;
 using ParkingSystem.Payment.WebAPI.Endpoints;
+using ParkingSystem.Payment.WebAPI.Grpc;
 using ParkingSystem.Payment.WebAPI.Security;
 using ParkingSystem.Payment.Application.Common.Options;
 
@@ -21,6 +22,7 @@ builder.Services.Configure<VnpayOptions>(builder.Configuration.GetSection(VnpayO
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddParkingSessionFeeClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<PaymentDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>
