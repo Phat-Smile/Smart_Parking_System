@@ -7,11 +7,12 @@ public sealed record GetVehiclesQuery(Guid AccountId) : IRequest<Result<GetVehic
 
 public sealed record VehicleItem(
     Guid VehicleId,
-    string LicensePlate,
+    string? LicensePlate,
     string VehicleType,
     string? NickName,
     DateTimeOffset CreatedAtUtc,
-    bool IsDefault);
+    bool IsDefault,
+    VehicleDetails? Details = null);
 
 public sealed record GetVehiclesResult(IReadOnlyList<VehicleItem> Vehicles);
 
@@ -28,7 +29,8 @@ public sealed class GetVehiclesQueryHandler(IVehicleRepository vehicles)
             v.VehicleType.ToString(),
             v.NickName,
             v.CreatedAtUtc,
-            v.IsDefault)).ToList();
+            v.IsDefault,
+            new VehicleDetails(v.Brand, v.Model, v.MotorbikeKind, v.Seats, v.FuelType, v.Color, v.ManufacturingYear, v.Size, v.PhotoUrl))).ToList();
 
         return Result<GetVehiclesResult>.Success(new GetVehiclesResult(items));
     }

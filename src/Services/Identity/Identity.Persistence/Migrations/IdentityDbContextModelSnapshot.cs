@@ -455,9 +455,24 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<string>("Brand")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("brand");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("color");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
+
+                    b.Property<string>("FuelType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("fuel_type");
 
                     b.Property<bool>("IsDefault")
                         .ValueGeneratedOnAdd()
@@ -466,15 +481,42 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnName("is_default");
 
                     b.Property<string>("LicensePlate")
-                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("license_plate");
+
+                    b.Property<int?>("ManufacturingYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("manufacturing_year");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("model");
+
+                    b.Property<string>("MotorbikeKind")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("motorbike_kind");
 
                     b.Property<string>("NickName")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("nick_name");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("photo_url");
+
+                    b.Property<int?>("Seats")
+                        .HasColumnType("integer")
+                        .HasColumnName("seats");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("size");
 
                     b.Property<int>("VehicleType")
                         .HasColumnType("integer")

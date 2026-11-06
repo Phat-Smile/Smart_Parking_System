@@ -11,21 +11,27 @@ namespace ParkingSystem.Identity.Application.Vehicles.AddVehicle;
 
 public sealed record AddVehicleCommand(
     Guid AccountId,
-    string LicensePlate,
+    string? LicensePlate,
     string VehicleType,
-    string? NickName) : IRequest<Result<AddedVehicleResult>>;
+    string? NickName,
+    VehicleDetails? Details = null) : IRequest<Result<AddedVehicleResult>>;
 
 public sealed record AddedVehicleResult(
     Guid VehicleId,
     Guid AccountId,
-    string LicensePlate,
+    string? LicensePlate,
     string VehicleType,
     string? NickName,
     DateTimeOffset CreatedAtUtc,
-    bool IsDefault);
+    bool IsDefault,
+    VehicleDetails? Details = null);
 
 public static class AddVehicleErrors
 {
+    public static readonly Error BicyclePhotoRequired =
+        new("identity.bicycle_photo_required", "Bicycle photo is required.");
+    public static readonly Error BicyclePlateNotAllowed =
+        new("identity.bicycle_plate_not_allowed", "A bicycle cannot have a license plate.");
     public static readonly Error AccountNotFound =
         new("identity.account_not_found", "Tài khoản không tồn tại.");
 
@@ -36,16 +42,22 @@ public static class AddVehicleErrors
         new("identity.invalid_license_plate", "Biển số xe không hợp lệ. Chỉ gồm chữ cái và chữ số (có thể có dấu - . hoặc khoảng trắng), dài 5 đến 12 ký tự.");
 
     public static readonly Error InvalidVehicleType =
-        new("identity.invalid_vehicle_type", "Loại phương tiện không hợp lệ. Giá trị hợp lệ: Car, Motorbike.");
+        new("identity.invalid_vehicle_type", "Loại phương tiện không hợp lệ. Giá trị hợp lệ: Car, Motorbike, Bicycle.");
 }
 
 public sealed class AddVehicleCommandValidator : AbstractValidator<AddVehicleCommand>
 {
     public AddVehicleCommandValidator()
     {
-        RuleFor(c => c.LicensePlate)
-            .NotEmpty().WithMessage("Biển số xe không được để trống.")
-            .MaximumLength(Vehicle.MaxLicensePlateLength).WithMessage($"Biển số xe không được vượt quá {Vehicle.MaxLicensePlateLength} ký tự.");
+        VehicleDetailsValidation.AddRules(this, c => c.Details);
+        RuleFor(c => c.LicensePlate).NotEmpty()
+            .When(c => !string.Equals(c.VehicleType, "Bicycle", StringComparison.OrdinalIgnoreCase));
+        RuleFor(c => c.LicensePlate).MaximumLength(Vehicle.MaxLicensePlateLength)
+            .When(c => c.LicensePlate is not null);
+        RuleFor(c => c.LicensePlate).Empty().When(c => string.Equals(c.VehicleType, "Bicycle", StringComparison.OrdinalIgnoreCase));
+        RuleFor(c => c.Details).Must(d => !string.IsNullOrWhiteSpace(d?.PhotoUrl))
+            .When(c => string.Equals(c.VehicleType, "Bicycle", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("A bicycle requires a photo URL.");
 
         RuleFor(c => c.VehicleType)
             .NotEmpty().WithMessage("Loại phương tiện không được để trống.");
@@ -77,15 +89,23 @@ public sealed class AddVehicleCommandHandler(
         if (typeName is null)
             return Result<AddedVehicleResult>.Failure(AddVehicleErrors.InvalidVehicleType);
         var vehicleType = Enum.Parse<VehicleDomainType>(typeName);
+        if (vehicleType == VehicleDomainType.Bicycle && !string.IsNullOrWhiteSpace(request.LicensePlate))
+            return Result<AddedVehicleResult>.Failure(AddVehicleErrors.BicyclePlateNotAllowed);
+        if (vehicleType == VehicleDomainType.Bicycle && !VehicleDetailsValidation.IsCustomerMediaUrl(request.Details?.PhotoUrl))
+            return Result<AddedVehicleResult>.Failure(AddVehicleErrors.BicyclePhotoRequired);
 
         // Same canonical form the plate lookup uses (no spaces, dashes or dots, upper case), so lookup and uniqueness agree.
-        var normalizedPlate = plateNormalizer.Normalize(request.LicensePlate);
-        if (normalizedPlate.Length is < MinPlateLength or > MaxPlateLength || !normalizedPlate.All(char.IsAsciiLetterOrDigit))
-            return Result<AddedVehicleResult>.Failure(AddVehicleErrors.InvalidLicensePlate);
-
-        var plateExists = await vehicles.PlateExistsAsync(normalizedPlate, cancellationToken);
-        if (plateExists)
-            return Result<AddedVehicleResult>.Failure(AddVehicleErrors.PlateAlreadyRegistered);
+        string? normalizedPlate = null;
+        if (vehicleType != VehicleDomainType.Bicycle)
+        {
+            if (string.IsNullOrWhiteSpace(request.LicensePlate))
+                return Result<AddedVehicleResult>.Failure(AddVehicleErrors.InvalidLicensePlate);
+            normalizedPlate = plateNormalizer.Normalize(request.LicensePlate!);
+            if (normalizedPlate.Length is < MinPlateLength or > MaxPlateLength || !normalizedPlate.All(char.IsAsciiLetterOrDigit))
+                return Result<AddedVehicleResult>.Failure(AddVehicleErrors.InvalidLicensePlate);
+            if (await vehicles.PlateExistsAsync(normalizedPlate, cancellationToken))
+                return Result<AddedVehicleResult>.Failure(AddVehicleErrors.PlateAlreadyRegistered);
+        }
 
         // US-VEH-003: Chiếc xe đầu tiên của tài khoản sẽ tự động được đặt làm xe mặc định.
         var existingVehicles = await vehicles.ListByAccountIdAsync(request.AccountId, cancellationToken);
@@ -100,6 +120,8 @@ public sealed class AddVehicleCommandHandler(
             request.NickName,
             isDefault: isFirstVehicle);
 
+        VehicleDetailsValidation.Apply(vehicle, request.NickName, request.Details);
+
         vehicles.Add(vehicle);
         if (await vehicles.SaveNewVehicleAsync(cancellationToken) == SaveVehicleResult.DuplicatePlateConflict)
             return Result<AddedVehicleResult>.Failure(AddVehicleErrors.PlateAlreadyRegistered);
@@ -111,6 +133,7 @@ public sealed class AddVehicleCommandHandler(
             vehicle.VehicleType.ToString(),
             vehicle.NickName,
             vehicle.CreatedAtUtc,
-            vehicle.IsDefault));
+            vehicle.IsDefault,
+            request.Details));
     }
 }

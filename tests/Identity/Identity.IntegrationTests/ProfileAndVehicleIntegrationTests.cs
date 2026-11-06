@@ -8,6 +8,8 @@ using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Application.Vehicles;
 using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
 using ParkingSystem.Identity.Application.Vehicles.GetVehicles;
+using ParkingSystem.Identity.Application.Vehicles.GetVehicle;
+using ParkingSystem.Identity.Application.Vehicles.UpdateVehicle;
 using ParkingSystem.Identity.Application.Vehicles.Lookup;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.Vehicles;
@@ -129,6 +131,47 @@ public sealed class ProfileAndVehicleIntegrationTests(PostgreSqlContainerFixture
         var list = await SendAsync(provider, new GetVehiclesQuery(mine));
 
         Assert.Equal([one, two], list.Value!.Vehicles.Select(v => v.LicensePlate).ToArray());
+    }
+
+    [Fact]
+    public async Task Customer_vehicle_details_round_trip_and_other_account_is_denied()
+    {
+        await using var provider = await BuildAsync();
+        var ownerId = await NewVerifiedAccountAsync(provider);
+        var otherId = await NewVerifiedAccountAsync(provider);
+        var plate = $"51E{Random.Shared.Next(10000, 99999)}";
+        var added = await SendAsync(provider, new AddVehicleCommand(ownerId, plate, "Car", "Family car"));
+        Assert.True(added.IsSuccess);
+        var details = new VehicleDetails("Toyota", "Vios", null, 5, "gasoline", "white", 2020, "standard", null);
+
+        var updated = await SendAsync(provider, new UpdateVehicleCommand(ownerId, added.Value!.VehicleId, "Daily car", details));
+        var loaded = await SendAsync(provider, new GetVehicleQuery(ownerId, added.Value.VehicleId));
+        var denied = await SendAsync(provider, new GetVehicleQuery(otherId, added.Value.VehicleId));
+
+        Assert.True(updated.IsSuccess);
+        Assert.Equal("Toyota", loaded.Value!.Details!.Brand);
+        Assert.Equal("Daily car", loaded.Value.NickName);
+        Assert.False(denied.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Customer_can_register_multiple_bicycles_without_plates()
+    {
+        await using var provider = await BuildAsync();
+        var accountId = await NewVerifiedAccountAsync(provider);
+        var photo1 = new VehicleDetails(null, null, null, null, null, "red", null, null,
+            $"/api/identity/accounts/me/media/{Guid.NewGuid()}");
+        var photo2 = new VehicleDetails(null, null, null, null, null, "blue", null, null,
+            $"/api/identity/accounts/me/media/{Guid.NewGuid()}");
+
+        var first = await SendAsync(provider, new AddVehicleCommand(accountId, null, "Bicycle", "Bike one", photo1));
+        var second = await SendAsync(provider, new AddVehicleCommand(accountId, null, "Bicycle", "Bike two", photo2));
+        var list = await SendAsync(provider, new GetVehiclesQuery(accountId));
+
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        Assert.True(second.IsSuccess, second.Error?.Message);
+        Assert.Null(first.Value!.LicensePlate);
+        Assert.Equal(2, list.Value!.Vehicles.Count(x => x.VehicleType == "Bicycle"));
     }
 
     [Fact]

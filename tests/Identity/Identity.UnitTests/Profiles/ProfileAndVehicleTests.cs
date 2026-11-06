@@ -5,6 +5,8 @@ using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Application.Vehicles;
 using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
 using ParkingSystem.Identity.Application.Vehicles.Lookup;
+using ParkingSystem.Identity.Application.Vehicles.GetVehicle;
+using ParkingSystem.Identity.Application.Vehicles.UpdateVehicle;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.Profiles;
 using ParkingSystem.Identity.Domain.Vehicles;
@@ -254,4 +256,60 @@ internal sealed class FakeVehicles : IVehicleRepository
         return Task.FromResult(SaveResult);
     }
     public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
+}
+
+public sealed class CustomerVehicleDetailsTests
+{
+    [Fact]
+    public void Bicycle_requires_photo_and_no_plate()
+    {
+        var validator = new AddVehicleCommandValidator();
+        var photo = new VehicleDetails(null, null, null, null, null, null, null, null,
+            $"/api/identity/accounts/me/media/{Guid.NewGuid()}");
+        Assert.True(validator.Validate(new AddVehicleCommand(Guid.NewGuid(), null, "Bicycle", null, photo)).IsValid);
+        Assert.False(validator.Validate(new AddVehicleCommand(Guid.NewGuid(), null, "Bicycle", null)).IsValid);
+        Assert.False(validator.Validate(new AddVehicleCommand(Guid.NewGuid(), "BIKE123", "Bicycle", null, photo)).IsValid);
+        var bicycle = Vehicle.Add(Guid.NewGuid(), Guid.NewGuid(), null, VehicleDomainType.Bicycle, DateTimeOffset.UtcNow);
+        Assert.Null(bicycle.LicensePlate);
+    }
+
+    [Fact]
+    public async Task Owner_can_update_and_read_vehicle_details()
+    {
+        var ownerId = Guid.NewGuid();
+        var vehicle = Vehicle.Add(Guid.NewGuid(), ownerId, "51A12345", VehicleDomainType.Car, DateTimeOffset.UtcNow);
+        var repo = new FakeVehicles();
+        repo.Add(vehicle);
+        var details = new VehicleDetails("Toyota", "Vios", null, 5, "gasoline", "white", 2020, "standard", null);
+
+        var updated = await new UpdateVehicleCommandHandler(repo).Handle(
+            new UpdateVehicleCommand(ownerId, vehicle.Id, "Family car", details), TestContext.Current.CancellationToken);
+        var read = await new GetVehicleQueryHandler(repo).Handle(
+            new GetVehicleQuery(ownerId, vehicle.Id), TestContext.Current.CancellationToken);
+
+        Assert.True(updated.IsSuccess);
+        Assert.True(read.IsSuccess);
+        Assert.Equal("Toyota", read.Value!.Details!.Brand);
+        Assert.Equal("Family car", vehicle.NickName);
+        Assert.Equal("51A12345", vehicle.LicensePlate);
+    }
+
+    [Fact]
+    public async Task Another_account_cannot_read_or_update_vehicle()
+    {
+        var vehicle = Vehicle.Add(Guid.NewGuid(), Guid.NewGuid(), "51A12345", VehicleDomainType.Car, DateTimeOffset.UtcNow);
+        var repo = new FakeVehicles();
+        repo.Add(vehicle);
+        var strangerId = Guid.NewGuid();
+        var details = new VehicleDetails("Stolen", null, null, null, null, null, null, null, null);
+
+        var updated = await new UpdateVehicleCommandHandler(repo).Handle(
+            new UpdateVehicleCommand(strangerId, vehicle.Id, null, details), TestContext.Current.CancellationToken);
+        var read = await new GetVehicleQueryHandler(repo).Handle(
+            new GetVehicleQuery(strangerId, vehicle.Id), TestContext.Current.CancellationToken);
+
+        Assert.False(updated.IsSuccess);
+        Assert.False(read.IsSuccess);
+        Assert.Null(vehicle.Brand);
+    }
 }
