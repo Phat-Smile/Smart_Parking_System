@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.ParkingLayout;
@@ -90,6 +91,9 @@ public sealed class ParkingAvailabilityGrpcTests
         public static async Task<GrpcHost> StartAsync(int availableSlots)
         {
             var builder = WebApplication.CreateBuilder();
+            // This gRPC contract host supplies only the readers used by the availability handler.
+            // Do not validate unrelated application handlers whose repositories are not registered here.
+            builder.Host.UseDefaultServiceProvider(options => options.ValidateOnBuild = false);
             builder.WebHost.UseTestServer();
             builder.Logging.ClearProviders();
             builder.Services.AddGrpc();

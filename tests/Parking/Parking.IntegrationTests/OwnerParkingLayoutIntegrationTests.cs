@@ -203,6 +203,71 @@ public sealed class OwnerParkingLayoutIntegrationTests(PostgreSqlContainerFixtur
         }
     }
 
+    [Fact]
+    public async Task Public_zone_utilization_hides_unapproved_lots_and_reflects_live_car_and_motorbike_counts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var provider = await CreateProviderAsync(ct);
+        var (lot, owner) = await CreateLotAndOwnerAsync(provider, ct);
+        var availableSlot = Guid.NewGuid();
+        var occupiedSlot = Guid.NewGuid();
+        var motorbikeZoneId = Guid.NewGuid();
+        var layout = new[] { new LayoutFloorInput(Guid.NewGuid(), "Ground", [
+            new LayoutZoneInput(Guid.NewGuid(), "CAR", "Car", 5, true, [
+                new LayoutSlotInput(availableSlot, "CAR-1", null, new GridPoint(0, 0)),
+                new LayoutSlotInput(occupiedSlot, "CAR-2", null, new GridPoint(1, 0))
+            ]),
+            new LayoutZoneInput(motorbikeZoneId, "MOTO", "Motorbike", 8, false,
+                [], new GridBounds(0, 2, 6, 4))
+        ]) };
+        Assert.True((await SaveAsync(provider, lot, owner, 0, layout, ct)).IsSuccess);
+
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Before approval, neither the draft geometry nor its utilization are public.
+        Assert.Equal(ParkingLayoutErrors.LotNotFound,
+            (await sender.Send(new GetPublicZoneUtilizationQuery(lot), ct)).Error);
+        Assert.Equal(ParkingLayoutErrors.LotNotFound,
+            (await sender.Send(new GetPublicZoneUtilizationQuery(Guid.NewGuid()), ct)).Error);
+
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""UPDATE parking.parking_lots SET approval_status = 'Approved' WHERE id = {lot}""", ct);
+        var first = await sender.Send(new GetPublicZoneUtilizationQuery(lot), ct);
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        Assert.Equal(2, first.Value!.Zones.Count);
+        Assert.Equal(2, first.Value.Zones.Single(z => z.ZoneCode == "CAR").Available);
+        Assert.Equal(0, first.Value.Zones.Single(z => z.ZoneCode == "MOTO").InUse);
+
+        // Changes to the sensor and counter are reflected without changing geometry version.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""UPDATE parking.parking_slots SET sensor_state = 'Occupied', effective_status = 'Occupied', row_version = row_version + 1 WHERE id = {occupiedSlot}""", ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""UPDATE parking.zones SET current_vehicle_count = 3 WHERE id = {motorbikeZoneId}""", ct);
+
+        var updated = await sender.Send(new GetPublicZoneUtilizationQuery(lot), ct);
+        Assert.True(updated.IsSuccess, updated.Error?.Message);
+        Assert.Equal(first.Value.LayoutVersion, updated.Value!.LayoutVersion);
+        Assert.Equal(lot, updated.Value.LotId);
+        var car = updated.Value.Zones.Single(z => z.ZoneCode == "CAR");
+        Assert.Equal(1, car.Occupied);
+        Assert.Equal(1, car.InUse);
+        Assert.Equal(1, car.Available);
+        Assert.Equal(50, car.UtilizationPercent);
+        var motorbike = updated.Value.Zones.Single(z => z.ZoneCode == "MOTO");
+        Assert.Equal(8, motorbike.UsableCapacity);
+        Assert.Equal(3, motorbike.InUse);
+        Assert.Equal(5, motorbike.Available);
+        Assert.Equal(37.5, motorbike.UtilizationPercent);
+
+        // Rejection after approval also removes the lot from the public summary.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""UPDATE parking.parking_lots SET approval_status = 'Rejected' WHERE id = {lot}""", ct);
+        Assert.Equal(ParkingLayoutErrors.LotNotFound,
+            (await sender.Send(new GetPublicZoneUtilizationQuery(lot), ct)).Error);
+    }
+
     private async Task<ServiceProvider> CreateProviderAsync(CancellationToken ct)
     {
         var services = new ServiceCollection();

@@ -27,6 +27,23 @@ internal static class ParkingLayoutReadEndpoints
         .Produces<ParkingLotLayout>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // US-MAP-004: public per-zone usage for customer 2D/3D map displays.
+        // The handler hides pending/rejected lots, matching the public layout endpoint.
+        app.MapGet("/api/parking/lots/{lotId:guid}/zone-utilization", async (
+            Guid lotId, HttpContext context, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var result = await sender.Send(new GetPublicZoneUtilizationQuery(lotId), cancellationToken);
+            if (result.IsFailure)
+                return BusinessProblem.Create(context, StatusCodes.Status404NotFound, result.Error!);
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(result.Value);
+        })
+        .AllowAnonymous()
+        .WithName("GetPublicZoneUtilization")
+        .WithSummary("Read current capacity and utilization per zone of an approved parking lot")
+        .Produces<ParkingLotZoneUtilization>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         app.MapGet("/api/parking/owner/lots/{lotId:guid}/zone-utilization", async (
             Guid lotId, ICurrentUser user, HttpContext context, ISender sender, CancellationToken cancellationToken) =>
         {

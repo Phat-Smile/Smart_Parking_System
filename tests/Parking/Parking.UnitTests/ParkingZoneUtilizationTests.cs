@@ -50,6 +50,38 @@ public sealed class ParkingZoneUtilizationTests
         Assert.Equal(0, usage.UtilizationPercent);
     }
 
+    [Fact]
+    public void Motorbike_count_is_clamped_to_declared_capacity_in_public_summary()
+    {
+        // Sensor glitches must not produce negative availability or a percentage above 100.
+        var layout = Layout(new LayoutZone(Guid.NewGuid(), "M", "Motorbike", 4, 9, false,
+            [], new GridBounds(0, 0, 3, 4), null));
+
+        var usage = Assert.Single(ParkingZoneUtilizationCalculator.Calculate(layout).Zones);
+
+        Assert.Equal(4, usage.InUse);
+        Assert.Equal(0, usage.Available);
+        Assert.Equal(100, usage.UtilizationPercent);
+    }
+
+    [Fact]
+    public void Car_zone_does_not_count_maintenance_or_unavailable_as_free_capacity()
+    {
+        var layout = Layout(new LayoutZone(Guid.NewGuid(), "A", "Car", 10, 0, true, [
+            Slot("Available"), Slot("Occupied"), Slot("Maintenance"), Slot("Unavailable"),
+            Slot("NeedsVerification"), Slot("Assigned")
+        ], null, null));
+
+        var usage = Assert.Single(ParkingZoneUtilizationCalculator.Calculate(layout).Zones);
+
+        Assert.Equal(4, usage.UsableCapacity);
+        Assert.Equal(3, usage.InUse);
+        Assert.Equal(1, usage.Available);
+        Assert.Equal(75, usage.UtilizationPercent);
+        Assert.Equal(1, usage.Maintenance);
+        Assert.Equal(1, usage.Unavailable);
+    }
+
     private static LayoutSlot Slot(string status) =>
         new(Guid.NewGuid(), Guid.NewGuid().ToString("N"), null, status, new GridPoint(0, 0));
 
