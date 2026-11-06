@@ -14,7 +14,7 @@ import {
     calculateParkingFee,
     DEFAULT_STAFF_LOT_ID,
     getAssignedLot,
-    listLotSessions,
+    listLotInsideSessions,
 } from "./staffApi";
 
 export interface GateActivity {
@@ -62,9 +62,7 @@ function refresh(): Promise<AssignedLotResponse | null> {
     refreshing ??= (async () => {
         try {
             const lot = await getAssignedLot();
-            const page = lot
-                ? await listLotSessions(lot.lotId, "Active", 1, 100)
-                : null;
+            const page = lot ? await listLotInsideSessions(lot.lotId) : null;
             assignedLotState = lot;
             sessionsState = page
                 ? page.items.map((item) => toStaffSession(item, lot!.lotId))
@@ -103,7 +101,7 @@ export const staffStore = {
             const lot = await getAssignedLot(preferredLotId);
             const targetLotId = lot?.lotId || DEFAULT_STAFF_LOT_ID;
             const page = targetLotId
-                ? await listLotSessions(targetLotId, "Active", 1, 100)
+                ? await listLotInsideSessions(targetLotId)
                 : null;
             assignedLotState = lot;
             sessionsState = page
@@ -206,7 +204,10 @@ export function useStaffData() {
         () => null,
     );
 
-    const activeSessions = sessions.filter((s) => s.status === "Active");
+    // Active and Paid are both vehicles still inside the lot (Paid = paid, not exited yet).
+    const activeSessions = sessions.filter(
+        (s) => s.status === "Active" || s.status === "Paid",
+    );
     const pendingIssues = issues.filter((i) => i.status === "Pending");
 
     const totalCap =

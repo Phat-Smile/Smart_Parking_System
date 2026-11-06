@@ -14,7 +14,7 @@ vi.mock("./staffApi", () => ({
         motorbikeCapacity: 60,
         availableCarSlots: null,
     }),
-    listLotSessions: vi.fn().mockResolvedValue({
+    listLotInsideSessions: vi.fn().mockResolvedValue({
         items: [
             {
                 sessionId: "30000000-0000-0000-0000-000000000001",
@@ -24,8 +24,16 @@ vi.mock("./staffApi", () => ({
                 entryTime: "2026-10-30T01:00:00Z",
                 slotCode: null,
             },
+            {
+                sessionId: "30000000-0000-0000-0000-000000000002",
+                plateNumber: "59B-67890",
+                vehicleType: "Motorbike",
+                status: "Paid",
+                entryTime: "2026-10-30T01:05:00Z",
+                slotCode: null,
+            },
         ],
-        totalCount: 1,
+        totalCount: 2,
         page: 1,
         pageSize: 100,
     }),
@@ -41,14 +49,16 @@ describe("useStaffData", () => {
         await waitFor(() =>
             expect(result.current.assignedLot?.lotId).toBe(LOT),
         );
-        expect(result.current.activeSessions).toHaveLength(1);
+        // Paid sessions are paid but the vehicle has not left, so they still count as inside.
+        expect(result.current.activeSessions).toHaveLength(2);
         expect(result.current.activeSessions[0].plateNumber).toBe("59A-12345");
+        expect(result.current.activeSessions[1].status).toBe("Paid");
         expect(result.current.issues).toEqual([]);
         expect(result.current.occupancy).toMatchObject({
             motorbikeAvailable: 58,
             totalCapacity: 60,
             carAvailable: null,
-            activeSessionsCount: 1,
+            activeSessionsCount: 2,
         });
     });
 });
