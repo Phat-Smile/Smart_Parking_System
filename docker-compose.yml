@@ -186,6 +186,7 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      DeviceAuth__SensorKey: ${SENSOR_DEVICE_KEY:-}
 
   booking-api:
     build:
