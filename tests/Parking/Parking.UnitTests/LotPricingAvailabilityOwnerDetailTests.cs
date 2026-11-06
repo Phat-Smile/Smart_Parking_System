@@ -194,6 +194,9 @@ public sealed class LotPricingAvailabilityOwnerDetailTests
 
     private sealed class FakePricing : IPricingPolicyRepository
     {
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         private readonly List<PricingPolicy> _policies = [];
 
         public FakePricing With(Guid lotId, string vehicleType, int version, decimal price)

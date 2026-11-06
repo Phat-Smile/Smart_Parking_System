@@ -142,6 +142,9 @@ public sealed class AdminParkingLotReviewQueryTests
 
     private sealed class PricingRepository : IPricingPolicyRepository
     {
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public PricingPolicy? Policy { get; set; }
         public string? LastVehicleType { get; private set; }
         public Task<PricingPolicy?> GetLatestAsync(Guid lotId, string vehicleType, CancellationToken ct)

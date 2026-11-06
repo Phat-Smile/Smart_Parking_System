@@ -304,6 +304,9 @@ public sealed class ParkingLotScopeHttpTests
 
     private sealed class UnusedPricingPolicyRepository : IPricingPolicyRepository
     {
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<PricingPolicy?> GetLatestAsync(Guid lotId, string vehicleType, CancellationToken cancellationToken) => Task.FromResult<PricingPolicy?>(null);
         public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<bool> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
