@@ -380,6 +380,30 @@ export async function listLotSessions(
     );
 }
 
+/**
+ * Vehicles still inside the lot: Active (not paid yet) and Paid (paid, not exited yet).
+ * The Parking list route takes one status, so two calls are merged; Completed and
+ * Cancelled are never requested.
+ */
+export async function listLotInsideSessions(
+    lotId: string,
+    pageSize: number = 100,
+): Promise<LotParkingSessionPageResponse> {
+    const [active, paid] = await Promise.all([
+        listLotSessions(lotId, "Active", 1, pageSize),
+        listLotSessions(lotId, "Paid", 1, pageSize),
+    ]);
+    const items = [...active.items, ...paid.items].sort((a, b) =>
+        b.entryTime.localeCompare(a.entryTime),
+    );
+    return {
+        items,
+        totalCount: active.totalCount + paid.totalCount,
+        page: 1,
+        pageSize,
+    };
+}
+
 export type { StaffLotItem } from "./types";
 
 export interface StaffProfile {
@@ -513,7 +537,7 @@ export async function getStaffAssignedLotsDetails(
                         `/api/parking/lots/${encodeURIComponent(lot.id)}/motorbike-availability`,
                         { method: "GET" },
                     ).catch(() => null),
-                    listLotSessions(lot.id, "Active", 1, 100).catch(() => null),
+                    listLotInsideSessions(lot.id).catch(() => null),
                 ]);
 
                 if (typeof motoRes?.availableSpaces === "number") {

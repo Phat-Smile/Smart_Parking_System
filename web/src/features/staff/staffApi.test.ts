@@ -7,6 +7,7 @@ import {
     describeStaffError,
     findSessionByQr,
     getAssignedLot,
+    listLotInsideSessions,
     openParkingSession,
 } from "./staffApi";
 
@@ -141,6 +142,49 @@ describe("staffApi integration", () => {
             expect(JSON.parse(init?.body as string)).toEqual({
                 reason: "Driver changed mind",
             });
+        });
+    });
+
+    describe("listLotInsideSessions", () => {
+        it("loads Active and Paid sessions and merges them, never Completed or Cancelled", async () => {
+            const row = (id: string, status: string) => ({
+                sessionId: id,
+                plateNumber: id,
+                vehicleType: "Motorbike",
+                status,
+                entryTime: "2026-10-30T01:00:00Z",
+                slotCode: null,
+            });
+            const page = (items: unknown[]) =>
+                new Response(
+                    JSON.stringify({
+                        items,
+                        totalCount: items.length,
+                        page: 1,
+                        pageSize: 100,
+                    }),
+                    {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    },
+                );
+            const fetchMock = vi
+                .fn()
+                .mockResolvedValueOnce(page([row("A", "Active")]))
+                .mockResolvedValueOnce(page([row("P", "Paid")]));
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await listLotInsideSessions("lot-1");
+
+            expect(result.items.map((i) => i.status)).toEqual([
+                "Active",
+                "Paid",
+            ]);
+            expect(result.totalCount).toBe(2);
+            const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+            expect(urls).toHaveLength(2);
+            expect(urls[0]).toContain("status=Active");
+            expect(urls[1]).toContain("status=Paid");
         });
     });
 

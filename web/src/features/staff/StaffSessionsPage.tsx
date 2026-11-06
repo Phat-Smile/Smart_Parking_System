@@ -186,6 +186,11 @@ export function StaffSessionsPage() {
                                     icon: "🟢",
                                 },
                                 {
+                                    key: "Paid",
+                                    label: "Đã thanh toán (Paid)",
+                                    icon: "🟡",
+                                },
+                                {
                                     key: "Completed",
                                     label: "Đã rời bãi (Completed)",
                                     icon: "⚪",
@@ -398,17 +403,24 @@ export function StaffSessionsPage() {
                                         </button>
                                     </td>
                                     <td className="text-right">
-                                        {s.status === "Active" ? (
+                                        {s.status === "Active" ||
+                                        s.status === "Paid" ? (
                                             <div className="staff-table-btn-group">
-                                                <button
-                                                    type="button"
-                                                    className="staff-btn staff-btn-danger staff-btn-sm"
-                                                    onClick={() =>
-                                                        setCancellingSession(s)
-                                                    }
-                                                >
-                                                    {t("sessionsCancelEntry")}
-                                                </button>
+                                                {s.status === "Active" && (
+                                                    <button
+                                                        type="button"
+                                                        className="staff-btn staff-btn-danger staff-btn-sm"
+                                                        onClick={() =>
+                                                            setCancellingSession(
+                                                                s,
+                                                            )
+                                                        }
+                                                    >
+                                                        {t(
+                                                            "sessionsCancelEntry",
+                                                        )}
+                                                    </button>
+                                                )}
                                                 <Link
                                                     href="/staff/exit"
                                                     className="staff-btn staff-btn-secondary staff-btn-sm"
