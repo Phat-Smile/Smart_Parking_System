@@ -11,6 +11,8 @@ using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Contracts.Events.Parking;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 
@@ -106,7 +108,8 @@ public sealed class OpenParkingSessionCommandHandler(
     IHeldQuotaProvider heldQuota,
     IZoneLabelReader zoneLabels,
     IBookingCheckInClient bookingClient,
-    IParkingRealtimeNotifier? realtimeNotifier = null) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
+    IParkingRealtimeNotifier? realtimeNotifier = null,
+    IOutboxWriter? outbox = null) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
     public async Task<Result<OpenedParkingSession>> Handle(OpenParkingSessionCommand request, CancellationToken cancellationToken)
     {
@@ -205,6 +208,9 @@ public sealed class OpenParkingSessionCommandHandler(
             space?.ZoneId ?? slot?.ZoneId,
             checkedInBooking?.ReservationId);
         sessions.Add(session);
+        if (session.UserId is { } customerId)
+            outbox?.Enqueue(new ParkingSessionOpenedIntegrationEvent(session.Id, customerId,
+                session.LotId, session.EntryTime), "parking.session-opened.v1", 1);
 
         // Two entry requests for the same plate at the same time: the unique index lets only one win.
         if (!await sessions.TrySaveChangesAsync(cancellationToken))

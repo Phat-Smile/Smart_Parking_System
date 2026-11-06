@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.SlotStatusChangedIntegrationEvent>("parking.slot-status-changed.v1", 1);
         services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.ParkingSessionClosedIntegrationEvent>("parking.session-closed.v1", 1);
+        services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.ParkingSessionOpenedIntegrationEvent>("parking.session-opened.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddScoped<ParkingSystem.Parking.Application.Common.Interfaces.IAuditWriter, ParkingSystem.Parking.Infrastructure.Auditing.AuditWriter>();
         services.AddHostedService<OutboxDispatcher>();

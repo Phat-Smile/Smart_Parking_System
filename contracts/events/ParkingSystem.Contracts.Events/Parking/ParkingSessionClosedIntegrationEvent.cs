@@ -10,4 +10,5 @@ public sealed record ParkingSessionClosedIntegrationEvent(
     string VehicleType,
     DateTimeOffset EntryTimeUtc,
     DateTimeOffset ExitTimeUtc,
-    DateTimeOffset CompletedAtUtc);
+    DateTimeOffset CompletedAtUtc,
+    Guid? UserId = null);
