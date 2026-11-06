@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using MediatR;
 using ParkingSystem.AspNetCore;
+using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 
@@ -81,11 +82,13 @@ internal static class SlotSensorEndpoints
 
                 return Results.Ok(result.Value);
             })
+            .RequireDeviceKey()
             .WithName("ProcessSlotSensorEvent")
             .WithSummary("Tiếp nhận sự kiện cảm biến IoT tại từng vị trí đỗ (US-MAP-005, BR-06.d)")
             .WithDescription("Khử trùng lặp theo event_id, lọc sự kiện đến trễ theo event_time, xử lý lệch đồng hồ và cập nhật trạng thái hiệu lực.")
             .Produces<ProcessedSensorEventResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;

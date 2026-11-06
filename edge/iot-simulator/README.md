@@ -33,7 +33,8 @@ Start with `docker compose up --build rabbitmq iot-simulator`, and observe
 `DEVICE_SIMULATION_ENABLED=false`. Never point it to a production lot.
 
 **Integration still missing:** The current Parking service has
-`POST /api/parking/slots/sensor-events` but does not subscribe to the MQTT
+`POST /api/parking/slots/sensor-events` (it requires the `X-Device-Key` header,
+set through `SENSOR_DEVICE_KEY`) but does not subscribe to the MQTT
 sensor topic. Parking has a staff HTTP gate-reading endpoint but no MQTT gate
 consumer either; the gate MQTT topic/schema must be confirmed when implementing
 that consumer. Publishing alone does **not** update the UI, slot state, or

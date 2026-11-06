@@ -23,6 +23,7 @@ using ParkingSystem.Parking.WebAPI.Geocoding;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
+builder.AddParkingSystemDeviceKey();
 builder.AddParkingSystemTelemetry("parking-api");
 builder.Services.AddParkingAuthorization();
 builder.Services.AddApplicationServices();
