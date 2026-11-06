@@ -80,6 +80,22 @@ public sealed class Incident
         };
     }
 
+    /// <summary>
+    /// US-PARK-005 (BR-04.e): no parking confirmation in time, so staff must check the slot. OccurredAt is when the car
+    /// was given the slot at the gate.
+    /// </summary>
+    public static Incident OpenParkConfirmTimeout(Guid id, Guid lotId, Guid? sessionId, Guid slotId, DateTimeOffset occurredAt) =>
+        new()
+        {
+            Id = id,
+            LotId = lotId,
+            IncidentType = IncidentType.ParkConfirmTimeout,
+            Status = IncidentStatus.Open,
+            SessionId = sessionId,
+            SlotId = slotId,
+            OccurredAt = occurredAt
+        };
+
     // Not in the team ERD yet (lead review of #151, 2026-10-31): the plate and vehicle type staff confirmed for a
     // LowConfidencePlate incident, kept in columns so the next steps (open the session, reconciliation) can read them.
     public string? ConfirmedPlate { get; private set; }

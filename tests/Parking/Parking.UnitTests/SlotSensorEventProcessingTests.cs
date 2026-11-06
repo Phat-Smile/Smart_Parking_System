@@ -391,6 +391,10 @@ public sealed class SlotSensorEventProcessingTests
 
     private sealed class FakeParkingRealtimeNotifier : IParkingRealtimeNotifier
     {
+        public Task NotifySlotNeedsVerificationAsync(
+            Guid lotId, Guid slotId, string slotCode, string stage, DateTimeOffset timestamp, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         public List<(Guid LotId, Guid SlotId, string SlotCode, string EffectiveStatus, string PreviousStatus, DateTimeOffset Timestamp)> SlotChanges { get; } = [];
         public List<(Guid LotId, int AvailableCarSlots, int AvailableMotorbikeSlots, DateTimeOffset Timestamp)> OccupancyChanges { get; } = [];
 

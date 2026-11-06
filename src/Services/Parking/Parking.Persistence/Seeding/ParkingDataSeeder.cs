@@ -203,7 +203,7 @@ public static class ParkingDataSeeder
                 else if (i is 2 or 3)
                     slot.UpdateSensorState(SensorState.Occupied);
                 else if (i == 5)
-                    slot.MarkNeedsVerification();
+                    slot.MarkNeedsVerification(now);
 
                 dbContext.ParkingSlots.Add(slot);
             }

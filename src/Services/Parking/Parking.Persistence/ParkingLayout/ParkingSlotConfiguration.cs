@@ -43,6 +43,9 @@ internal sealed class ParkingSlotConfiguration : IEntityTypeConfiguration<Parkin
             .HasColumnName("assigned_session_id");
         builder.Property(slot => slot.AssignedAt)
             .HasColumnName("assigned_at");
+        builder.Property(slot => slot.ManuallyParkedAt).HasColumnName("manually_parked_at");
+        builder.Property(slot => slot.NeedsVerificationSince).HasColumnName("needs_verification_since");
+        builder.Property(slot => slot.OwnerNotifiedAt).HasColumnName("owner_notified_at");
         builder.Property(slot => slot.EffectiveStatus)
             .HasColumnName("effective_status")
             .HasConversion<string>()

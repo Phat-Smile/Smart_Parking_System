@@ -30,6 +30,8 @@ public static class AuditActions
     public const string ParkingLotRejected = "parking_lot.rejected";
     public const string GateReadingConfirmed = "gate_reading.confirmed";
     public const string GateReadingAutoAccepted = "gate_reading.auto_accepted";
+    public const string SlotParkedConfirmed = "slot.parked_confirmed";
+    public const string SlotEmptyConfirmed = "slot.empty_confirmed";
     public const string ParkingLotOpeningHoursUpdated = "parking_lot.opening_hours_updated";
     public const string ParkingLayoutUpdated = "parking.layout.updated";
 }

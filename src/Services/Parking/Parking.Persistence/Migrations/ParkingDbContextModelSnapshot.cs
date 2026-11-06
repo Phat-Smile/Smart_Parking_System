@@ -289,10 +289,22 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("lot_id");
 
+                    b.Property<DateTimeOffset?>("ManuallyParkedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("manually_parked_at");
+
+                    b.Property<DateTimeOffset?>("NeedsVerificationSince")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("needs_verification_since");
+
                     b.Property<string>("OverrideState")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("override_state");
+
+                    b.Property<DateTimeOffset?>("OwnerNotifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("owner_notified_at");
 
                     b.Property<int>("RowVersion")
                         .IsConcurrencyToken()
