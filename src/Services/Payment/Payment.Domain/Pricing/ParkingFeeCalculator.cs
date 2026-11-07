@@ -37,4 +37,22 @@ public static class ParkingFeeCalculator
 
         return new ParkingFee(durationMinutes, totalFee);
     }
+
+    public static ParkingFee CalculateWithSurge(
+        ParkingMethod method,
+        int blockMinutes,
+        long pricePerUnit,
+        DateTimeOffset entryTimeUtc,
+        DateTimeOffset calculatedAtUtc,
+        double occupancyRate = 0.0,
+        bool enablePeakSurge = true,
+        bool enableOccupancySurge = true,
+        long overnightSurcharge = 0,
+        TimeSpan overnightTimeMark = default)
+    {
+        var fee = Calculate(method, blockMinutes, pricePerUnit, entryTimeUtc, calculatedAtUtc, overnightSurcharge, overnightTimeMark);
+        var surgeMultiplier = PricingEngine.CalculateSurgeMultiplier(calculatedAtUtc, occupancyRate, enablePeakSurge, enableOccupancySurge);
+        var adjustedFee = checked((long)Math.Round(fee.TotalFee * surgeMultiplier, MidpointRounding.AwayFromZero));
+        return new ParkingFee(fee.DurationMinutes, adjustedFee);
+    }
 }

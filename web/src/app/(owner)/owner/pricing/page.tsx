@@ -31,6 +31,12 @@ export default function OwnerPricingManagementPage() {
     const [simDuration, setSimDuration] = useState<number>(3); // hours
     const [simVehicle, setSimVehicle] = useState<"car" | "moto">("car");
     const [isOvernight, setIsOvernight] = useState<boolean>(false);
+    const [enablePeakSurge, setEnablePeakSurge] = useState<boolean>(true);
+    const [enableCongestionSurge, setEnableCongestionSurge] =
+        useState<boolean>(true);
+    const [simSurgePeak, setSimSurgePeak] = useState<boolean>(false);
+    const [simSurgeCongestion, setSimSurgeCongestion] =
+        useState<boolean>(false);
 
     const [isLoadingDeposit, setIsLoadingDeposit] = useState<boolean>(false);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -697,6 +703,156 @@ export default function OwnerPricingManagementPage() {
                         </div>
                     </div>
 
+                    {/* Card 4: Chính sách Giá Động & Giờ Cao Điểm */}
+                    <div
+                        style={{
+                            background: "#fff",
+                            borderRadius: 20,
+                            border: "1px solid #e3e8f2",
+                            padding: 24,
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                marginBottom: 12,
+                            }}
+                        >
+                            <span style={{ fontSize: 20 }}>🔥</span>
+                            <h3
+                                style={{
+                                    fontSize: 16,
+                                    fontWeight: 800,
+                                    color: "#0f1b3d",
+                                    margin: 0,
+                                }}
+                            >
+                                4. Chính sách Giá Động & Giờ Cao Điểm (Smart
+                                Dynamic Surge)
+                            </h3>
+                        </div>
+                        <p
+                            style={{
+                                fontSize: 13,
+                                color: "#6a7491",
+                                margin: "0 0 16px",
+                            }}
+                        >
+                            Tự động tăng giá linh hoạt dựa trên khung giờ cao
+                            điểm đô thị và tỷ lệ lấp đầy bãi để tối ưu hóa doanh
+                            thu.
+                        </p>
+
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 14,
+                            }}
+                        >
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 12,
+                                    padding: "12px 14px",
+                                    borderRadius: 12,
+                                    background: enablePeakSurge
+                                        ? "#fffbeb"
+                                        : "#f8faff",
+                                    border: enablePeakSurge
+                                        ? "1.5px solid #f59e0b"
+                                        : "1px solid #e3e8f2",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={enablePeakSurge}
+                                    onChange={(e) =>
+                                        setEnablePeakSurge(e.target.checked)
+                                    }
+                                    style={{ marginTop: 3 }}
+                                />
+                                <div>
+                                    <strong
+                                        style={{
+                                            display: "block",
+                                            fontSize: 13.5,
+                                            color: "#0f1b3d",
+                                        }}
+                                    >
+                                        Bật phụ thu Giờ cao điểm (+20% đơn giá)
+                                    </strong>
+                                    <span
+                                        style={{
+                                            fontSize: 12,
+                                            color: "#6a7491",
+                                            lineHeight: 1.4,
+                                        }}
+                                    >
+                                        Áp dụng tự động vào khung giờ Sáng
+                                        (07:30 - 09:00) và Chiều (17:00 - 19:00)
+                                        từ Thứ Hai đến Thứ Sáu.
+                                    </span>
+                                </div>
+                            </label>
+
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 12,
+                                    padding: "12px 14px",
+                                    borderRadius: 12,
+                                    background: enableCongestionSurge
+                                        ? "#fef2f2"
+                                        : "#f8faff",
+                                    border: enableCongestionSurge
+                                        ? "1.5px solid #ef4444"
+                                        : "1px solid #e3e8f2",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={enableCongestionSurge}
+                                    onChange={(e) =>
+                                        setEnableCongestionSurge(
+                                            e.target.checked,
+                                        )
+                                    }
+                                    style={{ marginTop: 3 }}
+                                />
+                                <div>
+                                    <strong
+                                        style={{
+                                            display: "block",
+                                            fontSize: 13.5,
+                                            color: "#0f1b3d",
+                                        }}
+                                    >
+                                        Bật phụ thu Bão ô đỗ / Tắc nghẽn (+30%
+                                        đơn giá)
+                                    </strong>
+                                    <span
+                                        style={{
+                                            fontSize: 12,
+                                            color: "#6a7491",
+                                            lineHeight: 1.4,
+                                        }}
+                                    >
+                                        Tự động kích hoạt khi tỷ lệ chiếm dụng
+                                        bãi vượt quá 85% sức chứa để điều tiết
+                                        lưu lượng xe.
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
                     <button
                         type="button"
                         onClick={handleSave}
@@ -881,6 +1037,74 @@ export default function OwnerPricingManagementPage() {
                                     Áp dụng phí gửi qua đêm
                                 </span>
                             </label>
+
+                            {/* Surge Simulator Toggles */}
+                            <div
+                                style={{
+                                    padding: "10px 12px",
+                                    background: "#fff",
+                                    borderRadius: 10,
+                                    border: "1px solid #e3e8f2",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 8,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: 11.5,
+                                        fontWeight: 700,
+                                        color: "#6a7491",
+                                        textTransform: "uppercase",
+                                    }}
+                                >
+                                    Thử nghiệm Giá Động:
+                                </span>
+                                <label
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        cursor: "pointer",
+                                        fontSize: 12.5,
+                                        color: "#0f1b3d",
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={simSurgePeak}
+                                        onChange={(e) =>
+                                            setSimSurgePeak(e.target.checked)
+                                        }
+                                        disabled={!enablePeakSurge}
+                                    />
+                                    <span>🔥 Giả lập Giờ cao điểm (+20%)</span>
+                                </label>
+                                <label
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        cursor: "pointer",
+                                        fontSize: 12.5,
+                                        color: "#0f1b3d",
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={simSurgeCongestion}
+                                        onChange={(e) =>
+                                            setSimSurgeCongestion(
+                                                e.target.checked,
+                                            )
+                                        }
+                                        disabled={!enableCongestionSurge}
+                                    />
+                                    <span>
+                                        🚨 Giả lập Bão ô đỗ &gt;85% (+30%)
+                                    </span>
+                                </label>
+                            </div>
 
                             {/* Estimate Box */}
                             <div
