@@ -2,17 +2,25 @@
 
 import React, { useState } from "react";
 import { RealCameraFeed } from "./RealCameraFeed";
-import { CameraFeedMock, PlateBadge, QrCodeModal, countText } from "./StaffUi";
+import {
+    CameraFeedMock,
+    PlateBadge,
+    QrCodeModal,
+    countText,
+    IoTBarrierGateSimulator,
+} from "./StaffUi";
 import { describeStaffError, openParkingSession } from "./staffApi";
 import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
+import { useGateVoice } from "./audio";
 
 export function StaffEntryPage() {
     const { addSession, occupancy, assignedLot, fetchAssignedLot } =
         useStaffData();
     const { t } = useLanguage();
+    const { announceCheckIn, announceWarning } = useGateVoice();
 
     // Load assigned lot on mount
     React.useEffect(() => {
@@ -100,6 +108,13 @@ export function StaffEntryPage() {
                 "success",
             );
 
+            // Trợ lý giọng nói phát âm đón xe vào cổng
+            announceCheckIn({
+                plateNumber: res.plateNumber,
+                slotCode: (res.slotCode ?? res.zoneCode) || undefined,
+                lotName: assignedLot?.lotName,
+            });
+
             // Add real session into live staff state (Parking assigns customer type, zone, and slot)
             addSession({
                 id: res.sessionId,
@@ -138,6 +153,7 @@ export function StaffEntryPage() {
             }, 1000);
         } catch (err) {
             setErrorMsg(describeStaffError(err));
+            announceWarning(describeStaffError(err));
             setStep("camera");
         } finally {
             setLoading(false);
@@ -687,11 +703,35 @@ export function StaffEntryPage() {
                         )}
 
                         {step === "barrier_open" && (
-                            <div className="staff-barrier-open-alert">
-                                <div className="barrier-icon">🟢</div>
-                                <div className="barrier-content">
-                                    <strong>{t("entryBarrierRaised")}</strong>
-                                    <p>{t("entryBarrierHint")}</p>
+                            <div style={{ marginTop: "1rem" }}>
+                                <IoTBarrierGateSimulator
+                                    gateId="GATE-IN-01"
+                                    gateName="Cổng Vào Xe (Gate In 01)"
+                                    gateType="ENTRY"
+                                    isOpen={true}
+                                    physicalState="OPEN"
+                                    vehicleState="PASSING"
+                                    detectedPlate={
+                                        isEditingPlate
+                                            ? editedPlate
+                                            : plateNumber
+                                    }
+                                    vehicleType={vehicleType}
+                                    compact={true}
+                                    enableControls={false}
+                                    enableEmergencyOverride={true}
+                                />
+                                <div
+                                    className="staff-barrier-open-alert"
+                                    style={{ marginTop: "8px" }}
+                                >
+                                    <div className="barrier-icon">🟢</div>
+                                    <div className="barrier-content">
+                                        <strong>
+                                            {t("entryBarrierRaised")}
+                                        </strong>
+                                        <p>{t("entryBarrierHint")}</p>
+                                    </div>
                                 </div>
                             </div>
                         )}
