@@ -1,72 +1,133 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
+import {
+    getMyNotifications,
+    markAllNotificationsRead,
+    markNotificationRead,
+    type CustomerNotificationItem,
+} from "./customerNotificationApi";
 import {
     ArrowRight,
     Bell,
     CalendarCheck2,
     CarFront,
     CheckCheck,
-    CircleHelp,
+    Loader2,
+    RefreshCw,
     Wallet,
 } from "lucide-react";
+import { ApiError } from "@/shared/errors/api-error";
 
-type Notice = {
-    id: string;
-    type: "booking" | "parking" | "wallet";
-    title: string;
-    description: string;
-    time: string;
-    href: string;
+const icons: Record<string, typeof CalendarCheck2> = {
+    booking: CalendarCheck2,
+    parking: CarFront,
+    wallet: Wallet,
 };
 
-const examples: Notice[] = [
-    {
-        id: "booking",
-        type: "booking",
-        title: "Booking confirmed",
-        description: "View your booking details and QR code in My Bookings.",
-        time: "Just now",
-        href: "/customer/bookings",
-    },
-    {
-        id: "parking",
-        type: "parking",
-        title: "Parking session active",
-        description: "Use your session QR code when leaving the parking lot.",
-        time: "Today",
-        href: "/customer/sessions",
-    },
-    {
-        id: "wallet",
-        type: "wallet",
-        title: "Wallet activity updated",
-        description: "Check your balance and transaction history in My Wallet.",
-        time: "Yesterday",
-        href: "/customer/wallet",
-    },
-];
+function formatNotificationTime(isoString: string): string {
+    try {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMinutes = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMinutes / 60);
+        const diffDays = Math.floor(diffHours / 24);
 
-const icons = { booking: CalendarCheck2, parking: CarFront, wallet: Wallet };
+        if (diffMinutes < 1) return "Vừa xong";
+        if (diffMinutes < 60) return `${diffMinutes} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays === 1) return "Hôm qua";
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+        return date.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        });
+    } catch {
+        return isoString;
+    }
+}
 
 export function CustomerNotificationsPage() {
     const { copy } = useCustomerLanguage();
-    const [showExamples, setShowExamples] = useState(false);
+    const [notifications, setNotifications] = useState<
+        CustomerNotificationItem[]
+    >([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [unreadCount, setUnreadCount] = useState(0);
     const [filter, setFilter] = useState<"all" | "unread">("all");
-    const [readIds, setReadIds] = useState<string[]>([]);
-    const notices = showExamples ? examples : [];
-    const visible =
-        filter === "unread"
-            ? notices.filter((notice) => !readIds.includes(notice.id))
-            : notices;
-    const unreadCount = notices.length - readIds.length;
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    function toggleExamples() {
-        setShowExamples((current) => !current);
-        setFilter("all");
-        setReadIds([]);
+    const loadNotifications = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await getMyNotifications(filter === "unread");
+            setNotifications(data.items);
+            setTotalCount(data.totalCount);
+            setUnreadCount(data.unreadCount);
+        } catch (err: unknown) {
+            if (err instanceof ApiError) {
+                setError(
+                    err.problem?.detail ||
+                        err.message ||
+                        "Không thể tải thông báo.",
+                );
+            } else if (err instanceof TypeError) {
+                setError(
+                    "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.",
+                );
+            } else if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("Đã xảy ra lỗi khi tải thông báo.");
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [filter]);
+
+    useEffect(() => {
+        let active = true;
+        queueMicrotask(() => {
+            if (active) void loadNotifications();
+        });
+        return () => {
+            active = false;
+        };
+    }, [loadNotifications]);
+
+    async function handleMarkRead(id: string) {
+        try {
+            await markNotificationRead(id);
+            setNotifications((prev) =>
+                prev.map((item) =>
+                    item.id === id
+                        ? { ...item, readAtUtc: new Date().toISOString() }
+                        : item,
+                ),
+            );
+            setUnreadCount((c) => Math.max(0, c - 1));
+        } catch (err: unknown) {
+            console.error("Failed to mark notification as read", err);
+        }
+    }
+
+    async function handleMarkAllRead() {
+        try {
+            await markAllNotificationsRead();
+            const now = new Date().toISOString();
+            setNotifications((prev) =>
+                prev.map((item) => ({ ...item, readAtUtc: now })),
+            );
+            setUnreadCount(0);
+        } catch (err: unknown) {
+            console.error("Failed to mark all as read", err);
+        }
     }
 
     return (
@@ -79,30 +140,33 @@ export function CustomerNotificationsPage() {
                     <h1>{copy("Notifications", "Thông báo")}</h1>
                     <p>
                         {copy(
-                            "Follow your bookings, parking sessions, and wallet activity in one place.",
-                            "Theo dõi đặt chỗ, phiên đỗ và hoạt động ví tại một nơi.",
+                            "Follow your bookings, parking sessions, and wallet activity in real time.",
+                            "Theo dõi đặt chỗ, phiên đỗ và hoạt động ví theo thời gian thực.",
                         )}
                     </p>
                 </div>
                 <button
                     className="customer-account-secondary"
                     type="button"
-                    onClick={toggleExamples}
+                    onClick={() => void loadNotifications()}
+                    disabled={loading}
                 >
-                    <CircleHelp size={18} aria-hidden="true" />
-                    {showExamples
-                        ? copy("Hide sample notices", "Ẩn thông báo mẫu")
-                        : copy("Show sample notices", "Xem thông báo mẫu")}
+                    <RefreshCw
+                        size={18}
+                        className={loading ? "animate-spin" : ""}
+                        aria-hidden="true"
+                    />
+                    {copy("Refresh", "Làm mới")}
                 </button>
             </div>
 
-            {showExamples && (
-                <p className="customer-notification-demo" role="status">
-                    {copy(
-                        "These are sample notices for preview only. They are not from your account.",
-                        "Đây chỉ là thông báo mẫu để xem trước, không thuộc tài khoản của bạn.",
-                    )}
-                </p>
+            {error && (
+                <div
+                    className="customer-notification-demo customer-error-alert"
+                    role="alert"
+                >
+                    <p>{error}</p>
+                </div>
             )}
 
             <section
@@ -122,8 +186,7 @@ export function CustomerNotificationsPage() {
                             aria-pressed={filter === "all"}
                             onClick={() => setFilter("all")}
                         >
-                            {copy("All", "Tất cả")}{" "}
-                            <span>{notices.length}</span>
+                            {copy("All", "Tất cả")} <span>{totalCount}</span>
                         </button>
                         <button
                             type="button"
@@ -138,9 +201,7 @@ export function CustomerNotificationsPage() {
                         <button
                             className="customer-notification-mark-all"
                             type="button"
-                            onClick={() =>
-                                setReadIds(notices.map((notice) => notice.id))
-                            }
+                            onClick={() => void handleMarkAllRead()}
                         >
                             <CheckCheck size={17} />{" "}
                             {copy("Mark all as read", "Đánh dấu tất cả đã đọc")}
@@ -148,7 +209,20 @@ export function CustomerNotificationsPage() {
                     )}
                 </div>
 
-                {visible.length === 0 ? (
+                {loading ? (
+                    <div className="customer-notification-empty">
+                        <Loader2
+                            size={32}
+                            className="animate-spin text-primary"
+                        />
+                        <p>
+                            {copy(
+                                "Loading notifications...",
+                                "Đang tải thông báo...",
+                            )}
+                        </p>
+                    </div>
+                ) : notifications.length === 0 ? (
                     <div className="customer-notification-empty">
                         <span>
                             <Bell size={30} strokeWidth={1.7} />
@@ -161,18 +235,18 @@ export function CustomerNotificationsPage() {
                                   )
                                 : copy(
                                       "No notifications yet",
-                                      "Chưa có thông báo",
+                                      "Chưa có thông báo nào",
                                   )}
                         </h2>
                         <p>
                             {filter === "unread"
                                 ? copy(
-                                      "All sample notices have been marked as read.",
-                                      "Tất cả thông báo mẫu đã được đánh dấu đã đọc.",
+                                      "All your notifications have been marked as read.",
+                                      "Tất cả thông báo của bạn đã được đánh dấu đã đọc.",
                                   )
                                 : copy(
-                                      "Updates about your bookings and parking sessions will appear here.",
-                                      "Thông tin đặt chỗ và phiên đỗ sẽ xuất hiện tại đây.",
+                                      "Updates about your bookings, sessions, and payments will appear here.",
+                                      "Thông tin cập nhật về đặt chỗ, phiên đỗ và thanh toán sẽ xuất hiện tại đây.",
                                   )}
                         </p>
                         {filter === "all" && (
@@ -184,9 +258,9 @@ export function CustomerNotificationsPage() {
                     </div>
                 ) : (
                     <ul className="customer-notification-list">
-                        {visible.map((notice) => {
-                            const Icon = icons[notice.type];
-                            const isRead = readIds.includes(notice.id);
+                        {notifications.map((notice) => {
+                            const Icon = icons[notice.type] || Bell;
+                            const isRead = notice.readAtUtc !== null;
                             return (
                                 <li
                                     key={notice.id}
@@ -200,56 +274,30 @@ export function CustomerNotificationsPage() {
                                     </span>
                                     <div className="customer-notification-copy">
                                         <div>
-                                            <h2>
-                                                {copy(
-                                                    notice.title,
-                                                    notice.type === "booking"
-                                                        ? "Đặt chỗ đã xác nhận"
-                                                        : notice.type ===
-                                                            "parking"
-                                                          ? "Phiên đỗ đang hoạt động"
-                                                          : "Ví đã cập nhật",
-                                                )}
-                                            </h2>
+                                            <h2>{notice.title}</h2>
                                             <time>
-                                                {copy(
-                                                    notice.time,
-                                                    notice.type === "booking"
-                                                        ? "Vừa xong"
-                                                        : notice.type ===
-                                                            "parking"
-                                                          ? "Hôm nay"
-                                                          : "Hôm qua",
+                                                {formatNotificationTime(
+                                                    notice.createdAtUtc,
                                                 )}
                                             </time>
                                         </div>
-                                        <p>
-                                            {copy(
-                                                notice.description,
-                                                notice.type === "booking"
-                                                    ? "Xem chi tiết đặt chỗ và mã QR trong Đặt chỗ của tôi."
-                                                    : notice.type === "parking"
-                                                      ? "Dùng mã QR phiên đỗ khi rời bãi."
-                                                      : "Kiểm tra số dư và lịch sử giao dịch trong Ví của tôi.",
-                                            )}
-                                        </p>
-                                        <Link href={notice.href}>
-                                            {copy(
-                                                "View details",
-                                                "Xem chi tiết",
-                                            )}{" "}
-                                            <ArrowRight size={16} />
-                                        </Link>
+                                        <p>{notice.description}</p>
+                                        {notice.href && (
+                                            <Link href={notice.href}>
+                                                {copy(
+                                                    "View details",
+                                                    "Xem chi tiết",
+                                                )}{" "}
+                                                <ArrowRight size={16} />
+                                            </Link>
+                                        )}
                                     </div>
                                     {!isRead && (
                                         <button
                                             type="button"
                                             className="customer-notification-read"
                                             onClick={() =>
-                                                setReadIds((current) => [
-                                                    ...current,
-                                                    notice.id,
-                                                ])
+                                                void handleMarkRead(notice.id)
                                             }
                                             aria-label={`${copy("Mark as read", "Đánh dấu đã đọc")}: ${notice.title}`}
                                             title={copy(
