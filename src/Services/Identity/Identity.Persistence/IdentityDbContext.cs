@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.EmailVerifications;
+using ParkingSystem.Identity.Domain.Mfa;
 using ParkingSystem.Identity.Domain.Profiles;
 using ParkingSystem.Identity.Domain.Vehicles;
 using ParkingSystem.Identity.Persistence.Inbox;
@@ -26,6 +27,10 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<EmailVerification> EmailVerifications => Set<EmailVerification>();
     public DbSet<OwnerApplicationDocument> OwnerApplicationDocuments => Set<OwnerApplicationDocument>();
+
+    public DbSet<AccountMfa> AccountMfas => Set<AccountMfa>();
+    public DbSet<MfaRecoveryCode> MfaRecoveryCodes => Set<MfaRecoveryCode>();
+    public DbSet<MfaChallenge> MfaChallenges => Set<MfaChallenge>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
