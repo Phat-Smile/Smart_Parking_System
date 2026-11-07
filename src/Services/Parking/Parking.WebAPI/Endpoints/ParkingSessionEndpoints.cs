@@ -11,6 +11,7 @@ using ParkingSystem.Parking.Application.ParkingSessions.FindOpenParkingSessionBy
 using ParkingSystem.Parking.Application.ParkingSessions.FindParkingSessionByQr;
 using ParkingSystem.Parking.Application.ParkingSessions.GetParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessions;
+using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessionHistory;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.ReissueParkingSessionQr;
 using ParkingSystem.Parking.Application.ParkingSessions.VerifyParkingSessionExit;
@@ -162,6 +163,29 @@ internal static class ParkingSessionEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        // History includes closed sessions, but never exposes a QR token.
+        app.MapGet($"{Route}/me/history", async (
+                string? status,
+                int? page,
+                int? pageSize,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var userId))
+                    return Results.Forbid();
+
+                return Results.Ok(await sender.Send(new ListMyParkingSessionHistoryQuery(
+                    userId, status, page ?? 1, pageSize ?? 20), cancellationToken));
+            })
+            .RequireAuthenticatedUser()
+            .WithName("ListMyParkingSessionHistory")
+            .WithSummary("List my parking sessions, including completed and cancelled sessions, without QR tokens")
+            .Produces<MyParkingSessionHistoryPage>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // US-PARK-009. A signed-in customer sees the QR of their own open sessions (BR-05.f).
         app.MapGet($"{Route}/me", async (ICurrentUser currentUser, ISender sender, CancellationToken cancellationToken) =>
