@@ -1,6 +1,7 @@
 using System.Globalization;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
@@ -10,6 +11,7 @@ using ParkingSystem.Identity.Application.Accounts.ListSessions;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.Logout;
 using ParkingSystem.Identity.Application.Accounts.LogoutAll;
+using ParkingSystem.Identity.Application.Accounts.Mfa;
 using ParkingSystem.Identity.Application.Accounts.RegisterAccount;
 using ParkingSystem.Identity.Application.Accounts.ResendOtp;
 using ParkingSystem.Identity.Application.Accounts.ResetPassword;
@@ -138,6 +140,35 @@ internal static class AccountEndpoints
         /// <summary>Mật khẩu đăng nhập.</summary>
         /// <example>SecurePassword123!</example>
         string Password);
+
+    /// <summary>
+    /// Đăng nhập cần bước 2: nhập mã từ ứng dụng xác thực (hoặc mã khôi phục) tại POST /api/identity/accounts/login/mfa.
+    /// </summary>
+    public sealed record MfaRequiredResponse(bool MfaRequired, string MfaToken, int ExpiresIn);
+
+    /// <summary>
+    /// Bước 2 của đăng nhập khi tài khoản đã bật xác thực hai lớp.
+    /// </summary>
+    public sealed record CompleteMfaLoginRequest(
+        /// <summary>Bắt buộc. Giá trị mfaToken nhận ở bước đăng nhập (hết hạn sau 5 phút).</summary>
+        string? MfaToken,
+        /// <summary>Mã 6 số từ ứng dụng xác thực. Gửi code hoặc recoveryCode, không cả hai.</summary>
+        /// <example>123456</example>
+        string? Code,
+        /// <summary>Một mã khôi phục dạng XXXX-XXXX (mỗi mã dùng một lần).</summary>
+        string? RecoveryCode);
+
+    /// <summary>
+    /// Mã 6 số từ ứng dụng xác thực.
+    /// </summary>
+    public sealed record MfaCodeRequest(
+        /// <example>123456</example>
+        string? Code);
+
+    /// <summary>
+    /// Tắt xác thực hai lớp: cần mật khẩu hiện tại (nếu tài khoản có mật khẩu) và mã 6 số.
+    /// </summary>
+    public sealed record DisableMfaRequest(string? Password, string? Code);
 
     /// <summary>
     /// Dữ liệu yêu cầu làm mới Access Token.
@@ -276,8 +307,28 @@ internal static class AccountEndpoints
         [ChangePasswordErrors.InvalidCurrentPassword.Code] = StatusCodes.Status400BadRequest,
         [UnlockAccountErrors.AccountNotFound.Code] = StatusCodes.Status404NotFound,
         [ChangeAccountRoleErrors.CannotChangeOwnRole.Code] = StatusCodes.Status403Forbidden,
-        [ChangeAccountRoleErrors.OwnerRoleRequiresApplication.Code] = StatusCodes.Status409Conflict
+        [ChangeAccountRoleErrors.OwnerRoleRequiresApplication.Code] = StatusCodes.Status409Conflict,
+        [MfaErrors.AlreadyEnabled.Code] = StatusCodes.Status409Conflict,
+        [MfaErrors.SetupRequired.Code] = StatusCodes.Status400BadRequest,
+        [MfaErrors.NotEnabled.Code] = StatusCodes.Status400BadRequest,
+        [MfaErrors.RequiredForAdmin.Code] = StatusCodes.Status403Forbidden,
+        [MfaErrors.ChallengeInvalid.Code] = StatusCodes.Status401Unauthorized,
+        [MfaErrors.InvalidCode.Code] = StatusCodes.Status400BadRequest
     };
+
+    private static async Task<IResult> SendForCurrentUserAsync<T>(
+        ICurrentUser currentUser,
+        HttpContext httpContext,
+        Func<Guid, IRequest<Result<T>>> createCommand,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+            return Results.Unauthorized();
+
+        var result = await sender.Send(createCommand(accountId), cancellationToken);
+        return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
+    }
 
     // 423 and 429 errors carry the seconds to wait; clients read them from the standard header.
     private static void SetRetryAfter(HttpContext httpContext, ParkingSystem.BuildingBlocks.Results.Error? error)
@@ -446,7 +497,14 @@ internal static class AccountEndpoints
 
                 if (result.IsSuccess)
                 {
-                    httpContext.Response.Cookies.Append(RefreshCookieName, result.Value!.RefreshToken, new CookieOptions
+                    var outcome = result.Value!;
+                    if (outcome.Mfa is { } mfa)
+                    {
+                        return Results.Ok(new MfaRequiredResponse(true, mfa.MfaToken, mfa.ExpiresInSeconds));
+                    }
+
+                    var session = outcome.Session!;
+                    httpContext.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
                     {
                         HttpOnly = true,
                         SameSite = SameSiteMode.Strict,
@@ -454,7 +512,7 @@ internal static class AccountEndpoints
                         MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
                         Secure = !httpContext.Request.IsHttps ? false : true
                     });
-                    return Results.Ok(result.Value);
+                    return Results.Ok(session);
                 }
 
                 return AccountProblem(httpContext, result.Error!);
@@ -463,8 +521,9 @@ internal static class AccountEndpoints
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("Login")
             .WithSummary("Đăng nhập tài khoản")
-            .WithDescription("Đăng nhập bằng email và mật khẩu để nhận Access Token và Refresh Token.")
+            .WithDescription("Đăng nhập bằng email và mật khẩu để nhận Access Token và Refresh Token. Tài khoản đã bật xác thực hai lớp nhận { mfaRequired: true, mfaToken } và hoàn tất ở /accounts/login/mfa.")
             .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .Produces<MfaRequiredResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
@@ -486,7 +545,14 @@ internal static class AccountEndpoints
 
                 if (result.IsSuccess)
                 {
-                    httpContext.Response.Cookies.Append(RefreshCookieName, result.Value!.RefreshToken, new CookieOptions
+                    var outcome = result.Value!;
+                    if (outcome.Mfa is { } mfa)
+                    {
+                        return Results.Ok(new MfaRequiredResponse(true, mfa.MfaToken, mfa.ExpiresInSeconds));
+                    }
+
+                    var session = outcome.Session!;
+                    httpContext.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
                     {
                         HttpOnly = true,
                         SameSite = SameSiteMode.Strict,
@@ -494,7 +560,7 @@ internal static class AccountEndpoints
                         MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
                         Secure = !httpContext.Request.IsHttps ? false : true
                     });
-                    return Results.Ok(result.Value);
+                    return Results.Ok(session);
                 }
 
                 return AccountProblem(httpContext, result.Error!);
@@ -503,13 +569,49 @@ internal static class AccountEndpoints
             .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
             .WithName("GoogleLogin")
             .WithSummary("Đăng nhập bằng Google")
-            .WithDescription("Đăng nhập hoặc đăng ký tự động bằng Google ID Token.")
+            .WithDescription("Đăng nhập hoặc đăng ký tự động bằng Google ID Token. Tài khoản đã bật xác thực hai lớp nhận { mfaRequired: true, mfaToken } và hoàn tất ở /accounts/login/mfa.")
             .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .Produces<MfaRequiredResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status423Locked)
             .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        // US-AUTH-007: bước 2 của đăng nhập; mã sai tính chung bộ đếm khoá với mật khẩu sai.
+        app.MapPost("/api/identity/accounts/login/mfa", async (
+                CompleteMfaLoginRequest request,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                var result = await sender.Send(new CompleteMfaLoginCommand(request.MfaToken ?? string.Empty, request.Code, request.RecoveryCode), cancellationToken);
+                if (result.IsSuccess)
+                {
+                    var session = result.Value!;
+                    httpContext.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        SameSite = SameSiteMode.Strict,
+                        Path = "/api/identity/accounts",
+                        MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
+                        Secure = !httpContext.Request.IsHttps ? false : true
+                    });
+                    return Results.Ok(session);
+                }
+
+                return AccountProblem(httpContext, result.Error!);
+            })
+            .WithNoStore()
+            .WithTags("2. Đăng nhập & Phiên làm việc (Authentication)")
+            .WithName("CompleteMfaLogin")
+            .WithSummary("Đăng nhập bước 2: mã xác thực hai lớp")
+            .WithDescription("Gửi mfaToken cùng code (6 số) hoặc recoveryCode. Thành công trả Access Token và đặt cookie sp_refresh như đăng nhập thường.")
+            .Produces<LoginResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status423Locked);
 
         // US-AUTH-005: refresh access token and rotate refresh token (public endpoint).
         // Cookie takes priority; body fallback supports mobile clients.
@@ -605,6 +707,76 @@ internal static class AccountEndpoints
             .WithDescription("Thu hồi toàn bộ phiên làm việc của tài khoản (yêu cầu Access Token).")
             .Produces<LogoutResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
+
+        app.MapPost("/api/identity/accounts/mfa/setup", (ICurrentUser currentUser, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+                SendForCurrentUserAsync(currentUser, httpContext, accountId => new SetupMfaCommand(accountId), sender, cancellationToken))
+            .RequireAuthorization()
+            .WithNoStore()
+            .WithTags("5. Xác thực hai lớp (MFA)")
+            .WithName("SetupMfa")
+            .WithSummary("Bắt đầu bật xác thực hai lớp")
+            .WithDescription("Trả secret và otpauthUri để FE vẽ QR cho Google Authenticator. Gọi lại khi chưa xác nhận sẽ tạo secret mới.")
+            .Produces<MfaSetup>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status409Conflict);
+
+        app.MapPost("/api/identity/accounts/mfa/confirm", async (
+                MfaCodeRequest request, ICurrentUser currentUser, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new ConfirmMfaCommand(accountId, request.Code ?? string.Empty), cancellationToken);
+                if (!result.IsSuccess)
+                    return AccountProblem(httpContext, result.Error!);
+
+                // Bật MFA đăng xuất mọi phiên, kể cả phiên này: cookie cũ không còn dùng được.
+                httpContext.Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+                {
+                    Path = "/api/identity/accounts",
+                    Secure = !httpContext.Request.IsHttps ? false : true
+                });
+                return Results.Ok(result.Value);
+            })
+            .RequireAuthorization()
+            .WithNoStore()
+            .WithTags("5. Xác thực hai lớp (MFA)")
+            .WithName("ConfirmMfa")
+            .WithSummary("Xác nhận và bật xác thực hai lớp")
+            .WithDescription("Nhập mã 6 số đầu tiên. Thành công trả 10 mã khôi phục (chỉ hiện một lần) và đăng xuất mọi thiết bị để đăng nhập lại qua bước 2.")
+            .Produces<MfaEnabled>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status423Locked);
+
+        app.MapPost("/api/identity/accounts/mfa/disable", (
+                DisableMfaRequest request, ICurrentUser currentUser, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+                SendForCurrentUserAsync(currentUser, httpContext, accountId => new DisableMfaCommand(accountId, request.Password, request.Code ?? string.Empty), sender, cancellationToken))
+            .RequireAuthorization()
+            .WithTags("5. Xác thực hai lớp (MFA)")
+            .WithName("DisableMfa")
+            .WithSummary("Tắt xác thực hai lớp")
+            .WithDescription("Cần mật khẩu hiện tại (nếu có) và mã 6 số. Quản trị viên không được tắt (403 identity.mfa_required_for_admin).")
+            .Produces<MfaDisabled>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status423Locked);
+
+        app.MapPost("/api/identity/accounts/mfa/recovery-codes", (
+                MfaCodeRequest request, ICurrentUser currentUser, HttpContext httpContext, ISender sender, CancellationToken cancellationToken) =>
+                SendForCurrentUserAsync(currentUser, httpContext, accountId => new RegenerateRecoveryCodesCommand(accountId, request.Code ?? string.Empty), sender, cancellationToken))
+            .RequireAuthorization()
+            .WithNoStore()
+            .WithTags("5. Xác thực hai lớp (MFA)")
+            .WithName("RegenerateRecoveryCodes")
+            .WithSummary("Tạo lại mã khôi phục")
+            .WithDescription("Cần mã 6 số. Trả 10 mã mới, các mã cũ hết hiệu lực.")
+            .Produces<MfaEnabled>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status423Locked);
 
         // US-AUTH-009: change the password of the signed-in account (taken from the token, never from the body).
         app.MapPost("/api/identity/accounts/change-password", async (

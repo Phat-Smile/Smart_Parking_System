@@ -15,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.Services.AddIdentityAuthorization();
+builder.Services.AddMfa(builder.Configuration);
 builder.AddParkingSystemTelemetry("identity-api");
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);

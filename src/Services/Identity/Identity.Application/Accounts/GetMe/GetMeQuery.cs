@@ -1,6 +1,7 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Identity.Application.Accounts;
+using ParkingSystem.Identity.Application.Accounts.Mfa;
 using ParkingSystem.Identity.Application.Profiles;
 
 namespace ParkingSystem.Identity.Application.Accounts.GetMe;
@@ -17,7 +18,8 @@ public sealed record MeResult(
     bool HasPassword,
     bool GoogleLinked,
     DateTimeOffset CreatedAtUtc,
-    string OwnerApplicationStatus = "None");
+    string OwnerApplicationStatus = "None",
+    bool MfaEnabled = false);
 
 public static class GetMeErrors
 {
@@ -27,7 +29,8 @@ public static class GetMeErrors
 
 public sealed class GetMeQueryHandler(
     IAccountRepository accounts,
-    IProfileRepository profiles) : IRequestHandler<GetMeQuery, Result<MeResult>>
+    IProfileRepository profiles,
+    IMfaRepository? mfa = null) : IRequestHandler<GetMeQuery, Result<MeResult>>
 {
     public async Task<Result<MeResult>> Handle(GetMeQuery request, CancellationToken cancellationToken)
     {
@@ -36,6 +39,8 @@ public sealed class GetMeQueryHandler(
             return Result<MeResult>.Failure(GetMeErrors.AccountNotFound);
 
         var profile = await profiles.FindByAccountIdAsync(request.AccountId, cancellationToken);
+
+        var mfaEnabled = mfa is not null && await mfa.IsEnabledAsync(account.Id, cancellationToken);
 
         return Result<MeResult>.Success(new MeResult(
             account.Id,
@@ -47,6 +52,7 @@ public sealed class GetMeQueryHandler(
             account.HasPassword,
             account.GoogleSubject is not null,
             account.CreatedAtUtc,
-            account.OwnerApplicationStatus?.ToString() ?? "None"));
+            account.OwnerApplicationStatus?.ToString() ?? "None",
+            mfaEnabled));
     }
 }
