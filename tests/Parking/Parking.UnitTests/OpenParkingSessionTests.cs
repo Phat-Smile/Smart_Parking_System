@@ -190,7 +190,8 @@ public sealed class OpenParkingSessionTests
         var second = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-222.22", "Car", StaffId), TestContext.Current.CancellationToken);
 
         Assert.NotEqual(first.Value!.QrToken, second.Value!.QrToken);
-        Assert.DoesNotContain("51A", first.Value.QrToken, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("51A-111.11", first.Value.QrToken, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("51A-222.22", second.Value.QrToken, StringComparison.OrdinalIgnoreCase);
     }
     [Fact]
     public async Task Motorbike_takes_one_zone_space_in_the_same_transaction_as_the_session()
