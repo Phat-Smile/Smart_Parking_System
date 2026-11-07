@@ -7,7 +7,8 @@ public interface INearbyParkingLotReader
         decimal longitude,
         double radiusKm,
         int limit,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        ParkingSystem.Parking.Domain.ParkingSessions.VehicleType? vehicleType = null);
 }
 
 public sealed record NearbyParkingLotItem(

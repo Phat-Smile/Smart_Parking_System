@@ -14,7 +14,8 @@ internal sealed class NearbyParkingLotReader(ParkingDbContext dbContext) : INear
         decimal longitude,
         double radiusKm,
         int limit,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ParkingSystem.Parking.Domain.ParkingSessions.VehicleType? vehicleType = null)
     {
         // Narrow down on the DB server first; the final radial check uses Haversine.
         // Longitude is deliberately not pre-filtered to handle the +/-180 meridian and poles.
@@ -27,6 +28,9 @@ internal sealed class NearbyParkingLotReader(ParkingDbContext dbContext) : INear
             .Where(lot => lot.ApprovalStatus == ParkingLotApprovalStatus.Approved
                 && lot.Latitude >= minLatitude
                 && lot.Latitude <= maxLatitude)
+            .Where(lot => !vehicleType.HasValue || dbContext.Floors.Any(floor =>
+                floor.LotId == lot.Id && dbContext.Zones.Any(zone =>
+                    zone.FloorId == floor.Id && zone.VehicleGroup == vehicleType.Value)))
             .Select(lot => new
             {
                 lot.Id,

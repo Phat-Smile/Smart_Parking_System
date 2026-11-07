@@ -11,7 +11,8 @@ public sealed record RegisterParkingLotCommand(
     string Address,
     decimal? Latitude,
     decimal? Longitude,
-    string Type) : IRequest<RegisteredParkingLot>;
+    string Type,
+    ParkingLotFeatures? Features = null) : IRequest<RegisteredParkingLot>;
 
 public sealed record RegisteredParkingLot(
     Guid Id,
@@ -69,6 +70,7 @@ public sealed class RegisterParkingLotCommandHandler(IRegisterParkingLotReposito
             request.Latitude!.Value,
             request.Longitude!.Value,
             Enum.Parse<ParkingLotType>(request.Type, ignoreCase: true));
+        parkingLot.SetFeatures(request.Features ?? new ParkingLotFeatures());
 
         // MOD-PK-04: the owner of a lot is whoever holds its Owner assignment, so the registrant gets that row now.
         // owner_user_id stays as the record of who registered the lot; it is not used for authorization.

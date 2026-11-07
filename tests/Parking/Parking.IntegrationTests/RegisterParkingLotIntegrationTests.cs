@@ -35,7 +35,8 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
             var created = await handler.Handle(
                 new RegisterParkingLotCommand(
                     ownerId, "New Owner Lot", "15 Demo Street",
-                    10.123456m, 106.123456m, "Outdoor"),
+                    10.123456m, 106.123456m, "Outdoor",
+                    new ParkingLotFeatures(true, true, true, true, true)),
                 cancellationToken);
 
             lotId = created.Id;
@@ -50,6 +51,11 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
 
             Assert.Equal(ownerId, persisted.OwnerUserId);
             Assert.Equal(ParkingLotApprovalStatus.Pending, persisted.ApprovalStatus);
+            Assert.True(persisted.SupportsElectricVehicles);
+            Assert.True(persisted.SupportsLargeVehicles);
+            Assert.True(persisted.HasEvCharging);
+            Assert.True(persisted.IsCovered);
+            Assert.True(persisted.HasCctv);
 
             var publicReader = scope.ServiceProvider.GetRequiredService<IParkingLotCatalogReader>();
             var publicLots = await publicReader.ListApprovedAsync(cancellationToken);
