@@ -3,13 +3,16 @@ using Microsoft.Extensions.Logging;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Contracts.Events.Booking;
 
 namespace ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReservation;
 
 public sealed class ConfirmReservationCommandHandler(
     IReservationRepository reservationRepository,
     IClock clock,
-    ILogger<ConfirmReservationCommandHandler> logger)
+    ILogger<ConfirmReservationCommandHandler> logger,
+    IOutboxWriter? outbox = null)
     : IRequestHandler<ConfirmReservationCommand, Result<ConfirmedReservationDto>>
 {
     private static readonly EventId PaymentNotAvailableEventId = new(1001, "PaymentNotAvailable");
@@ -98,6 +101,8 @@ public sealed class ConfirmReservationCommandHandler(
         try
         {
             reservation.Confirm(now);
+            outbox?.Enqueue(new ReservationConfirmedIntegrationEvent(reservation.Id, reservation.UserId,
+                reservation.LotId, now), "booking.reservation-confirmed.v1", 1);
             await reservationRepository.SaveChangesAsync(cancellationToken);
         }
         catch (ReservationDomainException ex)

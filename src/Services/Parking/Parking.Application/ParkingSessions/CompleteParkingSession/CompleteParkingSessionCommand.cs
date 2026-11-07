@@ -121,7 +121,8 @@ public sealed class CompleteParkingSessionCommandHandler(
                 session.VehicleType.ToString(),
                 session.EntryTime,
                 now,
-                now),
+                now,
+                session.UserId),
             "parking.session-closed.v1",
             1);
 

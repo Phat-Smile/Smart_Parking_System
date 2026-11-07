@@ -5,6 +5,7 @@ using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Notification.Application;
 using ParkingSystem.Notification.Infrastructure;
 using ParkingSystem.Notification.Persistence;
+using ParkingSystem.Notification.WebAPI;
 
 // In local development, automatically load environment variables from the root .env file if available
 try
@@ -90,6 +91,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 app.MapGrpcHealthChecksService();
+app.MapCustomerNotificationEndpoints();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
 app.Run();

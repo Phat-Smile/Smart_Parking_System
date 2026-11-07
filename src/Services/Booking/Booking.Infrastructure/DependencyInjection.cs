@@ -7,6 +7,7 @@ using ParkingSystem.Booking.Infrastructure.Messaging;
 using ParkingSystem.Booking.Infrastructure.Messaging.Outbox;
 using ParkingSystem.Booking.Infrastructure.Messaging.Consumers;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Booking;
 
 namespace ParkingSystem.Booking.Infrastructure;
 
@@ -40,6 +41,7 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddIntegrationEventRegistry();
+        services.AddIntegrationEvent<ReservationConfirmedIntegrationEvent>("booking.reservation-confirmed.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()
