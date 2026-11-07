@@ -105,6 +105,7 @@ app.MapParkingLayoutReadEndpoints();
 app.MapSlotSensorEndpoints();
 app.MapHub<ParkingHub>("/hubs/parking");
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
+app.MapGrpcService<ParkingSessionFeeGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();

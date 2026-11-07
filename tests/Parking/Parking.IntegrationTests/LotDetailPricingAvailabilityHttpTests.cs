@@ -254,6 +254,9 @@ public sealed class LotDetailPricingAvailabilityHttpTests
 
     private sealed class InMemoryPricing : IPricingPolicyRepository
     {
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         private static readonly DateTime Effective = new(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
 
         private static readonly PricingPolicy[] Policies =
