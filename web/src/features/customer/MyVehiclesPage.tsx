@@ -1,10 +1,24 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+    useSyncExternalStore,
+    type FormEvent,
+    type ReactNode,
+} from "react";
+import Image from "next/image";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
-import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
+import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
+import { CustomerAccountMenu } from "./CustomerShell";
+import { VehicleDropdown } from "./VehicleDropdown";
+import {
+    getAuthSessionSnapshot,
+    subscribeAuthSession,
+} from "@/features/auth/authSession";
 import {
     addMyVehicle,
     deleteMyVehicle,
@@ -13,643 +27,2290 @@ import {
     type RegisteredVehicle,
 } from "./myVehiclesApi";
 import {
-    AlertCircle,
-    Bike,
-    Car,
-    Check,
-    Loader2,
-    Plus,
-    RefreshCw,
-    Star,
-    Trash2,
-    X,
-} from "lucide-react";
-import { ApiError } from "@/shared/errors/api-error";
+    BRAND_OPTIONS,
+    COLOR_OPTIONS,
+    COLOR_SWATCHES,
+    FUEL_OPTIONS,
+    getModelOptions,
+    getMotorbikeModelOptions,
+    MOTORBIKE_BRAND_OPTIONS,
+    MOTORBIKE_FUEL_OPTIONS,
+    MOTORBIKE_TYPE_OPTIONS,
+    SEAT_OPTIONS,
+    VEHICLE_TYPE_OPTIONS,
+    YEAR_OPTIONS,
+} from "./vehicleOptions";
 
-export function MyVehiclesPage({ fontClassName }: { fontClassName?: string }) {
-    const { copy } = useCustomerLanguage();
-    const [vehicles, setVehicles] = useState<RegisteredVehicle[]>([]);
-    const [filterType, setFilterType] = useState<"All" | "Car" | "Motorbike">(
-        "All",
+type Vehicle = {
+    id: string;
+    category: VehicleCategory;
+    plate: string;
+    brand: string;
+    model?: string;
+    vehicleType?: string;
+    seats?: string;
+    fuelType?: string;
+    color?: string;
+    manufacturingYear?: string;
+    size: "standard" | "large";
+    photo?: string;
+    draft?: boolean;
+    isDefault?: boolean;
+};
+type VehicleCategory =
+    "motorbike" | "electric-motorbike" | "bicycle" | "car" | "electric-car";
+const vehicleLabelsVi: Record<string, string> = {
+    Motorbike: "Xe máy",
+    "Electric motorbike": "Xe máy điện",
+    Bicycle: "Xe đạp",
+    Car: "Ô tô",
+    "Electric car": "Ô tô điện",
+    "Motorbike area": "Khu xe máy",
+    "Electric motorbike area": "Khu xe máy điện",
+    "Bicycle area": "Khu xe đạp",
+    "Bicycle area · photo required": "Khu xe đạp · cần ảnh",
+    "Car area": "Khu ô tô",
+    "Electric car area": "Khu ô tô điện",
+    "Two-wheelers": "Xe hai bánh",
+    "Motorbike or bicycle": "Xe máy hoặc xe đạp",
+    "Fuel or electric": "Xăng hoặc điện",
+    Nickname: "Tên gợi nhớ",
+    "Vehicle Brand": "Hãng xe",
+    "Vehicle Model": "Dòng xe",
+    "Motorbike Type": "Loại xe máy",
+    "Body Type": "Kiểu thân xe",
+    Seats: "Số ghế",
+    "Fuel type": "Loại nhiên liệu",
+    Color: "Màu sắc",
+    Year: "Năm sản xuất",
+};
+function vehicleLabelVi(label: string) {
+    return vehicleLabelsVi[label] ?? label;
+}
+const VEHICLE_CATEGORIES: {
+    value: VehicleCategory;
+    label: string;
+    description: string;
+    icon: string;
+}[] = [
+    {
+        value: "motorbike",
+        label: "Motorbike",
+        description: "Motorbike area",
+        icon: "motorbike",
+    },
+    {
+        value: "electric-motorbike",
+        label: "Electric motorbike",
+        description: "Electric motorbike area",
+        icon: "motorbike",
+    },
+    {
+        value: "bicycle",
+        label: "Bicycle",
+        description: "Bicycle area · photo required",
+        icon: "bicycle",
+    },
+    { value: "car", label: "Car", description: "Car area", icon: "car" },
+    {
+        value: "electric-car",
+        label: "Electric car",
+        description: "Electric car area",
+        icon: "car",
+    },
+];
+const VEHICLE_FORM_CATEGORIES = VEHICLE_CATEGORIES.filter(
+    (item) => item.value === "motorbike" || item.value === "car",
+).map((item) => ({
+    ...item,
+    label: item.value === "motorbike" ? "Two-wheelers" : item.label,
+    description:
+        item.value === "motorbike"
+            ? "Motorbike or bicycle"
+            : "Fuel or electric",
+}));
+function categoryInfo(category: VehicleCategory) {
+    return VEHICLE_CATEGORIES.find((item) => item.value === category)!;
+}
+function baseCategory(category: VehicleCategory): VehicleCategory {
+    if (category === "electric-motorbike" || category === "bicycle")
+        return "motorbike";
+    if (category === "electric-car") return "car";
+    return category;
+}
+function isMotorbikeCategory(category: VehicleCategory) {
+    return category === "motorbike" || category === "electric-motorbike";
+}
+function isCarCategory(category: VehicleCategory) {
+    return category === "car" || category === "electric-car";
+}
+function needsPlate(category: VehicleCategory) {
+    return category !== "bicycle";
+}
+function needsPhoto(category: VehicleCategory) {
+    return category === "bicycle";
+}
+function backendSupports(category: VehicleCategory) {
+    return category === "car" || category === "motorbike";
+}
+type Modal = "add" | "edit" | "delete" | null;
+const MAX_VEHICLES = 10;
+
+function formatPlate(value: string, category: VehicleCategory) {
+    const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
+    const compact = normalized.replace(/[ .-]/g, "");
+    const parts = (
+        isMotorbikeCategory(category)
+            ? /^(\d{2}[A-Z]\d)(\d{0,5})$/
+            : /^(\d{2}[A-Z]{1,2})(\d{0,5})$/
+    ).exec(compact);
+    if (!parts) return normalized;
+    const [, prefix, number] = parts;
+    if (!number) return prefix;
+    return `${prefix}-${number.slice(0, 3)}${number.length > 3 ? `.${number.slice(3)}` : ""}`;
+}
+
+function getVehicleDetails(vehicle: Vehicle, fromAccount = false) {
+    return [
+        vehicle.brand
+            ? {
+                  label: fromAccount ? "Nickname" : "Vehicle Brand",
+                  value: vehicle.brand,
+                  icon: "tag",
+              }
+            : null,
+        vehicle.model?.trim()
+            ? {
+                  label: "Vehicle Model",
+                  value: vehicle.model.trim(),
+                  icon: isMotorbikeCategory(vehicle.category)
+                      ? "motorbike"
+                      : "car",
+              }
+            : null,
+        vehicle.vehicleType
+            ? {
+                  label: isMotorbikeCategory(vehicle.category)
+                      ? "Motorbike type"
+                      : "Body type",
+                  icon: isMotorbikeCategory(vehicle.category)
+                      ? "motorbike"
+                      : "car",
+                  value:
+                      (isMotorbikeCategory(vehicle.category)
+                          ? MOTORBIKE_TYPE_OPTIONS
+                          : VEHICLE_TYPE_OPTIONS
+                      ).find((option) => option.value === vehicle.vehicleType)
+                          ?.label ?? vehicle.vehicleType,
+              }
+            : null,
+        vehicle.seats
+            ? { label: "Seats", value: vehicle.seats, icon: "seats" }
+            : null,
+        vehicle.fuelType && vehicle.fuelType !== "electric"
+            ? {
+                  label: "Fuel type",
+                  icon: "fuel",
+                  value:
+                      (isMotorbikeCategory(vehicle.category)
+                          ? MOTORBIKE_FUEL_OPTIONS
+                          : FUEL_OPTIONS
+                      ).find((option) => option.value === vehicle.fuelType)
+                          ?.label ?? vehicle.fuelType,
+              }
+            : null,
+        vehicle.color
+            ? {
+                  label: "Color",
+                  icon: "palette",
+                  value:
+                      COLOR_OPTIONS.find(
+                          (option) => option.value === vehicle.color,
+                      )?.label ?? vehicle.color,
+              }
+            : null,
+        vehicle.manufacturingYear
+            ? {
+                  label: "Year",
+                  value: vehicle.manufacturingYear,
+                  icon: "calendar",
+              }
+            : null,
+    ].filter(
+        (detail): detail is { label: string; value: string; icon: string } =>
+            Boolean(detail),
     );
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+}
+const sampleVehicles: Vehicle[] = [
+    {
+        id: "sample-sedan",
+        category: "electric-car",
+        plate: "51K-123.45",
+        brand: "Toyota",
+        vehicleType: "sedan",
+        seats: "5",
+        fuelType: "electric",
+        color: "white",
+        manufacturingYear: "2023",
+        size: "standard",
+        photo: "/images/parkwise/vehicle-sedan-cutout.png",
+    },
+    {
+        id: "sample-suv",
+        category: "car",
+        plate: "30A-987.65",
+        brand: "Toyota",
+        vehicleType: "suv",
+        seats: "7",
+        fuelType: "gasoline",
+        color: "white",
+        manufacturingYear: "2022",
+        size: "large",
+        photo: "/images/parkwise/vehicle-suv.png",
+    },
+    {
+        id: "sample-motorbike",
+        category: "motorbike",
+        plate: "59A1-123.45",
+        brand: "Honda",
+        model: "Vision",
+        vehicleType: "scooter",
+        fuelType: "gasoline",
+        color: "white",
+        manufacturingYear: "2024",
+        size: "standard",
+        photo: "/images/parkwise/vehicle-motorbike-cutout.png",
+    },
+];
 
-    // Modal state
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [plateInput, setPlateInput] = useState("");
-    const [typeInput, setTypeInput] = useState<"Car" | "Motorbike">("Car");
-    const [nicknameInput, setNicknameInput] = useState("");
-    const [submitting, setSubmitting] = useState(false);
-    const [modalError, setModalError] = useState<string | null>(null);
+function fromRegisteredVehicle(vehicle: RegisteredVehicle): Vehicle {
+    return {
+        id: vehicle.vehicleId,
+        category: vehicle.vehicleType === "Motorbike" ? "motorbike" : "car",
+        plate: vehicle.licensePlate,
+        brand: vehicle.nickName ?? "",
+        size: "standard",
+        isDefault: vehicle.isDefault,
+    };
+}
 
-    // Delete confirmation state
-    const [deletingId, setDeletingId] = useState<string | null>(null);
-    const [deleteLoading, setDeleteLoading] = useState(false);
+function Icon({ name, size = 20 }: { name: string; size?: number }) {
+    const paths: Record<string, ReactNode> = {
+        plus: <path d="M12 5v14M5 12h14" />,
+        close: <path d="M5 5l14 14M19 5 5 19" />,
+        arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
+        car: (
+            <>
+                <path d="m5 11 1.7-4.2A2 2 0 0 1 8.6 5h6.8a2 2 0 0 1 1.9 1.8L19 11" />
+                <rect x="3" y="11" width="18" height="7" rx="2" />
+                <path d="M5 18v2m14-2v2M7 14h.01M17 14h.01" />
+            </>
+        ),
+        motorbike: (
+            <>
+                <circle cx="5.5" cy="17.5" r="3.5" />
+                <circle cx="18.5" cy="17.5" r="3.5" />
+                <path d="m8.5 17.5 3-7h3l4 7M8 9h3m1.5 1.5 2.5-3h2m-5.5 10h4" />
+            </>
+        ),
+        bicycle: (
+            <>
+                <circle cx="5.5" cy="17" r="3.5" />
+                <circle cx="18.5" cy="17" r="3.5" />
+                <path d="m5.5 17 4-9h4l5 9M9.5 8l5 9m-9 0h9M8 6h3m3 0h3" />
+            </>
+        ),
+        book: (
+            <>
+                <path d="M12 6c-2-1.5-4.7-1.6-8-1v13c3.3-.6 6-.5 8 1 2-1.5 4.7-1.6 8-1V5c-3.3-.6-6-.5-8 1Z" />
+                <path d="M12 6v13" />
+            </>
+        ),
+        bolt: <path d="m13 2-8 11h6l-1 9 9-12h-6V2Z" />,
+        upload: (
+            <>
+                <path d="M12 16V3m-5 5 5-5 5 5" />
+                <path d="M4 15v5h16v-5" />
+            </>
+        ),
+        seats: (
+            <>
+                <circle cx="8" cy="8" r="2" />
+                <circle cx="17" cy="8" r="2" />
+                <path d="M2.5 18c0-3 2-5 5.5-5s5.5 2 5.5 5m-1-4c1-.7 2.5-1 4.5-1 3 0 5 2 5 5" />
+            </>
+        ),
+        fuel: (
+            <>
+                <rect x="4" y="4" width="10" height="17" rx="1" />
+                <path d="M7 8h4m3 1h2l3 3v6a2 2 0 0 0 4 0v-7l-3-3" />
+            </>
+        ),
+        calendar: (
+            <>
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M7 3v4m10-4v4M3 10h18m-12 4h.01M14 14h.01M9 18h.01" />
+            </>
+        ),
+        tag: (
+            <>
+                <path d="M4 4h8l8 8-8 8-8-8V4Z" />
+                <circle cx="8.5" cy="8.5" r="1" />
+            </>
+        ),
+        palette: (
+            <>
+                <path d="M12 3a9 9 0 0 0 0 18h1a2 2 0 0 0 1.7-3 1.5 1.5 0 0 1 1.3-2.3h2A3 3 0 0 0 21 12a9 9 0 0 0-9-9Z" />
+                <path d="M7 11h.01M9 7.5h.01M14 7h.01M17 10h.01" />
+            </>
+        ),
+        info: (
+            <>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5m0-8h.01" />
+            </>
+        ),
+        document: (
+            <>
+                <path d="M6 3h8l4 4v14H6z" />
+                <path d="M14 3v5h4M9 12h6m-6 4h6" />
+            </>
+        ),
+        headset: (
+            <>
+                <path d="M4 13V11a8 8 0 0 1 16 0v2" />
+                <rect x="3" y="12" width="4" height="7" rx="2" />
+                <rect x="17" y="12" width="4" height="7" rx="2" />
+                <path d="M19 19c0 2-2 3-5 3h-2" />
+            </>
+        ),
+        edit: (
+            <>
+                <path d="m4 20 4.5-1 10-10-3.5-3.5-10 10L4 20Z" />
+                <path d="m13.5 7 3.5 3.5" />
+            </>
+        ),
+        trash: (
+            <>
+                <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" />
+            </>
+        ),
+        camera: (
+            <>
+                <path d="M4 7h4l1.5-2h5L16 7h4v12H4z" />
+                <circle cx="12" cy="13" r="3" />
+            </>
+        ),
+    };
+    return (
+        <svg
+            width={size}
+            height={size}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            {paths[name]}
+        </svg>
+    );
+}
 
-    async function loadVehicles() {
-        setLoading(true);
-        setError(null);
-        try {
-            const data = await getMyVehicles();
-            setVehicles(data.vehicles || []);
-        } catch (err: unknown) {
-            if (err instanceof ApiError) {
-                setError(
-                    err.problem?.detail ||
-                        err.message ||
-                        "Không thể tải danh sách phương tiện.",
-                );
-            } else if (err instanceof TypeError) {
-                setError(
-                    "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.",
-                );
-            } else if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("Đã xảy ra lỗi khi tải danh sách phương tiện.");
-            }
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    useEffect(() => {
-        let active = true;
-        queueMicrotask(() => {
-            if (active) void loadVehicles();
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
-
-    async function handleAddVehicle(e: FormEvent) {
-        e.preventDefault();
-        const trimmedPlate = plateInput.trim().toUpperCase();
-        if (!trimmedPlate) {
-            setModalError(
-                copy(
-                    "Please enter a license plate.",
-                    "Vui lòng nhập biển số xe.",
-                ),
-            );
-            return;
-        }
-
-        setSubmitting(true);
-        setModalError(null);
-        try {
-            const newVehicle = await addMyVehicle(
-                trimmedPlate,
-                typeInput,
-                nicknameInput.trim() || null,
-            );
-            setVehicles((prev) => [newVehicle, ...prev]);
-            setIsAddModalOpen(false);
-            setPlateInput("");
-            setNicknameInput("");
-        } catch (err: unknown) {
-            if (err instanceof ApiError) {
-                if (
-                    err.problem?.errorCode ===
-                    "identity.vehicle_plate_already_registered"
-                ) {
-                    setModalError(
-                        copy(
-                            "This license plate is already registered.",
-                            "Biển số xe này đã được đăng ký trong hệ thống.",
-                        ),
+function TwoWheelerTypeSelector({
+    category,
+    disabled,
+    onChange,
+}: {
+    category: VehicleCategory;
+    disabled: boolean;
+    onChange: (kind: "motorbike" | "electric-motorbike" | "bicycle") => void;
+}) {
+    const { copy } = useCustomerLanguage();
+    if (baseCategory(category) !== "motorbike") return null;
+    const options = ["motorbike", "electric-motorbike", "bicycle"] as const;
+    return (
+        <fieldset className="vehicles-size-field vehicles-two-wheeler-field">
+            <legend>{copy("Two-wheeler type", "Loại xe hai bánh")}</legend>
+            <div className="vehicles-size-options">
+                {options.map((kind) => {
+                    const info = categoryInfo(kind);
+                    return (
+                        <label
+                            key={kind}
+                            className={`vehicles-size-option ${category === kind ? "selected" : ""}`}
+                        >
+                            <input
+                                type="radio"
+                                name="vehicles-two-wheeler-type"
+                                checked={category === kind}
+                                disabled={disabled}
+                                onChange={() => onChange(kind)}
+                            />
+                            <span className="vehicles-size-indicator" />
+                            <Icon name={info.icon} size={21} />
+                            <strong>
+                                {copy(info.label, vehicleLabelVi(info.label))}
+                            </strong>
+                        </label>
                     );
-                } else {
-                    setModalError(
-                        err.problem?.detail ||
-                            err.message ||
-                            "Không thể thêm phương tiện.",
-                    );
-                }
-            } else if (err instanceof Error) {
-                setModalError(err.message);
-            } else {
-                setModalError("Đã xảy ra lỗi khi thêm phương tiện.");
-            }
-        } finally {
-            setSubmitting(false);
-        }
-    }
+                })}
+            </div>
+        </fieldset>
+    );
+}
 
-    async function handleDeleteVehicle(vehicleId: string) {
-        setDeleteLoading(true);
-        try {
-            await deleteMyVehicle(vehicleId);
-            setVehicles((prev) =>
-                prev.filter((v) => v.vehicleId !== vehicleId),
-            );
-            setDeletingId(null);
-        } catch (err: unknown) {
-            alert(
-                err instanceof Error
-                    ? err.message
-                    : "Không thể xóa phương tiện.",
-            );
-        } finally {
-            setDeleteLoading(false);
-        }
-    }
+function PowerSourceSelector({
+    category,
+    disabled,
+    onChange,
+}: {
+    category: VehicleCategory;
+    disabled: boolean;
+    onChange: (electric: boolean) => void;
+}) {
+    const { copy } = useCustomerLanguage();
+    if (!isCarCategory(category)) return null;
+    const electric = category === "electric-car";
+    return (
+        <fieldset className="vehicles-size-field vehicles-power-field">
+            <legend>{copy("Power source", "Nguồn năng lượng")}</legend>
+            <div className="vehicles-size-options">
+                {[
+                    { value: false, label: "Fuel / hybrid", icon: "fuel" },
+                    { value: true, label: "Electric", icon: "bolt" },
+                ].map((option) => (
+                    <label
+                        key={option.label}
+                        className={`vehicles-size-option ${electric === option.value ? "selected" : ""}`}
+                    >
+                        <input
+                            type="radio"
+                            name="vehicles-power-source"
+                            checked={electric === option.value}
+                            disabled={disabled}
+                            onChange={() => onChange(option.value)}
+                        />
+                        <span className="vehicles-size-indicator" />
+                        <Icon name={option.icon} size={23} />
+                        <strong>
+                            {copy(
+                                option.label,
+                                option.value ? "Điện" : "Xăng / hybrid",
+                            )}
+                        </strong>
+                    </label>
+                ))}
+            </div>
+        </fieldset>
+    );
+}
+
+export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
+    const { language, copy } = useCustomerLanguage();
+    const session = useSyncExternalStore(
+        subscribeAuthSession,
+        getAuthSessionSnapshot,
+        () => null,
+    );
+    const [vehicles, setVehicles] = useState<Vehicle[]>(sampleVehicles);
+    const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
+    const [modal, setModal] = useState<Modal>(null);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [settingDefaultId, setSettingDefaultId] = useState<string | null>(
+        null,
+    );
 
     async function handleSetDefault(vehicleId: string) {
+        setSettingDefaultId(vehicleId);
         try {
             await setDefaultVehicle(vehicleId);
-            setVehicles((prev) =>
-                prev.map((v) => ({
+            setVehicles((current) =>
+                current.map((v) => ({
                     ...v,
-                    isDefault: v.vehicleId === vehicleId,
+                    isDefault: v.id === vehicleId,
                 })),
             );
-        } catch (err: unknown) {
-            alert(
-                err instanceof Error
-                    ? err.message
-                    : "Không thể đặt làm xe mặc định.",
-            );
+            setNotice("Đã đặt phương tiện làm xe mặc định.");
+        } catch {
+            setNotice("Không thể đặt làm xe mặc định. Vui lòng thử lại.");
+        } finally {
+            setSettingDefaultId(null);
         }
     }
+    const [plate, setPlate] = useState("");
+    const [category, setCategory] = useState<Vehicle["category"]>("car");
+    const [brand, setBrand] = useState("");
+    const [model, setModel] = useState("");
+    const [vehicleType, setVehicleType] = useState("");
+    const [seats, setSeats] = useState("");
+    const [fuelType, setFuelType] = useState("");
+    const [color, setColor] = useState("");
+    const [manufacturingYear, setManufacturingYear] = useState("");
+    const [size, setSize] = useState<Vehicle["size"]>("standard");
+    const [photo, setPhoto] = useState<string | undefined>();
+    const [error, setError] = useState("");
+    const [brandError, setBrandError] = useState("");
+    const [photoError, setPhotoError] = useState("");
+    const [notice, setNotice] = useState("");
+    const dialogRef = useRef<HTMLDialogElement>(null);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const plateInputRef = useRef<HTMLInputElement>(null);
+    const selectedVehicle = vehicles.find(
+        (vehicle) => vehicle.id === selectedId,
+    );
 
-    const filteredVehicles = vehicles.filter((v) => {
-        if (filterType === "All") return true;
-        return v.vehicleType === filterType;
-    });
+    useEffect(() => {
+        if (!session) return;
+        const controller = new AbortController();
+        getMyVehicles(controller.signal)
+            .then((result) => {
+                setVehicles(result.vehicles.map(fromRegisteredVehicle));
+                setLoadedAccountId(session.account.id);
+            })
+            .catch(() => {
+                if (controller.signal.aborted) return;
+                setVehicles([]);
+                setLoadedAccountId(session.account.id);
+                setNotice(
+                    "Your vehicles could not be loaded. Please refresh the page.",
+                );
+            });
+        return () => controller.abort();
+    }, [session]);
+
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (modal && dialog && !dialog.open) dialog.showModal();
+        if (!modal && dialog?.open) dialog.close();
+    }, [modal]);
+
+    function openAdd() {
+        if (vehicles.length >= MAX_VEHICLES) return;
+        setSelectedId(null);
+        setPlate("");
+        setCategory("motorbike");
+        setBrand("");
+        setModel("");
+        setVehicleType("");
+        setSeats("");
+        setFuelType("");
+        setColor("");
+        setManufacturingYear("");
+        setSize("standard");
+        setPhoto(undefined);
+        setError("");
+        setBrandError("");
+        setPhotoError("");
+        setModal("add");
+    }
+    function openEdit(vehicle: Vehicle) {
+        setSelectedId(vehicle.id);
+        setPlate(vehicle.plate);
+        setCategory(vehicle.category);
+        setBrand(vehicle.brand);
+        setModel(vehicle.model ?? "");
+        setVehicleType(vehicle.vehicleType ?? "");
+        setSeats(vehicle.seats ?? "");
+        setFuelType(vehicle.fuelType ?? "");
+        setColor(vehicle.color ?? "");
+        setManufacturingYear(vehicle.manufacturingYear ?? "");
+        setSize(vehicle.size);
+        setPhoto(vehicle.photo);
+        setError("");
+        setBrandError("");
+        setPhotoError("");
+        setModal("edit");
+    }
+    function resetVehicleDetails() {
+        setPlate("");
+        setBrand("");
+        setModel("");
+        setVehicleType("");
+        setSeats("");
+        setFuelType("");
+        setPhoto(undefined);
+        setBrandError("");
+        setPhotoError("");
+        setError("");
+        setSize("standard");
+    }
+    function chooseCategory(kind: VehicleCategory) {
+        if (baseCategory(category) === kind) return;
+        setCategory(kind);
+        resetVehicleDetails();
+    }
+    function chooseTwoWheelerType(
+        kind: "motorbike" | "electric-motorbike" | "bicycle",
+    ) {
+        if (category === kind) return;
+        if ((category === "bicycle") !== (kind === "bicycle")) {
+            resetVehicleDetails();
+        }
+        setCategory(kind);
+        setFuelType(kind === "electric-motorbike" ? "electric" : "");
+    }
+    function choosePowerSource(electric: boolean) {
+        if (!isCarCategory(category)) return;
+        setCategory(electric ? "electric-car" : "car");
+        setFuelType(electric ? "electric" : "");
+    }
+    function closeModal() {
+        setModal(null);
+        setError("");
+        setBrandError("");
+        setPhotoError("");
+    }
+    function updatePlate(value: string, cursor: number | null) {
+        const formatted = formatPlate(value, category);
+        const charactersBeforeCursor = value
+            .slice(0, cursor ?? value.length)
+            .replace(/[^A-Za-z0-9]/g, "").length;
+        setPlate(formatted);
+        setError("");
+        requestAnimationFrame(() => {
+            const input = plateInputRef.current;
+            if (!input || document.activeElement !== input) return;
+            let position = 0;
+            let characters = 0;
+            while (
+                position < formatted.length &&
+                characters < charactersBeforeCursor
+            ) {
+                if (/[A-Za-z0-9]/.test(formatted[position])) characters += 1;
+                position += 1;
+            }
+            input.setSelectionRange(position, position);
+        });
+    }
+    async function saveVehicle(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        const nextPlate = needsPlate(category)
+            ? formatPlate(plate, category)
+            : "";
+        const nextBrand = brand.trim();
+        const needsBrand = needsPlate(category);
+        setBrandError(
+            nextBrand || session || !needsBrand
+                ? ""
+                : "Select or enter a vehicle brand.",
+        );
+        if (
+            modal === "add" &&
+            (needsPlate(category) || Boolean(nextPlate)) &&
+            !/^[A-Z0-9 .-]{5,15}$/.test(nextPlate)
+        ) {
+            setError("Enter a license plate with 5–15 letters or numbers.");
+            return;
+        }
+        if (needsPhoto(category) && !photo) {
+            setPhotoError("Add a photo so this bicycle can be identified.");
+            return;
+        }
+        if (
+            modal === "add" &&
+            nextPlate &&
+            vehicles.some((vehicle) => vehicle.plate === nextPlate)
+        ) {
+            setError("This license plate is already in your list.");
+            return;
+        }
+        if (!nextBrand && !session && needsBrand) {
+            document.getElementById("vehicles-brand")?.focus();
+            return;
+        }
+        if (modal === "add") {
+            if (session && backendSupports(category)) {
+                try {
+                    const saved = await addMyVehicle(
+                        nextPlate,
+                        category === "car" ? "Car" : "Motorbike",
+                        nextBrand || null,
+                    );
+                    setVehicles((current) => [
+                        ...current,
+                        fromRegisteredVehicle(saved),
+                    ]);
+                    setNotice("Vehicle added to your account.");
+                    closeModal();
+                } catch {
+                    setError(
+                        "Could not add this vehicle. Check the plate and try again.",
+                    );
+                }
+                return;
+            }
+            setVehicles((current) => [
+                ...current,
+                {
+                    id: crypto.randomUUID(),
+                    category,
+                    plate: nextPlate,
+                    brand: nextBrand,
+                    model: model.trim(),
+                    vehicleType,
+                    seats,
+                    fuelType,
+                    color,
+                    manufacturingYear,
+                    size,
+                    photo,
+                    draft: Boolean(session),
+                },
+            ]);
+            setNotice(
+                session
+                    ? "This vehicle is a local draft until its API is available."
+                    : "Vehicle added for this session.",
+            );
+        } else if (modal === "edit" && selectedId) {
+            setVehicles((current) =>
+                current.map((vehicle) =>
+                    vehicle.id === selectedId
+                        ? {
+                              ...vehicle,
+                              category,
+                              brand: nextBrand,
+                              model: model.trim(),
+                              vehicleType,
+                              seats,
+                              fuelType,
+                              color,
+                              manufacturingYear,
+                              size,
+                              photo,
+                          }
+                        : vehicle,
+                ),
+            );
+            setNotice("Vehicle updated for this session.");
+        }
+        closeModal();
+    }
+    function handlePhoto(file?: File) {
+        if (!file) return;
+        if (
+            !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+            file.size > 5 * 1024 * 1024
+        ) {
+            setPhotoError("Choose a JPG, PNG or WebP image under 5 MB.");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result === "string") setPhoto(reader.result);
+        };
+        reader.readAsDataURL(file);
+        setPhotoError("");
+    }
+    async function removeVehicle() {
+        if (!selectedId) return;
+        if (session && !selectedVehicle?.draft) {
+            try {
+                await deleteMyVehicle(selectedId);
+            } catch {
+                setNotice("Could not remove this vehicle. Please try again.");
+                closeModal();
+                return;
+            }
+        }
+        setVehicles((current) => {
+            const remaining = current.filter(
+                (vehicle) => vehicle.id !== selectedId,
+            );
+            const wasDefault = current.find(
+                (vehicle) => vehicle.id === selectedId,
+            )?.isDefault;
+            if (wasDefault && remaining.length > 0) {
+                remaining[0] = { ...remaining[0], isDefault: true };
+            }
+            return remaining;
+        });
+        setNotice(
+            session
+                ? "Vehicle removed from your account."
+                : "Vehicle removed for this session.",
+        );
+        closeModal();
+    }
+
+    if (session && loadedAccountId !== session.account.id) {
+        return (
+            <main
+                className={`parkwise-page vehicles-page ${fontClassName}`}
+                aria-live="polite"
+            >
+                {copy("Loading your vehicles…", "Đang tải danh sách xe…")}
+            </main>
+        );
+    }
 
     return (
         <div
-            className={`min-h-screen bg-[#070810] text-[#e1e4ed] flex flex-col ${fontClassName || ""}`}
+            lang={language}
+            className={`parkwise-page vehicles-page ${fontClassName}`}
         >
-            <ParkWiseNavbar />
-
-            <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 space-y-8">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-xs font-bold tracking-widest text-[#a28aff] uppercase">
-                                {copy("MANAGEMENT", "QUẢN LÝ")}
-                            </span>
-                            <span className="text-white/20">|</span>
-                            <CustomerLanguageSwitcher />
-                        </div>
-                        <h1 className="text-3xl font-black text-white mt-1 tracking-tight">
-                            {copy("My Vehicles", "Phương tiện của tôi")}
-                        </h1>
-                        <p className="text-sm text-[#8790a3] mt-1">
-                            {copy(
-                                "Manage license plates for automatic gate entry and quick parking reservations.",
-                                "Quản lý biển số xe để nhận diện mở barrier tự động và đặt chỗ nhanh chóng.",
-                            )}
-                        </p>
+            <ParkWiseNavbar
+                variant="customer"
+                navigationMode="dashboard"
+                activeHref="/customer/vehicles"
+                accountControl={
+                    <div className="dashboard-header-actions">
+                        <CustomerLanguageSwitcher />
+                        <CustomerAccountMenu activeHref="/customer/vehicles" />
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => void loadVehicles()}
-                            disabled={loading}
-                            className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[#8790a3] hover:text-white hover:border-white/20 transition-colors"
-                            title={copy("Refresh", "Làm mới")}
-                            aria-label={copy("Refresh", "Làm mới")}
-                        >
-                            <RefreshCw
-                                size={18}
-                                className={loading ? "animate-spin" : ""}
-                            />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setModalError(null);
-                                setIsAddModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6246ea] hover:bg-[#7c5cff] text-white font-bold text-sm shadow-glow-purple transition-all"
-                        >
-                            <Plus size={18} />
-                            {copy("Add vehicle", "Thêm xe mới")}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Filter Tabs */}
-                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
-                    {(["All", "Car", "Motorbike"] as const).map((type) => (
-                        <button
-                            key={type}
-                            type="button"
-                            onClick={() => setFilterType(type)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-                                filterType === type
-                                    ? "bg-[#6246ea]/20 text-[#a28aff] border border-[#6246ea]/40"
-                                    : "text-[#8790a3] hover:text-white hover:bg-white/5"
-                            }`}
-                        >
-                            {type === "All" &&
-                                copy(
-                                    `All (${vehicles.length})`,
-                                    `Tất cả (${vehicles.length})`,
-                                )}
-                            {type === "Car" &&
-                                copy(
-                                    `Cars (${vehicles.filter((v) => v.vehicleType === "Car").length})`,
-                                    `Ô tô (${vehicles.filter((v) => v.vehicleType === "Car").length})`,
-                                )}
-                            {type === "Motorbike" &&
-                                copy(
-                                    `Motorbikes (${vehicles.filter((v) => v.vehicleType === "Motorbike").length})`,
-                                    `Xe máy (${vehicles.filter((v) => v.vehicleType === "Motorbike").length})`,
-                                )}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Error Banner */}
-                {error && (
-                    <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-red-300 text-sm font-medium">
-                            <AlertCircle
-                                size={20}
-                                className="text-red-400 shrink-0"
-                            />
-                            <span>{error}</span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => void loadVehicles()}
-                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-white rounded-lg text-xs font-semibold"
-                        >
-                            {copy("Retry", "Thử lại")}
-                        </button>
-                    </div>
-                )}
-
-                {/* Loading Skeleton */}
-                {loading && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {[1, 2].map((i) => (
-                            <div
-                                key={i}
-                                className="bg-[#0b0c17] border border-white/10 rounded-2xl p-6 h-40 animate-pulse flex flex-col justify-between"
-                            >
-                                <div className="space-y-3">
-                                    <div className="h-6 w-36 bg-white/10 rounded-md" />
-                                    <div className="h-4 w-24 bg-white/5 rounded-md" />
-                                </div>
-                                <div className="h-8 w-full bg-white/5 rounded-xl" />
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Empty State */}
-                {!loading && !error && filteredVehicles.length === 0 && (
-                    <div className="bg-[#0b0c17] border border-white/10 rounded-2xl p-12 text-center space-y-4">
-                        <div className="w-16 h-16 rounded-full bg-[#6246ea]/10 border border-[#6246ea]/20 flex items-center justify-center mx-auto text-[#a28aff]">
-                            <Car size={30} />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-white mb-1">
+                }
+            />
+            <main className="vehicles-main">
+                <div className="vehicles-layout">
+                    <div className="vehicles-primary-column">
+                        <div className="vehicles-heading">
+                            <h1>{copy("My Vehicles", "Xe của tôi")}</h1>
+                            <p>
                                 {copy(
-                                    "No vehicles registered",
-                                    "Chưa có phương tiện nào",
-                                )}
-                            </h2>
-                            <p className="text-sm text-[#8790a3] max-w-md mx-auto">
-                                {copy(
-                                    "Add your car or motorbike license plate so the parking barrier opens automatically upon entry.",
-                                    "Đăng ký biển số ô tô hoặc xe máy của bạn để hệ thống nhận diện và mở barrier tự động.",
+                                    "Manage the vehicles you use when parking.",
+                                    "Quản lý những xe bạn sử dụng khi đỗ xe.",
                                 )}
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setModalError(null);
-                                setIsAddModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6246ea] hover:bg-[#7c5cff] text-white font-bold text-sm shadow-glow-purple transition-all"
+                        <section
+                            className="vehicles-summary"
+                            aria-label={copy("My vehicles", "Xe của tôi")}
                         >
-                            <Plus size={18} />
-                            {copy("Add your first vehicle", "Thêm xe đầu tiên")}
-                        </button>
-                    </div>
-                )}
-
-                {/* Vehicle Grid */}
-                {!loading && !error && filteredVehicles.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {filteredVehicles.map((vehicle) => {
-                            const isCar = vehicle.vehicleType === "Car";
-                            const Icon = isCar ? Car : Bike;
-
-                            return (
-                                <div
-                                    key={vehicle.vehicleId}
-                                    className="bg-[#0b0c17] border border-white/10 hover:border-white/20 rounded-2xl p-6 transition-all flex flex-col justify-between shadow-card-light"
-                                >
-                                    <div>
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#a28aff]">
-                                                    <Icon size={24} />
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-mono text-lg font-black text-white px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg tracking-wider">
-                                                            {
-                                                                vehicle.licensePlate
-                                                            }
+                            <span className="vehicles-summary-icon">
+                                <Icon name="car" size={25} />
+                            </span>
+                            <div className="vehicles-summary-stats">
+                                <span>{copy("My vehicles", "Xe của tôi")}</span>
+                                <strong>
+                                    {vehicles.length} / {MAX_VEHICLES}
+                                </strong>
+                            </div>
+                            <div
+                                className="vehicles-progress"
+                                role="progressbar"
+                                aria-label={copy(
+                                    "Vehicle slots used",
+                                    "Số xe đã thêm",
+                                )}
+                                aria-valuenow={vehicles.length}
+                                aria-valuemin={0}
+                                aria-valuemax={MAX_VEHICLES}
+                            >
+                                <span
+                                    style={{
+                                        width: `${vehicles.length * 10}%`,
+                                    }}
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                className="vehicles-dark-button"
+                                onClick={openAdd}
+                                disabled={vehicles.length >= MAX_VEHICLES}
+                            >
+                                <Icon name="plus" />{" "}
+                                {copy("Add Vehicle", "Thêm xe")}
+                            </button>
+                        </section>
+                        {notice && (
+                            <p className="vehicles-notice" role="status">
+                                {notice}
+                            </p>
+                        )}
+                        <div className="vehicles-card-grid">
+                            {vehicles.map((vehicle) => {
+                                const details = getVehicleDetails(
+                                    vehicle,
+                                    Boolean(session),
+                                );
+                                return (
+                                    <article
+                                        className="vehicles-card"
+                                        key={vehicle.id}
+                                    >
+                                        <div className="vehicles-card-top">
+                                            <div className="vehicles-badges">
+                                                <span
+                                                    className={`vehicles-badge ${vehicle.category}`}
+                                                >
+                                                    <Icon
+                                                        name={
+                                                            categoryInfo(
+                                                                vehicle.category,
+                                                            ).icon
+                                                        }
+                                                        size={16}
+                                                    />
+                                                    {copy(
+                                                        categoryInfo(
+                                                            vehicle.category,
+                                                        ).label,
+                                                        vehicleLabelVi(
+                                                            categoryInfo(
+                                                                vehicle.category,
+                                                            ).label,
+                                                        ),
+                                                    )}
+                                                </span>
+                                                {isCarCategory(
+                                                    vehicle.category,
+                                                ) &&
+                                                    vehicle.size ===
+                                                        "large" && (
+                                                        <span className="vehicles-badge large">
+                                                            {copy(
+                                                                "Large",
+                                                                "Cỡ lớn",
+                                                            )}
                                                         </span>
-                                                        {vehicle.isDefault && (
-                                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                                                <Star
-                                                                    size={11}
-                                                                    className="fill-amber-300"
-                                                                />
-                                                                {copy(
-                                                                    "Default",
-                                                                    "Mặc định",
-                                                                )}
-                                                            </span>
+                                                    )}
+                                                {vehicle.isDefault && (
+                                                    <span
+                                                        className="vehicles-badge default"
+                                                        style={{
+                                                            background:
+                                                                "#059669",
+                                                            color: "#ffffff",
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        ★ Mặc định
+                                                    </span>
+                                                )}
+                                                {vehicle.draft && (
+                                                    <span className="vehicles-badge draft">
+                                                        {copy(
+                                                            "Local draft",
+                                                            "Bản nháp trên thiết bị",
                                                         )}
-                                                    </div>
-                                                    <p className="text-xs text-[#8790a3] mt-1">
-                                                        {vehicle.nickName ||
-                                                            (isCar
-                                                                ? copy(
-                                                                      "Car",
-                                                                      "Ô tô",
-                                                                  )
-                                                                : copy(
-                                                                      "Motorbike",
-                                                                      "Xe máy",
-                                                                  ))}
-                                                    </p>
-                                                </div>
+                                                    </span>
+                                                )}
                                             </div>
-
+                                        </div>
+                                        <div className="vehicles-card-image">
+                                            {vehicle.photo ? (
+                                                <Image
+                                                    src={vehicle.photo}
+                                                    alt={`Vehicle ${vehicle.plate || vehicle.brand || categoryInfo(vehicle.category).label}`}
+                                                    fill
+                                                    sizes="(max-width: 700px) 90vw, 360px"
+                                                    unoptimized={vehicle.photo.startsWith(
+                                                        "data:",
+                                                    )}
+                                                />
+                                            ) : (
+                                                <span className="vehicles-photo-placeholder">
+                                                    <Icon
+                                                        name={
+                                                            categoryInfo(
+                                                                vehicle.category,
+                                                            ).icon
+                                                        }
+                                                        size={56}
+                                                    />
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="vehicles-card-info">
+                                            <h2>
+                                                {vehicle.plate ||
+                                                    vehicle.brand ||
+                                                    copy(
+                                                        categoryInfo(
+                                                            vehicle.category,
+                                                        ).label,
+                                                        vehicleLabelVi(
+                                                            categoryInfo(
+                                                                vehicle.category,
+                                                            ).label,
+                                                        ),
+                                                    )}
+                                            </h2>
+                                            <p className="vehicles-card-subtitle">
+                                                {copy(
+                                                    categoryInfo(
+                                                        vehicle.category,
+                                                    ).description,
+                                                    vehicleLabelVi(
+                                                        categoryInfo(
+                                                            vehicle.category,
+                                                        ).description,
+                                                    ),
+                                                )}
+                                            </p>
+                                            {details.length > 0 && (
+                                                <ul className="vehicles-card-details">
+                                                    {details.map((detail) => (
+                                                        <li key={detail.label}>
+                                                            <span className="vehicles-card-detail-icon">
+                                                                <Icon
+                                                                    name={
+                                                                        detail.icon
+                                                                    }
+                                                                    size={19}
+                                                                />
+                                                            </span>
+                                                            <span className="vehicles-card-detail-copy">
+                                                                <span>
+                                                                    {copy(
+                                                                        detail.label,
+                                                                        vehicleLabelVi(
+                                                                            detail.label,
+                                                                        ),
+                                                                    )}
+                                                                </span>
+                                                                <strong>
+                                                                    {
+                                                                        detail.value
+                                                                    }
+                                                                </strong>
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                        <div className="vehicles-card-actions">
+                                            {session &&
+                                                !vehicle.draft &&
+                                                (vehicle.isDefault ? (
+                                                    <span
+                                                        style={{
+                                                            fontSize: "0.85rem",
+                                                            color: "#059669",
+                                                            fontWeight: 600,
+                                                            display:
+                                                                "inline-flex",
+                                                            alignItems:
+                                                                "center",
+                                                            gap: "4px",
+                                                            padding: "6px 8px",
+                                                        }}
+                                                    >
+                                                        ✓ Xe chính
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="secondary"
+                                                        onClick={() =>
+                                                            handleSetDefault(
+                                                                vehicle.id,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            settingDefaultId ===
+                                                            vehicle.id
+                                                        }
+                                                        style={{
+                                                            fontSize: "0.85rem",
+                                                            cursor: "pointer",
+                                                        }}
+                                                    >
+                                                        {settingDefaultId ===
+                                                        vehicle.id
+                                                            ? "Đang đặt..."
+                                                            : "⭐ Đặt mặc định"}
+                                                    </button>
+                                                ))}
+                                            {(!session || vehicle.draft) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        openEdit(vehicle)
+                                                    }
+                                                >
+                                                    <Icon
+                                                        name="edit"
+                                                        size={16}
+                                                    />{" "}
+                                                    {copy("Edit", "Sửa")}
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    setDeletingId(
-                                                        vehicle.vehicleId,
-                                                    )
-                                                }
-                                                className="p-2 text-[#8790a3] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                title={copy(
-                                                    "Delete vehicle",
-                                                    "Xóa xe",
-                                                )}
-                                                aria-label={copy(
-                                                    "Delete vehicle",
-                                                    "Xóa xe",
-                                                )}
+                                                className="danger"
+                                                onClick={() => {
+                                                    setSelectedId(vehicle.id);
+                                                    setModal("delete");
+                                                }}
                                             >
-                                                <Trash2 size={16} />
+                                                <Icon name="trash" size={17} />{" "}
+                                                {copy("Delete", "Xóa")}
                                             </button>
                                         </div>
-                                    </div>
-
-                                    <div className="pt-4 border-t border-white/5 flex items-center justify-between text-xs text-[#8790a3]">
-                                        <span>
-                                            {copy("Registered", "Đã đăng ký")}:{" "}
-                                            {new Date(
-                                                vehicle.createdAtUtc,
-                                            ).toLocaleDateString("vi-VN")}
-                                        </span>
-                                        {!vehicle.isDefault && (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    void handleSetDefault(
-                                                        vehicle.vehicleId,
-                                                    )
-                                                }
-                                                className="text-[#a28aff] hover:underline font-semibold"
-                                            >
-                                                {copy(
-                                                    "Set as default",
-                                                    "Đặt làm mặc định",
-                                                )}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </main>
-
-            {/* Add Vehicle Modal */}
-            {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#0b0c17] border border-white/15 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                            <h2 className="text-lg font-bold text-white">
-                                {copy(
-                                    "Add New Vehicle",
-                                    "Đăng ký phương tiện mới",
-                                )}
-                            </h2>
-                            <button
-                                type="button"
-                                onClick={() => setIsAddModalOpen(false)}
-                                className="p-1.5 text-[#8790a3] hover:text-white rounded-lg hover:bg-white/5"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {modalError && (
-                            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
-                                <AlertCircle
-                                    size={16}
-                                    className="shrink-0 text-red-400"
-                                />
-                                <span>{modalError}</span>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleAddVehicle} className="space-y-4">
-                            {/* Vehicle Type Choice */}
-                            <div>
-                                <label className="block text-xs font-semibold text-[#8790a3] mb-2">
-                                    {copy("Vehicle Type", "Loại phương tiện")} *
-                                </label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setTypeInput("Car")}
-                                        className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-bold transition-all ${
-                                            typeInput === "Car"
-                                                ? "bg-[#6246ea]/20 border-[#6246ea] text-white"
-                                                : "bg-white/5 border-white/10 text-[#8790a3] hover:border-white/20"
-                                        }`}
-                                    >
-                                        <Car size={18} />
-                                        {copy("Car", "Ô tô")}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setTypeInput("Motorbike")
-                                        }
-                                        className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-bold transition-all ${
-                                            typeInput === "Motorbike"
-                                                ? "bg-[#6246ea]/20 border-[#6246ea] text-white"
-                                                : "bg-white/5 border-white/10 text-[#8790a3] hover:border-white/20"
-                                        }`}
-                                    >
-                                        <Bike size={18} />
-                                        {copy("Motorbike", "Xe máy")}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* License Plate Input */}
-                            <div>
-                                <label className="block text-xs font-semibold text-[#8790a3] mb-1.5">
-                                    {copy("License Plate", "Biển số xe")} *
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={plateInput}
-                                    onChange={(e) =>
-                                        setPlateInput(
-                                            e.target.value.toUpperCase(),
-                                        )
-                                    }
-                                    placeholder={
-                                        typeInput === "Car"
-                                            ? "51A-123.45"
-                                            : "59X1-234.56"
-                                    }
-                                    className="w-full font-mono text-base font-bold tracking-wider px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-[#6246ea]"
-                                />
-                                <span className="text-[11px] text-[#8790a3] mt-1 block">
-                                    {copy(
-                                        "Enter standard Vietnamese plate format (e.g. 51A-123.45 or 59X1-234.56)",
-                                        "Định dạng biển số chuẩn Việt Nam (VD: 51A-123.45 hoặc 59X1-234.56)",
-                                    )}
-                                </span>
-                            </div>
-
-                            {/* Nickname Input */}
-                            <div>
-                                <label className="block text-xs font-semibold text-[#8790a3] mb-1.5">
-                                    {copy(
-                                        "Nickname (Optional)",
-                                        "Tên gợi nhớ (Không bắt buộc)",
-                                    )}
-                                </label>
-                                <input
-                                    type="text"
-                                    value={nicknameInput}
-                                    onChange={(e) =>
-                                        setNicknameInput(e.target.value)
-                                    }
-                                    placeholder={copy(
-                                        "e.g. Daily commuter, White Mazda",
-                                        "VD: Xe đi làm, Honda City trắng",
-                                    )}
-                                    maxLength={50}
-                                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#6246ea]"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                                    </article>
+                                );
+                            })}
+                            {vehicles.length < MAX_VEHICLES && (
                                 <button
                                     type="button"
-                                    onClick={() => setIsAddModalOpen(false)}
-                                    disabled={submitting}
-                                    className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-colors"
+                                    className="vehicles-add-card"
+                                    onClick={openAdd}
                                 >
-                                    {copy("Cancel", "Hủy")}
+                                    <span className="vehicles-add-circle">
+                                        <Icon name="plus" size={30} />
+                                    </span>
+                                    <strong>
+                                        {vehicles.length === 0
+                                            ? copy(
+                                                  "No vehicles added yet",
+                                                  "Chưa thêm xe nào",
+                                              )
+                                            : copy(
+                                                  "Add another vehicle",
+                                                  "Thêm xe khác",
+                                              )}
+                                    </strong>
+                                    <span>
+                                        {copy(
+                                            `Manage up to ${MAX_VEHICLES} vehicles.`,
+                                            `Quản lý tối đa ${MAX_VEHICLES} xe.`,
+                                        )}
+                                    </span>
+                                    <span className="vehicles-outline-button">
+                                        <Icon name="plus" size={17} />{" "}
+                                        {vehicles.length === 0
+                                            ? copy(
+                                                  "Add Your First Vehicle",
+                                                  "Thêm xe đầu tiên",
+                                              )
+                                            : copy("Add Vehicle", "Thêm xe")}
+                                    </span>
                                 </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6246ea] hover:bg-[#7c5cff] text-white text-xs font-bold transition-colors disabled:opacity-50 shadow-glow-purple"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <Loader2
-                                                size={16}
-                                                className="animate-spin"
-                                            />
-                                            {copy("Saving...", "Đang lưu...")}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Check size={16} />
-                                            {copy(
-                                                "Register vehicle",
-                                                "Đăng ký xe",
-                                            )}
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {deletingId && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#0b0c17] border border-white/15 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 text-center">
-                        <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-400">
-                            <Trash2 size={24} />
-                        </div>
-                        <div>
-                            <h2 className="text-base font-bold text-white mb-1">
-                                {copy(
-                                    "Delete this vehicle?",
-                                    "Xác nhận xóa phương tiện?",
-                                )}
-                            </h2>
-                            <p className="text-xs text-[#8790a3]">
-                                {copy(
-                                    "This vehicle will no longer be recognized at the parking gates.",
-                                    "Phương tiện này sẽ không còn được nhận diện tự động tại cổng bãi đỗ.",
-                                )}
-                            </p>
-                        </div>
-                        <div className="flex items-center justify-center gap-3 pt-2">
+                    <aside
+                        className="vehicles-aside"
+                        aria-label={copy(
+                            "Vehicle information",
+                            "Thông tin về xe",
+                        )}
+                    >
+                        <section className="vehicles-guidelines">
+                            <div className="vehicles-aside-title">
+                                <span>
+                                    <Icon name="book" />
+                                </span>
+                                <h2>
+                                    {copy(
+                                        "Vehicle guidelines",
+                                        "Hướng dẫn về xe",
+                                    )}
+                                </h2>
+                            </div>
+                            <ul>
+                                <li>
+                                    <span>
+                                        <Icon name="car" size={19} />
+                                    </span>
+                                    {copy(
+                                        "Manage up to 10 vehicles.",
+                                        "Quản lý tối đa 10 xe.",
+                                    )}
+                                </li>
+                                <li>
+                                    <span>
+                                        <Icon name="document" size={18} />
+                                    </span>
+                                    {copy(
+                                        "Choose the parking area that matches your vehicle.",
+                                        "Chọn khu đỗ phù hợp với xe của bạn.",
+                                    )}
+                                </li>
+                                <li>
+                                    <span>
+                                        <Icon name="bolt" size={18} />
+                                    </span>
+                                    {copy(
+                                        "A bicycle needs a photo for identification.",
+                                        "Xe đạp cần có ảnh để nhận diện.",
+                                    )}
+                                </li>
+                                <li>
+                                    <span>
+                                        <Icon name="info" size={18} />
+                                    </span>
+                                    {copy(
+                                        "Government priority vehicles do not register here.",
+                                        "Xe ưu tiên theo quy định không đăng ký tại đây.",
+                                    )}
+                                </li>
+                            </ul>
+                        </section>
+                        <section className="vehicles-help">
+                            <div className="vehicles-aside-title">
+                                <span>
+                                    <Icon name="headset" size={24} />
+                                </span>
+                                <div>
+                                    <h2>{copy("Need Help?", "Cần hỗ trợ?")}</h2>
+                                    <p>
+                                        {copy(
+                                            "Our support team is here to assist you.",
+                                            "Đội hỗ trợ sẵn sàng giúp bạn.",
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
                             <button
                                 type="button"
-                                onClick={() => setDeletingId(null)}
-                                disabled={deleteLoading}
-                                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold"
+                                className="vehicles-support-link"
+                                onClick={() =>
+                                    setNotice(
+                                        "Support contact is not available yet.",
+                                    )
+                                }
+                            >
+                                {copy("Contact Support", "Liên hệ hỗ trợ")}{" "}
+                                <Icon name="arrow" size={16} />
+                            </button>
+                        </section>
+                    </aside>
+                </div>
+            </main>
+            <ParkWiseFooter language={language} />
+            <dialog
+                ref={dialogRef}
+                className={
+                    modal === "delete"
+                        ? "vehicles-dialog vehicles-dialog--delete"
+                        : "vehicles-dialog"
+                }
+                onClose={() => setModal(null)}
+                onCancel={() => setModal(null)}
+                aria-labelledby="vehicles-dialog-title"
+            >
+                {modal === "delete" ? (
+                    <div className="vehicles-delete-dialog">
+                        <button
+                            type="button"
+                            className="vehicles-dialog-close"
+                            aria-label="Close"
+                            onClick={closeModal}
+                        >
+                            <Icon name="close" size={17} />
+                        </button>
+                        <span className="vehicles-delete-icon">
+                            <Icon name="trash" size={26} />
+                        </span>
+                        <h2 id="vehicles-dialog-title">
+                            {copy("Delete Vehicle?", "Xóa xe?")}
+                        </h2>
+                        <p>
+                            {copy(
+                                "Are you sure you want to remove this vehicle from your account?",
+                                "Bạn có chắc muốn xóa xe này khỏi tài khoản không?",
+                            )}
+                        </p>
+                        <strong className="vehicles-delete-plate">
+                            <Icon
+                                name={
+                                    selectedVehicle
+                                        ? categoryInfo(selectedVehicle.category)
+                                              .icon
+                                        : "car"
+                                }
+                                size={20}
+                            />{" "}
+                            {selectedVehicle?.plate ||
+                                selectedVehicle?.brand ||
+                                (selectedVehicle
+                                    ? categoryInfo(selectedVehicle.category)
+                                          .label
+                                    : "")}
+                        </strong>
+                        <div className="vehicles-dialog-actions">
+                            <button
+                                type="button"
+                                className="vehicles-light-button"
+                                onClick={closeModal}
                             >
                                 {copy("Cancel", "Hủy")}
                             </button>
                             <button
                                 type="button"
-                                onClick={() =>
-                                    void handleDeleteVehicle(deletingId)
-                                }
-                                disabled={deleteLoading}
-                                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors"
+                                className="vehicles-delete-button"
+                                onClick={removeVehicle}
                             >
-                                {deleteLoading
-                                    ? copy("Deleting...", "Đang xóa...")
-                                    : copy("Delete", "Xóa")}
+                                {copy("Delete Vehicle", "Xóa xe")}
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-
-            <ParkWiseFooter />
+                ) : (
+                    modal &&
+                    (session ? (
+                        <form
+                            className="vehicles-form vehicles-form--account"
+                            onSubmit={saveVehicle}
+                            noValidate
+                        >
+                            <div className="vehicles-dialog-header">
+                                <div>
+                                    <h2 id="vehicles-dialog-title">
+                                        {modal === "add"
+                                            ? copy("Add Vehicle", "Thêm xe")
+                                            : copy("Edit Vehicle", "Sửa xe")}
+                                    </h2>
+                                    <p>
+                                        {copy(
+                                            "Choose the parking area that fits this vehicle.",
+                                            "Chọn khu đỗ phù hợp với xe này.",
+                                        )}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="vehicles-dialog-close"
+                                    aria-label="Close"
+                                    onClick={closeModal}
+                                >
+                                    <Icon name="close" size={27} />
+                                </button>
+                            </div>
+                            <div
+                                className="vehicles-form-fields"
+                                style={{ padding: 24 }}
+                            >
+                                <fieldset className="vehicles-size-field vehicles-category-field">
+                                    <legend>
+                                        {copy("Vehicle Type", "Loại xe")}
+                                    </legend>
+                                    <div className="vehicles-size-options">
+                                        {VEHICLE_FORM_CATEGORIES.map((item) => (
+                                            <label
+                                                key={item.value}
+                                                className={`vehicles-size-option ${category === item.value ? "selected" : ""}`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="vehicles-category"
+                                                    value={item.value}
+                                                    checked={
+                                                        baseCategory(
+                                                            category,
+                                                        ) === item.value
+                                                    }
+                                                    disabled={modal === "edit"}
+                                                    onChange={() =>
+                                                        chooseCategory(
+                                                            item.value,
+                                                        )
+                                                    }
+                                                />
+                                                <span className="vehicles-size-indicator" />
+                                                <Icon
+                                                    name={item.icon}
+                                                    size={25}
+                                                />
+                                                <span>
+                                                    <strong>
+                                                        {copy(
+                                                            item.label,
+                                                            vehicleLabelVi(
+                                                                item.label,
+                                                            ),
+                                                        )}
+                                                    </strong>
+                                                    <small>
+                                                        {copy(
+                                                            item.description,
+                                                            vehicleLabelVi(
+                                                                item.description,
+                                                            ),
+                                                        )}
+                                                    </small>
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </fieldset>
+                                <TwoWheelerTypeSelector
+                                    category={category}
+                                    disabled={modal === "edit"}
+                                    onChange={chooseTwoWheelerType}
+                                />
+                                <PowerSourceSelector
+                                    category={category}
+                                    disabled={modal === "edit"}
+                                    onChange={choosePowerSource}
+                                />
+                                {needsPlate(category) && (
+                                    <div className="vehicles-field">
+                                        <label htmlFor="vehicles-plate">
+                                            {copy(
+                                                "License Plate",
+                                                "Biển số xe",
+                                            )}{" "}
+                                            <span aria-hidden="true">*</span>
+                                        </label>
+                                        <input
+                                            id="vehicles-plate"
+                                            ref={plateInputRef}
+                                            value={plate}
+                                            onChange={(event) =>
+                                                updatePlate(
+                                                    event.target.value,
+                                                    event.target.selectionStart,
+                                                )
+                                            }
+                                            placeholder="e.g. 51K-123.45"
+                                            maxLength={15}
+                                            disabled={modal === "edit"}
+                                            autoCapitalize="characters"
+                                            spellCheck={false}
+                                            aria-required={needsPlate(category)}
+                                            aria-invalid={Boolean(error)}
+                                        />
+                                        {error && (
+                                            <p
+                                                className="vehicles-form-error"
+                                                role="alert"
+                                            >
+                                                {error}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                {!backendSupports(category) && (
+                                    <div className="vehicles-field">
+                                        <label htmlFor="vehicles-photo">
+                                            {copy("Vehicle photo", "Ảnh xe")}{" "}
+                                            {needsPhoto(category) ? (
+                                                <span aria-hidden="true">
+                                                    *
+                                                </span>
+                                            ) : (
+                                                <span>
+                                                    {copy(
+                                                        "(Optional)",
+                                                        "(Không bắt buộc)",
+                                                    )}
+                                                </span>
+                                            )}
+                                        </label>
+                                        <input
+                                            id="vehicles-photo"
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            onChange={(event) =>
+                                                handlePhoto(
+                                                    event.target.files?.[0],
+                                                )
+                                            }
+                                            aria-required={needsPhoto(category)}
+                                        />
+                                        {photo && (
+                                            <Image
+                                                src={photo}
+                                                alt="Selected vehicle"
+                                                width={120}
+                                                height={80}
+                                                unoptimized
+                                                className="vehicles-photo-inline"
+                                            />
+                                        )}
+                                        {photoError && (
+                                            <p
+                                                className="vehicles-form-error"
+                                                role="alert"
+                                            >
+                                                {photoError}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="vehicles-field">
+                                    <label htmlFor="vehicles-nickname">
+                                        {copy("Nickname", "Tên gợi nhớ")}{" "}
+                                        <span>
+                                            {copy(
+                                                "(Optional)",
+                                                "(Không bắt buộc)",
+                                            )}
+                                        </span>
+                                    </label>
+                                    <input
+                                        id="vehicles-nickname"
+                                        value={brand}
+                                        onChange={(event) =>
+                                            setBrand(event.target.value)
+                                        }
+                                        maxLength={50}
+                                        placeholder={copy(
+                                            "e.g. My daily car",
+                                            "Ví dụ: Xe đi hằng ngày",
+                                        )}
+                                    />
+                                </div>
+                            </div>
+                            <div className="vehicles-dialog-actions">
+                                <button
+                                    type="button"
+                                    className="vehicles-light-button"
+                                    onClick={closeModal}
+                                >
+                                    {copy("Cancel", "Hủy")}
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="vehicles-dark-button"
+                                >
+                                    {modal === "add"
+                                        ? copy("Add Vehicle", "Thêm xe")
+                                        : copy(
+                                              "Save Changes",
+                                              "Lưu thay đổi",
+                                          )}{" "}
+                                    <Icon name="arrow" size={17} />
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <form
+                            className="vehicles-form"
+                            onSubmit={saveVehicle}
+                            noValidate
+                        >
+                            <div className="vehicles-dialog-header">
+                                <div>
+                                    <h2 id="vehicles-dialog-title">
+                                        {modal === "add"
+                                            ? copy("Add Vehicle", "Thêm xe")
+                                            : copy("Edit Vehicle", "Sửa xe")}
+                                    </h2>
+                                    <p>
+                                        {modal === "add"
+                                            ? copy(
+                                                  "Choose the parking area that fits this vehicle.",
+                                                  "Chọn khu đỗ phù hợp với xe này.",
+                                              )
+                                            : copy(
+                                                  "Update this vehicle's details.",
+                                                  "Cập nhật thông tin xe này.",
+                                              )}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="vehicles-dialog-close"
+                                    aria-label="Close"
+                                    onClick={closeModal}
+                                >
+                                    <Icon name="close" size={27} />
+                                </button>
+                            </div>
+                            <div className="vehicles-form-body">
+                                <div className="vehicles-upload">
+                                    <input
+                                        ref={fileRef}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="vehicles-file-input"
+                                        tabIndex={-1}
+                                        aria-hidden="true"
+                                        onChange={(event) => {
+                                            handlePhoto(
+                                                event.target.files?.[0],
+                                            );
+                                            event.target.value = "";
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="vehicles-upload-target"
+                                        aria-label={
+                                            photo
+                                                ? "Change vehicle photo"
+                                                : "Choose vehicle photo"
+                                        }
+                                        onClick={() => fileRef.current?.click()}
+                                    >
+                                        <span className="vehicles-upload-icon">
+                                            <Icon
+                                                name={
+                                                    categoryInfo(category).icon
+                                                }
+                                                size={43}
+                                            />
+                                        </span>
+                                        <strong>
+                                            {copy(
+                                                "Upload Vehicle Photo",
+                                                "Tải ảnh xe lên",
+                                            )}{" "}
+                                            {needsPhoto(category) && (
+                                                <span aria-hidden="true">
+                                                    *
+                                                </span>
+                                            )}
+                                        </strong>
+                                        <small>
+                                            JPG, PNG or WebP · Max 5 MB
+                                        </small>
+                                        <span className="vehicles-photo-button">
+                                            <Icon name="upload" size={19} />
+                                            {photo
+                                                ? copy(
+                                                      "Change Photo",
+                                                      "Đổi ảnh",
+                                                  )
+                                                : copy(
+                                                      "Choose Photo",
+                                                      "Chọn ảnh",
+                                                  )}
+                                        </span>
+                                        <span className="vehicles-upload-divider">
+                                            <span>{copy("or", "hoặc")}</span>
+                                        </span>
+                                        <span className="vehicles-upload-preview">
+                                            {photo || needsPlate(category) ? (
+                                                <Image
+                                                    src={
+                                                        photo ??
+                                                        (isMotorbikeCategory(
+                                                            category,
+                                                        )
+                                                            ? "/images/parkwise/vehicle-motorbike-cutout.png"
+                                                            : "/images/parkwise/vehicle-sedan-cutout.png")
+                                                    }
+                                                    alt={
+                                                        photo
+                                                            ? "Selected vehicle"
+                                                            : ""
+                                                    }
+                                                    fill
+                                                    sizes="(max-width: 850px) 85vw, 320px"
+                                                    unoptimized={Boolean(
+                                                        photo?.startsWith(
+                                                            "data:",
+                                                        ),
+                                                    )}
+                                                />
+                                            ) : (
+                                                <Icon
+                                                    name={
+                                                        categoryInfo(category)
+                                                            .icon
+                                                    }
+                                                    size={78}
+                                                />
+                                            )}
+                                        </span>
+                                        <span className="vehicles-upload-caption">
+                                            {photo
+                                                ? copy(
+                                                      "Your vehicle photo is ready. Choose another photo to replace it.",
+                                                      "Ảnh xe đã sẵn sàng. Chọn ảnh khác để thay thế.",
+                                                  )
+                                                : category === "bicycle"
+                                                  ? copy(
+                                                        "A photo is required to identify your bicycle.",
+                                                        "Cần ảnh để nhận diện xe đạp của bạn.",
+                                                    )
+                                                  : copy(
+                                                        "Add a photo to help you recognize your vehicle.",
+                                                        "Thêm ảnh để dễ nhận ra xe của bạn.",
+                                                    )}
+                                        </span>
+                                    </button>
+                                    {photoError && (
+                                        <p
+                                            className="vehicles-form-error"
+                                            role="alert"
+                                        >
+                                            {photoError}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="vehicles-form-fields">
+                                    <fieldset className="vehicles-size-field vehicles-category-field">
+                                        <legend>
+                                            {copy("Vehicle Type", "Loại xe")}{" "}
+                                            <span aria-hidden="true">*</span>
+                                        </legend>
+                                        <div className="vehicles-size-options">
+                                            {VEHICLE_FORM_CATEGORIES.map(
+                                                (item) => (
+                                                    <label
+                                                        key={item.value}
+                                                        className={`vehicles-size-option ${category === item.value ? "selected" : ""}`}
+                                                    >
+                                                        <input
+                                                            type="radio"
+                                                            name="vehicles-category"
+                                                            value={item.value}
+                                                            checked={
+                                                                baseCategory(
+                                                                    category,
+                                                                ) === item.value
+                                                            }
+                                                            disabled={
+                                                                modal === "edit"
+                                                            }
+                                                            onChange={() =>
+                                                                chooseCategory(
+                                                                    item.value,
+                                                                )
+                                                            }
+                                                        />
+                                                        <span className="vehicles-size-indicator" />
+                                                        <Icon
+                                                            name={item.icon}
+                                                            size={27}
+                                                        />
+                                                        <span>
+                                                            <strong>
+                                                                {copy(
+                                                                    item.label,
+                                                                    vehicleLabelVi(
+                                                                        item.label,
+                                                                    ),
+                                                                )}
+                                                            </strong>
+                                                            <small>
+                                                                {copy(
+                                                                    item.description,
+                                                                    vehicleLabelVi(
+                                                                        item.description,
+                                                                    ),
+                                                                )}
+                                                            </small>
+                                                        </span>
+                                                    </label>
+                                                ),
+                                            )}
+                                        </div>
+                                    </fieldset>
+                                    <TwoWheelerTypeSelector
+                                        category={category}
+                                        disabled={modal === "edit"}
+                                        onChange={chooseTwoWheelerType}
+                                    />
+                                    <PowerSourceSelector
+                                        category={category}
+                                        disabled={modal === "edit"}
+                                        onChange={choosePowerSource}
+                                    />
+                                    {needsPlate(category) && (
+                                        <div className="vehicles-field">
+                                            <label htmlFor="vehicles-plate">
+                                                {copy(
+                                                    "License Plate",
+                                                    "Biển số xe",
+                                                )}{" "}
+                                                <span aria-hidden="true">
+                                                    *
+                                                </span>
+                                            </label>
+                                            <input
+                                                id="vehicles-plate"
+                                                ref={plateInputRef}
+                                                value={plate}
+                                                onChange={(event) =>
+                                                    updatePlate(
+                                                        event.target.value,
+                                                        event.target
+                                                            .selectionStart,
+                                                    )
+                                                }
+                                                onBlur={() =>
+                                                    setPlate((current) =>
+                                                        formatPlate(
+                                                            current,
+                                                            category,
+                                                        ),
+                                                    )
+                                                }
+                                                placeholder={
+                                                    isMotorbikeCategory(
+                                                        category,
+                                                    )
+                                                        ? "e.g. 59A1-123.45"
+                                                        : "e.g. 51K-123.45"
+                                                }
+                                                maxLength={15}
+                                                disabled={modal === "edit"}
+                                                autoCapitalize="characters"
+                                                spellCheck={false}
+                                                aria-required={
+                                                    modal === "add" &&
+                                                    needsPlate(category)
+                                                }
+                                                aria-invalid={Boolean(error)}
+                                                aria-describedby={
+                                                    error
+                                                        ? "vehicles-form-error"
+                                                        : modal === "edit"
+                                                          ? "vehicles-plate-hint"
+                                                          : undefined
+                                                }
+                                            />
+                                            {modal === "edit" && (
+                                                <small id="vehicles-plate-hint">
+                                                    {copy(
+                                                        "The license plate cannot be edited.",
+                                                        "Không thể sửa biển số xe.",
+                                                    )}
+                                                </small>
+                                            )}
+                                            {error && (
+                                                <p
+                                                    id="vehicles-form-error"
+                                                    className="vehicles-form-error"
+                                                    role="alert"
+                                                >
+                                                    {error}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                    {needsPlate(category) && (
+                                        <div className="vehicles-field-grid">
+                                            <div className="vehicles-field">
+                                                <label htmlFor="vehicles-brand">
+                                                    {copy(
+                                                        "Vehicle Brand",
+                                                        "Hãng xe",
+                                                    )}{" "}
+                                                    <span aria-hidden="true">
+                                                        *
+                                                    </span>
+                                                </label>
+                                                <VehicleDropdown
+                                                    id="vehicles-brand"
+                                                    value={brand}
+                                                    options={
+                                                        isMotorbikeCategory(
+                                                            category,
+                                                        )
+                                                            ? MOTORBIKE_BRAND_OPTIONS
+                                                            : BRAND_OPTIONS
+                                                    }
+                                                    placeholder={copy(
+                                                        "Select brand",
+                                                        "Chọn hãng xe",
+                                                    )}
+                                                    onChange={(nextBrand) => {
+                                                        setBrand(nextBrand);
+                                                        setBrandError("");
+                                                        setModel("");
+                                                    }}
+                                                    required
+                                                    invalid={Boolean(
+                                                        brandError,
+                                                    )}
+                                                    describedBy={
+                                                        brandError
+                                                            ? "vehicles-brand-error"
+                                                            : undefined
+                                                    }
+                                                    searchable
+                                                    otherLabel={copy(
+                                                        "Other — enter a brand",
+                                                        "Khác — nhập hãng xe",
+                                                    )}
+                                                    leadingIcon={
+                                                        <Icon
+                                                            name={
+                                                                isMotorbikeCategory(
+                                                                    category,
+                                                                )
+                                                                    ? "motorbike"
+                                                                    : "car"
+                                                            }
+                                                            size={19}
+                                                        />
+                                                    }
+                                                />
+                                                {brandError && (
+                                                    <p
+                                                        id="vehicles-brand-error"
+                                                        className="vehicles-form-error"
+                                                        role="alert"
+                                                    >
+                                                        {brandError}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="vehicles-field">
+                                                <label htmlFor="vehicles-model">
+                                                    {copy(
+                                                        "Vehicle Model",
+                                                        "Dòng xe",
+                                                    )}{" "}
+                                                    <span>
+                                                        {copy(
+                                                            "(Optional)",
+                                                            "(Không bắt buộc)",
+                                                        )}
+                                                    </span>
+                                                </label>
+                                                <VehicleDropdown
+                                                    id="vehicles-model"
+                                                    value={model}
+                                                    options={
+                                                        isMotorbikeCategory(
+                                                            category,
+                                                        )
+                                                            ? getMotorbikeModelOptions(
+                                                                  brand,
+                                                              )
+                                                            : getModelOptions(
+                                                                  brand,
+                                                              )
+                                                    }
+                                                    placeholder={copy(
+                                                        "Select model",
+                                                        "Chọn dòng xe",
+                                                    )}
+                                                    onChange={setModel}
+                                                    searchable
+                                                    otherLabel={copy(
+                                                        "Other — enter a model",
+                                                        "Khác — nhập dòng xe",
+                                                    )}
+                                                    emptyMessage={
+                                                        brand
+                                                            ? copy(
+                                                                  "No suggested models for this brand",
+                                                                  "Chưa có dòng xe gợi ý cho hãng này",
+                                                              )
+                                                            : copy(
+                                                                  "Select a brand to see models",
+                                                                  "Chọn hãng để xem dòng xe",
+                                                              )
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="vehicles-field">
+                                                <label htmlFor="vehicles-type">
+                                                    {isMotorbikeCategory(
+                                                        category,
+                                                    )
+                                                        ? copy(
+                                                              "Motorbike Type",
+                                                              "Loại xe máy",
+                                                          )
+                                                        : copy(
+                                                              "Body Type",
+                                                              "Kiểu thân xe",
+                                                          )}{" "}
+                                                    <span>
+                                                        {copy(
+                                                            "(Optional)",
+                                                            "(Không bắt buộc)",
+                                                        )}
+                                                    </span>
+                                                </label>
+                                                <VehicleDropdown
+                                                    id="vehicles-type"
+                                                    value={vehicleType}
+                                                    options={
+                                                        isMotorbikeCategory(
+                                                            category,
+                                                        )
+                                                            ? MOTORBIKE_TYPE_OPTIONS
+                                                            : VEHICLE_TYPE_OPTIONS
+                                                    }
+                                                    placeholder={copy(
+                                                        "Select type",
+                                                        "Chọn loại xe",
+                                                    )}
+                                                    onChange={setVehicleType}
+                                                    leadingIcon={
+                                                        <Icon
+                                                            name={
+                                                                isMotorbikeCategory(
+                                                                    category,
+                                                                )
+                                                                    ? "motorbike"
+                                                                    : "car"
+                                                            }
+                                                            size={20}
+                                                        />
+                                                    }
+                                                />
+                                            </div>
+                                            {isCarCategory(category) && (
+                                                <div className="vehicles-field">
+                                                    <label htmlFor="vehicles-seats">
+                                                        {copy(
+                                                            "Number of Seats",
+                                                            "Số ghế",
+                                                        )}{" "}
+                                                        <span>
+                                                            {copy(
+                                                                "(Optional)",
+                                                                "(Không bắt buộc)",
+                                                            )}
+                                                        </span>
+                                                    </label>
+                                                    <VehicleDropdown
+                                                        id="vehicles-seats"
+                                                        value={seats}
+                                                        options={SEAT_OPTIONS}
+                                                        placeholder={copy(
+                                                            "Select seats",
+                                                            "Chọn số ghế",
+                                                        )}
+                                                        onChange={setSeats}
+                                                        leadingIcon={
+                                                            <Icon
+                                                                name="seats"
+                                                                size={20}
+                                                            />
+                                                        }
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {isCarCategory(category) && (
+                                        <fieldset className="vehicles-size-field">
+                                            <legend>
+                                                {copy(
+                                                    "Parking Space Size",
+                                                    "Kích thước chỗ đỗ",
+                                                )}{" "}
+                                                <span aria-hidden="true">
+                                                    *
+                                                </span>
+                                                <span
+                                                    className="vehicles-size-info"
+                                                    title="Choose the parking space that best fits your vehicle."
+                                                    aria-label="Choose the parking space that best fits your vehicle."
+                                                >
+                                                    <Icon
+                                                        name="info"
+                                                        size={19}
+                                                    />
+                                                </span>
+                                            </legend>
+                                            <div className="vehicles-size-options">
+                                                <label
+                                                    className={
+                                                        size === "standard"
+                                                            ? "vehicles-size-option selected"
+                                                            : "vehicles-size-option"
+                                                    }
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="vehicles-size"
+                                                        value="standard"
+                                                        checked={
+                                                            size === "standard"
+                                                        }
+                                                        onChange={() =>
+                                                            setSize("standard")
+                                                        }
+                                                    />
+                                                    <span className="vehicles-size-indicator" />
+                                                    <Icon
+                                                        name="car"
+                                                        size={31}
+                                                    />
+                                                    <span>
+                                                        <strong>
+                                                            {copy(
+                                                                "Standard",
+                                                                "Tiêu chuẩn",
+                                                            )}
+                                                        </strong>
+                                                        <small>
+                                                            {copy(
+                                                                "For most cars",
+                                                                "Phù hợp đa số ô tô",
+                                                            )}
+                                                        </small>
+                                                    </span>
+                                                </label>
+                                                <label
+                                                    className={
+                                                        size === "large"
+                                                            ? "vehicles-size-option selected"
+                                                            : "vehicles-size-option"
+                                                    }
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="vehicles-size"
+                                                        value="large"
+                                                        checked={
+                                                            size === "large"
+                                                        }
+                                                        onChange={() =>
+                                                            setSize("large")
+                                                        }
+                                                    />
+                                                    <span className="vehicles-size-indicator" />
+                                                    <Icon
+                                                        name="car"
+                                                        size={31}
+                                                    />
+                                                    <span>
+                                                        <strong>
+                                                            {copy(
+                                                                "Large",
+                                                                "Cỡ lớn",
+                                                            )}
+                                                        </strong>
+                                                        <small>
+                                                            {copy(
+                                                                "For larger vehicles (SUV, MPV, Pickup)",
+                                                                "Cho xe lớn (SUV, MPV, bán tải)",
+                                                            )}
+                                                        </small>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </fieldset>
+                                    )}
+                                    {needsPlate(category) && (
+                                        <div className="vehicles-field-grid vehicles-field-grid--extra">
+                                            {category !== "electric-car" &&
+                                                category !==
+                                                    "electric-motorbike" && (
+                                                    <div className="vehicles-field">
+                                                        <label htmlFor="vehicles-fuel">
+                                                            {copy(
+                                                                "Fuel Type",
+                                                                "Loại nhiên liệu",
+                                                            )}{" "}
+                                                            <span>
+                                                                {copy(
+                                                                    "(Optional)",
+                                                                    "(Không bắt buộc)",
+                                                                )}
+                                                            </span>
+                                                        </label>
+                                                        <VehicleDropdown
+                                                            id="vehicles-fuel"
+                                                            value={fuelType}
+                                                            options={(isMotorbikeCategory(
+                                                                category,
+                                                            )
+                                                                ? MOTORBIKE_FUEL_OPTIONS
+                                                                : FUEL_OPTIONS
+                                                            ).filter(
+                                                                (option) =>
+                                                                    option.value !==
+                                                                    "electric",
+                                                            )}
+                                                            placeholder={copy(
+                                                                "Select fuel type",
+                                                                "Chọn nhiên liệu",
+                                                            )}
+                                                            onChange={
+                                                                setFuelType
+                                                            }
+                                                            leadingIcon={
+                                                                <Icon
+                                                                    name="fuel"
+                                                                    size={19}
+                                                                />
+                                                            }
+                                                        />
+                                                    </div>
+                                                )}
+                                            <div className="vehicles-field">
+                                                <label htmlFor="vehicles-color">
+                                                    {copy(
+                                                        "Vehicle Color",
+                                                        "Màu xe",
+                                                    )}{" "}
+                                                    <span>
+                                                        {copy(
+                                                            "(Optional)",
+                                                            "(Không bắt buộc)",
+                                                        )}
+                                                    </span>
+                                                </label>
+                                                <VehicleDropdown
+                                                    id="vehicles-color"
+                                                    value={color}
+                                                    options={COLOR_OPTIONS}
+                                                    placeholder={copy(
+                                                        "Select color",
+                                                        "Chọn màu",
+                                                    )}
+                                                    onChange={setColor}
+                                                    leadingIcon={
+                                                        <span
+                                                            className="vehicles-color-swatch"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    COLOR_SWATCHES[
+                                                                        color
+                                                                    ] ?? "#fff",
+                                                            }}
+                                                        />
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="vehicles-field">
+                                                <label htmlFor="vehicles-year">
+                                                    {copy(
+                                                        "Manufacturing Year",
+                                                        "Năm sản xuất",
+                                                    )}{" "}
+                                                    <span>
+                                                        {copy(
+                                                            "(Optional)",
+                                                            "(Không bắt buộc)",
+                                                        )}
+                                                    </span>
+                                                </label>
+                                                <VehicleDropdown
+                                                    id="vehicles-year"
+                                                    value={manufacturingYear}
+                                                    options={YEAR_OPTIONS}
+                                                    placeholder={copy(
+                                                        "Select year",
+                                                        "Chọn năm",
+                                                    )}
+                                                    onChange={
+                                                        setManufacturingYear
+                                                    }
+                                                    leadingIcon={
+                                                        <Icon
+                                                            name="calendar"
+                                                            size={19}
+                                                        />
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="vehicles-dialog-actions">
+                                <button
+                                    type="button"
+                                    className="vehicles-light-button"
+                                    onClick={closeModal}
+                                >
+                                    {copy("Cancel", "Hủy")}
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="vehicles-dark-button"
+                                >
+                                    {modal === "add"
+                                        ? copy("Add Vehicle", "Thêm xe")
+                                        : copy("Save Changes", "Lưu thay đổi")}
+                                    <Icon name="arrow" size={17} />
+                                </button>
+                            </div>
+                        </form>
+                    ))
+                )}
+            </dialog>
         </div>
     );
 }

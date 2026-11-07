@@ -1,46 +1,35 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-    getMyParkingSessionHistory,
-    type MyParkingSessionHistoryItem,
+    getMyParkingSessions,
+    type MyParkingSession,
 } from "@/features/customer/mySessionsApi";
 import {
     History,
     Car,
     Calendar,
+    MapPin,
     AlertCircle,
     RefreshCw,
     Search,
-    ChevronLeft,
-    ChevronRight,
-    Clock,
 } from "lucide-react";
 import { ApiError } from "@/shared/errors/api-error";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 
 export default function ParkingHistoryPage() {
     const { copy, language } = useCustomerLanguage();
-    const [sessions, setSessions] = useState<MyParkingSessionHistoryItem[]>([]);
-    const [page, setPage] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
-    const [pageSize] = useState(10);
-    const [statusFilter, setStatusFilter] = useState<string>("");
+    const [sessions, setSessions] = useState<MyParkingSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const loadHistory = useCallback(async () => {
+    async function loadHistory() {
         setLoading(true);
         setError(null);
         try {
-            const data = await getMyParkingSessionHistory(
-                statusFilter || undefined,
-                page,
-                pageSize,
-            );
-            setSessions(data.items);
-            setTotalCount(data.totalCount);
+            const data = await getMyParkingSessions();
+            setSessions(data);
         } catch (err: unknown) {
             if (err instanceof ApiError) {
                 setError(
@@ -60,7 +49,7 @@ export default function ParkingHistoryPage() {
         } finally {
             setLoading(false);
         }
-    }, [page, pageSize, statusFilter]);
+    }
 
     useEffect(() => {
         let active = true;
@@ -70,9 +59,7 @@ export default function ParkingHistoryPage() {
         return () => {
             active = false;
         };
-    }, [loadHistory]);
-
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    }, []);
 
     return (
         <div className="animate-in fade-in duration-500 space-y-6">
@@ -83,60 +70,24 @@ export default function ParkingHistoryPage() {
                     </h1>
                     <p className="text-[#8790a3] text-sm">
                         {copy(
-                            "Your completed and active parking sessions across the ParkWise network.",
-                            "Các phiên đỗ đang hoạt động và đã hoàn thành của bạn trong hệ thống ParkWise.",
+                            "Your parking sessions across the ParkWise network.",
+                            "Các phiên đỗ của bạn trong hệ thống ParkWise.",
                         )}
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => {
-                            setStatusFilter(e.target.value);
-                            setPage(1);
-                        }}
-                        className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold focus:outline-none focus:border-[#6246ea]"
-                        aria-label={copy(
-                            "Filter by status",
-                            "Lọc theo trạng thái",
-                        )}
-                    >
-                        <option value="" className="bg-[#0b0c17] text-white">
-                            {copy("All statuses", "Tất cả trạng thái")}
-                        </option>
-                        <option
-                            value="Active"
-                            className="bg-[#0b0c17] text-white"
-                        >
-                            {copy("Active (in lot)", "Đang đỗ xe")}
-                        </option>
-                        <option
-                            value="Completed"
-                            className="bg-[#0b0c17] text-white"
-                        >
-                            {copy("Completed", "Đã hoàn thành")}
-                        </option>
-                        <option
-                            value="Cancelled"
-                            className="bg-[#0b0c17] text-white"
-                        >
-                            {copy("Cancelled", "Đã hủy")}
-                        </option>
-                    </select>
-                    <button
-                        type="button"
-                        onClick={loadHistory}
-                        disabled={loading}
-                        className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[#8790a3] hover:text-white hover:border-white/20 transition-colors"
-                        title={copy("Refresh history", "Làm mới lịch sử")}
-                        aria-label={copy("Refresh history", "Làm mới lịch sử")}
-                    >
-                        <RefreshCw
-                            size={18}
-                            className={loading ? "animate-spin" : ""}
-                        />
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    onClick={loadHistory}
+                    disabled={loading}
+                    className="p-3 rounded-xl bg-white/5 border border-white/10 text-[#8790a3] hover:text-white hover:border-white/20 transition-colors"
+                    title={copy("Refresh history", "Làm mới lịch sử")}
+                    aria-label={copy("Refresh history", "Làm mới lịch sử")}
+                >
+                    <RefreshCw
+                        size={18}
+                        className={loading ? "animate-spin" : ""}
+                    />
+                </button>
             </div>
 
             {/* Trạng thái Loading */}
@@ -181,14 +132,14 @@ export default function ParkingHistoryPage() {
                     <div>
                         <h3 className="text-lg font-bold text-white mb-1">
                             {copy(
-                                "No parking history found",
-                                "Không tìm thấy lịch sử đỗ xe",
+                                "No parking history yet",
+                                "Chưa có lịch sử đỗ xe",
                             )}
                         </h3>
                         <p className="text-[#8790a3] text-sm max-w-md mx-auto">
                             {copy(
-                                "Your parking sessions will appear here after you enter or exit a ParkWise parking lot.",
-                                "Các phiên đỗ của bạn sẽ xuất hiện tại đây sau khi bạn vào hoặc ra khỏi bãi ParkWise.",
+                                "Your completed and active parking sessions will appear here after you enter a ParkWise parking lot.",
+                                "Các phiên đỗ đang hoạt động và đã hoàn thành sẽ xuất hiện sau khi bạn vào bãi ParkWise.",
                             )}
                         </p>
                     </div>
@@ -204,200 +155,138 @@ export default function ParkingHistoryPage() {
 
             {/* Danh sách Phiên xe thật */}
             {!loading && !error && sessions.length > 0 && (
-                <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {sessions.map((session) => {
-                            const entryDate = new Date(session.entryTime);
-                            const dateFormatted = entryDate.toLocaleDateString(
-                                language === "vi" ? "vi-VN" : "en-GB",
-                                {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                },
-                            );
-                            const entryTimeFormatted =
-                                entryDate.toLocaleTimeString(
-                                    language === "vi" ? "vi-VN" : "en-GB",
-                                    {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    },
-                                );
-                            const exitTimeFormatted = session.exitTime
-                                ? new Date(session.exitTime).toLocaleTimeString(
-                                      language === "vi" ? "vi-VN" : "en-GB",
-                                      {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                      },
-                                  )
-                                : null;
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {sessions.map((session) => {
+                        const entryDate = new Date(session.entryTime);
+                        const dateFormatted = entryDate.toLocaleDateString(
+                            language === "vi" ? "vi-VN" : "en-GB",
+                            {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                            },
+                        );
+                        const timeFormatted = entryDate.toLocaleTimeString(
+                            language === "vi" ? "vi-VN" : "en-GB",
+                            {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                            },
+                        );
 
-                            const isActive = session.status === "Active";
-                            const isCompleted = session.status === "Completed";
+                        const isOpen = session.status === "Open";
 
-                            return (
-                                <div
-                                    key={session.sessionId}
-                                    className="bg-[#0b0c17] border border-white/10 rounded-2xl p-6 shadow-card-light hover:border-white/20 transition-colors flex flex-col justify-between"
-                                >
-                                    <div>
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span
-                                                className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
-                                                    isActive
-                                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                                        : isCompleted
-                                                          ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                                                          : "bg-white/10 text-[#d5d8e3] border border-white/15"
-                                                }`}
-                                            >
-                                                {isActive
-                                                    ? copy(
-                                                          "Parking now",
-                                                          "Đang đỗ xe",
-                                                      )
-                                                    : isCompleted
-                                                      ? copy(
-                                                            "Completed",
-                                                            "Đã hoàn thành",
-                                                        )
-                                                      : copy(
-                                                            session.status,
-                                                            session.status,
-                                                        )}
+                        return (
+                            <div
+                                key={session.sessionId}
+                                className="bg-[#0b0c17] border border-white/10 rounded-2xl p-6 shadow-card-light hover:border-white/20 transition-colors flex flex-col justify-between"
+                            >
+                                <div>
+                                    <div className="flex justify-between items-start mb-3">
+                                        <span
+                                            className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                                                isOpen
+                                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                                    : "bg-white/10 text-[#d5d8e3] border border-white/15"
+                                            }`}
+                                        >
+                                            {isOpen
+                                                ? copy(
+                                                      "Parking now",
+                                                      "Đang đỗ xe",
+                                                  )
+                                                : copy(
+                                                      "Completed",
+                                                      "Đã hoàn thành",
+                                                  )}
+                                        </span>
+                                        <span className="text-xs font-mono text-[#8790a3]">
+                                            ID: #
+                                            {session.sessionId
+                                                .slice(0, 8)
+                                                .toUpperCase()}
+                                        </span>
+                                    </div>
+
+                                    <h3 className="text-lg font-bold text-white mb-1">
+                                        {copy("Parking lot", "Bãi đỗ xe")} #
+                                        {session.lotId.slice(0, 8)}
+                                    </h3>
+                                    <p className="text-xs text-[#8790a3] flex items-center gap-1.5 mb-4">
+                                        <MapPin
+                                            size={13}
+                                            className="text-[#6246ea]"
+                                        />
+                                        {copy(
+                                            "ParkWise parking network",
+                                            "Hệ thống bãi đỗ ParkWise",
+                                        )}
+                                    </p>
+
+                                    <div className="bg-[#101426] border border-white/5 rounded-xl p-3.5 space-y-2 text-xs">
+                                        <div className="flex justify-between">
+                                            <span className="text-[#8790a3] flex items-center gap-1.5">
+                                                <Car size={13} />{" "}
+                                                {copy("Plate", "Biển số")}
                                             </span>
-                                            <span className="text-xs text-[#8790a3] flex items-center gap-1.5">
+                                            <span className="text-white font-mono font-bold">
+                                                {session.plateNumber} (
+                                                {session.vehicleType})
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-[#8790a3] flex items-center gap-1.5">
                                                 <Calendar size={13} />{" "}
+                                                {copy("Entry time", "Giờ vào")}
+                                            </span>
+                                            <span className="text-white font-medium">
+                                                {timeFormatted} ·{" "}
                                                 {dateFormatted}
                                             </span>
                                         </div>
-
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white">
-                                                <Car size={20} />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-base font-bold text-white tracking-wide">
-                                                    {session.plateNumber}
-                                                </h2>
-                                                <p className="text-xs text-[#8790a3]">
-                                                    {session.vehicleType ===
-                                                    "Car"
-                                                        ? copy("Car", "Ô tô")
-                                                        : copy(
-                                                              "Motorbike",
-                                                              "Xe máy",
-                                                          )}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3 text-xs bg-white/[0.02] border border-white/5 rounded-xl p-3 mb-4">
-                                            <div>
-                                                <span className="text-[#8790a3] block mb-0.5">
+                                        {session.floorName && (
+                                            <div className="flex justify-between">
+                                                <span className="text-[#8790a3]">
                                                     {copy(
-                                                        "Entry time",
-                                                        "Giờ vào",
-                                                    )}
-                                                </span>
-                                                <span className="text-white font-medium flex items-center gap-1">
-                                                    <Clock
-                                                        size={12}
-                                                        className="text-[#6246ea]"
-                                                    />
-                                                    {entryTimeFormatted}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span className="text-[#8790a3] block mb-0.5">
-                                                    {copy(
-                                                        "Exit time",
-                                                        "Giờ ra",
+                                                        "Floor / Zone",
+                                                        "Tầng / Khu vực",
                                                     )}
                                                 </span>
                                                 <span className="text-white font-medium">
-                                                    {exitTimeFormatted ? (
-                                                        <span className="flex items-center gap-1">
-                                                            <Clock
-                                                                size={12}
-                                                                className="text-emerald-400"
-                                                            />
-                                                            {exitTimeFormatted}
-                                                        </span>
-                                                    ) : (
-                                                        copy(
-                                                            "In progress...",
-                                                            "Đang diễn ra...",
-                                                        )
-                                                    )}
+                                                    {session.floorName}{" "}
+                                                    {session.zoneCode
+                                                        ? `(${session.zoneCode})`
+                                                        : ""}
                                                 </span>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-3 border-t border-white/5 flex justify-between items-center text-xs text-[#8790a3]">
-                                        <span>
-                                            ID: {session.sessionId.slice(0, 8)}
-                                            ...
-                                        </span>
-                                        {isActive && (
-                                            <Link
-                                                href="/customer/sessions"
-                                                className="text-[#a28aff] hover:underline font-semibold"
-                                            >
-                                                {copy(
-                                                    "View exit QR",
-                                                    "Xem mã QR ra bãi",
-                                                )}{" "}
-                                                &rarr;
-                                            </Link>
                                         )}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
 
-                    {/* Phân trang */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between pt-4 border-t border-white/10 text-xs text-[#8790a3]">
-                            <span>
-                                {copy(
-                                    `Page ${page} of ${totalPages} (${totalCount} sessions)`,
-                                    `Trang ${page} / ${totalPages} (Tổng ${totalCount} phiên)`,
+                                {isOpen && (
+                                    <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center text-xs">
+                                        <span className="text-[#8790a3]">
+                                            {copy(
+                                                "Active session",
+                                                "Phiên đỗ đang mở",
+                                            )}
+                                        </span>
+                                        <Link
+                                            href="/customer/sessions"
+                                            className="text-[#a28aff] hover:underline font-bold"
+                                        >
+                                            {copy(
+                                                "View exit QR",
+                                                "Xem QR ra cổng",
+                                            )}{" "}
+                                            →
+                                        </Link>
+                                    </div>
                                 )}
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setPage((p) => Math.max(1, p - 1))
-                                    }
-                                    disabled={page <= 1}
-                                    className="p-2 rounded-lg bg-white/5 border border-white/10 disabled:opacity-40 hover:bg-white/10 text-white transition-colors"
-                                    aria-label="Previous page"
-                                >
-                                    <ChevronLeft size={16} />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setPage((p) =>
-                                            Math.min(totalPages, p + 1),
-                                        )
-                                    }
-                                    disabled={page >= totalPages}
-                                    className="p-2 rounded-lg bg-white/5 border border-white/10 disabled:opacity-40 hover:bg-white/10 text-white transition-colors"
-                                    aria-label="Next page"
-                                >
-                                    <ChevronRight size={16} />
-                                </button>
                             </div>
-                        </div>
-                    )}
-                </>
+                        );
+                    })}
+                </div>
             )}
         </div>
     );

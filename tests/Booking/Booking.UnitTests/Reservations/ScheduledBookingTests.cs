@@ -663,7 +663,6 @@ public sealed class ScheduledBookingTests
 
         var handler = CreateHandler();
         var scheduledCmd = CreateScheduledCommand(lotId: lotId, priceSnapshot: "{\"malicious\":true}");
-
         var scheduledResult = await handler.Handle(scheduledCmd, CancellationToken.None);
         Assert.True(scheduledResult.IsSuccess);
         Assert.DoesNotContain("malicious", scheduledResult.Value!.PriceSnapshot!);
@@ -714,9 +713,45 @@ public sealed class ScheduledBookingTests
         Assert.Equal(originalAmount, res.PrepaidAmount);
         Assert.Equal(originalSnapshot, res.PriceSnapshot);
     }
+    [Fact]
+    public async Task SCH_38c_Appointment_time_with_plus_nine_offset_at_23h_local_has_no_overnight_fee_and_zero_snapshot_overnight_marks()
+    {
+        var lotId = Guid.NewGuid();
+        // AppointmentTime: 23:00 local at +09:00 (which is 21:00 UTC+7).
+        // Duration: 120 min -> end time is 01:00 next day at +09:00 (which is 23:00 UTC+7 same day).
+        // In local +09:00, (23:00, 01:00] crosses midnight.
+        // But in Vietnam (UTC+7), (21:00, 23:00] does NOT cross midnight.
+        // Therefore, overnight marks in Vietnam time == 0.
+        // 2 blocks of 60 min * 20,000 = 40,000 VND. No overnight fee added.
+        var appointmentTime = new DateTimeOffset(2026, 11, 5, 23, 0, 0, TimeSpan.FromHours(9));
+        _pricingProvider.ResultToReturn = Result<ParkingPricingInfo>.Success(
+            new ParkingPricingInfo(
+                lotId,
+                VehicleGroup.Car,
+                20000m,
+                "Block",
+                60,
+                10000m,
+                "VND",
+                OvernightTimeMark: TimeSpan.Zero,
+                PolicyVersion: 1));
+
+        var handler = CreateHandler();
+        var command = CreateScheduledCommand(lotId: lotId, appointmentTime: appointmentTime, durationMinutes: 120);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(40000m, result.Value!.PrepaidAmount);
+        Assert.NotNull(result.Value.PriceSnapshot);
+
+        using var doc = JsonDocument.Parse(result.Value.PriceSnapshot!);
+        Assert.Equal(40000m, doc.RootElement.GetProperty("calculatedTotal").GetDecimal());
+        Assert.Equal(0, doc.RootElement.GetProperty("overnightMarks").GetInt32());
+    }
 
     [Fact]
-    public void SCH_40_Pricing_changes_during_Temporary_Hold_is_isolated_policy()
+    public void SCH_40_Hold_stores_given_prepaid_amount_and_snapshot()
     {
         // Documenting Open Decision: Temporary hold stores authoritative snapshot at creation time.
         var res = Reservation.CreateTemporaryHold(
