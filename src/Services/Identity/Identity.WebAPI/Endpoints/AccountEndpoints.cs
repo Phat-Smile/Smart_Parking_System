@@ -212,7 +212,14 @@ internal static class AccountEndpoints
         string? DriverLicenseNumber,
         /// <summary>URL ảnh đại diện (tùy chọn, tối đa 500 ký tự).</summary>
         /// <example>https://cdn.example.com/avatar.jpg</example>
-        string? AvatarUrl);
+        string? AvatarUrl,
+        string? PhoneNumber = null,
+        string? Address = null,
+        string? IdentityDocumentType = null,
+        DateOnly? IdentityIssueDate = null,
+        string? IdentityIssuedBy = null,
+        Guid? IdentityFrontMediaId = null,
+        Guid? IdentityBackMediaId = null);
 
     /// <summary>
     /// Dữ liệu yêu cầu thêm phương tiện.
@@ -870,13 +877,24 @@ internal static class AccountEndpoints
                         request.DateOfBirth,
                         request.CitizenIdNumber,
                         request.DriverLicenseNumber,
-                        request.AvatarUrl),
+                        request.AvatarUrl,
+                        request.PhoneNumber,
+                        request.Address,
+                        request.IdentityDocumentType,
+                        request.IdentityIssueDate,
+                        request.IdentityIssuedBy,
+                        request.IdentityFrontMediaId,
+                        request.IdentityBackMediaId),
                     cancellationToken);
 
                 return result.IsSuccess
                     ? Results.Ok(result.Value)
                     : Results.Problem(
-                        statusCode: StatusCodes.Status404NotFound,
+                        statusCode: result.Error == UpsertProfileErrors.DuplicatePhone
+                            ? StatusCodes.Status409Conflict
+                            : result.Error == UpsertProfileErrors.AccountNotFound
+                                ? StatusCodes.Status404NotFound
+                                : StatusCodes.Status400BadRequest,
                         title: result.Error!.Message,
                         detail: result.Error.Message,
                         extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });

@@ -77,6 +77,14 @@ public sealed class ProfileValidatorTests
         Assert.False(Validator().Validate(Command(cccd: new string('1', 21))).IsValid);
         Assert.False(Validator().Validate(Command(license: new string('1', 21))).IsValid);
     }
+
+    [Fact]
+    public void Phone_and_address_are_validated()
+    {
+        Assert.True(Validator().Validate(new UpsertProfileCommand(Guid.NewGuid(), "User", null, null, null, null, "+84901234567", "Hanoi")).IsValid);
+        Assert.False(Validator().Validate(new UpsertProfileCommand(Guid.NewGuid(), "User", null, null, null, null, "abc", null)).IsValid);
+        Assert.False(Validator().Validate(new UpsertProfileCommand(Guid.NewGuid(), "User", null, null, null, null, null, new string('x', 501))).IsValid);
+    }
 }
 
 public sealed class ProfileDomainTests
@@ -121,6 +129,15 @@ public sealed class ProfileDomainTests
         Assert.Null(profile.DriverLicenseNumber);
         Assert.Equal("https://a.example/x.png", profile.AvatarUrl);
         Assert.Equal(Now.AddHours(2), profile.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public void Address_is_trimmed_and_can_be_cleared()
+    {
+        var profile = Profile.Create(Guid.NewGuid(), "User", Now, address: "  Hanoi  ");
+        Assert.Equal("Hanoi", profile.Address);
+        profile.Update("User", Now.AddDays(1), address: " ");
+        Assert.Null(profile.Address);
     }
 }
 

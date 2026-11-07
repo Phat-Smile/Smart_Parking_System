@@ -5,6 +5,7 @@ using ParkingSystem.Identity.Domain.Profiles;
 using ParkingSystem.Identity.Domain.Vehicles;
 using ParkingSystem.Identity.Persistence.Inbox;
 using ParkingSystem.Identity.Persistence.Outbox;
+using ParkingSystem.Identity.Persistence.Profiles;
 
 namespace ParkingSystem.Identity.Persistence;
 
@@ -15,6 +16,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<Account> Accounts => Set<Account>();
 
     public DbSet<Profile> Profiles => Set<Profile>();
+    public DbSet<CustomerMedia> CustomerMedia => Set<CustomerMedia>();
 
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
 

@@ -406,6 +406,11 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("address");
+
                     b.Property<string>("AvatarUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -434,6 +439,28 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("full_name");
+
+                    b.Property<Guid?>("IdentityBackMediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("identity_back_media_id");
+
+                    b.Property<string>("IdentityDocumentType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("identity_document_type");
+
+                    b.Property<Guid?>("IdentityFrontMediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("identity_front_media_id");
+
+                    b.Property<DateOnly?>("IdentityIssueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("identity_issue_date");
+
+                    b.Property<string>("IdentityIssuedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("identity_issued_by");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -591,6 +618,52 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasFilter("processed_at_utc IS NULL");
 
                     b.ToTable("outbox_messages", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Persistence.Profiles.CustomerMedia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<DateTimeOffset>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("customer_media", "identity");
                 });
 
             modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.AuthSession", b =>
