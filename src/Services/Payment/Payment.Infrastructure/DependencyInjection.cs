@@ -7,7 +7,6 @@ using ParkingSystem.Payment.Infrastructure.Messaging;
 using ParkingSystem.Payment.Infrastructure.Messaging.Outbox;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Payment.Application.Common.Interfaces;
-using ParkingSystem.Payment.Infrastructure.Adapters.Parking;
 using ParkingSystem.Payment.Infrastructure.Gateways;
 using ParkingSystem.Contracts.Events.Payment;
 
@@ -69,7 +68,6 @@ public static class DependencyInjection
         });
 
         // Stub: tạm thời khi chưa có gRPC chính thức
-        services.AddScoped<IParkingSessionGateway, StubParkingSessionGateway>();
         services.AddScoped<IPaymentGateway, VnpayPaymentGateway>();
         services.AddScoped<IVnpayPaymentGateway, VnpayPaymentGateway>();
         return services;
