@@ -2,7 +2,13 @@
 
 import React, { useState } from "react";
 import { RealCameraFeed } from "./RealCameraFeed";
-import { PlateBadge, feeText, formatDateTime, formatVnd } from "./StaffUi";
+import {
+    PlateBadge,
+    feeText,
+    formatDateTime,
+    formatVnd,
+    IoTBarrierGateSimulator,
+} from "./StaffUi";
 import {
     completeParkingSession,
     describeStaffError,
@@ -15,11 +21,13 @@ import {
 import { useStaffData } from "./staffData";
 import type { SessionByQrResponse, StaffSession } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
+import { useGateVoice } from "./audio";
 
 export function StaffExitPage() {
     const { assignedLot, completeExit, activeSessions, fetchAssignedLot } =
         useStaffData();
     const { t, language } = useLanguage();
+    const { announceCheckOut, announceWarning } = useGateVoice();
 
     // Fetch assigned lot and live active sessions on mount
     React.useEffect(() => {
@@ -232,7 +240,14 @@ export function StaffExitPage() {
 
     // 100% Real API: Close Parking Session
     async function handleAuthorizeExit() {
-        if (!scannedSession || !canAllowExit) return;
+        if (!scannedSession || !canAllowExit) {
+            if (scannedSession && !canAllowExit) {
+                announceWarning(
+                    "Xe chưa thanh toán phí đỗ. Không thể mở barrier.",
+                );
+            }
+            return;
+        }
         setLoading(true);
         setErrorMsg("");
         try {
@@ -245,6 +260,11 @@ export function StaffExitPage() {
                 scannedSession.paymentMethod || "Cash",
             );
             setExitAllowed(true);
+            announceCheckOut({
+                plateNumber: scannedSession.plateNumber,
+                lotName: assignedLot?.lotName,
+                amountPaid: scannedSession.totalFeeVnd,
+            });
         } catch (err) {
             setErrorMsg(describeStaffError(err));
         } finally {
@@ -725,13 +745,38 @@ export function StaffExitPage() {
                             </div>
                         )}
 
-                        {/* Barrier opened alert */}
+                        {/* Barrier opened alert with Interactive IoT Simulator */}
                         {exitAllowed && (
-                            <div className="staff-barrier-open-alert">
-                                <div className="barrier-icon">🟢</div>
-                                <div className="barrier-content">
-                                    <strong>{t("exitBarrierRaised")}</strong>
-                                    <p>{t("exitBarrierHint")}</p>
+                            <div style={{ marginTop: "1rem" }}>
+                                <IoTBarrierGateSimulator
+                                    gateId="GATE-OUT-02"
+                                    gateName="Cổng Ra Xe (Gate Out 02)"
+                                    gateType="EXIT"
+                                    isOpen={true}
+                                    physicalState="OPEN"
+                                    vehicleState="PASSING"
+                                    detectedPlate={
+                                        scannedSession?.plateNumber ||
+                                        detectedExitPlate
+                                    }
+                                    vehicleType={
+                                        scannedSession?.vehicleType || "Car"
+                                    }
+                                    compact={true}
+                                    enableControls={false}
+                                    enableEmergencyOverride={true}
+                                />
+                                <div
+                                    className="staff-barrier-open-alert"
+                                    style={{ marginTop: "8px" }}
+                                >
+                                    <div className="barrier-icon">🟢</div>
+                                    <div className="barrier-content">
+                                        <strong>
+                                            {t("exitBarrierRaised")}
+                                        </strong>
+                                        <p>{t("exitBarrierHint")}</p>
+                                    </div>
                                 </div>
                             </div>
                         )}

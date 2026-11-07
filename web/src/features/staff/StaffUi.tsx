@@ -452,3 +452,9 @@ export function feeText(
 }
 
 export { RealCameraFeed } from "./RealCameraFeed";
+export {
+    IoTBarrierGateSimulator,
+    type IoTBarrierGateSimulatorProps,
+    type BarrierPhysicalState,
+    type VehicleApproachState,
+} from "./IoTBarrierGateSimulator";

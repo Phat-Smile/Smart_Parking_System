@@ -72,7 +72,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         };
     }, [assignedLot?.lotId, fetchAssignedLot]);
 
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     const navItems = [
         {
@@ -89,6 +89,14 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             href: "/staff/exit",
             label: t("staffExitGate"),
             icon: "💳",
+        },
+        {
+            href: "/staff/simulator",
+            label:
+                language === "en"
+                    ? "IoT Barrier Simulator"
+                    : "Mô phỏng Barrier IoT",
+            icon: "🚧",
         },
         {
             href: "/staff/sessions",
