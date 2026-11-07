@@ -22,8 +22,7 @@ internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
 
         builder.Property(v => v.LicensePlate)
             .HasColumnName("license_plate")
-            .HasMaxLength(Vehicle.MaxLicensePlateLength)
-            .IsRequired();
+            .HasMaxLength(Vehicle.MaxLicensePlateLength);
 
         builder.HasIndex(v => v.LicensePlate)
             .IsUnique()
@@ -49,6 +48,16 @@ internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
             .HasColumnName("is_default")
             .HasDefaultValue(false)
             .IsRequired();
+
+        builder.Property(v => v.Brand).HasColumnName("brand").HasMaxLength(100);
+        builder.Property(v => v.Model).HasColumnName("model").HasMaxLength(100);
+        builder.Property(v => v.MotorbikeKind).HasColumnName("motorbike_kind").HasMaxLength(50);
+        builder.Property(v => v.Seats).HasColumnName("seats");
+        builder.Property(v => v.FuelType).HasColumnName("fuel_type").HasMaxLength(30);
+        builder.Property(v => v.Color).HasColumnName("color").HasMaxLength(50);
+        builder.Property(v => v.ManufacturingYear).HasColumnName("manufacturing_year");
+        builder.Property(v => v.Size).HasColumnName("size").HasMaxLength(20);
+        builder.Property(v => v.PhotoUrl).HasColumnName("photo_url").HasMaxLength(500);
 
         builder.HasIndex(v => new { v.AccountId, v.IsDefault })
             .IsUnique()

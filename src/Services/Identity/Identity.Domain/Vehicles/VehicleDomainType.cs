@@ -4,5 +4,6 @@ namespace ParkingSystem.Identity.Domain.Vehicles;
 public enum VehicleDomainType
 {
     Car = 1,
-    Motorbike = 2
+    Motorbike = 2,
+    Bicycle = 3
 }

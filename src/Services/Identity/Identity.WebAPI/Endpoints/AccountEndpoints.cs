@@ -27,6 +27,8 @@ using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Application.Vehicles.AddVehicle;
 using ParkingSystem.Identity.Application.Vehicles.DeleteVehicle;
 using ParkingSystem.Identity.Application.Vehicles.GetVehicles;
+using ParkingSystem.Identity.Application.Vehicles.GetVehicle;
+using ParkingSystem.Identity.Application.Vehicles.UpdateVehicle;
 using ParkingSystem.Identity.Application.Vehicles.SetDefaultVehicle;
 using ParkingSystem.Identity.WebAPI.Security;
 
@@ -227,13 +229,16 @@ internal static class AccountEndpoints
     public sealed record AddVehicleRequest(
         /// <summary>Biển số xe (bắt buộc, tối đa 20 ký tự). Tự động chuẩn hóa thành chữ hoa.</summary>
         /// <example>51A-123.45</example>
-        string LicensePlate,
+        string? LicensePlate,
         /// <summary>Loại phương tiện: Car hoặc Motorbike.</summary>
         /// <example>Car</example>
         string VehicleType,
         /// <summary>Tên gợi nhớ (tùy chọn, tối đa 50 ký tự).</summary>
         /// <example>Xe đi làm</example>
-        string? NickName);
+        string? NickName,
+        ParkingSystem.Identity.Application.Vehicles.VehicleDetails? Details = null);
+
+    public sealed record UpdateVehicleRequest(string? NickName, ParkingSystem.Identity.Application.Vehicles.VehicleDetails Details);
 
     /// <summary>
     /// Dữ liệu yêu cầu đổi vai trò tài khoản.
@@ -977,7 +982,7 @@ internal static class AccountEndpoints
                     return Results.Unauthorized();
 
                 var result = await sender.Send(
-                    new AddVehicleCommand(accountId, request.LicensePlate, request.VehicleType, request.NickName),
+                    new AddVehicleCommand(accountId, request.LicensePlate, request.VehicleType, request.NickName, request.Details),
                     cancellationToken);
 
                 if (result.IsSuccess)
@@ -1025,6 +1030,40 @@ internal static class AccountEndpoints
             .WithSummary("Danh sách phương tiện của tài khoản")
             .Produces<GetVehiclesResult>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
+
+        // US-VEH-001: Delete a vehicle from the current account.
+        app.MapGet("/api/identity/accounts/me/vehicles/{vehicleId:guid}", async (
+                Guid vehicleId, ICurrentUser currentUser, ISender sender, CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId)) return Results.Unauthorized();
+                var result = await sender.Send(new GetVehicleQuery(accountId, vehicleId), cancellationToken);
+                return result.IsSuccess ? Results.Ok(result.Value) : Results.NotFound();
+            })
+            .RequireAuthorization()
+            .WithTags("6. Phương tiện (Vehicles)")
+            .WithName("GetVehicle")
+            .Produces<VehicleItem>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPut("/api/identity/accounts/me/vehicles/{vehicleId:guid}", async (
+                Guid vehicleId, UpdateVehicleRequest request, ICurrentUser currentUser, ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId)) return Results.Unauthorized();
+                var result = await sender.Send(new UpdateVehicleCommand(accountId, vehicleId, request.NickName, request.Details), cancellationToken);
+                if (result.IsSuccess) return Results.Ok(result.Value);
+                return result.Error == UpdateVehicleErrors.NotFound
+                    ? Results.NotFound()
+                    : Results.BadRequest(new { errorCode = result.Error!.Code, detail = result.Error.Message });
+            })
+            .RequireAuthorization()
+            .WithTags("6. Phương tiện (Vehicles)")
+            .WithName("UpdateVehicle")
+            .Produces<UpdatedVehicleResult>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
 
         // US-VEH-001: Delete a vehicle from the current account.
         app.MapDelete("/api/identity/accounts/me/vehicles/{vehicleId:guid}", async (
