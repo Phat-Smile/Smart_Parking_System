@@ -6,6 +6,7 @@ public interface IParkingHubClient
 {
     Task SlotStatusChanged(SlotStatusChangedMessage message);
     Task LotOccupancyChanged(LotOccupancyChangedMessage message);
+    Task SlotNeedsVerification(SlotNeedsVerificationMessage message);
 }
 
 public sealed record SlotStatusChangedMessage(
@@ -20,6 +21,13 @@ public sealed record LotOccupancyChangedMessage(
     Guid LotId,
     int AvailableCarSlots,
     int AvailableMotorbikeSlots,
+    DateTimeOffset Timestamp);
+
+public sealed record SlotNeedsVerificationMessage(
+    Guid LotId,
+    Guid SlotId,
+    string SlotCode,
+    string Stage,
     DateTimeOffset Timestamp);
 
 public sealed class ParkingHub : Hub<IParkingHubClient>

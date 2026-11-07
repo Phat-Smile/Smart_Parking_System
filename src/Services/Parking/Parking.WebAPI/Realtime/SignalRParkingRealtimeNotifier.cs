@@ -30,6 +30,26 @@ public sealed class SignalRParkingRealtimeNotifier(
         }
     }
 
+    public async Task NotifySlotNeedsVerificationAsync(
+        Guid lotId,
+        Guid slotId,
+        string slotCode,
+        string stage,
+        DateTimeOffset timestamp,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var groupName = ParkingHub.GetLotGroupName(lotId);
+            var message = new SlotNeedsVerificationMessage(lotId, slotId, slotCode, stage, timestamp);
+            await hubContext.Clients.Group(groupName).SlotNeedsVerification(message);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to broadcast SlotNeedsVerification for lot {LotId}", lotId);
+        }
+    }
+
     public async Task NotifyLotOccupancyChangedAsync(
         Guid lotId,
         int availableCarSlots,
