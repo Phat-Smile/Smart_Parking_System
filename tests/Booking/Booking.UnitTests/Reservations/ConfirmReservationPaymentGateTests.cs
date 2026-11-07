@@ -5,6 +5,8 @@ using ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReservation
 using ParkingSystem.Booking.Application.Reservations.Commands.CreateTemporaryHold;
 using ParkingSystem.Booking.Application.Vehicles;
 using ParkingSystem.Booking.Domain.Reservations;
+using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Contracts.Events.Booking;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using Xunit;
@@ -116,6 +118,30 @@ public sealed class ConfirmReservationPaymentGateTests
         Assert.StartsWith("RES-QR-", result.Value.QrCodeToken);
         Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
         Assert.Equal(1, _repo.SaveChangesCount);
+    }
+
+    [Fact]
+    public async Task Confirmation_enqueues_one_customer_event_and_retry_does_not_duplicate_it()
+    {
+        var userId = Guid.NewGuid();
+        var reservation = CreateHold(Guid.NewGuid(), userId);
+        _repo.Add(reservation);
+        var outbox = new RecordingOutbox();
+        var handler = new ConfirmReservationCommandHandler(_repo, _clock, _logger, outbox);
+        var command = new ConfirmReservationCommand(reservation.Id, userId, null, 0m);
+
+        Assert.True((await handler.Handle(command, TestContext.Current.CancellationToken)).IsSuccess);
+        Assert.True((await handler.Handle(command, TestContext.Current.CancellationToken)).IsSuccess);
+        var message = Assert.IsType<ReservationConfirmedIntegrationEvent>(Assert.Single(outbox.Events));
+        Assert.Equal(userId, message.UserId);
+        Assert.Equal(reservation.Id, message.ReservationId);
+    }
+
+    private sealed class RecordingOutbox : IOutboxWriter
+    {
+        public List<object> Events { get; } = [];
+        public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion,
+            Guid? correlationId = null, Guid? causationId = null) where TEvent : class => Events.Add(integrationEvent);
     }
 
     // =========================================================================

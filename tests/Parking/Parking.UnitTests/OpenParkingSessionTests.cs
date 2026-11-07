@@ -9,9 +9,18 @@ using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Contracts.Events.Parking;
 using Xunit;
 
 namespace ParkingSystem.Tests.Parking.UnitTests;
+
+internal sealed class RecordingCustomerSessionOutbox : IOutboxWriter
+{
+    public List<object> Events { get; } = [];
+    public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion,
+        Guid? correlationId = null, Guid? causationId = null) where TEvent : class => Events.Add(integrationEvent);
+}
 
 public sealed class OpenParkingSessionTests
 {
@@ -100,7 +109,8 @@ public sealed class OpenParkingSessionTests
     {
         var owner = new PlateOwner(Guid.NewGuid(), Guid.NewGuid());
         var repository = new FakeParkingSessionRepository();
-        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(owner), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient());
+        var outbox = new RecordingCustomerSessionOutbox();
+        var handler = new OpenParkingSessionCommandHandler(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(owner), new FixedClock(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(), new FakeHeldQuota(0), new FakeZoneLabels(), new FakeBookingCheckInClient(), outbox: outbox);
 
         var result = await handler.Handle(
             new OpenParkingSessionCommand(LotId, "51A-123.45", "Motorbike", StaffId),
@@ -111,6 +121,7 @@ public sealed class OpenParkingSessionTests
         var session = Assert.Single(repository.Saved);
         Assert.Equal(owner.UserId, session.UserId);
         Assert.Equal(owner.VehicleId, session.VehicleId);
+        Assert.Equal(owner.UserId, Assert.IsType<ParkingSessionOpenedIntegrationEvent>(Assert.Single(outbox.Events)).UserId);
     }
 
     [Fact]
