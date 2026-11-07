@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import Link from "next/link";
 import {
@@ -14,11 +14,13 @@ import {
     ShieldCheck,
     UserRound,
     Wallet,
+    Loader2,
 } from "lucide-react";
 import {
     getAuthSessionSnapshot,
     subscribeAuthSession,
 } from "@/features/auth/authSession";
+import { getMyProfile, type CustomerProfile } from "./customerProfileApi";
 
 function ProfileField({
     icon: Icon,
@@ -49,15 +51,58 @@ export function CustomerProfilePage() {
         getAuthSessionSnapshot,
         () => null,
     );
+
+    const [profile, setProfile] = useState<CustomerProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let active = true;
+        async function fetchProfile() {
+            try {
+                const data = await getMyProfile();
+                if (active) setProfile(data);
+            } catch {
+                // If profile is not found or fails, fallback to session data
+            } finally {
+                if (active) setLoading(false);
+            }
+        }
+        void fetchProfile();
+        return () => {
+            active = false;
+        };
+    }, []);
+
     const name =
-        session?.displayName?.trim() || copy("Not provided", "Chưa cung cấp");
+        profile?.fullName?.trim() ||
+        session?.displayName?.trim() ||
+        copy("Not provided", "Chưa cung cấp");
+
     const email =
         session?.account.email?.trim() || copy("Not provided", "Chưa cung cấp");
-    const initial = !session?.displayName?.trim() ? (
-        <UserRound size={36} />
-    ) : (
-        name[0].toUpperCase()
-    );
+
+    const phone =
+        profile?.phoneNumber?.trim() ||
+        session?.account.phoneNumber?.trim() ||
+        copy("Not provided", "Chưa cung cấp");
+
+    const address =
+        profile?.address?.trim() || copy("Not provided", "Chưa cung cấp");
+
+    const dob = profile?.dateOfBirth
+        ? new Date(profile.dateOfBirth).toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+          })
+        : copy("Not provided", "Chưa cung cấp");
+
+    const initial =
+        !name || name === copy("Not provided", "Chưa cung cấp") ? (
+            <UserRound size={36} />
+        ) : (
+            name[0].toUpperCase()
+        );
 
     return (
         <div className="customer-account-content">
@@ -131,32 +176,48 @@ export function CustomerProfilePage() {
                             <Pencil size={18} />
                         </Link>
                     </div>
-                    <div className="customer-profile-fields">
-                        <ProfileField
-                            icon={UserRound}
-                            label={copy("Full name", "Họ và tên")}
-                            value={name}
-                        />
-                        <ProfileField icon={Mail} label="Email" value={email} />
-                        <ProfileField
-                            icon={Phone}
-                            label={copy("Phone number", "Số điện thoại")}
-                            value={
-                                session?.account.phoneNumber?.trim() ||
-                                copy("Not provided", "Chưa cung cấp")
-                            }
-                        />
-                        <ProfileField
-                            icon={CalendarDays}
-                            label={copy("Date of birth", "Ngày sinh")}
-                            value={copy("Not provided", "Chưa cung cấp")}
-                        />
-                        <ProfileField
-                            icon={MapPin}
-                            label={copy("Address", "Địa chỉ")}
-                            value={copy("Not provided", "Chưa cung cấp")}
-                        />
-                    </div>
+                    {loading ? (
+                        <div className="flex items-center justify-center p-8 text-[#8790a3] gap-2">
+                            <Loader2
+                                size={20}
+                                className="animate-spin text-[#6246ea]"
+                            />
+                            <span>
+                                {copy(
+                                    "Loading profile details...",
+                                    "Đang tải chi tiết hồ sơ...",
+                                )}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="customer-profile-fields">
+                            <ProfileField
+                                icon={UserRound}
+                                label={copy("Full name", "Họ và tên")}
+                                value={name}
+                            />
+                            <ProfileField
+                                icon={Mail}
+                                label="Email"
+                                value={email}
+                            />
+                            <ProfileField
+                                icon={Phone}
+                                label={copy("Phone number", "Số điện thoại")}
+                                value={phone}
+                            />
+                            <ProfileField
+                                icon={CalendarDays}
+                                label={copy("Date of birth", "Ngày sinh")}
+                                value={dob}
+                            />
+                            <ProfileField
+                                icon={MapPin}
+                                label={copy("Address", "Địa chỉ")}
+                                value={address}
+                            />
+                        </div>
+                    )}
                 </section>
 
                 <aside className="customer-profile-side">
@@ -169,8 +230,8 @@ export function CustomerProfilePage() {
                         </h2>
                         <p>
                             {copy(
-                                "This page shows your current account details. More profile fields will appear when profile syncing is available.",
-                                "Trang này hiển thị thông tin tài khoản hiện có. Các trường khác sẽ xuất hiện khi chức năng đồng bộ hồ sơ sẵn sàng.",
+                                "Your profile is linked directly to your ParkWise Identity. Updating your profile ensures accurate booking and parking session records.",
+                                "Hồ sơ của bạn được liên kết trực tiếp với Định danh ParkWise. Cập nhật hồ sơ giúp thông tin đặt chỗ và phiên đỗ luôn chính xác.",
                             )}
                         </p>
                     </section>
