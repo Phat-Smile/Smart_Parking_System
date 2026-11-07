@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.health import router as health_router
+from app.api.arrival_availability import router as arrival_availability_router
 from app.grpc.server import start_server
 from app.http_foundation import CorrelationAndRequestLoggingMiddleware, validation_problem_details
 from app.telemetry import configure_ai_telemetry
@@ -35,6 +36,7 @@ app = FastAPI(
     telemetry={"auto_configure": False},
 )
 app.include_router(health_router)
+app.include_router(arrival_availability_router)
 app.add_middleware(CorrelationAndRequestLoggingMiddleware)
 tracer_provider, meter_provider = configure_ai_telemetry(app)
 

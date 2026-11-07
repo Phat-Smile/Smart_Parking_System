@@ -52,6 +52,7 @@ builder.Services.AddInfrastructure(builder.Configuration, bus => bus.AddConsumer
 builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSection(BookingServiceOptions.SectionName));
 builder.Services.AddHttpClient<IBookingCheckInClient, BookingCheckInHttpClient>();
+builder.Services.AddHttpClient<ArrivalAvailabilityClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IParkingRealtimeNotifier, SignalRParkingRealtimeNotifier>();
 builder.Services.AddHealthChecks()
@@ -89,6 +90,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
+app.MapArrivalAvailabilityEndpoints();
 app.MapAdminParkingLotReviewEndpoints();
 app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
