@@ -5,10 +5,15 @@ package smartparking.parking.availability.v1;
 option csharp_namespace = "SmartParking.Contracts.Parking.Availability.V1";
 
 // Contract 2, Parking part (master sheet, owner BE-4, caller BE-3 Booking).
-// The current price list part of contract 2 belongs to Payment (BE-5) and is not here.
+// GetLotReservationInfo and GetLotPricing give Booking the lot facts it needs to create a reservation hold:
+// valid capacity, ratio, deposit and the price list (Booking computes the prepayment itself, BR-10.a).
 service ParkingAvailabilityContract {
   rpc GetAvailableSlotCount(GetAvailableSlotCountRequest)
       returns (GetAvailableSlotCountResponse);
+  rpc GetLotReservationInfo(GetLotReservationInfoRequest)
+      returns (GetLotReservationInfoResponse);
+  rpc GetLotPricing(GetLotPricingRequest)
+      returns (GetLotPricingResponse);
 }
 
 message GetAvailableSlotCountRequest {
@@ -22,4 +27,42 @@ message GetAvailableSlotCountResponse {
   // Booking uses it for BR-02.c (ii). It is not the walk-in count (BR-02.d) and not the valid capacity:
   // context section 3 keeps these quantities apart.
   int32 available_slot_count = 1;
+}
+
+message GetLotReservationInfoRequest {
+  // Canonical UUID "D" format. Malformed -> INVALID_ARGUMENT. Unknown or not-approved lot -> NOT_FOUND.
+  string lot_id = 1;
+}
+
+message GetLotReservationInfoResponse {
+  // BR-02.a: car slots not in Maintenance or Unavailable. Never negative.
+  int32 valid_capacity = 1;
+  // BR-02.b: 0..100. The lot default (50) when the owner has not set one.
+  int32 reservation_ratio_percent = 2;
+  // Same quantity as GetAvailableSlotCount.
+  int32 available_slot_count = 3;
+  // US-OWNER-006: false when the owner stopped taking reservations.
+  bool reservation_enabled = 4;
+  // VND, whole amount. The lot default (20000) when the owner has not set one.
+  int64 deposit_amount = 5;
+}
+
+message GetLotPricingRequest {
+  // Canonical UUID "D" format. Malformed -> INVALID_ARGUMENT. Unknown or not-approved lot -> NOT_FOUND.
+  string lot_id = 1;
+  // "Car" or "Motorbike". Anything else -> INVALID_ARGUMENT.
+  string vehicle_group = 2;
+}
+
+message GetLotPricingResponse {
+  // VND, whole amount: the price of one entry or one block. Always greater than 0.
+  int64 price = 1;
+  // "PerEntry" or "Block".
+  string billing_mode = 2;
+  // 0 for PerEntry.
+  int32 block_minutes = 3;
+  // VND, whole amount, 0 when the lot has no overnight fee.
+  int64 overnight_fee = 4;
+  // Version of the price list in force. No price list for this vehicle group -> FAILED_PRECONDITION.
+  int32 policy_version = 5;
 }
