@@ -2524,3 +2524,28 @@
     background: var(--pw-admin-ink);
     color: #ffffff;
 }
+
+/* ==========================================================================
+   IOT BARRIER GATE SIMULATOR KEYFRAME ANIMATIONS
+   ========================================================================== */
+@keyframes iotPulse {
+    0% {
+        opacity: 0.4;
+        transform: scale(0.96);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes iotStrobe {
+    0% {
+        background-color: rgba(239, 68, 68, 0.2);
+        border-color: #ef4444;
+    }
+    100% {
+        background-color: rgba(245, 158, 11, 0.35);
+        border-color: #f59e0b;
+    }
+}
