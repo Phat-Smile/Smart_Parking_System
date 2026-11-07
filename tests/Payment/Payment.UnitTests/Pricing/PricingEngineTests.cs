@@ -230,4 +230,51 @@ public class PricingEngineTests
         Assert.Contains(DomainErrorMessages.Pricing.GracePeriodMinutesNegative, exception.Message);
         Assert.Equal("gracePeriodMinutes", exception.ParamName);
     }
+
+    [Theory]
+    [InlineData(2026, 11, 6, 8, 0, true)]   // Friday 08:00 (Morning Peak)
+    [InlineData(2026, 11, 6, 18, 0, true)]  // Friday 18:00 (Evening Peak)
+    [InlineData(2026, 11, 6, 12, 0, false)] // Friday 12:00 (Off-peak midday)
+    [InlineData(2026, 11, 7, 8, 0, false)]  // Saturday 08:00 (Weekend - no surge)
+    [InlineData(2026, 11, 8, 18, 0, false)] // Sunday 18:00 (Weekend - no surge)
+    public void IsPeakHour_ShouldIdentifyPeakWindowCorrectly(int year, int month, int day, int hour, int minute, bool expected)
+    {
+        var testTime = new DateTimeOffset(year, month, day, hour, minute, 0, _vnOffset);
+        var isPeak = PricingEngine.IsPeakHour(testTime, _vnOffset);
+        Assert.Equal(expected, isPeak);
+    }
+
+    [Fact]
+    public void CalculateSurgeMultiplier_PeakHour_ShouldApply1_2x()
+    {
+        var peakTime = new DateTimeOffset(2026, 11, 6, 8, 15, 0, _vnOffset); // Friday 08:15
+        var multiplier = PricingEngine.CalculateSurgeMultiplier(peakTime, occupancyRate: 0.5, localTimeZoneOffset: _vnOffset);
+        Assert.Equal(1.2m, multiplier);
+    }
+
+    [Fact]
+    public void CalculateSurgeMultiplier_HighOccupancy_ShouldApply1_3x()
+    {
+        var offPeakTime = new DateTimeOffset(2026, 11, 6, 14, 0, 0, _vnOffset); // Friday 14:00
+        var multiplier = PricingEngine.CalculateSurgeMultiplier(offPeakTime, occupancyRate: 0.90, localTimeZoneOffset: _vnOffset);
+        Assert.Equal(1.3m, multiplier);
+    }
+
+    [Fact]
+    public void CalculateWithSurge_PeakHour_ShouldIncreaseFeeBy20Percent()
+    {
+        var entryTime = new DateTimeOffset(2026, 11, 6, 7, 0, 0, _vnOffset);
+        var calcTime = new DateTimeOffset(2026, 11, 6, 8, 0, 0, _vnOffset); // 60 minutes = 2 blocks of 30m
+        // 2 blocks * 10,000 = 20,000 base fee. Surge 1.2x -> 24,000
+        var fee = ParkingFeeCalculator.CalculateWithSurge(
+            ParkingMethod.PerBlock,
+            30,
+            10000,
+            entryTime,
+            calcTime,
+            occupancyRate: 0.5);
+
+        Assert.Equal(60, fee.DurationMinutes);
+        Assert.Equal(24000, fee.TotalFee);
+    }
 }

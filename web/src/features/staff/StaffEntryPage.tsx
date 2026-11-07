@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { RealCameraFeed } from "./RealCameraFeed";
 import { CameraFeedMock, PlateBadge, QrCodeModal, countText } from "./StaffUi";
 import { describeStaffError, openParkingSession } from "./staffApi";
+import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
@@ -93,6 +94,11 @@ export function StaffEntryPage() {
 
             setLastOpened(res);
             setStep("session_created");
+            emitLiveToast(
+                "Xác nhận xe vào cổng thành công!",
+                `Biển số ${res.plateNumber} đã qua barrier. Phiếu gửi xe đã sẵn sàng.`,
+                "success",
+            );
 
             // Add real session into live staff state (Parking assigns customer type, zone, and slot)
             addSession({

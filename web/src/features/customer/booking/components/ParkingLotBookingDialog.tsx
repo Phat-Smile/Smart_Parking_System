@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { X, AlertCircle, Wallet } from "lucide-react";
+import { X, Wallet } from "lucide-react";
 import {
     createReservationHold,
     confirmReservation,
@@ -13,6 +13,7 @@ import { HoldCountdownTimer } from "./HoldCountdownTimer";
 import { BookingPassModal } from "./BookingPassModal";
 import { getMyWallet } from "../../wallet/walletApi";
 import { ApiError } from "@/shared/errors/api-error";
+import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 import type { ParkingLotDetailView } from "../../ParkingLotDetailExperience";
 import type { RegisteredVehicle } from "../../myVehiclesApi";
 import { useCustomerLanguage } from "../../i18n/customerLanguage";
@@ -50,6 +51,19 @@ export function ParkingLotBookingDialog({
     const [errorMessage, setErrorMessage] = useState("");
     const [walletBalance, setWalletBalance] = useState<number | null>(null);
     const [isPassModalOpen, setIsPassModalOpen] = useState(false);
+
+    const isPeakHour = useMemo(() => {
+        try {
+            if (!time) return false;
+            const [h, m] = time.split(":").map(Number);
+            const mins = h * 60 + m;
+            return (
+                (mins >= 450 && mins <= 540) || (mins >= 1020 && mins <= 1140)
+            );
+        } catch {
+            return false;
+        }
+    }, [time]);
 
     useEffect(() => {
         if (isOpen) {
@@ -123,6 +137,11 @@ export function ParkingLotBookingDialog({
                 },
             );
             setBookingConfirmed(confirmed);
+            emitLiveToast(
+                "Đặt chỗ thành công!",
+                `Vé Booking Pass đã cấp với ô đỗ ${selectedSpot || "A-01"}.`,
+                "success",
+            );
             setIsPassModalOpen(true);
         } catch (err: unknown) {
             if (err instanceof ApiError) {
@@ -271,6 +290,44 @@ export function ParkingLotBookingDialog({
                                     </dd>
                                 </div>
                             </dl>
+
+                            {isPeakHour && (
+                                <div
+                                    style={{
+                                        margin: "12px 0",
+                                        padding: "8px 12px",
+                                        background: "rgba(245, 158, 11, 0.12)",
+                                        border: "1px solid rgba(245, 158, 11, 0.35)",
+                                        borderRadius: "8px",
+                                        color: "#d97706",
+                                        fontSize: "12px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                    }}
+                                >
+                                    <span style={{ fontSize: "16px" }}>🔥</span>
+                                    <div>
+                                        <strong style={{ display: "block" }}>
+                                            {copy(
+                                                "Peak Hours Surge Pricing (+20%)",
+                                                "Áp dụng Giá Động Giờ Cao Điểm (+20%)",
+                                            )}
+                                        </strong>
+                                        <span
+                                            style={{
+                                                color: "#b45309",
+                                                fontSize: "11px",
+                                            }}
+                                        >
+                                            {copy(
+                                                "High demand window (07:30-09:00 / 17:00-19:00). Guaranteed spot priority.",
+                                                "Khung giờ cao điểm đô thị (07:30-09:00 / 17:00-19:00). Ưu tiên giữ slot.",
+                                            )}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
 
                             {errorMessage && (
                                 <p
