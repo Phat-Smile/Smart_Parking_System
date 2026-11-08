@@ -20,44 +20,9 @@ export interface SessionLot {
     address: string;
 }
 
-export interface MyParkingSessionHistoryItem {
-    sessionId: string;
-    lotId: string;
-    plateNumber: string;
-    vehicleType: string;
-    status: string;
-    entryTime: string;
-    exitTime: string | null;
-    cancelledAt: string | null;
-}
-
-export interface MyParkingSessionHistoryPage {
-    items: MyParkingSessionHistoryItem[];
-    totalCount: number;
-    page: number;
-    pageSize: number;
-}
-
 /** Endpoint: GET /api/parking/sessions/me */
 export async function getMyParkingSessions(): Promise<MyParkingSession[]> {
     return await gatewayFetch<MyParkingSession[]>("/api/parking/sessions/me");
-}
-
-/** Endpoint: GET /api/parking/sessions/me/history */
-export async function getMyParkingSessionHistory(
-    status?: string,
-    page: number = 1,
-    pageSize: number = 20,
-    signal?: AbortSignal,
-): Promise<MyParkingSessionHistoryPage> {
-    const params = new URLSearchParams();
-    if (status) params.set("status", status);
-    params.set("page", String(page));
-    params.set("pageSize", String(pageSize));
-    return await gatewayFetch<MyParkingSessionHistoryPage>(
-        `/api/parking/sessions/me/history?${params.toString()}`,
-        { signal },
-    );
 }
 
 /**

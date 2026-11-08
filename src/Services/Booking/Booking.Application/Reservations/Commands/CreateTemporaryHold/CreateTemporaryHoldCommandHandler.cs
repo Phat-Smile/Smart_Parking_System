@@ -213,7 +213,9 @@ public sealed class CreateTemporaryHoldCommandHandler : IRequestHandler<CreateTe
                 overnightMarks = ScheduledPrepaymentCalculator.CountOvernightMarks(
                     appointmentTime,
                     endTime,
-                    pricingInfo.OvernightTimeMark ?? ScheduledPrepaymentCalculator.DefaultOvernightTimeMark);
+                    pricingInfo.OvernightTimeMark ?? ScheduledPrepaymentCalculator.DefaultOvernightTimeMark,
+                    ScheduledPrepaymentCalculator.DefaultVietnamOffset);
+
             }
             catch (ReservationDomainException ex)
             {
