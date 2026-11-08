@@ -44,6 +44,9 @@ public static class DependencyInjection
         services.AddIntegrationEvent<ReservationConfirmedIntegrationEvent>("booking.reservation-confirmed.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
+        services.AddOptions<Payments.ReservationPaymentReconciliationOptions>()
+            .Bind(configuration.GetSection(Payments.ReservationPaymentReconciliationOptions.SectionName));
+        services.AddHostedService<Payments.ReservationPaymentReconciliationWorker>();
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>

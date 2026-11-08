@@ -13,7 +13,8 @@
         "RabbitMq__Host": "127.0.0.1",
         "Security__Jwt__PublicKeyPath": "../../../../.local/security/jwt/public.pem",
         "ParkingService__GrpcEndpoint": "http://localhost:5102",
-        "IdentityService__GrpcEndpoint": "http://localhost:5101"
+        "IdentityService__GrpcEndpoint": "http://localhost:5101",
+        "PaymentService__GrpcEndpoint": "http://localhost:5104"
       }
     }
   }

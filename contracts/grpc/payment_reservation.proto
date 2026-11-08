@@ -25,3 +25,4 @@ message GetReservationDebitRequest { string reservation_id = 1; string account_i
 message GetReservationDebitResponse { DebitState state = 1; int64 amount_vnd = 2; }
 message RefundReservationRequest { string reservation_id = 1; string account_id = 2; int64 amount_vnd = 3; string reason = 4; }
 message RefundReservationResponse { DebitState state = 1; string ledger_entry_id = 2; }
+

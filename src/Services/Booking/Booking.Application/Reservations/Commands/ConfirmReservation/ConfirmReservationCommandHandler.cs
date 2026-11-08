@@ -1,124 +1,382 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Booking.Application.Payments;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Contracts.Events.Booking;
 
 namespace ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReservation;
 
-public sealed class ConfirmReservationCommandHandler(
-    IReservationRepository reservationRepository,
-    IClock clock,
-    ILogger<ConfirmReservationCommandHandler> logger,
-    IOutboxWriter? outbox = null)
-    : IRequestHandler<ConfirmReservationCommand, Result<ConfirmedReservationDto>>
+public sealed class ConfirmReservationCommandHandler : IRequestHandler<ConfirmReservationCommand, Result<ConfirmedReservationDto>>
 {
     private static readonly EventId PaymentNotAvailableEventId = new(1001, "PaymentNotAvailable");
+
+    private readonly IReservationRepository _reservationRepository;
+    private readonly IReservationPaymentClient _paymentClient;
+    private readonly IClock _clock;
+    private readonly ILogger<ConfirmReservationCommandHandler> _logger;
+    private readonly IOutboxWriter? _outbox;
+
+    public ConfirmReservationCommandHandler(
+        IReservationRepository reservationRepository,
+        IReservationPaymentClient paymentClient,
+        IClock clock,
+        ILogger<ConfirmReservationCommandHandler> logger,
+        IOutboxWriter? outbox = null)
+    {
+        _reservationRepository = reservationRepository;
+        _paymentClient = paymentClient;
+        _clock = clock;
+        _logger = logger;
+        _outbox = outbox;
+    }
+
+    public ConfirmReservationCommandHandler(
+        IReservationRepository reservationRepository,
+        IClock clock,
+        ILogger<ConfirmReservationCommandHandler> logger,
+        IOutboxWriter? outbox = null)
+        : this(reservationRepository, new UnconfiguredReservationPaymentClient(), clock, logger, outbox)
+    {
+    }
 
     public async Task<Result<ConfirmedReservationDto>> Handle(
         ConfirmReservationCommand request,
         CancellationToken cancellationToken)
     {
-        var reservation = await reservationRepository.FindByIdAsync(request.ReservationId, cancellationToken);
+        // ---------------------------------------------------------------------
+        // Step a: Load, ownership, Confirmed replay, status, and expiry checks
+        // ---------------------------------------------------------------------
+        var reservation = await _reservationRepository.FindByIdAsync(request.ReservationId, cancellationToken);
         if (reservation is null)
         {
-            logger.LogWarning("Reservation {ReservationId} not found.", request.ReservationId);
+            _logger.LogWarning("Reservation {ReservationId} not found.", request.ReservationId);
             return Result<ConfirmedReservationDto>.Failure(ReservationErrors.NotFound);
         }
 
         if (reservation.UserId != request.UserId)
         {
-            logger.LogWarning("User {UserId} attempted to confirm reservation {ReservationId} belonging to user {OwnerId}.",
+            _logger.LogWarning("User {UserId} attempted to confirm reservation {ReservationId} belonging to user {OwnerId}.",
                 request.UserId, request.ReservationId, reservation.UserId);
             return Result<ConfirmedReservationDto>.Failure(ReservationErrors.AccessDenied);
         }
 
         if (reservation.Status == ReservationStatus.Confirmed)
         {
-            var qrToken = $"RES-QR-{reservation.Id.ToString()[..8].ToUpperInvariant()}";
-            return Result<ConfirmedReservationDto>.Success(new ConfirmedReservationDto(
-                reservation.Id,
-                reservation.Status.ToString(),
-                reservation.ConfirmedAt ?? clock.UtcNow,
-                qrToken,
-                reservation.PrepaidAmount));
+            return Result<ConfirmedReservationDto>.Success(BuildConfirmedDto(reservation, reservation.ConfirmedAt ?? _clock.UtcNow));
         }
 
         if (reservation.Status != ReservationStatus.TemporaryHold)
         {
-            logger.LogWarning("Reservation {ReservationId} is in status {Status}, cannot confirm.",
+            _logger.LogWarning("Reservation {ReservationId} is in status {Status}, cannot confirm.",
                 request.ReservationId, reservation.Status);
             return Result<ConfirmedReservationDto>.Failure(ReservationErrors.InvalidStatus);
         }
 
-        var now = clock.UtcNow;
+        var now = _clock.UtcNow;
         if (reservation.TempHoldExpiresAt.HasValue && now > reservation.TempHoldExpiresAt.Value)
         {
-            logger.LogWarning("Reservation {ReservationId} hold expired at {ExpiresAt}, current time {Now}.",
+            _logger.LogWarning("Reservation {ReservationId} hold expired at {ExpiresAt}, current time {Now}.",
                 request.ReservationId, reservation.TempHoldExpiresAt.Value, now);
             try
             {
                 reservation.Expire();
-                await reservationRepository.SaveChangesAsync(cancellationToken);
+                await _reservationRepository.SaveChangesAsync(cancellationToken);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to mark expired reservation {ReservationId}.", request.ReservationId);
+                _logger.LogError(ex, "Failed to mark expired reservation {ReservationId}.", request.ReservationId);
             }
 
+            // An expired hold NEVER calls Payment
             return Result<ConfirmedReservationDto>.Failure(ReservationErrors.HoldExpired);
         }
 
-        // Gate: Free HoldWhileDriving reservations (PrepaidAmount == 0) can be confirmed immediately without payment.
-        // All others require Payment service (US-RES-003/004), which is not yet available.
-        // [NOTE]: This gate will be removed once Payment Service integration is in place.
-        var canConfirmWithoutPayment = reservation.ReservationType == ReservationType.HoldWhileDriving &&
-                                       reservation.PrepaidAmount == 0m;
-
-        if (!canConfirmWithoutPayment)
+        // ---------------------------------------------------------------------
+        // Step b: Gate checks
+        // ---------------------------------------------------------------------
+        if (reservation.ReservationType == ReservationType.Scheduled)
         {
-            var reason = reservation.PrepaidAmount > 0m
-                ? "PaymentRequired"
-                : "AmountNotServerDerived";
-
-            logger.LogError(
+            // Scheduled reservations keep the existing PaymentNotAvailable gate (US-RES-004 is out of scope)
+            _logger.LogError(
                 PaymentNotAvailableEventId,
-                "Cannot confirm reservation {ReservationId} because payment function is unavailable. UserId: {UserId}, LotId: {LotId}, ReservationType: {ReservationType}, Status: {Status}, PrepaidAmount: {PrepaidAmount}, TempHoldExpiresAt: {TempHoldExpiresAt}, Reason: {Reason}.",
+                "Cannot confirm scheduled reservation {ReservationId} because payment function is unavailable. UserId: {UserId}, LotId: {LotId}, ReservationType: {ReservationType}, Status: {Status}, PrepaidAmount: {PrepaidAmount}, TempHoldExpiresAt: {TempHoldExpiresAt}, Reason: ScheduledPaymentNotImplemented.",
                 reservation.Id,
                 reservation.UserId,
                 reservation.LotId,
                 reservation.ReservationType,
                 reservation.Status,
                 reservation.PrepaidAmount,
-                reservation.TempHoldExpiresAt,
-                reason);
+                reservation.TempHoldExpiresAt);
 
             return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentNotAvailable);
         }
 
+        // HoldWhileDriving with PrepaidAmount == 0 -> step f
+        if (reservation.PrepaidAmount == 0m)
+        {
+            return await ExecuteConfirmationAndSaveAsync(reservation, now, isDebited: false, cancellationToken);
+        }
+
+        if (_paymentClient is UnconfiguredReservationPaymentClient)
+        {
+            _logger.LogError(
+                PaymentNotAvailableEventId,
+                "Cannot confirm reservation {ReservationId} because payment function is unavailable. UserId: {UserId}, LotId: {LotId}, ReservationType: {ReservationType}, Status: {Status}, PrepaidAmount: {PrepaidAmount}, TempHoldExpiresAt: {TempHoldExpiresAt}, Reason: PaymentRequired.",
+                reservation.Id,
+                reservation.UserId,
+                reservation.LotId,
+                reservation.ReservationType,
+                reservation.Status,
+                reservation.PrepaidAmount,
+                reservation.TempHoldExpiresAt);
+
+            return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentNotAvailable);
+        }
+
+        // ---------------------------------------------------------------------
+        // Step c: DebitAsync with stored PrepaidAmount (never client amount)
+        // ---------------------------------------------------------------------
+        var debitResult = await _paymentClient.DebitAsync(
+            reservation.Id,
+            reservation.UserId,
+            reservation.LotId,
+            (long)reservation.PrepaidAmount,
+            cancellationToken);
+
+        // ---------------------------------------------------------------------
+        // Step d: Evaluate DebitOutcome
+        // ---------------------------------------------------------------------
+        bool isDebited = false;
+        if (debitResult.IsSuccess)
+        {
+            switch (debitResult.Value!.Outcome)
+            {
+                case ReservationDebitOutcome.Succeeded:
+                    isDebited = true;
+                    break;
+
+                case ReservationDebitOutcome.InsufficientBalance:
+                    // Status unchanged, no event
+                    return Result<ConfirmedReservationDto>.Failure(ReservationErrors.InsufficientWalletBalance);
+
+                case ReservationDebitOutcome.WalletNotActive:
+                case ReservationDebitOutcome.AmountMismatch:
+                    try
+                    {
+                        reservation.Cancel(now, CancelReason.PaymentFailed);
+                        await _reservationRepository.SaveChangesAsync(cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to save cancelled state for reservation {ReservationId}.", reservation.Id);
+                    }
+                    return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentFailed);
+
+                default:
+                    return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentFailed);
+            }
+        }
+        else
+        {
+            // Transient failure -> GetDebitStateAsync
+            var stateResult = await _paymentClient.GetDebitStateAsync(reservation.Id, reservation.UserId, cancellationToken);
+            if (stateResult.IsSuccess && stateResult.Value == ReservationDebitState.Debited)
+            {
+                isDebited = true;
+            }
+            else
+            {
+                // Otherwise Failure(ReservationErrors.PaymentUnconfirmed), status unchanged, no refund
+                return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentUnconfirmed);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Step e: ReloadAsync and validity check before confirmation
+        // ---------------------------------------------------------------------
+        if (isDebited)
+        {
+            await _reservationRepository.ReloadAsync(reservation, cancellationToken);
+            if (reservation.Status == ReservationStatus.Confirmed)
+            {
+                // Already Confirmed -> replay success, no refund
+                return Result<ConfirmedReservationDto>.Success(BuildConfirmedDto(reservation, reservation.ConfirmedAt ?? _clock.UtcNow));
+            }
+
+            var checkNow = _clock.UtcNow;
+            if (reservation.Status != ReservationStatus.TemporaryHold ||
+                (reservation.TempHoldExpiresAt.HasValue && checkNow > reservation.TempHoldExpiresAt.Value))
+            {
+                var reason = reservation.Status == ReservationStatus.Cancelled ? "ReservationCancelled" : "HoldExpiredDuringDebit";
+                try
+                {
+                    var refundResult = await _paymentClient.RefundAsync(
+                        reservation.Id,
+                        reservation.UserId,
+                        (long)reservation.PrepaidAmount,
+                        reason,
+                        cancellationToken);
+
+                    if (refundResult.IsSuccess && refundResult.Value == ReservationDebitState.Refunded)
+                    {
+                        reservation.RecordPrepaidRefunded();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to refund debited amount for reservation {ReservationId}. Worker will reconcile.", reservation.Id);
+                }
+
+                if (reservation.Status == ReservationStatus.TemporaryHold)
+                {
+                    reservation.Expire();
+                }
+
+                try
+                {
+                    await _reservationRepository.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to save state for reservation {ReservationId}.", reservation.Id);
+                }
+
+                return Result<ConfirmedReservationDto>.Failure(
+                    reservation.Status == ReservationStatus.Cancelled
+                        ? ReservationErrors.InvalidStatus
+                        : ReservationErrors.HoldExpired);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Step f & g: Confirm, Enqueue Outbox event, SaveChanges with concurrency check
+        // ---------------------------------------------------------------------
+        return await ExecuteConfirmationAndSaveAsync(reservation, now, isDebited, cancellationToken);
+    }
+
+    private async Task<Result<ConfirmedReservationDto>> ExecuteConfirmationAndSaveAsync(
+        Reservation reservation,
+        DateTimeOffset now,
+        bool isDebited,
+        CancellationToken cancellationToken)
+    {
         try
         {
             reservation.Confirm(now);
-            outbox?.Enqueue(new ReservationConfirmedIntegrationEvent(reservation.Id, reservation.UserId,
-                reservation.LotId, now), "booking.reservation-confirmed.v1", 1);
-            await reservationRepository.SaveChangesAsync(cancellationToken);
+            _outbox?.Enqueue(
+                new ReservationConfirmedIntegrationEvent(
+                    reservation.Id,
+                    reservation.UserId,
+                    reservation.LotId,
+                    reservation.ReservationType.ToString(),
+                    reservation.PrepaidAmount,
+                    reservation.AppointmentTime,
+                    now),
+                "booking.reservation-confirmed.v1",
+                1,
+                correlationId: reservation.Id);
+
+            await _reservationRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException")
+        {
+            _logger.LogWarning(ex, "Concurrency exception while confirming reservation {ReservationId}. Reloading...", reservation.Id);
+            await _reservationRepository.ReloadAsync(reservation, cancellationToken);
+            if (reservation.Status == ReservationStatus.Confirmed)
+            {
+                // Confirmed -> replay success with NO refund
+                return Result<ConfirmedReservationDto>.Success(BuildConfirmedDto(reservation, reservation.ConfirmedAt ?? _clock.UtcNow));
+            }
+
+            // Otherwise refund
+            if (isDebited)
+            {
+                try
+                {
+                    var refundResult = await _paymentClient.RefundAsync(
+                        reservation.Id,
+                        reservation.UserId,
+                        (long)reservation.PrepaidAmount,
+                        "ConcurrencyConflict",
+                        cancellationToken);
+
+                    if (refundResult.IsSuccess && refundResult.Value == ReservationDebitState.Refunded)
+                    {
+                        reservation.RecordPrepaidRefunded();
+                        await _reservationRepository.SaveChangesAsync(cancellationToken);
+                    }
+                }
+                catch (Exception rex)
+                {
+                    _logger.LogError(rex, "Failed to refund debited amount after concurrency conflict on reservation {ReservationId}. Worker will reconcile.", reservation.Id);
+                }
+            }
+
+            return Result<ConfirmedReservationDto>.Failure(ReservationErrors.HoldExpired);
         }
         catch (ReservationDomainException ex)
         {
-            logger.LogWarning(ex, "Domain exception confirming reservation {ReservationId}.", request.ReservationId);
+            _logger.LogWarning(ex, "Domain exception confirming reservation {ReservationId}.", reservation.Id);
             return Result<ConfirmedReservationDto>.Failure(new Error("booking.reservation.transition_failed", ex.Message));
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Save failure confirming reservation {ReservationId}.", reservation.Id);
+            if (isDebited)
+            {
+                try
+                {
+                    var refundResult = await _paymentClient.RefundAsync(
+                        reservation.Id,
+                        reservation.UserId,
+                        (long)reservation.PrepaidAmount,
+                        "SaveConfirmationFailed",
+                        cancellationToken);
 
-        logger.LogInformation("Reservation {ReservationId} confirmed for user {UserId}.", reservation.Id, reservation.UserId);
+                    if (refundResult.IsSuccess && refundResult.Value == ReservationDebitState.Refunded)
+                    {
+                        reservation.RecordPrepaidRefunded();
+                        await _reservationRepository.SaveChangesAsync(cancellationToken);
+                    }
+                }
+                catch (Exception rex)
+                {
+                    _logger.LogError(rex, "Failed to refund debited amount after save failure on reservation {ReservationId}. Worker will reconcile.", reservation.Id);
+                }
 
+                return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentUnconfirmed);
+            }
+
+            return Result<ConfirmedReservationDto>.Failure(new Error("booking.reservation.save_failed", ex.Message));
+        }
+
+        _logger.LogInformation("Reservation {ReservationId} confirmed for user {UserId}.", reservation.Id, reservation.UserId);
+        return Result<ConfirmedReservationDto>.Success(BuildConfirmedDto(reservation, reservation.ConfirmedAt ?? now));
+    }
+
+    private static ConfirmedReservationDto BuildConfirmedDto(Reservation reservation, DateTimeOffset confirmedAt)
+    {
         var qrCodeToken = $"RES-QR-{reservation.Id.ToString()[..8].ToUpperInvariant()}";
-        return Result<ConfirmedReservationDto>.Success(new ConfirmedReservationDto(
+        return new ConfirmedReservationDto(
             reservation.Id,
             reservation.Status.ToString(),
-            reservation.ConfirmedAt ?? now,
+            confirmedAt,
             qrCodeToken,
-            reservation.PrepaidAmount));
+            reservation.PrepaidAmount);
+    }
+
+    private sealed class UnconfiguredReservationPaymentClient : IReservationPaymentClient
+    {
+        public Task<Result<ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ReservationDebitResult>.Failure(ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ReservationDebitState>.Failure(ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ReservationDebitState>> RefundAsync(Guid reservationId, Guid accountId, long amountVnd, string reason, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ReservationDebitState>.Failure(ReservationPaymentErrors.Unavailable));
     }
 }

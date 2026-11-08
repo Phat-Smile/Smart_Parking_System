@@ -26,6 +26,9 @@ public sealed class SlotStatusChangedConsumerTests
 
     private sealed class InMemoryReservationRepository : IReservationRepository
     {
+        public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
+
         public List<Reservation> Items { get; } = [];
         public bool Saved { get; private set; }
 

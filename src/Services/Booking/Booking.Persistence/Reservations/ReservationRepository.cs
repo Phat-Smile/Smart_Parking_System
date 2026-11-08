@@ -54,6 +54,32 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
     public void Add(Reservation reservation) =>
         dbContext.Reservations.Add(reservation);
 
+    public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken) =>
+        dbContext.Entry(reservation).ReloadAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(
+        DateTimeOffset now,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var oneMinuteAgo = now.AddMinutes(-1);
+        var twentyFourHoursAgo = now.AddHours(-24);
+
+        return await dbContext.Reservations
+            .Where(r => r.PrepaidAmount > 0m &&
+                        r.ConfirmedAt == null &&
+                        r.PrepaidOutcome == null &&
+                        r.TempHoldExpiresAt != null &&
+                        r.TempHoldExpiresAt <= oneMinuteAgo &&
+                        r.TempHoldExpiresAt > twentyFourHoursAgo &&
+                        (r.Status == ReservationStatus.TemporaryHold ||
+                         r.Status == ReservationStatus.Expired ||
+                         r.Status == ReservationStatus.Cancelled))
+            .OrderBy(r => r.TempHoldExpiresAt)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }

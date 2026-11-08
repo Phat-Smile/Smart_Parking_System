@@ -27,6 +27,7 @@ builder.Services.AddInfrastructure(builder.Configuration, bus =>
 });
 builder.Services.AddParkingServiceClient(builder.Configuration);
 builder.Services.AddIdentityServiceClient(builder.Configuration);
+builder.Services.AddPaymentServiceClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<BookingDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>

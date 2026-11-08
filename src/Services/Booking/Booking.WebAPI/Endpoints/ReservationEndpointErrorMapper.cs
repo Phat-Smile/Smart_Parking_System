@@ -94,7 +94,9 @@ public static class ReservationEndpointErrorMapper
             return BusinessProblem.Create(context, StatusCodes.Status403Forbidden, error);
         }
 
-        if (error.Code == ReservationCapacityErrors.CapacityExceeded.Code ||
+        if (error.Code == ReservationErrors.InsufficientWalletBalance.Code ||
+            error.Code == ReservationErrors.PaymentFailed.Code ||
+            error.Code == ReservationCapacityErrors.CapacityExceeded.Code ||
             error.Code == ReservationCapacityErrors.NoAvailableSlots.Code ||
             error.Code == ReservationCapacityErrors.LotReservationsDisabled.Code)
         {
@@ -103,7 +105,8 @@ public static class ReservationEndpointErrorMapper
 
         if (error.Code == ReservationCapacityErrors.CapacityInfoUnavailable.Code ||
             error.Code == ReservationCapacityErrors.LockTimeout.Code ||
-            error.Code == ReservationErrors.PaymentNotAvailable.Code)
+            error.Code == ReservationErrors.PaymentNotAvailable.Code ||
+            error.Code == ReservationErrors.PaymentUnconfirmed.Code)
         {
             return BusinessProblem.Create(context, StatusCodes.Status503ServiceUnavailable, error);
         }
