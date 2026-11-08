@@ -1,0 +1,27 @@
+syntax = "proto3";
+package smartparking.payment.reservation.v1;
+option csharp_namespace = "SmartParking.Contracts.Payment.Reservation.V1";
+// Contract 5 (owner BE-5 Payment, caller BE-3 Booking). All calls are idempotent on reservation_id.
+service ReservationWalletContract {
+  rpc DebitReservation(DebitReservationRequest) returns (DebitReservationResponse);
+  rpc GetReservationDebit(GetReservationDebitRequest) returns (GetReservationDebitResponse);
+  rpc RefundReservation(RefundReservationRequest) returns (RefundReservationResponse);
+}
+enum PrepaymentPurpose { PREPAYMENT_PURPOSE_UNSPECIFIED = 0; PREPAYMENT_PURPOSE_DEPOSIT = 1; PREPAYMENT_PURPOSE_SCHEDULED = 2; }
+enum DebitOutcome {
+  DEBIT_OUTCOME_UNSPECIFIED = 0;
+  DEBIT_OUTCOME_SUCCEEDED = 1;             // also returned on replay of the same reservation_id
+  DEBIT_OUTCOME_INSUFFICIENT_BALANCE = 2;  // no wallet counts as balance 0
+  DEBIT_OUTCOME_WALLET_NOT_ACTIVE = 3;
+  DEBIT_OUTCOME_AMOUNT_MISMATCH = 4;       // same reservation_id, different amount
+}
+enum DebitState { DEBIT_STATE_UNSPECIFIED = 0; DEBIT_STATE_NOT_DEBITED = 1; DEBIT_STATE_DEBITED = 2; DEBIT_STATE_REFUNDED = 3; }
+message DebitReservationRequest {
+  string reservation_id = 1; string account_id = 2; string lot_id = 3;
+  int64 amount_vnd = 4; PrepaymentPurpose purpose = 5;
+}
+message DebitReservationResponse { DebitOutcome outcome = 1; string ledger_entry_id = 2; int64 balance_after_vnd = 3; }
+message GetReservationDebitRequest { string reservation_id = 1; string account_id = 2; }
+message GetReservationDebitResponse { DebitState state = 1; int64 amount_vnd = 2; }
+message RefundReservationRequest { string reservation_id = 1; string account_id = 2; int64 amount_vnd = 3; string reason = 4; }
+message RefundReservationResponse { DebitState state = 1; string ledger_entry_id = 2; }
