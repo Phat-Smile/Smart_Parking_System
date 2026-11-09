@@ -148,8 +148,6 @@ export interface OwnerApplicationItem {
     reviewedBy?: string | null;
     createdAtUtc: string;
     documents?: OwnerApplicationDocument[];
-    ownerType?: string | null;
-    submittedAtUtc?: string | null;
 }
 
 export interface ListOwnerApplicationsResponse {
