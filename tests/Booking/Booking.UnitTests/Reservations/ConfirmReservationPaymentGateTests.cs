@@ -363,6 +363,10 @@ public sealed class ConfirmReservationPaymentGateTests
     // Doubles
     private sealed class FakeReservationRepository : IReservationRepository
     {
+        public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt < now && r.PrepaidAmount > 0 && r.PrepaidOutcome == null).Take(batchSize).ToList());
+
         private readonly List<Reservation> _list = [];
         public int SaveChangesCount { get; private set; }
 

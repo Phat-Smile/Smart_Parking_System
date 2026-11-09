@@ -825,6 +825,9 @@ public sealed class ScheduledBookingTests
 
     private sealed class FakeReservationRepository : IReservationRepository
     {
+        public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
+
         private readonly List<Reservation> _list = [];
 
         public void Add(Reservation r) => _list.Add(r);

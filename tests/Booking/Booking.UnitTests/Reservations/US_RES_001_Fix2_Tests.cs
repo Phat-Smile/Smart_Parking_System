@@ -548,6 +548,9 @@ public sealed class US_RES_001_Fix2_Tests
 
     private sealed class FakeReservationRepository : IReservationRepository
     {
+        public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
+
         private readonly List<Reservation> _list = new();
 
         public void Add(Reservation reservation) => _list.Add(reservation);

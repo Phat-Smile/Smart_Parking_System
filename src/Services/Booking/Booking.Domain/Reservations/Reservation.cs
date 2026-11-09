@@ -227,6 +227,17 @@ public sealed class Reservation
         TransitionTo(ReservationStatus.Expired);
     }
 
+    public void RecordPrepaidRefunded()
+    {
+        if (ConfirmedAt != null)
+        {
+            throw new ReservationDomainException("Cannot record prepaid refund on a confirmed reservation.");
+        }
+
+        PrepaidOutcome = Reservations.PrepaidOutcome.Refunded;
+        RowVersion++;
+    }
+
     /// <summary>
     /// Determines whether the reservation is active at the specified point in time (BR-1, US-RES-010).
     /// Active states: Confirmed, or TemporaryHold with TempHoldExpiresAt > now.

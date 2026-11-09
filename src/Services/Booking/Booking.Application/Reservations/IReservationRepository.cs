@@ -18,5 +18,12 @@ public interface IReservationRepository
 
     void Add(Reservation reservation);
 
+    Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(
+        DateTimeOffset now,
+        int batchSize,
+        CancellationToken cancellationToken);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
