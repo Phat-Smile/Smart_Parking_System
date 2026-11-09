@@ -15,19 +15,65 @@ let loaded = false;
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
+export interface AdminLotsMetaState {
+    isLoading: boolean;
+    isRefreshing: boolean;
+    hasLoaded: boolean;
+    error: unknown;
+    lastUpdatedAt: string | null;
+}
+
+const INITIAL_META: AdminLotsMetaState = {
+    isLoading: false,
+    isRefreshing: false,
+    hasLoaded: false,
+    error: null,
+    lastUpdatedAt: null,
+};
+
+let metaSnapshot: AdminLotsMetaState = INITIAL_META;
+
+function notifyListeners() {
+    for (const listener of listeners) listener();
+}
+
 export function refreshAdminLots(): Promise<void> {
-    loading ??= getAdminParkingLots("All")
-        .then((lots) => {
-            snapshot = lots;
-            loaded = true;
-            for (const listener of listeners) listener();
-        })
-        .catch(() => {
-            // The lot pages show their own error; the badges keep the last known list.
-        })
-        .finally(() => {
-            loading = null;
-        });
+    if (!loading) {
+        metaSnapshot = {
+            ...metaSnapshot,
+            isLoading: !loaded,
+            isRefreshing: true,
+            error: null,
+        };
+        notifyListeners();
+
+        loading = getAdminParkingLots("All")
+            .then((lots) => {
+                snapshot = lots;
+                loaded = true;
+                metaSnapshot = {
+                    isLoading: false,
+                    isRefreshing: false,
+                    hasLoaded: true,
+                    error: null,
+                    lastUpdatedAt: new Date().toISOString(),
+                };
+                notifyListeners();
+            })
+            .catch((err: unknown) => {
+                // The lot pages show their own error; the badges keep the last known list.
+                metaSnapshot = {
+                    ...metaSnapshot,
+                    isLoading: false,
+                    isRefreshing: false,
+                    error: err,
+                };
+                notifyListeners();
+            })
+            .finally(() => {
+                loading = null;
+            });
+    }
     return loading;
 }
 
@@ -42,6 +88,14 @@ export function useAdminLots() {
         subscribe,
         () => snapshot,
         () => EMPTY,
+    );
+}
+
+export function useAdminLotsMeta(): AdminLotsMetaState {
+    return useSyncExternalStore(
+        subscribe,
+        () => metaSnapshot,
+        () => INITIAL_META,
     );
 }
 

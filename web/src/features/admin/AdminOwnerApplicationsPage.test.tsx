@@ -123,4 +123,77 @@ describe("AdminOwnerApplicationsPage documents", () => {
         ).toBeInTheDocument();
         expect(screen.getByText(/VNeID Mức 2/i)).toBeInTheDocument();
     });
+
+    it("supports searching, clearing filters, approving after 4-item checklist, and rejecting with reason", async () => {
+        const approveSpy = vi
+            .spyOn(api, "approveOwnerApplication")
+            .mockResolvedValue({
+                accountId: ACCOUNT,
+                status: "Approved",
+            });
+        const rejectSpy = vi
+            .spyOn(api, "rejectOwnerApplication")
+            .mockResolvedValue({
+                accountId: ACCOUNT,
+                status: "Rejected",
+                message: "Hồ sơ thiếu chữ ký số",
+            });
+
+        const user = userEvent.setup();
+        render(
+            <LanguageProvider>
+                <AdminOwnerApplicationsPage />
+            </LanguageProvider>,
+        );
+
+        expect(await screen.findByText("Chủ bãi A")).toBeInTheDocument();
+        expect(screen.getAllByText("Chưa cập nhật").length).toBeGreaterThan(0);
+
+        // Search and clear filter
+        const searchInput = screen.getByPlaceholderText(
+            /Tìm tên, email, MST, số điện thoại hoặc doanh nghiệp/i,
+        );
+        await user.type(searchInput, "khong-ton-tai");
+        expect(
+            await screen.findByText(/^Không tìm thấy hồ sơ$/i),
+        ).toBeInTheDocument();
+
+        const clearBtns = screen.getAllByRole("button", {
+            name: /Xóa bộ lọc/i,
+        });
+        await user.click(clearBtns[0]);
+        expect(await screen.findByText("Chủ bãi A")).toBeInTheDocument();
+
+        // Open Approve modal and verify 4 checklist items
+        await user.click(
+            screen.getByRole("button", { name: /Kiểm tra & Duyệt/i }),
+        );
+        await user.click(
+            await screen.findByRole("button", { name: /Chọn tất cả/i }),
+        );
+        await user.click(
+            screen.getByRole("button", {
+                name: /Xác nhận đủ giấy tờ & Duyệt/i,
+            }),
+        );
+        await waitFor(() => expect(approveSpy).toHaveBeenCalledWith(ACCOUNT));
+
+        // Open Reject modal and submit reason
+        await user.click(
+            await screen.findByRole("button", { name: /^Từ chối$/i }),
+        );
+        const reasonInput = await screen.findByPlaceholderText(
+            /Ví dụ: Hồ sơ chưa đủ điều kiện/i,
+        );
+        await user.type(reasonInput, "Hồ sơ thiếu chữ ký số");
+        await user.click(
+            screen.getByRole("button", { name: /Xác nhận từ chối/i }),
+        );
+        await waitFor(() =>
+            expect(rejectSpy).toHaveBeenCalledWith(
+                ACCOUNT,
+                "Hồ sơ thiếu chữ ký số",
+            ),
+        );
+    });
 });
