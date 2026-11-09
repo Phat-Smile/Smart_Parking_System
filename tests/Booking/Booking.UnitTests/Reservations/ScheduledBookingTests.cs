@@ -780,8 +780,10 @@ public sealed class ScheduledBookingTests
 
         var confirmHandler = new ConfirmReservationCommandHandler(
             repo,
+            new FakeReservationPaymentClient(),
             _clock,
-            NullLogger<ConfirmReservationCommandHandler>.Instance);
+            NullLogger<ConfirmReservationCommandHandler>.Instance,
+            new FakeOutboxWriter());
 
         var confirmCommand = new ConfirmReservationCommand(
             hold.Id,
@@ -794,7 +796,7 @@ public sealed class ScheduledBookingTests
         Assert.True(result.IsFailure);
         Assert.Equal(ReservationErrors.PaymentNotAvailable, result.Error);
 
-        var stored = await repo.FindByIdAsync(hold.Id);
+        var stored = await repo.FindByIdAsync(hold.Id, TestContext.Current.CancellationToken);
         Assert.NotNull(stored);
         Assert.Equal(ReservationStatus.TemporaryHold, stored.Status); // Stays TemporaryHold, not Confirmed!
     }
@@ -826,6 +828,7 @@ public sealed class ScheduledBookingTests
     private sealed class FakeReservationRepository : IReservationRepository
     {
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         private readonly List<Reservation> _list = [];
@@ -909,6 +912,23 @@ public sealed class ScheduledBookingTests
                     SupportedVehicleType.Car,
                     true)));
         }
+    }
+
+    private sealed class FakeOutboxWriter : ParkingSystem.Booking.Application.Common.Messaging.Outbox.IOutboxWriter
+    {
+        public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion, Guid? correlationId = null, Guid? causationId = null) where TEvent : class { }
+    }
+
+    private sealed class FakeReservationPaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
+    {
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> RefundAsync(Guid reservationId, Guid accountId, long amountVnd, string reason, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
     }
 }
 

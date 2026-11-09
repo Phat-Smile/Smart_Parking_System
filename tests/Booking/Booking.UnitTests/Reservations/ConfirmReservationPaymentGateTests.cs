@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using ParkingSystem.Booking.Application.Parking;
+using ParkingSystem.Booking.Application.Payments;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReservation;
 using ParkingSystem.Booking.Application.Reservations.Commands.CreateTemporaryHold;
@@ -21,8 +22,10 @@ public sealed class ConfirmReservationPaymentGateTests
     private readonly FakeClock _clock = new(Now);
     private readonly TestLogger<ConfirmReservationCommandHandler> _logger = new();
 
-    private ConfirmReservationCommandHandler CreateHandler() =>
-        new(_repo, _clock, _logger);
+    private ConfirmReservationCommandHandler CreateHandler(
+        IReservationPaymentClient? paymentClient = null,
+        IOutboxWriter? outbox = null) =>
+        new(_repo, paymentClient ?? new UnavailablePaymentClient(), _clock, _logger, outbox ?? new RecordingOutbox());
 
     private static Reservation CreateHold(
         Guid reservationId,
@@ -55,7 +58,7 @@ public sealed class ConfirmReservationPaymentGateTests
     }
 
     // =========================================================================
-    // T-C1a: HoldWhileDriving, cọc > 0 -> bị chặn payment_not_available
+    // T-C1a: HoldWhileDriving, cọc > 0 -> payment unavailable -> payment_unconfirmed
     // =========================================================================
     [Fact]
     public async Task T_C1a_HoldWhileDriving_with_positive_deposit_is_blocked()
@@ -70,7 +73,7 @@ public sealed class ConfirmReservationPaymentGateTests
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ReservationErrors.PaymentNotAvailable, result.Error);
+        Assert.Equal(ReservationErrors.PaymentUnconfirmed, result.Error);
         Assert.Equal(ReservationStatus.TemporaryHold, reservation.Status);
         Assert.Equal(0, _repo.SaveChangesCount);
     }
@@ -127,7 +130,7 @@ public sealed class ConfirmReservationPaymentGateTests
         var reservation = CreateHold(Guid.NewGuid(), userId);
         _repo.Add(reservation);
         var outbox = new RecordingOutbox();
-        var handler = new ConfirmReservationCommandHandler(_repo, _clock, _logger, outbox);
+        var handler = CreateHandler(outbox: outbox);
         var command = new ConfirmReservationCommand(reservation.Id, userId, null, 0m);
 
         Assert.True((await handler.Handle(command, TestContext.Current.CancellationToken)).IsSuccess);
@@ -172,7 +175,7 @@ public sealed class ConfirmReservationPaymentGateTests
     public async Task T_C1e_Logs_structured_error_with_required_fields_and_no_pii()
     {
         var userId = Guid.NewGuid();
-        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.HoldWhileDriving, prepaidAmount: 30000m);
+        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 30000m);
         _repo.Add(reservation);
 
         var handler = CreateHandler();
@@ -188,7 +191,7 @@ public sealed class ConfirmReservationPaymentGateTests
         Assert.Contains(userId.ToString(), logMessage);
         Assert.Contains(reservation.LotId.ToString(), logMessage);
         Assert.Contains("30000", logMessage);
-        Assert.Contains("PaymentRequired", logMessage);
+        Assert.Contains("ScheduledPaymentNotImplemented", logMessage);
 
         // Assert no license plate or secrets leaked
         Assert.DoesNotContain("51A12345", logMessage);
@@ -364,6 +367,7 @@ public sealed class ConfirmReservationPaymentGateTests
     private sealed class FakeReservationRepository : IReservationRepository
     {
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt < now && r.PrepaidAmount > 0 && r.PrepaidOutcome == null).Take(batchSize).ToList());
 
@@ -448,5 +452,17 @@ public sealed class ConfirmReservationPaymentGateTests
         {
             Logs.Add((logLevel, formatter(state, exception)));
         }
+    }
+
+    private sealed class UnavailablePaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
+    {
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> RefundAsync(Guid reservationId, Guid accountId, long amountVnd, string reason, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
     }
 }

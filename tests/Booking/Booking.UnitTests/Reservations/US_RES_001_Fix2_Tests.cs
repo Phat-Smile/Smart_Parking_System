@@ -339,7 +339,7 @@ public sealed class US_RES_001_Fix2_Tests
             repo.Add(reservation);
         }
 
-        var confirmHandler = new ConfirmReservationCommandHandler(repo, _clock, testLogger);
+        var confirmHandler = new ConfirmReservationCommandHandler(repo, new FakeReservationPaymentClient(), _clock, testLogger, new FakeOutboxWriter());
 
         var commandUserId = scenario == "NotOwner" ? otherUserId : ownerId;
         var command = new ConfirmReservationCommand(resId, commandUserId, PaymentMethod: "Wallet", DepositAmount: 20000m);
@@ -430,16 +430,16 @@ public sealed class US_RES_001_Fix2_Tests
             "51A12345",
             lotId,
             VehicleGroup.Car,
-            ReservationType.HoldWhileDriving,
+            ReservationType.Scheduled,
             Now.AddMinutes(20),
             prepaidAmount: 25000m,
             createdAt: Now.AddMinutes(-5),
-            durationMinutes: null,
+            durationMinutes: 60,
             tempHoldExpiresAt: Now.AddMinutes(5));
 
         repo.Add(reservation);
 
-        var confirmHandler = new ConfirmReservationCommandHandler(repo, _clock, testLogger);
+        var confirmHandler = new ConfirmReservationCommandHandler(repo, new FakeReservationPaymentClient(), _clock, testLogger, new FakeOutboxWriter());
         var command = new ConfirmReservationCommand(resId, ownerId, PaymentMethod: "Wallet", DepositAmount: 25000m);
 
         var result = await confirmHandler.Handle(command, CancellationToken.None);
@@ -453,10 +453,10 @@ public sealed class US_RES_001_Fix2_Tests
         Assert.Contains(resId.ToString(), errorLog.Message);
         Assert.Contains(ownerId.ToString(), errorLog.Message);
         Assert.Contains(lotId.ToString(), errorLog.Message);
-        Assert.Contains("HoldWhileDriving", errorLog.Message);
+        Assert.Contains("Scheduled", errorLog.Message);
         Assert.Contains("TemporaryHold", errorLog.Message);
         Assert.Contains("25000", errorLog.Message);
-        Assert.Contains("PaymentRequired", errorLog.Message);
+        Assert.Contains("ScheduledPaymentNotImplemented", errorLog.Message);
 
         // Verify no sensitive plate/token data leaked
         Assert.DoesNotContain("51A12345", errorLog.Message);
@@ -549,6 +549,7 @@ public sealed class US_RES_001_Fix2_Tests
     private sealed class FakeReservationRepository : IReservationRepository
     {
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         private readonly List<Reservation> _list = new();
@@ -586,5 +587,22 @@ public sealed class US_RES_001_Fix2_Tests
         {
             Logs.Add((logLevel, formatter(state, exception)));
         }
+    }
+
+    private sealed class FakeOutboxWriter : ParkingSystem.Booking.Application.Common.Messaging.Outbox.IOutboxWriter
+    {
+        public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion, Guid? correlationId = null, Guid? causationId = null) where TEvent : class { }
+    }
+
+    private sealed class FakeReservationPaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
+    {
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> RefundAsync(Guid reservationId, Guid accountId, long amountVnd, string reason, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
     }
 }

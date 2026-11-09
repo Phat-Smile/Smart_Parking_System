@@ -39,28 +39,40 @@ public sealed class ReservationPaymentReconciliationWorker(
 
     /// <summary>
     /// Executes a single reconciliation pass across eligible candidate reservations.
+    /// Each candidate is processed in its own DI scope to guarantee failure isolation.
     /// </summary>
     public async Task<int> ReconcileBatchAsync(CancellationToken cancellationToken)
     {
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var repository = scope.ServiceProvider.GetRequiredService<IReservationRepository>();
-        var paymentClient = scope.ServiceProvider.GetRequiredService<IReservationPaymentClient>();
-        var clock = scope.ServiceProvider.GetRequiredService<IClock>();
+        IReadOnlyList<Reservation> candidates;
+        await using (var initialScope = scopeFactory.CreateAsyncScope())
+        {
+            var repository = initialScope.ServiceProvider.GetRequiredService<IReservationRepository>();
+            var clock = initialScope.ServiceProvider.GetRequiredService<IClock>();
+            var now = clock.UtcNow;
+            var batchSize = _options.BatchSize > 0 ? _options.BatchSize : 50;
+            candidates = await repository.ListPaymentReconciliationCandidatesAsync(now, batchSize, cancellationToken);
+        }
 
-        var now = clock.UtcNow;
-        var batchSize = _options.BatchSize > 0 ? _options.BatchSize : 50;
-
-        var candidates = await repository.ListPaymentReconciliationCandidatesAsync(now, batchSize, cancellationToken);
         if (candidates.Count == 0)
         {
             return 0;
         }
 
         int processedCount = 0;
-        foreach (var candidate in candidates)
+        foreach (var candidateStub in candidates)
         {
+            await using var itemScope = scopeFactory.CreateAsyncScope();
+            var repository = itemScope.ServiceProvider.GetRequiredService<IReservationRepository>();
+            var paymentClient = itemScope.ServiceProvider.GetRequiredService<IReservationPaymentClient>();
+
             try
             {
+                var candidate = await repository.FindByIdAsync(candidateStub.Id, cancellationToken);
+                if (candidate is null)
+                {
+                    continue;
+                }
+
                 // Expire a stale TemporaryHold
                 if (candidate.Status == ReservationStatus.TemporaryHold)
                 {
@@ -109,12 +121,11 @@ public sealed class ReservationPaymentReconciliationWorker(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // A failing row must not stop the batch!
-                logger.LogError(ex, "Reconciliation failed for reservation {ReservationId}.", candidate.Id);
+                // A failing row must not stop or leak into other rows!
+                logger.LogError(ex, "Reconciliation failed for reservation {ReservationId}.", candidateStub.Id);
             }
         }
 
         return processedCount;
     }
 }
-

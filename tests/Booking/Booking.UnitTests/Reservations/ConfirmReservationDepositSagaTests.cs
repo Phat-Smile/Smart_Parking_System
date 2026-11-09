@@ -488,12 +488,184 @@ public sealed class ConfirmReservationDepositSagaTests
     }
 
     // =========================================================================
+    // F-01: Save fails after a successful debit -> refund called once;
+    // reservation ends Cancelled (PaymentFailed) or Expired; PrepaidOutcome Refunded;
+    // a second confirm returns PaymentFailed and DebitAsync is NOT called again.
+    // =========================================================================
+    [Fact]
+    public async Task F_01_Save_fails_after_successful_debit_compensates_and_second_confirm_fails_without_debit()
+    {
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var reservation = CreateHold(reservationId, userId, prepaidAmount: 20000m);
+        _repo.Add(reservation);
+
+        _paymentClient.DebitHandler = (rId, aId, lId, amt, ct) =>
+            Task.FromResult(Result<ReservationDebitResult>.Success(
+                new ReservationDebitResult(ReservationDebitOutcome.Succeeded, "LEDGER-01", 80000L)));
+
+        _paymentClient.RefundHandler = (rId, aId, amt, reason, ct) =>
+            Task.FromResult(Result<ReservationDebitState>.Success(ReservationDebitState.Refunded));
+
+        // First save fails
+        bool saveFailedOnce = false;
+        _repo.OnSaveChangesAsync = ct =>
+        {
+            if (!saveFailedOnce)
+            {
+                saveFailedOnce = true;
+                throw new InvalidOperationException("DB save failure simulation");
+            }
+            return Task.CompletedTask;
+        };
+
+        var handler = CreateHandler();
+        var command = new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m);
+
+        var result1 = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result1.IsFailure);
+        Assert.Equal(ReservationErrors.PaymentUnconfirmed, result1.Error);
+        Assert.Single(_paymentClient.RefundCalls);
+        Assert.Equal(ReservationStatus.Cancelled, reservation.Status);
+        Assert.Equal(CancelReason.PaymentFailed, reservation.CancelReason);
+        Assert.Equal(PrepaidOutcome.Refunded, reservation.PrepaidOutcome);
+
+        // Second confirm attempt
+        var result2 = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result2.IsFailure);
+        Assert.Equal(ReservationErrors.PaymentFailed, result2.Error);
+        // DebitAsync is NOT called again!
+        Assert.Single(_paymentClient.DebitCalls);
+    }
+
+    // =========================================================================
+    // F-02: Refund call itself fails after debit -> hold still ends (Cancelled or Expired);
+    // second confirm does not confirm.
+    // =========================================================================
+    [Fact]
+    public async Task F_02_Refund_call_fails_after_debit_hold_still_ends_and_second_confirm_fails()
+    {
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var reservation = CreateHold(reservationId, userId, prepaidAmount: 20000m);
+        _repo.Add(reservation);
+
+        _paymentClient.DebitHandler = (rId, aId, lId, amt, ct) =>
+            Task.FromResult(Result<ReservationDebitResult>.Success(
+                new ReservationDebitResult(ReservationDebitOutcome.Succeeded, "LEDGER-01", 80000L)));
+
+        _paymentClient.RefundHandler = (rId, aId, amt, reason, ct) =>
+            Task.FromResult(Result<ReservationDebitState>.Failure(ReservationPaymentErrors.Unavailable));
+
+        bool saveFailedOnce = false;
+        _repo.OnSaveChangesAsync = ct =>
+        {
+            if (!saveFailedOnce)
+            {
+                saveFailedOnce = true;
+                throw new InvalidOperationException("DB save failure simulation");
+            }
+            return Task.CompletedTask;
+        };
+
+        var handler = CreateHandler();
+        var command = new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m);
+
+        var result1 = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result1.IsFailure);
+        Assert.Equal(ReservationErrors.PaymentUnconfirmed, result1.Error);
+        // Refund was attempted
+        Assert.Single(_paymentClient.RefundCalls);
+        // Hold still ended!
+        Assert.Equal(ReservationStatus.Cancelled, reservation.Status);
+        Assert.Equal(CancelReason.PaymentFailed, reservation.CancelReason);
+
+        // Second confirm does not confirm (status is Cancelled)
+        var result2 = await handler.Handle(command, CancellationToken.None);
+        Assert.True(result2.IsFailure);
+        Assert.Equal(ReservationErrors.InvalidStatus, result2.Error);
+        Assert.Single(_paymentClient.DebitCalls);
+    }
+
+    // =========================================================================
+    // F-03: Payment returns ALREADY_REFUNDED -> Cancelled with PaymentFailed, no event, PaymentFailed error.
+    // =========================================================================
+    [Fact]
+    public async Task F_03_Payment_returns_AlreadyRefunded_cancels_with_PaymentFailed_no_event()
+    {
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var reservation = CreateHold(reservationId, userId, prepaidAmount: 20000m);
+        _repo.Add(reservation);
+
+        _paymentClient.DebitHandler = (rId, aId, lId, amt, ct) =>
+            Task.FromResult(Result<ReservationDebitResult>.Success(
+                new ReservationDebitResult(ReservationDebitOutcome.AlreadyRefunded, null, 100000L)));
+
+        var handler = CreateHandler();
+        var command = new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationErrors.PaymentFailed, result.Error);
+        Assert.Equal(ReservationStatus.Cancelled, reservation.Status);
+        Assert.Equal(CancelReason.PaymentFailed, reservation.CancelReason);
+        Assert.Equal(PrepaidOutcome.Refunded, reservation.PrepaidOutcome);
+        Assert.Empty(_outbox.Events);
+        Assert.Equal(1, _repo.SaveChangesCount);
+    }
+
+    // =========================================================================
+    // F-08: Reservation with PrepaidOutcome Refunded and still TemporaryHold -> PaymentFailed, Payment not called.
+    // =========================================================================
+    [Fact]
+    public async Task F_08_Reservation_with_PrepaidOutcome_Refunded_and_still_TemporaryHold_returns_PaymentFailed()
+    {
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var reservation = CreateHold(reservationId, userId, prepaidAmount: 20000m);
+        // Force PrepaidOutcome = Refunded while still TemporaryHold
+        typeof(Reservation).GetProperty(nameof(Reservation.PrepaidOutcome))!.SetValue(reservation, PrepaidOutcome.Refunded);
+        _repo.Add(reservation);
+
+        var handler = CreateHandler();
+        var command = new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationErrors.PaymentFailed, result.Error);
+        Assert.Empty(_paymentClient.DebitCalls);
+    }
+
+    // =========================================================================
     // Doubles / Fakes
     // =========================================================================
     private sealed class FakeReservationRepository : IReservationRepository
     {
         private readonly List<Reservation> _list = [];
+        private readonly Dictionary<Guid, (ReservationStatus Status, DateTimeOffset? ConfirmedAt, PrepaidOutcome? PrepaidOutcome, DateTimeOffset? CancelledAt, CancelReason? CancelReason)> _snapshots = new();
         public int SaveChangesCount { get; private set; }
+        public Func<CancellationToken, Task>? OnSaveChangesAsync { get; set; }
+
+        public void DiscardPendingChanges()
+        {
+            foreach (var r in _list)
+            {
+                if (r.ConfirmedAt != null && (_snapshots.TryGetValue(r.Id, out var s) ? s.ConfirmedAt == null : true))
+                {
+                    typeof(Reservation).GetProperty(nameof(Reservation.ConfirmedAt))!.SetValue(r, null);
+                    if (_snapshots.TryGetValue(r.Id, out var snap))
+                    {
+                        typeof(Reservation).GetProperty(nameof(Reservation.Status))!.SetValue(r, snap.Status);
+                    }
+                }
+            }
+        }
 
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -505,7 +677,11 @@ public sealed class ConfirmReservationDepositSagaTests
                 r.PrepaidAmount > 0 &&
                 r.PrepaidOutcome == null).Take(batchSize).ToList());
 
-        public void Add(Reservation r) => _list.Add(r);
+        public void Add(Reservation r)
+        {
+            _list.Add(r);
+            _snapshots[r.Id] = (r.Status, r.ConfirmedAt, r.PrepaidOutcome, r.CancelledAt, r.CancelReason);
+        }
 
         public Task<Reservation?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(_list.FirstOrDefault(r => r.Id == id));
@@ -519,10 +695,17 @@ public sealed class ConfirmReservationDepositSagaTests
         public Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(Guid lotId, string plateNumber, DateTimeOffset arrivalTime, CancellationToken cancellationToken = default) =>
             Task.FromResult(_list.FirstOrDefault(r => r.LotId == lotId && r.PlateNumber == plateNumber && r.Status == ReservationStatus.Confirmed));
 
-        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+        public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            if (OnSaveChangesAsync != null)
+            {
+                await OnSaveChangesAsync(cancellationToken);
+            }
             SaveChangesCount++;
-            return Task.CompletedTask;
+            foreach (var r in _list)
+            {
+                _snapshots[r.Id] = (r.Status, r.ConfirmedAt, r.PrepaidOutcome, r.CancelledAt, r.CancelReason);
+            }
         }
     }
 
