@@ -38,6 +38,9 @@ param (
     [string]$PostgresContainer = '',
     [switch]$SkipParkingCatalog,
     [switch]$SkipLotDetails,
+    [string]$PaymentUrl = 'http://127.0.0.1:5004',
+    [switch]$SkipWalletSeed,
+    [long]$WalletSeedAmount = 200000,
     [switch]$AllowRemoteHost,
     [switch]$Apply,
     [string]$ConfirmDemoData = ''
@@ -56,7 +59,7 @@ if ($PostgresContainer -and $PostgresContainer -notmatch '^[A-Za-z0-9][A-Za-z0-9
 
 $IdentityUrl = $IdentityUrl.TrimEnd('/')
 $ParkingUrl = $ParkingUrl.TrimEnd('/')
-foreach ($url in @($IdentityUrl, $ParkingUrl)) {
+foreach ($url in @($IdentityUrl, $ParkingUrl, $PaymentUrl)) {
     $uri = [System.Uri]$url
     if (-not $AllowRemoteHost -and @('localhost', '127.0.0.1', '[::1]', '::1') -notcontains $uri.Host) {
         throw "Refusing to seed ${url}: the host is not local. Demo accounts share a published password. Use -AllowRemoteHost only for a throwaway environment."
@@ -101,6 +104,7 @@ $accounts = @(
     New-DemoAccount 'OwnerRejected' 'owner.rejected' 'Chu Bai Bi Tu Choi' 'Enterprise' "${TaxCodePrefix}03" 'Rejected' 'Premises proof is blurred, please upload a clear copy.'
     New-DemoAccount 'Staff' 'staff' 'Nhan Vien Demo'
     New-DemoAccount 'Customer' 'customer' 'Khach Hang Demo'
+    New-DemoAccount 'Customer2' 'customer2' 'Khach Hang Demo 2 (Concurrency)'
 )
 function Get-Demo([string]$Key) { $accounts | Where-Object { $_.Key -eq $Key } | Select-Object -First 1 }
 
@@ -112,7 +116,8 @@ function Show-Plan {
         $what = switch ($account.Key) {
             'Admin' { 'SystemAdmin (promoted by SQL, the only way to get the first admin)' }
             'Staff' { 'Staff (role set by the admin), assigned to lots A and B' }
-            'Customer' { 'Customer with one car and one motorbike' }
+            'Customer' { 'Customer 1 with one car (51A-123.45) and one motorbike (59X1-234.56)' }
+            'Customer2' { 'Customer 2 for Concurrency slot fight, car (51B-999.88)' }
             default { "owner application, type $($account.OwnerType), all required documents uploaded, final state $($account.FinalStatus)" }
         }
         Write-Host ('  {0,-32} {1}' -f $account.Email, $what)
@@ -128,6 +133,7 @@ function Show-Plan {
     Write-Host '  5. staff role, customer profile and vehicles'
     Write-Host "  6. Parking $ParkingUrl : the demo owner owns lots A, B, C and the pending lot; staff is assigned to A and B"
     if (-not $SkipLotDetails) { Write-Host '  7. the owner sets opening hours and prices for lots A, B and C' }
+    if (-not $SkipWalletSeed) { Write-Host "  8. Payment $PaymentUrl : seed wallet with $WalletSeedAmount VND for customer and customer2 (via VNPay IPN simulation)" }
     Write-Host ''
 }
 
@@ -328,7 +334,7 @@ function Set-LotDetails($Owner, $Lot) {
 }
 
 function Invoke-Seed {
-    $admin = Get-Demo 'Admin'; $owner = Get-Demo 'Owner'; $staff = Get-Demo 'Staff'; $customer = Get-Demo 'Customer'
+    $admin = Get-Demo 'Admin'; $owner = Get-Demo 'Owner'; $staff = Get-Demo 'Staff'; $customer = Get-Demo 'Customer'; $customer2 = Get-Demo 'Customer2'
 
     Write-Step 'Checking that the services answer'
     foreach ($target in @(@{ Name = 'Identity'; Url = $IdentityUrl }, @{ Name = 'Parking'; Url = $ParkingUrl })) {
@@ -384,6 +390,17 @@ function Invoke-Seed {
         else { Write-Warn "$($customer.Email): vehicle $($vehicle.licensePlate) not added (HTTP $($added.Status) $($added.Text))" }
     }
 
+    if ($customer2) {
+        $profile2 = Invoke-Api PUT "$IdentityUrl/api/identity/accounts/me/profile" @{ fullName = $customer2.FullName } $customer2.Token
+        if ($profile2.Status -ge 200 -and $profile2.Status -lt 300) { Write-Ok "$($customer2.Email): profile" } else { Write-Warn "$($customer2.Email): profile not saved (HTTP $($profile2.Status) $($profile2.Text))" }
+        foreach ($vehicle in @(@{ licensePlate = '51B-999.88'; vehicleType = 'Car'; nickName = 'Demo car 2 (Concurrency)' })) {
+            $added = Invoke-Api POST "$IdentityUrl/api/identity/accounts/me/vehicles" $vehicle $customer2.Token
+            if ($added.Status -ge 200 -and $added.Status -lt 300) { Write-Ok "$($customer2.Email): vehicle $($vehicle.licensePlate)" }
+            elseif ((Get-Prop $added.Json 'errorCode') -eq 'identity.vehicle_plate_already_registered') { Write-Note "$($customer2.Email): plate $($vehicle.licensePlate) is already registered (it may belong to another account)" }
+            else { Write-Warn "$($customer2.Email): vehicle $($vehicle.licensePlate) not added (HTTP $($added.Status) $($added.Text))" }
+        }
+    }
+
     Write-Step 'Who works in which lot (admin assigns)'
     foreach ($lot in $lots) {
         $assignment = Invoke-Api PUT "$ParkingUrl/api/parking/admin/lots/$($lot.Id)/assignments/$($owner.Id)" @{ role = 'Owner' } $admin.Token
@@ -395,6 +412,16 @@ function Invoke-Seed {
     if (-not $SkipLotDetails) {
         Write-Step 'Opening hours and prices (set by the owner, so they go through the owner rules)'
         foreach ($lot in @($lots | Where-Object { $_.Status -eq 'Approved' })) { Set-LotDetails $owner $lot }
+    }
+
+    if (-not $SkipWalletSeed) {
+        Write-Step ("Seeding customer wallets ({0:N0} VND via VNPay IPN simulation)" -f $WalletSeedAmount)
+        $concurrencyScript = Join-Path $PSScriptRoot 'Seed-CustomerConcurrencyWallets.ps1'
+        if (Test-Path -LiteralPath $concurrencyScript) {
+            & $concurrencyScript -IdentityUrl $IdentityUrl -PaymentUrl $PaymentUrl -TargetBalance $WalletSeedAmount -Password $Password -Apply | Out-Host
+        } else {
+            Write-Warn "Seed-CustomerConcurrencyWallets.ps1 not found, skipped wallet seeding."
+        }
     }
 }
 
