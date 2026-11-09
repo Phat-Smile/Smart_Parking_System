@@ -272,7 +272,7 @@ public class PayParkingFeeByWalletCommandHandlerTests
         var handler = CreateHandler();
         var command = new PayParkingFeeByWalletCommand(
             SessionId: Guid.NewGuid(),
-            ExpectedAmountDue: 0,
+            ExpectedAmountDue: -1,
             IdempotencyKey: Guid.NewGuid().ToString(),
             CallerAccountId: Guid.NewGuid(),
             CallerRole: "Customer");
@@ -418,6 +418,51 @@ public class PayParkingFeeByWalletCommandHandlerTests
         Assert.Single(_paymentRepository.AddedPayments);
         Assert.Single(_outboxWriter.EnqueuedEvents);
         Assert.IsType<ParkingSessionPaidIntegrationEvent>(_outboxWriter.EnqueuedEvents[0]);
+    }
+
+    [Fact]
+    public async Task Handle_WhenAmountDueIsZero_SucceedsWithoutDebitingWallet()
+    {
+        var handler = CreateHandler();
+        var sessionId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(callerId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 50000, "Topup balance", ReferenceType.VnpayTransaction, Guid.NewGuid().ToString(), null, null, callerId);
+        _walletRepository.SeedWallet(wallet);
+
+        _prepaymentReader.PrepaidAmount = 20000;
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            SessionId: sessionId,
+            ParkingLotId: Guid.NewGuid(),
+            PlateNumber: "51A-12345",
+            VehicleType: "Car",
+            Status: "Active",
+            EntryTimeUtc: _clock.UtcNow.AddHours(-1),
+            AccountId: callerId,
+            BookingId: bookingId,
+            Pricing: new PricingSnapshotDto("P1", "PerTurn", 0, 20000)));
+
+        var command = new PayParkingFeeByWalletCommand(
+            SessionId: sessionId,
+            ExpectedAmountDue: 0,
+            IdempotencyKey: Guid.NewGuid().ToString(),
+            CallerAccountId: callerId,
+            CallerRole: "Customer");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, result.Value!.AmountPaid);
+        Assert.Equal(50000, result.Value!.WalletBalanceRemaining);
+        Assert.Equal(50000, wallet.Balance);
+        Assert.Single(_paymentRepository.AddedPayments);
+        Assert.Equal(0, _paymentRepository.AddedPayments[0].AmountPaid);
+        Assert.Single(_outboxWriter.EnqueuedEvents);
+        var paidEvent = Assert.IsType<ParkingSessionPaidIntegrationEvent>(_outboxWriter.EnqueuedEvents[0]);
+        Assert.Equal(0, paidEvent.AmountPaid);
+        Assert.Equal(sessionId, paidEvent.SessionId);
     }
 
     [Fact]
