@@ -6,9 +6,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Services\Booking\Booking.Application\Booking.Application.csproj" />
 <ProjectReference Include="..\..\..\src\Services\Booking\Booking.Domain\Booking.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Booking\Booking.Infrastructure\Booking.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\contracts\events\ParkingSystem.Contracts.Events\ParkingSystem.Contracts.Events.csproj" />
   </ItemGroup>
 </Project>

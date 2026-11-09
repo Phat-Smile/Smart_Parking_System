@@ -7,14 +7,13 @@ using ParkingSystem.Parking.Application.GateReadings.ConfirmGateReading;
 using ParkingSystem.Parking.Application.GateReadings.ListPendingGateReadings;
 using ParkingSystem.Parking.Application.GateReadings.RecordGateReading;
 using ParkingSystem.Parking.Application.ParkingLots;
-using ParkingSystem.Parking.Domain.GateReadings;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.WebAPI.Security;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
 // US-PARK-001: staff type in what the gate device would send in Sprint 2 (no device or MQTT gate topic yet, context 11).
-// US-PARK-002: staff confirm the readings that were not accepted automatically.
+// US-PARK-002: staff confirm the readings that were not accepted automatically (open LowConfidencePlate incidents).
 internal static class GateReadingEndpoints
 {
     private const string Route = "/api/parking/gate-readings";
@@ -22,7 +21,7 @@ internal static class GateReadingEndpoints
     // Fields stay nullable so a missing field reaches the validator and returns 400 with a clear message.
     public sealed record RecordGateReadingRequest(
         [property: Required] Guid LotId,
-        [property: StringLength(GateReading.RawPlateMaxLength)]
+        [property: StringLength(ParkingSession.PlateNumberMaxLength)]
         [property: Description("Plate as read at the gate; empty when no plate could be read (goes to staff).")]
         string? PlateNumber,
         [property: Required, AllowedValues(nameof(VehicleType.Car), nameof(VehicleType.Motorbike))]
@@ -67,8 +66,8 @@ internal static class GateReadingEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // US-PARK-002. Staff confirm or correct the plate and vehicle type; 409 when it was not (or no longer) pending.
-        app.MapPost($"{Route}/{{readingId:guid}}/confirm", async (
-                Guid readingId,
+        app.MapPost($"{Route}/{{incidentId:guid}}/confirm", async (
+                Guid incidentId,
                 ConfirmGateReadingRequest request,
                 ICurrentUser currentUser,
                 HttpContext httpContext,
@@ -79,7 +78,7 @@ internal static class GateReadingEndpoints
                     return Results.Forbid();
 
                 var result = await sender.Send(
-                    new ConfirmGateReadingCommand(readingId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty, actorUserId),
+                    new ConfirmGateReadingCommand(incidentId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty, actorUserId),
                     cancellationToken);
 
                 if (result.IsSuccess)
@@ -103,7 +102,7 @@ internal static class GateReadingEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
-        // 201 with the decision: AutoAccepted (staff may open the session) or PendingStaff (staff must confirm, US-PARK-002).
+        // 201 with the decision: AutoAccepted (staff may open the session) or PendingStaff with the incidentId staff must confirm.
         app.MapPost(Route, async (
                 RecordGateReadingRequest request,
                 ICurrentUser currentUser,

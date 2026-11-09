@@ -84,8 +84,8 @@ export async function getApprovedParkingLot(id: string, signal?: AbortSignal) {
 }
 
 const VEHICLE_LABELS: Record<string, string> = {
-    CAR: "Ô tô",
-    MOTORBIKE: "Xe máy",
+    CAR: "Car",
+    MOTORBIKE: "Motorbike",
 };
 
 const formatVnd = (value: number) =>
@@ -100,8 +100,8 @@ export function describeLotPricing(
         .map((item) => {
             const unit =
                 item.billingMode === "Block" && item.blockMinutes
-                    ? `${item.blockMinutes} phút`
-                    : "lượt";
+                    ? `${item.blockMinutes} min`
+                    : "visit";
             const label =
                 VEHICLE_LABELS[item.vehicleType.toUpperCase()] ??
                 item.vehicleType;
@@ -110,13 +110,13 @@ export function describeLotPricing(
         .join(" · ");
 }
 
-/** "7 ô tô · 30 xe máy", or null when Parking gave no counts. */
+/** "7 cars · 30 motorbikes", or null when Parking gave no counts. */
 export function describeLotAvailability(
     availability: LotAvailability | null | undefined,
 ): string | null {
     if (!availability) return null;
-    const parts = [`${availability.car.available} ô tô`];
+    const parts = [`${availability.car.available} cars`];
     if (availability.motorbike)
-        parts.push(`${availability.motorbike.available} xe máy`);
+        parts.push(`${availability.motorbike.available} motorbikes`);
     return parts.join(" · ");
 }

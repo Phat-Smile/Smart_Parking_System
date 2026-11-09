@@ -8,7 +8,9 @@ namespace ParkingSystem.Booking.Application.Parking;
 public sealed record ParkingLotCapacityInfo(
     int ValidCapacity,
     int ReservationRatioPercent,
-    int AvailableSlotCount);
+    int AvailableSlotCount,
+    bool ReservationEnabled,
+    decimal DepositAmount);
 
 /// <summary>
 /// Port abstraction owned by Booking to query parking lot capacity details (valid capacity, ratio, available slots)

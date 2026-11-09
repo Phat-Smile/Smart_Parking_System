@@ -151,6 +151,9 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                     b.HasIndex("Status", "TempHoldExpiresAt")
                         .HasDatabaseName("ix_reservations_status_temp_hold_expires_at");
 
+                    b.HasIndex("PlateNumber", "Status", "WindowStartAt", "WindowEndAt")
+                        .HasDatabaseName("ix_reservations_plate_overlap");
+
                     b.HasIndex("LotId", "VehicleGroup", "Status", "WindowStartAt", "HoldEndAt")
                         .HasDatabaseName("ix_reservations_active_hold");
 

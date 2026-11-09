@@ -254,6 +254,8 @@ public sealed class StaffSessionQueriesTests
         public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
+
         public void Add(ParkingSession added) => throw new NotSupportedException();
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

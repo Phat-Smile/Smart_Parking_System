@@ -27,9 +27,11 @@ public class GetWalletTopupStatusQueryHandler : IRequestHandler<GetWalletTopupSt
         // Chuyen doi trang thai enum sang chuoi quy uoc
         string statusString = txn.Status switch
         {
+            VnpayTransactionStatus.Pending when txn.ExpiresAt <= DateTimeOffset.UtcNow => TopupStatusNames.Expired,
             VnpayTransactionStatus.Pending => TopupStatusNames.Pending,
             VnpayTransactionStatus.Success => TopupStatusNames.Succeeded,
             VnpayTransactionStatus.Failed => TopupStatusNames.Failed,
+            VnpayTransactionStatus.Expired => TopupStatusNames.Expired,
             _ => TopupStatusNames.Pending
         };
 

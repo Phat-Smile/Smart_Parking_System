@@ -11,15 +11,18 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
     private const string SandboxDemoNotice = "Wallet balance is for testing (sandbox) credit only, not real currency, cannot be redeemed for cash, cannot be withdrawn or transferred, and is not linked to any bank account.";
 
     private readonly IWalletRepository _walletRepository;
+    private readonly IVnpayTransactionRepository _transactionRepository;
     private readonly WalletOptions _walletOptions;
     private readonly VnpayOptions _vnpayOptions;
 
     public GetMyWalletQueryHandler(
         IWalletRepository walletRepository,
+        IVnpayTransactionRepository transactionRepository,
         IOptions<WalletOptions> walletOptions,
         IOptions<VnpayOptions> vnpayOptions)
     {
         _walletRepository = walletRepository;
+        _transactionRepository = transactionRepository;
         _walletOptions = walletOptions.Value;
         _vnpayOptions = vnpayOptions.Value;
     }
@@ -42,6 +45,9 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
             MaxBalance = _walletOptions.MaxBalanceVnd
         };
 
+        var isDemo = !string.Equals(_vnpayOptions.Mode, "Production", StringComparison.OrdinalIgnoreCase);
+        var demoNotice = isDemo ? SandboxDemoNotice : string.Empty;
+
         if (wallet == null)
         {
             var emptyDto = new WalletBalanceDto
@@ -49,8 +55,8 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
                 WalletId = null,
                 Balance = 0m,
                 Currency = "VND",
-                IsDemo = true,
-                DemoNotice = SandboxDemoNotice,
+                IsDemo = isDemo,
+                DemoNotice = demoNotice,
                 Limits = limits,
                 GatewayMode = _vnpayOptions.Mode,
                 PendingTopUps = new List<PendingTopUpDto>()
@@ -60,16 +66,39 @@ public class GetMyWalletQueryHandler : IRequestHandler<GetMyWalletQuery, Result<
         }
         else
         {
+            // Lay toi da 10 khoan nap dang cho xu ly de FE theo doi
+            var pendingTxns = await _transactionRepository.GetRecentPendingByWalletIdAsync(
+                wallet.Id, 10, cancellationToken);
+            var expiredTxns = await _transactionRepository.GetRecentExpiredTopupsByWalletIdAsync(
+                wallet.Id, 10, cancellationToken);
+
+            var pendingDtos = pendingTxns.Select(t => new PendingTopUpDto
+            {
+                TopupId = t.TxnRef,
+                Amount = t.Amount,
+                CreatedAtUtc = t.CreatedAt,
+                ExpiresAtUtc = t.ExpiresAt
+            }).ToList();
+
+            var expiredDtos = expiredTxns.Select(t => new ExpiredTopUpDto
+            {
+                TopupId = t.TxnRef,
+                Amount = t.Amount,
+                CreatedAtUtc = t.CreatedAt,
+                ExpiresAtUtc = t.ExpiresAt
+            }).ToList();
+
             var activeDto = new WalletBalanceDto
             {
                 WalletId = wallet.Id,
                 Balance = wallet.Balance,
                 Currency = "VND",
-                IsDemo = true,
-                DemoNotice = SandboxDemoNotice,
+                IsDemo = isDemo,
+                DemoNotice = demoNotice,
                 Limits = limits,
                 GatewayMode = _vnpayOptions.Mode,
-                PendingTopUps = new List<PendingTopUpDto>()
+                PendingTopUps = pendingDtos,
+                ExpiredTopUps = expiredDtos
             };
 
             return Result<WalletBalanceDto>.Success(activeDto);

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OwnerOnboardingWizard } from "./OwnerOnboardingWizard";
@@ -388,5 +388,51 @@ describe("OwnerOnboardingWizard", () => {
         expect(
             screen.getByRole("link", { name: /Về trang chủ/i }),
         ).toBeInTheDocument();
+    });
+
+    it("opens VNeID modal and auto-fills CCCD and representative information", async () => {
+        vi.mocked(ownerLegalApi.getMyOwnerApplication).mockResolvedValue({
+            accountId: "acc-test",
+            email: "owner@demo.local",
+            status: "None",
+            taxCode: null,
+            businessName: null,
+            rejectionReason: null,
+            reviewedAtUtc: null,
+            ownerType: "Individual",
+        });
+
+        render(<OwnerOnboardingWizard />);
+
+        const user = userEvent.setup();
+        await screen.findByText("1. Chọn hình thức hoạt động");
+        await user.click(screen.getByText("Cá nhân"));
+
+        // Check VNeID button exists
+        const vneidBtn = screen.getByRole("button", {
+            name: /Điền nhanh qua VNeID/i,
+        });
+        expect(vneidBtn).toBeInTheDocument();
+
+        // Click to open VNeID modal
+        fireEvent.click(vneidBtn);
+        expect(screen.getByTestId("vneid-auth-modal")).toBeInTheDocument();
+
+        // Confirm sharing
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận chia sẻ thông tin/i,
+        });
+        fireEvent.click(confirmBtn);
+
+        // Verify auto-filled values
+        expect(screen.getByTestId("vneid-verified-badge")).toBeInTheDocument();
+        const idCardInput = screen.getByPlaceholderText(
+            /079201234567/i,
+        ) as HTMLInputElement;
+        expect(idCardInput.value).toBe("079201234567");
+        const fullNameInput = screen.getByPlaceholderText(
+            /Nguyễn Văn An/i,
+        ) as HTMLInputElement;
+        expect(fullNameInput.value).toBe("NGUYỄN VĂN AN");
     });
 });

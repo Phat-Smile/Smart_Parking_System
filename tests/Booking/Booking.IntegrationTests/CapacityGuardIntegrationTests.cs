@@ -10,6 +10,7 @@ using ParkingSystem.Booking.Application;
 using ParkingSystem.Booking.Application.Parking;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.CreateTemporaryHold;
+using ParkingSystem.Booking.Application.Vehicles;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.Booking.Persistence;
 using ParkingSystem.Booking.Persistence.Reservations;
@@ -35,13 +36,23 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
         public DateTimeOffset UtcNow { get; set; } = BaseTime;
     }
 
+    private sealed class TestVehicleOwnershipClient : IVehicleOwnershipClient
+    {
+        public Task<Result<VehicleOwnershipInfo>> VerifyOwnershipAsync(string plateNumber, Guid userId, CancellationToken cancellationToken = default)
+        {
+            var canonical = LicensePlateNormalizer.Normalize(plateNumber);
+            return Task.FromResult(Result<VehicleOwnershipInfo>.Success(
+                new VehicleOwnershipInfo(userId, Guid.NewGuid(), canonical, SupportedVehicleType.Car, true)));
+        }
+    }
+
     private sealed class TestParkingLotCapacityProvider : IParkingLotCapacityProvider
     {
         private readonly ConcurrentDictionary<Guid, ParkingLotCapacityInfo> _lotCapacity = new();
 
         public void SetLotCapacity(Guid lotId, int validCapacity, int ratioPercent, int availableSlots)
         {
-            _lotCapacity[lotId] = new ParkingLotCapacityInfo(validCapacity, ratioPercent, availableSlots);
+            _lotCapacity[lotId] = new ParkingLotCapacityInfo(validCapacity, ratioPercent, availableSlots, ReservationEnabled: true, DepositAmount: 0m);
         }
 
         public Task<Result<ParkingLotCapacityInfo>> GetCapacityInfoAsync(Guid lotId, CancellationToken cancellationToken = default)
@@ -52,7 +63,19 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
             }
 
             // Default fallback: 10 capacity, 50% ratio (ceiling 5), 5 available slots
-            return Task.FromResult(Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5)));
+            return Task.FromResult(Result<ParkingLotCapacityInfo>.Success(new ParkingLotCapacityInfo(10, 50, 5, ReservationEnabled: true, DepositAmount: 0m)));
+        }
+    }
+
+    private sealed class TestParkingPricingProvider : IParkingPricingProvider
+    {
+        public Task<Result<ParkingPricingInfo>> GetPricingInfoAsync(
+            Guid lotId,
+            VehicleGroup vehicleGroup,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<ParkingPricingInfo>.Success(
+                new ParkingPricingInfo(lotId, vehicleGroup, 20000m, "Block", 60, 0m, "VND")));
         }
     }
 
@@ -77,7 +100,9 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
         var capacityProvider = new TestParkingLotCapacityProvider();
 
         services.AddSingleton<IClock>(testClock);
+        services.AddSingleton<IVehicleOwnershipClient>(new TestVehicleOwnershipClient());
         services.AddSingleton<IParkingLotCapacityProvider>(capacityProvider);
+        services.AddSingleton<IParkingPricingProvider>(new TestParkingPricingProvider());
         services.AddSingleton(new BookingCapacityOptions
         {
             LeadTimeMinutes = 30,
@@ -150,7 +175,7 @@ public sealed class CapacityGuardIntegrationTests(PostgreSqlContainerFixture pos
                             ReservationId: Guid.NewGuid(),
                             UserId: Guid.NewGuid(),
                             VehicleId: Guid.NewGuid(),
-                            PlateNumber: $"51F-{i:D5}",
+                            PlateNumber: $"51F-{iter:D2}-{i:D5}",
                             LotId: lotId,
                             VehicleGroup: VehicleGroup.Car,
                             ReservationType: ReservationType.Scheduled,

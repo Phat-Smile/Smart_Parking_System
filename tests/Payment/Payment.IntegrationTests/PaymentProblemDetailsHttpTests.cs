@@ -18,6 +18,7 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Features.AuditLogs.Queries.GetAuditLogs;
+using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.ConfirmCashParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingSessionFee;
 using ParkingSystem.Payment.Application.Features.Wallets.Commands.CreateWalletTopup;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetMyWallet;
@@ -168,6 +169,116 @@ public sealed class PaymentProblemDetailsHttpTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("isSuccess", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Cash_payment_requires_authentication()
+    {
+        await using var app = await CreateAppAsync(new FakeSender());
+        var sessionId = Guid.NewGuid();
+
+        using var response = await SendAsync(
+            app,
+            HttpMethod.Post,
+            $"/api/payment/parking-sessions/{sessionId}/pay/cash",
+            role: null,
+            body: new { expectedAmountDue = 20000L },
+            header: ("X-Idempotency-Key", Guid.NewGuid().ToString()));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cash_payment_requires_staff_or_owner_role()
+    {
+        await using var app = await CreateAppAsync(new FakeSender());
+        var sessionId = Guid.NewGuid();
+
+        using var response = await SendAsync(
+            app,
+            HttpMethod.Post,
+            $"/api/payment/parking-sessions/{sessionId}/pay/cash",
+            role: "Customer",
+            body: new { expectedAmountDue = 20000L },
+            header: ("X-Idempotency-Key", Guid.NewGuid().ToString()));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cash_payment_missing_idempotency_key_is_bad_request()
+    {
+        await using var app = await CreateAppAsync(new FakeSender());
+        var sessionId = Guid.NewGuid();
+
+        using var response = await SendAsync(
+            app,
+            HttpMethod.Post,
+            $"/api/payment/parking-sessions/{sessionId}/pay/cash",
+            role: "Staff",
+            body: new { expectedAmountDue = 20000L });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, PayParkingFeeErrors.IdempotencyKeyInvalid.Code);
+    }
+
+    [Fact]
+    public async Task Cash_payment_invalid_amount_is_bad_request()
+    {
+        await using var app = await CreateAppAsync(new FakeSender());
+        var sessionId = Guid.NewGuid();
+
+        using var response = await SendAsync(
+            app,
+            HttpMethod.Post,
+            $"/api/payment/parking-sessions/{sessionId}/pay/cash",
+            role: "Staff",
+            body: new { expectedAmountDue = 0L },
+            header: ("X-Idempotency-Key", Guid.NewGuid().ToString()));
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, PayParkingFeeErrors.ExpectedAmountInvalid.Code);
+    }
+
+    [Fact]
+    public async Task Cash_payment_success_returns_dto()
+    {
+        var sessionId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var staffId = Guid.Parse(UserId);
+        var txId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var exitExpires = now.AddMinutes(15);
+
+        var expectedDto = new ConfirmCashParkingFeePaymentResponse(
+            TransactionId: txId,
+            SessionId: sessionId,
+            AmountPaid: 20000L,
+            PaymentMethod: "Cash",
+            ConfirmedByStaffId: staffId,
+            ParkingLotId: lotId,
+            PaymentTimeUtc: now,
+            ExitWindowExpiresUtc: exitExpires);
+
+        var sender = new FakeSender().Returns<ConfirmCashParkingFeePaymentCommand, ConfirmCashParkingFeePaymentResponse>(
+            Result<ConfirmCashParkingFeePaymentResponse>.Success(expectedDto));
+        await using var app = await CreateAppAsync(sender);
+
+        using var response = await SendAsync(
+            app,
+            HttpMethod.Post,
+            $"/api/payment/parking-sessions/{sessionId}/pay/cash",
+            role: "Staff",
+            body: new { expectedAmountDue = 20000L, reason = "Thu tiền mặt" },
+            header: ("X-Idempotency-Key", Guid.NewGuid().ToString()));
+
+        var body = await ReadJsonAsync(response, HttpStatusCode.OK);
+
+        Assert.Equal(txId, body.GetProperty("transactionId").GetGuid());
+        Assert.Equal(sessionId, body.GetProperty("sessionId").GetGuid());
+        Assert.Equal(20000L, body.GetProperty("amountPaid").GetInt64());
+        Assert.Equal("Cash", body.GetProperty("paymentMethod").GetString());
+        Assert.Equal(staffId, body.GetProperty("confirmedByStaffId").GetGuid());
+        Assert.Equal(lotId, body.GetProperty("parkingLotId").GetGuid());
+        Assert.False(body.TryGetProperty("isSuccess", out _));
     }
 
     private static Task<HttpResponseMessage> SendTopUpAsync(WebApplication app) =>

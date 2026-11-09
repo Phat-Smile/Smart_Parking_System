@@ -24,5 +24,14 @@ public static class ReservationCapacityErrors
 
     public static readonly Error LockTimeout =
         new("booking.capacity.lock_timeout", "Could not acquire capacity lock within the allotted time. Please retry.");
+
+    public static readonly Error UserActiveReservationsLimitExceeded =
+        new("booking.reservation.user_active_limit_exceeded", "The user has reached the maximum limit of active reservations.");
+
+    public static readonly Error PlateReservationOverlap =
+        new("booking.reservation.plate_overlap", "An active reservation already exists for this vehicle plate during the requested time window.");
+
+    public static readonly Error LotReservationsDisabled =
+        new("booking.reservation.lot_reservations_disabled", "Bãi này hiện không nhận đặt chỗ.");
 }
 

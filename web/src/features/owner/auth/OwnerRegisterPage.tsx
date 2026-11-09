@@ -9,10 +9,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { passwordSchema } from "@/features/auth/passwordSchema";
 import { registerParkWiseAccount } from "@/features/auth/registerParkWiseAccount";
-import { rememberRegisteredProfileName } from "@/features/auth/authSession";
+import {
+    clearAuthSession,
+    rememberRegisteredProfileName,
+} from "@/features/auth/authSession";
 import {
     rememberPendingVerification,
     rememberPendingRole,
+    rememberPendingCredentials,
 } from "@/features/auth/pendingVerification";
 import { ApiError } from "@/shared/errors/api-error";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
@@ -183,8 +187,8 @@ export function OwnerRegisterPage({
                 accountType: "ParkingLotOwner",
             });
 
+            clearAuthSession();
             rememberRegisteredProfileName(account.email, account.fullName);
-            rememberPendingRole("owner");
             try {
                 window.sessionStorage.setItem("parkwise:pending-login-pwd", values.password);
             } catch {
@@ -198,6 +202,8 @@ export function OwnerRegisterPage({
                 );
                 return;
             }
+            rememberPendingRole("owner");
+            rememberPendingCredentials(account.email, values.password);
 
             // Chuyển sang xác thực email OTP
             router.push(

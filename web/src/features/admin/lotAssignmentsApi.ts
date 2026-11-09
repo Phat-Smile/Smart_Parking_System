@@ -2,6 +2,18 @@ import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
 import type { ParkingLotAssignmentMember } from "./types";
 
+export type ShiftType = "morning" | "afternoon" | "night" | "allday";
+
+export const SHIFT_DETAILS: Record<
+    ShiftType,
+    { shiftName: string; hours: string }
+> = {
+    morning: { shiftName: "Ca 1 - Sáng", hours: "06:00 - 14:00" },
+    afternoon: { shiftName: "Ca 2 - Chiều", hours: "14:00 - 22:00" },
+    night: { shiftName: "Ca 3 - Đêm", hours: "22:00 - 06:00" },
+    allday: { shiftName: "Cả ngày", hours: "00:00 - 23:59" },
+};
+
 export interface StaffAccountOption {
     accountId: string;
     fullName: string;
@@ -32,14 +44,54 @@ function assignmentRoute(lotId: string, accountId?: string) {
     return accountId ? `${base}/${encodeURIComponent(accountId)}` : base;
 }
 
+async function fetchShiftMap(
+    lotId: string,
+): Promise<
+    Map<string, { shift: ShiftType; shiftName: string; hours: string }>
+> {
+    const shiftMap = new Map<
+        string,
+        { shift: ShiftType; shiftName: string; hours: string }
+    >();
+    if (typeof window === "undefined") return shiftMap;
+    try {
+        const res = await fetch(
+            `/api/staff-shifts?lotId=${encodeURIComponent(lotId)}`,
+        );
+        if (res.ok) {
+            const list = await res.json();
+            if (Array.isArray(list)) {
+                list.forEach(
+                    (s: {
+                        accountId: string;
+                        shift: ShiftType;
+                        shiftName: string;
+                        hours: string;
+                    }) => {
+                        shiftMap.set(s.accountId.toLowerCase(), {
+                            shift: s.shift,
+                            shiftName: s.shiftName,
+                            hours: s.hours,
+                        });
+                    },
+                );
+            }
+        }
+    } catch {
+        // Ignore internal shift fetch errors
+    }
+    return shiftMap;
+}
+
 /**
- * Gán tài khoản (Staff/Owner) vào bãi đỗ xe.
+ * Gán tài khoản (Staff/Owner) vào bãi đỗ xe và lưu ca trực.
  * Endpoint BE: PUT /api/parking/admin/lots/{lotId}/assignments/{accountId}
  */
 export async function assignLotMember(
     lotId: string,
     accountId: string,
     role: "Staff" | "Owner" = "Staff",
+    shift: ShiftType = "morning",
 ): Promise<ParkingLotAssignmentMember> {
     const member = await gatewayFetch<LotAssignmentResponse>(
         assignmentRoute(lotId, accountId),
@@ -49,16 +101,37 @@ export async function assignLotMember(
             body: JSON.stringify({ role }),
         },
     );
+
+    if (typeof window !== "undefined") {
+        try {
+            await fetch("/api/staff-shifts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    lotId,
+                    accountId,
+                    shift,
+                    ...SHIFT_DETAILS[shift],
+                }),
+            });
+        } catch {
+            // Ignore shift storage failure
+        }
+    }
+
     return {
         lotId,
         accountId: member.accountId,
         role: member.role,
         assignedAtUtc: member.assignedAtUtc,
+        shift,
+        shiftName: SHIFT_DETAILS[shift]?.shiftName,
+        hours: SHIFT_DETAILS[shift]?.hours,
     };
 }
 
 /**
- * Gỡ tài khoản khỏi bãi đỗ xe.
+ * Gỡ tài khoản khỏi bãi đỗ xe và xóa ca trực tương ứng.
  * Endpoint BE: DELETE /api/parking/admin/lots/{lotId}/assignments/{accountId}
  */
 export async function removeLotMember(
@@ -68,26 +141,48 @@ export async function removeLotMember(
     await gatewayFetch<void>(assignmentRoute(lotId, accountId), {
         method: "DELETE",
     });
+
+    if (typeof window !== "undefined") {
+        try {
+            await fetch(
+                `/api/staff-shifts?lotId=${encodeURIComponent(lotId)}&accountId=${encodeURIComponent(accountId)}`,
+                { method: "DELETE" },
+            );
+        } catch {
+            // Ignore shift removal failure
+        }
+    }
 }
 
 /**
- * Danh sách phân công của bãi. Parking chỉ trả mã tài khoản, vai trò và thời điểm gán;
- * tên và email lấy từ danh sách tài khoản của Identity ở màn hình.
+ * Danh sách phân công của bãi kèm ca trực (nếu có).
  * Endpoint BE: GET /api/parking/admin/lots/{lotId}/assignments
  */
 export async function getLotAssignments(
     lotId: string,
 ): Promise<ParkingLotAssignmentMember[]> {
-    const rows = await gatewayFetch<LotAssignmentResponse[]>(
-        assignmentRoute(lotId),
-        { method: "GET" },
-    );
-    return rows.map((row) => ({
-        lotId,
-        accountId: row.accountId,
-        role: row.role,
-        assignedAtUtc: row.assignedAtUtc,
-    }));
+    const [rows, shiftMap] = await Promise.all([
+        gatewayFetch<LotAssignmentResponse[]>(assignmentRoute(lotId), {
+            method: "GET",
+        }),
+        fetchShiftMap(lotId),
+    ]);
+
+    return rows.map((row) => {
+        const shiftRecord = shiftMap.get(row.accountId.toLowerCase());
+        const base: ParkingLotAssignmentMember = {
+            lotId,
+            accountId: row.accountId,
+            role: row.role,
+            assignedAtUtc: row.assignedAtUtc,
+        };
+        if (shiftRecord) {
+            base.shift = shiftRecord.shift;
+            base.shiftName = shiftRecord.shiftName;
+            base.hours = shiftRecord.hours;
+        }
+        return base;
+    });
 }
 
 async function listAccountsByRole(

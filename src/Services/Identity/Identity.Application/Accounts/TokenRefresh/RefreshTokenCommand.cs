@@ -163,7 +163,7 @@ public sealed class RefreshTokenCommandHandler(
 
             await accounts.SaveChangesAsync(cancellationToken);
 
-            var accessToken = jwtTokenIssuer.IssueAccessToken(account, now);
+            var accessToken = jwtTokenIssuer.IssueAccessToken(account, session.Id, session.AuthenticationMethods, now);
             var response = new RefreshTokenResponse(
                 accessToken,
                 "Bearer",

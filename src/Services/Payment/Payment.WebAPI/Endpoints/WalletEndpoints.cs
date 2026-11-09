@@ -10,6 +10,7 @@ using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetMyWallet;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetWalletTopupStatus;
 using ParkingSystem.Payment.Application.Features.Wallets.Queries.GetWalletTransactions;
 using ParkingSystem.Payment.WebAPI.Models;
+using ParkingSystem.Payment.WebAPI.Security;
 
 namespace ParkingSystem.Payment.WebAPI.Endpoints;
 

@@ -27,6 +27,8 @@ import {
 import { ApiError } from "@/shared/errors/api-error";
 import "./onboarding.css";
 import { getAuthSessionSnapshot } from "@/features/auth/authSession";
+import { VneidAuthModal } from "@/features/simulator/vneid/VneidAuthModal";
+import type { VneidCitizenProfile } from "@/features/simulator/vneid/vneidSeedData";
 
 // The application belongs to the signed-in account, so an owner signs in before filling it.
 const LOGIN_FOR_ONBOARDING = "/login?redirect=%2Fowner%2Fonboarding";
@@ -189,6 +191,35 @@ export function OwnerOnboardingWizard({
     const [taxLookupSuccess, setTaxLookupSuccess] =
         useState<VietQrBusinessData | null>(null);
 
+    // VNeID Modal & Verification State
+    const [vneidModalOpen, setVneidModalOpen] = useState(false);
+    const [vneidVerified, setVneidVerified] = useState(false);
+    const [vneidProfile, setVneidProfile] =
+        useState<VneidCitizenProfile | null>(null);
+
+    function handleVneidConfirm(profile: VneidCitizenProfile) {
+        setIdCardNumber(profile.cccd);
+        setFullName(profile.fullName);
+        if (profile.issueDate && profile.issueDate.includes("/")) {
+            const parts = profile.issueDate.split("/");
+            if (parts.length === 3) {
+                setIdCardIssuedDate(
+                    `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`,
+                );
+            }
+        }
+        setIdCardIssuedPlace("Cục Cảnh sát QLHC về TTXH");
+        if (profile.residence) {
+            setPermanentAddress(profile.residence);
+        }
+        setVneidVerified(true);
+        setVneidProfile(profile);
+        setSuccessNotice(
+            `Đã xác thực VNeID Mức 2 cho công dân ${profile.fullName} (CCCD: ${profile.cccd}).`,
+        );
+        setVneidModalOpen(false);
+    }
+
     // Documents & Input fields (Step 2)
     const [requirements, setRequirements] = useState<
         OwnerDocumentRequirementItem[]
@@ -310,18 +341,17 @@ export function OwnerOnboardingWizard({
                     setRejectionReason(app.rejectionReason);
 
                 // Load requirements for selected owner type
-                let reqDocs =
-                    FALLBACK_REQUIREMENTS[app.ownerType || "Enterprise"] ||
-                    FALLBACK_REQUIREMENTS.Enterprise;
                 try {
                     const reqs = await getOwnerDocumentRequirements(
                         app.ownerType || "Enterprise",
                     );
-                    reqDocs = reqs.documents;
+                    setRequirements(reqs.documents);
                 } catch {
-                    // Fallback to offline requirements
+                    const fallback =
+                        FALLBACK_REQUIREMENTS[app.ownerType || "Enterprise"] ||
+                        FALLBACK_REQUIREMENTS.Enterprise;
+                    if (fallback) setRequirements(fallback);
                 }
-                setRequirements(reqDocs);
 
                 setUploadedDocuments(docs);
 
@@ -365,8 +395,11 @@ export function OwnerOnboardingWizard({
         try {
             const res = await getOwnerDocumentRequirements(type);
             setRequirements(res.documents);
-        } catch (err) {
-            setErrorMsg(describeOwnerApplicationError(err));
+        } catch {
+            const fallback = FALLBACK_REQUIREMENTS[type];
+            if (fallback) {
+                setRequirements(fallback);
+            }
         }
     }
 
@@ -1001,16 +1034,47 @@ export function OwnerOnboardingWizard({
                                             Số Căn cước công dân (CCCD / 12 số){" "}
                                             <span className="req">*</span>
                                         </label>
-                                        <input
-                                            id="idCardNumber"
-                                            type="text"
-                                            className="pw-input"
-                                            placeholder="Ví dụ: 079094001234"
-                                            value={idCardNumber}
-                                            onChange={(e) =>
-                                                setIdCardNumber(e.target.value)
-                                            }
-                                        />
+                                        <div className="pw-input-with-button">
+                                            <input
+                                                id="idCardNumber"
+                                                type="text"
+                                                className="pw-input"
+                                                placeholder="Ví dụ: 079201234567"
+                                                value={idCardNumber}
+                                                onChange={(e) => {
+                                                    setIdCardNumber(
+                                                        e.target.value,
+                                                    );
+                                                    if (
+                                                        vneidVerified &&
+                                                        e.target.value !==
+                                                            vneidProfile?.cccd
+                                                    ) {
+                                                        setVneidVerified(false);
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="pw-btn-vneid"
+                                                onClick={() =>
+                                                    setVneidModalOpen(true)
+                                                }
+                                                title="Xác thực & Điền nhanh qua Căn cước công dân điện tử VNeID"
+                                            >
+                                                🇻🇳 Điền nhanh qua VNeID
+                                            </button>
+                                        </div>
+                                        {vneidVerified && vneidProfile && (
+                                            <div
+                                                className="pw-vneid-badge"
+                                                data-testid="vneid-verified-badge"
+                                            >
+                                                <span>✓</span> Đã xác thực VNeID
+                                                Mức 2: {vneidProfile.fullName} (
+                                                {vneidProfile.cccd})
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="pw-form-group">
@@ -1374,16 +1438,47 @@ export function OwnerOnboardingWizard({
                                             Số CCCD người đại diện (12 số){" "}
                                             <span className="req">*</span>
                                         </label>
-                                        <input
-                                            id="idCardNumber"
-                                            type="text"
-                                            className="pw-input"
-                                            placeholder="Ví dụ: 079185004321"
-                                            value={idCardNumber}
-                                            onChange={(e) =>
-                                                setIdCardNumber(e.target.value)
-                                            }
-                                        />
+                                        <div className="pw-input-with-button">
+                                            <input
+                                                id="idCardNumber"
+                                                type="text"
+                                                className="pw-input"
+                                                placeholder="Ví dụ: 001199123456"
+                                                value={idCardNumber}
+                                                onChange={(e) => {
+                                                    setIdCardNumber(
+                                                        e.target.value,
+                                                    );
+                                                    if (
+                                                        vneidVerified &&
+                                                        e.target.value !==
+                                                            vneidProfile?.cccd
+                                                    ) {
+                                                        setVneidVerified(false);
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="pw-btn-vneid"
+                                                onClick={() =>
+                                                    setVneidModalOpen(true)
+                                                }
+                                                title="Xác thực CCCD người đại diện qua VNeID"
+                                            >
+                                                🇻🇳 Điền nhanh qua VNeID
+                                            </button>
+                                        </div>
+                                        {vneidVerified && vneidProfile && (
+                                            <div
+                                                className="pw-vneid-badge"
+                                                data-testid="vneid-verified-badge-household"
+                                            >
+                                                <span>✓</span> Đã xác thực VNeID
+                                                Mức 2: {vneidProfile.fullName} (
+                                                {vneidProfile.cccd})
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1708,16 +1803,47 @@ export function OwnerOnboardingWizard({
                                             pháp luật{" "}
                                             <span className="req">*</span>
                                         </label>
-                                        <input
-                                            id="idCardNumber"
-                                            type="text"
-                                            className="pw-input"
-                                            placeholder="Ví dụ: 001085002468"
-                                            value={idCardNumber}
-                                            onChange={(e) =>
-                                                setIdCardNumber(e.target.value)
-                                            }
-                                        />
+                                        <div className="pw-input-with-button">
+                                            <input
+                                                id="idCardNumber"
+                                                type="text"
+                                                className="pw-input"
+                                                placeholder="Ví dụ: 038085123456"
+                                                value={idCardNumber}
+                                                onChange={(e) => {
+                                                    setIdCardNumber(
+                                                        e.target.value,
+                                                    );
+                                                    if (
+                                                        vneidVerified &&
+                                                        e.target.value !==
+                                                            vneidProfile?.cccd
+                                                    ) {
+                                                        setVneidVerified(false);
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="pw-btn-vneid"
+                                                onClick={() =>
+                                                    setVneidModalOpen(true)
+                                                }
+                                                title="Xác thực CCCD người đại diện pháp luật qua VNeID"
+                                            >
+                                                🇻🇳 Điền nhanh qua VNeID
+                                            </button>
+                                        </div>
+                                        {vneidVerified && vneidProfile && (
+                                            <div
+                                                className="pw-vneid-badge"
+                                                data-testid="vneid-verified-badge-enterprise"
+                                            >
+                                                <span>✓</span> Đã xác thực VNeID
+                                                Mức 2: {vneidProfile.fullName} (
+                                                {vneidProfile.cccd})
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="pw-form-group">
@@ -2899,6 +3025,21 @@ export function OwnerOnboardingWizard({
                         </div>
                     )}
             </div>
+
+            <VneidAuthModal
+                isOpen={vneidModalOpen}
+                onClose={() => setVneidModalOpen(false)}
+                onConfirm={handleVneidConfirm}
+                defaultCccd={
+                    ownerType === "Individual"
+                        ? "079201234567"
+                        : ownerType === "HouseholdBusiness"
+                          ? "001199123456"
+                          : "038085123456"
+                }
+                title="Xác thực Căn cước công dân qua VNeID (Level 2 eID)"
+                subtitle="Chia sẻ thông tin định danh công dân mức độ 2 để tự động điền hồ sơ chủ bãi"
+            />
         </div>
     );
 }

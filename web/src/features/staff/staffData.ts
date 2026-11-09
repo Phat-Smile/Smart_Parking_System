@@ -10,7 +10,12 @@ import type {
     VehicleType,
     VerificationIssue,
 } from "./types";
-import { getAssignedLot, listLotSessions } from "./staffApi";
+import {
+    calculateParkingFee,
+    DEFAULT_STAFF_LOT_ID,
+    getAssignedLot,
+    listLotInsideSessions,
+} from "./staffApi";
 
 export interface GateActivity {
     id: string;
@@ -23,11 +28,6 @@ export interface GateActivity {
     amount?: number;
 }
 
-/*
- * What the staff screens show, read from Parking: the assigned lot, its free spaces and its active
- * sessions. Activities are the actions taken in this browser tab. Gate plate readings (#136, #137) are
- * not wired yet, so there are no verification issues.
- */
 let assignedLotState: AssignedLotResponse | null = null;
 let sessionsState: StaffSession[] = [];
 const issuesState: VerificationIssue[] = [];
@@ -62,9 +62,7 @@ function refresh(): Promise<AssignedLotResponse | null> {
     refreshing ??= (async () => {
         try {
             const lot = await getAssignedLot();
-            const page = lot
-                ? await listLotSessions(lot.lotId, "Active", 1, 100)
-                : null;
+            const page = lot ? await listLotInsideSessions(lot.lotId) : null;
             assignedLotState = lot;
             sessionsState = page
                 ? page.items.map((item) => toStaffSession(item, lot!.lotId))
@@ -98,13 +96,36 @@ export const staffStore = {
         notify();
     },
 
-    fetchAssignedLot: refresh,
+    fetchAssignedLot: async (preferredLotId?: string) => {
+        try {
+            const lot = await getAssignedLot(preferredLotId);
+            const targetLotId = lot?.lotId || DEFAULT_STAFF_LOT_ID;
+            const page = targetLotId
+                ? await listLotInsideSessions(targetLotId)
+                : null;
+            assignedLotState = lot;
+            sessionsState = page
+                ? page.items.map((item) => toStaffSession(item, targetLotId))
+                : [];
+            loadErrorState = null;
+        } catch (error) {
+            loadErrorState = error;
+        } finally {
+            loaded = true;
+            notify();
+        }
+        return assignedLotState;
+    },
     refresh,
 
     /** Called after Parking opened the session; counts and the list are read again from Parking. */
     addSession: (session: StaffSession) => {
+        sessionsState = [
+            session,
+            ...sessionsState.filter((s) => s.id !== session.id),
+        ];
         addActivity({
-            id: `act-${session.id}`,
+            id: `act-${session.id || Date.now()}`,
             type: "entry",
             plateNumber: session.plateNumber,
             vehicleType: session.vehicleType,
@@ -183,8 +204,15 @@ export function useStaffData() {
         () => null,
     );
 
-    const activeSessions = sessions.filter((s) => s.status === "Active");
+    // Active and Paid are both vehicles still inside the lot (Paid = paid, not exited yet).
+    const activeSessions = sessions.filter(
+        (s) => s.status === "Active" || s.status === "Paid",
+    );
     const pendingIssues = issues.filter((i) => i.status === "Pending");
+
+    const totalCap =
+        assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
+    const occupied = activeSessions.length;
 
     const occupancy: OccupancyStats = {
         totalCapacity: assignedLot?.motorbikeCapacity ?? null,

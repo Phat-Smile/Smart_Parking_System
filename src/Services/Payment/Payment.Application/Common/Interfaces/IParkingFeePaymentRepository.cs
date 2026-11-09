@@ -1,0 +1,34 @@
+using ParkingSystem.Payment.Domain.Entities;
+
+namespace ParkingSystem.Payment.Application.Common.Interfaces;
+
+// Cổng lưu trữ hóa đơn thanh toán tiền gửi xe
+public interface IParkingFeePaymentRepository
+{
+    // Kiểm tra xe đã trả tiền thành công trước đó chưa
+    Task<bool> HasSucceededPaymentAsync(Guid sessionId, CancellationToken ct);
+
+    // Kiểm tra thanh toán cũ để tương thích ngược
+    Task<bool> ExistsForSessionAsync(Guid sessionId, CancellationToken ct);
+
+    // Lấy giao dịch đang chờ thanh toán của phiên xe
+    Task<ParkingFeePayment?> GetPendingBySessionIdAsync(Guid sessionId, CancellationToken ct);
+
+    // Thay thế mã chờ thanh toán cũ bằng mã mới
+    Task CreateOrReplacePendingAsync(ParkingFeePayment newPayment, CancellationToken ct);
+
+    // Tìm hóa đơn qua mã gửi sang VNPay
+    Task<ParkingFeePayment?> GetByTxnRefAsync(string txnRef, CancellationToken ct);
+
+    // Tải lại dữ liệu mới nhất từ database
+    Task ReloadAsync(ParkingFeePayment payment, CancellationToken ct);
+
+    // Lưu các thay đổi vào cơ sở dữ liệu
+    Task SaveChangesAsync(CancellationToken ct);
+
+    // Lưu hóa đơn thanh toán mới vào cơ sở dữ liệu
+    Task AddAsync(ParkingFeePayment payment, CancellationToken ct);
+
+    // Tìm hóa đơn theo mã thanh toán
+    Task<ParkingFeePayment?> GetByIdAsync(Guid id, CancellationToken ct);
+}

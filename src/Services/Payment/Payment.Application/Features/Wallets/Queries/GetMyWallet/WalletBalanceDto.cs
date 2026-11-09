@@ -12,6 +12,15 @@ public class PendingTopUpDto
     public string TopupId { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset ExpiresAtUtc { get; set; }
+}
+
+public class ExpiredTopUpDto
+{
+    public string TopupId { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset ExpiresAtUtc { get; set; }
 }
 
 public class WalletBalanceDto
@@ -24,4 +33,5 @@ public class WalletBalanceDto
     public WalletLimitsDto Limits { get; set; } = new WalletLimitsDto();
     public string GatewayMode { get; set; } = "Sandbox";
     public IReadOnlyList<PendingTopUpDto> PendingTopUps { get; set; } = new List<PendingTopUpDto>();
+    public IReadOnlyList<ExpiredTopUpDto> ExpiredTopUps { get; set; } = new List<ExpiredTopUpDto>();
 }

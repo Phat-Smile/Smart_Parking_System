@@ -161,6 +161,14 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<string>("AuthenticationMethods")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("pwd")
+                        .HasColumnName("authentication_methods");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -400,11 +408,139 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.ToTable("email_verifications", "identity");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Mfa.AccountMfa", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset?>("EnabledAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enabled_at_utc");
+
+                    b.Property<long>("LastUsedStep")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_used_step");
+
+                    b.Property<string>("SecretProtected")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("secret_protected");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_account_mfa");
+
+                    b.ToTable("account_mfa", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Mfa.MfaChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_count");
+
+                    b.Property<string>("AuthenticationMethod")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("authentication_method");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("DeviceInfo")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("device_info");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset?>("UsedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_mfa_challenges");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_mfa_challenges_account_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_mfa_challenges_token_hash");
+
+                    b.ToTable("mfa_challenges", "identity");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Mfa.MfaRecoveryCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset?>("UsedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_mfa_recovery_codes");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_mfa_recovery_codes_account_id");
+
+                    b.ToTable("mfa_recovery_codes", "identity");
+                });
+
             modelBuilder.Entity("ParkingSystem.Identity.Domain.Profiles.Profile", b =>
                 {
                     b.Property<Guid>("AccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("address");
 
                     b.Property<string>("AvatarUrl")
                         .HasMaxLength(500)
@@ -435,6 +571,28 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("full_name");
 
+                    b.Property<Guid?>("IdentityBackMediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("identity_back_media_id");
+
+                    b.Property<string>("IdentityDocumentType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("identity_document_type");
+
+                    b.Property<Guid?>("IdentityFrontMediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("identity_front_media_id");
+
+                    b.Property<DateOnly?>("IdentityIssueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("identity_issue_date");
+
+                    b.Property<string>("IdentityIssuedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("identity_issued_by");
+
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at_utc");
@@ -455,20 +613,68 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<string>("Brand")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("brand");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("color");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
+                    b.Property<string>("FuelType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("fuel_type");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_default");
+
                     b.Property<string>("LicensePlate")
-                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("license_plate");
+
+                    b.Property<int?>("ManufacturingYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("manufacturing_year");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("model");
+
+                    b.Property<string>("MotorbikeKind")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("motorbike_kind");
 
                     b.Property<string>("NickName")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("nick_name");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("photo_url");
+
+                    b.Property<int?>("Seats")
+                        .HasColumnType("integer")
+                        .HasColumnName("seats");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("size");
 
                     b.Property<int>("VehicleType")
                         .HasColumnType("integer")
@@ -477,11 +683,17 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_vehicles");
 
-                    b.HasIndex("AccountId");
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_vehicles_account_id");
 
                     b.HasIndex("LicensePlate")
                         .IsUnique()
                         .HasDatabaseName("ix_vehicles_license_plate");
+
+                    b.HasIndex("AccountId", "IsDefault")
+                        .IsUnique()
+                        .HasDatabaseName("ix_vehicles_account_id_is_default")
+                        .HasFilter("\"is_default\" = TRUE");
 
                     b.ToTable("vehicles", "identity");
                 });
@@ -581,6 +793,52 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                     b.ToTable("outbox_messages", "identity");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Identity.Persistence.Profiles.CustomerMedia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<DateTimeOffset>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("customer_media", "identity");
+                });
+
             modelBuilder.Entity("ParkingSystem.Identity.Domain.Accounts.AuthSession", b =>
                 {
                     b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
@@ -616,6 +874,36 @@ namespace ParkingSystem.Identity.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_auth_sessions_session_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Mfa.AccountMfa", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithOne()
+                        .HasForeignKey("ParkingSystem.Identity.Domain.Mfa.AccountMfa", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_mfa_accounts_account_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Mfa.MfaChallenge", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_mfa_challenges_accounts_account_id");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Identity.Domain.Mfa.MfaRecoveryCode", b =>
+                {
+                    b.HasOne("ParkingSystem.Identity.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_mfa_recovery_codes_accounts_account_id");
                 });
 
             modelBuilder.Entity("ParkingSystem.Identity.Domain.Profiles.Profile", b =>

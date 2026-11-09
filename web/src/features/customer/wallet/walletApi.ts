@@ -15,6 +15,13 @@ export interface WalletBalance {
         topupId: string;
         amount: number;
         createdAtUtc: string;
+        expiresAtUtc?: string;
+    }>;
+    expiredTopUps?: Array<{
+        topupId: string;
+        amount: number;
+        createdAtUtc: string;
+        expiresAtUtc: string;
     }>;
 }
 
@@ -25,10 +32,11 @@ export interface WalletTopupResult {
     paymentUrl: string | null;
     createdAtUtc: string;
     expiresAtUtc: string;
-    isReplay: boolean;
+    // The current Payment DTO omits this field; the UI uses topupId when paymentUrl is null.
+    isReplay?: boolean;
 }
 
-/** Status values: Pending, Success, Failed, Expired (VnpayTransactionStatus). */
+/** Status values of GET /wallets/top-up/{id}: Pending, Succeeded, Failed, Expired. */
 export interface WalletTopupStatus {
     topupId: string;
     amount: number;
@@ -101,24 +109,25 @@ export async function getWalletTransactions(
 
 const WALLET_MESSAGES: Record<string, string> = {
     "payment.idempotency_key_reused":
-        "Yêu cầu nạp này đã được dùng với số tiền khác. Hãy tạo yêu cầu nạp mới.",
-    "payment.topup_expired": "Yêu cầu nạp đã hết hạn. Hãy tạo yêu cầu nạp mới.",
+        "This top-up request was used with a different amount. Start a new top-up.",
+    "payment.topup_expired":
+        "This top-up request has expired. Start a new top-up.",
     "payment.balance_limit_exceeded":
-        "Số tiền nạp vượt hạn mức số dư tối đa của ví.",
-    "payment.topup_not_found": "Không tìm thấy giao dịch nạp tiền này.",
-    "payment.invalid_topup_id": "Mã giao dịch nạp tiền không hợp lệ.",
-    "payment.customer_only": "Chỉ tài khoản khách hàng mới có ví.",
+        "The top-up would exceed your wallet balance limit.",
+    "payment.topup_not_found": "This top-up could not be found.",
+    "payment.invalid_topup_id": "The top-up reference is invalid.",
+    "payment.customer_only": "Only customer accounts can use a wallet.",
 };
 
 export function describeWalletError(error: unknown): string {
     if (!(error instanceof ApiError))
-        return "Không kết nối được máy chủ. Vui lòng thử lại.";
+        return "Could not connect to the server. Please try again.";
     if (error.status === 401)
-        return "Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.";
+        return "Your session has expired. Please sign in again.";
     const code = error.problem?.errorCode;
     return (
         (code && WALLET_MESSAGES[code]) ||
-        "Không xử lý được yêu cầu ví. Vui lòng thử lại."
+        "Could not process your wallet request. Please try again."
     );
 }
 

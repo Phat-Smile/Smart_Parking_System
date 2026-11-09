@@ -5,7 +5,9 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using ParkingSystem.Booking.Infrastructure.Messaging;
 using ParkingSystem.Booking.Infrastructure.Messaging.Outbox;
+using ParkingSystem.Booking.Infrastructure.Messaging.Consumers;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Booking;
 
 namespace ParkingSystem.Booking.Infrastructure;
 
@@ -39,8 +41,12 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddIntegrationEventRegistry();
+        services.AddIntegrationEvent<ReservationConfirmedIntegrationEvent>("booking.reservation-confirmed.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
+        services.AddOptions<Payments.ReservationPaymentReconciliationOptions>()
+            .Bind(configuration.GetSection(Payments.ReservationPaymentReconciliationOptions.SectionName));
+        services.AddHostedService<Payments.ReservationPaymentReconciliationWorker>();
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>
@@ -58,6 +64,12 @@ public static class DependencyInjection
             });
         });
 
+        return services;
+    }
+
+    public static IServiceCollection AddBookingConsumers(this IServiceCollection services)
+    {
+        services.AddIdempotentConsumer<SlotStatusChangedConsumer>("booking.slot-status-changed");
         return services;
     }
 }

@@ -107,6 +107,7 @@ public sealed class AdminParkingLotReviewQueryTests
         public int ReadCount { get; private set; }
         public int OwnerCheckCount { get; private set; }
         public Task<bool> LotExistsAsync(Guid id, CancellationToken ct) => Task.FromResult(id == knownLot);
+        public Task<bool> IsApprovedAsync(Guid id, CancellationToken ct) => Task.FromResult(id == knownLot);
         public Task<bool> IsOwnerAsync(Guid id, Guid actor, CancellationToken ct)
         {
             OwnerCheckCount++;
@@ -141,6 +142,9 @@ public sealed class AdminParkingLotReviewQueryTests
 
     private sealed class PricingRepository : IPricingPolicyRepository
     {
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public PricingPolicy? Policy { get; set; }
         public string? LastVehicleType { get; private set; }
         public Task<PricingPolicy?> GetLatestAsync(Guid lotId, string vehicleType, CancellationToken ct)

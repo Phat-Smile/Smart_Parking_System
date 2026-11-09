@@ -185,6 +185,10 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      DeviceAuth__SensorKey: ${SENSOR_DEVICE_KEY:-}
+      BookingService__BaseUrl: http://booking-api:8080
+      AiService__BaseUrl: http://ai-service:8000
+      ArrivalIntegration__Key: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
 
   booking-api:
     build:
@@ -212,6 +216,7 @@ services:
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
       OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION: "true"
       ConnectionStrings__DefaultConnection: *default-database-connection
+      ArrivalIntegration__Key: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
       RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMq__Port: ${RABBITMQ_PORT:-5672}
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
@@ -325,6 +330,7 @@ services:
     environment:
       APP_ENVIRONMENT: Development
       AI_GRPC_PORT: 50051
+      ARRIVAL_API_KEY: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
       OTEL_SERVICE_NAME: ai-service
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
@@ -385,6 +391,12 @@ services:
       MQTT_USERNAME: ${RABBITMQ_USER:-parking_dev}
       MQTT_PASSWORD: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       DEVICE_SIMULATION_ENABLED: ${DEVICE_SIMULATION_ENABLED:-false}
+      SIM_LOT_ID: ${SIM_LOT_ID:-}
+      SIM_SLOT_CODES: ${SIM_SLOT_CODES:-}
+      SIM_INTERVAL_SECONDS: ${SIM_INTERVAL_SECONDS:-5}
+      SIM_MODE: ${SIM_MODE:-slot}
+      SIM_PLATE_NUMBER: ${SIM_PLATE_NUMBER:-}
+      SIM_CONFIDENCE: ${SIM_CONFIDENCE:-0.97}
     networks:
       - parking-network
     restart: unless-stopped

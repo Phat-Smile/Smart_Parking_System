@@ -22,6 +22,15 @@ public class PricingPolicyRepository : IPricingPolicyRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken)
+    {
+        var atUtc = at.UtcDateTime;
+        return await _context.PricingPolicies.AsNoTracking()
+            .Where(p => p.LotId == lotId && p.VehicleType == vehicleType && p.EffectiveFromUtc <= atUtc)
+            .OrderByDescending(p => p.Version)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     // Them bang gia moi vao DbContext
     public async Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken)
     {

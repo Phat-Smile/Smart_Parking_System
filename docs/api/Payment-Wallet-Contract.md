@@ -44,7 +44,8 @@ the Gateway at `http://localhost:5000`.
   "walletId": "…", "balance": 150000, "currency": "VND", "isDemo": true, "demoNotice": "…",
   "limits": { "minTopUp": 10000, "maxTopUp": 5000000, "maxBalance": 10000000 },
   "gatewayMode": "Sandbox",
-  "pendingTopUps": [ { "topupId": "…", "amount": 100000, "createdAtUtc": "…" } ]
+  "pendingTopUps": [ { "topupId": "…", "amount": 100000, "createdAtUtc": "…", "expiresAtUtc": "…" } ],
+  "expiredTopUps": [ { "topupId": "…", "amount": 50000, "createdAtUtc": "…", "expiresAtUtc": "…" } ]
 }
 ```
 
@@ -59,6 +60,10 @@ The web app sends a new `Idempotency-Key` for each new top-up and the same key w
 then opens `paymentUrl`. After VNPay returns, it reads `GET /top-up/{topupId}`.
 
 `TopupStatus`: `{ "topupId", "amount", "status", "createdAtUtc", "completedAtUtc", "expiresAtUtc" }`.
+
+`status` of `GET /wallets/top-up/{topupId}` is `Pending`, `Succeeded`, `Failed` or `Expired`. New VNPay payment links expire after 15 minutes by default; the saved `expiresAtUtc` controls each order. Once a pending order passes that time, status reads as `Expired` and it moves from `pendingTopUps` to `expiredTopUps` (the ten most recent expired requests). This is the expiry of the payment link, not proof that no money moved: a late valid signed VNPay IPN can still settle the transaction as `Succeeded` and credit the wallet exactly once. Successful and failed attempts do not appear in `expiredTopUps`.
+
+Replay: sending the same `Idempotency-Key` and amount again returns 200 with `isReplay: true`. While the first top-up is pending and not expired, `paymentUrl` is a new link for it. When it already succeeded, `paymentUrl` is `null` and the web app opens `GET /wallets/top-up/{topupId}` instead of reporting an error. The `status` text in this replay body is not yet the same word as the status route (`Success` instead of `Succeeded`): read the status route, not the replay body. A different amount with the same key is 409 `payment.idempotency_key_reused`; an expired one is 409 `payment.topup_expired`.
 
 `TransactionsPage`: `{ "items": [ { "entryId", "createdAtUtc", "entryType", "amount", "balanceDelta", "affectsBalance",
 "balanceAfter", "reason", "referenceType", "referenceId" } ], "page", "pageSize", "totalItems", "totalPages" }`.

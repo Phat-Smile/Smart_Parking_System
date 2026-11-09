@@ -212,6 +212,9 @@ public class ConfigurePricingCommandHandlerTests
 
     private sealed class FakePricingPolicyRepository : IPricingPolicyRepository
     {
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public List<PricingPolicy> Policies { get; } = new();
 
         public Task<PricingPolicy?> GetLatestAsync(Guid lotId, string vehicleType, CancellationToken cancellationToken)

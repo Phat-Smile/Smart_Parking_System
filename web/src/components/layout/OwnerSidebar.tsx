@@ -73,6 +73,7 @@ const NAV_FLAT = [
 const LAYOUT_SUBMENU = [
     { href: "/owner/layout/3d", label: "Sơ đồ 3D", icon: "cube" },
     { href: "/owner/layout/2d", label: "Sơ đồ 2D", icon: "grid2d" },
+    { href: "/owner/layout/editor", label: "Chỉnh sửa sơ đồ", icon: "grid" },
 ];
 
 /** SVG icon helper */

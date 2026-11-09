@@ -78,12 +78,8 @@ export async function getOwnerApplications(params?: {
     if (params?.status && params.status !== "All") {
         query.set("status", params.status);
     }
-    if (params?.page) {
-        query.set("page", String(params.page));
-    }
-    if (params?.pageSize) {
-        query.set("pageSize", String(params.pageSize));
-    }
+    query.set("page", String(params?.page ?? 1));
+    query.set("pageSize", String(params?.pageSize ?? 20));
 
     const qs = query.toString() ? `?${query.toString()}` : "";
 

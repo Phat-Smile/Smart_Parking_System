@@ -11,6 +11,7 @@ using ParkingSystem.Parking.Application.ParkingLayout.GetMotorbikeAvailability;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 using ParkingSystem.Parking.Application.ParkingLots.SearchNearbyParkingLots;
+using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
 using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
@@ -28,7 +29,12 @@ internal static class ParkingLotEndpoints
         string? Address,
         decimal? Latitude,
         decimal? Longitude,
-        string? Type);
+        string? Type,
+        ParkingLotFeatures? Features = null);
+
+    private static IReadOnlyList<string> ParseFilterValues(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? [] : value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.ToLowerInvariant()).Distinct().ToArray();
 
     // Only a status name selects a status: Enum.TryParse also takes numbers and comma lists (see ParkingLotApprovalStatusParser).
     private static IResult? ParseStatusFilter(string? status, out ParkingLotApprovalStatus? approvalStatus)
@@ -71,7 +77,8 @@ internal static class ParkingLotEndpoints
                             request.Address ?? string.Empty,
                             request.Latitude,
                             request.Longitude,
-                            request.Type ?? string.Empty),
+                            request.Type ?? string.Empty,
+                            request.Features),
                         cancellationToken);
                 }
                 catch (DuplicateParkingLotException)
@@ -188,6 +195,30 @@ internal static class ParkingLotEndpoints
             .WithSummary("List approved parking lots, optionally filtered by vehicle type and arrival time")
             .WithDescription("Returns approved lots only. Optional vehicleType=Car|Motorbike matches a configured zone. Optional arrivalAt (ISO 8601 with offset) keeps only lots open at that time, using configured local opening hours. Without filters the original catalog is returned. Authentication is not required.")
             .Produces<IReadOnlyList<ParkingLotCatalogItem>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem();
+
+        app.MapGet("/api/parking/lots/search", async (
+                decimal? latitude, decimal? longitude, double? radiusKm, string? vehicleType,
+                decimal? maxPrice, bool? availableOnly, bool? prebookableOnly,
+                string? compatibility, string? amenities, string? sort, int? limit,
+                ISender sender, CancellationToken cancellationToken) =>
+            {
+                VehicleType? selectedType = null;
+                if (vehicleType is not null)
+                {
+                    if (!Enum.GetNames<VehicleType>().Contains(vehicleType, StringComparer.OrdinalIgnoreCase))
+                        return Results.ValidationProblem(new Dictionary<string, string[]> { ["vehicleType"] = ["Use Car or Motorbike."] });
+                    selectedType = Enum.Parse<VehicleType>(vehicleType, true);
+                }
+                var results = await sender.Send(new SearchCustomerLotsQuery(latitude, longitude, radiusKm ?? 5,
+                    selectedType, maxPrice, availableOnly ?? false, sort ?? "recommended", limit ?? 50,
+                    prebookableOnly ?? false, ParseFilterValues(compatibility), ParseFilterValues(amenities)), cancellationToken);
+                return Results.Ok(results);
+            })
+            .AllowAnonymous()
+            .WithName("SearchCustomerParkingLots")
+            .WithSummary("Search approved lots by price, live availability, vehicle type and distance")
+            .Produces<IReadOnlyList<CustomerLotSearchItem>>(StatusCodes.Status200OK)
             .ProducesValidationProblem();
 
         app.MapGet("/api/parking/lots/nearby", async (

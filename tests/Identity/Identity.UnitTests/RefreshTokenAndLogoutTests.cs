@@ -485,6 +485,8 @@ public sealed class RefreshTokenAndLogoutTests
         public int AccessTokenExpirationSeconds => expirationSeconds;
 
         public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => token;
+
+        public string IssueAccessToken(Account account, Guid sessionId, string authenticationMethods, DateTimeOffset nowUtc) => token;
     }
 
     private sealed class FakeAccountRepository(IEnumerable<Account> initial) : IAccountRepository

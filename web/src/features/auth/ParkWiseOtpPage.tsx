@@ -12,6 +12,8 @@ import {
     readPendingVerificationCooldown,
     rememberPendingVerificationCooldown,
     readPendingRole,
+    readPendingCredentials,
+    clearPendingCredentials,
 } from "./pendingVerification";
 import { resendParkWiseOtp, verifyParkWiseEmail } from "./emailVerificationApi";
 import { loginParkWiseAccount } from "./loginParkWiseAccount";
@@ -20,8 +22,7 @@ import { ApiError } from "@/shared/errors/api-error";
 
 // The verification UI uses the six-digit code from the registration flow.
 const OTP_LENGTH = 6;
-// The owner application needs a signed-in account; verifying the email does not sign in.
-const OWNER_ONBOARDING_LOGIN = "/login?redirect=%2Fowner%2Fonboarding";
+const OWNER_ONBOARDING_TARGET = "/owner/onboarding";
 const subscribePendingVerification = () => () => {};
 
 export function ParkWiseOtpPage({
@@ -133,7 +134,7 @@ export function ParkWiseOtpPage({
                 // ignore
             }
         }
-        const targetUrl = isOwner ? "/owner/onboarding" : "/login";
+        const targetUrl = isOwner ? OWNER_ONBOARDING_TARGET : "/login";
         const timer = window.setTimeout(() => router.replace(targetUrl), 1500);
         return () => window.clearTimeout(timer);
     }, [verified, router, isOwner]);
@@ -154,6 +155,16 @@ export function ParkWiseOtpPage({
             const result = await verifyParkWiseEmail(email!, code);
             if (!result.isVerified)
                 throw new Error("Verification was not confirmed.");
+
+            const creds = readPendingCredentials();
+            if (creds && creds.email.toLowerCase() === email?.toLowerCase()) {
+                try {
+                    await loginParkWiseAccount(creds.email, creds.password);
+                } catch {
+                    // Ignore auto-login errors and allow user to continue
+                }
+            }
+            clearPendingCredentials();
             clearPendingVerification();
             if (isOwner && email) {
                 let pwd = "";
@@ -361,12 +372,12 @@ export function ParkWiseOtpPage({
                         </h2>
                         <p>
                             {isOwner
-                                ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang hồ sơ pháp lý..."
+                                ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang hoàn tất hồ sơ..."
                                 : "Account activated. Redirecting to login..."}
                         </p>
                         {isOwner ? (
                             <Link
-                                href="/owner/onboarding"
+                                href={OWNER_ONBOARDING_TARGET}
                                 className="parkwise-login-submit"
                                 style={{
                                     display: "inline-block",
@@ -379,7 +390,7 @@ export function ParkWiseOtpPage({
                                     fontWeight: 700,
                                 }}
                             >
-                                Tiếp tục: Nhập hồ sơ pháp lý đối tác →
+                                Tiếp tục: Hoàn tất hồ sơ đối tác →
                             </Link>
                         ) : (
                             <Link

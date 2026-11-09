@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import QRCode from "react-qr-code";
+import { Barcode1D } from "@/shared/ui/Barcode1D";
 import type { PaymentStatus, SessionStatus, VehicleType } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
@@ -166,14 +168,31 @@ export function QrCodeModal({
         setTimeout(() => setCopied(false), 2000);
     }
 
+    function printTicket() {
+        window.print();
+    }
+
     return (
         <div className="staff-modal-backdrop" onClick={onClose}>
             <div
-                className="staff-modal-card staff-qr-modal"
+                className="staff-modal-card staff-qr-modal print:shadow-none"
                 onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: 420 }}
             >
-                <div className="staff-modal-head">
-                    <h3>{t("qrTicketTitle")}</h3>
+                <div className="staff-modal-head no-print">
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                        }}
+                    >
+                        <span style={{ fontSize: 18 }}>🎫</span>
+                        <h3>
+                            {t("qrTicketTitle") ||
+                                "Phiếu Gửi Xe Thông Minh (Thermal Ticket)"}
+                        </h3>
+                    </div>
                     <button
                         type="button"
                         className="staff-modal-close"
@@ -183,238 +202,220 @@ export function QrCodeModal({
                     </button>
                 </div>
 
-                <div className="staff-qr-body">
-                    <p className="staff-qr-desc">{t("qrTicketDesc")}</p>
-
-                    <div className="staff-qr-box">
-                        <svg
-                            viewBox="0 0 100 100"
-                            className="staff-qr-svg"
-                            aria-label="QR Code"
+                {/* Print-ready Thermal Ticket Layout */}
+                <div
+                    id="thermal-receipt"
+                    style={{
+                        background: "#ffffff",
+                        color: "#171717",
+                        padding: "16px 20px",
+                        borderRadius: 8,
+                        boxShadow: "inset 0 0 0 1px #e5e5e5",
+                        fontFamily: "monospace",
+                    }}
+                >
+                    <div
+                        style={{
+                            textAlign: "center",
+                            borderBottom: "1px dashed #737373",
+                            paddingBottom: 8,
+                            marginBottom: 12,
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontSize: 14,
+                                fontWeight: 900,
+                                letterSpacing: "0.08em",
+                            }}
                         >
-                            <rect width="100" height="100" fill="#fff" />
-                            {/* QR Finder Corners */}
-                            <rect
-                                x="10"
-                                y="10"
-                                width="26"
-                                height="26"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="14"
-                                y="14"
-                                width="18"
-                                height="18"
-                                fill="#fff"
-                            />
-                            <rect
-                                x="18"
-                                y="18"
-                                width="10"
-                                height="10"
-                                fill="#171717"
-                            />
-
-                            <rect
-                                x="64"
-                                y="10"
-                                width="26"
-                                height="26"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="68"
-                                y="14"
-                                width="18"
-                                height="18"
-                                fill="#fff"
-                            />
-                            <rect
-                                x="72"
-                                y="18"
-                                width="10"
-                                height="10"
-                                fill="#171717"
-                            />
-
-                            <rect
-                                x="10"
-                                y="64"
-                                width="26"
-                                height="26"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="14"
-                                y="68"
-                                width="18"
-                                height="18"
-                                fill="#fff"
-                            />
-                            <rect
-                                x="18"
-                                y="72"
-                                width="10"
-                                height="10"
-                                fill="#171717"
-                            />
-
-                            {/* Data matrix patterns */}
-                            <rect
-                                x="42"
-                                y="12"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="52"
-                                y="16"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="42"
-                                y="24"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="48"
-                                y="32"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="14"
-                                y="44"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="26"
-                                y="48"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="36"
-                                y="42"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="44"
-                                y="48"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="56"
-                                y="44"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="68"
-                                y="48"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="80"
-                                y="42"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="42"
-                                y="58"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="54"
-                                y="62"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="64"
-                                y="66"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="76"
-                                y="72"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="46"
-                                y="78"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="62"
-                                y="82"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                            <rect
-                                x="84"
-                                y="80"
-                                width="6"
-                                height="6"
-                                fill="#171717"
-                            />
-                        </svg>
+                            PARKWISE SMART PARKING
+                        </div>
+                        <div
+                            style={{
+                                fontSize: 11,
+                                color: "#525252",
+                                fontWeight: 700,
+                            }}
+                        >
+                            TRẠM KIỂM SOÁT CỔNG VÀO (ENTRY GATE)
+                        </div>
+                        <div style={{ fontSize: 10, color: "#737373" }}>
+                            Mã trạm: GATE-01 • TP. HỒ CHÍ MINH
+                        </div>
                     </div>
 
-                    <div className="staff-qr-details">
-                        <div className="staff-qr-row">
-                            <span>{t("sessionsLicensePlate")}</span>
-                            <PlateBadge plate={plateNumber} />
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            margin: "10px 0",
+                            padding: 8,
+                            background: "#ffffff",
+                            borderRadius: 4,
+                            border: "1px solid #e5e5e5",
+                        }}
+                    >
+                        <QRCode value={qrToken} size={130} />
+                        <span
+                            style={{
+                                fontSize: 10,
+                                fontFamily: "monospace",
+                                color: "#737373",
+                                marginTop: 4,
+                            }}
+                        >
+                            MÃ PHIÊN QR HỢP LỆ
+                        </span>
+                    </div>
+
+                    <div
+                        style={{
+                            margin: "10px 0",
+                            padding: "6px 0",
+                            borderTop: "1px dashed #a3a3a3",
+                            borderBottom: "1px dashed #a3a3a3",
+                        }}
+                    >
+                        <Barcode1D
+                            value={plateNumber || "PARKWISE"}
+                            height={38}
+                        />
+                    </div>
+
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            fontSize: 12,
+                            color: "#262626",
+                            marginTop: 10,
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                            }}
+                        >
+                            <span style={{ color: "#737373" }}>
+                                Biển số xe:
+                            </span>
+                            <span
+                                style={{
+                                    fontWeight: 800,
+                                    fontSize: 13,
+                                    background: "#f5f5f5",
+                                    padding: "2px 8px",
+                                    borderRadius: 4,
+                                    border: "1px solid #d4d4d4",
+                                    color: "#171717",
+                                }}
+                            >
+                                {plateNumber}
+                            </span>
                         </div>
-                        <div className="staff-qr-row">
-                            <span>{t("sessionsVehicle")}</span>
-                            <strong>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                            }}
+                        >
+                            <span style={{ color: "#737373" }}>Loại xe:</span>
+                            <strong style={{ color: "#171717" }}>
                                 {vehicleType === "Car"
-                                    ? t("staffCar")
-                                    : t("staffMotorbike")}
+                                    ? "Ô TÔ (4-7 Chỗ)"
+                                    : "XE MÁY"}
                             </strong>
                         </div>
-                        <div className="staff-qr-row">
-                            <span>{t("sessionsEntryTime")}</span>
-                            <strong>{formatDateTime(entryTime)}</strong>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                            }}
+                        >
+                            <span style={{ color: "#737373" }}>Giờ vào:</span>
+                            <strong style={{ color: "#171717" }}>
+                                {formatDateTime(entryTime)}
+                            </strong>
                         </div>
-                        <div className="staff-qr-row">
-                            <span>QR Token</span>
-                            <code className="staff-token-code">{qrToken}</code>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                fontSize: 10,
+                                color: "#737373",
+                            }}
+                        >
+                            <span>Mã phiên:</span>
+                            <span
+                                style={{
+                                    maxWidth: 160,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {qrToken.slice(0, 16)}...
+                            </span>
                         </div>
+                    </div>
+
+                    <div
+                        style={{
+                            borderTop: "1px dashed #737373",
+                            paddingTop: 8,
+                            marginTop: 12,
+                            textAlign: "center",
+                            fontSize: 10,
+                            color: "#737373",
+                            lineHeight: 1.4,
+                        }}
+                    >
+                        <p style={{ fontWeight: 700, margin: 0 }}>
+                            * Quý khách vui lòng giữ vé để đối chiếu khi ra bãi
+                            *
+                        </p>
+                        <p style={{ margin: 0 }}>
+                            Quét mã QR để thanh toán phí đỗ xe tự động
+                        </p>
+                        <p
+                            style={{
+                                fontWeight: 800,
+                                color: "#262626",
+                                margin: "2px 0 0 0",
+                            }}
+                        >
+                            Hotline hỗ trợ: 1900 8888 (24/7)
+                        </p>
                     </div>
                 </div>
 
-                <div className="staff-modal-actions">
+                <div
+                    className="staff-modal-actions no-print"
+                    style={{ display: "flex", gap: 8, marginTop: 16 }}
+                >
+                    <button
+                        type="button"
+                        className="staff-btn staff-btn-primary"
+                        onClick={printTicket}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: "#059669",
+                        }}
+                    >
+                        <span>🖨️</span>
+                        <span>In vé nhiệt (80mm)</span>
+                    </button>
                     <button
                         type="button"
                         className="staff-btn staff-btn-secondary"
@@ -424,7 +425,7 @@ export function QrCodeModal({
                     </button>
                     <button
                         type="button"
-                        className="staff-btn staff-btn-primary"
+                        className="staff-btn staff-btn-secondary"
                         onClick={onClose}
                     >
                         {t("qrDone")}
@@ -449,3 +450,11 @@ export function feeText(
         ? "Chưa tính được phí"
         : format(value);
 }
+
+export { RealCameraFeed } from "./RealCameraFeed";
+export {
+    IoTBarrierGateSimulator,
+    type IoTBarrierGateSimulatorProps,
+    type BarrierPhysicalState,
+    type VehicleApproachState,
+} from "./IoTBarrierGateSimulator";

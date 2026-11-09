@@ -7,6 +7,7 @@ import {
     describeStaffError,
     findSessionByQr,
     getAssignedLot,
+    listLotInsideSessions,
     openParkingSession,
 } from "./staffApi";
 
@@ -144,6 +145,49 @@ describe("staffApi integration", () => {
         });
     });
 
+    describe("listLotInsideSessions", () => {
+        it("loads Active and Paid sessions and merges them, never Completed or Cancelled", async () => {
+            const row = (id: string, status: string) => ({
+                sessionId: id,
+                plateNumber: id,
+                vehicleType: "Motorbike",
+                status,
+                entryTime: "2026-10-30T01:00:00Z",
+                slotCode: null,
+            });
+            const page = (items: unknown[]) =>
+                new Response(
+                    JSON.stringify({
+                        items,
+                        totalCount: items.length,
+                        page: 1,
+                        pageSize: 100,
+                    }),
+                    {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    },
+                );
+            const fetchMock = vi
+                .fn()
+                .mockResolvedValueOnce(page([row("A", "Active")]))
+                .mockResolvedValueOnce(page([row("P", "Paid")]));
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await listLotInsideSessions("lot-1");
+
+            expect(result.items.map((i) => i.status)).toEqual([
+                "Active",
+                "Paid",
+            ]);
+            expect(result.totalCount).toBe(2);
+            const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+            expect(urls).toHaveLength(2);
+            expect(urls[0]).toContain("status=Active");
+            expect(urls[1]).toContain("status=Paid");
+        });
+    });
+
     describe("findSessionByQr", () => {
         it("sends GET to /api/parking/sessions/by-qr/{qrToken}", async () => {
             const qrToken = "QR-TEST-51K";
@@ -273,6 +317,51 @@ describe("staffApi integration", () => {
         it("handles 401 unauthenticated", () => {
             const err = new ApiError(401, undefined, undefined);
             expect(describeStaffError(err)).toContain("session has expired");
+        });
+
+        it("sends GET to /api/identity/accounts/me for staff profile", async () => {
+            const mockProfile = {
+                id: "account-123",
+                email: "staff.tuan@smartpark.vn",
+                fullName: "Nguyễn Văn Tuấn",
+                phoneNumber: "0909112233",
+                role: "Staff",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockProfile), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const { getStaffProfile } = await import("./staffApi");
+            const res = await getStaffProfile();
+            expect(res?.fullName).toBe("Nguyễn Văn Tuấn");
+            expect(res?.email).toBe("staff.tuan@smartpark.vn");
+        });
+
+        it("fetches assigned shift from /api/staff-shifts", async () => {
+            const mockShift = {
+                shift: "afternoon",
+                shiftName: "Ca 2 - Chiều",
+                hours: "14:00 - 22:00",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockShift), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const { getStaffAssignedShift } = await import("./staffApi");
+            const res = await getStaffAssignedShift("lot-1", "acc-1");
+            expect(res.shift).toBe("afternoon");
+            expect(res.shiftName).toBe("Ca 2 - Chiều");
+            expect(res.hours).toBe("14:00 - 22:00");
         });
     });
 });

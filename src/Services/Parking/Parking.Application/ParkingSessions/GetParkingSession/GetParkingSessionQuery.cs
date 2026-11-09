@@ -12,7 +12,7 @@ namespace ParkingSystem.Parking.Application.ParkingSessions.GetParkingSession;
 public sealed record GetParkingSessionQuery(Guid SessionId, Guid CallerId) : IRequest<Result<ParkingSessionDetail>>;
 
 // SlotCode: the slot a walk-in car was given (US-PARK-007) while it still holds it; null for motorbikes and once released.
-// Decision 2026-10-27: PaidAtUtc and GraceUntilUtc stay null until US-PAY-006 marks sessions Paid (GraceUntilUtc = PaidAtUtc + 15 minutes, BR-09.d).
+// PaidAtUtc is the last payment; GraceUntilUtc = PaidAtUtc + 15 minutes (BR-09.d). Both null until the first payment.
 public sealed record ParkingSessionDetail(
     Guid SessionId,
     Guid LotId,
@@ -59,7 +59,7 @@ public sealed class GetParkingSessionQueryHandler(IParkingSessionRepository sess
             session.EntryTime,
             slotCodes.GetValueOrDefault(session.Id),
             qrToken,
-            PaidAtUtc: null,
-            GraceUntilUtc: null));
+            session.LastPaidAt,
+            session.ExitWindowEndsAt));
     }
 }

@@ -69,7 +69,7 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
     activeFloor: "all",
     viewMode: "both",
     lots: INITIAL_LOTS,
-    currentLotId: 1,
+    currentLotId: 0,
     reservations: INITIAL_RESERVATIONS,
     activities: INITIAL_ACTIVITIES,
     reportFilter: { mode: "day", date: "2025-10-20" },

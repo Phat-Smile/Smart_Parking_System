@@ -3,12 +3,16 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Identity;
+using ParkingSystem.Parking.Application.Common.Realtime;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Contracts.Events.Parking;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 
@@ -102,7 +106,10 @@ public sealed class OpenParkingSessionCommandHandler(
     IParkingUnitOfWork unitOfWork,
     ISlotDesignator slots,
     IHeldQuotaProvider heldQuota,
-    IZoneLabelReader zoneLabels) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
+    IZoneLabelReader zoneLabels,
+    IBookingCheckInClient bookingClient,
+    IParkingRealtimeNotifier? realtimeNotifier = null,
+    IOutboxWriter? outbox = null) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
     public async Task<Result<OpenedParkingSession>> Handle(OpenParkingSessionCommand request, CancellationToken cancellationToken)
     {
@@ -123,29 +130,52 @@ public sealed class OpenParkingSessionCommandHandler(
         // A plate match links the session for history and fees only; it is not authentication (BR-05.f).
         var owner = await plateOwners.FindByPlateAsync(plate, cancellationToken);
 
-        // US-PARK-007: asked before the transaction, so no lot lock is held while waiting for Booking.
-        // Every car reaching this command is a walk-in until US-PARK-004 adds cars with a booking.
+        var sessionId = Guid.NewGuid();
+        var entryTime = clock.UtcNow;
+
+        // US-PARK-004 (MF-08) & US-PARK-007: asked before the transaction, so no lot lock is held while waiting for Booking.
+        CheckedInReservation? checkedInBooking = null;
         int? held = null;
         if (vehicleType == VehicleType.Car)
         {
-            held = await heldQuota.GetHeldReservationsAsync(request.LotId, cancellationToken);
-            if (held is null)
-                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.HeldQuotaUnavailable);
+            // Kiểm tra xe có đặt chỗ trước đang Confirmed tại bãi trong khung giờ hay không (US-PARK-004)
+            checkedInBooking = await bookingClient.CheckInReservationAsync(
+                request.LotId,
+                plate,
+                entryTime,
+                sessionId,
+                cancellationToken);
+
+            // Nếu không có đặt chỗ (Walk-in), kiểm tra quota để đảm bảo không lấn vào số chỗ đã giữ (US-PARK-007)
+            if (checkedInBooking is null)
+            {
+                held = await heldQuota.GetHeldReservationsAsync(request.LotId, cancellationToken);
+                if (held is null)
+                    return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.HeldQuotaUnavailable);
+            }
         }
 
         // Taking the space or slot and saving the session commit together: a failed save gives it back.
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 
-        var sessionId = Guid.NewGuid();
-        var entryTime = clock.UtcNow;
-
         DesignatedSlot? slot = null;
         if (vehicleType == VehicleType.Car)
         {
-            // BR-02.d: slots kept for held reservations are not offered to walk-ins.
             var available = await slots.LockLotAndCountAvailableCarSlotsAsync(request.LotId, cancellationToken);
-            if (available - held!.Value <= 0)
-                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+
+            if (checkedInBooking is not null)
+            {
+                // US-PARK-004: Xe có đặt chỗ đã được giữ slot trước đó trong held quota.
+                // Chỉ từ chối nếu bãi thực tế không còn slot trống nào khả dụng.
+                if (available <= 0)
+                    return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+            }
+            else
+            {
+                // BR-02.d: slots kept for held reservations are not offered to walk-ins.
+                if (available - held!.Value <= 0)
+                    return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+            }
 
             // BR-04.a, BR-04.g: one Available slot becomes Assigned to this session in one statement. Null only when a slot
             // changed state after the count without the lock (for example staff set it to Maintenance).
@@ -173,16 +203,45 @@ public sealed class OpenParkingSessionCommandHandler(
             vehicleType,
             entryTime,
             SessionQrToken.New(),
-            owner?.UserId,
-            owner?.VehicleId,
-            space?.ZoneId ?? slot?.ZoneId);
+            checkedInBooking?.UserId ?? owner?.UserId,
+            checkedInBooking?.VehicleId ?? owner?.VehicleId,
+            space?.ZoneId ?? slot?.ZoneId,
+            checkedInBooking?.ReservationId);
         sessions.Add(session);
+        if (session.UserId is { } customerId)
+            outbox?.Enqueue(new ParkingSessionOpenedIntegrationEvent(session.Id, customerId,
+                session.LotId, session.EntryTime), "parking.session-opened.v1", 1);
 
         // Two entry requests for the same plate at the same time: the unique index lets only one win.
         if (!await sessions.TrySaveChangesAsync(cancellationToken))
             return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.SessionAlreadyOpen);
 
         await transaction.CommitAsync(cancellationToken);
+
+        // US-MAP-003: Broadcast realtime status change if slot or motorbike space was assigned
+        if (realtimeNotifier is not null)
+        {
+            if (slot is not null)
+            {
+                await realtimeNotifier.NotifySlotStatusChangedAsync(
+                    request.LotId,
+                    slot.SlotId,
+                    slot.SlotCode,
+                    "Assigned",
+                    "Available",
+                    entryTime,
+                    cancellationToken);
+            }
+            else if (space is not null)
+            {
+                await realtimeNotifier.NotifyLotOccupancyChangedAsync(
+                    request.LotId,
+                    0,
+                    space.AvailableSpaces,
+                    entryTime,
+                    cancellationToken);
+            }
+        }
 
         // The driver is told the slot with its zone and floor (BR-04.a), like the motorbike zone printed with the QR.
         ZoneLabel? slotZone = null;
@@ -197,7 +256,7 @@ public sealed class OpenParkingSessionCommandHandler(
             session.CustomerType.ToString(),
             session.Status.ToString(),
             session.EntryTime,
-            owner is not null,
+            owner is not null || checkedInBooking?.UserId is not null,
             session.ReservationId,
             session.QrToken,
             session.ZoneId,
