@@ -31,6 +31,12 @@ export function AddLotModal() {
     const [lat, setLat] = useState("");
     const [lng, setLng] = useState("");
     const [lotType, setLotType] = useState<LotType>("Outdoor");
+    const [supportsElectricVehicles, setSupportsElectricVehicles] =
+        useState(false);
+    const [supportsLargeVehicles, setSupportsLargeVehicles] = useState(false);
+    const [hasEvCharging, setHasEvCharging] = useState(false);
+    const [isCovered, setIsCovered] = useState(false);
+    const [hasCctv, setHasCctv] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -66,6 +72,13 @@ export function AddLotModal() {
                 latitude,
                 longitude,
                 type: lotType,
+                features: {
+                    supportsElectricVehicles,
+                    supportsLargeVehicles,
+                    hasEvCharging,
+                    isCovered,
+                    hasCctv,
+                },
             });
             await loadOwnerLots();
             if (res?.id) setSelectedLotId(localLotId(res.id));
@@ -74,6 +87,11 @@ export function AddLotModal() {
             setAddr("");
             setLat("");
             setLng("");
+            setSupportsElectricVehicles(false);
+            setSupportsLargeVehicles(false);
+            setHasEvCharging(false);
+            setIsCovered(false);
+            setHasCctv(false);
         } catch (err: unknown) {
             setErrorMsg(describeRegisterError(err));
         } finally {
@@ -325,6 +343,128 @@ export function AddLotModal() {
                                 <option value="MultiStorey">Nhiều tầng</option>
                                 <option value="Underground">Tầng hầm</option>
                             </select>
+                        </div>
+                    </div>
+
+                    {/* Tiện ích bãi xe */}
+                    <div style={{ marginTop: 6 }}>
+                        <label
+                            style={{
+                                display: "block",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "#0f1b3d",
+                                marginBottom: 6,
+                            }}
+                        >
+                            Tiện ích bãi đỗ (Features)
+                        </label>
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr",
+                                gap: 8,
+                            }}
+                        >
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={supportsElectricVehicles}
+                                    onChange={(e) =>
+                                        setSupportsElectricVehicles(
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                <span>🚗 Xe điện (EV)</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={hasEvCharging}
+                                    onChange={(e) =>
+                                        setHasEvCharging(e.target.checked)
+                                    }
+                                />
+                                <span>⚡ Trạm sạc EV</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={hasCctv}
+                                    onChange={(e) =>
+                                        setHasCctv(e.target.checked)
+                                    }
+                                />
+                                <span>📹 Camera an ninh</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={isCovered}
+                                    onChange={(e) =>
+                                        setIsCovered(e.target.checked)
+                                    }
+                                />
+                                <span>☂️ Có mái che</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={supportsLargeVehicles}
+                                    onChange={(e) =>
+                                        setSupportsLargeVehicles(
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                <span>🚛 Xe cỡ lớn / SUV</span>
+                            </label>
                         </div>
                     </div>
 

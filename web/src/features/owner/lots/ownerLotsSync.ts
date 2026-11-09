@@ -58,6 +58,7 @@ export function toOwnerLot(item: OwnerParkingLotItem): ParkingLot {
         ap: STATUS[item.approvalStatus] ?? "pending",
         why: item.rejectionReason ?? undefined,
         zones: [],
+        features: item.features,
     };
 }
 

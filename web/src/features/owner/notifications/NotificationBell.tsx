@@ -60,7 +60,15 @@ export function NotificationBell({ variant }: NotificationBellProps) {
     markAsRead,
     markAllAsRead,
     categoryPreferences,
+    fetchNotifications,
+    isLoading,
   } = useNotificationStore();
+
+  useEffect(() => {
+    if (mounted) {
+      void fetchNotifications();
+    }
+  }, [mounted, fetchNotifications]);
 
   // Đóng bảng thông báo ngay khi chuyển trang theo chuẩn React
   const [prevPath, setPrevPath] = useState(pathname);

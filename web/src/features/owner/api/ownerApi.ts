@@ -5,12 +5,21 @@ import { gatewayFetch } from "@/shared/api/client";
 // ==========================================
 export type ParkingLotTypeEnum = "Outdoor" | "Underground" | "MultiStorey";
 
+export interface ParkingLotFeaturesRequest {
+    supportsElectricVehicles?: boolean;
+    supportsLargeVehicles?: boolean;
+    hasEvCharging?: boolean;
+    isCovered?: boolean;
+    hasCctv?: boolean;
+}
+
 export interface RegisterParkingLotRequest {
     name: string;
     address: string;
     latitude: number;
     longitude: number;
     type: ParkingLotTypeEnum;
+    features?: ParkingLotFeaturesRequest;
 }
 
 export interface RegisteredParkingLotResponse {
@@ -22,6 +31,7 @@ export interface RegisteredParkingLotResponse {
     longitude: number;
     type: string;
     approvalStatus: "Pending" | string;
+    features?: ParkingLotFeaturesRequest;
 }
 
 // ==========================================
@@ -71,6 +81,7 @@ export interface ParkingLotDetail {
     longitude: number;
     type: string;
     approvalStatus: string;
+    features?: ParkingLotFeaturesRequest;
 }
 
 /**
@@ -89,6 +100,7 @@ export async function registerParkingLotApi(
             latitude: req.latitude,
             longitude: req.longitude,
             type: req.type,
+            features: req.features,
         }),
     });
 }
@@ -135,6 +147,7 @@ export interface OwnerParkingLotItem {
     rejectionReason?: string | null;
     hasOpeningHours?: boolean;
     hasPricing?: boolean;
+    features?: ParkingLotFeaturesRequest;
 }
 
 export interface OwnerParkingLotsPagedResult {

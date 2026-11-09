@@ -118,6 +118,13 @@ export interface ParkingLot {
     ap: ApprovalStatus;
     why?: string;
     zones: ParkingZone[];
+    features?: {
+        supportsElectricVehicles?: boolean;
+        supportsLargeVehicles?: boolean;
+        hasEvCharging?: boolean;
+        isCovered?: boolean;
+        hasCctv?: boolean;
+    };
 }
 
 export interface Reservation {
