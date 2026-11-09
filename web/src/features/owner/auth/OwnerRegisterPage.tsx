@@ -185,6 +185,11 @@ export function OwnerRegisterPage({
 
             rememberRegisteredProfileName(account.email, account.fullName);
             rememberPendingRole("owner");
+            try {
+                window.sessionStorage.setItem("parkwise:pending-login-pwd", values.password);
+            } catch {
+                // ignore
+            }
             if (!rememberPendingVerification(account.email, 60)) {
                 setSubmitError(
                     isVi
@@ -311,12 +316,12 @@ export function OwnerRegisterPage({
                     flex: 1,
                     width: "100%",
                     maxWidth: "100%",
-                    paddingTop: "64px",
-                    paddingBottom: "36px",
+                    paddingTop: "calc(var(--parkwise-nav-height, 66px) + 32px)",
+                    paddingBottom: "48px",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    justifyContent: "center",
+                    justifyContent: "flex-start",
                     margin: "0 auto",
                 }}
             >
@@ -1501,7 +1506,9 @@ export function OwnerRegisterPage({
                     display: flex !important;
                     flex-direction: column !important;
                     align-items: center !important;
-                    justifyContent: center !important;
+                    justify-content: flex-start !important;
+                    padding-top: calc(var(--parkwise-nav-height, 66px) + 32px) !important;
+                    padding-bottom: 48px !important;
                 }
                 .owner-reg-wrapper {
                     width: 100% !important;
@@ -1520,14 +1527,34 @@ export function OwnerRegisterPage({
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
                 }
+                @media (max-width: 1023px) {
+                    .parkwise-owner-register-main {
+                        padding-top: calc(var(--parkwise-nav-height, 66px) + 28px) !important;
+                        padding-bottom: 36px !important;
+                    }
+                }
                 @media (max-width: 900px) {
                     .owner-reg-container {
                         grid-template-columns: 1fr !important;
                     }
                 }
+                @media (max-width: 767px) {
+                    .parkwise-owner-register-main {
+                        padding-top: calc(var(--parkwise-nav-height, 64px) + 24px) !important;
+                        padding-bottom: 28px !important;
+                    }
+                    .owner-reg-wrapper {
+                        padding: 0 16px !important;
+                    }
+                }
                 @media (max-width: 540px) {
                     .owner-reg-grid2 {
                         grid-template-columns: 1fr !important;
+                    }
+                }
+                @media (max-width: 480px) {
+                    .owner-reg-wrapper {
+                        padding: 0 12px !important;
                     }
                 }
             `}</style>

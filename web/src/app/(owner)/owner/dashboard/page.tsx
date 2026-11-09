@@ -15,6 +15,7 @@ import {
     getMyOwnerApplication,
     type MyOwnerApplicationDto,
 } from "@/features/owner/api/ownerLegalApi";
+import { loadOwnerLots } from "@/features/owner/lots/ownerLotsSync";
 
 export default function DashboardPage() {
     const session = useSyncExternalStore(
@@ -46,6 +47,7 @@ export default function DashboardPage() {
                         page: 1,
                         pageSize: 20,
                     })),
+                    loadOwnerLots().catch(() => []),
                 ]);
 
                 if (active) {
@@ -110,6 +112,70 @@ export default function DashboardPage() {
                 title="Tổng quan vận hành"
                 subtitle="Quản lý doanh thu, bãi xe và hoạt động kinh doanh"
             />
+
+            {/* Thanh điều hướng 2 chế độ: Bãi xe thật vs Bản mẫu Sandbox */}
+            <div
+                style={{
+                    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                    borderRadius: 18,
+                    padding: "16px 24px",
+                    marginBottom: 24,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 16,
+                    color: "#fff",
+                    boxShadow: "0 4px 20px rgba(15,23,42,0.12)",
+                }}
+            >
+                <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span
+                            style={{
+                                background: "#eafe89",
+                                color: "#09090b",
+                                padding: "3px 10px",
+                                borderRadius: 999,
+                                fontSize: 11.5,
+                                fontWeight: 800,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                            }}
+                        >
+                            Chế độ chính thức
+                        </span>
+                        <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: "#fff" }}>
+                            Bảng Điều Hành Bãi Xe Của Tôi
+                        </h2>
+                    </div>
+                    <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94a3b8" }}>
+                        Theo dõi thời gian thực các cơ sở bãi xe, chính sách tỷ lệ 30/70, tiền cọc và nhân viên trực bãi.
+                    </p>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <Link
+                        href="/owner/simulation"
+                        style={{
+                            background: "rgba(255,255,255,0.08)",
+                            border: "1px solid rgba(255,255,255,0.18)",
+                            color: "#eafe89",
+                            padding: "9px 18px",
+                            borderRadius: 10,
+                            fontWeight: 700,
+                            fontSize: 13,
+                            textDecoration: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            transition: "all 0.15s ease",
+                        }}
+                    >
+                        🎮 Xem Bản mẫu mô phỏng (Sandbox Demo) →
+                    </Link>
+                </div>
+            </div>
 
             {/* Thông báo nếu tài khoản còn đang chờ duyệt hồ sơ */}
             {isPendingApproval && (
@@ -512,18 +578,74 @@ export default function DashboardPage() {
                                         }}
                                     >
                                         <Link
-                                            href={`/owner/layout/3d`}
+                                            href={`/owner/layout/2d`}
                                             style={{
                                                 fontSize: 12,
                                                 fontWeight: 700,
                                                 color: "#0284c7",
                                                 textDecoration: "none",
-                                                padding: "4px 8px",
+                                                padding: "5px 10px",
                                                 background: "#f0f9ff",
                                                 borderRadius: 6,
                                             }}
                                         >
-                                            Sơ đồ 2D/3D
+                                            📐 Sơ đồ 2D
+                                        </Link>
+                                        <Link
+                                            href={`/owner/layout/3d`}
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                color: "#475569",
+                                                textDecoration: "none",
+                                                padding: "5px 10px",
+                                                background: "#f8fafc",
+                                                borderRadius: 6,
+                                            }}
+                                        >
+                                            🌐 Sơ đồ 3D
+                                        </Link>
+                                        <Link
+                                            href={`/owner/lots/${lot.id}/policies`}
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                color: "#1e19d8",
+                                                textDecoration: "none",
+                                                padding: "5px 10px",
+                                                background: "#eef2ff",
+                                                borderRadius: 6,
+                                            }}
+                                        >
+                                            ⚖️ Chính sách 30/70 & Cọc
+                                        </Link>
+                                        <Link
+                                            href={`/owner/lots/${lot.id}/staff`}
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                color: "#0f766e",
+                                                textDecoration: "none",
+                                                padding: "5px 10px",
+                                                background: "#f0fdfa",
+                                                borderRadius: 6,
+                                            }}
+                                        >
+                                            👥 Nhân viên trực bãi
+                                        </Link>
+                                        <Link
+                                            href={`/owner/lots/${lot.id}/pricing`}
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                color: "#475569",
+                                                textDecoration: "none",
+                                                padding: "5px 10px",
+                                                background: "#f8fafc",
+                                                borderRadius: 6,
+                                            }}
+                                        >
+                                            💵 Bảng giá
                                         </Link>
                                         <Link
                                             href={`/owner/opening-hours`}
@@ -532,26 +654,12 @@ export default function DashboardPage() {
                                                 fontWeight: 700,
                                                 color: "#475569",
                                                 textDecoration: "none",
-                                                padding: "4px 8px",
+                                                padding: "5px 10px",
                                                 background: "#f8fafc",
                                                 borderRadius: 6,
                                             }}
                                         >
-                                            Giờ hoạt động
-                                        </Link>
-                                        <Link
-                                            href={`/owner/pricing`}
-                                            style={{
-                                                fontSize: 12,
-                                                fontWeight: 700,
-                                                color: "#475569",
-                                                textDecoration: "none",
-                                                padding: "4px 8px",
-                                                background: "#f8fafc",
-                                                borderRadius: 6,
-                                            }}
-                                        >
-                                            Bảng giá & Cọc
+                                            ⏰ Giờ mở cửa
                                         </Link>
                                     </div>
                                 </div>

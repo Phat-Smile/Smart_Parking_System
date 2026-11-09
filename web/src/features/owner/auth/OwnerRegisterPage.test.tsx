@@ -237,4 +237,13 @@ describe("OwnerRegisterPage", () => {
             ),
         ).toBeVisible();
     });
+
+    it("renders registration container with proper vertical spacing below navbar", () => {
+        render(<OwnerRegisterPage />);
+        const main = screen.getByRole("main");
+        expect(main).toHaveClass("parkwise-owner-register-main");
+        expect(main).toHaveStyle({
+            paddingTop: "calc(var(--parkwise-nav-height, 66px) + 32px)",
+        });
+    });
 });

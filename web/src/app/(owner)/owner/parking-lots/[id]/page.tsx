@@ -105,6 +105,20 @@ export default function ParkingLotDetailPage() {
                         <Link href="/owner/parking-lots" className="btn">
                             ← Danh sách
                         </Link>
+                        <Link
+                            href={`/owner/lots/${lot?.backendId || id}/policies`}
+                            className="btn"
+                            style={{ background: "#eef2ff", color: "#1e19d8", fontWeight: 700 }}
+                        >
+                            ⚖️ Chính sách 30/70 & Cọc
+                        </Link>
+                        <Link
+                            href={`/owner/lots/${lot?.backendId || id}/staff`}
+                            className="btn"
+                            style={{ background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }}
+                        >
+                            👥 Nhân viên
+                        </Link>
                         {!isPending &&
                             (editing ? (
                                 <button

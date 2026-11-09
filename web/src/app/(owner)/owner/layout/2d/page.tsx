@@ -29,6 +29,8 @@ function SlotModal({
     onClose: () => void;
 }) {
     const updateSpotStatus = useOwnerStore((s) => s.updateSpotStatus);
+    const updateSpotSensorCode = useOwnerStore((s) => s.updateSpotSensorCode);
+    const [sensorInput, setSensorInput] = useState(spot.sensorCode || "");
     const statusInfo = ST[spot.s];
 
     return (
@@ -69,6 +71,43 @@ function SlotModal({
                         Biển số <b>{spot.p}</b>
                     </p>
                 )}
+
+                {/* Ô nhập mã cảm biến IoT (Sensor Code) */}
+                <div style={{ marginTop: 12, marginBottom: 12 }}>
+                    <label
+                        htmlFor={`sensor-input-${spot.id}`}
+                        style={{
+                            display: "block",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "var(--ink)",
+                            marginBottom: 4,
+                        }}
+                    >
+                        Mã Cảm Biến IoT (Sensor Code):
+                    </label>
+                    <input
+                        id={`sensor-input-${spot.id}`}
+                        type="text"
+                        value={sensorInput}
+                        placeholder="VD: SN-CAR-A01"
+                        onChange={(e) => {
+                            setSensorInput(e.target.value);
+                            updateSpotSensorCode(spot.id, e.target.value);
+                        }}
+                        style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            fontSize: 13,
+                            borderRadius: 8,
+                            border: "1px solid var(--line)",
+                            background: "var(--soft)",
+                            color: "var(--ink)",
+                            outline: "none",
+                            fontWeight: 600,
+                        }}
+                    />
+                </div>
 
                 <p className="mut" style={{ fontSize: 11, marginTop: 10 }}>
                     Đổi trạng thái:
@@ -163,6 +202,7 @@ export default function Layout2DPage() {
                             return {
                                 id: String(sp.id),
                                 slotCode: `C-${sp.r}${sp.n + 1}`,
+                                sensorCode: sp.sensorCode || undefined,
                                 overrideState:
                                     sp.s === "maintenance"
                                         ? ("Maintenance" as const)

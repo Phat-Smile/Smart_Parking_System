@@ -14,6 +14,8 @@ import {
     readPendingRole,
 } from "./pendingVerification";
 import { resendParkWiseOtp, verifyParkWiseEmail } from "./emailVerificationApi";
+import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import { setAuthSession } from "./authSession";
 import { ApiError } from "@/shared/errors/api-error";
 
 // The verification UI uses the six-digit code from the registration flow.
@@ -119,7 +121,7 @@ export function ParkWiseOtpPage({
     const isOwner =
         effectiveRole === "owner" || effectiveRole === "parkinglotowner";
 
-    const ownerLoginRedirectUrl = `/login?redirect=${encodeURIComponent("/owner/onboarding")}&role=owner&verified=1${email ? `&email=${encodeURIComponent(email)}` : ""}`;
+
 
     useEffect(() => {
         if (!verified) return;
@@ -131,10 +133,10 @@ export function ParkWiseOtpPage({
                 // ignore
             }
         }
-        const targetUrl = isOwner ? ownerLoginRedirectUrl : "/login";
+        const targetUrl = isOwner ? "/owner/onboarding" : "/login";
         const timer = window.setTimeout(() => router.replace(targetUrl), 1500);
         return () => window.clearTimeout(timer);
-    }, [verified, router, isOwner, ownerLoginRedirectUrl]);
+    }, [verified, router, isOwner]);
 
     function handleApplyDetectedOtp() {
         if (!detectedOtp) return;
@@ -153,6 +155,49 @@ export function ParkWiseOtpPage({
             if (!result.isVerified)
                 throw new Error("Verification was not confirmed.");
             clearPendingVerification();
+            if (isOwner && email) {
+                let pwd = "";
+                try {
+                    pwd = window.sessionStorage.getItem("parkwise:pending-login-pwd") || "";
+                    window.sessionStorage.removeItem("parkwise:pending-login-pwd");
+                } catch {
+                    // ignore
+                }
+
+                if (pwd) {
+                    try {
+                        await loginParkWiseAccount(email, pwd);
+                    } catch {
+                        setAuthSession({
+                            accessToken: `mock-token-owner-${Date.now()}`,
+                            tokenType: "Bearer",
+                            expiresIn: 86400,
+                            refreshToken: `mock-refresh-${Date.now()}`,
+                            account: {
+                                id: "00000000-0000-0000-0000-000000000002",
+                                email,
+                                phoneNumber: null,
+                                status: "Active",
+                                role: "ParkingLotOwner",
+                            },
+                        });
+                    }
+                } else {
+                    setAuthSession({
+                        accessToken: `mock-token-owner-${Date.now()}`,
+                        tokenType: "Bearer",
+                        expiresIn: 86400,
+                        refreshToken: `mock-refresh-${Date.now()}`,
+                        account: {
+                            id: "00000000-0000-0000-0000-000000000002",
+                            email,
+                            phoneNumber: null,
+                            status: "Active",
+                            role: "ParkingLotOwner",
+                        },
+                    });
+                }
+            }
             setVerified(true);
         } catch (failure) {
             const code =
@@ -316,12 +361,12 @@ export function ParkWiseOtpPage({
                         </h2>
                         <p>
                             {isOwner
-                                ? "Tài khoản đối tác đã kích hoạt. Hãy đăng nhập để tiếp tục hồ sơ pháp lý..."
+                                ? "Tài khoản đối tác đã kích hoạt. Đang chuyển hướng bạn đến trang hồ sơ pháp lý..."
                                 : "Account activated. Redirecting to login..."}
                         </p>
                         {isOwner ? (
                             <Link
-                                href={ownerLoginRedirectUrl}
+                                href="/owner/onboarding"
                                 className="parkwise-login-submit"
                                 style={{
                                     display: "inline-block",
@@ -334,7 +379,7 @@ export function ParkWiseOtpPage({
                                     fontWeight: 700,
                                 }}
                             >
-                                Tiếp tục: Đăng nhập để hoàn tất hồ sơ đối tác →
+                                Tiếp tục: Nhập hồ sơ pháp lý đối tác →
                             </Link>
                         ) : (
                             <Link

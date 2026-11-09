@@ -136,11 +136,11 @@ describe("ParkWiseOtpPage", () => {
         ).toBeInTheDocument();
         expect(
             screen.getByRole("link", {
-                name: /Tiếp tục: Đăng nhập để hoàn tất hồ sơ đối tác/i,
+                name: /Tiếp tục: Nhập hồ sơ pháp lý đối tác/i,
             }),
         ).toHaveAttribute(
             "href",
-            expect.stringContaining("/login?redirect=%2Fowner%2Fonboarding"),
+            "/owner/onboarding",
         );
     });
 

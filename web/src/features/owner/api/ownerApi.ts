@@ -296,6 +296,7 @@ export async function getDepositPolicyApi(
 export interface LayoutSlotDto {
     id: string;
     slotCode: string;
+    sensorCode?: string | null;
     overrideState?: "Maintenance" | "Unavailable" | null;
     position: { x: number; y: number };
 }
@@ -348,3 +349,46 @@ export async function saveParkingLayoutApi(
         },
     );
 }
+
+// ==========================================
+// 8. POLICIES: RESERVATION RATIO (30/70)
+// ==========================================
+export interface ReservationRatioPolicyDto {
+    lotId: string;
+    reservationRatioPercent: number;
+    isConfigured: boolean;
+    updatedAtUtc: string;
+}
+
+export interface PolicyApiResponse<T> {
+    result: T;
+    isSuccess: boolean;
+    statusCode: number;
+    message: string;
+}
+
+export async function getReservationRatioPolicyApi(
+    lotId: string | number,
+): Promise<ReservationRatioPolicyDto> {
+    const res = await gatewayFetch<PolicyApiResponse<ReservationRatioPolicyDto>>(
+        `/api/parking/lots/${lotId}/reservation-ratio-policy`,
+        { method: "GET" },
+    );
+    return res.result;
+}
+
+export async function configureReservationRatioPolicyApi(
+    lotId: string | number,
+    reservationRatioPercent: number,
+): Promise<ReservationRatioPolicyDto> {
+    const res = await gatewayFetch<PolicyApiResponse<ReservationRatioPolicyDto>>(
+        `/api/parking/lots/${lotId}/reservation-ratio-policy`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reservationRatioPercent }),
+        },
+    );
+    return res.result;
+}
+

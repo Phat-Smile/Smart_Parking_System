@@ -44,6 +44,47 @@ export default function ReportsPage() {
                 }
             />
 
+            {/* Banner Thông báo Chế độ Thống Kê Mẫu */}
+            <div
+                style={{
+                    background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                    border: "1.5px solid #cbd5e1",
+                    borderRadius: 14,
+                    padding: "14px 20px",
+                    marginBottom: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 12,
+                }}
+            >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>📊</span>
+                    <div>
+                        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 13.5 }}>
+                            Chế độ Dữ liệu Thống Kê Mẫu (Demonstration Mode)
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "#64748b", marginTop: 2 }}>
+                            Số liệu doanh thu, lưu lượng xe theo giờ và tỷ trọng phương thức thanh toán đang được minh họa trực quan. Khi các bãi xe phát sinh giao dịch thật, báo cáo sẽ tự động đối soát thời gian thực.
+                        </div>
+                    </div>
+                </div>
+                <span
+                    style={{
+                        background: "#eafe89",
+                        color: "#09090b",
+                        fontSize: 11.5,
+                        fontWeight: 800,
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        textTransform: "uppercase",
+                    }}
+                >
+                    Sandbox Metric
+                </span>
+            </div>
+
             {/* Bộ lọc kỳ báo cáo */}
             <div style={{ marginBottom: 20 }}>
                 <ReportPeriodPicker

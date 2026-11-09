@@ -310,6 +310,18 @@ export default function OwnerSimulationPage() {
                             ❓ Vì sao ở chế độ mô phỏng?
                         </button>
                         <Link
+                            href="/owner/dashboard"
+                            className="pw-sim-btn-back"
+                            style={{
+                                background: "#0f172a",
+                                color: "#eafe89",
+                                fontWeight: 800,
+                                textDecoration: "none",
+                            }}
+                        >
+                            ⚡ Về Dashboard Chính →
+                        </Link>
+                        <Link
                             href="/owner/onboarding"
                             className="pw-sim-btn-back"
                         >
