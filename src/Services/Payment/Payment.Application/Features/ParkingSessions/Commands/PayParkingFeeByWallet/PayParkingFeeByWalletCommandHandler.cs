@@ -46,7 +46,7 @@ public sealed class PayParkingFeeByWalletCommandHandler(
             return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.IdempotencyKeyInvalid);
         }
 
-        if (request.ExpectedAmountDue <= 0)
+        if (request.ExpectedAmountDue < 0)
         {
             return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.ExpectedAmountInvalid);
         }
@@ -150,13 +150,6 @@ public sealed class PayParkingFeeByWalletCommandHandler(
 
             var actualAmountDue = Math.Max(0, calculation.TotalFee - prepaidAmount);
 
-            // Phiên xe không tốn tiền
-            if (actualAmountDue == 0)
-            {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.NoAmountDue, 409, cancellationToken);
-                return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.NoAmountDue);
-            }
-
             // Giá nhảy khác giá khách đã đồng ý
             if (actualAmountDue != request.ExpectedAmountDue)
             {
@@ -172,26 +165,29 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.WalletNotFound);
             }
 
-            // Ví không đủ tiền thanh toán
-            if (wallet.Balance < actualAmountDue)
+            // Ví không đủ tiền thanh toán khi có phát sinh phí
+            if (actualAmountDue > 0 && wallet.Balance < actualAmountDue)
             {
                 await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.WalletInsufficientBalance, 400, cancellationToken);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.WalletInsufficientBalance);
             }
 
-            // 8. Trừ tiền ví và ghi nhận trong 1 Transaction
+            // 8. Trừ tiền ví (nếu > 0) và ghi nhận trong 1 Transaction
             try
             {
-                // Trừ tiền ví và ghi nhận sổ cái
-                wallet.AddEntry(
-                    entryType: LedgerEntryType.FeePayment,
-                    amount: -actualAmountDue,
-                    reason: $"Pay parking fee for session {request.SessionId}",
-                    referenceType: ReferenceType.ParkingSession,
-                    referenceId: request.SessionId.ToString(),
-                    lotId: ctx.ParkingLotId,
-                    idempotencyKey: request.IdempotencyKey,
-                    createdBy: request.CallerAccountId);
+                if (actualAmountDue > 0)
+                {
+                    // Trừ tiền ví và ghi nhận sổ cái
+                    wallet.AddEntry(
+                        entryType: LedgerEntryType.FeePayment,
+                        amount: -actualAmountDue,
+                        reason: $"Pay parking fee for session {request.SessionId}",
+                        referenceType: ReferenceType.ParkingSession,
+                        referenceId: request.SessionId.ToString(),
+                        lotId: ctx.ParkingLotId,
+                        idempotencyKey: request.IdempotencyKey,
+                        createdBy: request.CallerAccountId);
+                }
 
                 // Tạo hóa đơn thanh toán tiền gửi xe
                 var exitWindowExpiresUtc = calculationTime.AddMinutes(15);

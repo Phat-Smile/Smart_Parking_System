@@ -513,9 +513,9 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenNoAmountDue_ShouldReturnNoAmountDue()
+    public async Task Handle_WhenAmountDueIsZero_ShouldSucceedAndPublishEventWithZeroAmount()
     {
-        // Xe đã cọc đủ tiền không còn nợ
+        // Xe đã cọc đủ tiền không còn nợ: vẫn thanh toán thành công 0đ và phát sự kiện
         var sessionId = Guid.NewGuid();
         var staffAccountId = Guid.NewGuid();
         var lotId = Guid.NewGuid();
@@ -541,13 +541,20 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             "Staff",
             lotId,
             Guid.NewGuid().ToString(),
-            20000);
+            0);
 
         var handler = CreateHandler();
         var result = await handler.Handle(command, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PayParkingFeeErrors.NoAmountDue, result.Error);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(0, result.Value.AmountPaid);
+        Assert.Equal("Cash", result.Value.PaymentMethod);
+        Assert.Single(_outboxWriter.EnqueuedEvents);
+        var paidEvent = _outboxWriter.EnqueuedEvents[0].Event as ParkingSessionPaidIntegrationEvent;
+        Assert.NotNull(paidEvent);
+        Assert.Equal(0, paidEvent.AmountPaid);
+        Assert.Equal(sessionId, paidEvent.SessionId);
     }
 
     [Fact]

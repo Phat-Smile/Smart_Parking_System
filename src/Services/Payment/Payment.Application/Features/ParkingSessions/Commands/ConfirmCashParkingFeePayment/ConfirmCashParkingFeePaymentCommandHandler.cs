@@ -50,7 +50,7 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
             return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.IdempotencyKeyInvalid);
         }
 
-        if (request.ExpectedAmountDue <= 0)
+        if (request.ExpectedAmountDue < 0)
         {
             return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.ExpectedAmountInvalid);
         }
@@ -163,12 +163,6 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
             }
 
             var actualAmountDue = Math.Max(0, calculation.TotalFee - prepaidAmount);
-
-            if (actualAmountDue == 0)
-            {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.NoAmountDue, 409, cancellationToken);
-                return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.NoAmountDue);
-            }
 
             if (actualAmountDue != request.ExpectedAmountDue)
             {

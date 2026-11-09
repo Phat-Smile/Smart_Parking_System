@@ -89,8 +89,8 @@ internal static class ParkingFeeEndpoints
                         httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.SessionIdInvalid);
                 }
 
-                // 3. Kiểm tra số tiền khách đồng ý trả
-                if (body is null || body.ExpectedAmountDue <= 0)
+                // 3. Kiểm tra số tiền khách đồng ý trả (chấp nhận 0đ khi đã cọc đủ)
+                if (body is null || body.ExpectedAmountDue < 0)
                 {
                     return BusinessProblem.Create(
                         httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.ExpectedAmountInvalid);
@@ -162,7 +162,7 @@ internal static class ParkingFeeEndpoints
                         httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.SessionIdInvalid);
                 }
 
-                // 3. Kiểm tra số tiền khách đồng ý trả
+                // 3. Kiểm tra số tiền khách đồng ý trả (VNPay không nhận 0đ)
                 if (body is null || body.ExpectedAmountDue <= 0)
                 {
                     return BusinessProblem.Create(
@@ -241,8 +241,8 @@ internal static class ParkingFeeEndpoints
                         httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.SessionIdInvalid);
                 }
 
-                // 3. Kiểm tra số tiền nhân viên xác nhận thu
-                if (body is null || body.ExpectedAmountDue <= 0)
+                // 3. Kiểm tra số tiền nhân viên xác nhận thu (chấp nhận 0đ khi đã cọc đủ)
+                if (body is null || body.ExpectedAmountDue < 0)
                 {
                     return BusinessProblem.Create(
                         httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.ExpectedAmountInvalid);
