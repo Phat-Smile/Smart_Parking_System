@@ -27,5 +27,10 @@ public interface IReservationRepository
         int batchSize,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(
+        DateTimeOffset now,
+        int batchSize,
+        CancellationToken cancellationToken);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
