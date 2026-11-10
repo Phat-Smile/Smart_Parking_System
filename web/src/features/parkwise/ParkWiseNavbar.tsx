@@ -25,14 +25,16 @@ const landingNavigation = [
 const customerNavigation = [
     { label: "Customer", href: "/customer/dashboard" },
     { label: "Find Parking", href: "/search" },
-    { label: "My Vehicles", href: "/customer/vehicles" },
+    { label: "Vehicles", href: "/customer/vehicles" },
 ];
 const dashboardNavigation = [
-    { label: "Home", href: "/customer/dashboard" },
-    { label: "Find Parking", href: "/search" },
-    { label: "My Bookings", href: "/customer/bookings" },
-    { label: "My Vehicles", href: "/customer/vehicles" },
-    { label: "Parking History", href: "/customer/parking-history" },
+    { label: "Overview", href: "/customer/dashboard" },
+    { label: "Search", href: "/search" },
+    { label: "Vehicles", href: "/customer/vehicles" },
+    { label: "Bookings", href: "/customer/bookings" },
+    { label: "Sessions", href: "/customer/sessions" },
+    { label: "History", href: "/customer/parking-history" },
+    { label: "Wallet", href: "/customer/wallet" },
 ];
 
 const customerLandingNavigation = [
@@ -107,22 +109,20 @@ export function ParkWiseNavbar({
     useEffect(() => {
         if (variant !== "customer") return;
         document.documentElement.lang = language;
-        return () => {
-            document.documentElement.lang =
-                window.localStorage.getItem("smartpark_language") === "en"
-                    ? "en"
-                    : "vi";
-        };
     }, [variant, language]);
 
     const dark = scrolled && !menuOpen;
     const customerLabels: Record<string, string> = {
+        Overview: "Tổng quan",
+        Wallet: "Ví",
+        Sessions: "Phiên đỗ",
         Home: "Trang chủ",
         Customer: "Khách hàng",
-        "Find Parking": "Tìm bãi đỗ",
-        "My Bookings": "Đặt chỗ của tôi",
-        "My Vehicles": "Xe của tôi",
-        "Parking History": "Lịch sử đỗ xe",
+        "Find Parking": "Tìm bãi",
+        Search: "Tìm bãi",
+        Bookings: "Đặt chỗ",
+        Vehicles: "Xe",
+        History: "Lịch sử",
         "My Profile": "Hồ sơ của tôi",
         "How It Works": "Cách hoạt động",
         About: "Giới thiệu",
@@ -135,7 +135,7 @@ export function ParkWiseNavbar({
     return (
         <>
             <div
-                className={`parkwise-mobile-menu ${menuOpen ? "active" : ""}`}
+                className={`parkwise-mobile-menu ${variant === "customer" ? "parkwise-mobile-menu-customer" : ""} ${menuOpen ? "active" : ""}`}
                 aria-hidden={!menuOpen}
             >
                 <div className="parkwise-container">
@@ -250,7 +250,7 @@ export function ParkWiseNavbar({
                 </div>
             </div>
             <header
-                className={`parkwise-navbar ${dark ? "parkwise-navbar-dark" : "parkwise-navbar-light"}`}
+                className={`parkwise-navbar ${variant === "customer" ? "parkwise-navbar-customer" : ""} ${dark ? "parkwise-navbar-dark" : "parkwise-navbar-light"}`}
             >
                 <div className="parkwise-container parkwise-navbar-inner">
                     <Link

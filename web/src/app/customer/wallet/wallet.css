@@ -1,17 +1,9 @@
 .customer-wallet-page {
-    --wallet-ink: #142238;
-    --wallet-muted: #627187;
-    --wallet-border: #e2e9f1;
-    --wallet-lime: #dfff66;
-    background: #f5f8fc;
-}
-.customer-wallet-page .parkwise-navbar-dark {
-    border-bottom: 1px solid #e6eaf0;
-    background: #fff;
-    color: var(--wallet-ink);
-}
-.customer-wallet-page .parkwise-navbar-dark .parkwise-desktop-nav a:hover {
-    color: var(--wallet-ink);
+    --wallet-ink: #171717;
+    --wallet-muted: #525252;
+    --wallet-border: #e5e5e5;
+    --wallet-lime: #eafe89;
+    background: #fafafa;
 }
 .customer-wallet-page .wallet-page-main {
     width: min(calc(100% - 48px), 1220px);
@@ -28,7 +20,7 @@
 }
 .customer-wallet-page .wallet-eyebrow {
     display: block;
-    color: #527095;
+    color: #737373;
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.13em;
@@ -47,10 +39,10 @@
 }
 .customer-wallet-page .wallet-page-badge {
     padding: 10px 15px;
-    border: 1px solid #d9e4ef;
+    border: 1px solid #e5e5e5;
     border-radius: 999px;
     background: #fff;
-    color: #294560;
+    color: #525252;
     font-size: 13px;
     font-weight: 750;
     white-space: nowrap;
@@ -76,8 +68,8 @@
     padding: 27px 30px 23px;
     border-radius: 25px;
     background:
-        radial-gradient(circle at 95% 5%, #365d68 0, transparent 38%),
-        linear-gradient(125deg, #0f2734, #182b3e 60%, #233c4c);
+        radial-gradient(circle at 95% 5%, rgb(234 254 137 / 16%) 0, transparent 38%),
+        linear-gradient(125deg, #171717, #242424 60%, #343a26);
     box-shadow: 0 22px 42px rgb(27 53 76 / 14%);
     color: #fff;
 }
@@ -130,7 +122,7 @@
     padding: 25px 0 20px;
 }
 .customer-wallet-page .wallet-balance-content h2 {
-    color: #c9d7e2;
+    color: #d4d4d4;
     font-size: 14px;
     font-weight: 600;
 }
@@ -152,14 +144,14 @@
     font-size: 22px;
 }
 .customer-wallet-page .wallet-balance-caption {
-    color: #aebfcc;
+    color: #737373;
     font-size: 13px;
 }
 .customer-wallet-page .wallet-balance-card-bottom {
     justify-content: space-between;
     padding-top: 16px;
     border-top: 1px solid rgb(255 255 255 / 18%);
-    color: #d6e2e9;
+    color: #d4d4d4;
     font-size: 12px;
 }
 .customer-wallet-page .wallet-balance-card-bottom span,
@@ -220,8 +212,8 @@
 .customer-wallet-page .wallet-history-count {
     padding: 7px 10px;
     border-radius: 999px;
-    background: #f2f5f9;
-    color: #56677e;
+    background: #f5f5f5;
+    color: #525252;
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
@@ -240,7 +232,7 @@
     font-size: 16px;
 }
 .customer-wallet-page .wallet-history-empty svg {
-    color: #8fa2b9;
+    color: #737373;
 }
 .customer-wallet-page .wallet-history-pagination {
     display: flex;
@@ -248,7 +240,7 @@
     justify-content: space-between;
     gap: 12px;
     padding-top: 17px;
-    border-top: 1px solid #edf1f5;
+    border-top: 1px solid #e5e5e5;
     color: var(--wallet-muted);
     font-size: 13px;
 }
@@ -256,7 +248,7 @@
     min-width: 72px;
     min-height: 44px;
     padding: 0 12px;
-    border: 1px solid #dce4ed;
+    border: 1px solid #e5e5e5;
     border-radius: 9px;
     background: #fff;
     color: var(--wallet-ink);
@@ -283,7 +275,7 @@
     gap: 14px;
     min-width: 0;
     padding: 17px 0;
-    border-top: 1px solid #edf1f5;
+    border-top: 1px solid #e5e5e5;
 }
 .customer-wallet-page .wallet-transaction-icon {
     display: grid;
@@ -298,8 +290,8 @@
     color: #287947;
 }
 .customer-wallet-page .wallet-transaction-icon.is-debit {
-    background: #edf2fb;
-    color: #416ca7;
+    background: #f2f2f2;
+    color: #525252;
 }
 .customer-wallet-page .wallet-transaction-detail,
 .customer-wallet-page .wallet-transaction-amount {
@@ -352,12 +344,12 @@
     display: flex;
     align-items: center;
     min-height: 54px;
-    border: 1.5px solid #cad6e3;
+    border: 1.5px solid #d4d4d4;
     border-radius: 12px;
     background: #fff;
 }
 .customer-wallet-page .wallet-amount-field:focus-within {
-    border-color: #436c92;
+    border-color: #b9ed3c;
     box-shadow: 0 0 0 3px rgb(67 108 146 / 12%);
 }
 .customer-wallet-page .wallet-amount-field input {
@@ -375,7 +367,7 @@
 }
 .customer-wallet-page .wallet-amount-field span {
     padding: 0 16px;
-    color: #5a6d83;
+    color: #525252;
     font-weight: 800;
 }
 .customer-wallet-page .wallet-field-hint {
@@ -393,10 +385,10 @@
 .customer-wallet-page .wallet-amount-options button {
     min-height: 44px;
     padding: 0 3px;
-    border: 1px solid #dce4ed;
+    border: 1px solid #e5e5e5;
     border-radius: 10px;
-    background: #f8fafc;
-    color: #34445a;
+    background: #f5f5f5;
+    color: #525252;
     font: inherit;
     font-size: 13px;
     font-weight: 750;
@@ -426,15 +418,15 @@
     margin-top: 23px;
     border: 0;
     border-radius: 11px;
-    background: #cfee57;
-    color: #162618;
+    background: #eafe89;
+    color: #171717;
     font: inherit;
     font-size: 14px;
     font-weight: 850;
     cursor: pointer;
 }
 .customer-wallet-page .wallet-topup-submit:hover:not(:disabled) {
-    background: #bde43c;
+    background: #ddf66f;
 }
 .customer-wallet-page .wallet-topup-submit:disabled,
 .customer-wallet-page .wallet-amount-options button:disabled {
@@ -460,7 +452,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 0;
-    border-top: 1px solid #edf1f5;
+    border-top: 1px solid #e5e5e5;
 }
 .customer-wallet-page .wallet-pending-panel li > span {
     display: grid;
@@ -471,7 +463,7 @@
     align-items: center;
     gap: 4px;
     min-height: 44px;
-    color: #1d609f;
+    color: #525252;
     font-size: 12px;
     font-weight: 750;
     white-space: nowrap;
@@ -502,7 +494,7 @@
     justify-content: space-between;
     gap: 16px;
     padding: 14px 0;
-    border-top: 1px solid #edf1f5;
+    border-top: 1px solid #e5e5e5;
 }
 .customer-wallet-page .wallet-expired-list li > span {
     display: grid;
@@ -516,7 +508,7 @@
     align-items: center;
     gap: 5px;
     min-height: 44px;
-    color: #1d609f;
+    color: #525252;
     font-size: 12px;
     font-weight: 750;
     white-space: nowrap;
@@ -605,13 +597,13 @@
     align-items: center;
     gap: 8px;
     min-height: 44px;
-    color: #40566e;
+    color: #525252;
     font-size: 14px;
     font-weight: 750;
     text-decoration: none;
 }
 .wallet-return-back:hover {
-    color: #142238;
+    color: #171717;
 }
 .wallet-return-intro {
     margin: 18px 0 22px;
@@ -622,15 +614,9 @@
     font-weight: 850;
     letter-spacing: -0.04em;
 }
-.wallet-return-intro p {
-    margin: 0;
-    color: var(--wallet-muted);
-    font-size: 15px;
-    line-height: 1.55;
-}
 .wallet-return-kicker,
 .wallet-return-eyebrow {
-    color: #527095;
+    color: #737373;
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.13em;
@@ -650,11 +636,12 @@
     box-shadow: 0 9px 30px rgb(26 54 88 / 5%);
 }
 .parkwise-page .wallet-return-result-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     padding: clamp(25px, 3vw, 34px);
-    border-top: 4px solid #cfee57;
+    border-top: 4px solid #eafe89;
 }
 .wallet-return-status-icon {
     display: grid;
@@ -696,14 +683,29 @@
     line-height: 1.6;
 }
 .wallet-return-countdown {
-    margin: 13px 0 0;
-    padding: 9px 13px;
-    border-radius: 9px;
+    position: absolute;
+    top: clamp(25px, 3vw, 34px);
+    right: clamp(25px, 3vw, 34px);
+    display: grid;
+    justify-items: end;
+    gap: 3px;
+    margin: 0;
+    padding: 10px 15px;
+    border-radius: 12px;
     background: #fff6e5;
     color: #815e1a;
-    font-size: 13px;
-    font-weight: 750;
     font-variant-numeric: tabular-nums;
+}
+.wallet-return-countdown > span {
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.wallet-return-countdown > strong {
+    font-size: clamp(23px, 2.5vw, 30px);
+    font-weight: 850;
+    line-height: 1.1;
 }
 .wallet-return-amount-block {
     display: grid;
@@ -711,11 +713,11 @@
     width: 100%;
     margin: 18px 0 16px;
     padding: 14px 0;
-    border-top: 1px solid #e8edf2;
-    border-bottom: 1px solid #e8edf2;
+    border-top: 1px solid #e5e5e5;
+    border-bottom: 1px solid #e5e5e5;
 }
 .wallet-return-amount-block > span {
-    color: #667b91;
+    color: #737373;
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.12em;
@@ -766,8 +768,8 @@
     min-height: 50px;
     padding: 0 22px;
     border-radius: 11px;
-    background: #cfee57;
-    color: #162618;
+    background: #eafe89;
+    color: #171717;
     font-size: 14px;
     font-weight: 800;
     text-decoration: none;
@@ -777,7 +779,7 @@
 }
 .wallet-return-action:hover,
 .wallet-return-state a:hover {
-    background: #bde43c;
+    background: #ddf66f;
 }
 .wallet-return-detail-card {
     display: flex;
@@ -797,7 +799,7 @@
     display: grid;
     gap: 7px;
     padding: 14px 0;
-    border-top: 1px solid #edf1f5;
+    border-top: 1px solid #e5e5e5;
 }
 .wallet-return-detail-card dt {
     color: var(--wallet-muted);
@@ -846,7 +848,7 @@
 }
 .wallet-return-note svg {
     flex: none;
-    color: #527095;
+    color: #737373;
 }
 .wallet-return-note p {
     margin: 0;
@@ -864,7 +866,7 @@
     text-align: center;
 }
 .wallet-return-state > svg {
-    color: #54738c;
+    color: #525252;
 }
 .wallet-return-state h2 {
     margin: 0;
@@ -873,14 +875,14 @@
 }
 .wallet-return-state p {
     margin: 0;
-    color: #627187;
+    color: #737373;
     line-height: 1.6;
 }
 .wallet-return-state a {
     margin-top: 5px;
 }
 .wallet-return-page a:focus-visible {
-    outline: 2px solid #1764e8;
+    outline: 2px solid #171717;
     outline-offset: 3px;
 }
 @media (max-width: 850px) {
@@ -913,6 +915,11 @@
     .parkwise-page .wallet-return-result-card,
     .wallet-return-detail-card {
         padding: 25px 22px;
+    }
+    .wallet-return-countdown {
+        position: static;
+        align-self: flex-end;
+        margin: 0 0 10px;
     }
     .wallet-return-action {
         width: 100%;

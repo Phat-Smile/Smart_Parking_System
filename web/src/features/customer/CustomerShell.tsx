@@ -20,6 +20,8 @@ import {
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
+import { getMyNotifications } from "./customerNotificationsApi";
+import { getMyProfile } from "./customerProfileApi";
 
 export type CustomerIconName =
     | "arrow"
@@ -197,6 +199,8 @@ export function CustomerIcon({
 
 export function CustomerHeader({
     active,
+    profilePhotoUrl,
+    showTriggerName = true,
 }: {
     active:
         | "home"
@@ -207,7 +211,11 @@ export function CustomerHeader({
         | "history"
         | "sessions"
         | "profile"
-        | "notifications";
+        | "notifications"
+        | "vehicles"
+        | "completeProfile";
+    profilePhotoUrl?: string;
+    showTriggerName?: boolean;
 }) {
     const activeHref = {
         home: "/customer/dashboard",
@@ -219,6 +227,8 @@ export function CustomerHeader({
         sessions: "/customer/sessions",
         profile: "/customer/profile",
         notifications: "/customer/notifications",
+        vehicles: "/customer/vehicles",
+        completeProfile: "/customer/complete-profile",
     }[active];
 
     return (
@@ -230,7 +240,7 @@ export function CustomerHeader({
                 <div className="dashboard-header-actions">
                     <CustomerLanguageSwitcher />
                     <CustomerNotifications />
-                    <CustomerAccountMenu activeHref={activeHref} />
+                    <CustomerAccountMenu activeHref={activeHref} profilePhotoUrl={profilePhotoUrl} showTriggerName={showTriggerName} />
                 </div>
             }
         />
@@ -240,9 +250,40 @@ export function CustomerHeader({
 function CustomerNotifications() {
     const { copy } = useCustomerLanguage();
     const [open, setOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelId = useId();
+
+    useEffect(() => {
+        let active = true;
+        const refresh = () => {
+            void getMyNotifications(1, 1, true)
+                .then((result) => {
+                    if (active) setUnreadCount(result.unreadCount);
+                })
+                .catch(() => {
+                    if (active) setUnreadCount(0);
+                });
+        };
+
+        refresh();
+        const onFocus = () => refresh();
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") refresh();
+        };
+        window.addEventListener("focus", onFocus);
+        window.addEventListener("customer-notifications-changed", onFocus);
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        const timer = window.setInterval(refresh, 30_000);
+        return () => {
+            active = false;
+            window.clearInterval(timer);
+            window.removeEventListener("focus", onFocus);
+            window.removeEventListener("customer-notifications-changed", onFocus);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+        };
+    }, []);
 
     useEffect(() => {
         if (!open) return;
@@ -269,13 +310,41 @@ function CustomerNotifications() {
             <button
                 ref={triggerRef}
                 type="button"
-                aria-label={copy("Notifications", "Thông báo")}
+                aria-label={
+                    unreadCount > 0
+                        ? copy(
+                              `Notifications, ${unreadCount} unread`,
+                              `Thông báo, ${unreadCount} chưa đọc`,
+                          )
+                        : copy("Notifications", "Thông báo")
+                }
                 aria-expanded={open}
                 aria-controls={open ? panelId : undefined}
                 onClick={() => setOpen((current) => !current)}
+                className={unreadCount > 0 ? "has-unread" : undefined}
             >
                 <CustomerIcon name="bell" size={22} />
+                {unreadCount > 0 && (
+                    <span
+                        className="dashboard-notification-badge"
+                        aria-hidden="true"
+                    >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                )}
             </button>
+            <span
+                className="dashboard-notification-sr-only"
+                role="status"
+                aria-atomic="true"
+            >
+                {unreadCount > 0
+                    ? copy(
+                          `${unreadCount} unread notifications`,
+                          `${unreadCount} thông báo chưa đọc`,
+                      )
+                    : ""}
+            </span>
             {open && (
                 <div
                     className="dashboard-notification-panel"
@@ -285,10 +354,15 @@ function CustomerNotifications() {
                 >
                     <strong>{copy("Notifications", "Thông báo")}</strong>
                     <p>
-                        {copy(
-                            "Booking and parking updates will appear here when notifications are available.",
-                            "Cập nhật đặt chỗ và đỗ xe sẽ xuất hiện tại đây khi có thông báo.",
-                        )}
+                        {unreadCount > 0
+                            ? copy(
+                                  `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`,
+                                  `Bạn có ${unreadCount} thông báo chưa đọc.`,
+                              )
+                            : copy(
+                                  "You're all caught up. New wallet and parking updates will appear here.",
+                                  "Bạn đã xem hết thông báo. Cập nhật ví và bãi đỗ sẽ xuất hiện tại đây.",
+                              )}
                     </p>
                     <Link
                         href="/customer/notifications"
@@ -324,11 +398,6 @@ const accountLinks: {
     },
     { href: "/customer/wallet", label: "Wallet", icon: "price" },
     { href: "/customer/notifications", label: "Notifications", icon: "bell" },
-    {
-        href: "/customer/complete-profile",
-        label: "Complete Profile",
-        icon: "id-card",
-    },
 ];
 
 function initials(name: string) {
@@ -345,9 +414,11 @@ function initials(name: string) {
 export function CustomerAccountMenu({
     activeHref,
     profilePhotoUrl,
+    showTriggerName = true,
 }: {
     activeHref?: string;
     profilePhotoUrl?: string;
+    showTriggerName?: boolean;
 }) {
     const { copy, isVietnamese } = useCustomerLanguage();
     const router = useRouter();
@@ -359,11 +430,50 @@ export function CustomerAccountMenu({
     const [open, setOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [logoutError, setLogoutError] = useState("");
+    const [profileName, setProfileName] = useState("");
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuId = useId();
+    const accountId = session?.account.id;
+
+    useEffect(() => {
+        setProfileName("");
+        if (!accountId) return;
+
+        let active = true;
+        let profileWasChanged = false;
+        const onProfileNameChanged = (event: Event) => {
+            profileWasChanged = true;
+            const name = (event as CustomEvent<string>).detail?.trim();
+            if (name) setProfileName(name);
+        };
+
+        window.addEventListener(
+            "customer-profile-name-changed",
+            onProfileNameChanged,
+        );
+        void getMyProfile()
+            .then((profile) => {
+                if (active && !profileWasChanged) {
+                    setProfileName(profile.fullName?.trim() ?? "");
+                }
+            })
+            .catch(() => {
+                if (active && !profileWasChanged) setProfileName("");
+            });
+
+        return () => {
+            active = false;
+            window.removeEventListener(
+                "customer-profile-name-changed",
+                onProfileNameChanged,
+            );
+        };
+    }, [accountId]);
+
     const accountName =
-        session?.displayName ||
+        profileName ||
+        session?.displayName?.trim() ||
         session?.account.email ||
         copy("Sign in required", "Cần đăng nhập");
     const accountEmail =
@@ -379,7 +489,6 @@ export function CustomerAccountMenu({
         "Parking History": "Lịch sử đỗ xe",
         Wallet: "Ví của tôi",
         Notifications: "Thông báo",
-        "Complete Profile": "Hoàn thiện hồ sơ",
     };
 
     useEffect(() => {
@@ -428,8 +537,8 @@ export function CustomerAccountMenu({
             height={48}
             unoptimized
         />
-    ) : session?.displayName ? (
-        initials(session.displayName)
+    ) : profileName || session?.displayName?.trim() ? (
+        initials(profileName || session?.displayName?.trim() || "")
     ) : (
         <CustomerIcon name="user" size={22} />
     );
@@ -439,7 +548,7 @@ export function CustomerAccountMenu({
             <button
                 ref={triggerRef}
                 type="button"
-                className="customer-account-trigger"
+                className={`customer-account-trigger${showTriggerName ? "" : " is-compact"}`}
                 aria-expanded={open}
                 aria-controls={open ? menuId : undefined}
                 aria-label={`${copy("Account menu", "Tài khoản")}: ${accountName}`}
@@ -451,9 +560,11 @@ export function CustomerAccountMenu({
                 >
                     {avatar}
                 </span>
-                <span className="customer-account-trigger-name">
-                    {accountName}
-                </span>
+                {showTriggerName && (
+                    <span className="customer-account-trigger-name">
+                        {accountName}
+                    </span>
+                )}
                 <CustomerIcon name="chevron" size={17} />
             </button>
             {open && (

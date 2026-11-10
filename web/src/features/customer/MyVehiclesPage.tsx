@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
+import { CustomerHeader } from "./CustomerShell";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
-import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
+
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import {
     addMyVehicle,
@@ -184,7 +184,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName?: string }) {
         <div
             className={`min-h-screen bg-[#070810] text-[#e1e4ed] flex flex-col ${fontClassName || ""}`}
         >
-            <ParkWiseNavbar />
+            <CustomerHeader active="vehicles" />
 
             <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 space-y-8">
                 {/* Header */}

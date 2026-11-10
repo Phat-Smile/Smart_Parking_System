@@ -31,7 +31,7 @@ const MAX_POLLS = 10;
  * from Payment, which only changes after the signed IPN (D03.5).
  */
 export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
-    const { copy } = useCustomerLanguage();
+    const { copy, language } = useCustomerLanguage();
     const [status, setStatus] = useState<WalletTopupStatus | null>(null);
     const [error, setError] = useState("");
     const [gaveUp, setGaveUp] = useState(false);
@@ -112,7 +112,7 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                     else setGaveUp(true);
                 }
             } catch (err) {
-                if (active) setError(describeWalletError(err));
+                if (active) setError(describeWalletError(err, language));
             }
         }
 
@@ -121,7 +121,7 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
             active = false;
             if (timer) clearTimeout(timer);
         };
-    }, [topupId]);
+    }, [language, topupId]);
 
     if (!topupId)
         return (
@@ -225,13 +225,9 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                               )
                             : copy("Top-up failed", "Nạp tiền thất bại")}
                 </h2>
-                <p className="wallet-return-result-copy">
-                    {succeeded
-                        ? copy(
-                              "The amount has been added to your ParkWise wallet.",
-                              "Số tiền đã được cộng vào Ví ParkWise của bạn.",
-                          )
-                        : status.status === "Pending"
+                {status.status !== "Succeeded" && (status.status !== "Pending" || gaveUp) && (
+                    <p className="wallet-return-result-copy">
+                        {status.status === "Pending"
                           ? gaveUp
                               ? copy(
                                     "Confirmation is taking longer than expected. Check your wallet again in a few minutes.",
@@ -250,18 +246,17 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                                   "This amount has not been added to your wallet.",
                                   "Số tiền này chưa được cộng vào ví.",
                               )}
-                </p>
+                    </p>
+                )}
                 {status.status === "Pending" &&
                     remainingSeconds !== null &&
                     !gaveUp && (
-                        <p className="wallet-return-countdown">
-                            {remainingSeconds > 0
-                                ? `${copy("Time remaining to pay:", "Thời gian thanh toán còn:")} ${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`
-                                : copy(
-                                      "Payment time ended. Checking the final status...",
-                                      "Hết thời gian thanh toán. Đang kiểm tra kết quả cuối cùng...",
-                                  )}
-                        </p>
+                        <div className="wallet-return-countdown" role="timer" aria-live="off">
+                            <span>{copy("Time remaining", "Thời gian còn lại")}</span>
+                            <strong>{remainingSeconds > 0
+                                ? `${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`
+                                : copy("Checking…", "Đang kiểm tra…")}</strong>
+                        </div>
                     )}
                 <div className="wallet-return-amount-block">
                     <span>{copy("TOP-UP AMOUNT", "SỐ TIỀN NẠP")}</span>
