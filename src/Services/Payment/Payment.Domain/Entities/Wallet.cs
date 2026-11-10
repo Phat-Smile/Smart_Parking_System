@@ -102,6 +102,7 @@ public class Wallet
 
             case LedgerEntryType.FeePayment:            // Trừ phí đỗ xe
             case LedgerEntryType.Prepayment:            // Trừ tiền cọc đặt chỗ
+            case LedgerEntryType.ReservationDeposit:    // Đặt cọc giữ chỗ (Task N2)
             case LedgerEntryType.BalanceCancellation:   // Hủy số dư khi đóng ví
                 if (amount >= 0m)
                 {

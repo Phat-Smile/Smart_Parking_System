@@ -62,6 +62,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 app.MapGrpcHealthChecksService();
+app.MapGrpcService<ReservationWalletGrpcService>();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
 app.MapAuditLogEndpoints();
