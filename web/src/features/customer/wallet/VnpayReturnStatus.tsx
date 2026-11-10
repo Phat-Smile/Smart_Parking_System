@@ -112,7 +112,7 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                     else setGaveUp(true);
                 }
             } catch (err) {
-                if (active) setError(describeWalletError(err, language));
+                if (active) setError(describeWalletError(err));
             }
         }
 

@@ -20,7 +20,7 @@ import {
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
-import { getMyNotifications } from "./customerNotificationsApi";
+import { getMyNotifications } from "./customerNotificationApi";
 import { getMyProfile } from "./customerProfileApi";
 
 export type CustomerIconName =
@@ -258,7 +258,7 @@ function CustomerNotifications() {
     useEffect(() => {
         let active = true;
         const refresh = () => {
-            void getMyNotifications(1, 1, true)
+            void getMyNotifications(true, 1, 1)
                 .then((result) => {
                     if (active) setUnreadCount(result.unreadCount);
                 })

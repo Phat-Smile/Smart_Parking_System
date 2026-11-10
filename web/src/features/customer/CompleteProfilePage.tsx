@@ -366,10 +366,7 @@ export function CompleteProfilePage({
         setIncludeDocument(true);
         setDocumentNumber(profile.cccd);
         setIssueDate(profile.issueDate);
-        setIssuedBy(
-            profile.issuingAuthority ??
-                copy("Sample issuing authority (demo)", "Cơ quan cấp mẫu (mô phỏng)"),
-        );
+        setIssuedBy(copy("Sample issuing authority (demo)", "Cơ quan cấp mẫu (mô phỏng)"));
         setAuthorityOther(true);
         setDocumentPhotos({ front: null, back: null });
         setSavedMedia((current) => ({ ...current, frontId: null, backId: null }));

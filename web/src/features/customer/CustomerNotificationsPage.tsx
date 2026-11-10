@@ -11,10 +11,14 @@ import {
     type CustomerNotificationItem,
 } from "./customerNotificationApi";
 
-const icons = { booking: CalendarCheck2, parking: CarFront, wallet: Wallet };
+const icons: Record<string, typeof CalendarCheck2> = {
+    booking: CalendarCheck2,
+    parking: CarFront,
+    wallet: Wallet,
+};
 
 function localizedNotification(
-    notice: CustomerNotification,
+    notice: CustomerNotificationItem,
     copy: (english: string, vietnamese: string) => string,
 ) {
     const title = notice.title.toLowerCase();
