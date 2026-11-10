@@ -68,7 +68,11 @@
     padding: 27px 30px 23px;
     border-radius: 25px;
     background:
-        radial-gradient(circle at 95% 5%, rgb(234 254 137 / 16%) 0, transparent 38%),
+        radial-gradient(
+            circle at 95% 5%,
+            rgb(234 254 137 / 16%) 0,
+            transparent 38%
+        ),
         linear-gradient(125deg, #171717, #242424 60%, #343a26);
     box-shadow: 0 22px 42px rgb(27 53 76 / 14%);
     color: #fff;
@@ -699,7 +703,7 @@
 .wallet-return-countdown > span {
     font-size: 11px;
     font-weight: 750;
-    letter-spacing: .04em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 .wallet-return-countdown > strong {

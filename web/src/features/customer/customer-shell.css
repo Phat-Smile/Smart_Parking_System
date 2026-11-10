@@ -65,12 +65,14 @@
     transform: none;
     scrollbar-width: none;
 }
-.parkwise-navbar-customer .parkwise-desktop-nav::-webkit-scrollbar { display: none; }
+.parkwise-navbar-customer .parkwise-desktop-nav::-webkit-scrollbar {
+    display: none;
+}
 .parkwise-navbar-customer .parkwise-desktop-nav a {
     display: inline-flex;
     min-height: 44px;
     align-items: center;
-    padding: 0 clamp(5px, .55vw, 8px);
+    padding: 0 clamp(5px, 0.55vw, 8px);
     border-radius: 10px;
     color: #262626;
     font-size: clamp(14px, 1.05vw, 16px);
@@ -103,7 +105,9 @@
     background: rgb(255 255 255 / 8%);
     color: #fff;
 }
-.parkwise-navbar-customer.parkwise-navbar-dark .parkwise-desktop-nav a[aria-current="page"] {
+.parkwise-navbar-customer.parkwise-navbar-dark
+    .parkwise-desktop-nav
+    a[aria-current="page"] {
     background: rgb(234 254 137 / 10%);
     color: #fff;
 }
@@ -126,7 +130,9 @@
     background: #f7f7f7;
     color: #171717;
 }
-.parkwise-navbar-customer .dashboard-header-actions { gap: 6px; }
+.parkwise-navbar-customer .dashboard-header-actions {
+    gap: 6px;
+}
 .parkwise-navbar-customer .parkwise-menu-button {
     color: #171717;
 }
@@ -176,7 +182,9 @@
         border-color 800ms ease-in-out;
 }
 .parkwise-navbar-customer .customer-language-trigger:hover,
-.parkwise-navbar-customer .customer-language-switcher.is-open .customer-language-trigger {
+.parkwise-navbar-customer
+    .customer-language-switcher.is-open
+    .customer-language-trigger {
     border-color: #eafe89;
     background: #1b1b1b;
     color: #fff;
@@ -191,13 +199,17 @@
         border-color 800ms ease-in-out;
 }
 .parkwise-navbar-customer .dashboard-notification > button:hover,
-.parkwise-navbar-customer .dashboard-notification > button[aria-expanded="true"] {
+.parkwise-navbar-customer
+    .dashboard-notification
+    > button[aria-expanded="true"] {
     border-color: #eafe89;
     background: #1b1b1b;
     color: #eafe89;
 }
 .parkwise-navbar-customer.parkwise-navbar-dark .customer-language-trigger,
-.parkwise-navbar-customer.parkwise-navbar-dark .dashboard-notification > button {
+.parkwise-navbar-customer.parkwise-navbar-dark
+    .dashboard-notification
+    > button {
     border-color: rgb(255 255 255 / 26%);
     background: #111;
     color: #fff;
@@ -223,7 +235,10 @@
     border-radius: 15px;
     background: #fff;
     color: #404040;
-    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease;
 }
 .dashboard-notification > button.has-unread {
     border-color: #b9ed3c;
@@ -733,7 +748,7 @@
 .customer-notification-page-arrow:disabled,
 .customer-notification-page-number:disabled {
     cursor: not-allowed;
-    opacity: .45;
+    opacity: 0.45;
 }
 .customer-notification-page-ellipsis {
     padding: 0 2px;

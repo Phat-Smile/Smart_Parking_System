@@ -771,7 +771,9 @@
     font-size: 13px;
     font-weight: 750;
     cursor: pointer;
-    transition: background-color 150ms ease, border-color 150ms ease;
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease;
 }
 .parkwise-profile-vneid-button:hover {
     border-color: #c58c92;
@@ -2248,7 +2250,7 @@
     color: #52751e;
     font-size: 11px;
     font-weight: 850;
-    letter-spacing: .14em;
+    letter-spacing: 0.14em;
 }
 .parkwise-profile-page .parkwise-profile-heading > p:last-child {
     margin-top: 7px !important;
@@ -2261,7 +2263,11 @@
     overflow: hidden;
     border-color: #252525;
     background:
-        radial-gradient(circle at 94% 0%, rgb(234 254 137 / 18%), transparent 34%),
+        radial-gradient(
+            circle at 94% 0%,
+            rgb(234 254 137 / 18%),
+            transparent 34%
+        ),
         linear-gradient(115deg, #171717 0%, #242424 68%, #303622 100%);
     box-shadow: 0 12px 30px rgb(23 23 23 / 12%);
 }

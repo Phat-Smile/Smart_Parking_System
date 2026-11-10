@@ -22,7 +22,11 @@ import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerHeader } from "./CustomerShell";
 import type { VneidCitizenProfile } from "@/features/simulator/vneid/vneidSeedData";
-import { getMyProfile, saveMyProfile, uploadCustomerMedia } from "./customerProfileApi";
+import {
+    getMyProfile,
+    saveMyProfile,
+    uploadCustomerMedia,
+} from "./customerProfileApi";
 
 type IdType = "citizenId" | "driverLicense";
 type DocumentSide = "front" | "back";
@@ -353,29 +357,47 @@ export function CompleteProfilePage({
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [saving, setSaving] = useState(false);
-    const [savedMedia, setSavedMedia] = useState<{ avatarUrl: string | null; frontId: string | null; backId: string | null }>({ avatarUrl: null, frontId: null, backId: null });
+    const [savedMedia, setSavedMedia] = useState<{
+        avatarUrl: string | null;
+        frontId: string | null;
+        backId: string | null;
+    }>({ avatarUrl: null, frontId: null, backId: null });
     const [vneidDemoApplied, setVneidDemoApplied] = useState(false);
     const vneidAppliedRef = useRef(false);
 
-    const applyVneidProfile = useCallback((profile: VneidCitizenProfile) => {
-        vneidAppliedRef.current = true;
-        setFullName(profile.fullName);
-        setBirthDate(profile.dobDisplay);
-        setAddress(profile.residence);
-        setIdType("citizenId");
-        setIncludeDocument(true);
-        setDocumentNumber(profile.cccd);
-        setIssueDate(profile.issueDate);
-        setIssuedBy(copy("Sample issuing authority (demo)", "Cơ quan cấp mẫu (mô phỏng)"));
-        setAuthorityOther(true);
-        setDocumentPhotos({ front: null, back: null });
-        setSavedMedia((current) => ({ ...current, frontId: null, backId: null }));
-        setVneidDemoApplied(true);
-        setNotice(copy(
-            "Sample data filled in. ParkWise is not connected to VNeID and this information is not verified.",
-            "Đã điền dữ liệu mẫu. ParkWise chưa kết nối VNeID và thông tin này chưa được xác minh.",
-        ));
-    }, [copy]);
+    const applyVneidProfile = useCallback(
+        (profile: VneidCitizenProfile) => {
+            vneidAppliedRef.current = true;
+            setFullName(profile.fullName);
+            setBirthDate(profile.dobDisplay);
+            setAddress(profile.residence);
+            setIdType("citizenId");
+            setIncludeDocument(true);
+            setDocumentNumber(profile.cccd);
+            setIssueDate(profile.issueDate);
+            setIssuedBy(
+                copy(
+                    "Sample issuing authority (demo)",
+                    "Cơ quan cấp mẫu (mô phỏng)",
+                ),
+            );
+            setAuthorityOther(true);
+            setDocumentPhotos({ front: null, back: null });
+            setSavedMedia((current) => ({
+                ...current,
+                frontId: null,
+                backId: null,
+            }));
+            setVneidDemoApplied(true);
+            setNotice(
+                copy(
+                    "Sample data filled in. ParkWise is not connected to VNeID and this information is not verified.",
+                    "Đã điền dữ liệu mẫu. ParkWise chưa kết nối VNeID và thông tin này chưa được xác minh.",
+                ),
+            );
+        },
+        [copy],
+    );
     const [validationErrors, setValidationErrors] = useState({
         fullName: "",
         phone: "",
@@ -390,21 +412,50 @@ export function CompleteProfilePage({
 
     useEffect(() => {
         let cancelled = false;
-        void getMyProfile().then((profile) => {
-            if (cancelled || vneidAppliedRef.current) return;
-            setFullName(profile.fullName || authSession?.displayName || "");
-            setPhone(profile.phoneNumber || authSession?.account.phoneNumber || "");
-            setBirthDate(profile.dateOfBirth ? isoToDateDisplay(profile.dateOfBirth) : "");
-            setAddress(profile.address || "");
-            setIdType(profile.identityDocumentType);
-            setIncludeDocument(Boolean(profile.identityDocumentType));
-            const maskedNumber = profile.identityDocumentType === "citizenId" ? profile.citizenIdNumber : profile.driverLicenseNumber;
-            setDocumentNumber(maskedNumber && !maskedNumber.includes("*") ? maskedNumber : "");
-            setIssueDate(profile.identityIssueDate ? isoToDateDisplay(profile.identityIssueDate) : "");
-            setIssuedBy(profile.identityIssuedBy || "");
-            setSavedMedia({ avatarUrl: profile.avatarUrl, frontId: profile.identityFrontMediaId, backId: profile.identityBackMediaId });
-        }).catch(() => { /* New accounts may not have a profile row yet. */ });
-        return () => { cancelled = true; };
+        void getMyProfile()
+            .then((profile) => {
+                if (cancelled || vneidAppliedRef.current) return;
+                setFullName(profile.fullName || authSession?.displayName || "");
+                setPhone(
+                    profile.phoneNumber ||
+                        authSession?.account.phoneNumber ||
+                        "",
+                );
+                setBirthDate(
+                    profile.dateOfBirth
+                        ? isoToDateDisplay(profile.dateOfBirth)
+                        : "",
+                );
+                setAddress(profile.address || "");
+                setIdType(profile.identityDocumentType);
+                setIncludeDocument(Boolean(profile.identityDocumentType));
+                const maskedNumber =
+                    profile.identityDocumentType === "citizenId"
+                        ? profile.citizenIdNumber
+                        : profile.driverLicenseNumber;
+                setDocumentNumber(
+                    maskedNumber && !maskedNumber.includes("*")
+                        ? maskedNumber
+                        : "",
+                );
+                setIssueDate(
+                    profile.identityIssueDate
+                        ? isoToDateDisplay(profile.identityIssueDate)
+                        : "",
+                );
+                setIssuedBy(profile.identityIssuedBy || "");
+                setSavedMedia({
+                    avatarUrl: profile.avatarUrl,
+                    frontId: profile.identityFrontMediaId,
+                    backId: profile.identityBackMediaId,
+                });
+            })
+            .catch(() => {
+                /* New accounts may not have a profile row yet. */
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [authSession]);
 
     useEffect(() => {
@@ -414,12 +465,18 @@ export function CompleteProfilePage({
             const sharedProfile = sessionStorage.getItem(VNEID_SHARE_KEY);
             if (!sharedProfile) return;
             const profile = JSON.parse(sharedProfile) as VneidCitizenProfile;
-            if (profile.category === "customer" && profile.cccd && profile.fullName) {
+            if (
+                profile.category === "customer" &&
+                profile.cccd &&
+                profile.fullName
+            ) {
                 timer = window.setTimeout(() => {
                     if (!active) return;
                     applyVneidProfile(profile);
                     sessionStorage.removeItem(VNEID_SHARE_KEY);
-                    router.replace("/customer/complete-profile", { scroll: false });
+                    router.replace("/customer/complete-profile", {
+                        scroll: false,
+                    });
                 }, 0);
             }
         } catch {
@@ -495,7 +552,10 @@ export function CompleteProfilePage({
         /^[0-9]{9,12}$/.test(documentNumber.trim()) &&
         isValidDateDisplay(issueDate) &&
         dateDisplayToIso(issueDate) <= today &&
-        Boolean(issuedBy.trim() && (vneidDemoApplied || (documentPhotos.front && documentPhotos.back)));
+        Boolean(
+            issuedBy.trim() &&
+            (vneidDemoApplied || (documentPhotos.front && documentPhotos.back)),
+        );
     const personalComplete =
         fullName.trim().length >= 2 && isValidVietnamesePhone(phone);
     const completion = (emailVerified ? 25 : 0) + (personalComplete ? 75 : 0);
@@ -517,7 +577,12 @@ export function CompleteProfilePage({
             return null;
         }
         if (file.size > 5 * 1024 * 1024) {
-            setError(copy("Each file must be 5 MB or smaller.", "Mỗi tệp phải có dung lượng từ 5 MB trở xuống."));
+            setError(
+                copy(
+                    "Each file must be 5 MB or smaller.",
+                    "Mỗi tệp phải có dung lượng từ 5 MB trở xuống.",
+                ),
+            );
             return null;
         }
         setError("");
@@ -613,43 +678,86 @@ export function CompleteProfilePage({
         const nextErrors = {
             fullName:
                 fullName.trim().length < 2
-                    ? copy("Enter your full name (at least 2 characters).", "Nhập họ tên đầy đủ (ít nhất 2 ký tự).")
+                    ? copy(
+                          "Enter your full name (at least 2 characters).",
+                          "Nhập họ tên đầy đủ (ít nhất 2 ký tự).",
+                      )
                     : "",
             phone: isValidVietnamesePhone(phone)
                 ? ""
-                : copy("Enter a valid Vietnamese phone number.", "Nhập số điện thoại Việt Nam hợp lệ."),
+                : copy(
+                      "Enter a valid Vietnamese phone number.",
+                      "Nhập số điện thoại Việt Nam hợp lệ.",
+                  ),
             birthDate:
                 birthDate &&
                 (!isValidDateDisplay(birthDate) ||
                     dateDisplayToIso(birthDate) > today)
-                    ? copy("Enter a valid date in DD/MM/YYYY format that is not in the future.", "Nhập ngày hợp lệ theo định dạng DD/MM/YYYY và không ở tương lai.")
+                    ? copy(
+                          "Enter a valid date in DD/MM/YYYY format that is not in the future.",
+                          "Nhập ngày hợp lệ theo định dạng DD/MM/YYYY và không ở tương lai.",
+                      )
                     : "",
         };
         setValidationErrors(nextErrors);
         if (Object.values(nextErrors).some(Boolean)) return;
         if (!consent) {
             setError(
-                copy("Please agree to the Terms of Service and Privacy Policy to continue.", "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư để tiếp tục."),
+                copy(
+                    "Please agree to the Terms of Service and Privacy Policy to continue.",
+                    "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư để tiếp tục.",
+                ),
             );
             return;
         }
         if (!emailVerified) {
             setError(
-                copy("Sign in with a verified email account to complete your profile.", "Đăng nhập bằng tài khoản email đã xác minh để hoàn thiện hồ sơ."),
+                copy(
+                    "Sign in with a verified email account to complete your profile.",
+                    "Đăng nhập bằng tài khoản email đã xác minh để hoàn thiện hồ sơ.",
+                ),
             );
             return;
         }
 
-        if (includeDocument && (!idType || !/^[0-9]{9,12}$/.test(documentNumber.trim()) || !isValidDateDisplay(issueDate) || dateDisplayToIso(issueDate) > today || !issuedBy.trim() || (!vneidDemoApplied && !(documentPhotos.front || savedMedia.frontId)) || (!vneidDemoApplied && !(documentPhotos.back || savedMedia.backId)))) {
-            setError(copy("Complete the identity document details and upload both sides.", "Điền đầy đủ thông tin giấy tờ và tải ảnh hai mặt."));
+        if (
+            includeDocument &&
+            (!idType ||
+                !/^[0-9]{9,12}$/.test(documentNumber.trim()) ||
+                !isValidDateDisplay(issueDate) ||
+                dateDisplayToIso(issueDate) > today ||
+                !issuedBy.trim() ||
+                (!vneidDemoApplied &&
+                    !(documentPhotos.front || savedMedia.frontId)) ||
+                (!vneidDemoApplied &&
+                    !(documentPhotos.back || savedMedia.backId)))
+        ) {
+            setError(
+                copy(
+                    "Complete the identity document details and upload both sides.",
+                    "Điền đầy đủ thông tin giấy tờ và tải ảnh hai mặt.",
+                ),
+            );
             return;
         }
         setSaving(true);
         try {
             const [avatar, front, back] = await Promise.all([
-                profilePhoto ? uploadCustomerMedia("avatar", profilePhoto.file) : Promise.resolve(null),
-                documentPhotos.front ? uploadCustomerMedia("identity-front", documentPhotos.front.file) : Promise.resolve(null),
-                documentPhotos.back ? uploadCustomerMedia("identity-back", documentPhotos.back.file) : Promise.resolve(null),
+                profilePhoto
+                    ? uploadCustomerMedia("avatar", profilePhoto.file)
+                    : Promise.resolve(null),
+                documentPhotos.front
+                    ? uploadCustomerMedia(
+                          "identity-front",
+                          documentPhotos.front.file,
+                      )
+                    : Promise.resolve(null),
+                documentPhotos.back
+                    ? uploadCustomerMedia(
+                          "identity-back",
+                          documentPhotos.back.file,
+                      )
+                    : Promise.resolve(null),
             ]);
             const saved = await saveMyProfile({
                 fullName: fullName.trim(),
@@ -658,14 +766,30 @@ export function CompleteProfilePage({
                 address: address.trim() || null,
                 avatarUrl: avatar?.url ?? savedMedia.avatarUrl,
                 identityDocumentType: includeDocument ? idType : null,
-                citizenIdNumber: includeDocument && idType === "citizenId" ? documentNumber.trim() : null,
-                driverLicenseNumber: includeDocument && idType === "driverLicense" ? documentNumber.trim() : null,
-                identityIssueDate: includeDocument ? dateDisplayToIso(issueDate) : null,
+                citizenIdNumber:
+                    includeDocument && idType === "citizenId"
+                        ? documentNumber.trim()
+                        : null,
+                driverLicenseNumber:
+                    includeDocument && idType === "driverLicense"
+                        ? documentNumber.trim()
+                        : null,
+                identityIssueDate: includeDocument
+                    ? dateDisplayToIso(issueDate)
+                    : null,
                 identityIssuedBy: includeDocument ? issuedBy.trim() : null,
-                identityFrontMediaId: includeDocument ? front?.id ?? savedMedia.frontId : null,
-                identityBackMediaId: includeDocument ? back?.id ?? savedMedia.backId : null,
+                identityFrontMediaId: includeDocument
+                    ? (front?.id ?? savedMedia.frontId)
+                    : null,
+                identityBackMediaId: includeDocument
+                    ? (back?.id ?? savedMedia.backId)
+                    : null,
             });
-            setSavedMedia({ avatarUrl: saved.avatarUrl, frontId: saved.identityFrontMediaId, backId: saved.identityBackMediaId });
+            setSavedMedia({
+                avatarUrl: saved.avatarUrl,
+                frontId: saved.identityFrontMediaId,
+                backId: saved.identityBackMediaId,
+            });
             window.dispatchEvent(
                 new CustomEvent("customer-profile-name-changed", {
                     detail: saved.fullName,
@@ -674,7 +798,12 @@ export function CompleteProfilePage({
             localStorage.removeItem(PROFILE_DRAFT_KEY);
             router.push("/customer/dashboard");
         } catch {
-            setError(copy("Could not save your profile. Please try again.", "Không thể lưu hồ sơ. Vui lòng thử lại."));
+            setError(
+                copy(
+                    "Could not save your profile. Please try again.",
+                    "Không thể lưu hồ sơ. Vui lòng thử lại.",
+                ),
+            );
         } finally {
             setSaving(false);
         }
@@ -698,10 +827,18 @@ export function CompleteProfilePage({
                     idType,
                 }),
             );
-            setNotice(copy("Draft saved on this device.", "Đã lưu bản nháp trên thiết bị này."));
+            setNotice(
+                copy(
+                    "Draft saved on this device.",
+                    "Đã lưu bản nháp trên thiết bị này.",
+                ),
+            );
         } catch {
             setError(
-                copy("Draft could not be saved. Your entries are still on this page.", "Không thể lưu bản nháp. Thông tin bạn nhập vẫn còn trên trang."),
+                copy(
+                    "Draft could not be saved. Your entries are still on this page.",
+                    "Không thể lưu bản nháp. Thông tin bạn nhập vẫn còn trên trang.",
+                ),
             );
         }
     }
@@ -711,7 +848,10 @@ export function CompleteProfilePage({
             lang={language}
             className={`parkwise-page customer-shell-page parkwise-profile-page ${fontClassName}`}
         >
-            <CustomerHeader active="completeProfile" profilePhotoUrl={profilePhoto?.previewUrl} />
+            <CustomerHeader
+                active="completeProfile"
+                profilePhotoUrl={profilePhoto?.previewUrl}
+            />
 
             <main className="parkwise-profile-main">
                 <div className="parkwise-profile-grid">
@@ -813,14 +953,20 @@ export function CompleteProfilePage({
                                                 onClick={() =>
                                                     profilePhotoInput.current?.click()
                                                 }
-                                                aria-label={copy("Choose profile photo", "Chọn ảnh đại diện")}
+                                                aria-label={copy(
+                                                    "Choose profile photo",
+                                                    "Chọn ảnh đại diện",
+                                                )}
                                             >
                                                 {profilePhoto?.previewUrl ? (
                                                     <Image
                                                         src={
                                                             profilePhoto.previewUrl
                                                         }
-                                                        alt={copy("Profile photo preview", "Ảnh đại diện xem trước")}
+                                                        alt={copy(
+                                                            "Profile photo preview",
+                                                            "Ảnh đại diện xem trước",
+                                                        )}
                                                         width={112}
                                                         height={112}
                                                         unoptimized
@@ -999,7 +1145,10 @@ export function CompleteProfilePage({
                                         <input
                                             id="profile-email"
                                             value={accountEmail}
-                                            placeholder={copy("Sign in to load your email", "Đăng nhập để tải email")}
+                                            placeholder={copy(
+                                                "Sign in to load your email",
+                                                "Đăng nhập để tải email",
+                                            )}
                                             readOnly
                                             title={accountEmail}
                                         />
@@ -1120,7 +1269,10 @@ export function CompleteProfilePage({
                                             name="address"
                                             type="text"
                                             autoComplete="street-address"
-                                            placeholder={copy("e.g. 23 Nguyen Hue, District 1", "Ví dụ: 23 Nguyễn Huệ, Quận 1")}
+                                            placeholder={copy(
+                                                "e.g. 23 Nguyen Hue, District 1",
+                                                "Ví dụ: 23 Nguyễn Huệ, Quận 1",
+                                            )}
                                             value={address}
                                             onChange={(event) =>
                                                 setAddress(event.target.value)
@@ -1279,29 +1431,39 @@ export function CompleteProfilePage({
                                     </div>
 
                                     <div className="parkwise-profile-vneid-actions">
-                                            <button
-                                                type="button"
-                                                onClick={() => router.push("/simulator/vneid?return=complete-profile")}
-                                                className="parkwise-profile-vneid-button"
-                                            >
-                                                <ShieldCheck size={16} aria-hidden="true" />
-                                                {copy(
-                                                    "Try VNeID demo",
-                                                    "Dùng thử mô phỏng VNeID",
-                                                )}
-                                            </button>
-                                            {vneidDemoApplied && (
-                                                <span
-                                                    data-testid="customer-vneid-demo-badge"
-                                                    className="parkwise-profile-vneid-badge"
-                                                >
-                                                    <ShieldCheck size={15} aria-hidden="true" />
-                                                    {copy(
-                                                        "Sample data · not verified",
-                                                        "Dữ liệu mẫu · chưa xác minh",
-                                                    )}
-                                                </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                router.push(
+                                                    "/simulator/vneid?return=complete-profile",
+                                                )
+                                            }
+                                            className="parkwise-profile-vneid-button"
+                                        >
+                                            <ShieldCheck
+                                                size={16}
+                                                aria-hidden="true"
+                                            />
+                                            {copy(
+                                                "Try VNeID demo",
+                                                "Dùng thử mô phỏng VNeID",
                                             )}
+                                        </button>
+                                        {vneidDemoApplied && (
+                                            <span
+                                                data-testid="customer-vneid-demo-badge"
+                                                className="parkwise-profile-vneid-badge"
+                                            >
+                                                <ShieldCheck
+                                                    size={15}
+                                                    aria-hidden="true"
+                                                />
+                                                {copy(
+                                                    "Sample data · not verified",
+                                                    "Dữ liệu mẫu · chưa xác minh",
+                                                )}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {idType && (
@@ -1870,7 +2032,6 @@ export function CompleteProfilePage({
                 </div>
             </main>
             <ParkWiseFooter language={language} />
-
         </div>
     );
 }

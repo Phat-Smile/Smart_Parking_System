@@ -225,37 +225,46 @@ export function VnpayReturnStatus({ topupId }: { topupId: string | null }) {
                               )
                             : copy("Top-up failed", "Nạp tiền thất bại")}
                 </h2>
-                {status.status !== "Succeeded" && (status.status !== "Pending" || gaveUp) && (
-                    <p className="wallet-return-result-copy">
-                        {status.status === "Pending"
-                          ? gaveUp
-                              ? copy(
-                                    "Confirmation is taking longer than expected. Check your wallet again in a few minutes.",
-                                    "Xác nhận đang lâu hơn dự kiến. Vui lòng kiểm tra lại ví sau vài phút.",
-                                )
-                              : copy(
-                                    "ParkWise is waiting for confirmation from VNPay.",
-                                    "ParkWise đang chờ VNPay xác nhận.",
-                                )
-                          : status.status === "Expired"
-                            ? copy(
-                                  "This payment link has expired. If you already paid, your balance may still update when VNPay confirms it.",
-                                  "Liên kết thanh toán đã hết hạn. Nếu đã thanh toán, số dư vẫn có thể cập nhật khi VNPay xác nhận.",
-                              )
-                            : copy(
-                                  "This amount has not been added to your wallet.",
-                                  "Số tiền này chưa được cộng vào ví.",
-                              )}
-                    </p>
-                )}
+                {status.status !== "Succeeded" &&
+                    (status.status !== "Pending" || gaveUp) && (
+                        <p className="wallet-return-result-copy">
+                            {status.status === "Pending"
+                                ? gaveUp
+                                    ? copy(
+                                          "Confirmation is taking longer than expected. Check your wallet again in a few minutes.",
+                                          "Xác nhận đang lâu hơn dự kiến. Vui lòng kiểm tra lại ví sau vài phút.",
+                                      )
+                                    : copy(
+                                          "ParkWise is waiting for confirmation from VNPay.",
+                                          "ParkWise đang chờ VNPay xác nhận.",
+                                      )
+                                : status.status === "Expired"
+                                  ? copy(
+                                        "This payment link has expired. If you already paid, your balance may still update when VNPay confirms it.",
+                                        "Liên kết thanh toán đã hết hạn. Nếu đã thanh toán, số dư vẫn có thể cập nhật khi VNPay xác nhận.",
+                                    )
+                                  : copy(
+                                        "This amount has not been added to your wallet.",
+                                        "Số tiền này chưa được cộng vào ví.",
+                                    )}
+                        </p>
+                    )}
                 {status.status === "Pending" &&
                     remainingSeconds !== null &&
                     !gaveUp && (
-                        <div className="wallet-return-countdown" role="timer" aria-live="off">
-                            <span>{copy("Time remaining", "Thời gian còn lại")}</span>
-                            <strong>{remainingSeconds > 0
-                                ? `${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`
-                                : copy("Checking…", "Đang kiểm tra…")}</strong>
+                        <div
+                            className="wallet-return-countdown"
+                            role="timer"
+                            aria-live="off"
+                        >
+                            <span>
+                                {copy("Time remaining", "Thời gian còn lại")}
+                            </span>
+                            <strong>
+                                {remainingSeconds > 0
+                                    ? `${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`
+                                    : copy("Checking…", "Đang kiểm tra…")}
+                            </strong>
                         </div>
                     )}
                 <div className="wallet-return-amount-block">

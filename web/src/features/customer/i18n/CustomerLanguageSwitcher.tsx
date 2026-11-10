@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { setCustomerLanguage, useCustomerLanguage } from "./customerLanguage";
 
-export function CustomerLanguageSwitcher({ mobile = false }: { mobile?: boolean }) {
+export function CustomerLanguageSwitcher({
+    mobile = false,
+}: {
+    mobile?: boolean;
+}) {
     const { language } = useCustomerLanguage();
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
@@ -13,7 +17,8 @@ export function CustomerLanguageSwitcher({ mobile = false }: { mobile?: boolean 
     useEffect(() => {
         if (!open) return;
         function handlePointerDown(event: PointerEvent) {
-            if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+            if (!rootRef.current?.contains(event.target as Node))
+                setOpen(false);
         }
         function handleKeyDown(event: KeyboardEvent) {
             if (event.key === "Escape") {
@@ -44,7 +49,11 @@ export function CustomerLanguageSwitcher({ mobile = false }: { mobile?: boolean 
                 ref={triggerRef}
                 type="button"
                 className="customer-language-trigger"
-                aria-label={language === "en" ? "Language: English" : "Ngôn ngữ: Tiếng Việt"}
+                aria-label={
+                    language === "en"
+                        ? "Language: English"
+                        : "Ngôn ngữ: Tiếng Việt"
+                }
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 onClick={() => setOpen((current) => !current)}
@@ -57,20 +66,22 @@ export function CustomerLanguageSwitcher({ mobile = false }: { mobile?: boolean 
                     aria-hidden="true"
                     focusable="false"
                 >
-                    <g
-                        fill="none"
-                        stroke="rgb(116, 192, 252)"
-                        strokeWidth="32"
-                    >
+                    <g fill="none" stroke="rgb(116, 192, 252)" strokeWidth="32">
                         <circle cx="256" cy="256" r="222" />
                         <ellipse cx="256" cy="256" rx="102" ry="222" />
                         <path d="M45 174c122 43 300 43 422 0M34 256h444M45 338c122-43 300-43 422 0" />
                     </g>
                 </svg>
-                <span aria-hidden="true">{language === "en" ? "EN" : "VI"}</span>
+                <span aria-hidden="true">
+                    {language === "en" ? "EN" : "VI"}
+                </span>
             </button>
             {open && (
-                <div className="customer-language-options" role="listbox" aria-label="Language / Ngôn ngữ">
+                <div
+                    className="customer-language-options"
+                    role="listbox"
+                    aria-label="Language / Ngôn ngữ"
+                >
                     <button
                         type="button"
                         role="option"
@@ -79,7 +90,9 @@ export function CustomerLanguageSwitcher({ mobile = false }: { mobile?: boolean 
                         onClick={() => choose("en")}
                     >
                         <span>English</span>
-                        {language === "en" && <Check size={16} aria-hidden="true" />}
+                        {language === "en" && (
+                            <Check size={16} aria-hidden="true" />
+                        )}
                     </button>
                     <button
                         type="button"
@@ -89,7 +102,9 @@ export function CustomerLanguageSwitcher({ mobile = false }: { mobile?: boolean 
                         onClick={() => choose("vi")}
                     >
                         <span>Tiếng Việt</span>
-                        {language === "vi" && <Check size={16} aria-hidden="true" />}
+                        {language === "vi" && (
+                            <Check size={16} aria-hidden="true" />
+                        )}
                     </button>
                 </div>
             )}

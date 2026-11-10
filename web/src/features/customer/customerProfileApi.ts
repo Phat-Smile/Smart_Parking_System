@@ -16,12 +16,27 @@ export interface CustomerProfile {
     identityBackMediaId: string | null;
 }
 
-export type SaveCustomerProfile = Pick<CustomerProfile,
-    "fullName" | "dateOfBirth" | "citizenIdNumber" | "driverLicenseNumber" |
-    "avatarUrl" | "phoneNumber" | "address" | "identityDocumentType" |
-    "identityIssueDate" | "identityIssuedBy" | "identityFrontMediaId" | "identityBackMediaId">;
+export type SaveCustomerProfile = Pick<
+    CustomerProfile,
+    | "fullName"
+    | "dateOfBirth"
+    | "citizenIdNumber"
+    | "driverLicenseNumber"
+    | "avatarUrl"
+    | "phoneNumber"
+    | "address"
+    | "identityDocumentType"
+    | "identityIssueDate"
+    | "identityIssuedBy"
+    | "identityFrontMediaId"
+    | "identityBackMediaId"
+>;
 
-export interface CustomerMedia { id: string; kind: string; url: string; }
+export interface CustomerMedia {
+    id: string;
+    kind: string;
+    url: string;
+}
 
 export function getMyProfile() {
     return gatewayFetch<CustomerProfile>("/api/identity/accounts/me/profile");
@@ -35,11 +50,17 @@ export function saveMyProfile(profile: SaveCustomerProfile) {
     });
 }
 
-export function uploadCustomerMedia(kind: "avatar" | "identity-front" | "identity-back" | "vehicle-photo", file: File) {
+export function uploadCustomerMedia(
+    kind: "avatar" | "identity-front" | "identity-back" | "vehicle-photo",
+    file: File,
+) {
     const form = new FormData();
     form.set("kind", kind);
     form.set("file", file);
-    return gatewayFetch<CustomerMedia>("/api/identity/accounts/me/media", { method: "POST", body: form });
+    return gatewayFetch<CustomerMedia>("/api/identity/accounts/me/media", {
+        method: "POST",
+        body: form,
+    });
 }
 
 export function getCustomerMediaBlob(url: string) {

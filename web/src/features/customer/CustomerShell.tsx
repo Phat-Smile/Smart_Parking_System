@@ -240,7 +240,11 @@ export function CustomerHeader({
                 <div className="dashboard-header-actions">
                     <CustomerLanguageSwitcher />
                     <CustomerNotifications />
-                    <CustomerAccountMenu activeHref={activeHref} profilePhotoUrl={profilePhotoUrl} showTriggerName={showTriggerName} />
+                    <CustomerAccountMenu
+                        activeHref={activeHref}
+                        profilePhotoUrl={profilePhotoUrl}
+                        showTriggerName={showTriggerName}
+                    />
                 </div>
             }
         />
@@ -280,8 +284,14 @@ function CustomerNotifications() {
             active = false;
             window.clearInterval(timer);
             window.removeEventListener("focus", onFocus);
-            window.removeEventListener("customer-notifications-changed", onFocus);
-            document.removeEventListener("visibilitychange", onVisibilityChange);
+            window.removeEventListener(
+                "customer-notifications-changed",
+                onFocus,
+            );
+            document.removeEventListener(
+                "visibilitychange",
+                onVisibilityChange,
+            );
         };
     }, []);
 
@@ -430,14 +440,16 @@ export function CustomerAccountMenu({
     const [open, setOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [logoutError, setLogoutError] = useState("");
-    const [profileNameState, setProfileName] = useState({ accountId: "", name: "" });
+    const [profileNameState, setProfileName] = useState({
+        accountId: "",
+        name: "",
+    });
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuId = useId();
     const accountId = session?.account.id;
-    const profileName = profileNameState.accountId === accountId
-        ? profileNameState.name
-        : "";
+    const profileName =
+        profileNameState.accountId === accountId ? profileNameState.name : "";
 
     useEffect(() => {
         if (!accountId) return;
@@ -457,7 +469,10 @@ export function CustomerAccountMenu({
         void getMyProfile()
             .then((profile) => {
                 if (active && !profileWasChanged) {
-                    setProfileName({ accountId, name: profile.fullName?.trim() ?? "" });
+                    setProfileName({
+                        accountId,
+                        name: profile.fullName?.trim() ?? "",
+                    });
                 }
             })
             .catch(() => undefined);
