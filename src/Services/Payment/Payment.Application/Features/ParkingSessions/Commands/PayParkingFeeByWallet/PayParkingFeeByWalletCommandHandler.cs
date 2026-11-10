@@ -81,6 +81,9 @@ public sealed class PayParkingFeeByWalletCommandHandler(
             {
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.RequestInProgress);
             }
+
+            // Bản ghi cũ đã thất bại hoặc quá hạn khóa: giải phóng để thử lại
+            await idempotencyStore.ReleasePendingAsync(existingRecord.Id, CancellationToken.None);
         }
 
         // 4. Gọi bãi xe lấy thông tin xe
@@ -115,7 +118,7 @@ public sealed class PayParkingFeeByWalletCommandHandler(
             // 6. Kiểm tra trạng thái xe
             if (!string.Equals(ctx.Status, "Active", StringComparison.OrdinalIgnoreCase))
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.SessionNotActive, 409, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.SessionNotActive);
             }
 
@@ -123,7 +126,7 @@ public sealed class PayParkingFeeByWalletCommandHandler(
             var alreadyPaid = await paymentRepository.ExistsForSessionAsync(request.SessionId, cancellationToken);
             if (alreadyPaid)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.SessionAlreadyPaid, 409, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
             }
 
@@ -153,7 +156,7 @@ public sealed class PayParkingFeeByWalletCommandHandler(
             // Giá nhảy khác giá khách đã đồng ý
             if (actualAmountDue != request.ExpectedAmountDue)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.FeeChanged, 409, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.FeeChanged);
             }
 
@@ -161,14 +164,14 @@ public sealed class PayParkingFeeByWalletCommandHandler(
             var wallet = await walletRepository.GetByUserIdAsync(request.CallerAccountId, cancellationToken);
             if (wallet == null)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.WalletNotFound, 404, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.WalletNotFound);
             }
 
             // Ví không đủ tiền thanh toán khi có phát sinh phí
             if (actualAmountDue > 0 && wallet.Balance < actualAmountDue)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.WalletInsufficientBalance, 400, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.WalletInsufficientBalance);
             }
 
@@ -186,6 +189,20 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                         referenceId: request.SessionId.ToString(),
                         lotId: ctx.ParkingLotId,
                         idempotencyKey: request.IdempotencyKey,
+                        createdBy: request.CallerAccountId);
+                }
+                else if (prepaidAmount > calculation.TotalFee)
+                {
+                    // Hoàn phần tiền cọc dôi dư vào ví theo BR-10.b
+                    var surplus = prepaidAmount - calculation.TotalFee;
+                    wallet.AddEntry(
+                        entryType: LedgerEntryType.Refund,
+                        amount: surplus,
+                        reason: $"Refund surplus prepayment for session {request.SessionId}",
+                        referenceType: ReferenceType.ParkingSession,
+                        referenceId: request.SessionId.ToString(),
+                        lotId: ctx.ParkingLotId,
+                        idempotencyKey: $"{request.IdempotencyKey}:surplus",
                         createdBy: request.CallerAccountId);
                 }
 
@@ -241,21 +258,15 @@ public sealed class PayParkingFeeByWalletCommandHandler(
             catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException")
             {
                 // Xung đột số dư đồng thời: nhả khóa để Client gọi lại an toàn
-                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.WalletBusy);
             }
         }
         catch
         {
             // Có lỗi bất ngờ: giải phóng khóa tạm
-            await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, cancellationToken);
+            await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
             throw;
         }
-    }
-
-    private async Task MarkFailedAsync(PaymentIdempotencyRecord record, Error error, int statusCode, CancellationToken ct)
-    {
-        record.MarkFailed(error.Message, statusCode);
-        await idempotencyStore.UpdateAsync(record, ct);
     }
 }

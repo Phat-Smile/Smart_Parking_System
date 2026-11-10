@@ -85,6 +85,9 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
             {
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.RequestInProgress);
             }
+
+            // Bản ghi cũ đã thất bại hoặc quá hạn khóa: giải phóng để thử lại
+            await idempotencyStore.ReleasePendingAsync(existingRecord.Id, CancellationToken.None);
         }
 
         // 4. Lấy thông tin phiên xe từ bãi đỗ
@@ -131,14 +134,14 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
             // 7. Kiểm tra trạng thái phiên xe
             if (!string.Equals(ctx.Status, "Active", StringComparison.OrdinalIgnoreCase))
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.SessionNotActive, 409, ct);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionNotActive);
             }
 
             var alreadyPaid = await paymentRepository.HasSucceededPaymentAsync(request.SessionId, ct);
             if (alreadyPaid)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.SessionAlreadyPaid, 409, ct);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
             }
 
@@ -166,19 +169,19 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
 
             if (actualAmountDue == 0)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.NoAmountDue, 409, ct);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.NoAmountDue);
             }
 
             if (actualAmountDue != request.ExpectedAmountDue)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.FeeChanged, 409, ct);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.FeeChanged);
             }
 
             if (actualAmountDue < 5000 || actualAmountDue > 1000000000)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.VnPayAmountNotSupported, 409, ct);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.VnPayAmountNotSupported);
             }
 
@@ -269,7 +272,7 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
         }
         catch
         {
-            await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, ct);
+            await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
             throw;
         }
     }
@@ -277,12 +280,6 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
     private Task MarkSuccessAsync(PaymentIdempotencyRecord record, CreateVnPayParkingFeePaymentResponse response, CancellationToken ct)
     {
         record.MarkSuccess(JsonSerializer.Serialize(response), 200);
-        return idempotencyStore.UpdateAsync(record, ct);
-    }
-
-    private Task MarkFailedAsync(PaymentIdempotencyRecord record, Error error, int statusCode, CancellationToken ct)
-    {
-        record.MarkFailed(error.Message, statusCode);
         return idempotencyStore.UpdateAsync(record, ct);
     }
 }

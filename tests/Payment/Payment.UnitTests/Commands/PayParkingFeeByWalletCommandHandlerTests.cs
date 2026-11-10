@@ -506,4 +506,91 @@ public class PayParkingFeeByWalletCommandHandlerTests
         Assert.Equal(PayParkingFeeErrors.WalletBusy.Code, result.Error!.Code);
         Assert.True(_idempotencyStore.ReleaseCalled);
     }
+
+    [Fact]
+    public async Task Handle_WhenPrepaidExceedsTotalFee_RefundsSurplusToWallet_UnderBR10b()
+    {
+        var handler = CreateHandler();
+        var sessionId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(callerId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 50000, "Topup balance", ReferenceType.VnpayTransaction, Guid.NewGuid().ToString(), null, null, callerId);
+        _walletRepository.SeedWallet(wallet);
+
+        _prepaymentReader.PrepaidAmount = 20000; // Khách đã cọc 20.000đ
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            SessionId: sessionId,
+            ParkingLotId: Guid.NewGuid(),
+            PlateNumber: "51A-12345",
+            VehicleType: "Car",
+            Status: "Active",
+            EntryTimeUtc: _clock.UtcNow.AddHours(-1),
+            AccountId: callerId,
+            BookingId: bookingId,
+            Pricing: new PricingSnapshotDto("P1", "PerTurn", 0, 15000))); // Phí thực tế là 15.000đ -> Dư 5.000đ
+
+        var command = new PayParkingFeeByWalletCommand(
+            SessionId: sessionId,
+            ExpectedAmountDue: 0,
+            IdempotencyKey: Guid.NewGuid().ToString(),
+            CallerAccountId: callerId,
+            CallerRole: "Customer");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, result.Value!.AmountPaid);
+        Assert.Equal(55000, result.Value!.WalletBalanceRemaining);
+        Assert.Equal(55000, wallet.Balance); // Ví ban đầu 50.000 + 5.000 dư = 55.000đ
+        Assert.Single(_paymentRepository.AddedPayments);
+        Assert.Single(_outboxWriter.EnqueuedEvents);
+    }
+
+    [Fact]
+    public async Task Handle_WhenInsufficientBalance_ReleasesPending_AllowingRetryAfterTopup()
+    {
+        var handler = CreateHandler();
+        var sessionId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var sharedKey = Guid.NewGuid().ToString();
+
+        var wallet = Wallet.Create(callerId);
+        _walletRepository.SeedWallet(wallet); // Ví rỗng 0đ
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            SessionId: sessionId,
+            ParkingLotId: Guid.NewGuid(),
+            PlateNumber: "51A-12345",
+            VehicleType: "Car",
+            Status: "Active",
+            EntryTimeUtc: _clock.UtcNow.AddHours(-1),
+            AccountId: callerId,
+            BookingId: null,
+            Pricing: new PricingSnapshotDto("P1", "PerTurn", 0, 20000)));
+
+        var command = new PayParkingFeeByWalletCommand(
+            SessionId: sessionId,
+            ExpectedAmountDue: 20000,
+            IdempotencyKey: sharedKey,
+            CallerAccountId: callerId,
+            CallerRole: "Customer");
+
+        // Lần 1: Thiếu tiền ví -> Thất bại nhưng phải giải phóng khóa tạm
+        var result1 = await handler.Handle(command, CancellationToken.None);
+        Assert.True(result1.IsFailure);
+        Assert.Equal(PayParkingFeeErrors.WalletInsufficientBalance.Code, result1.Error!.Code);
+        Assert.True(_idempotencyStore.ReleaseCalled);
+
+        // Khách nạp tiền vào ví
+        wallet.AddEntry(LedgerEntryType.TopUp, 50000, "Topup balance", ReferenceType.VnpayTransaction, Guid.NewGuid().ToString(), null, null, callerId);
+
+        // Lần 2: Thử lại với cùng idempotency key -> Phải thành công!
+        var result2 = await handler.Handle(command, CancellationToken.None);
+        Assert.True(result2.IsSuccess);
+        Assert.Equal(20000, result2.Value!.AmountPaid);
+        Assert.Equal(30000, result2.Value!.WalletBalanceRemaining);
+    }
 }
