@@ -85,6 +85,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IAdminParkingLotDetailReader, AdminParkingLotDetailReader>();
         services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent.ISlotSensorRepository, SlotSensorRepository>();
         services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.SlotConfirmation.ISlotConfirmationRepository, SlotConfirmationRepository>();
+        services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.SetSlotMaintenance.ISlotMaintenanceRepository, ParkingSystem.Parking.Persistence.ParkingLayout.SlotMaintenanceRepository>();
         services.AddSingleton<ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent.ISlotSensorDeduplicationStore, SlotSensorDeduplicationStore>();
         return services;
     }

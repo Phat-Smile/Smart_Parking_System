@@ -140,6 +140,19 @@ public sealed class ParkingSlot
         return true;
     }
 
+    public void SetMaintenance(bool underMaintenance)
+    {
+        var targetOverride = underMaintenance ? ParkingLayout.OverrideState.Maintenance : (OverrideState?)null;
+        if (OverrideState == targetOverride) return;
+
+        if (underMaintenance && (AssignedSessionId is not null || DispatchState is not null || SensorState == ParkingLayout.SensorState.Occupied))
+            throw new InvalidOperationException("An active slot cannot be placed under maintenance.");
+
+        OverrideState = targetOverride;
+        EffectiveStatus = ComputeEffectiveStatus(SensorState, OverrideState, DispatchState, ManuallyParkedAt is not null);
+        RowVersion++;
+    }
+
     public void UpdateSensorState(SensorState? sensorState)
     {
         SensorState = sensorState;
