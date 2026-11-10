@@ -91,3 +91,52 @@ describe("lot detail texts", () => {
         expect(describeLotAvailability(null)).toBeNull();
     });
 });
+
+describe("getParkingLotRecommendations", () => {
+    it("requests recommendations with correct coordinates and vehicleType", async () => {
+        const payload = {
+            recommendedLots: [
+                {
+                    lotId: "10000000-0000-0000-0000-000000000001",
+                    name: "Bãi Lê Lợi",
+                    address: "1 Lê Lợi",
+                    latitude: 10.7765,
+                    longitude: 106.701,
+                    rank: 1,
+                    driveTimeMinutes: 4.2,
+                    probabilityPercent: 91.5,
+                    price: 20000,
+                    warningHighFullRisk: false,
+                    reasons: ["Gần nhất", "Tỷ lệ còn chỗ 91%"],
+                    distanceKm: 0.3,
+                },
+            ],
+            fallbackUsed: false,
+            fallbackReason: null,
+        };
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(JSON.stringify(payload), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
+        vi.stubGlobal("fetch", fetchMock);
+
+        const { getParkingLotRecommendations } =
+            await import("./parkingLotApi");
+        const result = await getParkingLotRecommendations(10.775, 106.703, {
+            vehicleType: "Car",
+            durationMinutes: 120,
+        });
+
+        expect(result.recommendedLots).toHaveLength(1);
+        expect(result.recommendedLots[0].rank).toBe(1);
+        expect(result.recommendedLots[0].name).toBe("Bãi Lê Lợi");
+        const url = new URL(String(fetchMock.mock.calls[0][0]));
+        expect(url.pathname).toBe("/api/parking/lots/recommendations");
+        expect(url.searchParams.get("latitude")).toBe("10.775");
+        expect(url.searchParams.get("longitude")).toBe("106.703");
+        expect(url.searchParams.get("vehicleType")).toBe("Car");
+        expect(url.searchParams.get("durationMinutes")).toBe("120");
+    });
+});

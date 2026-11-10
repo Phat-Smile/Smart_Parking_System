@@ -120,3 +120,58 @@ export function describeLotAvailability(
         parts.push(`${availability.motorbike.available} motorbikes`);
     return parts.join(" · ");
 }
+
+/** Top-3 AI Recommendation item (US-AI-001/002) */
+export type RecommendedParkingLot = {
+    lotId: string;
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    rank: number;
+    driveTimeMinutes: number | null;
+    probabilityPercent: number;
+    price: number;
+    warningHighFullRisk: boolean;
+    reasons: string[];
+    distanceKm: number;
+};
+
+export type ParkingLotRecommendationResult = {
+    recommendedLots: RecommendedParkingLot[];
+    fallbackUsed: boolean;
+    fallbackReason: string | null;
+};
+
+export async function getParkingLotRecommendations(
+    latitude: number,
+    longitude: number,
+    options?: {
+        vehicleType?: string;
+        arrivalAt?: string;
+        durationMinutes?: number;
+        radiusKm?: number;
+        topK?: number;
+    },
+    signal?: AbortSignal,
+): Promise<ParkingLotRecommendationResult> {
+    const params = new URLSearchParams({
+        latitude: String(latitude),
+        longitude: String(longitude),
+        vehicleType: options?.vehicleType ?? "Car",
+        durationMinutes: String(options?.durationMinutes ?? 120),
+        radiusKm: String(options?.radiusKm ?? 10),
+        topK: String(options?.topK ?? 3),
+    });
+    if (options?.arrivalAt) {
+        params.set("arrivalAt", options.arrivalAt);
+    }
+    const response = await fetch(
+        `${getGatewayBaseUrl()}/api/parking/lots/recommendations?${params.toString()}`,
+        { signal },
+    );
+    if (!response.ok) {
+        throw new Error("Failed to fetch parking lot recommendations");
+    }
+    return (await response.json()) as ParkingLotRecommendationResult;
+}

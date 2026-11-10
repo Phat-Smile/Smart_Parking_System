@@ -1113,3 +1113,111 @@
         height: 390px;
     }
 }
+
+/* AI Top 3 Recommendation Banner (US-AI-001/002) */
+.ai-recommendation-banner {
+    margin-bottom: 16px;
+    padding: 16px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f8fbf1 0%, #eef7de 100%);
+    border: 1px solid #d4eca3;
+    box-shadow: 0 4px 16px rgba(100, 150, 20, 0.08);
+}
+.ai-recommendation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.ai-recommendation-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 800;
+    color: #2b4504;
+}
+.ai-recommendation-badge {
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #47640a;
+    color: #fff;
+}
+.ai-recommendation-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+.ai-recommendation-card {
+    padding: 12px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid #d9e8bc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.ai-recommendation-card:hover {
+    border-color: #8bb72a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(80, 130, 20, 0.12);
+}
+.ai-recommendation-card.active {
+    border-color: #47640a;
+    background: #fdfefb;
+    box-shadow: 0 0 0 2px #98c635;
+}
+.ai-card-rank {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #47640a;
+}
+.ai-card-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #1a2a3a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ai-card-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #556c7d;
+}
+.ai-card-reasons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+.ai-reason-pill {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    background: #eef7de;
+    color: #385207;
+}
+.customer-ai-highlight-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    background: #eef7de;
+    color: #315003;
+    border: 1px solid #cce892;
+}
