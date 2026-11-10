@@ -43,7 +43,7 @@ public sealed class ParkingRecommendationClient(
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<RecommendationClientResponse>(Options, cancellationToken);
+            return await response.Content.ReadFromJsonAsync<RecommendationClientResponse>(Options, timeoutCts.Token);
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
