@@ -1,5 +1,7 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ParkingSystem.Parking.Application.Common.Booking;
@@ -13,11 +15,18 @@ public sealed class BookingServiceOptions
     public int TimeoutSeconds { get; set; } = 3;
 }
 
+// Contract 3 (US-PARK-004): Booking's check-in is internal only and needs the arrival integration key, the same key and
+// header as /internal/booking/held-quota. Any failure returns null so the car goes on as a walk-in (point 34).
 public sealed class BookingCheckInHttpClient(
     HttpClient httpClient,
     IOptions<BookingServiceOptions> options,
+    IConfiguration configuration,
     ILogger<BookingCheckInHttpClient> logger) : IBookingCheckInClient
 {
+    public const string CheckInPath = "/internal/booking/reservations/check-in";
+    public const string ArrivalKeyHeader = "X-Arrival-Service-Key";
+    public const string ServiceKeyHeader = "X-Service-Key";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -35,26 +44,51 @@ public sealed class BookingCheckInHttpClient(
             return null;
         }
 
+        var arrivalKey = configuration["ArrivalIntegration:Key"];
+        if (string.IsNullOrWhiteSpace(arrivalKey))
+        {
+            logger.LogWarning("Booking check-in skipped: ArrivalIntegration:Key is not configured, so the car is handled as a walk-in.");
+            return null;
+        }
+
         try
         {
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(options.Value.TimeoutSeconds));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
-            var baseUrl = options.Value.BaseUrl.TrimEnd('/');
-            var requestUri = $"{baseUrl}/api/booking/reservations/check-in";
-
-            var payload = new
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{options.Value.BaseUrl.TrimEnd('/')}{CheckInPath}")
             {
-                LotId = lotId,
-                PlateNumber = normalizedPlate,
-                EntryTime = entryTime,
-                SessionId = sessionId
+                Content = JsonContent.Create(
+                    new
+                    {
+                        LotId = lotId,
+                        PlateNumber = normalizedPlate,
+                        EntryTime = entryTime,
+                        SessionId = sessionId
+                    },
+                    options: JsonOptions)
             };
+            request.Headers.TryAddWithoutValidation(ArrivalKeyHeader, arrivalKey);
 
-            var response = await httpClient.PostAsJsonAsync(requestUri, payload, JsonOptions, linkedCts.Token);
+            // Booking also runs the shared service-key middleware when SERVICE_KEY is set.
+            var serviceKey = configuration["ServiceAuth:ServiceKey"];
+            if (!string.IsNullOrWhiteSpace(serviceKey))
+                request.Headers.TryAddWithoutValidation(ServiceKeyHeader, serviceKey);
+
+            using var response = await httpClient.SendAsync(request, linkedCts.Token);
+            if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.ServiceUnavailable)
+            {
+                // A configuration problem, not "no reservation": the keys differ between Parking and Booking, or Booking has none.
+                logger.LogError(
+                    "Booking check-in refused with HTTP {StatusCode} for lot {LotId}: check ArrivalIntegration:Key and ServiceAuth:ServiceKey on Parking and Booking.",
+                    (int)response.StatusCode,
+                    lotId);
+                return null;
+            }
+
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Booking check-in endpoint returned HTTP {StatusCode} for lot {LotId}", response.StatusCode, lotId);
+                logger.LogWarning("Booking check-in endpoint returned HTTP {StatusCode} for lot {LotId}", (int)response.StatusCode, lotId);
                 return null;
             }
 
