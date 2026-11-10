@@ -194,8 +194,6 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName?: string }) {
                             <span className="text-xs font-bold tracking-widest text-[#a28aff] uppercase">
                                 {copy("MANAGEMENT", "QUẢN LÝ")}
                             </span>
-                            <span className="text-white/20">|</span>
-                            <CustomerLanguageSwitcher />
                         </div>
                         <h1 className="text-3xl font-black text-white mt-1 tracking-tight">
                             {copy("My Vehicles", "Phương tiện của tôi")}

@@ -430,14 +430,16 @@ export function CustomerAccountMenu({
     const [open, setOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [logoutError, setLogoutError] = useState("");
-    const [profileName, setProfileName] = useState("");
+    const [profileNameState, setProfileName] = useState({ accountId: "", name: "" });
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuId = useId();
     const accountId = session?.account.id;
+    const profileName = profileNameState.accountId === accountId
+        ? profileNameState.name
+        : "";
 
     useEffect(() => {
-        setProfileName("");
         if (!accountId) return;
 
         let active = true;
@@ -445,7 +447,7 @@ export function CustomerAccountMenu({
         const onProfileNameChanged = (event: Event) => {
             profileWasChanged = true;
             const name = (event as CustomEvent<string>).detail?.trim();
-            if (name) setProfileName(name);
+            if (name) setProfileName({ accountId, name });
         };
 
         window.addEventListener(
@@ -455,12 +457,10 @@ export function CustomerAccountMenu({
         void getMyProfile()
             .then((profile) => {
                 if (active && !profileWasChanged) {
-                    setProfileName(profile.fullName?.trim() ?? "");
+                    setProfileName({ accountId, name: profile.fullName?.trim() ?? "" });
                 }
             })
-            .catch(() => {
-                if (active && !profileWasChanged) setProfileName("");
-            });
+            .catch(() => undefined);
 
         return () => {
             active = false;

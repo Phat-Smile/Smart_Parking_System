@@ -1,6 +1,7 @@
 "use client";
 
 import {
+    useCallback,
     useEffect,
     useRef,
     useState,
@@ -356,7 +357,7 @@ export function CompleteProfilePage({
     const [vneidDemoApplied, setVneidDemoApplied] = useState(false);
     const vneidAppliedRef = useRef(false);
 
-    function applyVneidProfile(profile: VneidCitizenProfile) {
+    const applyVneidProfile = useCallback((profile: VneidCitizenProfile) => {
         vneidAppliedRef.current = true;
         setFullName(profile.fullName);
         setBirthDate(profile.dobDisplay);
@@ -377,7 +378,7 @@ export function CompleteProfilePage({
             "Sample data filled in. ParkWise is not connected to VNeID and this information is not verified.",
             "Đã điền dữ liệu mẫu. ParkWise chưa kết nối VNeID và thông tin này chưa được xác minh.",
         ));
-    }
+    }, [copy]);
     const [validationErrors, setValidationErrors] = useState({
         fullName: "",
         phone: "",
@@ -410,19 +411,28 @@ export function CompleteProfilePage({
     }, [authSession]);
 
     useEffect(() => {
+        let active = true;
+        let timer: number | undefined;
         try {
             const sharedProfile = sessionStorage.getItem(VNEID_SHARE_KEY);
             if (!sharedProfile) return;
             const profile = JSON.parse(sharedProfile) as VneidCitizenProfile;
             if (profile.category === "customer" && profile.cccd && profile.fullName) {
-                applyVneidProfile(profile);
-                sessionStorage.removeItem(VNEID_SHARE_KEY);
-                router.replace("/customer/complete-profile", { scroll: false });
+                timer = window.setTimeout(() => {
+                    if (!active) return;
+                    applyVneidProfile(profile);
+                    sessionStorage.removeItem(VNEID_SHARE_KEY);
+                    router.replace("/customer/complete-profile", { scroll: false });
+                }, 0);
             }
         } catch {
             sessionStorage.removeItem(VNEID_SHARE_KEY);
         }
-    }, [router]);
+        return () => {
+            active = false;
+            if (timer !== undefined) window.clearTimeout(timer);
+        };
+    }, [applyVneidProfile, router]);
 
     useEffect(() => {
         if (!authSession) return;
@@ -666,7 +676,7 @@ export function CompleteProfilePage({
             );
             localStorage.removeItem(PROFILE_DRAFT_KEY);
             router.push("/customer/dashboard");
-        } catch (saveError) {
+        } catch {
             setError(copy("Could not save your profile. Please try again.", "Không thể lưu hồ sơ. Vui lòng thử lại."));
         } finally {
             setSaving(false);
