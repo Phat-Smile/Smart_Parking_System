@@ -35,6 +35,24 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         }
     }
 
+    private class FakeParkingLotMembershipGateway : IParkingLotMembershipGateway
+    {
+        public Result<ParkingLotMembershipInfo>? ResultToReturn { get; set; }
+        public Guid? LastQueriedLotId { get; private set; }
+        public Guid? LastQueriedAccountId { get; private set; }
+
+        public Task<Result<ParkingLotMembershipInfo>> GetMembershipAsync(
+            Guid lotId,
+            Guid accountId,
+            CancellationToken cancellationToken = default)
+        {
+            LastQueriedLotId = lotId;
+            LastQueriedAccountId = accountId;
+            return Task.FromResult(ResultToReturn ?? Result<ParkingLotMembershipInfo>.Success(
+                new ParkingLotMembershipInfo(true, "Staff")));
+        }
+    }
+
     private class FakePrepaymentReader : IPrepaymentReader
     {
         public long PrepaidAmount { get; set; }
@@ -174,6 +192,7 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
     private readonly DateTimeOffset _fixedNow = new(2026, 11, 5, 10, 0, 0, TimeSpan.Zero);
     private readonly TestClock _clock;
     private readonly FakeParkingSessionGateway _parkingGateway = new();
+    private readonly FakeParkingLotMembershipGateway _membershipGateway = new();
     private readonly FakePrepaymentReader _prepaymentReader = new();
     private readonly FakeParkingFeePaymentRepository _paymentRepository = new();
     private readonly FakeIdempotencyStore _idempotencyStore = new();
@@ -189,6 +208,7 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
     {
         return new ConfirmCashParkingFeePaymentCommandHandler(
             _parkingGateway,
+            _membershipGateway,
             _prepaymentReader,
             _paymentRepository,
             _idempotencyStore,
@@ -222,7 +242,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             20000,
             "Thu tiền mặt tại cổng");
@@ -299,7 +318,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             20000);
 
@@ -320,7 +338,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             "Customer",
-            Guid.NewGuid(),
             Guid.NewGuid().ToString(),
             20000);
 
@@ -332,13 +349,12 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenStaffLotIdDoesNotMatchSessionLotId_ShouldReturnLotAccessDenied()
+    public async Task Handle_WhenStaffDoesNotBelongToLot_ShouldReturnLotAccessDenied()
     {
-        // Nhân viên thuộc bãi khác
+        // Nhân viên không thuộc bãi của phiên xe
         var sessionId = Guid.NewGuid();
         var staffAccountId = Guid.NewGuid();
         var sessionLotId = Guid.NewGuid();
-        var otherLotId = Guid.NewGuid();
         var entryTime = _fixedNow.AddHours(-1);
         var ctx = new ParkingSessionFeeContext(
             sessionId,
@@ -352,12 +368,13 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             new PricingSnapshotDto("P1", "PerTurn", 60, 20000));
 
         _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(ctx);
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Success(
+            new ParkingLotMembershipInfo(false, string.Empty));
 
         var command = new ConfirmCashParkingFeePaymentCommand(
             sessionId,
             staffAccountId,
             "Staff",
-            otherLotId,
             Guid.NewGuid().ToString(),
             20000);
 
@@ -366,6 +383,8 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PayParkingFeeErrors.LotAccessDenied, result.Error);
+        Assert.Equal(sessionLotId, _membershipGateway.LastQueriedLotId);
+        Assert.Equal(staffAccountId, _membershipGateway.LastQueriedAccountId);
     }
 
     [Fact]
@@ -382,7 +401,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             20000);
 
@@ -417,7 +435,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             20000);
 
@@ -453,7 +470,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             20000);
 
@@ -501,7 +517,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             20000);
 
@@ -539,7 +554,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             0);
 
@@ -581,7 +595,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             Guid.NewGuid().ToString(),
             15000); // Mong đợi 15k nhưng thực tế 20k
 
@@ -601,7 +614,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             "Staff",
-            Guid.NewGuid(),
             Guid.NewGuid().ToString(),
             20000,
             longReason);
@@ -646,7 +658,6 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             sessionId,
             staffAccountId,
             "Staff",
-            lotId,
             key,
             20000);
 
@@ -657,6 +668,121 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal(cachedResponse.TransactionId, result.Value.TransactionId);
         Assert.Equal(cachedResponse.AmountPaid, result.Value.AmountPaid);
+        Assert.Empty(_paymentRepository.AddedPayments);
+    }
+
+    [Fact]
+    public async Task Handle_WhenOwnerBelongsToLot_ShouldSucceed()
+    {
+        var sessionId = Guid.NewGuid();
+        var ownerAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var entryTime = _fixedNow.AddHours(-1);
+        var ctx = new ParkingSessionFeeContext(
+            sessionId,
+            lotId,
+            "51A-12345",
+            "Car",
+            "Active",
+            entryTime,
+            null,
+            null,
+            new PricingSnapshotDto("P1", "PerTurn", 60, 20000));
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(ctx);
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Success(
+            new ParkingLotMembershipInfo(true, "Owner"));
+
+        var command = new ConfirmCashParkingFeePaymentCommand(
+            sessionId,
+            ownerAccountId,
+            "ParkingLotOwner",
+            Guid.NewGuid().ToString(),
+            20000);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(ownerAccountId, result.Value.ConfirmedByStaffId);
+        Assert.Equal(lotId, result.Value.ParkingLotId);
+        Assert.Single(_paymentRepository.AddedPayments);
+    }
+
+    [Fact]
+    public async Task Handle_WhenOwnerOfOtherLotTriesToConfirm_ShouldReturnLotAccessDenied()
+    {
+        // Chủ bãi A cố gắng xác nhận thu tiền tại bãi B -> bị từ chối
+        var sessionId = Guid.NewGuid();
+        var ownerAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var entryTime = _fixedNow.AddHours(-1);
+        var ctx = new ParkingSessionFeeContext(
+            sessionId,
+            lotId,
+            "51A-12345",
+            "Car",
+            "Active",
+            entryTime,
+            null,
+            null,
+            new PricingSnapshotDto("P1", "PerTurn", 60, 20000));
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(ctx);
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Success(
+            new ParkingLotMembershipInfo(false, string.Empty));
+
+        var command = new ConfirmCashParkingFeePaymentCommand(
+            sessionId,
+            ownerAccountId,
+            "ParkingLotOwner",
+            Guid.NewGuid().ToString(),
+            20000);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.LotAccessDenied, result.Error);
+        Assert.Empty(_paymentRepository.AddedPayments);
+    }
+
+    [Fact]
+    public async Task Handle_WhenMembershipGatewayFails_ShouldReturnParkingServiceUnavailable_FailClosed()
+    {
+        // gRPC tra cứu quyền bãi bị lỗi (timeout, network, unavailable) -> fail-closed 503
+        var sessionId = Guid.NewGuid();
+        var staffAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var entryTime = _fixedNow.AddHours(-1);
+        var ctx = new ParkingSessionFeeContext(
+            sessionId,
+            lotId,
+            "51A-12345",
+            "Car",
+            "Active",
+            entryTime,
+            null,
+            null,
+            new PricingSnapshotDto("P1", "PerTurn", 60, 20000));
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(ctx);
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Failure(
+            PayParkingFeeErrors.ParkingServiceUnavailable);
+
+        var command = new ConfirmCashParkingFeePaymentCommand(
+            sessionId,
+            staffAccountId,
+            "Staff",
+            Guid.NewGuid().ToString(),
+            20000);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.ParkingServiceUnavailable, result.Error);
         Assert.Empty(_paymentRepository.AddedPayments);
     }
 }

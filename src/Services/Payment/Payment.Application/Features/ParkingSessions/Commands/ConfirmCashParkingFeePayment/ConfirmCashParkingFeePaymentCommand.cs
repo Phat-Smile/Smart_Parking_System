@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 
 namespace ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.ConfirmCashParkingFeePayment;
@@ -8,7 +8,6 @@ public sealed record ConfirmCashParkingFeePaymentCommand(
     Guid SessionId,
     Guid StaffAccountId,
     string StaffRole,
-    Guid? StaffLotId,
     string IdempotencyKey,
     long ExpectedAmountDue,
     string? Reason = null) : IRequest<Result<ConfirmCashParkingFeePaymentResponse>>;

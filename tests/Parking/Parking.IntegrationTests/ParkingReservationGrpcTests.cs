@@ -238,7 +238,6 @@ public sealed class ParkingReservationGrpcTests
                 .Where(p => p.LotId == lotId && p.VehicleType == vehicleType)
                 .OrderByDescending(p => p.Version)
                 .FirstOrDefault());
-
         public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
             GetLatestAsync(lotId, vehicleType, cancellationToken);
         public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken) => Task.CompletedTask;

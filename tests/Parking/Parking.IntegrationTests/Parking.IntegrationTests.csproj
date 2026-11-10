@@ -21,6 +21,7 @@
     <!-- Compiled as a client the same way Booking will, so the gRPC tests double as a contract test. -->
     <Protobuf Include="..\..\..\contracts\grpc\parking_availability.proto" GrpcServices="Client" Link="Protos\parking_availability.proto" />
     <Protobuf Include="..\..\..\contracts\grpc\parking_session_fee.proto" GrpcServices="Client" Link="Protos\parking_session_fee.proto" />
+    <Protobuf Include="..\..\..\contracts\grpc\parking_lot_membership.proto" GrpcServices="Client" Link="Protos\parking_lot_membership.proto" />
     <!-- Compiled as a server to host a fake Identity; the client under test is the one generated in Parking.WebAPI. -->
     <Protobuf Include="..\..\..\contracts\grpc\identity_vehicle.proto" GrpcServices="Server" Link="Protos\identity_vehicle.proto" />
   </ItemGroup>

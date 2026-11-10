@@ -109,6 +109,7 @@ app.MapSlotConfirmationEndpoints();
 app.MapHub<ParkingHub>("/hubs/parking");
 app.MapGrpcService<ParkingAvailabilityGrpcService>();
 app.MapGrpcService<ParkingSessionFeeGrpcService>();
+app.MapGrpcService<ParkingLotMembershipGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();

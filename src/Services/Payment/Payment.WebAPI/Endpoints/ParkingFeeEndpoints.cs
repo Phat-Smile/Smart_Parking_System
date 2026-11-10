@@ -260,15 +260,11 @@ internal static class ParkingFeeEndpoints
                     ? id : Guid.Empty;
                 var callerRole = httpContext.User.FindFirst("role")?.Value
                     ?? string.Empty;
-                var staffLotId = Guid.TryParse(
-                    httpContext.User.FindFirst("parking_lot_id")?.Value, out var lotId)
-                    ? lotId : (Guid?)null;
 
                 var command = new ConfirmCashParkingFeePaymentCommand(
                     sessionGuid,
                     callerAccountId,
                     callerRole,
-                    staffLotId,
                     rawKey.ToString(),
                     body.ExpectedAmountDue,
                     body.Reason);
