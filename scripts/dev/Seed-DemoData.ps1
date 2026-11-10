@@ -1,11 +1,11 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Creates demo data for Smart Parking: accounts, roles, owner applications with documents, staff assignment and sample lots.
+    Creates demo data for Smart Parking: accounts, roles, owner applications with documents, staff assignment, sample lots, and wallet top-ups.
 
 .DESCRIPTION
-    Dry run by default: prints the plan and touches nothing. With -Apply and -ConfirmDemoData it calls the real Identity and
-    Parking APIs on their own ports (not the Gateway, which rate-limits register and login per IP) and, through psql in the
+    Dry run by default: prints the plan and touches nothing. With -Apply and -ConfirmDemoData it calls the real Identity,
+    Parking, and Payment APIs on their own ports (not the Gateway, which rate-limits register and login per IP) and, through psql in the
     Postgres container, marks the demo emails as verified and promotes the first SystemAdmin, which no API can do.
 
     The owner goes through the real flow: apply, choose the owner type, upload every required document, then the admin
@@ -25,6 +25,7 @@
 param (
     [string]$IdentityUrl = 'http://127.0.0.1:5001',
     [string]$ParkingUrl = 'http://127.0.0.1:5002',
+    [string]$PaymentUrl = 'http://127.0.0.1:5004',
     # Empty means: SERVICE_KEY from the environment, then from .env at the repository root, then none.
     [string]$ServiceKey = '',
     [string]$Password = 'Demo@12345',
@@ -38,9 +39,12 @@ param (
     [string]$PostgresContainer = '',
     [switch]$SkipParkingCatalog,
     [switch]$SkipLotDetails,
-    [string]$PaymentUrl = 'http://127.0.0.1:5004',
     [switch]$SkipWalletSeed,
     [long]$WalletSeedAmount = 200000,
+    [string]$HashSecret = '',
+    [string]$TmnCode = '',
+    [string]$AdminTotpSecret = '',
+    [string]$AdminTotpCode = '',
     [switch]$AllowRemoteHost,
     [switch]$Apply,
     [string]$ConfirmDemoData = ''
@@ -59,24 +63,53 @@ if ($PostgresContainer -and $PostgresContainer -notmatch '^[A-Za-z0-9][A-Za-z0-9
 
 $IdentityUrl = $IdentityUrl.TrimEnd('/')
 $ParkingUrl = $ParkingUrl.TrimEnd('/')
-foreach ($url in @($IdentityUrl, $ParkingUrl, $PaymentUrl)) {
+$PaymentUrl = $PaymentUrl.TrimEnd('/')
+$targetUrls = @($IdentityUrl, $ParkingUrl)
+if (-not $SkipWalletSeed) { $targetUrls += $PaymentUrl }
+foreach ($url in $targetUrls) {
     $uri = [System.Uri]$url
     if (-not $AllowRemoteHost -and @('localhost', '127.0.0.1', '[::1]', '::1') -notcontains $uri.Host) {
         throw "Refusing to seed ${url}: the host is not local. Demo accounts share a published password. Use -AllowRemoteHost only for a throwaway environment."
     }
 }
 
-if (-not $ServiceKey) {
-    if ($env:SERVICE_KEY) {
-        $ServiceKey = $env:SERVICE_KEY
-    }
-    else {
-        $envFile = Join-Path $repoRoot '.env'
-        if (Test-Path -LiteralPath $envFile) {
-            $line = Get-Content -LiteralPath $envFile | Where-Object { $_ -match '^\s*SERVICE_KEY\s*=' } | Select-Object -First 1
-            if ($line) { $ServiceKey = ($line -replace '^\s*SERVICE_KEY\s*=\s*', '').Trim().Trim('"').Trim("'") }
+function Get-EnvFileValue([string]$KeyName) {
+    $envFile = Join-Path $repoRoot '.env'
+    if (Test-Path -LiteralPath $envFile) {
+        $lines = Get-Content -LiteralPath $envFile
+        foreach ($line in $lines) {
+            $trimmed = $line.Trim()
+            if ($trimmed -and -not $trimmed.StartsWith('#') -and $trimmed.Contains('=')) {
+                $idx = $trimmed.IndexOf('=')
+                $k = $trimmed.Substring(0, $idx).Trim()
+                $v = $trimmed.Substring($idx + 1).Trim().Trim('"').Trim("'")
+                if ($k -eq $KeyName) { return $v }
+            }
         }
     }
+    return ''
+}
+
+if (-not $ServiceKey) {
+    if ($env:SERVICE_KEY) { $ServiceKey = $env:SERVICE_KEY }
+    else { $ServiceKey = Get-EnvFileValue 'SERVICE_KEY' }
+}
+
+if (-not $HashSecret) {
+    if ($env:VNPAY_HASH_SECRET) { $HashSecret = $env:VNPAY_HASH_SECRET }
+    else { $HashSecret = Get-EnvFileValue 'VNPAY_HASH_SECRET' }
+}
+if (-not $HashSecret) { $HashSecret = 'DEMOHASHSECRET1234567890' }
+
+if (-not $TmnCode) {
+    if ($env:VNPAY_TMN_CODE) { $TmnCode = $env:VNPAY_TMN_CODE }
+    else { $TmnCode = Get-EnvFileValue 'VNPAY_TMN_CODE' }
+}
+if (-not $TmnCode) { $TmnCode = 'PARKWISE' }
+
+if (-not $AdminTotpSecret) {
+    if ($env:DEMO_ADMIN_TOTP_SECRET) { $AdminTotpSecret = $env:DEMO_ADMIN_TOTP_SECRET }
+    else { $AdminTotpSecret = Get-EnvFileValue 'DEMO_ADMIN_TOTP_SECRET' }
 }
 
 # ---------------------------------------------------------------- the data
@@ -104,7 +137,7 @@ $accounts = @(
     New-DemoAccount 'OwnerRejected' 'owner.rejected' 'Chu Bai Bi Tu Choi' 'Enterprise' "${TaxCodePrefix}03" 'Rejected' 'Premises proof is blurred, please upload a clear copy.'
     New-DemoAccount 'Staff' 'staff' 'Nhan Vien Demo'
     New-DemoAccount 'Customer' 'customer' 'Khach Hang Demo'
-    New-DemoAccount 'Customer2' 'customer2' 'Khach Hang Demo 2 (Concurrency)'
+    New-DemoAccount 'Customer2' 'customer2' 'Khach Hang Demo Hai'
 )
 function Get-Demo([string]$Key) { $accounts | Where-Object { $_.Key -eq $Key } | Select-Object -First 1 }
 
@@ -160,11 +193,12 @@ function Get-Prop($Object, [string]$Name) {
 }
 
 function Invoke-Api {
-    param ([string]$Method, [string]$Url, $Body = $null, [string]$Token = '')
-    $headers = @{}
-    if ($Token) { $headers['Authorization'] = "Bearer $Token" }
-    if ($ServiceKey) { $headers['X-Service-Key'] = $ServiceKey }
-    $request = @{ Method = $Method; Uri = $Url; Headers = $headers; UseBasicParsing = $true; TimeoutSec = 60 }
+    param ([string]$Method, [string]$Url, $Body = $null, [string]$Token = '', [hashtable]$Headers = @{})
+    $reqHeaders = @{}
+    if ($Token) { $reqHeaders['Authorization'] = "Bearer $Token" }
+    if ($ServiceKey) { $reqHeaders['X-Service-Key'] = $ServiceKey }
+    foreach ($k in $Headers.Keys) { $reqHeaders[$k] = $Headers[$k] }
+    $request = @{ Method = $Method; Uri = $Url; Headers = $reqHeaders; UseBasicParsing = $true; TimeoutSec = 60 }
     if ($null -ne $Body) {
         $request['Body'] = [System.Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 8 -Compress))
         $request['ContentType'] = 'application/json; charset=utf-8'
@@ -185,6 +219,53 @@ function Invoke-Api {
             try { $text = $reader.ReadToEnd() } finally { $reader.Dispose() }
         }
         return ConvertTo-ApiResult ([int]$failed.StatusCode) $text
+    }
+}
+
+# ---------------------------------------------------------------- Security & Crypto Helpers
+
+function Get-TotpCode([string]$Secret) {
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+    $clean = $Secret.Trim().TrimEnd('=').Replace(' ', '').ToUpperInvariant()
+    $bytes = New-Object System.Collections.Generic.List[byte]
+    $buffer = 0
+    $bits = 0
+    foreach ($c in $clean.ToCharArray()) {
+        $val = $alphabet.IndexOf($c)
+        if ($val -lt 0) { throw "Invalid Base32 character: $c" }
+        $buffer = ($buffer -shl 5) -bor $val
+        $bits += 5
+        if ($bits -ge 8) {
+            $bytes.Add([byte](($buffer -shr ($bits - 8)) -band 0xFF))
+            $bits -= 8
+        }
+    }
+    $key = $bytes.ToArray()
+    $step = [long][Math]::Floor(([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) / 30)
+    $counter = [BitConverter]::GetBytes($step)
+    if ([BitConverter]::IsLittleEndian) { [Array]::Reverse($counter) }
+
+    $hmac = New-Object System.Security.Cryptography.HMACSHA1 -ArgumentList (,$key)
+    try {
+        $hash = $hmac.ComputeHash($counter)
+        $offset = $hash[$hash.Length - 1] -band 0x0F
+        $binary = (($hash[$offset] -band 0x7F) -shl 24) -bor (($hash[$offset + 1] -band 0xFF) -shl 16) -bor (($hash[$offset + 2] -band 0xFF) -shl 8) -bor ($hash[$offset + 3] -band 0xFF)
+        return ($binary % 1000000).ToString('D6')
+    }
+    finally {
+        $hmac.Dispose()
+    }
+}
+
+function Compute-VnpayHash([string]$Secret, [string]$RawQuery) {
+    $hmac = New-Object System.Security.Cryptography.HMACSHA512
+    try {
+        $hmac.Key = [System.Text.Encoding]::UTF8.GetBytes($Secret)
+        $hashBytes = $hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($RawQuery))
+        return (-join ($hashBytes | ForEach-Object { $_.ToString('x2') })).ToLowerInvariant()
+    }
+    finally {
+        $hmac.Dispose()
     }
 }
 
@@ -240,12 +321,83 @@ function Connect-Account($Account) {
         if ((Get-Prop $result.Json 'errorCode') -eq 'identity.email_not_verified') { $hint = ' The email is not verified: the SQL step did not run (see -SqlMode).' }
         throw "Login of $($Account.Email) failed: HTTP $($result.Status) $($result.Text)$hint"
     }
+
     $token = Get-Prop $result.Json 'accessToken'
+    $mfaRequired = Get-Prop $result.Json 'mfaRequired'
+    $mfaToken = Get-Prop $result.Json 'mfaToken'
+
+    # If login requires MFA step 2 (e.g. Admin has MFA enabled)
+    if ($mfaRequired -or $mfaToken) {
+        $otpCode = ''
+        if ($Account.Key -eq 'Admin') {
+            if ($AdminTotpCode) {
+                $otpCode = $AdminTotpCode.Trim()
+            }
+            elseif ($AdminTotpSecret) {
+                $otpCode = Get-TotpCode $AdminTotpSecret
+            }
+            elseif ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+                Write-Host "MFA challenge required for $($Account.Email)." -ForegroundColor Yellow
+                $otpCode = Read-Host "Enter 6-digit TOTP code for $($Account.Email)"
+            }
+            else {
+                throw "Login of $($Account.Email) requires MFA. Pass -AdminTotpSecret or set DEMO_ADMIN_TOTP_SECRET (or -AdminTotpCode)."
+            }
+        }
+        else {
+            throw "Login of $($Account.Email) requires MFA, but only Admin MFA is automated."
+        }
+
+        $mfaResult = Invoke-Api POST "$IdentityUrl/api/identity/accounts/login/mfa" @{ mfaToken = $mfaToken; code = $otpCode }
+        if ($mfaResult.Status -ne 200) {
+            throw "MFA step 2 login of $($Account.Email) failed: HTTP $($mfaResult.Status) $($mfaResult.Text)"
+        }
+        $token = Get-Prop $mfaResult.Json 'accessToken'
+    }
+
     if (-not $token) { throw "Login of $($Account.Email) returned no access token: $($result.Text)" }
     $claims = Get-JwtClaims $token
     $Account.Token = $token
     $Account.Id = [string]$claims.sub
     $Account.RoleClaim = [string]$claims.role
+
+    # If Admin logged in with role SystemAdmin, ensure token carries claim amr=mfa so admin approval endpoints do not 403
+    if ($Account.Key -eq 'Admin' -and $Account.RoleClaim -eq 'SystemAdmin') {
+        $amrList = @()
+        if ($claims.amr -is [System.Array]) { $amrList = @($claims.amr) }
+        elseif ($claims.amr) { $amrList = @([string]$claims.amr) }
+
+        if ('mfa' -notcontains $amrList) {
+            try {
+                Write-Host "  Admin logged in without MFA (amr missing 'mfa'). Initializing MFA..." -ForegroundColor Yellow
+                $setupRes = Invoke-Api POST "$IdentityUrl/api/identity/accounts/mfa/setup" $null $Account.Token
+                if ($setupRes.Status -eq 200 -and $setupRes.Json) {
+                    $secret = Get-Prop $setupRes.Json 'secret'
+                    $code = Get-TotpCode $secret
+                    $confirmRes = Invoke-Api POST "$IdentityUrl/api/identity/accounts/mfa/confirm" @{ code = $code } $Account.Token
+                    if ($confirmRes.Status -eq 200) {
+                        Write-Ok "Admin MFA enabled automatically. Secret: $secret"
+                        $relogin = Invoke-Api POST "$IdentityUrl/api/identity/accounts/login" @{ email = $Account.Email; password = "$Password" }
+                        $challenge = Get-Prop $relogin.Json 'mfaToken'
+                        $newCode = Get-TotpCode $secret
+                        $mfaLogin = Invoke-Api POST "$IdentityUrl/api/identity/accounts/login/mfa" @{ mfaToken = $challenge; code = $newCode }
+                        if ($mfaLogin.Status -eq 200) {
+                            $newToken = Get-Prop $mfaLogin.Json 'accessToken'
+                            if ($newToken) {
+                                $Account.Token = $newToken
+                                $newClaims = Get-JwtClaims $newToken
+                                $Account.RoleClaim = [string]$newClaims.role
+                                Write-Ok "Admin re-authenticated via MFA (amr carries 'mfa')"
+                            }
+                        }
+                    }
+                }
+            }
+            catch {
+                Write-Warn "Automatic Admin MFA setup skipped/failed: $($_.Exception.Message)"
+            }
+        }
+    }
 }
 
 # ---------------------------------------------------------------- SQL
@@ -333,11 +485,102 @@ function Set-LotDetails($Owner, $Lot) {
     }
 }
 
+function Ensure-CustomerWallet($Customer, [long]$RequiredBalance) {
+    $wallet = Invoke-Api GET "$PaymentUrl/api/payment/wallets/me" $null $Customer.Token
+    if ($wallet.Status -ne 200) {
+        Write-Warn "$($Customer.Email): Unable to query wallet balance: HTTP $($wallet.Status) $($wallet.Text)"
+        return
+    }
+
+    $currentBalance = 0
+    if ($wallet.Json -and ($null -ne (Get-Prop $wallet.Json 'balance'))) {
+        $currentBalance = [long](Get-Prop $wallet.Json 'balance')
+    }
+
+    Write-Host ("  $($Customer.Email): Balance = {0:N0} VND (Target: {1:N0} VND)" -f $currentBalance, $RequiredBalance) -ForegroundColor Gray
+
+    if ($currentBalance -ge $RequiredBalance) {
+        Write-Ok "$($Customer.Email): Wallet already has {0:N0} VND (>= {1:N0} VND)" -f $currentBalance, $RequiredBalance
+        return
+    }
+
+    $deficit = $RequiredBalance - $currentBalance
+    Write-Host "  -> Creating top-up request for $deficit VND..." -ForegroundColor Gray
+
+    $idemKey = [Guid]::NewGuid().ToString()
+    $topupHeaders = @{ 'Idempotency-Key' = $idemKey }
+    $topup = Invoke-Api POST "$PaymentUrl/api/payment/wallets/top-up" @{ amount = $deficit } $Customer.Token $topupHeaders
+
+    if ($topup.Status -ne 200 -and $topup.Status -ne 201) {
+        Write-Warn "$($Customer.Email): Top-up request failed: HTTP $($topup.Status) $($topup.Text)"
+        return
+    }
+
+    $topupId = Get-Prop $topup.Json 'topupId'
+    if (-not $topupId) {
+        Write-Warn "$($Customer.Email): No topupId returned in top-up response: $($topup.Text)"
+        return
+    }
+
+    Write-Host "  -> Simulating VNPay IPN webhook callback for TopupId: $topupId..." -ForegroundColor Gray
+    $now = [DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(7))
+    $dateStr = $now.ToString('yyyyMMddHHmmss')
+    $vnpAmount = ($deficit * 100).ToString()
+
+    $params = New-Object 'System.Collections.Generic.SortedDictionary[string,string]' ([System.StringComparer]::Ordinal)
+    $params['vnp_Amount']            = $vnpAmount
+    $params['vnp_BankCode']          = 'NCB'
+    $params['vnp_BankTranNo']        = "BT$dateStr"
+    $params['vnp_CardType']          = 'ATM'
+    $params['vnp_Command']           = 'pay'
+    $params['vnp_CreateDate']        = $dateStr
+    $params['vnp_CurrCode']          = 'VND'
+    $params['vnp_OrderInfo']         = "Nap tien vi $topupId"
+    $params['vnp_PayDate']           = $dateStr
+    $params['vnp_ResponseCode']      = '00'
+    $params['vnp_TmnCode']           = $TmnCode
+    $params['vnp_TransactionNo']     = "TR$dateStr"
+    $params['vnp_TransactionStatus'] = '00'
+    $params['vnp_TxnRef']            = $topupId
+    $params['vnp_Version']           = '2.1.0'
+
+    $rawList = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($k in $params.Keys) {
+        $v = $params[$k]
+        if ($v) {
+            $encKey = [System.Net.WebUtility]::UrlEncode($k)
+            $encVal = [System.Net.WebUtility]::UrlEncode($v)
+            $rawList.Add("$encKey=$encVal")
+        }
+    }
+    $rawQuery = [string]::Join('&', $rawList)
+    $secureHash = Compute-VnpayHash $HashSecret $rawQuery
+    $finalQuery = "$rawQuery&vnp_SecureHash=$secureHash"
+
+    $ipnUrl = "$PaymentUrl/api/payment/vnpay/ipn?$finalQuery"
+    $ipnRes = Invoke-Api GET $ipnUrl
+
+    if ($ipnRes.Status -eq 200) {
+        Write-Ok "$($Customer.Email): Top-up successful ({0:N0} VND via VNPay IPN simulation)" -f $deficit
+
+        $after = Invoke-Api GET "$PaymentUrl/api/payment/wallets/me" $null $Customer.Token
+        if ($after.Status -eq 200 -and $after.Json) {
+            $newBal = [long](Get-Prop $after.Json 'balance')
+            Write-Ok "$($Customer.Email): New wallet balance: {0:N0} VND" -f $newBal
+        }
+    }
+    else {
+        Write-Warn "$($Customer.Email): VNPay IPN webhook simulation failed: HTTP $($ipnRes.Status) $($ipnRes.Text)"
+    }
+}
+
 function Invoke-Seed {
     $admin = Get-Demo 'Admin'; $owner = Get-Demo 'Owner'; $staff = Get-Demo 'Staff'; $customer = Get-Demo 'Customer'; $customer2 = Get-Demo 'Customer2'
 
     Write-Step 'Checking that the services answer'
-    foreach ($target in @(@{ Name = 'Identity'; Url = $IdentityUrl }, @{ Name = 'Parking'; Url = $ParkingUrl })) {
+    $targets = @(@{ Name = 'Identity'; Url = $IdentityUrl }, @{ Name = 'Parking'; Url = $ParkingUrl })
+    if (-not $SkipWalletSeed) { $targets += @{ Name = 'Payment'; Url = $PaymentUrl } }
+    foreach ($target in $targets) {
         $health = Invoke-Api GET "$($target.Url)/health/live"
         if ($health.Status -ne 200) { throw "$($target.Name) at $($target.Url) is not live: HTTP $($health.Status)" }
         Write-Ok "$($target.Name) is live"
@@ -393,7 +636,7 @@ function Invoke-Seed {
     if ($customer2) {
         $profile2 = Invoke-Api PUT "$IdentityUrl/api/identity/accounts/me/profile" @{ fullName = $customer2.FullName } $customer2.Token
         if ($profile2.Status -ge 200 -and $profile2.Status -lt 300) { Write-Ok "$($customer2.Email): profile" } else { Write-Warn "$($customer2.Email): profile not saved (HTTP $($profile2.Status) $($profile2.Text))" }
-        foreach ($vehicle in @(@{ licensePlate = '51B-999.88'; vehicleType = 'Car'; nickName = 'Demo car 2 (Concurrency)' })) {
+        foreach ($vehicle in @(@{ licensePlate = '51B-999.88'; vehicleType = 'Car'; nickName = 'Demo car 2' })) {
             $added = Invoke-Api POST "$IdentityUrl/api/identity/accounts/me/vehicles" $vehicle $customer2.Token
             if ($added.Status -ge 200 -and $added.Status -lt 300) { Write-Ok "$($customer2.Email): vehicle $($vehicle.licensePlate)" }
             elseif ((Get-Prop $added.Json 'errorCode') -eq 'identity.vehicle_plate_already_registered') { Write-Note "$($customer2.Email): plate $($vehicle.licensePlate) is already registered (it may belong to another account)" }
@@ -416,11 +659,9 @@ function Invoke-Seed {
 
     if (-not $SkipWalletSeed) {
         Write-Step ("Seeding customer wallets ({0:N0} VND via VNPay IPN simulation)" -f $WalletSeedAmount)
-        $concurrencyScript = Join-Path $PSScriptRoot 'Seed-CustomerConcurrencyWallets.ps1'
-        if (Test-Path -LiteralPath $concurrencyScript) {
-            & $concurrencyScript -IdentityUrl $IdentityUrl -PaymentUrl $PaymentUrl -TargetBalance $WalletSeedAmount -Password $Password -Apply | Out-Host
-        } else {
-            Write-Warn "Seed-CustomerConcurrencyWallets.ps1 not found, skipped wallet seeding."
+        Ensure-CustomerWallet $customer $WalletSeedAmount
+        if ($customer2) {
+            Ensure-CustomerWallet $customer2 $WalletSeedAmount
         }
     }
 }
