@@ -106,3 +106,4 @@ In `Parking.Infrastructure/Booking/BookingCheckInHttpClient.cs`:
    ```csharp
    request.Headers.Add("X-Arrival-Service-Key", arrivalKey);
    ```
+
