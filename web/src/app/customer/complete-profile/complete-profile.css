@@ -2170,3 +2170,46 @@
         bottom: 11px;
     }
 }
+
+.parkwise-profile-vneid-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0 8px;
+}
+.parkwise-profile-vneid-button {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    border: 1px solid #d8b7ba;
+    border-radius: 11px;
+    background: #fff8f8;
+    color: #8f3039;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    cursor: pointer;
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease;
+}
+.parkwise-profile-vneid-button:hover {
+    border-color: #c58c92;
+    background: #fff0f1;
+}
+.parkwise-profile-vneid-badge {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 11px;
+    border: 1px solid #d5e4c1;
+    border-radius: 10px;
+    background: #f5faee;
+    color: #49663e;
+    font-size: 12px;
+    font-weight: 700;
+}

@@ -1,0 +1,444 @@
+.vneid-consent-page {
+    --vneid-red: #ca080e;
+    --vneid-ink: #10131e;
+    --vneid-muted: #515769;
+    min-height: 100dvh;
+    background: #f5f6f9;
+    color: var(--vneid-ink);
+    color-scheme: light;
+    padding-bottom: 20px;
+}
+.vneid-consent-banner {
+    height: 185px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(115deg, #970b10, #c71519 70%, #a90c12);
+    color: white;
+}
+.vneid-consent-brand {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    max-width: 1440px;
+    margin: auto;
+    padding: 25px 5%;
+}
+.vneid-consent-emblem {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 86px;
+    height: 105px;
+    flex-shrink: 0;
+    color: #ffe59b;
+}
+.vneid-consent-emblem > svg {
+    position: absolute;
+    width: 86px;
+    height: 100px;
+    fill: #c9171c;
+    stroke-width: 1.3;
+    filter: drop-shadow(0 2px 6px #7008);
+}
+.vneid-consent-emblem > span {
+    position: relative;
+    font-size: 17px;
+    font-weight: 800;
+}
+.vneid-consent-brand-name {
+    margin: 0;
+    font-size: 34px;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.8px;
+}
+.vneid-consent-brand-name > span {
+    font-size: 14px;
+    letter-spacing: 0;
+    font-weight: 600;
+    opacity: 0.8;
+}
+.vneid-consent-brand-caption {
+    margin: 5px 0 12px;
+    font-size: 17px;
+    font-weight: 600;
+}
+.vneid-consent-demo-tag {
+    display: inline-block;
+    border-radius: 30px;
+    background: white;
+    color: var(--vneid-red);
+    font-weight: 800;
+    font-size: 14px;
+    padding: 6px 16px;
+}
+.vneid-consent-landscape {
+    position: absolute;
+    width: 540px;
+    right: 5%;
+    bottom: 20px;
+    color: #ffb584;
+    opacity: 0.38;
+}
+.vneid-consent-waves {
+    position: absolute;
+    inset: auto 0 0;
+    width: 100%;
+    height: 90px;
+    color: #ed3538;
+    opacity: 0.22;
+}
+.vneid-consent-card {
+    position: relative;
+    width: min(820px, calc(100% - 40px));
+    margin: -28px auto 0;
+    padding: 22px 58px 24px;
+    background: white;
+    border: 1px solid #f0eef0;
+    border-radius: 20px;
+    box-shadow: 0 16px 40px #1e263408;
+}
+.vneid-consent-shield {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 88px;
+    height: 88px;
+    margin: 0 auto 10px;
+}
+.vneid-consent-shield > svg:first-child {
+    position: absolute;
+    width: 80px;
+    height: 88px;
+    fill: #d60c14;
+    stroke: #ffdce1;
+    stroke-width: 2;
+}
+.vneid-consent-shield > svg:last-child {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    color: white;
+    fill: white;
+    stroke: #d60c14;
+    stroke-width: 1.2;
+}
+.vneid-consent-card h1 {
+    margin: 0;
+    text-align: center;
+    font-size: clamp(24px, 2.5vw, 30px);
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: -0.8px;
+    color: var(--vneid-ink);
+}
+.vneid-consent-intro {
+    max-width: 660px;
+    margin: 8px auto 20px;
+    text-align: center;
+    color: var(--vneid-muted);
+    font-size: 16px;
+    line-height: 1.6;
+}
+.vneid-consent-details {
+    margin: 0;
+    padding: 0 16px;
+    border: 1px solid #ece7eb;
+    background: #fcf9fa;
+    border-radius: 15px;
+}
+.vneid-consent-details > div {
+    display: flex;
+    gap: 17px;
+    align-items: center;
+    min-height: 61px;
+    padding: 8px 2px;
+}
+.vneid-consent-details > div + div {
+    border-top: 1px solid #eae5e9;
+}
+.vneid-consent-details > div > div {
+    min-width: 0;
+    flex: 1;
+}
+.vneid-consent-row-icon {
+    display: grid;
+    place-items: center;
+    background: #fde7eb;
+    color: var(--vneid-red);
+    border-radius: 12px;
+    width: 49px;
+    height: 43px;
+    flex-shrink: 0;
+}
+.vneid-consent-row-icon svg {
+    width: 25px;
+    height: 25px;
+    stroke-width: 1.8;
+}
+.vneid-consent-details dt {
+    font-weight: 800;
+    font-size: 16px;
+    line-height: 1.35;
+}
+.vneid-consent-details dd {
+    margin: 0;
+    color: var(--vneid-muted);
+    font-size: 15px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.vneid-consent-details select {
+    display: block;
+    width: 100%;
+    min-height: 28px;
+    padding: 0 24px 0 0;
+    border: 0;
+    background-color: transparent;
+    color: var(--vneid-muted);
+    font: inherit;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.vneid-consent-local-tag {
+    font-size: 11px;
+    margin-left: 8px;
+    border-radius: 5px;
+    padding: 2px 6px;
+    background: #f2e9ec;
+    color: #75565c;
+    white-space: nowrap;
+}
+.vneid-consent-scope {
+    color: var(--vneid-muted);
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 10px 2px 15px;
+}
+.vneid-consent-preview {
+    margin-top: 16px;
+    padding: 16px 18px;
+    border: 1px solid #f0d8dc;
+    border-radius: 14px;
+    background: #fffafb;
+}
+.vneid-consent-preview-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.vneid-consent-preview h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+}
+.vneid-consent-preview-heading span {
+    color: #ad1219;
+    font-size: 12px;
+    font-weight: 700;
+}
+.vneid-consent-preview dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 18px;
+    margin: 0;
+}
+.vneid-consent-preview dl > div { min-width: 0; }
+.vneid-consent-preview dt { color: var(--vneid-muted); font-size: 12px; }
+.vneid-consent-preview dd { margin: 2px 0 0; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.vneid-consent-preview-address { grid-column: 1 / -1; }
+.vneid-consent-checkbox {
+    min-height: 49px;
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    background: #fff0f3;
+    border-radius: 12px;
+    font-size: 16px;
+    line-height: 1.5;
+    cursor: pointer;
+}
+.vneid-consent-checkbox input {
+    width: 23px;
+    height: 23px;
+    margin: 0;
+    accent-color: var(--vneid-red);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.vneid-consent-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+}
+.vneid-consent-actions button {
+    min-height: 51px;
+    border: 1.5px solid #d1d2d9;
+    background: white;
+    color: var(--vneid-ink);
+    border-radius: 12px;
+    padding: 10px 15px;
+    font: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.vneid-consent-actions button[type="submit"] {
+    border-color: var(--vneid-red);
+    background: linear-gradient(#df1017, #bd050a);
+    color: white;
+}
+.vneid-consent-actions button:hover:enabled {
+    background: #f5f5f8;
+}
+.vneid-consent-actions button[type="submit"]:hover:enabled {
+    background: #ad070e;
+}
+.vneid-consent-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+.vneid-consent-page :is(button, input, select):focus-visible {
+    outline: 3px solid #154fc3;
+    outline-offset: 4px;
+}
+.vneid-consent-warning {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    text-align: center;
+    margin: 16px 0 0;
+    padding: 13px 12px;
+    border-radius: 12px;
+    background: #fff0f3;
+    color: #ba050b;
+    font-size: 15px;
+    line-height: 1.5;
+}
+.vneid-consent-warning svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+}
+.vneid-consent-error {
+    color: #b50914;
+    font-size: 14px;
+    margin: 12px 0 0;
+}
+.vneid-consent-footer {
+    text-align: center;
+    color: #687080;
+    font-size: 12px;
+    padding: 17px 20px 0;
+}
+@media (max-width: 600px) {
+    .vneid-consent-preview dl { grid-template-columns: 1fr; }
+    .vneid-consent-banner {
+        height: 162px;
+    }
+    .vneid-consent-brand {
+        gap: 12px;
+        padding: 20px;
+    }
+    .vneid-consent-emblem {
+        width: 56px;
+        height: 77px;
+    }
+    .vneid-consent-emblem > svg {
+        width: 56px;
+        height: 75px;
+    }
+    .vneid-consent-emblem > span {
+        font-size: 12px;
+    }
+    .vneid-consent-brand-name {
+        font-size: 28px;
+    }
+    .vneid-consent-brand-caption {
+        font-size: 12px;
+        margin-bottom: 9px;
+    }
+    .vneid-consent-demo-tag {
+        font-size: 11px;
+        padding: 5px 12px;
+    }
+    .vneid-consent-landscape {
+        width: 260px;
+        right: -60px;
+        bottom: 0;
+        opacity: 0.15;
+    }
+    .vneid-consent-card {
+        width: calc(100% - 24px);
+        padding: 19px 18px 20px;
+        border-radius: 18px;
+        margin-top: -20px;
+    }
+    .vneid-consent-shield {
+        width: 70px;
+        height: 72px;
+    }
+    .vneid-consent-shield > svg:first-child {
+        width: 67px;
+        height: 72px;
+    }
+    .vneid-consent-card h1 {
+        font-size: 23px;
+    }
+    .vneid-consent-intro {
+        font-size: 14px;
+        margin-bottom: 18px;
+    }
+    .vneid-consent-details {
+        padding: 0 11px;
+    }
+    .vneid-consent-details > div {
+        gap: 11px;
+        min-height: 67px;
+    }
+    .vneid-consent-row-icon {
+        width: 39px;
+        height: 39px;
+        border-radius: 10px;
+    }
+    .vneid-consent-details dt {
+        font-size: 14px;
+    }
+    .vneid-consent-details dd {
+        font-size: 13px;
+    }
+    .vneid-consent-local-tag {
+        display: block;
+        margin: 2px 0 0;
+        width: fit-content;
+    }
+    .vneid-consent-checkbox {
+        font-size: 14px;
+        padding: 12px;
+        gap: 10px;
+    }
+    .vneid-consent-actions {
+        gap: 10px;
+    }
+    .vneid-consent-actions button {
+        font-size: 14px;
+        padding: 10px;
+    }
+    .vneid-consent-warning {
+        font-size: 12px;
+        padding: 12px 10px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .vneid-consent-actions button {
+        transition: none;
+    }
+}

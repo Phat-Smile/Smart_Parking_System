@@ -1,6 +1,7 @@
 "use client";
 
 import {
+    useCallback,
     useEffect,
     useRef,
     useState,
@@ -11,6 +12,8 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
 import {
     getAuthSessionSnapshot,
     subscribeAuthSession,
@@ -20,13 +23,32 @@ import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerAccountMenu } from "./CustomerShell";
-import { VneidAuthModal } from "@/features/simulator/vneid/VneidAuthModal";
 import type { VneidCitizenProfile } from "@/features/simulator/vneid/vneidSeedData";
+import { readVneidDemoShare, VNEID_SHARE_KEY } from "@/features/simulator/vneid/vneidDemoSession";
 
 type IdType = "citizenId" | "driverLicense";
 type DocumentSide = "front" | "back";
 type UploadedFile = { file: File; previewUrl: string } | null;
 const PROFILE_DRAFT_KEY = "parkwise:customer:complete-profile:draft";
+// Keep unsaved fields and selected files in memory during the demo round trip.
+type VneidReturnDraft = {
+    accountId: string | null;
+    fullName: string;
+    phone: string;
+    documentNumber: string;
+    issueDate: string;
+    issuedBy: string;
+    birthDate: string;
+    address: string;
+    consent: boolean;
+    includeDocument: boolean;
+    idType: IdType | null;
+    authorityOther: boolean;
+    vneidDemoApplied: boolean;
+    profilePhoto: UploadedFile;
+    documentPhotos: Record<DocumentSide, UploadedFile>;
+};
+let vneidReturnDraft: VneidReturnDraft | null = null;
 
 function ProfileIcon() {
     return (
@@ -323,6 +345,7 @@ export function CompleteProfilePage({
     fontClassName: string;
 }) {
     const { language, copy } = useCustomerLanguage();
+    const router = useRouter();
     const authSession = useSyncExternalStore(
         subscribeAuthSession,
         getAuthSessionSnapshot,
@@ -349,22 +372,24 @@ export function CompleteProfilePage({
     const [consent, setConsent] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
-    const [vneidModalOpen, setVneidModalOpen] = useState(false);
-    const [vneidVerified, setVneidVerified] = useState(false);
+    const [vneidDemoApplied, setVneidDemoApplied] = useState(false);
+    const vneidAppliedRef = useRef(false);
 
-    function handleVneidConfirm(profile: VneidCitizenProfile) {
+    const applyVneidProfile = useCallback((profile: VneidCitizenProfile) => {
+        vneidAppliedRef.current = true;
         setFullName(profile.fullName);
         setBirthDate(profile.dobDisplay);
         setAddress(profile.residence);
+        setIdType("citizenId");
+        setIncludeDocument(true);
         setDocumentNumber(profile.cccd);
         setIssueDate(profile.issueDate);
-        setIssuedBy("Cục Cảnh sát QLHC về TTXH");
-        setVneidVerified(true);
-        setNotice(
-            `Your details were filled and verified through VNeID Level 2 (ID: ${profile.cccd}).`,
-        );
-        setVneidModalOpen(false);
-    }
+        setIssuedBy("Cơ quan cấp mẫu (mô phỏng)");
+        setAuthorityOther(true);
+        setDocumentPhotos({ front: null, back: null });
+        setVneidDemoApplied(true);
+        setNotice("Sample data filled in. This information is not verified by VNeID.");
+    }, []);
     const [validationErrors, setValidationErrors] = useState({
         fullName: "",
         phone: "",
@@ -376,6 +401,59 @@ export function CompleteProfilePage({
     const accountEmail = authSession?.account.email ?? "";
     const emailVerified = authSession?.account.status === "EmailVerified";
     const today = localDateIso();
+
+    useEffect(() => {
+        const draft = vneidReturnDraft;
+        if (!draft || draft.accountId !== (getAuthSessionSnapshot()?.account.id ?? null)) return;
+        let active = true;
+        vneidAppliedRef.current = true;
+        queueMicrotask(() => {
+            if (!active) return;
+            vneidReturnDraft = null;
+            setFullName(draft.fullName);
+            setPhone(draft.phone);
+            setDocumentNumber(draft.documentNumber);
+            setIssueDate(draft.issueDate);
+            setIssuedBy(draft.issuedBy);
+            setBirthDate(draft.birthDate);
+            setAddress(draft.address);
+            setConsent(draft.consent);
+            setIncludeDocument(draft.includeDocument);
+            setIdType(draft.idType);
+            setAuthorityOther(draft.authorityOther);
+            setVneidDemoApplied(draft.vneidDemoApplied);
+            setProfilePhoto(draft.profilePhoto);
+            setDocumentPhotos(draft.documentPhotos);
+        });
+        return () => { active = false; };
+    }, []);
+
+    useEffect(() => {
+        let active = true;
+        let timer: number | undefined;
+        try {
+            const shared = sessionStorage.getItem(VNEID_SHARE_KEY);
+            if (!shared) return;
+            const profile = new URLSearchParams(window.location.search).get("vneid") === "shared"
+                ? readVneidDemoShare(shared, getAuthSessionSnapshot()?.account.id ?? null)
+                : null;
+            if (profile) {
+                vneidAppliedRef.current = true;
+                timer = window.setTimeout(() => {
+                    if (!active) return;
+                    applyVneidProfile(profile);
+                    sessionStorage.removeItem(VNEID_SHARE_KEY);
+                    router.replace("/customer/complete-profile", { scroll: false });
+                }, 0);
+            } else sessionStorage.removeItem(VNEID_SHARE_KEY);
+        } catch {
+            // Storage may be unavailable; the manual form remains usable.
+        }
+        return () => {
+            active = false;
+            if (timer !== undefined) window.clearTimeout(timer);
+        };
+    }, [applyVneidProfile, router]);
 
     useEffect(() => {
         if (!authSession) return;
@@ -413,10 +491,10 @@ export function CompleteProfilePage({
         } catch {
             localStorage.removeItem(PROFILE_DRAFT_KEY);
         }
-        if (draft) {
+        if (draft && !vneidAppliedRef.current) {
             // Defer browser-only draft hydration until after the first render to keep SSR markup stable.
             queueMicrotask(() => {
-                if (cancelled || !draft) return;
+                if (cancelled || !draft || vneidAppliedRef.current) return;
                 setFullName(draft.fullName ?? "");
                 setPhone(draft.phone ?? "");
                 setDocumentNumber(draft.documentNumber ?? "");
@@ -615,6 +693,16 @@ export function CompleteProfilePage({
                 "Draft could not be saved. Your entries are still on this page.",
             );
         }
+    }
+
+    function openVneidDemo() {
+        vneidReturnDraft = {
+            accountId: authSession?.account.id ?? null,
+            fullName, phone, documentNumber, issueDate, issuedBy, birthDate, address,
+            consent, includeDocument, idType, authorityOther, vneidDemoApplied,
+            profilePhoto, documentPhotos,
+        };
+        router.push("/simulator/vneid?return=complete-profile");
     }
 
     return (
@@ -1197,69 +1285,37 @@ export function CompleteProfilePage({
                                         </button>
                                     </div>
 
-                                    {idType === "citizenId" && (
-                                        <div
-                                            style={{
-                                                margin: "14px 0 8px",
-                                                display: "flex",
-                                                flexWrap: "wrap",
-                                                alignItems: "center",
-                                                gap: "10px",
-                                            }}
+                                    <div className="parkwise-profile-vneid-actions">
+                                        <button
+                                            type="button"
+                                            onClick={openVneidDemo}
+                                            className="parkwise-profile-vneid-button"
                                         >
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setVneidModalOpen(true)
-                                                }
-                                                style={{
-                                                    background:
-                                                        "linear-gradient(135deg, #b91c1c, #991b1b)",
-                                                    color: "#ffffff",
-                                                    border: "1.5px solid #7f1d1d",
-                                                    padding: "8px 16px",
-                                                    borderRadius: "10px",
-                                                    fontSize: "13px",
-                                                    fontWeight: 700,
-                                                    cursor: "pointer",
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    gap: "6px",
-                                                    boxShadow:
-                                                        "0 2px 6px rgba(185, 28, 28, 0.25)",
-                                                }}
-                                            >
-                                                🇻🇳{" "}
-                                                {copy(
-                                                    "Fill details with VNeID (Level 2 eID)",
-                                                    "Điền thông tin bằng VNeID (định danh mức 2)",
-                                                )}
-                                            </button>
-                                            {vneidVerified && (
-                                                <span
-                                                    data-testid="customer-vneid-verified-badge"
-                                                    style={{
-                                                        display: "inline-flex",
-                                                        alignItems: "center",
-                                                        gap: "5px",
-                                                        background: "#ecfdf5",
-                                                        color: "#065f46",
-                                                        border: "1px solid #a7f3d0",
-                                                        padding: "6px 12px",
-                                                        borderRadius: "8px",
-                                                        fontSize: "12px",
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    ✓{" "}
-                                                    {copy(
-                                                        "Verified through the VNeID national population database",
-                                                        "Đã xác minh qua cơ sở dữ liệu dân cư VNeID",
-                                                    )}
-                                                </span>
+                                            <ShieldCheck
+                                                size={16}
+                                                aria-hidden="true"
+                                            />
+                                            {copy(
+                                                "Try VNeID demo",
+                                                "Dùng thử mô phỏng VNeID",
                                             )}
-                                        </div>
-                                    )}
+                                        </button>
+                                        {vneidDemoApplied && (
+                                            <span
+                                                data-testid="customer-vneid-demo-badge"
+                                                className="parkwise-profile-vneid-badge"
+                                            >
+                                                <ShieldCheck
+                                                    size={15}
+                                                    aria-hidden="true"
+                                                />
+                                                {copy(
+                                                    "Sample data · not verified",
+                                                    "Dữ liệu mẫu · chưa xác minh",
+                                                )}
+                                            </span>
+                                        )}
+                                    </div>
 
                                     {idType && (
                                         <>
@@ -1827,20 +1883,6 @@ export function CompleteProfilePage({
             </main>
             <ParkWiseFooter language={language} />
 
-            <VneidAuthModal
-                isOpen={vneidModalOpen}
-                onClose={() => setVneidModalOpen(false)}
-                onConfirm={handleVneidConfirm}
-                defaultCccd="000000000001"
-                title={copy(
-                    "Verify your national ID with VNeID",
-                    "Xác minh CCCD với VNeID",
-                )}
-                subtitle={copy(
-                    "Share your identity details to complete your ParkWise profile",
-                    "Chia sẻ thông tin định danh để hoàn thiện hồ sơ ParkWise",
-                )}
-            />
         </div>
     );
 }
