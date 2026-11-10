@@ -14,10 +14,10 @@ public static class GatewayAuthRateLimiting
     public const string SectionName = "RateLimiting:Auth";
     public const string RejectedErrorCode = "gateway.rate_limited";
 
-    // Số request mỗi phút cho một IP (chốt D8b 08/10, thêm forgot/reset/google 09/10); ghi đè được qua config.
+    // Số request mỗi phút cho một IP (chốt D8b 08/10, thêm forgot/reset/google 09/10, siết login 5/phút theo US-AUTH-007); ghi đè được qua config.
     public static readonly IReadOnlyDictionary<string, int> DefaultPermitsPerMinute = new Dictionary<string, int>
     {
-        ["auth-login"] = 10,
+        ["auth-login"] = 5,
         ["auth-register"] = 5,
         ["auth-resend-otp"] = 5,
         ["auth-verify-email"] = 10,
