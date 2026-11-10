@@ -23,6 +23,10 @@ import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import { CustomerHeader } from "./CustomerShell";
 import type { VneidCitizenProfile } from "@/features/simulator/vneid/vneidSeedData";
 import {
+    readVneidDemoShare,
+    VNEID_SHARE_KEY,
+} from "@/features/simulator/vneid/vneidDemoSession";
+import {
     getMyProfile,
     saveMyProfile,
     uploadCustomerMedia,
@@ -32,7 +36,31 @@ type IdType = "citizenId" | "driverLicense";
 type DocumentSide = "front" | "back";
 type UploadedFile = { file: File; previewUrl: string } | null;
 const PROFILE_DRAFT_KEY = "parkwise:customer:complete-profile:draft";
-const VNEID_SHARE_KEY = "parkwise:vneid-shared-profile";
+// Keep unsaved fields and selected files in memory during the local demo round trip.
+// No identity document or file is persisted to browser storage by this draft.
+type VneidReturnDraft = {
+    accountId: string | null;
+    fullName: string;
+    phone: string;
+    documentNumber: string;
+    issueDate: string;
+    issuedBy: string;
+    birthDate: string;
+    address: string;
+    consent: boolean;
+    includeDocument: boolean;
+    idType: IdType | null;
+    authorityOther: boolean;
+    vneidDemoApplied: boolean;
+    profilePhoto: UploadedFile;
+    documentPhotos: Record<DocumentSide, UploadedFile>;
+    savedMedia: {
+        avatarUrl: string | null;
+        frontId: string | null;
+        backId: string | null;
+    };
+};
+let vneidReturnDraft: VneidReturnDraft | null = null;
 
 function ProfileIcon() {
     return (
@@ -411,6 +439,39 @@ export function CompleteProfilePage({
     const today = localDateIso();
 
     useEffect(() => {
+        const draft = vneidReturnDraft;
+        if (
+            !draft ||
+            draft.accountId !== (getAuthSessionSnapshot()?.account.id ?? null)
+        )
+            return;
+        let active = true;
+        vneidAppliedRef.current = true;
+        queueMicrotask(() => {
+            if (!active) return;
+            vneidReturnDraft = null;
+            setFullName(draft.fullName);
+            setPhone(draft.phone);
+            setDocumentNumber(draft.documentNumber);
+            setIssueDate(draft.issueDate);
+            setIssuedBy(draft.issuedBy);
+            setBirthDate(draft.birthDate);
+            setAddress(draft.address);
+            setConsent(draft.consent);
+            setIncludeDocument(draft.includeDocument);
+            setIdType(draft.idType);
+            setAuthorityOther(draft.authorityOther);
+            setVneidDemoApplied(draft.vneidDemoApplied);
+            setProfilePhoto(draft.profilePhoto);
+            setDocumentPhotos(draft.documentPhotos);
+            setSavedMedia(draft.savedMedia);
+        });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    useEffect(() => {
         let cancelled = false;
         void getMyProfile()
             .then((profile) => {
@@ -464,12 +525,16 @@ export function CompleteProfilePage({
         try {
             const sharedProfile = sessionStorage.getItem(VNEID_SHARE_KEY);
             if (!sharedProfile) return;
-            const profile = JSON.parse(sharedProfile) as VneidCitizenProfile;
-            if (
-                profile.category === "customer" &&
-                profile.cccd &&
-                profile.fullName
-            ) {
+            const profile =
+                new URLSearchParams(window.location.search).get("vneid") ===
+                "shared"
+                    ? readVneidDemoShare(
+                          sharedProfile,
+                          getAuthSessionSnapshot()?.account.id ?? null,
+                      )
+                    : null;
+            if (profile) {
+                vneidAppliedRef.current = true;
                 timer = window.setTimeout(() => {
                     if (!active) return;
                     applyVneidProfile(profile);
@@ -478,9 +543,9 @@ export function CompleteProfilePage({
                         scroll: false,
                     });
                 }, 0);
-            }
+            } else sessionStorage.removeItem(VNEID_SHARE_KEY);
         } catch {
-            sessionStorage.removeItem(VNEID_SHARE_KEY);
+            // Storage can be unavailable; the manual profile form remains usable.
         }
         return () => {
             active = false;
@@ -524,10 +589,10 @@ export function CompleteProfilePage({
         } catch {
             localStorage.removeItem(PROFILE_DRAFT_KEY);
         }
-        if (draft) {
+        if (draft && !vneidAppliedRef.current) {
             // Defer browser-only draft hydration until after the first render to keep SSR markup stable.
             queueMicrotask(() => {
-                if (cancelled || !draft) return;
+                if (cancelled || !draft || vneidAppliedRef.current) return;
                 setFullName(draft.fullName ?? "");
                 setPhone(draft.phone ?? "");
                 setDocumentNumber(draft.documentNumber ?? "");
@@ -841,6 +906,28 @@ export function CompleteProfilePage({
                 ),
             );
         }
+    }
+
+    function openVneidDemo() {
+        vneidReturnDraft = {
+            accountId: authSession?.account.id ?? null,
+            fullName,
+            phone,
+            documentNumber,
+            issueDate,
+            issuedBy,
+            birthDate,
+            address,
+            consent,
+            includeDocument,
+            idType,
+            authorityOther,
+            vneidDemoApplied,
+            profilePhoto,
+            documentPhotos,
+            savedMedia,
+        };
+        router.push("/simulator/vneid?return=complete-profile");
     }
 
     return (
@@ -1433,11 +1520,7 @@ export function CompleteProfilePage({
                                     <div className="parkwise-profile-vneid-actions">
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                router.push(
-                                                    "/simulator/vneid?return=complete-profile",
-                                                )
-                                            }
+                                            onClick={openVneidDemo}
                                             className="parkwise-profile-vneid-button"
                                         >
                                             <ShieldCheck
