@@ -72,6 +72,8 @@ public sealed class CheckInEndpointSecurityIntegrationTests
         public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Reservation>>([]);
+        public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         public Task<Reservation?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(_list.FirstOrDefault(r => r.Id == id));

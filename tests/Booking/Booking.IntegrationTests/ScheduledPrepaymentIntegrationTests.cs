@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -109,6 +110,19 @@ public sealed class ScheduledPrepaymentIntegrationTests(PostgreSqlContainerFixtu
         services.AddScoped<ConfirmReservationCommandHandler>();
 
         configure?.Invoke(services);
+
+        var interceptorDescriptors = services.Where(d => d.ServiceType == typeof(Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor)).ToList();
+        if (interceptorDescriptors.Count > 0)
+        {
+            services.Replace(ServiceDescriptor.Scoped<BookingDbContext>(sp =>
+            {
+                var options = sp.GetRequiredService<DbContextOptions<BookingDbContext>>();
+                var builder = new DbContextOptionsBuilder<BookingDbContext>(options);
+                var interceptors = sp.GetServices<Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor>().ToArray();
+                builder.AddInterceptors(interceptors);
+                return new BookingDbContext(builder.Options);
+            }));
+        }
 
         return services.BuildServiceProvider(validateScopes: true);
     }
