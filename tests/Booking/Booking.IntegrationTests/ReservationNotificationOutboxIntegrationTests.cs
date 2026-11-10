@@ -49,7 +49,7 @@ public sealed class ReservationNotificationOutboxIntegrationTests(PostgreSqlCont
     private sealed class StubPaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
     {
         public Task<ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(
-            Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+            Guid reservationId, Guid accountId, Guid lotId, long amountVnd, ParkingSystem.Booking.Application.Payments.PrepaymentPurpose purpose, CancellationToken cancellationToken = default) =>
             Task.FromResult(ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(
                 ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
 

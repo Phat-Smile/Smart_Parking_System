@@ -1,8 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
+using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.CancelReservation;
@@ -196,13 +199,28 @@ public static class ReservationEndpoints
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // 5. Check-in đặt chỗ khi xe vào cổng (US-PARK-004 / MF-08)
-        group.MapPost("/reservations/check-in", async (
+        // 5. Check-in đặt chỗ khi xe vào cổng (US-PARK-004 / MF-08 / P0 Security fix)
+        // Dời ra khỏi /api/booking sang /internal/booking/reservations/check-in
+        app.MapPost("/internal/booking/reservations/check-in", async (
             HttpContext httpContext,
             CheckInReservationApiRequest request,
+            IConfiguration configuration,
             ISender sender,
             CancellationToken cancellationToken) =>
         {
+            var requiredKey = configuration["ArrivalIntegration:Key"];
+            if (string.IsNullOrWhiteSpace(requiredKey))
+            {
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
+
+            var receivedKey = httpContext.Request.Headers["X-Arrival-Service-Key"].ToString();
+            if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(requiredKey), Encoding.UTF8.GetBytes(receivedKey)))
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
             var command = new CheckInReservationCommand(
                 request.LotId,
                 request.PlateNumber,
@@ -219,9 +237,7 @@ public static class ReservationEndpoints
         })
         .AllowAnonymous()
         .WithName("CheckInReservation")
-        .WithSummary("Check-in đặt chỗ tại cổng khi xe đến bãi (MF-08)")
-        .Produces<CheckInReservationResult>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
+        .ExcludeFromDescription();
 
         return app;
     }

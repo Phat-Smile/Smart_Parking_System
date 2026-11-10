@@ -12,6 +12,7 @@ public interface IReservationPaymentClient
         Guid accountId,
         Guid lotId,
         long amountVnd,
+        PrepaymentPurpose purpose,
         CancellationToken cancellationToken = default);
 
     Task<Result<ReservationDebitState>> GetDebitStateAsync(

@@ -79,41 +79,25 @@ public sealed class ConfirmReservationPaymentGateTests
     }
 
     // =========================================================================
-    // T-C1b: Scheduled with deposit -> when payment unavailable returns payment_unconfirmed
+    // T-C1b (Replaced by S-10): Scheduled (PrepaidAmount <= 0đ) -> bị huỷ với payment_failed
     // =========================================================================
     [Fact]
-    public async Task T_C1b_Scheduled_with_deposit_when_payment_unavailable_returns_payment_unconfirmed()
+    public async Task T_C1b_Scheduled_reservations_are_always_blocked()
     {
+        const decimal prepaidAmount = 0m;
         var userId = Guid.NewGuid();
-        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 50000m);
+        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: prepaidAmount);
         _repo.Add(reservation);
 
         var handler = CreateHandler();
-        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 50000m);
+        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", prepaidAmount);
 
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ReservationErrors.PaymentUnconfirmed, result.Error);
-        Assert.Equal(ReservationStatus.TemporaryHold, reservation.Status);
-        Assert.Equal(0, _repo.SaveChangesCount);
-    }
-
-    [Fact]
-    public async Task T_C1b_Scheduled_with_zero_deposit_confirms_successfully()
-    {
-        var userId = Guid.NewGuid();
-        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 0m);
-        _repo.Add(reservation);
-
-        var handler = CreateHandler();
-        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 0m);
-
-        var result = await handler.Handle(command, CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(ReservationStatus.Confirmed.ToString(), result.Value!.Status);
-        Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
+        Assert.Equal(ReservationErrors.PaymentFailed, result.Error);
+        Assert.Equal(ReservationStatus.Cancelled, reservation.Status);
+        Assert.Equal(CancelReason.PaymentFailed, reservation.CancelReason);
         Assert.Equal(1, _repo.SaveChangesCount);
     }
 
@@ -185,13 +169,13 @@ public sealed class ConfirmReservationPaymentGateTests
     }
 
     // =========================================================================
-    // T-C1e: Đúng MỘT log Error có cấu trúc, đầy đủ trường, không lộ secret/biển số
+    // T-C1e (Replaced by S-10): Đúng MỘT log Error có cấu trúc khi prepayment không hợp lệ, không lộ secret/biển số
     // =========================================================================
     [Fact]
     public async Task T_C1e_Logs_structured_error_with_required_fields_and_no_pii()
     {
         var userId = Guid.NewGuid();
-        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 30000m, expiresAt: Now.AddMinutes(-5));
+        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 30000m);
         _repo.Add(reservation);
 
         var handler = CreateHandler();
@@ -199,11 +183,13 @@ public sealed class ConfirmReservationPaymentGateTests
 
         await handler.Handle(command, CancellationToken.None);
 
-        var warningLogs = _logger.Logs.Where(l => l.Level >= LogLevel.Warning).ToList();
-        Assert.NotEmpty(warningLogs);
+        var errorLogs = _logger.Logs.Where(l => l.Level == LogLevel.Error).ToList();
+        Assert.Single(errorLogs);
 
-        var logMessage = warningLogs[0].Message;
+        var logMessage = errorLogs[0].Message;
         Assert.Contains(reservation.Id.ToString(), logMessage);
+        Assert.Contains("30000", logMessage);
+        Assert.Contains("invalid", logMessage, StringComparison.OrdinalIgnoreCase);
 
         // Assert no license plate or secrets leaked
         Assert.DoesNotContain("51A12345", logMessage);
@@ -384,7 +370,7 @@ public sealed class ConfirmReservationPaymentGateTests
             Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt < now && r.PrepaidAmount > 0 && r.PrepaidOutcome == null).Take(batchSize).ToList());
 
         public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.Status == ReservationStatus.Confirmed && r.AppointmentTime <= now.AddMinutes(-Reservation.NoShowGracePeriodMinutes)).Take(batchSize).ToList());
+            Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         private readonly List<Reservation> _list = [];
         public int SaveChangesCount { get; private set; }
@@ -471,7 +457,7 @@ public sealed class ConfirmReservationPaymentGateTests
 
     private sealed class UnavailablePaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
     {
-        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, ParkingSystem.Booking.Application.Payments.PrepaymentPurpose purpose, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
 
         public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>

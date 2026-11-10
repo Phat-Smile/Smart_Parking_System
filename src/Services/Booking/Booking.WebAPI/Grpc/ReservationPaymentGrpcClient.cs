@@ -7,6 +7,8 @@ using ParkingSystem.BuildingBlocks.Results;
 using SmartParking.Contracts.Payment.Reservation.V1;
 using ProtoDebitOutcome = SmartParking.Contracts.Payment.Reservation.V1.DebitOutcome;
 using ProtoDebitState = SmartParking.Contracts.Payment.Reservation.V1.DebitState;
+using ProtoPrepaymentPurpose = SmartParking.Contracts.Payment.Reservation.V1.PrepaymentPurpose;
+using BookingPrepaymentPurpose = ParkingSystem.Booking.Application.Payments.PrepaymentPurpose;
 
 namespace ParkingSystem.Booking.WebAPI.Grpc;
 
@@ -21,16 +23,24 @@ public sealed class ReservationPaymentGrpcClient(
         Guid accountId,
         Guid lotId,
         long amountVnd,
+        BookingPrepaymentPurpose purpose,
         CancellationToken cancellationToken = default)
     {
         var (deadline, headers) = BuildCallOptions();
+        var protoPurpose = purpose switch
+        {
+            BookingPrepaymentPurpose.Deposit => ProtoPrepaymentPurpose.Deposit,
+            BookingPrepaymentPurpose.Scheduled => ProtoPrepaymentPurpose.Scheduled,
+            _ => ProtoPrepaymentPurpose.Unspecified
+        };
+
         var request = new DebitReservationRequest
         {
             ReservationId = reservationId.ToString("D"),
             AccountId = accountId.ToString("D"),
             LotId = lotId.ToString("D"),
             AmountVnd = amountVnd,
-            Purpose = PrepaymentPurpose.Deposit
+            Purpose = protoPurpose
         };
 
         try
