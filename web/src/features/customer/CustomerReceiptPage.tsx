@@ -95,7 +95,7 @@ export function CustomerReceiptPage({ sessionId }: CustomerReceiptPageProps) {
         );
     }
 
-    const shortReceiptCode = `E-RCPT-${receipt.receiptId.slice(0, 8).toUpperCase()}`;
+    const shortReceiptCode = `E-RCPT-${(receipt.receiptId || receipt.paymentId || "00000000").slice(0, 8).toUpperCase()}`;
 
     return (
         <div className="receipt-container">
@@ -158,7 +158,7 @@ export function CustomerReceiptPage({ sessionId }: CustomerReceiptPageProps) {
                                 {copy("Total Duration", "Thời lượng đỗ")}
                             </span>
                             <span className="receipt-value">
-                                {receipt.totalDurationHours.toFixed(1)}{" "}
+                                {(receipt.totalDurationHours ?? 0).toFixed(1)}{" "}
                                 {copy("hours", "giờ")}
                             </span>
                         </div>

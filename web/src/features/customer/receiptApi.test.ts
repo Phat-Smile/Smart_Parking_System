@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getParkingFeeReceiptApi, type ParkingFeeReceipt } from "./receiptApi";
+import {
+    getParkingFeeReceiptApi,
+    adaptBackendReceipt,
+    type ParkingFeeReceipt,
+} from "./receiptApi";
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -42,6 +46,37 @@ describe("getParkingFeeReceiptApi", () => {
         expect(url.pathname).toBe(
             "/api/payment/parking-sessions/sess-456/receipt",
         );
+    });
+
+    it("correctly adapts backend ParkingFeeReceiptResponse contract via adaptBackendReceipt", () => {
+        const backendPayload = {
+            paymentId: "b3f6e07a-e455-4422-9cb5-cf12e584f22a",
+            sessionId: "a1a2a3a4-b1b2-c1c2-d1d2-e1e2e3e4e5e6",
+            parkingLotId: "lot-1111",
+            plateNumber: "51K-123.45",
+            vehicleType: "Car",
+            paymentMethod: "Cash",
+            totalFee: 35000,
+            prepaidAmount: 15000,
+            amountPaid: 20000,
+            paymentTimeUtc: "2026-11-10T09:45:00Z",
+            exitWindowExpiresUtc: "2026-11-10T10:00:00Z",
+            status: "Success",
+            entryTimeUtc: "2026-11-10T08:00:00Z",
+            durationMinutes: 105,
+            transactionReference: "VNP-998877",
+        };
+
+        const result = adaptBackendReceipt(backendPayload);
+
+        expect(result.receiptId).toBe("b3f6e07a-e455-4422-9cb5-cf12e584f22a");
+        expect(result.paymentId).toBe("b3f6e07a-e455-4422-9cb5-cf12e584f22a");
+        expect(result.licensePlate).toBe("51K-123.45");
+        expect(result.totalDurationHours).toBe(1.8);
+        expect(result.standardFee).toBe(35000);
+        expect(result.prepaidDepositOffset).toBe(15000);
+        expect(result.netPaidAmount).toBe(20000);
+        expect(result.ledgerTransactionReference).toBe("VNP-998877");
     });
 
     it("throws error when response is not ok", async () => {
