@@ -31,6 +31,16 @@ export const bookingBadgeConfig: Record<
     },
 };
 
+export function mapStatusToBadge(status: string): BookingStatus {
+    const s = status.toLowerCase();
+    if (s.includes("hold")) return "holding";
+    if (s.includes("confirm")) return "confirmed";
+    if (s.includes("use") || s.includes("complet")) return "used";
+    if (s.includes("cancel")) return "cancelled";
+    if (s.includes("expire")) return "expired";
+    return "expired";
+}
+
 export function BookingBadge({ status }: { status: BookingStatus }) {
     const { isVietnamese } = useCustomerLanguage();
     const config = bookingBadgeConfig[status] || bookingBadgeConfig.expired;
