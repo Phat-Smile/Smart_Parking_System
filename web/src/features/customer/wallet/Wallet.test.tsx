@@ -488,9 +488,9 @@ describe("VnpayReturnStatus", () => {
             });
 
         render(<VnpayReturnStatus topupId="T1" />);
-        expect(
-            await screen.findByText(/Time remaining to pay: 00:03/i),
-        ).toBeInTheDocument();
+        const countdown = await screen.findByRole("timer");
+        expect(countdown).toHaveTextContent("Time remaining");
+        expect(countdown).toHaveTextContent("00:03");
         await act(async () => {
             await vi.advanceTimersByTimeAsync(3000);
         });
@@ -599,10 +599,15 @@ describe("VnpayReturnStatus", () => {
         render(<VnpayReturnStatus topupId="T1" />);
 
         expect(
-            await screen.findByText(
+            await screen.findByRole("heading", {
+                name: /Waiting for confirmation/i,
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText(
                 /ParkWise is waiting for confirmation from VNPay/i,
             ),
-        ).toBeInTheDocument();
+        ).not.toBeInTheDocument();
         await act(async () => {
             await vi.advanceTimersByTimeAsync(3000);
         });

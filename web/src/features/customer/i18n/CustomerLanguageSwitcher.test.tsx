@@ -19,7 +19,8 @@ it("switches Customer wallet copy and keeps the selected language after remount"
     );
 
     expect(screen.getAllByText("My Wallet")).toHaveLength(2);
-    await user.click(screen.getByRole("button", { name: "Tiếng Việt" }));
+    await user.click(screen.getByRole("button", { name: "Language: English" }));
+    await user.click(screen.getByRole("option", { name: "Tiếng Việt" }));
     expect(
         screen.getByRole("heading", { name: "Ví của tôi" }),
     ).toBeInTheDocument();
@@ -35,11 +36,14 @@ it("switches Customer wallet copy and keeps the selected language after remount"
             <WalletPageIntro />
         </>,
     );
-    expect(screen.getByRole("button", { name: "Tiếng Việt" })).toHaveAttribute(
-        "aria-pressed",
+    await user.click(
+        screen.getByRole("button", { name: "Ngôn ngữ: Tiếng Việt" }),
+    );
+    expect(screen.getByRole("option", { name: "Tiếng Việt" })).toHaveAttribute(
+        "aria-selected",
         "true",
     );
-    await user.click(screen.getByRole("button", { name: "English" }));
+    await user.click(screen.getByRole("option", { name: "English" }));
     expect(
         screen.getByRole("heading", { name: "My Wallet" }),
     ).toBeInTheDocument();

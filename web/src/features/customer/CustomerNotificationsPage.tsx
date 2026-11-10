@@ -2,6 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+    ArrowRight,
+    Bell,
+    CalendarCheck2,
+    CarFront,
+    CheckCheck,
+    RefreshCw,
+    Wallet,
+} from "lucide-react";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import {
     getMyNotifications,
@@ -9,17 +18,6 @@ import {
     markNotificationRead,
     type CustomerNotificationItem,
 } from "./customerNotificationApi";
-import {
-    ArrowRight,
-    Bell,
-    CalendarCheck2,
-    CarFront,
-    CheckCheck,
-    Loader2,
-    RefreshCw,
-    Wallet,
-} from "lucide-react";
-import { ApiError } from "@/shared/errors/api-error";
 
 const icons: Record<string, typeof CalendarCheck2> = {
     booking: CalendarCheck2,
@@ -27,108 +25,143 @@ const icons: Record<string, typeof CalendarCheck2> = {
     wallet: Wallet,
 };
 
-function formatNotificationTime(isoString: string): string {
-    try {
-        const date = new Date(isoString);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMinutes = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMinutes / 60);
-        const diffDays = Math.floor(diffHours / 24);
-
-        if (diffMinutes < 1) return "Vừa xong";
-        if (diffMinutes < 60) return `${diffMinutes} phút trước`;
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        if (diffDays === 1) return "Hôm qua";
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        });
-    } catch {
-        return isoString;
+function localizedNotification(
+    notice: CustomerNotificationItem,
+    copy: (english: string, vietnamese: string) => string,
+) {
+    const title = notice.title.toLowerCase();
+    if (notice.type === "wallet" && title.includes("top-up")) {
+        return {
+            title: copy("Wallet top-up completed", "Đã nạp tiền vào ví"),
+            description: copy(
+                "Your wallet balance was updated.",
+                "Số dư ví của bạn đã được cập nhật.",
+            ),
+        };
     }
+    if (notice.type === "parking" && title.includes("active")) {
+        return {
+            title: copy("Parking session active", "Phiên đỗ xe đang hoạt động"),
+            description: copy(
+                "Use your session QR code when leaving.",
+                "Hãy dùng mã QR phiên đỗ xe khi rời bãi.",
+            ),
+        };
+    }
+    if (notice.type === "parking" && title.includes("completed")) {
+        return {
+            title: copy("Parking session completed", "Phiên đỗ xe đã kết thúc"),
+            description: copy(
+                "Your parking session has ended.",
+                "Phiên đỗ xe của bạn đã kết thúc.",
+            ),
+        };
+    }
+    if (notice.type === "booking" && title.includes("confirmed")) {
+        return {
+            title: copy("Booking confirmed", "Đặt chỗ thành công"),
+            description: copy(
+                "Your parking booking is confirmed.",
+                "Đặt chỗ đỗ xe của bạn đã được xác nhận.",
+            ),
+        };
+    }
+    return { title: notice.title, description: notice.description };
 }
 
 export function CustomerNotificationsPage() {
-    const { copy } = useCustomerLanguage();
-    const [notifications, setNotifications] = useState<
-        CustomerNotificationItem[]
-    >([]);
+    const { copy, language } = useCustomerLanguage();
+    const [notices, setNotices] = useState<CustomerNotificationItem[]>([]);
+    const [filter, setFilter] = useState<"all" | "unread">("all");
     const [totalCount, setTotalCount] = useState(0);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [filter, setFilter] = useState<"all" | "unread">("all");
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState("");
 
-    const loadNotifications = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const data = await getMyNotifications(filter === "unread");
-            setNotifications(data.items);
-            setTotalCount(data.totalCount);
-            setUnreadCount(data.unreadCount);
-        } catch (err: unknown) {
-            if (err instanceof ApiError) {
-                setError(
-                    err.problem?.detail ||
-                        err.message ||
-                        "Không thể tải thông báo.",
+    const load = useCallback(
+        async (nextPage: number, unreadOnly = false) => {
+            setLoading(true);
+            setError("");
+            try {
+                const result = await getMyNotifications(
+                    unreadOnly,
+                    nextPage,
+                    20,
                 );
-            } else if (err instanceof TypeError) {
+                setNotices(result.items);
+                setPage(result.page);
+                setTotalCount(result.totalCount);
+                setUnreadCount(result.unreadCount);
+            } catch {
                 setError(
-                    "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.",
+                    copy(
+                        "Could not load notifications. Please try again.",
+                        "Không thể tải thông báo. Vui lòng thử lại.",
+                    ),
                 );
-            } else if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("Đã xảy ra lỗi khi tải thông báo.");
+            } finally {
+                setLoading(false);
             }
-        } finally {
-            setLoading(false);
-        }
-    }, [filter]);
+        },
+        [copy],
+    );
 
     useEffect(() => {
-        let active = true;
-        queueMicrotask(() => {
-            if (active) void loadNotifications();
-        });
-        return () => {
-            active = false;
-        };
-    }, [loadNotifications]);
+        queueMicrotask(() => void load(1, false));
+    }, [load]);
 
-    async function handleMarkRead(id: string) {
+    async function markRead(id: string) {
         try {
             await markNotificationRead(id);
-            setNotifications((prev) =>
-                prev.map((item) =>
+            window.dispatchEvent(new Event("customer-notifications-changed"));
+            setNotices((current) =>
+                current.map((item) =>
                     item.id === id
                         ? { ...item, readAtUtc: new Date().toISOString() }
                         : item,
                 ),
             );
-            setUnreadCount((c) => Math.max(0, c - 1));
-        } catch (err: unknown) {
-            console.error("Failed to mark notification as read", err);
+            setUnreadCount((current) => Math.max(0, current - 1));
+        } catch {
+            setError(
+                copy(
+                    "Could not mark this notification as read.",
+                    "Không thể đánh dấu thông báo đã đọc.",
+                ),
+            );
         }
     }
 
-    async function handleMarkAllRead() {
+    async function markAllRead() {
         try {
             await markAllNotificationsRead();
+            window.dispatchEvent(new Event("customer-notifications-changed"));
             const now = new Date().toISOString();
-            setNotifications((prev) =>
-                prev.map((item) => ({ ...item, readAtUtc: now })),
+            setNotices((current) =>
+                current.map((item) => ({
+                    ...item,
+                    readAtUtc: item.readAtUtc ?? now,
+                })),
             );
             setUnreadCount(0);
-        } catch (err: unknown) {
-            console.error("Failed to mark all as read", err);
+        } catch {
+            setError(
+                copy(
+                    "Could not mark notifications as read.",
+                    "Không thể đánh dấu thông báo đã đọc.",
+                ),
+            );
         }
     }
+
+    const visible = notices;
+    const pageSize = 20;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const pageNumbers = Array.from(
+        { length: Math.min(5, totalPages) },
+        (_, index) => Math.max(1, Math.min(totalPages - 4, page - 2)) + index,
+    );
 
     return (
         <div className="customer-account-content">
@@ -140,34 +173,21 @@ export function CustomerNotificationsPage() {
                     <h1>{copy("Notifications", "Thông báo")}</h1>
                     <p>
                         {copy(
-                            "Follow your bookings, parking sessions, and wallet activity in real time.",
-                            "Theo dõi đặt chỗ, phiên đỗ và hoạt động ví theo thời gian thực.",
+                            "Follow your bookings, parking sessions, and wallet activity in one place.",
+                            "Theo dõi đặt chỗ, phiên đỗ và hoạt động ví tại một nơi.",
                         )}
                     </p>
                 </div>
                 <button
                     className="customer-account-secondary"
                     type="button"
-                    onClick={() => void loadNotifications()}
+                    onClick={() => void load(1, filter === "unread")}
                     disabled={loading}
                 >
-                    <RefreshCw
-                        size={18}
-                        className={loading ? "animate-spin" : ""}
-                        aria-hidden="true"
-                    />
+                    <RefreshCw size={18} aria-hidden="true" />{" "}
                     {copy("Refresh", "Làm mới")}
                 </button>
             </div>
-
-            {error && (
-                <div
-                    className="customer-notification-demo customer-error-alert"
-                    role="alert"
-                >
-                    <p>{error}</p>
-                </div>
-            )}
 
             <section
                 className="customer-account-card customer-notifications-card"
@@ -184,24 +204,30 @@ export function CustomerNotificationsPage() {
                         <button
                             type="button"
                             aria-pressed={filter === "all"}
-                            onClick={() => setFilter("all")}
+                            onClick={() => {
+                                setFilter("all");
+                                void load(1, false);
+                            }}
                         >
                             {copy("All", "Tất cả")} <span>{totalCount}</span>
                         </button>
                         <button
                             type="button"
                             aria-pressed={filter === "unread"}
-                            onClick={() => setFilter("unread")}
+                            onClick={() => {
+                                setFilter("unread");
+                                void load(1, true);
+                            }}
                         >
                             {copy("Unread", "Chưa đọc")}{" "}
                             <span>{unreadCount}</span>
                         </button>
                     </div>
-                    {unreadCount > 0 && (
+                    {filter === "all" && unreadCount > 0 && (
                         <button
                             className="customer-notification-mark-all"
                             type="button"
-                            onClick={() => void handleMarkAllRead()}
+                            onClick={() => void markAllRead()}
                         >
                             <CheckCheck size={17} />{" "}
                             {copy("Mark all as read", "Đánh dấu tất cả đã đọc")}
@@ -209,20 +235,16 @@ export function CustomerNotificationsPage() {
                     )}
                 </div>
 
-                {loading ? (
-                    <div className="customer-notification-empty">
-                        <Loader2
-                            size={32}
-                            className="animate-spin text-primary"
-                        />
-                        <p>
-                            {copy(
-                                "Loading notifications...",
-                                "Đang tải thông báo...",
-                            )}
-                        </p>
-                    </div>
-                ) : notifications.length === 0 ? (
+                {error && (
+                    <p role="alert" className="customer-notification-demo">
+                        {error}
+                    </p>
+                )}
+                {loading && notices.length === 0 ? (
+                    <p className="customer-notification-demo" role="status">
+                        {copy("Loading notifications…", "Đang tải thông báo…")}
+                    </p>
+                ) : visible.length === 0 ? (
                     <div className="customer-notification-empty">
                         <span>
                             <Bell size={30} strokeWidth={1.7} />
@@ -235,32 +257,34 @@ export function CustomerNotificationsPage() {
                                   )
                                 : copy(
                                       "No notifications yet",
-                                      "Chưa có thông báo nào",
+                                      "Chưa có thông báo",
                                   )}
                         </h2>
                         <p>
-                            {filter === "unread"
-                                ? copy(
-                                      "All your notifications have been marked as read.",
-                                      "Tất cả thông báo của bạn đã được đánh dấu đã đọc.",
-                                  )
-                                : copy(
-                                      "Updates about your bookings, sessions, and payments will appear here.",
-                                      "Thông tin cập nhật về đặt chỗ, phiên đỗ và thanh toán sẽ xuất hiện tại đây.",
-                                  )}
+                            {copy(
+                                "Updates about your bookings and parking sessions will appear here.",
+                                "Thông tin đặt chỗ và phiên đỗ sẽ xuất hiện tại đây.",
+                            )}
                         </p>
-                        {filter === "all" && (
-                            <Link href="/customer/dashboard">
-                                {copy("Back to dashboard", "Về trang chủ")}{" "}
-                                <ArrowRight size={17} />
-                            </Link>
-                        )}
+                        <Link href="/customer/dashboard">
+                            {copy("Back to dashboard", "Về trang chủ")}{" "}
+                            <ArrowRight size={17} />
+                        </Link>
                     </div>
                 ) : (
                     <ul className="customer-notification-list">
-                        {notifications.map((notice) => {
-                            const Icon = icons[notice.type] || Bell;
-                            const isRead = notice.readAtUtc !== null;
+                        {visible.map((notice) => {
+                            const Icon = icons[notice.type] ?? Bell;
+                            const localized = localizedNotification(
+                                notice,
+                                copy,
+                            );
+                            const isRead = Boolean(notice.readAtUtc);
+                            const safeHref = notice.href.startsWith(
+                                "/customer/",
+                            )
+                                ? notice.href
+                                : "/customer/dashboard";
                             return (
                                 <li
                                     key={notice.id}
@@ -274,42 +298,145 @@ export function CustomerNotificationsPage() {
                                     </span>
                                     <div className="customer-notification-copy">
                                         <div>
-                                            <h2>{notice.title}</h2>
-                                            <time>
-                                                {formatNotificationTime(
+                                            <h2>{localized.title}</h2>
+                                            <time
+                                                dateTime={notice.createdAtUtc}
+                                            >
+                                                {new Date(
                                                     notice.createdAtUtc,
+                                                ).toLocaleString(
+                                                    language === "vi"
+                                                        ? "vi-VN"
+                                                        : "en-GB",
                                                 )}
                                             </time>
                                         </div>
-                                        <p>{notice.description}</p>
-                                        {notice.href && (
-                                            <Link href={notice.href}>
-                                                {copy(
-                                                    "View details",
-                                                    "Xem chi tiết",
-                                                )}{" "}
-                                                <ArrowRight size={16} />
-                                            </Link>
-                                        )}
+                                        <p>{localized.description}</p>
+                                        <Link href={safeHref}>
+                                            {copy(
+                                                "View details",
+                                                "Xem chi tiết",
+                                            )}{" "}
+                                            <ArrowRight size={16} />
+                                        </Link>
                                     </div>
                                     {!isRead && (
                                         <button
                                             type="button"
                                             className="customer-notification-read"
                                             onClick={() =>
-                                                void handleMarkRead(notice.id)
+                                                void markRead(notice.id)
                                             }
                                             aria-label={`${copy("Mark as read", "Đánh dấu đã đọc")}: ${notice.title}`}
-                                            title={copy(
-                                                "Mark as read",
-                                                "Đánh dấu đã đọc",
-                                            )}
                                         />
                                     )}
                                 </li>
                             );
                         })}
                     </ul>
+                )}
+                {totalPages > 1 && (
+                    <nav
+                        className="customer-notification-pagination"
+                        aria-label={copy(
+                            "Notification pages",
+                            "Trang thông báo",
+                        )}
+                    >
+                        <button
+                            type="button"
+                            className="customer-notification-page-arrow"
+                            onClick={() =>
+                                void load(page - 1, filter === "unread")
+                            }
+                            disabled={loading || page <= 1}
+                            aria-label={copy("Previous page", "Trang trước")}
+                        >
+                            ‹ <span>{copy("Previous", "Trước")}</span>
+                        </button>
+                        {pageNumbers[0] > 1 && (
+                            <>
+                                <button
+                                    type="button"
+                                    className="customer-notification-page-number"
+                                    onClick={() =>
+                                        void load(1, filter === "unread")
+                                    }
+                                >
+                                    1
+                                </button>
+                                {pageNumbers[0] > 2 && (
+                                    <span
+                                        className="customer-notification-page-ellipsis"
+                                        aria-hidden="true"
+                                    >
+                                        …
+                                    </span>
+                                )}
+                            </>
+                        )}
+                        {pageNumbers.map((pageNumber) => (
+                            <button
+                                key={pageNumber}
+                                type="button"
+                                className={`customer-notification-page-number${pageNumber === page ? " is-current" : ""}`}
+                                onClick={() =>
+                                    void load(pageNumber, filter === "unread")
+                                }
+                                aria-current={
+                                    pageNumber === page ? "page" : undefined
+                                }
+                                disabled={loading}
+                            >
+                                {pageNumber}
+                            </button>
+                        ))}
+                        {pageNumbers[pageNumbers.length - 1] < totalPages && (
+                            <>
+                                {pageNumbers[pageNumbers.length - 1] <
+                                    totalPages - 1 && (
+                                    <span
+                                        className="customer-notification-page-ellipsis"
+                                        aria-hidden="true"
+                                    >
+                                        …
+                                    </span>
+                                )}
+                                <button
+                                    type="button"
+                                    className="customer-notification-page-number"
+                                    onClick={() =>
+                                        void load(
+                                            totalPages,
+                                            filter === "unread",
+                                        )
+                                    }
+                                >
+                                    {totalPages}
+                                </button>
+                            </>
+                        )}
+                        <span
+                            className="customer-notification-page-status"
+                            aria-live="polite"
+                        >
+                            {copy(
+                                `Page ${page} of ${totalPages}`,
+                                `Trang ${page}/${totalPages}`,
+                            )}
+                        </span>
+                        <button
+                            type="button"
+                            className="customer-notification-page-arrow"
+                            onClick={() =>
+                                void load(page + 1, filter === "unread")
+                            }
+                            disabled={loading || page >= totalPages}
+                            aria-label={copy("Next page", "Trang sau")}
+                        >
+                            <span>{copy("Next", "Tiếp")}</span> ›
+                        </button>
+                    </nav>
                 )}
             </section>
         </div>
