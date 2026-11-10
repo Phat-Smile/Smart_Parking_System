@@ -442,3 +442,35 @@ export async function saveParkingLayoutApi(
         },
     );
 }
+
+// ==========================================
+// 12. SET SLOT MAINTENANCE (US-OWNER-003/008)
+// ==========================================
+export interface SetSlotMaintenanceRequest {
+    underMaintenance: boolean;
+    reason?: string | null;
+}
+
+export interface SlotMaintenanceResponse {
+    lotId: string;
+    slotId: string;
+    slotCode: string;
+    effectiveStatus: string;
+    overrideState: string | null;
+    updatedAtUtc: string;
+}
+
+export async function setSlotMaintenanceApi(
+    lotId: string,
+    slotId: string,
+    req: SetSlotMaintenanceRequest,
+): Promise<SlotMaintenanceResponse> {
+    return gatewayFetch<SlotMaintenanceResponse>(
+        `/api/parking/owner/lots/${lotId}/slots/${slotId}/maintenance`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(req),
+        },
+    );
+}

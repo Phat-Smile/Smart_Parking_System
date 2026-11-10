@@ -15,7 +15,11 @@ import {
 import { K_VISIBLE } from "../../../../../lib/mapStatus";
 import { SlotStatusChips } from "@/features/owner/layout/SlotStatusChips";
 import { SlotStatusListPanel } from "@/features/owner/layout/SlotStatusListPanel";
-import { saveParkingLayoutApi } from "@/features/owner/api/ownerApi";
+import {
+    saveParkingLayoutApi,
+    setSlotMaintenanceApi,
+} from "@/features/owner/api/ownerApi";
+import { useParkingRealtime } from "@/features/parking/useParkingRealtime";
 import { ApiError } from "@/shared/errors/api-error";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 
@@ -124,6 +128,30 @@ export default function Layout2DPage() {
     // The layout is saved for the owner's first real lot (Parking GUID); design lots have none.
     const mainLot = lots.find((lot) => backendLotId(lot)) ?? lots[0];
     const lotKey = backendLotId(mainLot);
+
+    const updateSpotStatus = useOwnerStore((s) => s.updateSpotStatus);
+
+    useParkingRealtime({
+        lotId: lotKey,
+        onSlotStatusChanged: (event) => {
+            const lower = event.effectiveStatus.toLowerCase();
+            const mappedStatus: SlotStatusKey =
+                lower === "occupied"
+                    ? "occupied"
+                    : lower === "maintenance"
+                      ? "maintenance"
+                      : lower === "unavailable"
+                        ? "maintenance"
+                        : lower === "assigned"
+                          ? "reserved"
+                          : lower === "needsverification"
+                            ? "verify"
+                            : "available";
+
+            updateSpotStatus(event.slotCode, mappedStatus);
+            updateSpotStatus(event.slotId, mappedStatus);
+        },
+    });
 
     const handleSelect = (spot: ParkingSpot) => {
         selectSpot(spot.id);
