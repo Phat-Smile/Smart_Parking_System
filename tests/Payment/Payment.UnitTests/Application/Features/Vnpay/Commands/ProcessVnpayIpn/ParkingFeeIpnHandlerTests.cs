@@ -74,6 +74,12 @@ public class ParkingFeeIpnHandlerTests
             var payment = _paymentsByTxnRef.Values.FirstOrDefault(p => p.Id == id);
             return Task.FromResult(payment);
         }
+
+        public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
+        {
+            var payment = _paymentsByTxnRef.Values.FirstOrDefault(p => p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId);
+            return Task.FromResult(payment);
+        }
     }
 
     private class FakeWalletRepository : IWalletRepository

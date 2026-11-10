@@ -83,4 +83,14 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id, ct);
     }
+
+    // Tìm hóa đơn thành công theo mã phiên xe hoặc mã giao dịch để xuất hóa đơn điện tử (US-PAY-003)
+    public async Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
+    {
+        return await dbContext.Set<ParkingFeePayment>()
+            .AsNoTracking()
+            .Where(p => (p.SessionId == sessionOrPaymentId || p.Id == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
+            .OrderByDescending(p => p.PaymentTimeUtc)
+            .FirstOrDefaultAsync(ct);
+    }
 }

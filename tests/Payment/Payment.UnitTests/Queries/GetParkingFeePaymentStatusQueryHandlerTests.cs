@@ -45,6 +45,12 @@ public class GetParkingFeePaymentStatusQueryHandlerTests
             Payments.TryGetValue(id, out var payment);
             return Task.FromResult(payment);
         }
+
+        public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
+        {
+            var payment = Payments.Values.FirstOrDefault(p => p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId);
+            return Task.FromResult(payment);
+        }
     }
 
     private readonly FakeParkingFeePaymentRepository _repository = new();
