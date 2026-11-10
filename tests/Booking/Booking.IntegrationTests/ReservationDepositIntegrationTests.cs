@@ -273,6 +273,10 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
             DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Reservation>>([]);
 
+        public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(
+            DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>([]);
+
         public Task<IReadOnlyList<Reservation>> ListByUserIdAsync(Guid userId, ReservationStatus? status, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Reservation>>([]);
 

@@ -11,8 +11,6 @@ namespace ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReserva
 
 public sealed class ConfirmReservationCommandHandler : IRequestHandler<ConfirmReservationCommand, Result<ConfirmedReservationDto>>
 {
-    private static readonly EventId PaymentNotAvailableEventId = new(1001, "PaymentNotAvailable");
-
     private readonly IReservationRepository _reservationRepository;
     private readonly IReservationPaymentClient _paymentClient;
     private readonly IClock _clock;
@@ -95,26 +93,9 @@ public sealed class ConfirmReservationCommandHandler : IRequestHandler<ConfirmRe
         }
 
         // ---------------------------------------------------------------------
-        // Step b: Gate checks
+        // Step b: Zero-deposit bypass check
         // ---------------------------------------------------------------------
-        if (reservation.ReservationType == ReservationType.Scheduled)
-        {
-            // Scheduled reservations keep the existing PaymentNotAvailable gate (US-RES-004 is out of scope)
-            _logger.LogError(
-                PaymentNotAvailableEventId,
-                "Cannot confirm scheduled reservation {ReservationId} because payment function is unavailable. UserId: {UserId}, LotId: {LotId}, ReservationType: {ReservationType}, Status: {Status}, PrepaidAmount: {PrepaidAmount}, TempHoldExpiresAt: {TempHoldExpiresAt}, Reason: ScheduledPaymentNotImplemented.",
-                reservation.Id,
-                reservation.UserId,
-                reservation.LotId,
-                reservation.ReservationType,
-                reservation.Status,
-                reservation.PrepaidAmount,
-                reservation.TempHoldExpiresAt);
-
-            return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentNotAvailable);
-        }
-
-        // HoldWhileDriving with PrepaidAmount == 0 -> step f
+        // If PrepaidAmount == 0 -> step f directly without debit
         if (reservation.PrepaidAmount == 0m)
         {
             return await ExecuteConfirmationAndSaveAsync(reservation, now, isDebited: false, cancellationToken);

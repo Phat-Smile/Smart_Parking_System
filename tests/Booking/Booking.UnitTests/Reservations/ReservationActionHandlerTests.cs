@@ -92,7 +92,7 @@ public sealed class ReservationActionHandlerTests
         var reservation = CreateTestReservation(Guid.NewGuid(), userId);
         _repo.Add(reservation);
 
-        var handler = new CancelReservationCommandHandler(_repo, _clock, NullLogger<CancelReservationCommandHandler>.Instance);
+        var handler = new CancelReservationCommandHandler(_repo, new FakeReservationPaymentClient(), _clock, NullLogger<CancelReservationCommandHandler>.Instance, new FakeOutboxWriter());
         var command = new CancelReservationCommand(reservation.Id, userId, "Changed plans");
 
         var result = await handler.Handle(command, CancellationToken.None);
@@ -151,6 +151,7 @@ public sealed class ReservationActionHandlerTests
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
+        public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         private readonly List<Reservation> _list = [];
 

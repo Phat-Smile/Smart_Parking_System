@@ -769,7 +769,7 @@ public sealed class ScheduledBookingTests
     // =========================================================================
 
     [Fact]
-    public async Task SCH_48_ConfirmReservationCommandHandler_on_scheduled_hold_fails_with_PaymentNotAvailable_and_stays_TemporaryHold()
+    public async Task SCH_48_ConfirmReservationCommandHandler_on_scheduled_hold_fails_with_PaymentUnconfirmed_and_stays_TemporaryHold()
     {
         var repo = new FakeReservationRepository();
         var hold = Reservation.CreateTemporaryHold(
@@ -794,7 +794,7 @@ public sealed class ScheduledBookingTests
         var result = await confirmHandler.Handle(confirmCommand, CancellationToken.None);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ReservationErrors.PaymentNotAvailable, result.Error);
+        Assert.Equal(ReservationErrors.PaymentUnconfirmed, result.Error);
 
         var stored = await repo.FindByIdAsync(hold.Id, TestContext.Current.CancellationToken);
         Assert.NotNull(stored);
@@ -830,6 +830,7 @@ public sealed class ScheduledBookingTests
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
+        public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         private readonly List<Reservation> _list = [];
 

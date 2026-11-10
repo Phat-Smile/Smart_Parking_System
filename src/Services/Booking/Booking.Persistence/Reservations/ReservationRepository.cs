@@ -83,6 +83,21 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(
+        DateTimeOffset now,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var graceThreshold = now.AddMinutes(-Reservation.NoShowGracePeriodMinutes);
+
+        return await dbContext.Reservations
+            .Where(r => r.Status == ReservationStatus.Confirmed &&
+                        r.AppointmentTime <= graceThreshold)
+            .OrderBy(r => r.AppointmentTime)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }

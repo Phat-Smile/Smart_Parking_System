@@ -42,11 +42,15 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<ReservationConfirmedIntegrationEvent>("booking.reservation-confirmed.v1", 1);
+        services.AddIntegrationEvent<ReservationCancelledIntegrationEvent>("booking.reservation-cancelled.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddOptions<Payments.ReservationPaymentReconciliationOptions>()
             .Bind(configuration.GetSection(Payments.ReservationPaymentReconciliationOptions.SectionName));
         services.AddHostedService<Payments.ReservationPaymentReconciliationWorker>();
+        services.AddOptions<Workers.ReservationNoShowOptions>()
+            .Bind(configuration.GetSection(Workers.ReservationNoShowOptions.SectionName));
+        services.AddHostedService<Workers.ReservationNoShowWorker>();
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>

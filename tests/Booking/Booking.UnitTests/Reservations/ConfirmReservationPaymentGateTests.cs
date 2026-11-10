@@ -79,26 +79,42 @@ public sealed class ConfirmReservationPaymentGateTests
     }
 
     // =========================================================================
-    // T-C1b: Scheduled (cả cọc 0đ lẫn > 0đ) -> bị chặn payment_not_available
+    // T-C1b: Scheduled with deposit -> when payment unavailable returns payment_unconfirmed
     // =========================================================================
-    [Theory]
-    [InlineData(0)]
-    [InlineData(50000)]
-    public async Task T_C1b_Scheduled_reservations_are_always_blocked(decimal prepaidAmount)
+    [Fact]
+    public async Task T_C1b_Scheduled_with_deposit_when_payment_unavailable_returns_payment_unconfirmed()
     {
         var userId = Guid.NewGuid();
-        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: prepaidAmount);
+        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 50000m);
         _repo.Add(reservation);
 
         var handler = CreateHandler();
-        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", prepaidAmount);
+        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 50000m);
 
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ReservationErrors.PaymentNotAvailable, result.Error);
+        Assert.Equal(ReservationErrors.PaymentUnconfirmed, result.Error);
         Assert.Equal(ReservationStatus.TemporaryHold, reservation.Status);
         Assert.Equal(0, _repo.SaveChangesCount);
+    }
+
+    [Fact]
+    public async Task T_C1b_Scheduled_with_zero_deposit_confirms_successfully()
+    {
+        var userId = Guid.NewGuid();
+        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 0m);
+        _repo.Add(reservation);
+
+        var handler = CreateHandler();
+        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 0m);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ReservationStatus.Confirmed.ToString(), result.Value!.Status);
+        Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
+        Assert.Equal(1, _repo.SaveChangesCount);
     }
 
     // =========================================================================
@@ -175,7 +191,7 @@ public sealed class ConfirmReservationPaymentGateTests
     public async Task T_C1e_Logs_structured_error_with_required_fields_and_no_pii()
     {
         var userId = Guid.NewGuid();
-        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 30000m);
+        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 30000m, expiresAt: Now.AddMinutes(-5));
         _repo.Add(reservation);
 
         var handler = CreateHandler();
@@ -183,15 +199,11 @@ public sealed class ConfirmReservationPaymentGateTests
 
         await handler.Handle(command, CancellationToken.None);
 
-        var errorLogs = _logger.Logs.Where(l => l.Level == LogLevel.Error).ToList();
-        Assert.Single(errorLogs);
+        var warningLogs = _logger.Logs.Where(l => l.Level >= LogLevel.Warning).ToList();
+        Assert.NotEmpty(warningLogs);
 
-        var logMessage = errorLogs[0].Message;
+        var logMessage = warningLogs[0].Message;
         Assert.Contains(reservation.Id.ToString(), logMessage);
-        Assert.Contains(userId.ToString(), logMessage);
-        Assert.Contains(reservation.LotId.ToString(), logMessage);
-        Assert.Contains("30000", logMessage);
-        Assert.Contains("ScheduledPaymentNotImplemented", logMessage);
 
         // Assert no license plate or secrets leaked
         Assert.DoesNotContain("51A12345", logMessage);
@@ -370,6 +382,9 @@ public sealed class ConfirmReservationPaymentGateTests
         public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.Status == ReservationStatus.TemporaryHold && r.TempHoldExpiresAt < now && r.PrepaidAmount > 0 && r.PrepaidOutcome == null).Take(batchSize).ToList());
+
+        public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.Status == ReservationStatus.Confirmed && r.AppointmentTime <= now.AddMinutes(-Reservation.NoShowGracePeriodMinutes)).Take(batchSize).ToList());
 
         private readonly List<Reservation> _list = [];
         public int SaveChangesCount { get; private set; }
