@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
     getAuthSessionSnapshot,
@@ -106,6 +106,22 @@ export function AdminAuditLogsPage() {
             }),
         enabled: Boolean(session),
     });
+
+    const items = useMemo(() => {
+        if (!data) return [];
+        if (Array.isArray(data.items)) return data.items;
+        if (
+            Array.isArray((data as unknown as { Items?: AuditLogItem[] }).Items)
+        ) {
+            return (data as unknown as { Items: AuditLogItem[] }).Items;
+        }
+        if (Array.isArray(data)) return data as unknown as AuditLogItem[];
+        return [];
+    }, [data]);
+
+    const totalItems = data?.totalItems ?? items.length;
+    const currentPage = data?.page ?? page;
+    const totalPages = Math.max(1, data?.totalPages ?? 1);
 
     const resetFilters = () => {
         setActionType("");
@@ -422,7 +438,7 @@ export function AdminAuditLogsPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.items.length === 0 ? (
+                                {items.length === 0 ? (
                                     <tr>
                                         <td
                                             colSpan={7}
@@ -437,7 +453,7 @@ export function AdminAuditLogsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    data.items.map((item) => {
+                                    items.map((item) => {
                                         const badge = getActionBadgeStyle(
                                             item.actionType,
                                         );
@@ -595,15 +611,14 @@ export function AdminAuditLogsPage() {
                             }}
                         >
                             <span>
-                                Hiển thị <strong>{data.items.length}</strong> /{" "}
-                                <strong>{data.totalItems}</strong> sự kiện
-                                (Trang {data.page} /{" "}
-                                {Math.max(1, data.totalPages)})
+                                Hiển thị <strong>{items.length}</strong> /{" "}
+                                <strong>{totalItems}</strong> sự kiện (Trang{" "}
+                                {currentPage} / {totalPages})
                             </span>
                             <div style={{ display: "flex", gap: "8px" }}>
                                 <button
                                     type="button"
-                                    disabled={data.page <= 1}
+                                    disabled={currentPage <= 1}
                                     onClick={() =>
                                         setPage((p) => Math.max(1, p - 1))
                                     }
@@ -612,11 +627,11 @@ export function AdminAuditLogsPage() {
                                         borderRadius: "6px",
                                         border: "1px solid var(--line)",
                                         background:
-                                            data.page <= 1
+                                            currentPage <= 1
                                                 ? "var(--soft)"
                                                 : "#fff",
                                         cursor:
-                                            data.page <= 1
+                                            currentPage <= 1
                                                 ? "not-allowed"
                                                 : "pointer",
                                         fontWeight: 600,
@@ -626,18 +641,18 @@ export function AdminAuditLogsPage() {
                                 </button>
                                 <button
                                     type="button"
-                                    disabled={data.page >= data.totalPages}
+                                    disabled={currentPage >= totalPages}
                                     onClick={() => setPage((p) => p + 1)}
                                     style={{
                                         padding: "6px 12px",
                                         borderRadius: "6px",
                                         border: "1px solid var(--line)",
                                         background:
-                                            data.page >= data.totalPages
+                                            currentPage >= totalPages
                                                 ? "var(--soft)"
                                                 : "#fff",
                                         cursor:
-                                            data.page >= data.totalPages
+                                            currentPage >= totalPages
                                                 ? "not-allowed"
                                                 : "pointer",
                                         fontWeight: 600,

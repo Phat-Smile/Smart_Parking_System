@@ -48,8 +48,59 @@ export async function getAdminAuditLogs(
     if (query.fromUtc?.trim()) params.set("fromUtc", query.fromUtc.trim());
     if (query.toUtc?.trim()) params.set("toUtc", query.toUtc.trim());
 
-    return await gatewayFetch<AuditLogsPagedResponse>(
-        `/api/payment/admin/audit-logs?${params.toString()}`,
-        { method: "GET" },
+    const response = await gatewayFetch<
+        | AuditLogsPagedResponse
+        | AuditLogItem[]
+        | {
+              items?: AuditLogItem[];
+              Items?: AuditLogItem[];
+              data?: AuditLogItem[];
+              totalItems?: number;
+              TotalItems?: number;
+              totalCount?: number;
+              page?: number;
+              Page?: number;
+              pageSize?: number;
+              PageSize?: number;
+              totalPages?: number;
+              TotalPages?: number;
+          }
+    >(`/api/payment/admin/audit-logs?${params.toString()}`, { method: "GET" });
+
+    if (Array.isArray(response)) {
+        return {
+            items: response,
+            page: query.page ?? 1,
+            pageSize: query.pageSize ?? 20,
+            totalItems: response.length,
+            totalPages: Math.max(
+                1,
+                Math.ceil(response.length / (query.pageSize ?? 20)),
+            ),
+        };
+    }
+
+    const raw = (response || {}) as Record<string, unknown>;
+    const rawItems = raw.items ?? raw.Items ?? raw.data;
+    const items = Array.isArray(rawItems) ? (rawItems as AuditLogItem[]) : [];
+    const totalItems = Number(
+        raw.totalItems ?? raw.TotalItems ?? raw.totalCount ?? items.length,
     );
+    const page = Number(raw.page ?? raw.Page ?? query.page ?? 1);
+    const pageSize = Number(
+        raw.pageSize ?? raw.PageSize ?? query.pageSize ?? 20,
+    );
+    const totalPages = Number(
+        raw.totalPages ??
+            raw.TotalPages ??
+            Math.max(1, Math.ceil(totalItems / pageSize)),
+    );
+
+    return {
+        items,
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+    };
 }

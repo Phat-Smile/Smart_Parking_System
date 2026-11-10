@@ -434,9 +434,9 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         // Admin Parking Lots
         parkingLotsTitle: "Quản trị bãi đỗ xe",
         parkingLotsEyebrow: "Mạng lưới bãi xe",
-        parkingLotsPendingTab: "🅿️ Bãi xe chờ duyệt",
-        parkingLotsOwnersTab: "👤 Duyệt hồ sơ Chủ bãi",
-        parkingLotsAssignmentsTab: "👥 Phân công nhân viên",
+        parkingLotsPendingTab: "Bãi xe chờ duyệt",
+        parkingLotsOwnersTab: "Duyệt hồ sơ Chủ bãi",
+        parkingLotsAssignmentsTab: "Phân công nhân viên",
         searchLotsPlaceholder: "Tìm theo tên bãi, chủ bãi, địa chỉ...",
         lookupLotId: "Nhập mã bãi (GUID) để tra cứu...",
         lookupBtn: "Mở",
@@ -449,7 +449,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         lotStatusHeader: "Trạng thái",
         approveLot: "Duyệt",
         rejectLot: "Từ chối",
-        assignLot: "👥 Phân công",
+        assignLot: "Phân công",
         viewLot: "Xem",
 
         // Admin Dashboard
@@ -500,7 +500,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsLegalDocs: "Giấy tờ pháp lý",
         ownerAppsSubmittedAt: "Ngày nộp",
         ownerAppsSearchPlaceholder:
-            "Tìm tên, email, MST, SĐT hoặc doanh nghiệp...",
+            "Tìm tên, email, MST, số điện thoại hoặc doanh nghiệp...",
         ownerAppsInspectDocsModalTitle: "Hồ sơ & Giấy tờ pháp lý Chủ bãi",
         ownerAppsApproveModalTitle:
             "Thẩm định giấy tờ & Phê duyệt hồ sơ Chủ bãi",
@@ -852,9 +852,9 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         // Admin Parking Lots
         parkingLotsTitle: "Parking Lots Management",
         parkingLotsEyebrow: "Parking Network",
-        parkingLotsPendingTab: "🅿️ Pending Lots",
-        parkingLotsOwnersTab: "👤 Owner Applications",
-        parkingLotsAssignmentsTab: "👥 Staff Assignments",
+        parkingLotsPendingTab: "Pending Lots",
+        parkingLotsOwnersTab: "Owner Applications",
+        parkingLotsAssignmentsTab: "Staff Assignments",
         searchLotsPlaceholder: "Search by lot name, owner, city...",
         lookupLotId: "Enter Lot ID (GUID) to lookup...",
         lookupBtn: "Open",
@@ -867,7 +867,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         lotStatusHeader: "Status",
         approveLot: "Approve",
         rejectLot: "Reject",
-        assignLot: "👥 Assign",
+        assignLot: "Assign",
         viewLot: "View",
 
         // Admin Dashboard
