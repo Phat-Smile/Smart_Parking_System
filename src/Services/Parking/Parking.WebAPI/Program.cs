@@ -18,6 +18,8 @@ using ParkingSystem.Parking.WebAPI.Hubs;
 using ParkingSystem.Parking.WebAPI.Realtime;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots;
+using ParkingSystem.Parking.Application.ParkingLots.Recommendations;
+using ParkingSystem.Parking.WebAPI.Clients;
 using ParkingSystem.Parking.WebAPI.Geocoding;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -53,6 +55,7 @@ builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSection(BookingServiceOptions.SectionName));
 builder.Services.AddHttpClient<IBookingCheckInClient, BookingCheckInHttpClient>();
 builder.Services.AddHttpClient<ArrivalAvailabilityClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
+builder.Services.AddHttpClient<IParkingRecommendationClient, ParkingRecommendationClient>(client => client.Timeout = TimeSpan.FromSeconds(2));
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IParkingRealtimeNotifier, SignalRParkingRealtimeNotifier>();
 builder.Services.AddHealthChecks()
@@ -90,6 +93,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
+app.MapParkingLotRecommendationEndpoints();
 app.MapArrivalAvailabilityEndpoints();
 app.MapAdminParkingLotReviewEndpoints();
 app.MapParkingLotAddressSearchEndpoints();

@@ -16,9 +16,11 @@ import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import {
     getApprovedParkingLots,
+    getParkingLotRecommendations,
     searchNearbyParkingLots,
     type NearbyParkingLot,
     type ParkingLotSummary,
+    type RecommendedParkingLot,
 } from "./parkingLotApi";
 
 // A search result: an approved lot, with its distance when the search had a point.
@@ -219,6 +221,10 @@ export function CustomerFindParkingPage({
         state: "loading" | "ready" | "error";
         lots: NearbyParkingLot[];
     } | null>(null);
+    const [recommendations, setRecommendations] = useState<{
+        key: string;
+        lots: RecommendedParkingLot[];
+    } | null>(null);
     const originKey = searchOrigin
         ? `${searchOrigin.latitude},${searchOrigin.longitude},${radiusKm}`
         : "";
@@ -240,9 +246,34 @@ export function CustomerFindParkingPage({
                 if (!controller.signal.aborted)
                     setNearby({ key: originKey, state: "error", lots: [] });
             }
+
+            try {
+                const recResult = await getParkingLotRecommendations(
+                    latitude,
+                    longitude,
+                    {
+                        vehicleType:
+                            vehicleType === "motorbike" ? "Motorbike" : "Car",
+                        radiusKm: radius,
+                    },
+                    controller.signal,
+                );
+                if (!controller.signal.aborted) {
+                    setRecommendations({
+                        key: originKey,
+                        lots: recResult.recommendedLots,
+                    });
+                }
+            } catch {
+                if (!controller.signal.aborted) {
+                    setRecommendations({ key: originKey, lots: [] });
+                }
+            }
         })();
         return () => controller.abort();
-    }, [originKey]);
+    }, [originKey, vehicleType]);
+    const currentRecommendations =
+        recommendations?.key === originKey ? recommendations.lots : null;
     const nearbyCurrent = nearby?.key === originKey ? nearby : null;
     const resultsState: "loading" | "ready" | "error" = originKey
         ? (nearbyCurrent?.state ?? "loading")
@@ -1168,107 +1199,197 @@ export function CustomerFindParkingPage({
                                           )}
                             </span>
                         </div>
-                        <div className="customer-search-list">
-                            {visibleParkings.map((parking) => (
-                                <article
-                                    className={`customer-search-result ${activeSelectedId === parking.id ? "selected" : ""}`}
-                                    key={parking.id}
+                        {currentRecommendations &&
+                            currentRecommendations.length > 0 && (
+                                <section
+                                    className="ai-recommendation-banner"
+                                    aria-label="AI Top 3 Recommendations"
                                 >
-                                    <div className="customer-search-result-top">
-                                        <span>
-                                            {parking.type.toUpperCase()}
-                                        </span>
-                                        {activeSelectedId === parking.id && (
-                                            <strong>
-                                                <CustomerIcon
-                                                    name="check"
-                                                    size={15}
-                                                />{" "}
-                                                {copy(
-                                                    "Selected on map",
-                                                    "Đã chọn trên bản đồ",
-                                                )}
-                                            </strong>
-                                        )}
-                                    </div>
-                                    <div className="customer-search-result-main">
-                                        <div className="customer-search-result-photo">
-                                            <Image
-                                                src="/images/parkwise/dashboard-parking-structure.webp"
-                                                alt={copy(
-                                                    "Illustration of a parking facility",
-                                                    "Minh họa bãi đỗ xe",
-                                                )}
-                                                fill
-                                                sizes="(max-width: 700px) 100vw, 200px"
+                                    <div className="ai-recommendation-header">
+                                        <div className="ai-recommendation-title">
+                                            <CustomerIcon
+                                                name="sparkles"
+                                                size={18}
                                             />
+                                            <span>
+                                                {copy(
+                                                    "AI Smart Recommendations (Top 3 Matches)",
+                                                    "Gợi ý thông minh từ AI (Top 3 Bãi Xe Tối Ưu)",
+                                                )}
+                                            </span>
                                         </div>
-                                        <div className="customer-search-result-content">
-                                            <h2>{parking.name}</h2>
-                                            <p className="customer-search-result-location">
-                                                <CustomerIcon
-                                                    name="location"
-                                                    size={15}
-                                                />{" "}
-                                                {parking.address}
-                                            </p>
-                                            <div className="customer-search-result-metrics">
-                                                <span>
+                                        <span className="ai-recommendation-badge">
+                                            {copy(
+                                                "Multi-criteria Ranking",
+                                                "Đa tiêu chí tối ưu",
+                                            )}
+                                        </span>
+                                    </div>
+                                    <div className="ai-recommendation-cards">
+                                        {currentRecommendations.map((rec) => (
+                                            <div
+                                                key={rec.lotId}
+                                                className={`ai-recommendation-card ${activeSelectedId === rec.lotId ? "active" : ""}`}
+                                                onClick={() =>
+                                                    setSelectedId(rec.lotId)
+                                                }
+                                            >
+                                                <div className="ai-card-rank">
+                                                    <strong>#{rec.rank}</strong>
+                                                    <span>
+                                                        {copy(
+                                                            "Top Match",
+                                                            "Phù hợp",
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    className="ai-card-name"
+                                                    title={rec.name}
+                                                >
+                                                    {rec.name}
+                                                </div>
+                                                <div className="ai-card-stats">
+                                                    <span>
+                                                        {rec.distanceKm} km
+                                                    </span>
+                                                    <span>·</span>
+                                                    <span>
+                                                        {rec.driveTimeMinutes
+                                                            ? `~${Math.round(rec.driveTimeMinutes)} ${copy("mins drive", "phút lái xe")}`
+                                                            : `${Math.round(rec.probabilityPercent)}% ${copy("available", "còn chỗ")}`}
+                                                    </span>
+                                                </div>
+                                                <div className="ai-card-reasons">
+                                                    {rec.reasons
+                                                        .slice(0, 2)
+                                                        .map((reason, idx) => (
+                                                            <span
+                                                                key={idx}
+                                                                className="ai-reason-pill"
+                                                            >
+                                                                {reason}
+                                                            </span>
+                                                        ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+                        <div className="customer-search-list">
+                            {visibleParkings.map((parking) => {
+                                const lotRec = currentRecommendations?.find(
+                                    (r) => r.lotId === parking.id,
+                                );
+                                return (
+                                    <article
+                                        className={`customer-search-result ${activeSelectedId === parking.id ? "selected" : ""}`}
+                                        key={parking.id}
+                                    >
+                                        <div className="customer-search-result-top">
+                                            <span>
+                                                {parking.type.toUpperCase()}
+                                            </span>
+                                            {lotRec && (
+                                                <span className="customer-ai-highlight-badge">
+                                                    ✨ Top {lotRec.rank}:{" "}
+                                                    {lotRec.reasons.join(" · ")}
+                                                </span>
+                                            )}
+                                            {activeSelectedId ===
+                                                parking.id && (
+                                                <strong>
+                                                    <CustomerIcon
+                                                        name="check"
+                                                        size={15}
+                                                    />{" "}
+                                                    {copy(
+                                                        "Selected on map",
+                                                        "Đã chọn trên bản đồ",
+                                                    )}
+                                                </strong>
+                                            )}
+                                        </div>
+                                        <div className="customer-search-result-main">
+                                            <div className="customer-search-result-photo">
+                                                <Image
+                                                    src="/images/parkwise/dashboard-parking-structure.webp"
+                                                    alt={copy(
+                                                        "Illustration of a parking facility",
+                                                        "Minh họa bãi đỗ xe",
+                                                    )}
+                                                    fill
+                                                    sizes="(max-width: 700px) 100vw, 200px"
+                                                />
+                                            </div>
+                                            <div className="customer-search-result-content">
+                                                <h2>{parking.name}</h2>
+                                                <p className="customer-search-result-location">
                                                     <CustomerIcon
                                                         name="location"
-                                                        size={17}
-                                                    />
-                                                    <small>
+                                                        size={15}
+                                                    />{" "}
+                                                    {parking.address}
+                                                </p>
+                                                <div className="customer-search-result-metrics">
+                                                    <span>
+                                                        <CustomerIcon
+                                                            name="location"
+                                                            size={17}
+                                                        />
+                                                        <small>
+                                                            {copy(
+                                                                "Distance",
+                                                                "Khoảng cách",
+                                                            )}
+                                                        </small>
+                                                        <b>
+                                                            {parking.distanceKm ===
+                                                            undefined
+                                                                ? "—"
+                                                                : `${parking.distanceKm} km`}
+                                                        </b>
+                                                    </span>
+                                                </div>
+                                                <div className="customer-search-result-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="customer-shell-secondary"
+                                                        onClick={() =>
+                                                            setSelectedId(
+                                                                parking.id,
+                                                            )
+                                                        }
+                                                    >
                                                         {copy(
-                                                            "Distance",
-                                                            "Khoảng cách",
+                                                            "View on map",
+                                                            "Xem trên bản đồ",
+                                                        )}{" "}
+                                                        <CustomerIcon
+                                                            name="arrow"
+                                                            size={15}
+                                                        />
+                                                    </button>
+                                                    <Link
+                                                        href={`/parking-lots/${parking.id}`}
+                                                        className="customer-shell-primary"
+                                                    >
+                                                        {copy(
+                                                            "View details",
+                                                            "Xem chi tiết",
                                                         )}
-                                                    </small>
-                                                    <b>
-                                                        {parking.distanceKm ===
-                                                        undefined
-                                                            ? "—"
-                                                            : `${parking.distanceKm} km`}
-                                                    </b>
-                                                </span>
-                                            </div>
-                                            <div className="customer-search-result-actions">
-                                                <button
-                                                    type="button"
-                                                    className="customer-shell-secondary"
-                                                    onClick={() =>
-                                                        setSelectedId(
-                                                            parking.id,
-                                                        )
-                                                    }
-                                                >
-                                                    {copy(
-                                                        "View on map",
-                                                        "Xem trên bản đồ",
-                                                    )}{" "}
-                                                    <CustomerIcon
-                                                        name="arrow"
-                                                        size={15}
-                                                    />
-                                                </button>
-                                                <Link
-                                                    href={`/parking-lots/${parking.id}`}
-                                                    className="customer-shell-primary"
-                                                >
-                                                    {copy(
-                                                        "View details",
-                                                        "Xem chi tiết",
-                                                    )}
-                                                    <CustomerIcon
-                                                        name="arrow"
-                                                        size={15}
-                                                    />
-                                                </Link>
+                                                        <CustomerIcon
+                                                            name="arrow"
+                                                            size={15}
+                                                        />
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </article>
-                            ))}
+                                    </article>
+                                );
+                            })}
                         </div>
                         {resultsState === "ready" &&
                             visibleParkings.length === 0 && (
