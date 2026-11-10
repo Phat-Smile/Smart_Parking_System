@@ -422,10 +422,10 @@ public sealed class ConfirmReservationDepositSagaTests
     }
 
     // =========================================================================
-    // T-14: Scheduled -> PaymentNotAvailable, debit not called
+    // T-14: Scheduled -> Succeeded debit confirms reservation and records debit call
     // =========================================================================
     [Fact]
-    public async Task T_14_Scheduled_returns_PaymentNotAvailable_debit_not_called()
+    public async Task T_14_Scheduled_debits_deposit_and_confirms_successfully()
     {
         var userId = Guid.NewGuid();
         var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 50000m);
@@ -436,10 +436,33 @@ public sealed class ConfirmReservationDepositSagaTests
 
         var result = await handler.Handle(command, TestContext.Current.CancellationToken);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ReservationErrors.PaymentNotAvailable, result.Error);
-        Assert.Empty(_paymentClient.DebitCalls);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Confirmed", result.Value!.Status);
+        Assert.Equal(50000m, result.Value.PrepaidAmount);
+        Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
+        var debitCall = Assert.Single(_paymentClient.DebitCalls);
+        Assert.Equal(reservation.Id, debitCall.ReservationId);
+        Assert.Equal(50000L, debitCall.AmountVnd);
         Assert.Empty(_paymentClient.RefundCalls);
+    }
+
+    [Fact]
+    public async Task T_14b_Scheduled_with_insufficient_wallet_balance_returns_error()
+    {
+        var userId = Guid.NewGuid();
+        var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 50000m);
+        _repo.Add(reservation);
+
+        _paymentClient.DebitHandler = (_, _, _, _, _) => Task.FromResult(Result<ReservationDebitResult>.Success(
+            new ReservationDebitResult(ReservationDebitOutcome.InsufficientBalance, null, 1000L)));
+        var handler = CreateHandler();
+        var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 50000m);
+
+        var result = await handler.Handle(command, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationErrors.InsufficientWalletBalance, result.Error);
+        Assert.Equal(ReservationStatus.TemporaryHold, reservation.Status);
     }
 
     // =========================================================================
@@ -694,6 +717,9 @@ public sealed class ConfirmReservationDepositSagaTests
 
         public Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(Guid lotId, string plateNumber, DateTimeOffset arrivalTime, CancellationToken cancellationToken = default) =>
             Task.FromResult(_list.FirstOrDefault(r => r.LotId == lotId && r.PlateNumber == plateNumber && r.Status == ReservationStatus.Confirmed));
+
+        public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>(_list.Where(r => r.Status == ReservationStatus.Confirmed && r.AppointmentTime <= now.AddMinutes(-Reservation.NoShowGracePeriodMinutes)).Take(batchSize).ToList());
 
         public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {

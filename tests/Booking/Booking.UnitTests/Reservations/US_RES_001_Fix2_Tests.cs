@@ -445,23 +445,15 @@ public sealed class US_RES_001_Fix2_Tests
         var result = await confirmHandler.Handle(command, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ReservationErrors.PaymentNotAvailable.Code, result.Error!.Code);
-
-        var errorLog = Assert.Single(testLogger.Logs, l => l.Level == LogLevel.Error);
-
-        // Verify required fields present in log
-        Assert.Contains(resId.ToString(), errorLog.Message);
-        Assert.Contains(ownerId.ToString(), errorLog.Message);
-        Assert.Contains(lotId.ToString(), errorLog.Message);
-        Assert.Contains("Scheduled", errorLog.Message);
-        Assert.Contains("TemporaryHold", errorLog.Message);
-        Assert.Contains("25000", errorLog.Message);
-        Assert.Contains("ScheduledPaymentNotImplemented", errorLog.Message);
+        Assert.Equal(ReservationErrors.PaymentUnconfirmed.Code, result.Error!.Code);
 
         // Verify no sensitive plate/token data leaked
-        Assert.DoesNotContain("51A12345", errorLog.Message);
-        Assert.DoesNotContain("token", errorLog.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("secret", errorLog.Message, StringComparison.OrdinalIgnoreCase);
+        foreach (var log in testLogger.Logs)
+        {
+            Assert.DoesNotContain("51A12345", log.Message);
+            Assert.DoesNotContain("token", log.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("secret", log.Message, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     // ==========================================
@@ -551,6 +543,7 @@ public sealed class US_RES_001_Fix2_Tests
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
+        public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         private readonly List<Reservation> _list = new();
 
