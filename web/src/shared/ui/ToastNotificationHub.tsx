@@ -48,17 +48,16 @@ export function emitLiveToast(
 }
 
 export function ToastNotificationHub() {
+    const [mounted, setMounted] = useState(false);
     const [toasts, setToasts] = useState<LiveToast[]>([]);
-    const [permission, setPermission] = useState<NotificationPermission>(() => {
-        if (typeof window === "undefined") return "default";
-        return getPushPermission();
-    });
-    const [isSupported] = useState<boolean>(() => {
-        if (typeof window === "undefined") return false;
-        return isPushSupported();
-    });
+    const [permission, setPermission] = useState<NotificationPermission>("default");
+    const [isSupported, setIsSupported] = useState<boolean>(false);
 
     useEffect(() => {
+        setMounted(true);
+        setIsSupported(isPushSupported());
+        setPermission(getPushPermission());
+
         const handleNewToast: ToastListener = (toast) => {
             setToasts((prev) => [toast, ...prev].slice(0, 4));
             setTimeout(() => {
@@ -90,7 +89,7 @@ export function ToastNotificationHub() {
             aria-live="polite"
         >
             {/* Quick Web Push Enabler Badge if not granted */}
-            {isSupported && permission !== "granted" && (
+            {mounted && isSupported && permission !== "granted" && (
                 <div className="pointer-events-auto bg-neutral-900/90 backdrop-blur border border-neutral-700/80 text-white px-3.5 py-2 rounded-full shadow-lg flex items-center gap-2.5 text-xs">
                     <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                     <span>Nhận thông báo khi xe vào/ra?</span>
