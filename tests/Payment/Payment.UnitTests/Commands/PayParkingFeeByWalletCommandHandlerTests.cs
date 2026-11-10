@@ -152,6 +152,11 @@ public class PayParkingFeeByWalletCommandHandlerTests
         {
             return Task.FromResult(AddedPayments.LastOrDefault(p => p.Id == id));
         }
+
+        public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
+        {
+            return Task.FromResult(AddedPayments.LastOrDefault(p => p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId));
+        }
     }
 
     private class FakeIdempotencyStore : IIdempotencyStore

@@ -31,4 +31,7 @@ public interface IParkingFeePaymentRepository
 
     // Tìm hóa đơn theo mã thanh toán
     Task<ParkingFeePayment?> GetByIdAsync(Guid id, CancellationToken ct);
+
+    // Tìm hóa đơn thành công theo mã phiên xe hoặc mã giao dịch để xuất hóa đơn điện tử (US-PAY-003)
+    Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct);
 }

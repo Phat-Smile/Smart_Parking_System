@@ -6,6 +6,7 @@ using ParkingSystem.Payment.Application.Features.ParkingFeePayments.Queries.GetP
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.ConfirmCashParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.CreateVnPayParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.PayParkingFeeByWallet;
+using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingFeeReceipt;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingSessionFee;
 using ParkingSystem.Payment.WebAPI.Security;
 
@@ -327,6 +328,114 @@ internal static class ParkingFeeEndpoints
             .WithSummary("Tra cứu trạng thái thanh toán tiền gửi xe")
             .WithDescription("Kiểm tra trạng thái hóa đơn thanh toán sau khi quét mã VNPay.")
             .Produces<GetParkingFeePaymentStatusResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Lấy hóa đơn điện tử quyết toán theo mã phiên đỗ xe (US-PAY-003)
+        app.MapGet("/api/payment/parking-sessions/{sessionId}/receipt", async (
+                string sessionId,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                if (!Guid.TryParse(sessionId, out var sessionGuid) || sessionGuid == Guid.Empty)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, PayParkingFeeErrors.SessionIdInvalid);
+                }
+
+                var callerAccountId = Guid.TryParse(
+                    httpContext.User.FindFirst("sub")?.Value, out var id)
+                    ? id : (Guid?)null;
+                var callerRole = httpContext.User.FindFirst("role")?.Value
+                    ?? string.Empty;
+
+                var query = new GetParkingFeeReceiptQuery(
+                    sessionGuid, callerAccountId, callerRole);
+                var result = await sender.Send(query, cancellationToken);
+
+                if (result.IsSuccess)
+                {
+                    return Results.Ok(result.Value);
+                }
+
+                if (result.Error!.Code == ParkingFeePaymentErrors.TransactionNotFound.Code)
+                {
+                    return BusinessProblem.Create(httpContext, StatusCodes.Status404NotFound, result.Error);
+                }
+
+                if (result.Error!.Code == PayParkingFeeErrors.SessionAccessDenied.Code)
+                {
+                    return BusinessProblem.Create(httpContext, StatusCodes.Status403Forbidden, result.Error);
+                }
+
+                return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);
+            })
+            .RequireAuthorization(PaymentAuthorization.ViewFeePaymentPolicy)
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("GetParkingSessionReceipt")
+            .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo phiên")
+            .WithDescription("Lấy chi tiết bảng kê hóa đơn điện tử quyết toán sau khi thanh toán thành công (US-PAY-003).")
+            .Produces<ParkingFeeReceiptResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Lấy hóa đơn điện tử quyết toán theo mã giao dịch thanh toán (US-PAY-003)
+        app.MapGet("/api/payment/parking-fee-payments/{paymentId}/receipt", async (
+                string paymentId,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                if (!Guid.TryParse(paymentId, out var paymentGuid) || paymentGuid == Guid.Empty)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status400BadRequest, ParkingFeePaymentErrors.TransactionIdInvalid);
+                }
+
+                var callerAccountId = Guid.TryParse(
+                    httpContext.User.FindFirst("sub")?.Value, out var id)
+                    ? id : (Guid?)null;
+                var callerRole = httpContext.User.FindFirst("role")?.Value
+                    ?? string.Empty;
+
+                var query = new GetParkingFeeReceiptQuery(
+                    paymentGuid, callerAccountId, callerRole);
+                var result = await sender.Send(query, cancellationToken);
+
+                if (result.IsSuccess)
+                {
+                    return Results.Ok(result.Value);
+                }
+
+                if (result.Error!.Code == ParkingFeePaymentErrors.TransactionNotFound.Code)
+                {
+                    return BusinessProblem.Create(httpContext, StatusCodes.Status404NotFound, result.Error);
+                }
+
+                if (result.Error!.Code == PayParkingFeeErrors.SessionAccessDenied.Code)
+                {
+                    return BusinessProblem.Create(httpContext, StatusCodes.Status403Forbidden, result.Error);
+                }
+
+                return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);
+            })
+            .RequireAuthorization(PaymentAuthorization.ViewFeePaymentPolicy)
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("GetParkingPaymentReceipt")
+            .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo mã thanh toán")
+            .WithDescription("Lấy chi tiết bảng kê hóa đơn điện tử quyết toán theo mã giao dịch thanh toán (US-PAY-003).")
+            .Produces<ParkingFeeReceiptResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
