@@ -59,6 +59,14 @@ async function gatewaySend(
 
     const headers = new Headers(init?.headers);
     if (!headers.has("Accept")) headers.set("Accept", accept);
+    if (!headers.has("X-Correlation-ID")) {
+        if (
+            typeof crypto !== "undefined" &&
+            typeof crypto.randomUUID === "function"
+        ) {
+            headers.set("X-Correlation-ID", crypto.randomUUID());
+        }
+    }
     const accessToken = getAccessToken();
     if (accessToken && !headers.has("Authorization")) {
         headers.set("Authorization", `Bearer ${accessToken}`);
