@@ -208,7 +208,7 @@ public sealed class ReservationActionHandlerTests
 
     private sealed class FakeReservationPaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
     {
-        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, ParkingSystem.Booking.Application.Payments.PrepaymentPurpose purpose, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
 
         public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>

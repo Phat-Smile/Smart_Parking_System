@@ -31,8 +31,10 @@ public sealed class ConfirmReservationDepositSagaTests
         ReservationType type = ReservationType.HoldWhileDriving,
         decimal prepaidAmount = 20000m,
         DateTimeOffset? expiresAt = null,
-        ReservationStatus status = ReservationStatus.TemporaryHold)
+        ReservationStatus status = ReservationStatus.TemporaryHold,
+        string? priceSnapshot = null)
     {
+        var effectiveSnapshot = priceSnapshot ?? (type == ReservationType.Scheduled ? "{\"total\":50000}" : null);
         var res = Reservation.CreateTemporaryHold(
             reservationId,
             userId,
@@ -45,7 +47,8 @@ public sealed class ConfirmReservationDepositSagaTests
             prepaidAmount,
             Now.AddMinutes(-5),
             durationMinutes: type == ReservationType.Scheduled ? 60 : null,
-            tempHoldExpiresAt: expiresAt ?? Now.AddMinutes(5));
+            tempHoldExpiresAt: expiresAt ?? Now.AddMinutes(5),
+            priceSnapshot: effectiveSnapshot);
 
         if (status == ReservationStatus.Cancelled)
         {
@@ -422,10 +425,11 @@ public sealed class ConfirmReservationDepositSagaTests
     }
 
     // =========================================================================
-    // T-14: Scheduled -> Succeeded debit confirms reservation and records debit call
+    // =========================================================================
+    // T-14 (Replaced by S-01): Scheduled -> Debit OK, Confirmed, purpose Scheduled, 1 event
     // =========================================================================
     [Fact]
-    public async Task T_14_Scheduled_debits_deposit_and_confirms_successfully()
+    public async Task T_14_Replaced_By_S_01_Scheduled_debit_ok_confirms_with_purpose_scheduled_and_emits_event()
     {
         var userId = Guid.NewGuid();
         var reservation = CreateHold(Guid.NewGuid(), userId, ReservationType.Scheduled, prepaidAmount: 50000m);
@@ -440,10 +444,16 @@ public sealed class ConfirmReservationDepositSagaTests
         Assert.Equal("Confirmed", result.Value!.Status);
         Assert.Equal(50000m, result.Value.PrepaidAmount);
         Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
-        var debitCall = Assert.Single(_paymentClient.DebitCalls);
-        Assert.Equal(reservation.Id, debitCall.ReservationId);
-        Assert.Equal(50000L, debitCall.AmountVnd);
+        var call = Assert.Single(_paymentClient.DebitCalls);
+        Assert.Equal(reservation.Id, call.ReservationId);
+        Assert.Equal(PrepaymentPurpose.Scheduled, call.Purpose);
+        Assert.Equal(50000L, call.AmountVnd);
         Assert.Empty(_paymentClient.RefundCalls);
+
+        var evt = Assert.Single(_outbox.Events);
+        var confirmedEvt = Assert.IsType<ReservationConfirmedIntegrationEvent>(evt);
+        Assert.Equal("Scheduled", confirmedEvt.ReservationType);
+        Assert.Equal(50000m, confirmedEvt.PrepaidAmount);
     }
 
     [Fact]
@@ -756,18 +766,20 @@ public sealed class ConfirmReservationDepositSagaTests
 
     private sealed class FakeReservationPaymentClient : IReservationPaymentClient
     {
-        public List<(Guid ReservationId, Guid AccountId, Guid LotId, long AmountVnd)> DebitCalls { get; } = [];
+        public List<(Guid ReservationId, Guid AccountId, Guid LotId, long AmountVnd, PrepaymentPurpose Purpose)> DebitCalls { get; } = [];
         public List<(Guid ReservationId, Guid AccountId)> GetStateCalls { get; } = [];
         public List<(Guid ReservationId, Guid AccountId, long AmountVnd, string Reason)> RefundCalls { get; } = [];
 
+        public Func<Guid, Guid, Guid, long, PrepaymentPurpose, CancellationToken, Task<Result<ReservationDebitResult>>>? DebitHandlerWithPurpose { get; set; }
         public Func<Guid, Guid, Guid, long, CancellationToken, Task<Result<ReservationDebitResult>>>? DebitHandler { get; set; }
         public Func<Guid, Guid, CancellationToken, Task<Result<ReservationDebitState>>>? GetStateHandler { get; set; }
         public Func<Guid, Guid, long, string, CancellationToken, Task<Result<ReservationDebitState>>>? RefundHandler { get; set; }
 
         public Task<Result<ReservationDebitResult>> DebitAsync(
-            Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default)
+            Guid reservationId, Guid accountId, Guid lotId, long amountVnd, PrepaymentPurpose purpose, CancellationToken cancellationToken = default)
         {
-            DebitCalls.Add((reservationId, accountId, lotId, amountVnd));
+            DebitCalls.Add((reservationId, accountId, lotId, amountVnd, purpose));
+            if (DebitHandlerWithPurpose is not null) return DebitHandlerWithPurpose(reservationId, accountId, lotId, amountVnd, purpose, cancellationToken);
             if (DebitHandler is not null) return DebitHandler(reservationId, accountId, lotId, amountVnd, cancellationToken);
             return Task.FromResult(Result<ReservationDebitResult>.Success(new ReservationDebitResult(
                 ReservationDebitOutcome.Succeeded, "LEDGER-DEFAULT", 100000L)));

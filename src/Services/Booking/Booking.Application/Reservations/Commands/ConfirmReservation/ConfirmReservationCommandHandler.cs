@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
@@ -93,22 +94,51 @@ public sealed class ConfirmReservationCommandHandler : IRequestHandler<ConfirmRe
         }
 
         // ---------------------------------------------------------------------
-        // Step b: Zero-deposit bypass check
+        // Step b: Gate checks and scheduled validation (US-RES-004)
         // ---------------------------------------------------------------------
-        // If PrepaidAmount == 0 -> step f directly without debit
-        if (reservation.PrepaidAmount == 0m)
+        if (reservation.ReservationType == ReservationType.Scheduled)
+        {
+            if (reservation.PrepaidAmount <= 0m || !IsValidJson(reservation.PriceSnapshot))
+            {
+                _logger.LogError(
+                    "Cannot confirm scheduled reservation {ReservationId} because prepayment state is invalid (PrepaidAmount: {PrepaidAmount}, PriceSnapshot: {PriceSnapshot}).",
+                    reservation.Id,
+                    reservation.PrepaidAmount,
+                    reservation.PriceSnapshot);
+
+                try
+                {
+                    reservation.Cancel(now, CancelReason.PaymentFailed);
+                    await _reservationRepository.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to save cancelled state for invalid scheduled reservation {ReservationId}.", reservation.Id);
+                }
+
+                return Result<ConfirmedReservationDto>.Failure(ReservationErrors.PaymentFailed);
+            }
+        }
+
+        // The zero-amount shortcut (confirm without Payment) stays only for HoldWhileDriving (BR-01.c)
+        if (reservation.ReservationType == ReservationType.HoldWhileDriving && reservation.PrepaidAmount == 0m)
         {
             return await ExecuteConfirmationAndSaveAsync(reservation, now, isDebited: false, cancellationToken);
         }
 
         // ---------------------------------------------------------------------
-        // Step c: DebitAsync with stored PrepaidAmount (never client amount)
+        // Step c: DebitAsync with stored PrepaidAmount (never client amount) and purpose
         // ---------------------------------------------------------------------
+        var purpose = reservation.ReservationType == ReservationType.Scheduled
+            ? PrepaymentPurpose.Scheduled
+            : PrepaymentPurpose.Deposit;
+
         var debitResult = await _paymentClient.DebitAsync(
             reservation.Id,
             reservation.UserId,
             reservation.LotId,
             (long)reservation.PrepaidAmount,
+            purpose,
             cancellationToken);
 
         // ---------------------------------------------------------------------
@@ -372,5 +402,23 @@ public sealed class ConfirmReservationCommandHandler : IRequestHandler<ConfirmRe
             confirmedAt,
             qrCodeToken,
             reservation.PrepaidAmount);
+    }
+
+    private static bool IsValidJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }

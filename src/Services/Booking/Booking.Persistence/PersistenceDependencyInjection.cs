@@ -49,6 +49,12 @@ public static class PersistenceDependencyInjection
                     npgsql.MigrationsAssembly(typeof(BookingDbContext).Assembly.GetName().Name!);
                     npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.DefaultSchema);
                 });
+
+            var interceptors = serviceProvider.GetServices<Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor>().ToArray();
+            if (interceptors.Length > 0)
+            {
+                options.AddInterceptors(interceptors);
+            }
         });
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IArrivalHeldQuotaReader, ArrivalHeldQuotaReader>();

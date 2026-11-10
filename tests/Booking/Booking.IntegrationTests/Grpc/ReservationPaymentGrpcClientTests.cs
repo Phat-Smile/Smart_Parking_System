@@ -17,6 +17,8 @@ using Xunit;
 using BookingGrpcClient = BookingWebApi::SmartParking.Contracts.Payment.Reservation.V1.ReservationWalletContract.ReservationWalletContractClient;
 using BookingReservationPaymentGrpcClient = BookingWebApi::ParkingSystem.Booking.WebAPI.Grpc.ReservationPaymentGrpcClient;
 using BookingPaymentServiceOptions = BookingWebApi::ParkingSystem.Booking.WebAPI.Grpc.PaymentServiceOptions;
+using DomainPrepaymentPurpose = ParkingSystem.Booking.Application.Payments.PrepaymentPurpose;
+using ProtoPrepaymentPurpose = SmartParking.Contracts.Payment.Reservation.V1.PrepaymentPurpose;
 
 namespace ParkingSystem.Tests.Booking.IntegrationTests.Grpc;
 
@@ -38,7 +40,7 @@ public sealed class ReservationPaymentGrpcClientTests
             }));
         var client = host.CreateClient();
 
-        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, TestContext.Current.CancellationToken);
+        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, DomainPrepaymentPurpose.Deposit, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ReservationDebitOutcome.Succeeded, result.Value!.Outcome);
@@ -53,7 +55,7 @@ public sealed class ReservationPaymentGrpcClientTests
             debitHandler: (_, _) => throw new RpcException(new Status(StatusCode.Unavailable, "Service Unavailable")));
         var client = host.CreateClient();
 
-        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, TestContext.Current.CancellationToken);
+        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, DomainPrepaymentPurpose.Deposit, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ReservationPaymentErrors.Unavailable, result.Error);
@@ -66,7 +68,7 @@ public sealed class ReservationPaymentGrpcClientTests
             debitHandler: (_, _) => throw new RpcException(new Status(StatusCode.DeadlineExceeded, "Deadline Exceeded")));
         var client = host.CreateClient();
 
-        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, TestContext.Current.CancellationToken);
+        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, DomainPrepaymentPurpose.Deposit, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ReservationPaymentErrors.DeadlineExceeded, result.Error);
@@ -79,7 +81,7 @@ public sealed class ReservationPaymentGrpcClientTests
             debitHandler: (_, _) => throw new RpcException(new Status(StatusCode.Unauthenticated, "Invalid service key")));
         var client = host.CreateClient();
 
-        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, TestContext.Current.CancellationToken);
+        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, DomainPrepaymentPurpose.Deposit, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ReservationPaymentErrors.ServiceAuthFailed, result.Error);
@@ -92,7 +94,7 @@ public sealed class ReservationPaymentGrpcClientTests
             debitHandler: (_, _) => throw new RpcException(new Status(StatusCode.Internal, "Internal Server Error")));
         var client = host.CreateClient();
 
-        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, TestContext.Current.CancellationToken);
+        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, DomainPrepaymentPurpose.Deposit, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ReservationPaymentErrors.CommunicationFailed, result.Error);
@@ -115,7 +117,7 @@ public sealed class ReservationPaymentGrpcClientTests
         var client = host.CreateClient(timeoutSeconds: 8, clientServiceKey: "secret-key-12345");
 
         var beforeCall = DateTime.UtcNow;
-        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, TestContext.Current.CancellationToken);
+        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, DomainPrepaymentPurpose.Deposit, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("secret-key-12345", serverReceivedKey);
@@ -135,7 +137,28 @@ public sealed class ReservationPaymentGrpcClientTests
         var client = host.CreateClient();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, cts.Token));
+            await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 20000, DomainPrepaymentPurpose.Deposit, cts.Token));
+    }
+
+    [Theory]
+    [InlineData(DomainPrepaymentPurpose.Deposit, ProtoPrepaymentPurpose.Deposit)]
+    [InlineData(DomainPrepaymentPurpose.Scheduled, ProtoPrepaymentPurpose.Scheduled)]
+    public async Task T_17h_Purpose_mapping_verifies_proto_request(DomainPrepaymentPurpose domainPurpose, ProtoPrepaymentPurpose expectedProtoPurpose)
+    {
+        ProtoPrepaymentPurpose? receivedPurpose = null;
+
+        await using var host = await FakeGrpcServer.StartAsync(
+            debitHandler: (req, ctx) =>
+            {
+                receivedPurpose = req.Purpose;
+                return Task.FromResult(new DebitReservationResponse { Outcome = DebitOutcome.Succeeded });
+            });
+        var client = host.CreateClient();
+
+        var result = await client.DebitAsync(TestReservationId, TestAccountId, TestLotId, 50000, domainPurpose, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expectedProtoPurpose, receivedPurpose);
     }
 
     // =========================================================================

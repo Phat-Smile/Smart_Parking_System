@@ -52,22 +52,24 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
 
     private sealed class TrackingPaymentClient : IReservationPaymentClient
     {
-        public List<(Guid ReservationId, Guid AccountId, Guid LotId, long AmountVnd)> DebitCalls { get; } = [];
+        public List<(Guid ReservationId, Guid AccountId, Guid LotId, long AmountVnd, PrepaymentPurpose Purpose)> DebitCalls { get; } = [];
         public List<(Guid ReservationId, Guid AccountId, long AmountVnd, string Reason)> RefundCalls { get; } = [];
         public List<(Guid ReservationId, Guid AccountId)> GetStateCalls { get; } = [];
 
+        public Func<Guid, Guid, Guid, long, PrepaymentPurpose, CancellationToken, Task<Result<ReservationDebitResult>>>? DebitHandlerWithPurpose { get; set; }
         public Func<Guid, Guid, Guid, long, CancellationToken, Task<Result<ReservationDebitResult>>>? DebitHandler { get; set; }
         public Func<Guid, Guid, CancellationToken, Task<Result<ReservationDebitState>>>? GetStateHandler { get; set; }
         public Func<Guid, Guid, long, string, CancellationToken, Task<Result<ReservationDebitState>>>? RefundHandler { get; set; }
 
         public Task<Result<ReservationDebitResult>> DebitAsync(
-            Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default)
+            Guid reservationId, Guid accountId, Guid lotId, long amountVnd, PrepaymentPurpose purpose, CancellationToken cancellationToken = default)
         {
             lock (DebitCalls)
             {
-                DebitCalls.Add((reservationId, accountId, lotId, amountVnd));
+                DebitCalls.Add((reservationId, accountId, lotId, amountVnd, purpose));
             }
 
+            if (DebitHandlerWithPurpose != null) return DebitHandlerWithPurpose(reservationId, accountId, lotId, amountVnd, purpose, cancellationToken);
             if (DebitHandler != null) return DebitHandler(reservationId, accountId, lotId, amountVnd, cancellationToken);
             return Task.FromResult(Result<ReservationDebitResult>.Success(new ReservationDebitResult(
                 ReservationDebitOutcome.Succeeded, "LEDGER-TEST-01", 100000L)));
@@ -939,7 +941,7 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
             if (eventData.Context is BookingDbContext db)
             {
                 var entry = db.ChangeTracker.Entries<Reservation>().FirstOrDefault(e => e.Entity.Id == targetReservationId);
-                if (entry != null)
+                if (entry != null && entry.State != EntityState.Added)
                 {
                     throw new DbUpdateConcurrencyException("Simulated candidate 1 save concurrency failure in worker.");
                 }
