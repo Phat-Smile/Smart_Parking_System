@@ -14,6 +14,7 @@ namespace ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.Co
 // Xử lý nhân viên xác nhận thu tiền mặt tại bãi
 public sealed class ConfirmCashParkingFeePaymentCommandHandler(
     IParkingSessionGateway parkingGateway,
+    IParkingLotMembershipGateway membershipGateway,
     IPrepaymentReader prepaymentReader,
     IParkingFeePaymentRepository paymentRepository,
     IIdempotencyStore idempotencyStore,
@@ -101,8 +102,24 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
 
         var ctx = contextResult.Value;
 
-        // Chặn nhân viên xác nhận bãi đỗ khác
-        if (isStaff && (!request.StaffLotId.HasValue || request.StaffLotId.Value != ctx.ParkingLotId))
+        // Kiểm tra quyền thành viên tại bãi đỗ của phiên xe
+        var membershipResult = await membershipGateway.GetMembershipAsync(
+            ctx.ParkingLotId, request.StaffAccountId, cancellationToken);
+
+        if (!membershipResult.IsSuccess)
+        {
+            return Result<ConfirmCashParkingFeePaymentResponse>.Failure(
+                membershipResult.Error ?? PayParkingFeeErrors.ParkingServiceUnavailable);
+        }
+
+        var membership = membershipResult.Value!;
+        var hasAccess = membership.IsMember && (
+            (isStaff && (string.Equals(membership.Role, "Staff", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(membership.Role, "Owner", StringComparison.OrdinalIgnoreCase)))
+            || (isOwner && string.Equals(membership.Role, "Owner", StringComparison.OrdinalIgnoreCase))
+        );
+
+        if (!hasAccess)
         {
             return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.LotAccessDenied);
         }

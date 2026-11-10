@@ -1,19 +1,29 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ParkWiseLoginPage } from "./ParkWiseLoginPage";
-import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import { completeMfaLogin, loginParkWiseAccount } from "./loginParkWiseAccount";
 import { googleLoginParkWiseAccount } from "./googleSignIn";
 import { ApiError } from "@/shared/errors/api-error";
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({
-    useRouter: () => ({ push }),
-    useSearchParams: () => new URLSearchParams(),
+const { push, getSearchParam } = vi.hoisted(() => ({
+    push: vi.fn(),
+    getSearchParam: vi.fn<(param: string) => string | null>(() => null),
 }));
 
-vi.mock("./loginParkWiseAccount", () => ({ loginParkWiseAccount: vi.fn() }));
+vi.mock("next/navigation", () => ({
+    useRouter: () => ({ push }),
+    useSearchParams: () => ({
+        get: (param: string) => getSearchParam(param),
+    }),
+}));
+
+vi.mock("./loginParkWiseAccount", () => ({
+    loginParkWiseAccount: vi.fn(),
+    completeMfaLogin: vi.fn(),
+}));
 const loginMock = vi.mocked(loginParkWiseAccount);
+const completeMfaLoginMock = vi.mocked(completeMfaLogin);
 
 vi.mock("./googleSignIn", async (importOriginal) => ({
     ...(await importOriginal<typeof import("./googleSignIn")>()),
@@ -41,6 +51,11 @@ vi.mock("./ParkWiseAuthLayout", () => ({
 }));
 
 describe("ParkWise Login form", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        getSearchParam.mockReturnValue(null);
+    });
+
     it("requires email and password before calling Identity", async () => {
         loginMock.mockResolvedValue({
             id: "account-id",
@@ -77,7 +92,6 @@ describe("ParkWise Login form", () => {
     });
 
     it("redirects SystemAdmin account to /admin/dashboard", async () => {
-        push.mockClear();
         loginMock.mockResolvedValue({
             id: "admin-id",
             email: "admin@parking.test",
@@ -100,7 +114,6 @@ describe("ParkWise Login form", () => {
     });
 
     it("redirects Staff account to /staff/dashboard", async () => {
-        push.mockClear();
         loginMock.mockResolvedValue({
             id: "staff-id",
             email: "staff@parking.test",
@@ -179,5 +192,201 @@ describe("ParkWise Login form", () => {
         expect(await screen.findByRole("alert")).toHaveTextContent(
             'This account was created with Google and has no password yet. Use "Continue with Google"',
         );
+    });
+
+    describe("Two-Factor Authentication (TOTP MFA)", () => {
+        it("switches to MFA view when login returns mfaRequired", async () => {
+            loginMock.mockResolvedValue({
+                mfaRequired: true,
+                mfaToken: "mfa-step2-token",
+            });
+            render(<ParkWiseLoginPage fontClassName="test-font" />);
+
+            fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+                target: { value: "admin@parkwise.vn" },
+            });
+            fireEvent.change(screen.getByLabelText("Password"), {
+                target: { value: "AdminSecurePass!1" },
+            });
+            fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+            expect(
+                await screen.findByRole("heading", {
+                    name: "Two-factor authentication",
+                }),
+            ).toBeInTheDocument();
+            expect(
+                screen.getByText(
+                    "Enter the 6-digit code from your authenticator app.",
+                ),
+            ).toBeInTheDocument();
+            expect(
+                screen.getByRole("button", { name: "Verify and log in" }),
+            ).toBeDisabled();
+            expect(
+                screen.getByRole("button", { name: "Back to login" }),
+            ).toBeInTheDocument();
+        });
+
+        it("completes MFA login and navigates admin to destination", async () => {
+            loginMock.mockResolvedValue({
+                mfaRequired: true,
+                mfaToken: "mfa-step2-token",
+            });
+            completeMfaLoginMock.mockResolvedValue({
+                id: "admin-id",
+                email: "admin@parkwise.vn",
+                role: "SystemAdmin",
+                status: "Active",
+                phoneNumber: null,
+            });
+
+            render(<ParkWiseLoginPage fontClassName="test-font" />);
+            fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+                target: { value: "admin@parkwise.vn" },
+            });
+            fireEvent.change(screen.getByLabelText("Password"), {
+                target: { value: "AdminSecurePass!1" },
+            });
+            fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+            await screen.findByRole("heading", {
+                name: "Two-factor authentication",
+            });
+
+            // Enter 6 digits
+            for (let i = 1; i <= 6; i++) {
+                const input = screen.getByLabelText(`Digit ${i} of 6`);
+                fireEvent.change(input, { target: { value: String(i) } });
+            }
+
+            await waitFor(() => {
+                expect(completeMfaLoginMock).toHaveBeenCalledWith(
+                    "mfa-step2-token",
+                    "123456",
+                );
+            });
+
+            await waitFor(() => {
+                expect(push).toHaveBeenCalledWith("/admin/dashboard");
+            });
+        });
+
+        it("redirects Admin to /admin/owner-applications when explicit redirect query is provided", async () => {
+            getSearchParam.mockImplementation((param) =>
+                param === "redirect" ? "/admin/owner-applications" : null,
+            );
+            loginMock.mockResolvedValue({
+                mfaRequired: true,
+                mfaToken: "mfa-admin-token",
+            });
+            completeMfaLoginMock.mockResolvedValue({
+                id: "admin-id",
+                email: "admin@parkwise.vn",
+                role: "SystemAdmin",
+                status: "Active",
+                phoneNumber: null,
+            });
+
+            render(<ParkWiseLoginPage fontClassName="test-font" />);
+            fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+                target: { value: "admin@parkwise.vn" },
+            });
+            fireEvent.change(screen.getByLabelText("Password"), {
+                target: { value: "AdminSecurePass!1" },
+            });
+            fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+            await screen.findByRole("heading", {
+                name: "Two-factor authentication",
+            });
+
+            for (let i = 1; i <= 6; i++) {
+                const input = screen.getByLabelText(`Digit ${i} of 6`);
+                fireEvent.change(input, { target: { value: String(i) } });
+            }
+
+            await waitFor(() => {
+                expect(completeMfaLoginMock).toHaveBeenCalledWith(
+                    "mfa-admin-token",
+                    "123456",
+                );
+            });
+
+            await waitFor(() => {
+                expect(push).toHaveBeenCalledWith("/admin/owner-applications");
+            });
+        });
+
+        it("displays error message on invalid MFA OTP code", async () => {
+            loginMock.mockResolvedValue({
+                mfaRequired: true,
+                mfaToken: "mfa-step2-token",
+            });
+            completeMfaLoginMock.mockRejectedValue(
+                new ApiError(
+                    401,
+                    { errorCode: "identity.invalid_credentials" } as never,
+                    undefined,
+                ),
+            );
+
+            render(<ParkWiseLoginPage fontClassName="test-font" />);
+            fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+                target: { value: "admin@parkwise.vn" },
+            });
+            fireEvent.change(screen.getByLabelText("Password"), {
+                target: { value: "AdminSecurePass!1" },
+            });
+            fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+            await screen.findByRole("heading", {
+                name: "Two-factor authentication",
+            });
+
+            for (let i = 1; i <= 6; i++) {
+                const input = screen.getByLabelText(`Digit ${i} of 6`);
+                fireEvent.change(input, { target: { value: "9" } });
+            }
+
+            const alert = await screen.findByRole("alert");
+            expect(alert).toHaveTextContent(
+                "Invalid verification code. Please check your app and try again.",
+            );
+            expect(alert).toHaveClass("parkwise-login-error");
+        });
+
+        it("allows user to return to login form via Back to login button", async () => {
+            loginMock.mockResolvedValue({
+                mfaRequired: true,
+                mfaToken: "mfa-step2-token",
+            });
+
+            render(<ParkWiseLoginPage fontClassName="test-font" />);
+            fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
+                target: { value: "admin@parkwise.vn" },
+            });
+            fireEvent.change(screen.getByLabelText("Password"), {
+                target: { value: "AdminSecurePass!1" },
+            });
+            fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+            await screen.findByRole("heading", {
+                name: "Two-factor authentication",
+            });
+
+            fireEvent.click(
+                screen.getByRole("button", { name: "Back to login" }),
+            );
+
+            expect(
+                await screen.findByRole("heading", {
+                    name: "Log in to your account",
+                }),
+            ).toBeInTheDocument();
+            expect(
+                screen.getByRole("button", { name: "Log in" }),
+            ).toBeInTheDocument();
+        });
     });
 });

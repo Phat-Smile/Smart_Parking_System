@@ -1,6 +1,7 @@
 using Grpc.Net.Client;
 using Microsoft.Extensions.Options;
 using ParkingSystem.Payment.Application.Common.Interfaces;
+using SmartParking.Contracts.Parking.Membership.V1;
 using SmartParking.Contracts.Parking.SessionFee.V1;
 
 namespace ParkingSystem.Payment.WebAPI.Grpc;
@@ -27,6 +28,9 @@ public static class ParkingSessionFeeClientRegistration
         services.AddSingleton(sp =>
             new ParkingSessionFeeContract.ParkingSessionFeeContractClient(sp.GetRequiredService<GrpcChannel>()));
         services.AddScoped<IParkingSessionGateway, ParkingSessionFeeGrpcGateway>();
+        services.AddSingleton(sp =>
+            new ParkingLotMembershipContract.ParkingLotMembershipContractClient(sp.GetRequiredService<GrpcChannel>()));
+        services.AddScoped<IParkingLotMembershipGateway, ParkingLotMembershipGrpcGateway>();
 
         return services;
     }

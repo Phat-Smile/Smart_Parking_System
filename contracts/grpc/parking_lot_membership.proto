@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package parkingsystem.parking.membership.v1;
+
+option csharp_namespace = "SmartParking.Contracts.Parking.Membership.V1";
+
+// Contract: Parking Lot Membership (Payment asks whether an account is an assigned member of a lot).
+// Parking is the single source of truth for lot assignments.
+service ParkingLotMembershipContract {
+  rpc GetLotMembership(GetLotMembershipRequest)
+      returns (GetLotMembershipResponse);
+}
+
+message GetLotMembershipRequest {
+  // Canonical UUID "D" format (36 chars). Malformed -> INVALID_ARGUMENT.
+  string account_id = 1;
+  // Canonical UUID "D" format (36 chars). Malformed -> INVALID_ARGUMENT.
+  string lot_id = 2;
+}
+
+message GetLotMembershipResponse {
+  // true when the account is assigned to the lot with any approved/valid role.
+  // false when not assigned or unknown (does not throw NOT_FOUND, does not leak lot existence).
+  bool is_member = 1;
+  // "Owner" or "Staff". Empty string ("") when is_member == false.
+  string role = 2;
+}
