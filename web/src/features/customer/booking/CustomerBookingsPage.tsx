@@ -5,7 +5,7 @@ import Link from "next/link";
 import { en } from "@/features/customer/i18n/en";
 import { vi as viCopy } from "@/features/customer/i18n/vi";
 import { useCustomerLanguage } from "@/features/customer/i18n/customerLanguage";
-import { BookingBadge, BookingStatus } from "./components/BookingBadge";
+import { BookingBadge, mapStatusToBadge } from "./components/BookingBadge";
 import { BookingPassModal } from "./components/BookingPassModal";
 import {
     getMyReservations,
@@ -23,20 +23,11 @@ import {
     AlertCircle,
     CheckCircle,
     RefreshCw,
+    ExternalLink,
 } from "lucide-react";
 import { ApiError } from "@/shared/errors/api-error";
 
 type TabFilter = "all" | "active" | "used" | "cancelled";
-
-function mapStatusToBadge(status: string): BookingStatus {
-    const s = status.toLowerCase();
-    if (s.includes("hold")) return "holding";
-    if (s.includes("confirm")) return "confirmed";
-    if (s.includes("use") || s.includes("complet")) return "used";
-    if (s.includes("cancel")) return "cancelled";
-    if (s.includes("expire")) return "expired";
-    return "expired";
-}
 
 export default function BookingsPage() {
     const { copy, language } = useCustomerLanguage();
@@ -416,19 +407,31 @@ export default function BookingsPage() {
                                     {/* Nút Xem Vé / QR Code */}
                                     {badgeStatus === "confirmed" &&
                                         booking.qrCodeToken && (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setPassTarget(booking)
-                                                }
-                                                className="flex-1 py-2.5 px-3 bg-[#6246ea]/20 hover:bg-[#6246ea]/30 text-[#a28aff] border border-[#6246ea]/30 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors text-xs"
-                                            >
-                                                <QrCode size={15} />{" "}
-                                                {copy(
-                                                    "View pass / QR",
-                                                    "Xem vé / QR",
-                                                )}
-                                            </button>
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setPassTarget(booking)
+                                                    }
+                                                    className="flex-1 py-2.5 px-3 bg-[#6246ea]/20 hover:bg-[#6246ea]/30 text-[#a28aff] border border-[#6246ea]/30 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors text-xs"
+                                                >
+                                                    <QrCode size={15} />{" "}
+                                                    {copy(
+                                                        "View pass / QR",
+                                                        "Xem vé / QR",
+                                                    )}
+                                                </button>
+                                                <Link
+                                                    href={`/customer/bookings/${booking.reservationId}`}
+                                                    className="p-2.5 bg-white/5 hover:bg-white/10 text-[#8790a3] hover:text-white border border-white/10 rounded-xl transition-colors flex items-center justify-center"
+                                                    title={copy(
+                                                        "Open full-screen pass",
+                                                        "Mở toàn màn hình",
+                                                    )}
+                                                >
+                                                    <ExternalLink size={15} />
+                                                </Link>
+                                            </>
                                         )}
 
                                     {/* Nút Cancel booking */}
