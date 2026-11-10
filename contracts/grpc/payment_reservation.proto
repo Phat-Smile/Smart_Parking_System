@@ -14,6 +14,7 @@ enum DebitOutcome {
   DEBIT_OUTCOME_INSUFFICIENT_BALANCE = 2;  // no wallet counts as balance 0
   DEBIT_OUTCOME_WALLET_NOT_ACTIVE = 3;
   DEBIT_OUTCOME_AMOUNT_MISMATCH = 4;       // same reservation_id, different amount
+  DEBIT_OUTCOME_ALREADY_REFUNDED = 5;      // a refund exists for this reservation_id; Payment never debits it again
 }
 enum DebitState { DEBIT_STATE_UNSPECIFIED = 0; DEBIT_STATE_NOT_DEBITED = 1; DEBIT_STATE_DEBITED = 2; DEBIT_STATE_REFUNDED = 3; }
 message DebitReservationRequest {

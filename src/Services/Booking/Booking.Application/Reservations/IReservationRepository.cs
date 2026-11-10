@@ -20,6 +20,8 @@ public interface IReservationRepository
 
     Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken);
 
+    void DiscardPendingChanges();
+
     Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(
         DateTimeOffset now,
         int batchSize,

@@ -98,7 +98,7 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
         }
     }
 
-    private ServiceProvider CreateProvider(TrackingPaymentClient paymentClient, FakeClock clock)
+    private ServiceProvider CreateProvider(TrackingPaymentClient paymentClient, FakeClock clock, Action<IServiceCollection>? configure = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddConfiguration(PostgreSqlTestConfiguration.Create(postgres.ConnectionString))
@@ -110,6 +110,8 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
         services.AddSingleton<IClock>(clock);
         services.AddSingleton<IReservationPaymentClient>(paymentClient);
         services.AddScoped<ConfirmReservationCommandHandler>();
+
+        configure?.Invoke(services);
 
         return services.BuildServiceProvider(validateScopes: true);
     }
@@ -207,7 +209,8 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
         // Use a test repo that fails on SaveChangesAsync to simulate DB crash after debit
         var failingRepo = new FailingSaveReservationRepository();
         var logger = new LoggerFactory().CreateLogger<ConfirmReservationCommandHandler>();
-        var handler = new ConfirmReservationCommandHandler(failingRepo, paymentClient, clock, logger);
+        var outbox = new RecordingOutbox();
+        var handler = new ConfirmReservationCommandHandler(failingRepo, paymentClient, clock, logger, outbox);
 
         var reservationId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -235,17 +238,36 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
         Assert.Equal(reservationId, refundCall.ReservationId);
         Assert.Equal(userId, refundCall.AccountId);
         Assert.Equal(20000L, refundCall.AmountVnd);
+
+        // Finding F6: Hold has ended, cannot confirm again
+        Assert.Equal(ReservationStatus.Cancelled, hold.Status);
+        Assert.Equal(CancelReason.PaymentFailed, hold.CancelReason);
+        Assert.Equal(PrepaidOutcome.Refunded, hold.PrepaidOutcome);
+
+        var retryResult = await handler.Handle(new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m), ct);
+        Assert.True(retryResult.IsFailure);
+        Assert.Equal(ReservationErrors.PaymentFailed, retryResult.Error);
+        Assert.Single(paymentClient.DebitCalls);
     }
 
     private sealed class FailingSaveReservationRepository : IReservationRepository
     {
         public Reservation? ReservationToReturn { get; set; }
+        public bool FailSave { get; set; } = true;
         public void Add(Reservation r) { }
 
         public Task<Reservation?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(ReservationToReturn);
 
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void DiscardPendingChanges()
+        {
+            if (ReservationToReturn != null)
+            {
+                typeof(Reservation).GetProperty(nameof(Reservation.Status))!.SetValue(ReservationToReturn, ReservationStatus.TemporaryHold);
+                typeof(Reservation).GetProperty(nameof(Reservation.ConfirmedAt))!.SetValue(ReservationToReturn, null);
+            }
+        }
 
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(
             DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
@@ -260,8 +282,22 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
         public Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(Guid lotId, string plateNumber, DateTimeOffset arrivalTime, CancellationToken cancellationToken = default) =>
             Task.FromResult<Reservation?>(null);
 
-        public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
-            throw new DbUpdateException("Database disk full simulation.");
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            if (FailSave)
+            {
+                FailSave = false; // Allow compensation save to succeed
+                throw new DbUpdateException("Database disk full simulation.");
+            }
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingOutbox : IOutboxWriter
+    {
+        public List<object> Events { get; } = [];
+        public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion,
+            Guid? correlationId = null, Guid? causationId = null) where TEvent : class => Events.Add(integrationEvent);
     }
 
     // =========================================================================
@@ -580,6 +616,332 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
 
         handlerAlternate.Handle(cmd, TestContext.Current.CancellationToken).GetAwaiter().GetResult();
         Assert.Equal(Now.AddMinutes(7), coordinator.CapturedReservation.TempHoldExpiresAt);
+    }
+
+    // =========================================================================
+    // F-04: Concurrency: confirm races with cancel and cancel wins -> exactly one refund;
+    // NO booking.reservation-confirmed outbox row.
+    // =========================================================================
+    [Fact]
+    public async Task F_04_Concurrency_confirm_races_with_cancel_cancel_wins_refunds_once_and_no_outbox_row()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FakeClock(Now);
+        var paymentClient = new TrackingPaymentClient();
+        await using var provider = CreateProvider(paymentClient, clock);
+        await EnsureMigratedAsync(provider, ct);
+
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+
+        // 1. Clean DB and Seed hold
+        await using (var seedScope = provider.CreateAsyncScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM booking.reservations; DELETE FROM booking.outbox_messages;", ct);
+
+            var hold = Reservation.CreateTemporaryHold(
+                reservationId, userId, Guid.NewGuid(), "51A12345", lotId, VehicleGroup.Car,
+                ReservationType.HoldWhileDriving, Now.AddMinutes(20), 20000m, Now.AddMinutes(-2),
+                tempHoldExpiresAt: Now.AddMinutes(5));
+            db.Reservations.Add(hold);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 2. Debit succeeds, but concurrently another transaction cancels the reservation in DB
+        paymentClient.DebitHandler = async (rId, aId, lId, amt, c) =>
+        {
+            await using var cancelScope = provider.CreateAsyncScope();
+            var cancelDb = cancelScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var cancelRes = await cancelDb.Reservations.SingleAsync(r => r.Id == reservationId, c);
+            cancelRes.Cancel(Now, CancelReason.CustomerCancelled);
+            await cancelDb.SaveChangesAsync(c);
+
+            return Result<ReservationDebitResult>.Success(
+                new ReservationDebitResult(ReservationDebitOutcome.Succeeded, "LEDGER-RACE-01", 100000L));
+        };
+
+        // 3. Confirm executes
+        await using (var confirmScope = provider.CreateAsyncScope())
+        {
+            var handler = confirmScope.ServiceProvider.GetRequiredService<ConfirmReservationCommandHandler>();
+            var result = await handler.Handle(new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m), ct);
+
+            Assert.True(result.IsFailure);
+            Assert.Equal(ReservationErrors.InvalidStatus, result.Error);
+        }
+
+        // 4. Exactly one refund was called
+        var refundCall = Assert.Single(paymentClient.RefundCalls);
+        Assert.Equal(reservationId, refundCall.ReservationId);
+        Assert.Equal(userId, refundCall.AccountId);
+
+        // 5. Verify NO booking.reservation-confirmed outbox row in DB
+        await using (var verifyScope = provider.CreateAsyncScope())
+        {
+            var db = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var outboxMessages = await db.OutboxMessages.AsNoTracking()
+                .Where(m => m.EventType == "booking.reservation-confirmed.v1")
+                .ToListAsync(ct);
+            Assert.DoesNotContain(outboxMessages, m => m.CorrelationId == reservationId || m.Payload.Contains(reservationId.ToString()));
+
+            var res = await db.Reservations.SingleAsync(r => r.Id == reservationId, ct);
+            Assert.Equal(ReservationStatus.Cancelled, res.Status);
+            Assert.Equal(PrepaidOutcome.Refunded, res.PrepaidOutcome);
+        }
+    }
+
+    // =========================================================================
+    // F-05: Save failure after debit -> no outbox row; reservation ended in one save;
+    // worker run afterwards does nothing more.
+    // =========================================================================
+    [Fact]
+    public async Task F_05_Save_failure_after_debit_no_outbox_row_reservation_ended_worker_does_nothing_more()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FakeClock(Now);
+        var paymentClient = new TrackingPaymentClient();
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+
+        await using var provider = CreateProvider(paymentClient, clock, services =>
+            services.AddSingleton<Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor>(new ConcurrencyTriggerInterceptor(reservationId)));
+        await EnsureMigratedAsync(provider, ct);
+
+        // 1. Clean DB and Seed
+        await using (var seedScope = provider.CreateAsyncScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM booking.reservations; DELETE FROM booking.outbox_messages;", ct);
+
+            var hold = Reservation.CreateTemporaryHold(
+                reservationId, userId, Guid.NewGuid(), "51A12345", lotId, VehicleGroup.Car,
+                ReservationType.HoldWhileDriving, Now.AddMinutes(20), 20000m, Now.AddMinutes(-2),
+                tempHoldExpiresAt: Now.AddMinutes(5));
+            db.Reservations.Add(hold);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 2. Debit succeeds
+        paymentClient.DebitHandler = (rId, aId, lId, amt, c) =>
+            Task.FromResult(Result<ReservationDebitResult>.Success(
+                new ReservationDebitResult(ReservationDebitOutcome.Succeeded, "LEDGER-CONC-01", 100000L)));
+
+        // 3. Confirm executes -> interceptor triggers DbUpdateConcurrencyException -> compensates
+        await using (var confirmScope = provider.CreateAsyncScope())
+        {
+            var handler = confirmScope.ServiceProvider.GetRequiredService<ConfirmReservationCommandHandler>();
+            var result = await handler.Handle(new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m), ct);
+            Assert.True(result.IsFailure);
+            Assert.Equal(ReservationErrors.PaymentUnconfirmed, result.Error);
+        }
+
+        // 4. Refund was called once
+        Assert.Single(paymentClient.RefundCalls);
+
+        // 5. Verify DB: no outbox row, reservation ended (Cancelled with PaymentFailed) and PrepaidOutcome.Refunded
+        await using (var verifyScope = provider.CreateAsyncScope())
+        {
+            var db = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var outboxMessages = await db.OutboxMessages.AsNoTracking()
+                .Where(m => m.EventType == "booking.reservation-confirmed.v1")
+                .ToListAsync(ct);
+            Assert.DoesNotContain(outboxMessages, m => m.CorrelationId == reservationId || m.Payload.Contains(reservationId.ToString()));
+
+            var res = await db.Reservations.SingleAsync(r => r.Id == reservationId, ct);
+            Assert.Equal(ReservationStatus.Cancelled, res.Status);
+            Assert.Equal(CancelReason.PaymentFailed, res.CancelReason);
+            Assert.Equal(PrepaidOutcome.Refunded, res.PrepaidOutcome);
+        }
+
+        // 6. Worker run afterwards does nothing more (0 processed, no duplicate refund)
+        var workerLogger = new LoggerFactory().CreateLogger<ReservationPaymentReconciliationWorker>();
+        var options = Options.Create(new ReservationPaymentReconciliationOptions { BatchSize = 50 });
+        var worker = new ReservationPaymentReconciliationWorker(provider.GetRequiredService<IServiceScopeFactory>(), options, workerLogger);
+
+        var processed = await worker.ReconcileBatchAsync(ct);
+        Assert.Equal(0, processed);
+        Assert.Single(paymentClient.RefundCalls);
+    }
+
+    // =========================================================================
+    // F-06: T-21 extended: when the confirm save fails, neither Confirmed status nor outbox row exists.
+    // =========================================================================
+    [Fact]
+    public async Task F_06_Confirm_save_fails_neither_confirmed_status_nor_outbox_row_exists()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FakeClock(Now);
+        var paymentClient = new TrackingPaymentClient();
+        var reservationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+
+        await using var provider = CreateProvider(paymentClient, clock, services =>
+            services.AddSingleton<Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor>(new ConcurrencyTriggerInterceptor(reservationId)));
+        await EnsureMigratedAsync(provider, ct);
+
+        // 1. Clean DB and Seed hold
+        await using (var seedScope = provider.CreateAsyncScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM booking.reservations; DELETE FROM booking.outbox_messages;", ct);
+
+            var hold = Reservation.CreateTemporaryHold(
+                reservationId, userId, Guid.NewGuid(), "51A12345", lotId, VehicleGroup.Car,
+                ReservationType.HoldWhileDriving, Now.AddMinutes(20), 20000m, Now.AddMinutes(-2),
+                tempHoldExpiresAt: Now.AddMinutes(5));
+            db.Reservations.Add(hold);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 2. Debit succeeds
+        paymentClient.DebitHandler = (rId, aId, lId, amt, c) =>
+            Task.FromResult(Result<ReservationDebitResult>.Success(
+                new ReservationDebitResult(ReservationDebitOutcome.Succeeded, "LEDGER-F06-01", 100000L)));
+
+        // 3. Confirm execution
+        await using (var confirmScope = provider.CreateAsyncScope())
+        {
+            var handler = confirmScope.ServiceProvider.GetRequiredService<ConfirmReservationCommandHandler>();
+            var result = await handler.Handle(new ConfirmReservationCommand(reservationId, userId, "Wallet", 20000m), ct);
+            Assert.True(result.IsFailure);
+        }
+
+        // 4. Verify DB: NEITHER Confirmed status NOR outbox row exists!
+        await using (var verifyScope = provider.CreateAsyncScope())
+        {
+            var db = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var res = await db.Reservations.SingleAsync(r => r.Id == reservationId, ct);
+            Assert.NotEqual(ReservationStatus.Confirmed, res.Status);
+            Assert.Null(res.ConfirmedAt);
+
+            var outboxMessages = await db.OutboxMessages.AsNoTracking()
+                .Where(m => m.EventType == "booking.reservation-confirmed.v1")
+                .ToListAsync(ct);
+            Assert.DoesNotContain(outboxMessages, m => m.CorrelationId == reservationId || m.Payload.Contains(reservationId.ToString()));
+        }
+    }
+
+    // =========================================================================
+    // F-07: Worker batch: first candidate's save throws a concurrency error;
+    // the other candidates are still refunded and saved, and first candidate's changes are not saved by later row.
+    // =========================================================================
+    [Fact]
+    public async Task F_07_Worker_batch_first_candidate_concurrency_error_others_refunded_and_saved_without_leak()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FakeClock(Now);
+        var paymentClient = new TrackingPaymentClient();
+        var lotId = Guid.NewGuid();
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var id3 = Guid.NewGuid();
+        var u1 = Guid.NewGuid();
+        var u2 = Guid.NewGuid();
+        var u3 = Guid.NewGuid();
+
+        await using var provider = CreateProvider(paymentClient, clock, services =>
+            services.AddSingleton<Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor>(new WorkerCandidateConcurrencyInterceptor(id1)));
+        await EnsureMigratedAsync(provider, ct);
+
+        // Clean tables and seed 3 expired candidates
+        await using (var seedScope = provider.CreateAsyncScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            await db.Database.ExecuteSqlRawAsync("DELETE FROM booking.reservations; DELETE FROM booking.outbox_messages;", ct);
+
+            var c1 = Reservation.CreateTemporaryHold(
+                id1, u1, Guid.NewGuid(), "51A10001", lotId, VehicleGroup.Car,
+                ReservationType.HoldWhileDriving, Now.AddMinutes(20), 20000m, Now.AddMinutes(-10),
+                tempHoldExpiresAt: Now.AddMinutes(-6));
+
+            var c2 = Reservation.CreateTemporaryHold(
+                id2, u2, Guid.NewGuid(), "51A10002", lotId, VehicleGroup.Car,
+                ReservationType.HoldWhileDriving, Now.AddMinutes(20), 20000m, Now.AddMinutes(-10),
+                tempHoldExpiresAt: Now.AddMinutes(-5));
+
+            var c3 = Reservation.CreateTemporaryHold(
+                id3, u3, Guid.NewGuid(), "51A10003", lotId, VehicleGroup.Car,
+                ReservationType.HoldWhileDriving, Now.AddMinutes(20), 20000m, Now.AddMinutes(-10),
+                tempHoldExpiresAt: Now.AddMinutes(-4));
+
+            db.Reservations.AddRange(c1, c2, c3);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // All 3 are DEBITED at payment
+        paymentClient.GetStateHandler = (resId, _, _) =>
+            Task.FromResult(Result<ReservationDebitState>.Success(ReservationDebitState.Debited));
+
+        var workerLogger = new LoggerFactory().CreateLogger<ReservationPaymentReconciliationWorker>();
+        var options = Options.Create(new ReservationPaymentReconciliationOptions { BatchSize = 50 });
+        var worker = new ReservationPaymentReconciliationWorker(provider.GetRequiredService<IServiceScopeFactory>(), options, workerLogger);
+
+        // Run reconciliation
+        var processed = await worker.ReconcileBatchAsync(ct);
+        Assert.Equal(2, processed);
+
+        // Verify DB
+        await using (var verifyScope = provider.CreateAsyncScope())
+        {
+            var db = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+
+            // c1 failed on save -> PrepaidOutcome is NOT saved as Refunded
+            var r1 = await db.Reservations.SingleAsync(r => r.Id == id1, ct);
+            Assert.Null(r1.PrepaidOutcome);
+
+            // c2 and c3 were successfully refunded and saved!
+            var r2 = await db.Reservations.SingleAsync(r => r.Id == id2, ct);
+            Assert.Equal(PrepaidOutcome.Refunded, r2.PrepaidOutcome);
+            Assert.Equal(ReservationStatus.Expired, r2.Status);
+
+            var r3 = await db.Reservations.SingleAsync(r => r.Id == id3, ct);
+            Assert.Equal(PrepaidOutcome.Refunded, r3.PrepaidOutcome);
+            Assert.Equal(ReservationStatus.Expired, r3.Status);
+        }
+    }
+
+    private sealed class ConcurrencyTriggerInterceptor(Guid targetReservationId) : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+    {
+        private bool _triggered = false;
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+            Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_triggered && eventData.Context is BookingDbContext db)
+            {
+                var entry = db.ChangeTracker.Entries<Reservation>().FirstOrDefault(e => e.Entity.Id == targetReservationId);
+                if (entry != null && entry.Entity.Status == ReservationStatus.Confirmed)
+                {
+                    _triggered = true;
+                    throw new DbUpdateConcurrencyException("Simulated concurrency conflict during confirm save.");
+                }
+            }
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
+    }
+
+    private sealed class WorkerCandidateConcurrencyInterceptor(Guid targetReservationId) : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+    {
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+            Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (eventData.Context is BookingDbContext db)
+            {
+                var entry = db.ChangeTracker.Entries<Reservation>().FirstOrDefault(e => e.Entity.Id == targetReservationId);
+                if (entry != null)
+                {
+                    throw new DbUpdateConcurrencyException("Simulated candidate 1 save concurrency failure in worker.");
+                }
+            }
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
     }
 
     private sealed class FakeOwnership : IVehicleOwnershipClient

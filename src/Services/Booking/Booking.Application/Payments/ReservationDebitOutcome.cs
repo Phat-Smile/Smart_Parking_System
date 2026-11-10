@@ -6,6 +6,7 @@ public enum ReservationDebitOutcome
     Succeeded = 1,
     InsufficientBalance = 2,
     WalletNotActive = 3,
-    AmountMismatch = 4
+    AmountMismatch = 4,
+    AlreadyRefunded = 5
 }
 

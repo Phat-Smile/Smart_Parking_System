@@ -47,6 +47,7 @@ public sealed class ReservationPaymentGrpcClient(
                 ProtoDebitOutcome.InsufficientBalance => ReservationDebitOutcome.InsufficientBalance,
                 ProtoDebitOutcome.WalletNotActive => ReservationDebitOutcome.WalletNotActive,
                 ProtoDebitOutcome.AmountMismatch => ReservationDebitOutcome.AmountMismatch,
+                ProtoDebitOutcome.AlreadyRefunded => ReservationDebitOutcome.AlreadyRefunded,
                 _ => ReservationDebitOutcome.Unspecified
             };
 

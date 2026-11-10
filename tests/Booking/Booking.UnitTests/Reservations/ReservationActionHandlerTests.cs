@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using ParkingSystem.Booking.Application.Payments;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.CancelReservation;
 using ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReservation;
 using ParkingSystem.Booking.Application.Reservations.Queries.GetMyReservations;
 using ParkingSystem.Booking.Domain.Reservations;
+using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using Xunit;
 
@@ -17,7 +19,7 @@ public sealed class ReservationActionHandlerTests
     [Fact]
     public async Task ConfirmReservation_WhenNotFound_ReturnsNotFoundFailure()
     {
-        var handler = new ConfirmReservationCommandHandler(_repo, _clock, NullLogger<ConfirmReservationCommandHandler>.Instance);
+        var handler = new ConfirmReservationCommandHandler(_repo, new FakeReservationPaymentClient(), _clock, NullLogger<ConfirmReservationCommandHandler>.Instance, new FakeOutboxWriter());
         var command = new ConfirmReservationCommand(Guid.NewGuid(), Guid.NewGuid(), "Wallet", 50000);
 
         var result = await handler.Handle(command, CancellationToken.None);
@@ -32,7 +34,7 @@ public sealed class ReservationActionHandlerTests
         var reservation = CreateTestReservation(Guid.NewGuid(), Guid.NewGuid());
         _repo.Add(reservation);
 
-        var handler = new ConfirmReservationCommandHandler(_repo, _clock, NullLogger<ConfirmReservationCommandHandler>.Instance);
+        var handler = new ConfirmReservationCommandHandler(_repo, new FakeReservationPaymentClient(), _clock, NullLogger<ConfirmReservationCommandHandler>.Instance, new FakeOutboxWriter());
         var command = new ConfirmReservationCommand(reservation.Id, Guid.NewGuid(), "Wallet", 50000);
 
         var result = await handler.Handle(command, CancellationToken.None);
@@ -49,7 +51,7 @@ public sealed class ReservationActionHandlerTests
         var reservation = CreateTestReservation(Guid.NewGuid(), userId, tempHoldExpiresAt: expiredTime);
         _repo.Add(reservation);
 
-        var handler = new ConfirmReservationCommandHandler(_repo, _clock, NullLogger<ConfirmReservationCommandHandler>.Instance);
+        var handler = new ConfirmReservationCommandHandler(_repo, new FakeReservationPaymentClient(), _clock, NullLogger<ConfirmReservationCommandHandler>.Instance, new FakeOutboxWriter());
         var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 50000);
 
         var result = await handler.Handle(command, CancellationToken.None);
@@ -71,7 +73,7 @@ public sealed class ReservationActionHandlerTests
             prepaidAmount: 0m);
         _repo.Add(reservation);
 
-        var handler = new ConfirmReservationCommandHandler(_repo, _clock, NullLogger<ConfirmReservationCommandHandler>.Instance);
+        var handler = new ConfirmReservationCommandHandler(_repo, new FakeReservationPaymentClient(), _clock, NullLogger<ConfirmReservationCommandHandler>.Instance, new FakeOutboxWriter());
         var command = new ConfirmReservationCommand(reservation.Id, userId, "Wallet", 0m);
 
         var result = await handler.Handle(command, CancellationToken.None);
@@ -147,6 +149,7 @@ public sealed class ReservationActionHandlerTests
     private sealed class FakeReservationRepository : IReservationRepository
     {
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void DiscardPendingChanges() { }
         public Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Reservation>>([]);
 
         private readonly List<Reservation> _list = [];
@@ -195,5 +198,22 @@ public sealed class ReservationActionHandlerTests
     private sealed class FakeClock(DateTimeOffset utcNow) : IClock
     {
         public DateTimeOffset UtcNow { get; } = utcNow;
+    }
+
+    private sealed class FakeOutboxWriter : ParkingSystem.Booking.Application.Common.Messaging.Outbox.IOutboxWriter
+    {
+        public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion, Guid? correlationId = null, Guid? causationId = null) where TEvent : class { }
+    }
+
+    private sealed class FakeReservationPaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
+    {
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> RefundAsync(Guid reservationId, Guid accountId, long amountVnd, string reason, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
     }
 }

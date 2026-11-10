@@ -57,6 +57,9 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
     public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken) =>
         dbContext.Entry(reservation).ReloadAsync(cancellationToken);
 
+    public void DiscardPendingChanges() =>
+        dbContext.ChangeTracker.Clear();
+
     public async Task<IReadOnlyList<Reservation>> ListPaymentReconciliationCandidatesAsync(
         DateTimeOffset now,
         int batchSize,

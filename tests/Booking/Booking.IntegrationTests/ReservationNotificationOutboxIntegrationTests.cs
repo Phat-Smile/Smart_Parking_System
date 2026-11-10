@@ -23,6 +23,7 @@ public sealed class ReservationNotificationOutboxIntegrationTests(PostgreSqlCont
         services.AddLogging();
         services.AddPersistence(PostgreSqlTestConfiguration.Create(postgres.ConnectionString));
         services.AddApplicationServices();
+        services.AddSingleton<ParkingSystem.Booking.Application.Payments.IReservationPaymentClient>(new StubPaymentClient());
         await using var provider = services.BuildServiceProvider();
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
@@ -43,5 +44,23 @@ public sealed class ReservationNotificationOutboxIntegrationTests(PostgreSqlCont
         var payload = JsonSerializer.Deserialize<ReservationConfirmedIntegrationEvent>(message.Payload);
         Assert.Equal(userId, payload!.UserId);
         Assert.Equal(reservation.Id, payload.ReservationId);
+    }
+
+    private sealed class StubPaymentClient : ParkingSystem.Booking.Application.Payments.IReservationPaymentClient
+    {
+        public Task<ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>> DebitAsync(
+            Guid reservationId, Guid accountId, Guid lotId, long amountVnd, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitResult>.Failure(
+                ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> GetDebitStateAsync(
+            Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(
+                ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
+
+        public Task<ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>> RefundAsync(
+            Guid reservationId, Guid accountId, long amountVnd, string reason, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ParkingSystem.BuildingBlocks.Results.Result<ParkingSystem.Booking.Application.Payments.ReservationDebitState>.Failure(
+                ParkingSystem.Booking.Application.Payments.ReservationPaymentErrors.Unavailable));
     }
 }
