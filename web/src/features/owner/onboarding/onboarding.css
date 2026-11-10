@@ -1234,6 +1234,14 @@
     animation: pwFadeIn 0.3s ease;
 }
 
+.pw-input-locked {
+    background: #f1f5f9;
+    color: #334155;
+    cursor: not-allowed;
+    border-color: #cbd5e1;
+    font-weight: 600;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .pw-type-grid {

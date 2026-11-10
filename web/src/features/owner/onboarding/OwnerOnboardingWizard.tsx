@@ -993,9 +993,10 @@ export function OwnerOnboardingWizard({
                                             <input
                                                 id="idCardNumber"
                                                 type="text"
-                                                className="pw-input"
+                                                className={`pw-input ${vneidVerified ? "pw-input-locked" : ""}`}
                                                 placeholder="Ví dụ: 079201234567"
                                                 value={idCardNumber}
+                                                readOnly={vneidVerified}
                                                 onChange={(e) => {
                                                     setIdCardNumber(
                                                         e.target.value,
@@ -1017,7 +1018,9 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực & Điền nhanh qua Căn cước công dân điện tử VNeID"
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID
+                                                {vneidVerified
+                                                    ? "🔄 Thay đổi VNeID"
+                                                    : "🇻🇳 Điền nhanh qua VNeID"}
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1026,7 +1029,8 @@ export function OwnerOnboardingWizard({
                                                 data-testid="vneid-verified-badge"
                                             >
                                                 <span>✓</span> Đã xác thực VNeID
-                                                Mức 2: {vneidProfile.fullName} (
+                                                Mức 2 (Bộ Công An):{" "}
+                                                {vneidProfile.fullName} (
                                                 {vneidProfile.cccd})
                                             </div>
                                         )}
@@ -1397,9 +1401,10 @@ export function OwnerOnboardingWizard({
                                             <input
                                                 id="idCardNumber"
                                                 type="text"
-                                                className="pw-input"
+                                                className={`pw-input ${vneidVerified ? "pw-input-locked" : ""}`}
                                                 placeholder="Ví dụ: 001199123456"
                                                 value={idCardNumber}
+                                                readOnly={vneidVerified}
                                                 onChange={(e) => {
                                                     setIdCardNumber(
                                                         e.target.value,
@@ -1421,7 +1426,9 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực CCCD người đại diện qua VNeID"
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID
+                                                {vneidVerified
+                                                    ? "🔄 Thay đổi VNeID"
+                                                    : "🇻🇳 Điền nhanh qua VNeID"}
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1430,7 +1437,8 @@ export function OwnerOnboardingWizard({
                                                 data-testid="vneid-verified-badge-household"
                                             >
                                                 <span>✓</span> Đã xác thực VNeID
-                                                Mức 2: {vneidProfile.fullName} (
+                                                Mức 2 (Bộ Công An):{" "}
+                                                {vneidProfile.fullName} (
                                                 {vneidProfile.cccd})
                                             </div>
                                         )}
@@ -1762,9 +1770,10 @@ export function OwnerOnboardingWizard({
                                             <input
                                                 id="idCardNumber"
                                                 type="text"
-                                                className="pw-input"
+                                                className={`pw-input ${vneidVerified ? "pw-input-locked" : ""}`}
                                                 placeholder="Ví dụ: 038085123456"
                                                 value={idCardNumber}
+                                                readOnly={vneidVerified}
                                                 onChange={(e) => {
                                                     setIdCardNumber(
                                                         e.target.value,
@@ -1786,7 +1795,9 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực CCCD người đại diện pháp luật qua VNeID"
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID
+                                                {vneidVerified
+                                                    ? "🔄 Thay đổi VNeID"
+                                                    : "🇻🇳 Điền nhanh qua VNeID"}
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1795,7 +1806,8 @@ export function OwnerOnboardingWizard({
                                                 data-testid="vneid-verified-badge-enterprise"
                                             >
                                                 <span>✓</span> Đã xác thực VNeID
-                                                Mức 2: {vneidProfile.fullName} (
+                                                Mức 2 (Bộ Công An):{" "}
+                                                {vneidProfile.fullName} (
                                                 {vneidProfile.cccd})
                                             </div>
                                         )}
