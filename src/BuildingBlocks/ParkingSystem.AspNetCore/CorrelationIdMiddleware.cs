@@ -5,7 +5,7 @@ using ParkingSystem.BuildingBlocks.Correlation;
 
 namespace ParkingSystem.AspNetCore;
 
-internal sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationIdMiddleware> logger)
+public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationIdMiddleware> logger)
 {
     public const string HeaderName = "X-Correlation-ID";
     private static readonly object ContextKey = typeof(CorrelationContext);
