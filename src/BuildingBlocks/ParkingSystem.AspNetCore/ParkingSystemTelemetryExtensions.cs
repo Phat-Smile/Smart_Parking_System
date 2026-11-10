@@ -80,6 +80,9 @@ public static class ParkingSystemTelemetryExtensions
         activity.SetTag("url.query", null);
         activity.SetTag("http.url", null);
         activity.SetTag("http.target", null);
+
+        var correlationContext = CorrelationIdMiddleware.GetCorrelationContext(request.HttpContext);
+        activity.SetTag("correlation.id", correlationContext.CorrelationId.ToString("D"));
     }
 
     private static void SanitizeHttpClientActivity(Activity activity, HttpRequestMessage request)
@@ -90,5 +93,12 @@ public static class ParkingSystemTelemetryExtensions
         activity.SetTag("url.query", null);
         activity.SetTag("http.url", null);
         activity.SetTag("http.target", null);
+
+        if (request.Headers.TryGetValues(CorrelationIdMiddleware.HeaderName, out var values))
+        {
+            var id = values.FirstOrDefault();
+            if (!string.IsNullOrEmpty(id))
+                activity.SetTag("correlation.id", id);
+        }
     }
 }
