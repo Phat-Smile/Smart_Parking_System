@@ -16,6 +16,7 @@ import {
     findSessionByQr,
     getParkingSessionFee,
     manualVerifyExit,
+    recognizeLicensePlate,
     reissueParkingSessionQr,
 } from "./staffApi";
 import { useStaffData } from "./staffData";
@@ -130,8 +131,12 @@ export function StaffExitPage() {
     }
 
     // Tra cứu phiên bằng biển số khi khách làm mất vé / QR
-    async function handleLookupByPlate() {
-        const plate = detectedExitPlate.trim();
+    async function handleLookupByPlate(overridePlate?: string | unknown) {
+        const plate = (
+            typeof overridePlate === "string"
+                ? overridePlate
+                : detectedExitPlate
+        ).trim();
         if (!plate) {
             setErrorMsg("Vui lòng nhập biển số xe để tra cứu.");
             return;
@@ -174,6 +179,29 @@ export function StaffExitPage() {
             if (isPaid) setPaymentSuccess(true);
         } catch (err) {
             setErrorMsg(describeStaffError(err));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleExitCameraSnapshot(dataUrl: string) {
+        if (!assignedLot?.lotId) return;
+
+        try {
+            setLoading(true);
+            const res = await recognizeLicensePlate({
+                lotId: assignedLot.lotId,
+                imagePayload: dataUrl,
+                gateDirection: "Exit",
+            });
+
+            if (res.detectedPlate || res.normalizedPlate) {
+                const detected = res.detectedPlate || res.normalizedPlate;
+                setDetectedExitPlate(detected);
+                await handleLookupByPlate(detected);
+            }
+        } catch {
+            // Graceful fallback
         } finally {
             setLoading(false);
         }
@@ -351,6 +379,7 @@ export function StaffExitPage() {
                         detectedPlate={detectedExitPlate}
                         confidence={0.99}
                         isScanning={loading}
+                        onCaptureSnapshot={handleExitCameraSnapshot}
                         onQrCodeScanned={(code) => {
                             setQrInput(code);
                             handleVerifyQr(code);

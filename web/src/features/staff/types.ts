@@ -161,3 +161,37 @@ export interface LotParkingSessionPageResponse {
     page: number;
     pageSize: number;
 }
+
+export interface MatchedBookingDto {
+    reservationId: string;
+    userId?: string | null;
+    slotCode?: string | null;
+}
+
+export interface MatchedSessionDto {
+    sessionId: string;
+    plateNumber: string;
+    entryTimeUtc: string;
+    status: string;
+    slotCode?: string | null;
+}
+
+export interface RecognizePlateResponse {
+    detectedPlate: string;
+    normalizedPlate: string;
+    vehicleType: VehicleType | string;
+    confidence: number;
+    isConfident: boolean;
+    detectedAtUtc: string;
+    suggestedAction:
+        | "AutoCheckIn"
+        | "AutoCheckOut"
+        | "ConfirmCheckOut"
+        | "RequiresManualReview"
+        | "SessionAlreadyOpen"
+        | string;
+    matchedBooking?: MatchedBookingDto | null;
+    matchedSession?: MatchedSessionDto | null;
+    boundingBox?: string | null;
+    provider?: string | null;
+}

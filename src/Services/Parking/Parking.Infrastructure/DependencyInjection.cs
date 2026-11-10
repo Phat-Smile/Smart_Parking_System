@@ -3,8 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using ParkingSystem.Parking.Application.Common.Plate;
 using ParkingSystem.Parking.Infrastructure.Messaging;
 using ParkingSystem.Parking.Infrastructure.Messaging.Outbox;
+using ParkingSystem.Parking.Infrastructure.Ocr;
 using ParkingSystem.Parking.Infrastructure.ParkingLayout;
 using ParkingSystem.BuildingBlocks.Time;
 
@@ -39,6 +41,7 @@ public static class DependencyInjection
             .Validate(options => options.MaxRetryDelay >= options.BaseRetryDelay, "Outbox:MaxRetryDelay must be greater than or equal to Outbox:BaseRetryDelay.")
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<ILicensePlateOcrEngine, LicensePlateOcrEngine>();
         services.AddIntegrationEventRegistry();
         services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.SlotStatusChangedIntegrationEvent>("parking.slot-status-changed.v1", 1);
         services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.ParkingSessionClosedIntegrationEvent>("parking.session-closed.v1", 1);

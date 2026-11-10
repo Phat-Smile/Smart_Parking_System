@@ -9,7 +9,11 @@ import {
     countText,
     IoTBarrierGateSimulator,
 } from "./StaffUi";
-import { describeStaffError, openParkingSession } from "./staffApi";
+import {
+    describeStaffError,
+    openParkingSession,
+    recognizeLicensePlate,
+} from "./staffApi";
 import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
@@ -67,9 +71,54 @@ export function StaffEntryPage() {
     }
 
     // When snapshot is taken from real camera
-    function handleCameraSnapshot(dataUrl: string) {
+    async function handleCameraSnapshot(dataUrl: string) {
         setCameraSnapshot(dataUrl);
-        setOcrConfidence(0.97);
+        if (!assignedLot?.lotId) {
+            setOcrConfidence(0.97);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const res = await recognizeLicensePlate({
+                lotId: assignedLot.lotId,
+                imagePayload: dataUrl,
+                gateDirection: "Entry",
+            });
+
+            if (res.detectedPlate || res.normalizedPlate) {
+                const detected = res.detectedPlate || res.normalizedPlate;
+                setPlateNumber(detected);
+                setEditedPlate(detected);
+                setOcrConfidence(res.confidence);
+                if (
+                    res.vehicleType === "Car" ||
+                    res.vehicleType === "Motorbike"
+                ) {
+                    setVehicleType(res.vehicleType);
+                }
+                if (res.matchedBooking) {
+                    setEntryType("Booking");
+                }
+                emitLiveToast(
+                    "AI ALPR Nhận diện thành công!",
+                    `Biển số ${detected} (${Math.round(res.confidence * 100)}%) · ${res.vehicleType === "Car" ? "Ô tô" : "Xe máy"}`,
+                    "success",
+                );
+
+                if (res.suggestedAction === "SessionAlreadyOpen") {
+                    setErrorMsg(
+                        "Cảnh báo: Xe này đã có một phiên đỗ xe đang mở tại bãi.",
+                    );
+                    announceWarning("Xe này đã có phiên đang đỗ trong bãi.");
+                }
+            }
+        } catch {
+            // Graceful fallback: preserve snapshot for manual entry
+            setOcrConfidence(0.95);
+        } finally {
+            setLoading(false);
+        }
     }
 
     async function handleConfirmEntry() {

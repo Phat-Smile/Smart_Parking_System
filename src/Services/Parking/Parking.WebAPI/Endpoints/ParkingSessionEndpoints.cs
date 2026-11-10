@@ -13,6 +13,7 @@ using ParkingSystem.Parking.Application.ParkingSessions.GetParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessionHistory;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
+using ParkingSystem.Parking.Application.ParkingSessions.RecognizePlate;
 using ParkingSystem.Parking.Application.ParkingSessions.ReissueParkingSessionQr;
 using ParkingSystem.Parking.Application.ParkingSessions.VerifyParkingSessionExit;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -45,8 +46,53 @@ internal static class ParkingSessionEndpoints
         [property: Required, StringLength(ParkingSession.PlateNumberMaxLength, MinimumLength = 1)] string? PlateNumber,
         [property: Required, StringLength(ParkingSession.QrTokenMaxLength, MinimumLength = 1)] string? QrToken);
 
+    public sealed record RecognizePlateApiRequest(
+        [property: Required] Guid LotId,
+        [property: Required] string? ImagePayload,
+        [property: Required, AllowedValues("Entry", "Exit", "entry", "exit")] string? GateDirection);
+
     public static IEndpointRouteBuilder MapParkingSessionEndpoints(this IEndpointRouteBuilder app)
     {
+        // AI OCR License Plate Recognition Endpoint for Gate Cameras
+        app.MapPost($"{Route}/recognize-plate", async (
+                RecognizePlateApiRequest request,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(
+                    new RecognizePlateCommand(
+                        request.LotId,
+                        request.ImagePayload ?? string.Empty,
+                        request.GateDirection ?? "Entry",
+                        actorUserId),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == RecognizePlateErrors.LotNotFound
+                    ? StatusCodes.Status404NotFound
+                    : result.Error == RecognizePlateErrors.LotAccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : result.Error == RecognizePlateErrors.EmptyImage || result.Error == RecognizePlateErrors.InvalidDirection
+                            ? StatusCodes.Status400BadRequest
+                            : StatusCodes.Status422UnprocessableEntity;
+
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("RecognizeLicensePlate")
+            .WithSummary("AI OCR license plate recognition for gate camera feeds")
+            .Produces<RecognizePlateResponse>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         // US-PAY-006. This call confirms the vehicle left; repeating it after Completed returns the same result.
         app.MapPost($"{Route}/{{sessionId:guid}}/complete", async (
                 Guid sessionId,

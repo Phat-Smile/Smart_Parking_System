@@ -364,4 +364,49 @@ describe("staffApi integration", () => {
             expect(res.hours).toBe("14:00 - 22:00");
         });
     });
+
+    describe("recognizeLicensePlate", () => {
+        it("sends POST to /api/parking/sessions/recognize-plate with payload", async () => {
+            const mockResponse = {
+                detectedPlate: "51F-782.91",
+                normalizedPlate: "51F78291",
+                vehicleType: "Car",
+                confidence: 0.98,
+                isConfident: true,
+                detectedAtUtc: "2026-11-10T08:00:00Z",
+                suggestedAction: "AutoCheckIn",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockResponse), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const { recognizeLicensePlate } = await import("./staffApi");
+            const res = await recognizeLicensePlate({
+                lotId: "22222222-2222-2222-2222-222222222222",
+                imagePayload: "data:image/jpeg;base64,mockimage",
+                gateDirection: "Entry",
+            });
+
+            expect(res.detectedPlate).toBe("51F-782.91");
+            expect(res.confidence).toBe(0.98);
+            expect(res.suggestedAction).toBe("AutoCheckIn");
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            const [url, init] = fetchMock.mock.calls[0];
+            expect(String(url)).toBe(
+                "http://localhost:5000/api/parking/sessions/recognize-plate",
+            );
+            expect(init?.method).toBe("POST");
+            expect(JSON.parse(init?.body as string)).toEqual({
+                lotId: "22222222-2222-2222-2222-222222222222",
+                imagePayload: "data:image/jpeg;base64,mockimage",
+                gateDirection: "Entry",
+            });
+        });
+    });
 });

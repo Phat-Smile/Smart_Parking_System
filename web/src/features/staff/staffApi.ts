@@ -12,7 +12,14 @@ import type {
     StaffLotItem,
     VehicleType,
     VerifiedExitResponse,
+    RecognizePlateResponse,
 } from "./types";
+
+export interface RecognizePlatePayload {
+    lotId: string;
+    imagePayload: string;
+    gateDirection: "Entry" | "Exit";
+}
 
 export interface OpenSessionPayload {
     lotId: string;
@@ -572,4 +579,20 @@ export async function getStaffAssignedLotsDetails(
     );
 
     return details;
+}
+
+/**
+ * 100% Real API: AI ALPR / OCR License Plate Recognition
+ * Endpoint: POST /api/parking/sessions/recognize-plate
+ */
+export async function recognizeLicensePlate(
+    payload: RecognizePlatePayload,
+): Promise<RecognizePlateResponse> {
+    return await gatewayFetch<RecognizePlateResponse>(
+        "/api/parking/sessions/recognize-plate",
+        {
+            method: "POST",
+            body: JSON.stringify(payload),
+        },
+    );
 }
