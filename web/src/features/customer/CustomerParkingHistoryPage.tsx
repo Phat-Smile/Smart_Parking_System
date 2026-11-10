@@ -354,6 +354,18 @@ export default function ParkingHistoryPage() {
                                                 &rarr;
                                             </Link>
                                         )}
+                                        {isCompleted && (
+                                            <Link
+                                                href={`/customer/receipts/${session.sessionId}`}
+                                                className="text-emerald-400 hover:underline font-semibold"
+                                            >
+                                                {copy(
+                                                    "View receipt",
+                                                    "Xem hóa đơn",
+                                                )}{" "}
+                                                &rarr;
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
                             );
