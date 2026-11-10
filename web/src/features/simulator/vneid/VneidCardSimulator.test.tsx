@@ -97,4 +97,30 @@ describe("VneidAuthModal Component", () => {
             screen.queryByTestId("vneid-auth-modal"),
         ).not.toBeInTheDocument();
     });
+
+    it("should allow switching to Examiner Preset tab and selecting profiles", () => {
+        const handleConfirm = vi.fn();
+        const handleClose = vi.fn();
+
+        render(
+            <VneidAuthModal
+                isOpen={true}
+                onClose={handleClose}
+                onConfirm={handleConfirm}
+            />,
+        );
+
+        // Click Examiner Tab
+        const examinerTab = screen.getByText(/Chế độ Giám khảo \/ Test nhanh/i);
+        fireEvent.click(examinerTab);
+
+        expect(
+            screen.getByText(/Chọn hồ sơ công dân mẫu \(Master Sheet Demo\):/i),
+        ).toBeInTheDocument();
+
+        // Check Biometric Scan button is visible
+        expect(
+            screen.getByText("Quét Sinh trắc học & Xác thực"),
+        ).toBeInTheDocument();
+    });
 });
