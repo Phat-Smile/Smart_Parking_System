@@ -50,11 +50,10 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
         }
     }
 
-    // Lưu hóa đơn thanh toán mới vào cơ sở dữ liệu
+    // Thêm hóa đơn thanh toán mới vào bộ theo dõi
     public async Task AddAsync(ParkingFeePayment payment, CancellationToken ct)
     {
         await dbContext.Set<ParkingFeePayment>().AddAsync(payment, ct);
-        await dbContext.SaveChangesAsync(ct);
     }
 
     // Tìm hóa đơn qua mã gửi sang VNPay

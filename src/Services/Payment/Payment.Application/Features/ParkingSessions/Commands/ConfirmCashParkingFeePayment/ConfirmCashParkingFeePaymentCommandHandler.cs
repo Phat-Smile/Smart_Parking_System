@@ -88,6 +88,9 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
             {
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.RequestInProgress);
             }
+
+            // Bản ghi cũ đã thất bại hoặc quá hạn khóa: giải phóng để thử lại
+            await idempotencyStore.ReleasePendingAsync(existingRecord.Id, CancellationToken.None);
         }
 
         // Lấy thông tin phiên xe từ bãi đỗ
@@ -139,7 +142,7 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
             // Kiểm tra phiên xe còn đang gửi
             if (!string.Equals(ctx.Status, "Active", StringComparison.OrdinalIgnoreCase))
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.SessionNotActive, 409, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionNotActive);
             }
 
@@ -147,7 +150,7 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
             var hasSucceeded = await paymentRepository.HasSucceededPaymentAsync(request.SessionId, cancellationToken);
             if (hasSucceeded)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.SessionAlreadyPaid, 409, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
             }
 
@@ -155,7 +158,7 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
             var pendingPayment = await paymentRepository.GetPendingBySessionIdAsync(request.SessionId, cancellationToken);
             if (pendingPayment != null)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.PaymentAlreadyInProgress, 409, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.PaymentAlreadyInProgress);
             }
 
@@ -183,7 +186,7 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
 
             if (actualAmountDue != request.ExpectedAmountDue)
             {
-                await MarkFailedAsync(pendingRecord, PayParkingFeeErrors.FeeChanged, 409, cancellationToken);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.FeeChanged);
             }
 
@@ -260,19 +263,8 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
         catch
         {
             // Mở khóa nếu xảy ra lỗi bất ngờ
-            await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, cancellationToken);
+            await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
             throw;
         }
-    }
-
-    // Ghi nhận lỗi vào khóa chống trùng
-    private async Task MarkFailedAsync(
-        PaymentIdempotencyRecord record,
-        Error error,
-        int statusCode,
-        CancellationToken ct)
-    {
-        record.MarkFailed(error.Message, statusCode);
-        await idempotencyStore.UpdateAsync(record, ct);
     }
 }
