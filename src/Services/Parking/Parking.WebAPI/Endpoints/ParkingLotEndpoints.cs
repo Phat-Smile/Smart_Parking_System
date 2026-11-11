@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Parking.Application.ParkingLots.ReviewParkingLot;
 using ParkingSystem.Parking.Domain.ParkingLots;
@@ -19,6 +20,7 @@ using ParkingSystem.Parking.Application.Common.Paging;
 using ParkingSystem.Parking.Application.Features.Pricing.Queries.GetLotPricing;
 using ParkingSystem.Parking.Application.Features.Pricing.Queries.GetPricingPolicy;
 using ParkingSystem.Parking.Application.ParkingLots.Availability;
+using ParkingSystem.Parking.WebAPI.Routing;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
@@ -201,7 +203,7 @@ internal static class ParkingLotEndpoints
                 decimal? latitude, decimal? longitude, double? radiusKm, string? vehicleType,
                 decimal? maxPrice, bool? availableOnly, bool? prebookableOnly,
                 string? compatibility, string? amenities, string? sort, int? limit,
-                ISender sender, CancellationToken cancellationToken) =>
+                ISender sender, [FromServices] OsrmMatrixClient routing, CancellationToken cancellationToken) =>
             {
                 VehicleType? selectedType = null;
                 if (vehicleType is not null)
@@ -213,6 +215,17 @@ internal static class ParkingLotEndpoints
                 var results = await sender.Send(new SearchCustomerLotsQuery(latitude, longitude, radiusKm ?? 5,
                     selectedType, maxPrice, availableOnly ?? false, sort ?? "recommended", limit ?? 50,
                     prebookableOnly ?? false, ParseFilterValues(compatibility), ParseFilterValues(amenities)), cancellationToken);
+                // A single OSRM Table call covers the first ten candidates, per NFR-04.
+                // Other candidates keep a null ETA; no Haversine-derived driving time.
+                if (latitude.HasValue && longitude.HasValue && results.Count > 0)
+                {
+                    var routed = results.Take(10).ToArray();
+                    var minutes = await routing.GetMinutesAsync(latitude.Value, longitude.Value, routed,
+                        selectedType?.ToString() ?? "Any", cancellationToken);
+                    results = results.Select(item => item with {
+                        DrivingTimeMinutes = minutes.TryGetValue(item.Id, out var eta) ? eta : null
+                    }).ToArray();
+                }
                 return Results.Ok(results);
             })
             .AllowAnonymous()
