@@ -14,7 +14,8 @@ public sealed record SearchCustomerLotsQuery(decimal? Latitude, decimal? Longitu
 public sealed record CustomerLotSearchItem(Guid Id, string Name, string Address, decimal Latitude,
     decimal Longitude, string Type, double? DistanceKm, decimal? StartingPrice,
     string? BillingMode, int AvailableSpaces, bool Prebookable,
-    IReadOnlyList<string> Compatibility, IReadOnlyList<string> Amenities);
+    IReadOnlyList<string> Compatibility, IReadOnlyList<string> Amenities,
+    double? DrivingTimeMinutes = null);
 
 public sealed class SearchCustomerLotsQueryValidator : AbstractValidator<SearchCustomerLotsQuery>
 {

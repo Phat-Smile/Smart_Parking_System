@@ -21,6 +21,7 @@ using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.Recommendations;
 using ParkingSystem.Parking.WebAPI.Clients;
 using ParkingSystem.Parking.WebAPI.Geocoding;
+using ParkingSystem.Parking.WebAPI.Routing;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
@@ -30,6 +31,11 @@ builder.AddParkingSystemTelemetry("parking-api");
 builder.Services.AddParkingAuthorization();
 builder.Services.AddApplicationServices();
 builder.Services.AddMemoryCache();
+// OSRM Table is added for S4 search only; existing Mapbox adapter remains untouched.
+builder.Services.AddSingleton<OsrmMatrixClient>(sp => new OsrmMatrixClient(
+    new HttpClient { Timeout = TimeSpan.FromSeconds(2), MaxResponseContentBufferSize = 256 * 1024 },
+    sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+    sp.GetRequiredService<IConfiguration>()));
 builder.Services.AddSingleton<NominatimRequestGate>();
 builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
 {
