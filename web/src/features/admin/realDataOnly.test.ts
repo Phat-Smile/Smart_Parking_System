@@ -257,7 +257,8 @@ describe("admin calls read the real backend shapes", () => {
 
     it("an owner document downloads as a blob from the admin document route", async () => {
         const fetchMock = stubFetch(
-            new Response(new Blob(["%PDF-1.7"], { type: "application/pdf" }), {
+            // A string body: jsdom's Blob is not accepted by Node's Response on Linux CI agents.
+            new Response("%PDF-1.7", {
                 status: 200,
                 headers: { "Content-Type": "application/pdf" },
             }),
