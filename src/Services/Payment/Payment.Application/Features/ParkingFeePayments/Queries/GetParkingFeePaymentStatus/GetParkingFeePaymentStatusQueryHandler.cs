@@ -1,5 +1,6 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Payment.Application.Common.Authorization;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Domain.Constants;
@@ -8,7 +9,8 @@ namespace ParkingSystem.Payment.Application.Features.ParkingFeePayments.Queries.
 
 // Xử lý tra cứu trạng thái thanh toán tiền gửi xe
 public sealed class GetParkingFeePaymentStatusQueryHandler(
-    IParkingFeePaymentRepository paymentRepository)
+    IParkingFeePaymentRepository paymentRepository,
+    IParkingLotMembershipGateway membershipGateway)
     : IRequestHandler<GetParkingFeePaymentStatusQuery, Result<GetParkingFeePaymentStatusResponse>>
 {
     public async Task<Result<GetParkingFeePaymentStatusResponse>> Handle(
@@ -26,6 +28,12 @@ public sealed class GetParkingFeePaymentStatusQueryHandler(
         {
             return Result<GetParkingFeePaymentStatusResponse>.Failure(
                 ParkingFeePaymentErrors.TransactionNotFound);
+        }
+
+        if (!await ParkingFeePaymentReadAccess.CanReadAsync(
+                payment, request.CallerAccountId, request.CallerRole, membershipGateway, ct))
+        {
+            return Result<GetParkingFeePaymentStatusResponse>.Failure(PayParkingFeeErrors.SessionAccessDenied);
         }
 
         // Ẩn link QR khi đã hết hạn hoặc không còn chờ thanh toán
