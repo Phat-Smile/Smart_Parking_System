@@ -45,7 +45,11 @@ import {
 import { getMyVehicles, type RegisteredVehicle } from "./myVehiclesApi";
 import { isFutureBookingStart } from "./bookingDateTime";
 import { useParkingRealtime } from "@/features/parking/useParkingRealtime";
-import type { DailyOpeningHours } from "./parkingLotApi";
+import {
+    estimateLotBookingPricing,
+    type DailyOpeningHours,
+    type LotPrice,
+} from "./parkingLotApi";
 
 export type ParkingLotDetailView = {
     id: string;
@@ -58,6 +62,7 @@ export type ParkingLotDetailView = {
     latitude?: number;
     longitude?: number;
     openingHours?: DailyOpeningHours[];
+    pricing?: LotPrice[];
     hourlyPrice?: number;
     distanceKm?: number;
     travelMinutes?: number;
@@ -219,6 +224,12 @@ export function ParkingLotDetailExperience({
             : null;
     const selectedVehicle = vehicles.find(
         (item) => item.vehicleId === vehicleId,
+    );
+    const bookingPricing = estimateLotBookingPricing(
+        lot.pricing,
+        duration,
+        selectedVehicle?.vehicleType,
+        lot.hourlyPrice,
     );
     const compatibleVehicles = vehicles.filter(
         (item) =>
@@ -862,12 +873,17 @@ export function ParkingLotDetailExperience({
                         <div className="lot-detail-booking-total">
                             <div>
                                 <span>
-                                    {copy("Hourly rate", "Giá theo giờ")}
+                                    {bookingPricing?.isPerEntry
+                                        ? copy(
+                                              "Per-entry rate",
+                                              "Giá theo lượt",
+                                          )
+                                        : copy("Hourly rate", "Giá theo giờ")}
                                 </span>
                                 <strong>
-                                    {lot.hourlyPrice === undefined
+                                    {bookingPricing === null
                                         ? copy("Unavailable", "Chưa có")
-                                        : formatMoney(lot.hourlyPrice)}
+                                        : formatMoney(bookingPricing.rateValue)}
                                 </strong>
                             </div>
                             <div>
@@ -888,10 +904,10 @@ export function ParkingLotDetailExperience({
                                     )}
                                 </span>
                                 <strong>
-                                    {lot.hourlyPrice === undefined
+                                    {bookingPricing === null
                                         ? copy("Unavailable", "Chưa có")
                                         : formatMoney(
-                                              lot.hourlyPrice * duration,
+                                              bookingPricing.estimatedTotal,
                                           )}
                                 </strong>
                             </div>

@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import BookingsPage from "@/features/customer/booking/CustomerBookingsPage";
+import { setCustomerLanguage } from "@/features/customer/i18n/customerLanguage";
+import * as parkingLotApi from "@/features/customer/parkingLotApi";
 import * as bookingApi from "../../../features/customer/booking/bookingApi";
 
 afterEach(() => {
     vi.restoreAllMocks();
+    setCustomerLanguage("en");
 });
 
 const mockReservations: bookingApi.ReservationSummaryDto[] = [
@@ -185,5 +188,99 @@ describe("BookingsPage", () => {
             expect(screen.getByText("No bookings yet")).toBeInTheDocument();
         });
         expect(screen.getByText("0/3")).toBeInTheDocument();
+    });
+
+    it("fetches real lot name and address once per unique lotId, falls back cleanly, and passes details to BookingPassModal", async () => {
+        const duplicateLotReservations: bookingApi.ReservationSummaryDto[] = [
+            mockReservations[0],
+            {
+                ...mockReservations[2],
+                reservationId: "44444444-5555-6666-7777-888888888888",
+                lotId: "lot-aaa-001",
+                plateNumber: "51G-444.44",
+            },
+            mockReservations[1],
+        ];
+        vi.spyOn(bookingApi, "getMyReservations").mockResolvedValue(
+            duplicateLotReservations,
+        );
+        const lotSpy = vi
+            .spyOn(parkingLotApi, "getApprovedParkingLot")
+            .mockImplementation(async (lotId: string) => {
+                if (lotId === "lot-aaa-001") {
+                    return {
+                        id: "lot-aaa-001",
+                        name: "Bãi Xe Bitexco",
+                        address: "2 Hải Triều, Quận 1",
+                        latitude: 10.77,
+                        longitude: 106.7,
+                        type: "Indoor",
+                        openingHours: null,
+                    };
+                }
+                throw new Error("Parking lot unavailable");
+            });
+
+        render(<BookingsPage />);
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Bãi Xe Bitexco")).toHaveLength(2);
+        });
+        expect(screen.getAllByText("2 Hải Triều, Quận 1")).toHaveLength(2);
+        expect(lotSpy).toHaveBeenCalledTimes(2);
+        expect(lotSpy).toHaveBeenCalledWith(
+            "lot-aaa-001",
+            expect.any(AbortSignal),
+        );
+        expect(lotSpy).toHaveBeenCalledWith(
+            "lot-bbb-002",
+            expect.any(AbortSignal),
+        );
+        expect(screen.getByText("Parking lot #lot-bbb-")).toBeInTheDocument();
+        expect(screen.getByText("Lot ID: #lot-bbb-")).toBeInTheDocument();
+        expect(
+            screen.queryByText("ParkWise Smart Lot"),
+        ).not.toBeInTheDocument();
+
+        fireEvent.click(
+            screen.getByRole("button", { name: /View pass \/ QR/i }),
+        );
+        expect(
+            screen.getAllByText("Bãi Xe Bitexco").length,
+        ).toBeGreaterThanOrEqual(3);
+        expect(
+            screen.getAllByText("2 Hải Triều, Quận 1").length,
+        ).toBeGreaterThanOrEqual(3);
+    });
+
+    it("formats booking duration by selected language (min vs phút) instead of 120p", async () => {
+        vi.spyOn(bookingApi, "getMyReservations").mockResolvedValue([
+            mockReservations[0],
+        ]);
+        vi.spyOn(parkingLotApi, "getApprovedParkingLot").mockResolvedValue({
+            id: "lot-aaa-001",
+            name: "Bãi Xe Bitexco",
+            address: "2 Hải Triều, Quận 1",
+            latitude: 10.77,
+            longitude: 106.7,
+            type: "Indoor",
+            openingHours: null,
+        });
+
+        setCustomerLanguage("en");
+        const { rerender } = render(<BookingsPage />);
+
+        await waitFor(() => {
+            expect(screen.getByText(/\(120 min\)/)).toBeInTheDocument();
+        });
+        expect(screen.queryByText(/\(120p\)/)).not.toBeInTheDocument();
+
+        setCustomerLanguage("vi");
+        rerender(<BookingsPage />);
+
+        await waitFor(() => {
+            expect(screen.getByText(/\(120 phút\)/)).toBeInTheDocument();
+        });
+        expect(screen.queryByText(/\(120p\)/)).not.toBeInTheDocument();
     });
 });

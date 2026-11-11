@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
     formatPlateForSpeech,
     formatSlotForSpeech,
@@ -94,5 +94,250 @@ describe("GateVoiceService - Quản lý âm thanh cổng bãi", () => {
         const newStatus = gateVoiceService.toggleEnabled();
         expect(newStatus).toBe(true);
         expect(gateVoiceService.isEnabled()).toBe(true);
+    });
+});
+
+describe("chimeGenerator & GateVoiceService - chống kẹt hàng đợi audio", () => {
+    beforeEach(() => {
+        vi.resetModules();
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it("playGateChime timeouts AudioContext.resume() after ~1s instead of hanging forever", async () => {
+        const createOscillator = vi.fn();
+        class HangingAudioContext {
+            state = "suspended";
+            currentTime = 0;
+            destination = {};
+            resume = vi.fn(() => new Promise<void>(() => {}));
+            createOscillator = createOscillator;
+            createGain = vi.fn();
+        }
+        vi.stubGlobal("AudioContext", HangingAudioContext);
+
+        const { playGateChime } = await import("./chimeGenerator");
+        let finished = false;
+        const promise = playGateChime(0.4).then(() => {
+            finished = true;
+        });
+
+        await vi.advanceTimersByTimeAsync(1100);
+        await Promise.resolve();
+
+        expect(finished).toBe(true);
+        await promise;
+        expect(createOscillator).not.toHaveBeenCalled();
+    });
+
+    it("resets processingQueue in finally when speak throws not-allowed and recovers for subsequent utterances", async () => {
+        class MockUtterance {
+            text: string;
+            lang = "";
+            rate = 1;
+            pitch = 1;
+            volume = 1;
+            voice: unknown = null;
+            onend: (() => void) | null = null;
+            onerror: ((ev: { error: string }) => void) | null = null;
+            constructor(text: string) {
+                this.text = text;
+            }
+        }
+
+        const spokenTexts: string[] = [];
+        let shouldThrow = true;
+        const mockSynth = {
+            paused: false,
+            onvoiceschanged: null as (() => void) | null,
+            getVoices: () => [],
+            cancel: vi.fn(),
+            resume: vi.fn(),
+            speak: vi.fn((utterance: MockUtterance) => {
+                if (shouldThrow) {
+                    shouldThrow = false;
+                    throw new DOMException("not-allowed", "NotAllowedError");
+                }
+                spokenTexts.push(utterance.text);
+                utterance.onend?.();
+            }),
+        };
+
+        vi.stubGlobal("speechSynthesis", mockSynth);
+        vi.stubGlobal("SpeechSynthesisUtterance", MockUtterance);
+
+        const { gateVoiceService: service } =
+            await import("./GateVoiceService");
+        service.setEnabled(true);
+        service.setPlayChime(false);
+
+        await service
+            .speak({ text: "Xe đầu tiên", playChime: false })
+            .catch(() => {});
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(
+            (service as unknown as { processingQueue: boolean })
+                .processingQueue,
+        ).toBe(false);
+
+        await service.speak({ text: "Xe thứ hai", playChime: false });
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(spokenTexts).toContain("Xe thứ hai");
+        expect(
+            (service as unknown as { processingQueue: boolean })
+                .processingQueue,
+        ).toBe(false);
+    });
+
+    it("does not block speech queue when chime AudioContext.resume rejects with not-allowed", async () => {
+        class RejectingAudioContext {
+            state = "suspended";
+            currentTime = 0;
+            destination = {};
+            resume = vi.fn(() =>
+                Promise.reject(
+                    new DOMException("not-allowed", "NotAllowedError"),
+                ),
+            );
+            createOscillator = vi.fn();
+            createGain = vi.fn();
+        }
+        class MockUtterance {
+            text: string;
+            lang = "";
+            rate = 1;
+            pitch = 1;
+            volume = 1;
+            voice: unknown = null;
+            onend: (() => void) | null = null;
+            onerror: ((ev: { error: string }) => void) | null = null;
+            constructor(text: string) {
+                this.text = text;
+            }
+        }
+        const spokenTexts: string[] = [];
+        const mockSynth = {
+            paused: false,
+            onvoiceschanged: null,
+            getVoices: () => [],
+            cancel: vi.fn(),
+            resume: vi.fn(),
+            speak: vi.fn((utterance: MockUtterance) => {
+                spokenTexts.push(utterance.text);
+                utterance.onerror?.({ error: "not-allowed" });
+            }),
+        };
+
+        vi.stubGlobal("AudioContext", RejectingAudioContext);
+        vi.stubGlobal("speechSynthesis", mockSynth);
+        vi.stubGlobal("SpeechSynthesisUtterance", MockUtterance);
+
+        const { gateVoiceService: service } =
+            await import("./GateVoiceService");
+        service.setEnabled(true);
+        service.setPlayChime(true);
+
+        const p = service.speak({ text: "Xe test", playChime: true });
+        await vi.advanceTimersByTimeAsync(1100);
+        await p;
+
+        expect(spokenTexts).toContain("Xe test");
+        expect(
+            (service as unknown as { processingQueue: boolean })
+                .processingQueue,
+        ).toBe(false);
+    });
+
+    it("stops stale processQueue run immediately after urgent stop() so it does not steal items from the new urgent run", async () => {
+        class MockUtterance {
+            text: string;
+            lang = "";
+            rate = 1;
+            pitch = 1;
+            volume = 1;
+            voice: unknown = null;
+            onend: (() => void) | null = null;
+            onerror: ((ev: { error: string }) => void) | null = null;
+            constructor(text: string) {
+                this.text = text;
+            }
+        }
+
+        const utterances: MockUtterance[] = [];
+        const mockSynth = {
+            paused: false,
+            onvoiceschanged: null,
+            getVoices: () => [],
+            cancel: vi.fn(),
+            resume: vi.fn(),
+            speak: vi.fn((utterance: MockUtterance) => {
+                utterances.push(utterance);
+            }),
+        };
+
+        vi.stubGlobal("speechSynthesis", mockSynth);
+        vi.stubGlobal("SpeechSynthesisUtterance", MockUtterance);
+
+        const { gateVoiceService: service } =
+            await import("./GateVoiceService");
+        service.setEnabled(true);
+        service.setPlayChime(false);
+
+        const oldPromise = service.speak({
+            text: "Câu cũ chưa xong",
+            playChime: false,
+        });
+        await Promise.resolve();
+        expect(utterances.map((u) => u.text)).toEqual(["Câu cũ chưa xong"]);
+
+        const urgentPromise = service.speak({
+            text: "Cảnh báo khẩn cấp",
+            urgent: true,
+            playChime: false,
+        });
+        const afterUrgentPromise = service.speak({
+            text: "Câu sau khẩn cấp",
+            playChime: false,
+        });
+        await Promise.resolve();
+        expect(utterances.map((u) => u.text)).toEqual([
+            "Câu cũ chưa xong",
+            "Cảnh báo khẩn cấp",
+        ]);
+
+        // Câu cũ kết thúc sau khi đã bị urgent stop(): luồng cũ không được rút "Câu sau khẩn cấp"
+        utterances[0].onend?.();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(utterances.map((u) => u.text)).toEqual([
+            "Câu cũ chưa xong",
+            "Cảnh báo khẩn cấp",
+        ]);
+
+        // Chỉ khi câu khẩn cấp kết thúc, luồng mới mới phát "Câu sau khẩn cấp"
+        utterances[1].onend?.();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(utterances.map((u) => u.text)).toEqual([
+            "Câu cũ chưa xong",
+            "Cảnh báo khẩn cấp",
+            "Câu sau khẩn cấp",
+        ]);
+
+        utterances[2].onend?.();
+        await Promise.all([oldPromise, urgentPromise, afterUrgentPromise]);
+        expect(
+            (service as unknown as { processingQueue: boolean })
+                .processingQueue,
+        ).toBe(false);
     });
 });

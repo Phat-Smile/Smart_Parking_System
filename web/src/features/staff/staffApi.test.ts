@@ -16,10 +16,20 @@ describe("staffApi integration", () => {
 
     beforeEach(() => {
         vi.restoreAllMocks();
+        try {
+            sessionStorage.clear();
+        } catch {
+            // ignore
+        }
     });
 
     afterEach(() => {
         globalThis.fetch = originalFetch;
+        try {
+            sessionStorage.clear();
+        } catch {
+            // ignore
+        }
     });
 
     describe("getAssignedLot", () => {
@@ -60,6 +70,180 @@ describe("staffApi integration", () => {
                 "http://localhost:5000/api/parking/staff/lots",
             );
             expect(init?.method).toBe("GET");
+        });
+
+        it("picks the first lot with car availability when multiple lots exist instead of DEFAULT_STAFF_LOT_ID", async () => {
+            const mockLots = [
+                {
+                    id: DEFAULT_STAFF_LOT_ID,
+                    name: "Bãi Xe Máy",
+                    address: "1 Đường A",
+                    type: "Outdoor",
+                },
+                {
+                    id: "lot-car-available",
+                    name: "Bãi Ô Tô",
+                    address: "2 Đường B",
+                    type: "Indoor",
+                },
+            ];
+
+            const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.endsWith("/api/parking/staff/lots")) {
+                    return new Response(JSON.stringify(mockLots), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    });
+                }
+                if (
+                    url.endsWith(
+                        `/api/parking/lots/${DEFAULT_STAFF_LOT_ID}/availability`,
+                    )
+                ) {
+                    return new Response(
+                        JSON.stringify({ car: { available: 0 } }),
+                        {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        },
+                    );
+                }
+                if (
+                    url.endsWith(
+                        "/api/parking/lots/lot-car-available/availability",
+                    )
+                ) {
+                    return new Response(
+                        JSON.stringify({ car: { available: 12 } }),
+                        {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        },
+                    );
+                }
+                if (
+                    url.endsWith(
+                        "/api/parking/lots/lot-car-available/motorbike-availability",
+                    )
+                ) {
+                    return new Response(
+                        JSON.stringify({ available: 20, totalCapacity: 50 }),
+                        {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        },
+                    );
+                }
+                return new Response(JSON.stringify({ status: 404 }), {
+                    status: 404,
+                    headers: { "Content-Type": "application/problem+json" },
+                });
+            });
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await getAssignedLot();
+            expect(result?.lotId).toBe("lot-car-available");
+            expect(result?.availableCarSlots).toBe(12);
+        });
+
+        it("falls back to lots[0] when multiple lots exist and none have car availability", async () => {
+            const mockLots = [
+                {
+                    id: "lot-first",
+                    name: "First Lot",
+                    address: "1 First",
+                    type: "Outdoor",
+                },
+                {
+                    id: DEFAULT_STAFF_LOT_ID,
+                    name: "Hardcoded Lot",
+                    address: "2 Second",
+                    type: "Indoor",
+                },
+            ];
+
+            const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.endsWith("/api/parking/staff/lots")) {
+                    return new Response(JSON.stringify(mockLots), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    });
+                }
+                if (url.endsWith("/availability")) {
+                    return new Response(
+                        JSON.stringify({ car: { available: 0 } }),
+                        {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        },
+                    );
+                }
+                return new Response(JSON.stringify({ status: 404 }), {
+                    status: 404,
+                    headers: { "Content-Type": "application/problem+json" },
+                });
+            });
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await getAssignedLot();
+            expect(result?.lotId).toBe("lot-first");
+        });
+
+        it("uses lot saved in sessionStorage and ignores sessionStorage errors", async () => {
+            const mockLots = [
+                {
+                    id: "lot-alpha",
+                    name: "Lot Alpha",
+                    address: "1 Alpha",
+                    type: "Outdoor",
+                },
+                {
+                    id: "lot-beta",
+                    name: "Lot Beta",
+                    address: "2 Beta",
+                    type: "Indoor",
+                },
+            ];
+            sessionStorage.setItem(
+                "parkwise_staff_selected_lot_id",
+                "lot-beta",
+            );
+
+            const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.endsWith("/api/parking/staff/lots")) {
+                    return new Response(JSON.stringify(mockLots), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    });
+                }
+                if (url.endsWith("/api/parking/lots/lot-alpha/availability")) {
+                    return new Response(
+                        JSON.stringify({ car: { available: 4 } }),
+                        {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        },
+                    );
+                }
+                return new Response(JSON.stringify({ status: 404 }), {
+                    status: 404,
+                    headers: { "Content-Type": "application/problem+json" },
+                });
+            });
+            vi.stubGlobal("fetch", fetchMock);
+
+            const fromStorage = await getAssignedLot();
+            expect(fromStorage?.lotId).toBe("lot-beta");
+
+            vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+                throw new Error("SecurityError");
+            });
+
+            const afterStorageError = await getAssignedLot();
+            expect(afterStorageError?.lotId).toBe("lot-alpha");
         });
     });
 
@@ -285,6 +469,39 @@ describe("staffApi integration", () => {
             const err = new ApiError(
                 409,
                 { errorCode: "parking.session.already_open" },
+                undefined,
+            );
+            expect(describeStaffError(err)).toContain(
+                "already has an active session",
+            );
+        });
+
+        it("handles walk-in full even when status is 409 (parking.walk_in.full)", () => {
+            const err = new ApiError(
+                409,
+                { errorCode: "parking.walk_in.full" },
+                undefined,
+            );
+            expect(describeStaffError(err)).toBe(
+                "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.",
+            );
+        });
+
+        it("handles motorbike zone full even when status is 409 (parking.motorbike_zone.full)", () => {
+            const err = new ApiError(
+                409,
+                { errorCode: "parking.motorbike_zone.full" },
+                undefined,
+            );
+            expect(describeStaffError(err)).toBe(
+                "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.",
+            );
+        });
+
+        it("keeps already-open fallback message for 409 with unknown errorCode", () => {
+            const err = new ApiError(
+                409,
+                { errorCode: "parking.unknown.conflict" },
                 undefined,
             );
             expect(describeStaffError(err)).toContain(

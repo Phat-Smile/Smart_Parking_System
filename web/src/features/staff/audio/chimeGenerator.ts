@@ -4,6 +4,7 @@
  */
 
 let sharedAudioContext: AudioContext | null = null;
+const RESUME_TIMEOUT_MS = 1000;
 
 function getAudioContext(): AudioContext | null {
     if (typeof window === "undefined") return null;
@@ -19,10 +20,37 @@ function getAudioContext(): AudioContext | null {
     }
 
     if (sharedAudioContext && sharedAudioContext.state === "suspended") {
-        sharedAudioContext.resume().catch(() => {});
+        try {
+            Promise.resolve(sharedAudioContext.resume()).catch(() => {});
+        } catch {
+            // Bỏ qua nếu autoplay bị chặn
+        }
     }
 
     return sharedAudioContext;
+}
+
+async function ensureContextRunning(ctx: AudioContext): Promise<boolean> {
+    if (ctx.state === "running") return true;
+    if (ctx.state === "closed") return false;
+
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    try {
+        return await Promise.race<boolean>([
+            Promise.resolve(ctx.resume())
+                .then(() => (ctx.state as string) === "running")
+                .catch(() => false),
+            new Promise<boolean>((resolve) => {
+                timerId = setTimeout(() => resolve(false), RESUME_TIMEOUT_MS);
+            }),
+        ]);
+    } catch {
+        return false;
+    } finally {
+        if (timerId !== null) {
+            clearTimeout(timerId);
+        }
+    }
 }
 
 /**
@@ -34,8 +62,8 @@ export async function playGateChime(volume = 0.4): Promise<void> {
     if (!ctx) return;
 
     try {
-        if (ctx.state === "suspended") {
-            await ctx.resume();
+        if (!(await ensureContextRunning(ctx))) {
+            return;
         }
 
         const now = ctx.currentTime;
@@ -87,8 +115,8 @@ export async function playWarningBeep(volume = 0.5): Promise<void> {
     if (!ctx) return;
 
     try {
-        if (ctx.state === "suspended") {
-            await ctx.resume();
+        if (!(await ensureContextRunning(ctx))) {
+            return;
         }
 
         const now = ctx.currentTime;
