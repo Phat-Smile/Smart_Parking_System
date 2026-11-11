@@ -32,6 +32,7 @@ export function ParkingViz() {
 
     useParkingRealtime({
         lotId: "lot-1",
+        operations: true,
         onSlotStatusChanged: (event) => {
             const lower = event.effectiveStatus.toLowerCase();
             const mapped: SlotStatus =

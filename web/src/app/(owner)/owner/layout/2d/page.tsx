@@ -133,6 +133,7 @@ export default function Layout2DPage() {
 
     useParkingRealtime({
         lotId: lotKey,
+        operations: true,
         onSlotStatusChanged: (event) => {
             const lower = event.effectiveStatus.toLowerCase();
             const mappedStatus: SlotStatusKey =
