@@ -2,7 +2,8 @@
 def runLogged(String command, String logName) {
     return sh(script: """#!/bin/sh
 mkdir -p ci-results/logs
-${command} > ci-results/logs/${logName}.log 2>&1
+# Subshell: a command that starts with "cd" must not move the log path away from the workspace.
+( ${command} ) > ci-results/logs/${logName}.log 2>&1
 status=\$?
 cat ci-results/logs/${logName}.log
 exit "\$status"
@@ -209,7 +210,7 @@ pipeline {
                 script {
                     runReportedTest(
                         'Python AI Tests',
-                        'cd ai/ai-service && .ci-venv/bin/python ../../scripts/ci/unittest_junit.py --start-directory tests --output ../../ci-results/ai/junit.xml',
+                        'cd ai/ai-service && PYTHONPATH=. .ci-venv/bin/python ../../scripts/ci/unittest_junit.py --start-directory tests --output ../../ci-results/ai/junit.xml',
                         'ci-results/ai/junit.xml',
                         'ai-unittest'
                     )
