@@ -60,7 +60,6 @@ export default function ReportsPage() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 20 }}>📊</span>
                     <div>
                         <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 13.5 }}>
                             Chế độ Dữ liệu Thống Kê Mẫu (Demonstration Mode)

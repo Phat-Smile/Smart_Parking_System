@@ -3,14 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
-import { DashboardKpisV2 } from "@/components/dashboard/DashboardKpisV2";
-import { TrafficChart } from "@/components/dashboard/TrafficChart";
-import { WeeklyParkingChart } from "@/components/dashboard/WeeklyParkingChart";
-import { FloorCardsV2 } from "@/components/dashboard/FloorCardsV2";
-import { StatusDonutV2 } from "@/components/dashboard/StatusDonutV2";
-import { RecentActivityV2 } from "@/components/dashboard/RecentActivityV2";
+import { BentoDashboardSamplePreview } from "@/features/owner/dashboard/BentoDashboardSamplePreview";
 import { useOwnerStore } from "@/store/useOwnerStore";
 import { getMyOwnerApplication } from "@/features/owner/api/ownerLegalApi";
+import { setOwnerViewMode } from "@/features/owner/mode/useOwnerViewMode";
 import "./simulation.css";
 
 interface SimulationConfig {
@@ -179,6 +175,7 @@ export default function OwnerSimulationPage() {
 
     // Load clean initial state or isolated session state
     useEffect(() => {
+        setOwnerViewMode("sample");
         async function initSandbox() {
             try {
                 const app = await getMyOwnerApplication();
@@ -300,17 +297,18 @@ export default function OwnerSimulationPage() {
                             onClick={handleRollback}
                             title="Khôi phục toàn bộ dữ liệu về mặc định"
                         >
-                            🔄 Rollback về mặc định
+                            Rollback về mặc định
                         </button>
                         <button
                             type="button"
                             className="pw-sim-btn-info"
                             onClick={() => setShowModal(true)}
                         >
-                            ❓ Vì sao ở chế độ mô phỏng?
+                            Vì sao ở chế độ mô phỏng?
                         </button>
                         <Link
                             href="/owner/dashboard"
+                            onClick={() => setOwnerViewMode("live")}
                             className="pw-sim-btn-back"
                             style={{
                                 background: "#0f172a",
@@ -319,19 +317,19 @@ export default function OwnerSimulationPage() {
                                 textDecoration: "none",
                             }}
                         >
-                            ⚡ Về Dashboard Chính →
+                            Về Dashboard Chính →
                         </Link>
                         <Link
                             href="/owner/onboarding"
                             className="pw-sim-btn-back"
                         >
-                            📋 Xem tiến độ duyệt hồ sơ →
+                            Xem tiến độ duyệt hồ sơ →
                         </Link>
                     </div>
                 </div>
 
                 <h2 className="pw-sim-banner-title">
-                    <span>🎮</span> Môi trường trải nghiệm thử nghiệm dành cho
+                    Môi trường trải nghiệm thử nghiệm dành cho
                     Chủ bãi xe
                 </h2>
                 <p className="pw-sim-banner-desc">
@@ -360,71 +358,36 @@ export default function OwnerSimulationPage() {
                     className={`pw-sim-tab-btn ${activeTab === "overview" ? "active" : ""}`}
                     onClick={() => setActiveTab("overview")}
                 >
-                    <span>📊</span> Màn hình Tổng quan (Giống trang chính)
+                    Màn hình Tổng quan (Giống trang chính)
                 </button>
                 <button
                     type="button"
                     className={`pw-sim-tab-btn ${activeTab === "config" ? "active" : ""}`}
                     onClick={() => setActiveTab("config")}
                 >
-                    <span>⚙️</span> Thử nghiệm Cấu hình Bãi xe
+                    Thử nghiệm Cấu hình Bãi xe
                 </button>
                 <button
                     type="button"
                     className={`pw-sim-tab-btn ${activeTab === "pricing" ? "active" : ""}`}
                     onClick={() => setActiveTab("pricing")}
                 >
-                    <span>🏷️</span> Thử nghiệm Bảng giá & Đặt cọc
+                    Thử nghiệm Bảng giá & Đặt cọc
                 </button>
                 <button
                     type="button"
                     className={`pw-sim-tab-btn ${activeTab === "spots" ? "active" : ""}`}
                     onClick={() => setActiveTab("spots")}
                 >
-                    <span>🅿️</span> Thao tác Ô đỗ tương tác ({availableCount}{" "}
+                    Thao tác Ô đỗ tương tác ({availableCount}{" "}
                     trống)
                 </button>
             </div>
 
-            {/* ── TAB 1: OVERVIEW DASHBOARD (MATCHES MAIN PORTAL) ── */}
+            {/* ── TAB 1: OVERVIEW DASHBOARD (BENTO GRID MOCKUP PREVIEW) ── */}
             {activeTab === "overview" && (
-                <div className="pw-sim-overview-content">
-                    {/* Khối 1: 4 Thẻ tổng (KPIs) */}
-                    <DashboardKpisV2 />
-
-                    {/* Khối 2: Hàng 2 biểu đồ (Lưu lượng xe + Lượt đỗ trong tuần) */}
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns:
-                                "minmax(0, 1.35fr) minmax(380px, 1.15fr)",
-                            gap: 16,
-                            marginBottom: 20,
-                        }}
-                        className="ov2-row-traffic"
-                    >
-                        <TrafficChart />
-                        <WeeklyParkingChart />
-                    </div>
-
-                    {/* Khối 3: Khung "Theo từng tầng" */}
-                    <div style={{ marginBottom: 20 }}>
-                        <FloorCardsV2 />
-                    </div>
-
-                    {/* Khối 4: Hàng cuối (Trạng thái ô + Hoạt động gần đây) */}
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns:
-                                "minmax(300px, 1.1fr) minmax(0, 1.9fr)",
-                            gap: 16,
-                        }}
-                        className="ov2-row-status"
-                    >
-                        <StatusDonutV2 />
-                        <RecentActivityV2 />
-                    </div>
+                <div className="pw-sim-overview-content" style={{ padding: 0 }}>
+                    <BentoDashboardSamplePreview />
                 </div>
             )}
 
@@ -434,7 +397,7 @@ export default function OwnerSimulationPage() {
                     <div className="pw-sim-card-header">
                         <div>
                             <h3 className="pw-sim-card-title">
-                                ⚙️ Cấu hình thông tin bãi đỗ xe mô phỏng
+                                Cấu hình thông tin bãi đỗ xe mô phỏng
                             </h3>
                             <p className="pw-sim-card-desc">
                                 Thử nghiệm điều chỉnh thông số hoạt động của bãi
@@ -447,7 +410,7 @@ export default function OwnerSimulationPage() {
                             className="pw-btn-primary"
                             onClick={handleSaveSimulationConfig}
                         >
-                            💾 Lưu thử nghiệm cấu hình
+                            Lưu thử nghiệm cấu hình
                         </button>
                     </div>
 
@@ -653,7 +616,7 @@ export default function OwnerSimulationPage() {
                     <div className="pw-sim-card-header">
                         <div>
                             <h3 className="pw-sim-card-title">
-                                🏷️ Cấu hình Bảng giá gửi xe & Đặt cọc mô phỏng
+                                Cấu hình Bảng giá gửi xe & Đặt cọc mô phỏng
                             </h3>
                             <p className="pw-sim-card-desc">
                                 Cài đặt mức thu phí dịch vụ trông giữ xe ban
@@ -666,8 +629,62 @@ export default function OwnerSimulationPage() {
                             className="pw-btn-primary"
                             onClick={handleSaveSimulationConfig}
                         >
-                            💾 Lưu thử nghiệm bảng giá
+                            Lưu thử nghiệm bảng giá
                         </button>
+                    </div>
+
+                    {/* Banner liên kết sang Trang Bảng giá mẫu đầy đủ */}
+                    <div
+                        style={{
+                            background: "#F6F8F4",
+                            border: "1px solid #E1E7DE",
+                            borderRadius: 12,
+                            padding: "14px 18px",
+                            marginBottom: 20,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: 12,
+                        }}
+                    >
+                        <div>
+                            <div
+                                style={{
+                                    fontWeight: 750,
+                                    color: "#172018",
+                                    fontSize: 13.5,
+                                }}
+                            >
+                                Giao diện Bảng giá & Chính sách cọc 5 thẻ chuyên nghiệp
+                            </div>
+                            <p
+                                style={{
+                                    margin: "2px 0 0",
+                                    color: "#718071",
+                                    fontSize: 12.5,
+                                }}
+                            >
+                                Trải nghiệm trang Bảng giá & Đặt cọc mô phỏng độc lập với đầy đủ phụ thu giờ cao điểm, qua đêm và công cụ tính toán tự động.
+                            </p>
+                        </div>
+                        <Link
+                            href="/owner/pricing?mode=sample"
+                            style={{
+                                background: "#19301D",
+                                color: "#FFFFFF",
+                                padding: "8px 16px",
+                                borderRadius: 8,
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                textDecoration: "none",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                            }}
+                        >
+                            <span>Mở Trang Bảng giá mẫu đầy đủ →</span>
+                        </Link>
                     </div>
 
                     <div
@@ -694,7 +711,7 @@ export default function OwnerSimulationPage() {
                                     marginBottom: 12,
                                 }}
                             >
-                                🛵 Biểu phí xe máy
+                                Biểu phí xe máy
                             </div>
                             <div style={{ marginBottom: 12 }}>
                                 <label
@@ -766,7 +783,7 @@ export default function OwnerSimulationPage() {
                                     marginBottom: 12,
                                 }}
                             >
-                                🚗 Biểu phí ô tô
+                                Biểu phí ô tô
                             </div>
                             <div style={{ marginBottom: 12 }}>
                                 <label
@@ -838,7 +855,7 @@ export default function OwnerSimulationPage() {
                                     marginBottom: 12,
                                 }}
                             >
-                                💳 Chính sách đặt cọc Online
+                                Chính sách đặt cọc Online
                             </div>
                             <div style={{ marginBottom: 12 }}>
                                 <label
@@ -888,13 +905,13 @@ export default function OwnerSimulationPage() {
                     <div className="pw-sim-card-header">
                         <div>
                             <h3 className="pw-sim-card-title">
-                                🅿️ Thử nghiệm tương tác ô đỗ xe thời gian thực
+                                Thử nghiệm tương tác ô đỗ xe thời gian thực
                             </h3>
                             <p className="pw-sim-card-desc">
                                 Bấm trực tiếp vào từng ô đỗ bên dưới để chuyển
-                                đổi trạng thái: <strong>Trống 🟢</strong> →{" "}
-                                <strong>Đã đặt 🟡</strong> →{" "}
-                                <strong>Đang đỗ 🔴</strong>.
+                                đổi trạng thái: <strong>Trống</strong> →{" "}
+                                <strong>Đã đặt</strong> →{" "}
+                                <strong>Đang đỗ</strong>.
                             </p>
                         </div>
                         <div
@@ -911,7 +928,7 @@ export default function OwnerSimulationPage() {
                                     fontWeight: 700,
                                 }}
                             >
-                                🟢 Trống: {availableCount}
+                                Trống: {availableCount}
                             </span>
                             <span
                                 style={{
@@ -920,7 +937,7 @@ export default function OwnerSimulationPage() {
                                     fontWeight: 700,
                                 }}
                             >
-                                🟡 Đã đặt: {reservedCount}
+                                Đã đặt: {reservedCount}
                             </span>
                             <span
                                 style={{
@@ -929,7 +946,7 @@ export default function OwnerSimulationPage() {
                                     fontWeight: 700,
                                 }}
                             >
-                                🔴 Đang đỗ: {occupiedCount}
+                                Đang đỗ: {occupiedCount}
                             </span>
                         </div>
                     </div>
@@ -947,10 +964,10 @@ export default function OwnerSimulationPage() {
                                 </div>
                                 <div className="pw-sim-spot-status">
                                     {sp.status === "available"
-                                        ? "🟢 Trống"
+                                        ? "Trống"
                                         : sp.status === "reserved"
-                                          ? "🟡 Đã đặt"
-                                          : "🔴 Đang đỗ"}
+                                          ? "Đã đặt"
+                                          : "Đang đỗ"}
                                 </div>
                                 <div className="pw-sim-spot-hint">
                                     {sp.type === "car" ? "Ô tô" : "Xe máy"} •
