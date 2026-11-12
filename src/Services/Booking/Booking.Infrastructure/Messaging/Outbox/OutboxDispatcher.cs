@@ -28,26 +28,33 @@ public sealed class OutboxDispatcher(
 
         logger.LogInformation("Outbox dispatcher started; polling every {PollingInterval}.", _options.PollingInterval);
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                if (await DispatchIterationAsync(stoppingToken) > 0)
-                    continue;
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(
-                    "Outbox polling iteration failed. ExceptionType={ExceptionType} RetryingAfter={PollingInterval}.",
-                    exception.GetType().FullName,
-                    _options.PollingInterval);
-            }
+                try
+                {
+                    if (await DispatchIterationAsync(stoppingToken) > 0)
+                        continue;
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    logger.LogError(
+                        "Outbox polling iteration failed. ExceptionType={ExceptionType} RetryingAfter={PollingInterval}.",
+                        exception.GetType().FullName,
+                        _options.PollingInterval);
+                }
 
-            await Task.Delay(_options.PollingInterval, stoppingToken);
+                await Task.Delay(_options.PollingInterval, stoppingToken);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Expected during graceful application shutdown.
         }
     }
 

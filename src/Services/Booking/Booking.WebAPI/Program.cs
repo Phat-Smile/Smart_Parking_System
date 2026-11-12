@@ -9,6 +9,7 @@ using ParkingSystem.Booking.Infrastructure.Messaging.Consumers;
 using ParkingSystem.Booking.Persistence;
 using ParkingSystem.Booking.WebAPI.Endpoints;
 using ParkingSystem.Booking.WebAPI.Grpc;
+using ParkingSystem.Booking.WebAPI.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
@@ -39,7 +40,7 @@ if (enableGrpcReflection)
     builder.Services.AddGrpcReflection();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddBookingSwagger();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
