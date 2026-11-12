@@ -138,7 +138,7 @@ pipeline {
                                     'POLICY_CUTOVER_UTC=2026-10-06T01:41:50Z'
                                 ]) {
                                     sh 'git fetch --no-tags "$POLICY_CHECKOUT" "$POLICY_BASE_SHA"'
-                                    sh 'python3 "$POLICY_CHECKOUT/scripts/ci/check_git_policy.py"'
+                                    runStrict('Git Policy', 'python3 "$POLICY_CHECKOUT/scripts/ci/check_git_policy.py"', 'git-policy')
                                 }
                             }
                         } finally {
@@ -153,8 +153,10 @@ pipeline {
             steps {
                 sh 'dotnet --version'
                 sh 'dotnet tool restore'
-                sh 'dotnet restore ParkingSystem.slnx -m:1 --disable-build-servers'
-                sh 'dotnet build ParkingSystem.slnx --no-restore -m:1 --disable-build-servers'
+                script {
+                    runStrict('Backend Restore', 'dotnet restore ParkingSystem.slnx -m:1 --disable-build-servers', 'backend-restore')
+                    runStrict('Backend Build', 'dotnet build ParkingSystem.slnx --no-restore -m:1 --disable-build-servers', 'backend-build')
+                }
             }
         }
 
@@ -170,7 +172,7 @@ pipeline {
             steps {
                 sh 'node --version'
                 sh 'npm --version'
-                sh 'npm --prefix web ci'
+                script { runStrict('Frontend Dependencies', 'npm --prefix web ci', 'frontend-install') }
                 sh 'rm -rf -- web/.next'
             }
         }
@@ -195,7 +197,7 @@ pipeline {
             steps {
                 sh 'python3 --version'
                 sh 'python3 -m venv --clear ai/ai-service/.ci-venv'
-                sh 'ai/ai-service/.ci-venv/bin/python -m pip install --disable-pip-version-check -r ai/ai-service/requirements.lock'
+                script { runStrict('Python AI Dependencies', 'ai/ai-service/.ci-venv/bin/python -m pip install --disable-pip-version-check -r ai/ai-service/requirements.lock', 'ai-deps') }
             }
         }
         stage('Python AI Compile') {
@@ -222,7 +224,20 @@ pipeline {
 
     post {
         success { echo 'ParkWise PR CI: SUCCESS' }
-        failure { echo 'ParkWise PR CI: FAILED; review the failed stage, Test Result and archived ci-results logs.' }
-        always { archiveArtifacts artifacts: 'ci-results/**/*', allowEmptyArchive: true }
+        failure { echo 'ParkWise PR CI: FAILED; see the failure report above, Test Result and archived ci-results logs.' }
+        always {
+            script {
+                if (currentBuild.currentResult != 'SUCCESS' && fileExists('scripts/ci/failure_report.py')) {
+                    sh 'mkdir -p ci-results && python3 scripts/ci/failure_report.py ci-results --output ci-results/failure-report.md --html ci-results/failure-summary.html || true'
+                    if (fileExists('ci-results/failure-summary.html')) {
+                        currentBuild.description = readFile('ci-results/failure-summary.html')
+                    }
+                    if (fileExists('ci-results/failure-report.md')) {
+                        echo readFile('ci-results/failure-report.md')
+                    }
+                }
+            }
+            archiveArtifacts artifacts: 'ci-results/**/*', allowEmptyArchive: true
+        }
     }
 }
