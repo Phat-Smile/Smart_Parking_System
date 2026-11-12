@@ -12,19 +12,19 @@ import Link from "next/link";
 import { CustomerMap } from "./CustomerMap";
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
 import { AiRecommendationPanel } from "./components/AiRecommendationPanel";
+import { ArrivalTimeScrubber } from "./components/ArrivalTimeScrubber";
+import { initialArrivalHour, useArrivalForecast } from "./arrivalForecast";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import {
     getApprovedParkingLots,
     getApprovedParkingLot,
-    getParkingLotRecommendations,
     searchNearbyParkingLots,
     searchCustomerParkingLots,
     type CustomerLotSearchItem,
     type NearbyParkingLot,
     type ParkingLotSummary,
-    type RecommendedParkingLot,
 } from "./parkingLotApi";
 
 // Catalog/nearby responses don't include price or live availability.
@@ -125,6 +125,11 @@ export function CustomerFindParkingPage({
     const [destination, setDestination] = useState(initialSearch.destination);
     const [parkingDate, setParkingDate] = useState(initialSearch.date);
     const [parkingTime, setParkingTime] = useState(initialSearch.time);
+    // Hour on the arrival scrubber; the anchor fixes the scrubber window while the user moves inside it.
+    const [arrivalHour, setArrivalHour] = useState(() =>
+        initialArrivalHour(initialSearch.time),
+    );
+    const [anchorHour, setAnchorHour] = useState(arrivalHour);
     const [vehicleType, setVehicleType] = useState(initialSearch.vehicle);
     const [selectedId, setSelectedId] = useState("parkside");
     const [filtersOpen, setFiltersOpen] = useState(true);
@@ -260,10 +265,6 @@ export function CustomerFindParkingPage({
         state: "loading" | "ready" | "error";
         lots: CustomerLotSearchItem[];
     } | null>(null);
-    const [recommendations, setRecommendations] = useState<{
-        key: string;
-        lots: RecommendedParkingLot[];
-    } | null>(null);
     const originKey = searchOrigin
         ? `${searchOrigin.latitude},${searchOrigin.longitude},${radiusKm}`
         : "";
@@ -383,36 +384,22 @@ export function CustomerFindParkingPage({
         })();
         return () => controller.abort();
     }, [originKey, requestKey, vehicleType, filterKey]);
-    useEffect(() => {
-        if (!originKey) return;
-        const [latitude, longitude, radius] = originKey.split(",").map(Number);
-        const controller = new AbortController();
-        void (async () => {
-            try {
-                const recResult = await getParkingLotRecommendations(
-                    latitude,
-                    longitude,
-                    {
-                        vehicleType:
-                            vehicleType === "motorbike" ? "Motorbike" : "Car",
-                        radiusKm: radius,
-                    },
-                    controller.signal,
-                );
-                if (!controller.signal.aborted) {
-                    setRecommendations({
-                        key: originKey,
-                        lots: recResult.recommendedLots,
-                    });
-                }
-            } catch {
-                if (!controller.signal.aborted) {
-                    setRecommendations({ key: originKey, lots: [] });
-                }
-            }
-        })();
-        return () => controller.abort();
-    }, [originKey, vehicleType]);
+    const forecast = useArrivalForecast(
+        searchOrigin
+            ? {
+                  latitude: searchOrigin.latitude,
+                  longitude: searchOrigin.longitude,
+                  radiusKm,
+                  vehicleType:
+                      vehicleType === "motorbike" ? "Motorbike" : "Car",
+                  date: parkingDate,
+                  anchorHour,
+              }
+            : null,
+    );
+    const slotAtArrival = forecast.slots.find(
+        (slot) => slot.hour === arrivalHour,
+    );
     const nearbyCurrent = nearby?.key === requestKey ? nearby : null;
     const resultsState: "loading" | "ready" | "error" = originKey
         ? (nearbyCurrent?.state ?? "loading")
@@ -421,12 +408,12 @@ export function CustomerFindParkingPage({
         ? (nearbyCurrent?.lots ?? [])
         : approvedLots;
     const visibleParkings = results;
-    const currentRecommendations =
-        recommendations?.key === originKey
-            ? recommendations.lots.filter((rec) =>
-                  visibleParkings.some((lot) => lot.id === rec.lotId),
-              )
-            : null;
+    // Only recommendations for lots that survive the current filters, ranked at the chosen arrival hour.
+    const allRecommendations =
+        slotAtArrival?.lots?.filter((rec) =>
+            visibleParkings.some((lot) => lot.id === rec.lotId),
+        ) ?? null;
+    const currentRecommendations = allRecommendations?.slice(0, 3) ?? null;
     const activeSelectedId = visibleParkings.some(
         (parking) => parking.id === selectedId,
     )
@@ -917,9 +904,14 @@ export function CustomerFindParkingPage({
                                 aria-label={copy("Parking time", "Giờ đỗ xe")}
                                 type="time"
                                 value={parkingTime}
-                                onChange={(event) =>
-                                    setParkingTime(event.target.value)
-                                }
+                                onChange={(event) => {
+                                    setParkingTime(event.target.value);
+                                    const hour = initialArrivalHour(
+                                        event.target.value,
+                                    );
+                                    setArrivalHour(hour);
+                                    setAnchorHour(hour);
+                                }}
                             />
                         </span>
                     </label>
@@ -1344,7 +1336,7 @@ export function CustomerFindParkingPage({
                             )}
                         <div className="customer-search-list">
                             {visibleParkings.map((parking) => {
-                                const lotRec = currentRecommendations?.find(
+                                const lotRec = allRecommendations?.find(
                                     (r) => r.lotId === parking.id,
                                 );
                                 return (
@@ -1565,7 +1557,35 @@ export function CustomerFindParkingPage({
                             currentLocation={currentLocation}
                             destinationLocation={destinationLocation}
                             lots={visibleParkings}
+                            percentByLot={slotAtArrival?.percentByLot ?? null}
                         />
+                        {searchOrigin && (
+                            <ArrivalTimeScrubber
+                                slots={forecast.slots.map((slot) => {
+                                    const values = slot.percentByLot
+                                        ? Object.values(slot.percentByLot)
+                                        : [];
+                                    const selectedValue =
+                                        slot.percentByLot?.[activeSelectedId];
+                                    const average = values.length
+                                        ? Math.round(
+                                              values.reduce(
+                                                  (a, b) => a + b,
+                                                  0,
+                                              ) / values.length,
+                                          )
+                                        : null;
+                                    return {
+                                        hour: slot.hour,
+                                        percent: selectedValue ?? average,
+                                    };
+                                })}
+                                selectedHour={arrivalHour}
+                                onChange={setArrivalHour}
+                                loading={forecast.loading}
+                                copy={copy}
+                            />
+                        )}
                         <div className="customer-search-map-footer">
                             <span>
                                 <i className="customer-search-map-dot" />{" "}

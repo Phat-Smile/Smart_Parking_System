@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { getPublicMapboxToken } from "@/shared/config/env";
+import { LotPin } from "./components/LotPin";
 import type { PreviewParkingPin } from "./CustomerMapScene";
 import type { MapCoordinates } from "./geocodeDestination";
 
@@ -16,7 +17,10 @@ export type MapParkingLot = {
 };
 
 // Without a Mapbox token the lots are drawn on the illustrated map, spread by their coordinates.
-function toPins(lots: MapParkingLot[]): PreviewParkingPin[] {
+function toPins(
+    lots: MapParkingLot[],
+    percentByLot: Record<string, number> | null | undefined,
+): PreviewParkingPin[] {
     if (lots.length === 0) return [];
     const lats = lots.map((lot) => lot.latitude);
     const lngs = lots.map((lot) => lot.longitude);
@@ -31,6 +35,7 @@ function toPins(lots: MapParkingLot[]): PreviewParkingPin[] {
         longitude: lot.longitude,
         x: 15 + 70 * ((lot.longitude - minLng) / lngSpan),
         y: 15 + 70 * (1 - (lot.latitude - minLat) / latSpan),
+        percent: percentByLot?.[lot.id] ?? null,
     }));
 }
 
@@ -40,15 +45,18 @@ export function CustomerMap({
     currentLocation,
     destinationLocation,
     lots,
+    percentByLot,
 }: {
     selectedId: string;
     onSelect: (id: string) => void;
     currentLocation?: { longitude: number; latitude: number } | null;
     destinationLocation?: MapCoordinates | null;
     lots: MapParkingLot[];
+    /** Free-space probability per lot id at the arrival hour chosen on the scrubber. */
+    percentByLot?: Record<string, number> | null;
 }) {
     const token = getPublicMapboxToken();
-    const pins = toPins(lots);
+    const pins = toPins(lots, percentByLot);
     const selected = pins.find((pin) => pin.id === selectedId);
 
     return (
@@ -72,20 +80,15 @@ export function CustomerMap({
                         priority
                     />
                     {pins.map((pin) => (
-                        <button
+                        <LotPin
                             key={pin.id}
-                            type="button"
-                            className={`customer-map-pin customer-map-preview-pin ${selectedId === pin.id ? "selected" : ""}`}
+                            name={pin.name}
+                            percent={pin.percent}
+                            selected={selectedId === pin.id}
+                            onSelect={() => onSelect(pin.id)}
                             style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-                            aria-label={`Select parking lot ${pin.name}`}
-                            aria-pressed={selectedId === pin.id}
-                            onClick={() => onSelect(pin.id)}
-                        >
-                            <i
-                                className="fa-solid fa-car-rear"
-                                aria-hidden="true"
-                            />
-                        </button>
+                            preview
+                        />
                     ))}
                 </>
             )}
