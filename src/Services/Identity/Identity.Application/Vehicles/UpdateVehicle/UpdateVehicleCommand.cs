@@ -35,7 +35,7 @@ public sealed class UpdateVehicleCommandHandler(IVehicleRepository vehicles)
         var vehicle = await vehicles.FindByIdAsync(request.VehicleId, cancellationToken);
         if (vehicle is null || vehicle.AccountId != request.AccountId)
             return Result<UpdatedVehicleResult>.Failure(UpdateVehicleErrors.NotFound);
-        if (vehicle.VehicleType == VehicleDomainType.Bicycle && !VehicleDetailsValidation.IsCustomerMediaUrl(request.Details.PhotoUrl))
+        if (vehicle.VehicleType == VehicleDomainType.Bicycle && !VehicleDetailsValidation.IsValidBicycleImageUrl(request.Details.PhotoUrl))
             return Result<UpdatedVehicleResult>.Failure(UpdateVehicleErrors.BicyclePhotoRequired);
 
         VehicleDetailsValidation.Apply(vehicle, request.NickName, request.Details);

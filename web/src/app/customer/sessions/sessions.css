@@ -1,5 +1,5 @@
 .customer-sessions-page {
-    background: #f6f9f7;
+    background: #fafafa;
 }
 
 .customer-sessions-main {
@@ -11,19 +11,56 @@
 
 .customer-sessions-main h1 {
     margin: 0 0 8px;
+    padding: 24px 28px 0;
+    border-radius: 18px 18px 0 0;
+    background:
+        radial-gradient(
+            circle at 96% 5%,
+            rgb(234 254 137 / 18%),
+            transparent 30%
+        ),
+        linear-gradient(115deg, #111 0%, #1b1b1b 70%, #292d1d 100%);
+    color: #fff;
     font-size: clamp(30px, 3.3vw, 42px);
     letter-spacing: -0.04em;
 }
 
-.customer-sessions-main > p {
+.customer-sessions-main > p:first-of-type {
     margin: 0 0 24px;
-    color: #617087;
+    padding: 8px 28px 24px;
+    border-radius: 0 0 18px 18px;
+    background: linear-gradient(115deg, #111 0%, #1b1b1b 70%, #292d1d 100%);
+    color: #d4d4d4;
     line-height: 1.6;
+}
+
+.customer-sessions-main > p:nth-of-type(2) {
+    margin: 28px 0 0;
+    padding: 28px;
+    border: 1px solid #e5e5e5;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 12px 30px rgb(0 0 0 / 5%);
+    color: #404040;
+    text-align: center;
+}
+
+.customer-sessions-main > p:nth-of-type(2) a {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+    padding: 0 16px;
+    border-radius: 10px;
+    background: #eafe89;
+    color: #171717;
+    font-weight: 750;
 }
 
 .customer-sessions-main ul li {
     background: #fff;
-    color: #17213e;
+    color: #171717;
 }
 
 @media (max-width: 640px) {
@@ -31,4 +68,44 @@
         width: min(calc(100% - 24px), 1080px);
         padding: 28px 0 56px;
     }
+
+    .customer-sessions-main h1 {
+        padding-inline: 20px;
+    }
+    .customer-sessions-main > p:first-of-type {
+        padding-inline: 20px;
+    }
+    .customer-sessions-main > p:nth-of-type(2) {
+        padding: 20px;
+    }
+}
+.customer-sessions-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.customer-sessions-empty p {
+    margin: 0;
+}
+
+.customer-sessions-empty a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 18px;
+    border-radius: 10px;
+    background: #d9fc69;
+    color: #152225;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.customer-sessions-empty a:hover,
+.customer-sessions-empty a:focus-visible {
+    background: #c5f03a;
+    outline: 2px solid #20614e;
+    outline-offset: 2px;
 }

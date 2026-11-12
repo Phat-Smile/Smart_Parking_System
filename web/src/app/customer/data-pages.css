@@ -1,5 +1,5 @@
 .customer-data-page {
-    background: #f6f9f7;
+    background: #fafafa;
 }
 
 .customer-data-main {
@@ -11,12 +11,79 @@
 
 .customer-data-panel {
     min-height: 65vh;
-    padding: clamp(20px, 3vw, 40px);
-    border: 1px solid #e0e8ef;
-    border-radius: 24px;
-    background: #fff;
-    box-shadow: 0 14px 40px rgb(28 52 82 / 5%);
-    color: #17233b;
+    padding: 0;
+    color: #171717;
+}
+
+.customer-data-panel > .animate-in > .flex:first-child {
+    padding: 24px clamp(20px, 3vw, 32px);
+    border: 1px solid rgb(255 255 255 / 14%);
+    border-radius: 18px;
+    background:
+        radial-gradient(
+            circle at 96% 5%,
+            rgb(234 254 137 / 18%),
+            transparent 30%
+        ),
+        linear-gradient(115deg, #111 0%, #1b1b1b 70%, #292d1d 100%);
+    color: #fff;
+}
+
+.customer-data-panel > .animate-in > .flex:first-child [class~="text-white"] {
+    color: #fff;
+}
+
+.customer-data-panel
+    > .animate-in
+    > .flex:first-child
+    [class~="text-[#8790a3]"] {
+    color: #d4d4d4;
+}
+
+.customer-data-panel > .animate-in > .flex:first-child button:disabled {
+    border-color: rgb(255 255 255 / 24%);
+    background: rgb(255 255 255 / 10%);
+    color: #d4d4d4;
+    opacity: 1;
+}
+
+.customer-data-panel .animate-in > .border-b button {
+    color: #525252 !important;
+}
+
+.customer-data-panel
+    .animate-in
+    [class~="border-b"]
+    button[class~="text-[#8790a3]"] {
+    color: #525252 !important;
+}
+
+.customer-data-panel
+    .animate-in
+    [class*="border-b"]
+    button[class*="text-[#8790a3]"] {
+    background: transparent !important;
+    color: #525252 !important;
+}
+
+.customer-data-panel button[class*="shrink-0"][class*="whitespace-nowrap"] {
+    background: transparent;
+    color: #525252 !important;
+}
+
+.customer-data-panel
+    button[class*="shrink-0"][class*="whitespace-nowrap"][class*="bg-[#6246ea]"] {
+    background: #eafe89 !important;
+    color: #171717 !important;
+}
+
+.customer-data-panel .animate-in > .border-b button[class~="bg-[#6246ea]"] {
+    background: #eafe89;
+    color: #171717 !important;
+}
+
+.customer-data-panel .animate-in > .border-b button:hover {
+    color: #171717;
 }
 
 .customer-data-panel [class~="bg-[#0b0c17]"] {
@@ -53,13 +120,13 @@
 }
 
 .customer-data-panel [class~="bg-[#6246ea]"] {
-    background: #dfff66;
-    color: #192536;
+    background: #eafe89;
+    color: #171717 !important;
     box-shadow: 0 6px 16px rgb(127 165 55 / 15%);
 }
 
 .customer-data-panel [class~="bg-[#6246ea]"]:hover {
-    background: #cdee4d;
+    background: #ddf66f;
 }
 
 .customer-data-panel [class~="bg-[#6246ea]/20"],
@@ -90,13 +157,97 @@
     border-color: #b7ccd8;
 }
 
+.customer-data-filter {
+    min-width: 164px;
+    min-height: 46px;
+    padding: 0 38px 0 14px;
+    border: 1px solid #b9c6d5;
+    border-radius: 12px;
+    background-color: #fff;
+    color: #17233b;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        background-color 160ms ease;
+}
+
+.customer-data-filter:hover {
+    border-color: #789449;
+    background-color: #fcfff5;
+}
+
+.customer-data-filter:focus-visible,
+.customer-data-refresh:focus-visible {
+    outline: 3px solid #b9ed3c;
+    outline-offset: 2px;
+}
+
+.customer-data-refresh {
+    display: inline-flex;
+    min-width: 46px;
+    min-height: 46px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #a9bd7a;
+    border-radius: 12px;
+    background: #eff8d8;
+    color: #273b12;
+    cursor: pointer;
+    transition:
+        border-color 160ms ease,
+        background-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
+}
+
+.customer-data-refresh:hover:not(:disabled) {
+    border-color: #789449;
+    background: #e3f4b7;
+    box-shadow: 0 5px 14px rgb(60 85 20 / 12%);
+}
+
+.customer-data-refresh:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.customer-data-refresh:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+.customer-data-empty {
+    display: grid;
+    min-height: 280px;
+    align-content: center;
+    justify-items: center;
+    padding: clamp(28px, 5vw, 56px);
+    border-color: #dce5d0 !important;
+    background:
+        radial-gradient(circle at 50% 0%, rgb(234 254 137 / 25%), transparent 48%),
+        #fff !important;
+    box-shadow: 0 14px 36px rgb(23 35 59 / 6%);
+}
+
+.customer-data-empty h3 {
+    color: #17233b !important;
+}
+
 @media (max-width: 640px) {
     .customer-data-main {
         width: min(calc(100% - 24px), 1300px);
         padding: 20px 0 48px;
     }
 
-    .customer-data-panel {
-        border-radius: 18px;
+    .customer-bookings-tabs {
+        flex-wrap: wrap;
+        overflow: visible;
+    }
+
+    .customer-data-panel > .animate-in > .flex:first-child {
+        border-radius: 16px;
     }
 }

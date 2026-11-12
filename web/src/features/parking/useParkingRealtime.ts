@@ -54,6 +54,7 @@ export function useParkingRealtime({
         try {
             connection = createRealtimeConnection({
                 hubPath: "/hubs/parking",
+                withCredentials: false,
             });
         } catch (err) {
             console.warn(
@@ -86,14 +87,17 @@ export function useParkingRealtime({
                 await connection.invoke("JoinLotGroup", lotId);
             } catch (err) {
                 // SignalR hub might be offline in mock/dev mode; degrade gracefully
-                console.warn("Could not connect to SignalR parking hub", err);
+                if (isMounted)
+                    console.warn("Could not connect to SignalR parking hub", err);
             }
         }
 
-        start();
+        // Defer the handshake so React's development effect cleanup can cancel it.
+        const startTimer = window.setTimeout(() => void start(), 0);
 
         return () => {
             isMounted = false;
+            window.clearTimeout(startTimer);
             setIsConnected(false);
             connection.invoke("LeaveLotGroup", lotId).catch(() => {});
             connection.stop().catch(() => {});

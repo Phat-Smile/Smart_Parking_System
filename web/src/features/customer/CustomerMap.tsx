@@ -81,14 +81,16 @@ export function CustomerMap({
                             aria-pressed={selectedId === pin.id}
                             onClick={() => onSelect(pin.id)}
                         >
-                            <span>P</span>
+                            <i className="fa-solid fa-car-rear" aria-hidden="true" />
                         </button>
                     ))}
                 </>
             )}
             {selected && (
                 <div className="customer-map-selected" role="status">
-                    <span className="customer-map-selected-icon">P</span>
+                    <span className="customer-map-selected-icon">
+                        <i className="fa-solid fa-car-rear" aria-hidden="true" />
+                    </span>
                     <span>
                         <strong>{selected.name}</strong>
                         <small>Approved parking lot</small>

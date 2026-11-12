@@ -1,5 +1,5 @@
 .customer-account-page {
-    background: #f6f9f7;
+    background: #fafafa;
 }
 
 .customer-account-main {
@@ -32,7 +32,7 @@
 
 .customer-account-heading h1 {
     margin: 7px 0 10px !important;
-    color: #101a31;
+    color: #171717;
     font-size: clamp(32px, 3.5vw, 44px);
     font-weight: 850;
     letter-spacing: -0.045em;
@@ -66,12 +66,12 @@
 }
 
 .customer-account-primary {
-    background: #dfff66;
-    color: #182535 !important;
+    background: #eafe89;
+    color: #171717 !important;
 }
 
 .customer-account-primary:hover {
-    background: #cef050;
+    background: #ddf66f;
     transform: translateY(-1px);
 }
 
@@ -100,7 +100,13 @@
     min-height: 204px;
     padding: 30px 34px;
     border-radius: 22px;
-    background: linear-gradient(115deg, #14223b 0%, #24425d 70%, #356459 100%);
+    background:
+        radial-gradient(
+            circle at 92% 10%,
+            rgb(234 254 137 / 16%),
+            transparent 32%
+        ),
+        linear-gradient(115deg, #171717 0%, #262626 70%, #343a26 100%);
     color: #fff;
 }
 
@@ -112,8 +118,8 @@
     place-items: center;
     border: 3px solid rgb(255 255 255 / 22%);
     border-radius: 50%;
-    background: #dfff66;
-    color: #182535;
+    background: #eafe89;
+    color: #171717;
     font-size: 38px;
     font-weight: 800;
 }
@@ -123,7 +129,7 @@
 }
 
 .customer-profile-kicker {
-    color: #dbff9b;
+    color: #eafe89;
 }
 
 .customer-profile-hero h2 {
@@ -169,7 +175,7 @@
 .customer-profile-shortcuts h2,
 .customer-profile-note h2 {
     margin-top: 5px !important;
-    color: #17233b;
+    color: #171717;
     font-size: 20px;
     font-weight: 800;
     letter-spacing: -0.025em;
@@ -257,8 +263,8 @@
     height: 44px;
     place-items: center;
     border-radius: 12px;
-    background: #dfff66;
-    color: #203a35;
+    background: #eafe89;
+    color: #171717;
 }
 
 .customer-profile-note p {

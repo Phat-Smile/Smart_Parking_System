@@ -12,6 +12,7 @@ import { getAuthSessionSnapshot, subscribeAuthSession } from "./authSession";
 import { changePassword } from "./changePassword";
 import { logoutParkWiseAccount } from "./logoutParkWiseAccount";
 import { passwordSchema } from "./passwordSchema";
+import { CustomerSecurityControls } from "./CustomerSecurityControls";
 
 const schema = z
     .object({
@@ -187,6 +188,9 @@ export function SecuritySettingsPage({
                         </p>
                     )}
                 </form>
+                {session?.account.role === "Customer" && (
+                    <CustomerSecurityControls />
+                )}
                 {session ? (
                     <button
                         type="button"

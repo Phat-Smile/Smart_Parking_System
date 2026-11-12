@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Electric motorbike illustration">
+  <rect width="640" height="400" rx="32" fill="#f2f7f4"/>
+  <ellipse cx="320" cy="326" rx="246" ry="20" fill="#d9e8de"/>
+  <g fill="none" stroke="#173a36" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="150" cy="277" r="65" stroke-width="19"/><circle cx="490" cy="277" r="65" stroke-width="19"/>
+    <path d="m150 277 96-96h126l97 96H150m220 0-39-96m41 0 44-85h64m-33 0h75" stroke-width="20"/>
+    <path d="M244 181h-36m94-29h78" stroke-width="14"/>
+  </g>
+  <path d="m316 192-26 49h25l-12 36 54-63h-27l15-22Z" fill="#92c94f"/>
+</svg>

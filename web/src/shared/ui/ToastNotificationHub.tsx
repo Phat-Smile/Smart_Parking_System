@@ -8,6 +8,7 @@ import {
     requestPushPermission,
     sendWebPushNotification,
 } from "../notifications/webPushService";
+import { useCustomerLanguage } from "../../features/customer/i18n/customerLanguage";
 
 export interface LiveToast {
     id: string;
@@ -48,15 +49,19 @@ export function emitLiveToast(
 }
 
 export function ToastNotificationHub() {
+    const { copy } = useCustomerLanguage();
     const [toasts, setToasts] = useState<LiveToast[]>([]);
-    const [permission, setPermission] = useState<NotificationPermission>(() => {
-        if (typeof window === "undefined") return "default";
-        return getPushPermission();
-    });
-    const [isSupported] = useState<boolean>(() => {
-        if (typeof window === "undefined") return false;
-        return isPushSupported();
-    });
+    // Match the server's first render, then read browser-only Push capabilities.
+    const [permission, setPermission] = useState<NotificationPermission>("default");
+    const [isSupported, setIsSupported] = useState(false);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setIsSupported(isPushSupported());
+            setPermission(getPushPermission());
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         const handleNewToast: ToastListener = (toast) => {
@@ -77,8 +82,8 @@ export function ToastNotificationHub() {
         setPermission(result);
         if (result === "granted") {
             emitLiveToast(
-                "Thông Báo Đẩy Đã Bật!",
-                "Bạn sẽ nhận được cảnh báo thời gian thực khi xe vào bãi hoặc gần hết hạn.",
+                copy("Push notifications enabled", "Đã bật thông báo đẩy"),
+                copy("You will receive live alerts about your parking session.", "Bạn sẽ nhận được cảnh báo theo thời gian thực về phiên đỗ xe."),
                 "success",
             );
         }
@@ -93,13 +98,13 @@ export function ToastNotificationHub() {
             {isSupported && permission !== "granted" && (
                 <div className="pointer-events-auto bg-neutral-900/90 backdrop-blur border border-neutral-700/80 text-white px-3.5 py-2 rounded-full shadow-lg flex items-center gap-2.5 text-xs">
                     <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                    <span>Nhận thông báo khi xe vào/ra?</span>
+                    <span>{copy("Get parking entry and exit alerts?", "Nhận thông báo khi xe vào/ra?")}</span>
                     <button
                         type="button"
                         onClick={handleRequestPermission}
                         className="bg-brand-500 hover:bg-brand-400 text-white font-semibold px-2.5 py-1 rounded-full text-[11px] transition cursor-pointer"
                     >
-                        Bật ngay
+                        {copy("Enable", "Bật ngay")}
                     </button>
                 </div>
             )}
@@ -141,7 +146,7 @@ export function ToastNotificationHub() {
                                         {toast.message}
                                     </p>
                                     <span className="text-[9px] text-neutral-400 mt-1 block">
-                                        Vừa xong
+                                        {copy("Just now", "Vừa xong")}
                                     </span>
                                 </div>
                             </div>
@@ -153,7 +158,7 @@ export function ToastNotificationHub() {
                                     )
                                 }
                                 className="text-neutral-400 hover:text-white p-0.5 rounded cursor-pointer"
-                                aria-label="Đóng"
+                                aria-label={copy("Dismiss", "Đóng")}
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>

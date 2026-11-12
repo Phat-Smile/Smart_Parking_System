@@ -75,9 +75,7 @@ export function CustomerParkingLotDetailPage({
                         )[lot.type] ?? lot.type,
                     ),
                     image: "/images/parkwise/dashboard-parking-structure.webp",
-                    photos: [
-                        "/images/parkwise/dashboard-parking-structure.webp",
-                    ],
+                    photos: [],
                     isPreview: false,
                     latitude: lot.latitude,
                     longitude: lot.longitude,

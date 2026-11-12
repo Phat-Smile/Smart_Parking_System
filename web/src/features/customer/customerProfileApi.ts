@@ -66,3 +66,18 @@ export function uploadCustomerMedia(
 export function getCustomerMediaBlob(url: string) {
     return gatewayFetchBlob(url);
 }
+
+export function deleteCustomerMedia(mediaId: string) {
+    return gatewayFetch<void>(
+        `/api/identity/accounts/me/media/${encodeURIComponent(mediaId)}`,
+        {
+            method: "DELETE",
+        },
+    );
+}
+
+export function deleteMyProfileIdentity() {
+    return gatewayFetch<void>("/api/identity/accounts/me/profile/identity", {
+        method: "DELETE",
+    });
+}

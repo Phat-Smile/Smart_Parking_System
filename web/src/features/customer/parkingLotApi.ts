@@ -12,6 +12,60 @@ export type ParkingLotSummary = {
 /** One row of GET /api/parking/lots/nearby (docs/api/US-SEARCH-002-Nearby-Parking-Lots.md). */
 export type NearbyParkingLot = ParkingLotSummary & { distanceKm: number };
 
+export type CustomerLotSearchItem = ParkingLotSummary & {
+    distanceKm: number | null;
+    drivingTimeMinutes: number | null;
+    startingPrice: number | null;
+    billingMode: string | null;
+    availableSpaces: number | null;
+    prebookable: boolean;
+    compatibility: string[];
+    amenities: string[];
+};
+
+export type CustomerLotSearchFilters = {
+    latitude?: number;
+    longitude?: number;
+    radiusKm?: number;
+    vehicleType?: "Car" | "Motorbike";
+    maxPrice?: number;
+    availableOnly?: boolean;
+    prebookableOnly?: boolean;
+    compatibility?: string[];
+    amenities?: string[];
+    sort?: "recommended" | "name" | "price" | "distance";
+};
+
+export async function searchCustomerParkingLots(
+    filters: CustomerLotSearchFilters,
+    signal?: AbortSignal,
+): Promise<CustomerLotSearchItem[]> {
+    const params = new URLSearchParams({ limit: "50" });
+    for (const key of [
+        "latitude",
+        "longitude",
+        "radiusKm",
+        "vehicleType",
+        "maxPrice",
+        "sort",
+    ] as const) {
+        const value = filters[key];
+        if (value !== undefined) params.set(key, String(value));
+    }
+    if (filters.availableOnly) params.set("availableOnly", "true");
+    if (filters.prebookableOnly) params.set("prebookableOnly", "true");
+    if (filters.compatibility?.length)
+        params.set("compatibility", filters.compatibility.join(","));
+    if (filters.amenities?.length)
+        params.set("amenities", filters.amenities.join(","));
+    const response = await fetch(
+        `${getGatewayBaseUrl()}/api/parking/lots/search?${params}`,
+        { signal },
+    );
+    if (!response.ok) throw new Error("Parking search unavailable");
+    return (await response.json()) as CustomerLotSearchItem[];
+}
+
 export type DailyOpeningHours = {
     dayOfWeek: number;
     isClosed: boolean;
@@ -44,10 +98,18 @@ export type ParkingLotDetail = ParkingLotSummary & {
 
 export class ParkingLotNotFoundError extends Error {}
 
-export async function getApprovedParkingLots(signal?: AbortSignal) {
-    const response = await fetch(`${getGatewayBaseUrl()}/api/parking/lots`, {
-        signal,
-    });
+export async function getApprovedParkingLots(
+    options?: { vehicleType?: "Car" | "Motorbike"; arrivalAt?: string },
+    signal?: AbortSignal,
+) {
+    const query = new URLSearchParams();
+    if (options?.vehicleType) query.set("vehicleType", options.vehicleType);
+    if (options?.arrivalAt) query.set("arrivalAt", options.arrivalAt);
+    const suffix = query.size ? `?${query.toString()}` : "";
+    const response = await fetch(
+        `${getGatewayBaseUrl()}/api/parking/lots${suffix}`,
+        { signal },
+    );
     if (!response.ok) throw new Error("Parking catalog unavailable");
     return (await response.json()) as ParkingLotSummary[];
 }

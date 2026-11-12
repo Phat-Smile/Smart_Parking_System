@@ -21,7 +21,7 @@ public static class VehicleDetailsValidation
         validator.RuleFor(x => details(x)!.ManufacturingYear).InclusiveBetween(1886, DateTime.UtcNow.Year + 1)
             .When(x => details(x)?.ManufacturingYear is not null);
         validator.RuleFor(x => details(x)!.PhotoUrl).MaximumLength(500)
-            .Must(url => url is null || IsCustomerMediaUrl(url) ||
+            .Must(url => url is null || IsCustomerMediaUrl(url) || IsSystemVehicleImageUrl(url) ||
                 (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"))
             .When(x => details(x) is not null);
     }
@@ -29,6 +29,16 @@ public static class VehicleDetailsValidation
     public static bool IsCustomerMediaUrl(string? url) => url is not null &&
         url.StartsWith("/api/identity/accounts/me/media/", StringComparison.Ordinal) &&
         Guid.TryParse(url["/api/identity/accounts/me/media/".Length..], out _);
+
+    public static bool IsSystemVehicleImageUrl(string? url) => url is
+        "/images/parkwise/vehicle-bicycle-default.svg" or
+        "/images/parkwise/vehicle-electric-motorbike-default.svg" or
+        "/images/parkwise/vehicle-motorbike-cutout.png" or
+        "/images/parkwise/vehicle-sedan-cutout.png" or
+        "/images/parkwise/vehicle-suv.png";
+
+    public static bool IsValidBicycleImageUrl(string? url) =>
+        IsCustomerMediaUrl(url) || url == "/images/parkwise/vehicle-bicycle-default.svg";
 
     public static void Apply(Vehicle vehicle, string? nickName, VehicleDetails? details)
     {

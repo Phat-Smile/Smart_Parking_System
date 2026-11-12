@@ -76,7 +76,7 @@ public static class ParkingSystemSecurityExtensions
                 policy.WithOrigins(origins);
 
             policy.WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
-                .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Idempotency-Key")
+                .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Idempotency-Key", "X-Requested-With", "X-SignalR-User-Agent")
                 .WithExposedHeaders("X-Correlation-ID");
         }));
 

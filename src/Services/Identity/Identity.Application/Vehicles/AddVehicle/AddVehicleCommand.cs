@@ -29,7 +29,7 @@ public sealed record AddedVehicleResult(
 public static class AddVehicleErrors
 {
     public static readonly Error BicyclePhotoRequired =
-        new("identity.bicycle_photo_required", "Bicycle photo is required.");
+        new("identity.bicycle_photo_required", "A bicycle needs an uploaded photo or the system illustration.");
     public static readonly Error BicyclePlateNotAllowed =
         new("identity.bicycle_plate_not_allowed", "A bicycle cannot have a license plate.");
     public static readonly Error AccountNotFound =
@@ -39,7 +39,7 @@ public static class AddVehicleErrors
         new("identity.vehicle_plate_already_registered", "Biển số xe này đã được đăng ký trong hệ thống.");
 
     public static readonly Error InvalidLicensePlate =
-        new("identity.invalid_license_plate", "Biển số xe không hợp lệ. Chỉ gồm chữ cái và chữ số (có thể có dấu - . hoặc khoảng trắng), dài 5 đến 12 ký tự.");
+        new("identity.invalid_license_plate", "Biển số không khớp định dạng ô tô hoặc xe máy thông dụng tại Việt Nam.");
 
     public static readonly Error InvalidVehicleType =
         new("identity.invalid_vehicle_type", "Loại phương tiện không hợp lệ. Giá trị hợp lệ: Car, Motorbike, Bicycle.");
@@ -55,9 +55,9 @@ public sealed class AddVehicleCommandValidator : AbstractValidator<AddVehicleCom
         RuleFor(c => c.LicensePlate).MaximumLength(Vehicle.MaxLicensePlateLength)
             .When(c => c.LicensePlate is not null);
         RuleFor(c => c.LicensePlate).Empty().When(c => string.Equals(c.VehicleType, "Bicycle", StringComparison.OrdinalIgnoreCase));
-        RuleFor(c => c.Details).Must(d => !string.IsNullOrWhiteSpace(d?.PhotoUrl))
+        RuleFor(c => c.Details).Must(d => VehicleDetailsValidation.IsValidBicycleImageUrl(d?.PhotoUrl))
             .When(c => string.Equals(c.VehicleType, "Bicycle", StringComparison.OrdinalIgnoreCase))
-            .WithMessage("A bicycle requires a photo URL.");
+            .WithMessage("A bicycle needs an uploaded photo or the system illustration.");
 
         RuleFor(c => c.VehicleType)
             .NotEmpty().WithMessage("Loại phương tiện không được để trống.");
@@ -74,8 +74,6 @@ public sealed class AddVehicleCommandHandler(
     IClock clock,
     ILicensePlateNormalizer plateNormalizer) : IRequestHandler<AddVehicleCommand, Result<AddedVehicleResult>>
 {
-    private const int MinPlateLength = 5;
-    private const int MaxPlateLength = 12;
 
     public async Task<Result<AddedVehicleResult>> Handle(AddVehicleCommand request, CancellationToken cancellationToken)
     {
@@ -91,7 +89,7 @@ public sealed class AddVehicleCommandHandler(
         var vehicleType = Enum.Parse<VehicleDomainType>(typeName);
         if (vehicleType == VehicleDomainType.Bicycle && !string.IsNullOrWhiteSpace(request.LicensePlate))
             return Result<AddedVehicleResult>.Failure(AddVehicleErrors.BicyclePlateNotAllowed);
-        if (vehicleType == VehicleDomainType.Bicycle && !VehicleDetailsValidation.IsCustomerMediaUrl(request.Details?.PhotoUrl))
+        if (vehicleType == VehicleDomainType.Bicycle && !VehicleDetailsValidation.IsValidBicycleImageUrl(request.Details?.PhotoUrl))
             return Result<AddedVehicleResult>.Failure(AddVehicleErrors.BicyclePhotoRequired);
 
         // Same canonical form the plate lookup uses (no spaces, dashes or dots, upper case), so lookup and uniqueness agree.
@@ -101,7 +99,7 @@ public sealed class AddVehicleCommandHandler(
             if (string.IsNullOrWhiteSpace(request.LicensePlate))
                 return Result<AddedVehicleResult>.Failure(AddVehicleErrors.InvalidLicensePlate);
             normalizedPlate = plateNormalizer.Normalize(request.LicensePlate!);
-            if (normalizedPlate.Length is < MinPlateLength or > MaxPlateLength || !normalizedPlate.All(char.IsAsciiLetterOrDigit))
+            if (!VietnamesePlateFormat.IsValid(normalizedPlate, vehicleType))
                 return Result<AddedVehicleResult>.Failure(AddVehicleErrors.InvalidLicensePlate);
             if (await vehicles.PlateExistsAsync(normalizedPlate, cancellationToken))
                 return Result<AddedVehicleResult>.Failure(AddVehicleErrors.PlateAlreadyRegistered);

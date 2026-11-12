@@ -253,6 +253,11 @@ export function CustomerHeader({
 
 function CustomerNotifications() {
     const { copy } = useCustomerLanguage();
+    const session = useSyncExternalStore(
+        subscribeAuthSession,
+        getAuthSessionSnapshot,
+        () => null,
+    );
     const [open, setOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const rootRef = useRef<HTMLDivElement>(null);
@@ -260,6 +265,7 @@ function CustomerNotifications() {
     const panelId = useId();
 
     useEffect(() => {
+        if (!session) return;
         let active = true;
         const refresh = () => {
             void getMyNotifications(true, 1, 1)
@@ -293,7 +299,7 @@ function CustomerNotifications() {
                 onVisibilityChange,
             );
         };
-    }, []);
+    }, [session]);
 
     useEffect(() => {
         if (!open) return;
