@@ -307,7 +307,12 @@ internal static class ParkingFeeEndpoints
                         httpContext, StatusCodes.Status400BadRequest, ParkingFeePaymentErrors.TransactionIdInvalid);
                 }
 
-                var query = new GetParkingFeePaymentStatusQuery(transactionGuid);
+                var callerAccountId = Guid.TryParse(
+                    httpContext.User.FindFirst("sub")?.Value, out var id)
+                    ? id : (Guid?)null;
+                var callerRole = httpContext.User.FindFirst("role")?.Value;
+
+                var query = new GetParkingFeePaymentStatusQuery(transactionGuid, callerAccountId, callerRole);
                 var result = await sender.Send(query, cancellationToken);
 
                 if (result.IsSuccess)
@@ -318,6 +323,12 @@ internal static class ParkingFeeEndpoints
                 if (result.Error!.Code == ParkingFeePaymentErrors.TransactionNotFound.Code)
                 {
                     return BusinessProblem.Create(httpContext, StatusCodes.Status404NotFound, result.Error);
+                }
+
+                // Same convention as the receipt routes: someone else's payment is 403.
+                if (result.Error!.Code == PayParkingFeeErrors.SessionAccessDenied.Code)
+                {
+                    return BusinessProblem.Create(httpContext, StatusCodes.Status403Forbidden, result.Error);
                 }
 
                 return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);

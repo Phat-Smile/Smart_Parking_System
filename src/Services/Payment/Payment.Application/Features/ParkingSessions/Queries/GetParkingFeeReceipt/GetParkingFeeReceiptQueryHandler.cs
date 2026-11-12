@@ -1,5 +1,6 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Payment.Application.Common.Authorization;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 
@@ -7,7 +8,8 @@ namespace ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.Get
 
 public sealed class GetParkingFeeReceiptQueryHandler(
     IParkingFeePaymentRepository paymentRepository,
-    IParkingSessionGateway parkingGateway)
+    IParkingSessionGateway parkingGateway,
+    IParkingLotMembershipGateway membershipGateway)
     : IRequestHandler<GetParkingFeeReceiptQuery, Result<ParkingFeeReceiptResponse>>
 {
     public async Task<Result<ParkingFeeReceiptResponse>> Handle(
@@ -25,16 +27,10 @@ public sealed class GetParkingFeeReceiptQueryHandler(
             return Result<ParkingFeeReceiptResponse>.Failure(ParkingFeePaymentErrors.TransactionNotFound);
         }
 
-        var isPrivilegedRole = string.Equals(query.CallerRole, "Admin", StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(query.CallerRole, "Staff", StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(query.CallerRole, "Owner", StringComparison.OrdinalIgnoreCase);
-
-        if (!isPrivilegedRole && payment.AccountId.HasValue && query.CallerAccountId.HasValue)
+        if (!await ParkingFeePaymentReadAccess.CanReadAsync(
+                payment, query.CallerAccountId, query.CallerRole, membershipGateway, cancellationToken))
         {
-            if (payment.AccountId.Value != query.CallerAccountId.Value)
-            {
-                return Result<ParkingFeeReceiptResponse>.Failure(PayParkingFeeErrors.SessionAccessDenied);
-            }
+            return Result<ParkingFeeReceiptResponse>.Failure(PayParkingFeeErrors.SessionAccessDenied);
         }
 
         DateTimeOffset? entryTimeUtc = null;
