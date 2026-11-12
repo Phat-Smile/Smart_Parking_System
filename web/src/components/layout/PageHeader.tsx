@@ -7,11 +7,7 @@ interface PageHeaderProps {
     actions?: ReactNode;
 }
 
-export function PageHeader({
-    title,
-    subtitle,
-    actions,
-}: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
     return (
         <div className="ph">
             <div>

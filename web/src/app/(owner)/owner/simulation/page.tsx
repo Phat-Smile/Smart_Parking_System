@@ -329,8 +329,7 @@ export default function OwnerSimulationPage() {
                 </div>
 
                 <h2 className="pw-sim-banner-title">
-                    Môi trường trải nghiệm thử nghiệm dành cho
-                    Chủ bãi xe
+                    Môi trường trải nghiệm thử nghiệm dành cho Chủ bãi xe
                 </h2>
                 <p className="pw-sim-banner-desc">
                     Hồ sơ của cơ sở{" "}
@@ -379,8 +378,7 @@ export default function OwnerSimulationPage() {
                     className={`pw-sim-tab-btn ${activeTab === "spots" ? "active" : ""}`}
                     onClick={() => setActiveTab("spots")}
                 >
-                    Thao tác Ô đỗ tương tác ({availableCount}{" "}
-                    trống)
+                    Thao tác Ô đỗ tương tác ({availableCount} trống)
                 </button>
             </div>
 
@@ -656,7 +654,8 @@ export default function OwnerSimulationPage() {
                                     fontSize: 13.5,
                                 }}
                             >
-                                Giao diện Bảng giá & Chính sách cọc 5 thẻ chuyên nghiệp
+                                Giao diện Bảng giá & Chính sách cọc 5 thẻ chuyên
+                                nghiệp
                             </div>
                             <p
                                 style={{
@@ -665,7 +664,9 @@ export default function OwnerSimulationPage() {
                                     fontSize: 12.5,
                                 }}
                             >
-                                Trải nghiệm trang Bảng giá & Đặt cọc mô phỏng độc lập với đầy đủ phụ thu giờ cao điểm, qua đêm và công cụ tính toán tự động.
+                                Trải nghiệm trang Bảng giá & Đặt cọc mô phỏng
+                                độc lập với đầy đủ phụ thu giờ cao điểm, qua đêm
+                                và công cụ tính toán tự động.
                             </p>
                         </div>
                         <Link

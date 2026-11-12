@@ -118,11 +118,26 @@ export function ParkingLotsClientView({
                     }}
                 >
                     <div style={{ fontSize: 36, marginBottom: 12 }}>🅿️</div>
-                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f1b3d", margin: "0 0 8px" }}>
+                    <h3
+                        style={{
+                            fontSize: 18,
+                            fontWeight: 800,
+                            color: "#0f1b3d",
+                            margin: "0 0 8px",
+                        }}
+                    >
                         Chưa có bãi đỗ xe nào trong danh mục này
                     </h3>
-                    <p style={{ color: "#64748b", fontSize: 14, maxWidth: 520, margin: "0 auto 20px" }}>
-                        Hãy đăng ký bãi đỗ xe mới để bắt đầu thiết lập sơ đồ ô đỗ, bảng giá cước và đưa bãi xe vào hoạt động.
+                    <p
+                        style={{
+                            color: "#64748b",
+                            fontSize: 14,
+                            maxWidth: 520,
+                            margin: "0 auto 20px",
+                        }}
+                    >
+                        Hãy đăng ký bãi đỗ xe mới để bắt đầu thiết lập sơ đồ ô
+                        đỗ, bảng giá cước và đưa bãi xe vào hoạt động.
                     </p>
                     <Link
                         href="/owner/parking-lots/new"

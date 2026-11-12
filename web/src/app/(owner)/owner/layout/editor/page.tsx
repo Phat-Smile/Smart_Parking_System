@@ -647,9 +647,7 @@ export default function OwnerLayoutEditorPage() {
                                                             : "#065f46",
                                                     }}
                                                 >
-                                                    {isCar
-                                                        ? "Ô TÔ"
-                                                        : "XE MÁY"}
+                                                    {isCar ? "Ô TÔ" : "XE MÁY"}
                                                 </span>
                                                 <strong
                                                     style={{

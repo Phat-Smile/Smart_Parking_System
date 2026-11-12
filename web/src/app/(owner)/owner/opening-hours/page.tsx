@@ -374,9 +374,7 @@ export default function OwnerOpeningHoursPage() {
                                 boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                             }}
                         >
-                            {isSubmitting
-                                ? "Đang lưu..."
-                                : "Lưu giờ hoạt động"}
+                            {isSubmitting ? "Đang lưu..." : "Lưu giờ hoạt động"}
                         </button>
                     </div>
                 }
@@ -977,8 +975,8 @@ export default function OwnerOpeningHoursPage() {
                                                     fontWeight: 700,
                                                 }}
                                             >
-                                                Bãi xe tạm ngừng
-                                                đón khách ngày này
+                                                Bãi xe tạm ngừng đón khách ngày
+                                                này
                                             </div>
                                         ) : d.is24Hours ? (
                                             <div
@@ -995,8 +993,8 @@ export default function OwnerOpeningHoursPage() {
                                                     fontWeight: 700,
                                                 }}
                                             >
-                                                Phục vụ liên tục
-                                                cả ngày và đêm (24/24)
+                                                Phục vụ liên tục cả ngày và đêm
+                                                (24/24)
                                             </div>
                                         ) : (
                                             <div

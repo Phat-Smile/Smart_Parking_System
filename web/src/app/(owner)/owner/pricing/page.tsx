@@ -127,17 +127,12 @@ export default function OwnerPricingManagementPage() {
     );
 
     const [viewMode, setViewMode] = useOwnerViewMode();
-    const [isSampleMode, setIsSampleMode] = useState(false);
+    const isSampleMode = viewMode === "sample";
 
     useEffect(() => {
-        if (typeof window !== "undefined") {
-            const params = new URLSearchParams(window.location.search);
-            const isSample =
-                params.get("mode") === "sample" || viewMode === "sample";
-            setIsSampleMode(isSample);
-            if (isSample) {
-                setViewMode("sample");
-            }
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("mode") === "sample" && viewMode !== "sample") {
+            setViewMode("sample");
         }
     }, [viewMode, setViewMode]);
 
@@ -360,7 +355,13 @@ export default function OwnerPricingManagementPage() {
                         gap: 12,
                     }}
                 >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                        }}
+                    >
                         <span style={{ fontSize: 20 }}>🟡</span>
                         <div>
                             <div
@@ -379,11 +380,20 @@ export default function OwnerPricingManagementPage() {
                                     fontSize: 13,
                                 }}
                             >
-                                Bạn đang xem và thử nghiệm Bảng giá & Chính sách cọc của Bản mẫu. Mọi thao tác cấu hình chỉ áp dụng cho phiên thử nghiệm và không ảnh hưởng cơ sở dữ liệu thực tế.
+                                Bạn đang xem và thử nghiệm Bảng giá & Chính sách
+                                cọc của Bản mẫu. Mọi thao tác cấu hình chỉ áp
+                                dụng cho phiên thử nghiệm và không ảnh hưởng cơ
+                                sở dữ liệu thực tế.
                             </p>
                         </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: 8,
+                            alignItems: "center",
+                        }}
+                    >
                         <Link
                             href="/owner/simulation"
                             style={{
@@ -445,8 +455,8 @@ export default function OwnerPricingManagementPage() {
                         Bảng giá & Chính sách cọc
                     </h1>
                     <p style={{ fontSize: 13.5, color: "#718071", margin: 0 }}>
-                        Thiết lập cách tính phí, tiền cọc và phụ thu cho từng bãi
-                        đỗ xe.
+                        Thiết lập cách tính phí, tiền cọc và phụ thu cho từng
+                        bãi đỗ xe.
                     </p>
                 </div>
 
@@ -813,7 +823,13 @@ export default function OwnerPricingManagementPage() {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                             >
-                                <rect x="2" y="5" width="20" height="14" rx="2" />
+                                <rect
+                                    x="2"
+                                    y="5"
+                                    width="20"
+                                    height="14"
+                                    rx="2"
+                                />
                                 <line x1="2" y1="10" x2="22" y2="10" />
                             </svg>
                         </div>
@@ -987,7 +1003,13 @@ export default function OwnerPricingManagementPage() {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                             >
-                                <rect width="20" height="14" x="2" y="5" rx="2" />
+                                <rect
+                                    width="20"
+                                    height="14"
+                                    x="2"
+                                    y="5"
+                                    rx="2"
+                                />
                                 <line x1="2" x2="22" y1="10" y2="10" />
                             </svg>
                         </div>
@@ -1310,7 +1332,8 @@ export default function OwnerPricingManagementPage() {
                                                 ? "#FFFFFF"
                                                 : "#718071",
                                         fontSize: 13,
-                                        fontWeight: simVehicle === "car" ? 750 : 600,
+                                        fontWeight:
+                                            simVehicle === "car" ? 750 : 600,
                                         cursor: "pointer",
                                         transition: "all 0.15s ease",
                                         boxShadow:
@@ -1338,7 +1361,8 @@ export default function OwnerPricingManagementPage() {
                                                 ? "#FFFFFF"
                                                 : "#718071",
                                         fontSize: 13,
-                                        fontWeight: simVehicle === "moto" ? 750 : 600,
+                                        fontWeight:
+                                            simVehicle === "moto" ? 750 : 600,
                                         cursor: "pointer",
                                         transition: "all 0.15s ease",
                                         boxShadow:
@@ -1367,7 +1391,9 @@ export default function OwnerPricingManagementPage() {
                             </label>
                             <select
                                 value={simDuration}
-                                onChange={(e) => setSimDuration(Number(e.target.value))}
+                                onChange={(e) =>
+                                    setSimDuration(Number(e.target.value))
+                                }
                                 style={{
                                     width: "100%",
                                     padding: "9px 12px",
@@ -1407,7 +1433,9 @@ export default function OwnerPricingManagementPage() {
                                 <input
                                     type="checkbox"
                                     checked={isOvernight}
-                                    onChange={(e) => setIsOvernight(e.target.checked)}
+                                    onChange={(e) =>
+                                        setIsOvernight(e.target.checked)
+                                    }
                                     style={{
                                         width: 16,
                                         height: 16,
@@ -1457,7 +1485,9 @@ export default function OwnerPricingManagementPage() {
                                             ? "pointer"
                                             : "not-allowed",
                                         fontSize: 13,
-                                        color: enablePeakSurge ? "#172018" : "#A3AFA3",
+                                        color: enablePeakSurge
+                                            ? "#172018"
+                                            : "#A3AFA3",
                                         fontWeight: 500,
                                     }}
                                 >
@@ -1496,7 +1526,9 @@ export default function OwnerPricingManagementPage() {
                                         checked={simSurgeCongestion}
                                         disabled={!enableCongestionSurge}
                                         onChange={(e) =>
-                                            setSimSurgeCongestion(e.target.checked)
+                                            setSimSurgeCongestion(
+                                                e.target.checked,
+                                            )
                                         }
                                         style={{
                                             width: 15,
@@ -1561,7 +1593,12 @@ export default function OwnerPricingManagementPage() {
                                 }}
                             >
                                 <span>Giá gốc</span>
-                                <span style={{ fontWeight: 650, color: "#172018" }}>
+                                <span
+                                    style={{
+                                        fontWeight: 650,
+                                        color: "#172018",
+                                    }}
+                                >
                                     {basePrice.toLocaleString("vi-VN")} đ
                                 </span>
                             </div>
@@ -1574,7 +1611,16 @@ export default function OwnerPricingManagementPage() {
                                 }}
                             >
                                 <span>Phụ thu qua đêm</span>
-                                <span style={{ color: overnightFee > 0 ? "#172018" : "#718071", fontWeight: overnightFee > 0 ? 600 : 400 }}>
+                                <span
+                                    style={{
+                                        color:
+                                            overnightFee > 0
+                                                ? "#172018"
+                                                : "#718071",
+                                        fontWeight:
+                                            overnightFee > 0 ? 600 : 400,
+                                    }}
+                                >
                                     {overnightFee.toLocaleString("vi-VN")} đ
                                 </span>
                             </div>
@@ -1587,7 +1633,13 @@ export default function OwnerPricingManagementPage() {
                                 }}
                             >
                                 <span>Phụ thu giờ cao điểm</span>
-                                <span style={{ color: peakFee > 0 ? "#172018" : "#718071", fontWeight: peakFee > 0 ? 600 : 400 }}>
+                                <span
+                                    style={{
+                                        color:
+                                            peakFee > 0 ? "#172018" : "#718071",
+                                        fontWeight: peakFee > 0 ? 600 : 400,
+                                    }}
+                                >
                                     {peakFee.toLocaleString("vi-VN")} đ
                                 </span>
                             </div>
@@ -1600,7 +1652,16 @@ export default function OwnerPricingManagementPage() {
                                 }}
                             >
                                 <span>Phụ thu bãi đỗ</span>
-                                <span style={{ color: congestionFee > 0 ? "#172018" : "#718071", fontWeight: congestionFee > 0 ? 600 : 400 }}>
+                                <span
+                                    style={{
+                                        color:
+                                            congestionFee > 0
+                                                ? "#172018"
+                                                : "#718071",
+                                        fontWeight:
+                                            congestionFee > 0 ? 600 : 400,
+                                    }}
+                                >
                                     {congestionFee.toLocaleString("vi-VN")} đ
                                 </span>
                             </div>
@@ -1616,7 +1677,12 @@ export default function OwnerPricingManagementPage() {
                                 }}
                             >
                                 <span>Tiền cọc (trừ khi check-out)</span>
-                                <span style={{ fontWeight: 800, color: "#172018" }}>
+                                <span
+                                    style={{
+                                        fontWeight: 800,
+                                        color: "#172018",
+                                    }}
+                                >
                                     {deposit.toLocaleString("vi-VN")} đ
                                 </span>
                             </div>
@@ -1624,6 +1690,6 @@ export default function OwnerPricingManagementPage() {
                     </div>
                 </div>
             </div>
-</div>
+        </div>
     );
 }
