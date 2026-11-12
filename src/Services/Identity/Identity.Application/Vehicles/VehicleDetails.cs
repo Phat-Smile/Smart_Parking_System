@@ -34,6 +34,7 @@ public static class VehicleDetailsValidation
         "/images/parkwise/vehicle-bicycle-default.svg" or
         "/images/parkwise/vehicle-electric-motorbike-default.svg" or
         "/images/parkwise/vehicle-motorbike-cutout.png" or
+        "/images/parkwise/vehicle-electric-car-cutout.png" or
         "/images/parkwise/vehicle-sedan-cutout.png" or
         "/images/parkwise/vehicle-suv.png";
 

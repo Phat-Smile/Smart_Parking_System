@@ -251,7 +251,7 @@ export function CustomerHeader({
     );
 }
 
-function CustomerNotifications() {
+export function CustomerNotifications() {
     const { copy } = useCustomerLanguage();
     const session = useSyncExternalStore(
         subscribeAuthSession,
