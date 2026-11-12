@@ -16,7 +16,8 @@ internal static class LoginSession
         IRefreshTokenRepository refreshTokens,
         IRefreshTokenGenerator refreshTokenGenerator,
         IJwtTokenIssuer jwtTokenIssuer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string authenticationMethods = AuthSession.DefaultAuthenticationMethod)
     {
         var session = AuthSession.Create(
             Guid.NewGuid(),
@@ -24,7 +25,8 @@ internal static class LoginSession
             deviceInfo,
             ipAddress,
             now,
-            now.AddDays(AuthSession.DefaultAbsoluteLifetimeDays));
+            now.AddDays(AuthSession.DefaultAbsoluteLifetimeDays),
+            authenticationMethods);
         authSessions.Add(session);
 
         var (rawRefreshToken, refreshTokenHash) = refreshTokenGenerator.GenerateToken();
@@ -40,7 +42,7 @@ internal static class LoginSession
         await accounts.SaveChangesAsync(cancellationToken);
 
         return new LoginResponse(
-            jwtTokenIssuer.IssueAccessToken(account, now),
+            jwtTokenIssuer.IssueAccessToken(account, session.Id, session.AuthenticationMethods, now),
             "Bearer",
             jwtTokenIssuer.AccessTokenExpirationSeconds,
             rawRefreshToken,

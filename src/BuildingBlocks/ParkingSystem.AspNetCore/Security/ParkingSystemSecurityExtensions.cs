@@ -20,6 +20,9 @@ public static class ParkingSystemSecurityExtensions
         // Authentication responses already use a safe challenge; suppress these diagnostic categories.
         builder.Logging.AddFilter("Microsoft.AspNetCore.Authentication.JwtBearer", LogLevel.None);
         builder.Logging.AddFilter("Microsoft.IdentityModel", LogLevel.None);
+        // SignalR passes tokens in ?access_token=; prevent Hosting.Diagnostics from logging full request URLs
+        // at Information level on non-console providers (StructuredRequestLoggingMiddleware logs sanitized routes).
+        builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
         builder.AddParkingSystemServiceKeyValidation();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
@@ -51,6 +54,30 @@ public static class ParkingSystemSecurityExtensions
                     ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
                     ClockSkew = TimeSpan.FromSeconds(settings.ClockSkewSeconds)
                 };
+
+                options.Events ??= new JwtBearerEvents();
+                var previousOnMessageReceived = options.Events.OnMessageReceived;
+                options.Events.OnMessageReceived = async context =>
+                {
+                    if (previousOnMessageReceived is not null)
+                    {
+                        await previousOnMessageReceived(context);
+                    }
+
+                    if (!string.IsNullOrEmpty(context.Token))
+                    {
+                        return;
+                    }
+
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path.Value;
+                    if (!string.IsNullOrWhiteSpace(accessToken) &&
+                        path is not null &&
+                        path.StartsWith("/hubs/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Token = accessToken;
+                    }
+                };
             });
 
         builder.Services.AddAuthorization(options =>
@@ -76,7 +103,7 @@ public static class ParkingSystemSecurityExtensions
                 policy.WithOrigins(origins);
 
             policy.WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
-                .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID")
+                .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Idempotency-Key", "X-Idempotency-Key", "X-Requested-With", "X-SignalR-User-Agent")
                 .WithExposedHeaders("X-Correlation-ID");
         }));
 

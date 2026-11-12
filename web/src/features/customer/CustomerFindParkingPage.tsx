@@ -1,12 +1,37 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+    type FormEvent,
+    type KeyboardEvent,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CustomerMap } from "./CustomerMap";
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
+import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
+import {
+    getApprovedParkingLots,
+    getParkingLotRecommendations,
+    searchNearbyParkingLots,
+    type NearbyParkingLot,
+    type ParkingLotSummary,
+    type RecommendedParkingLot,
+} from "./parkingLotApi";
+
+// A search result: an approved lot, with its distance when the search had a point.
+type SearchResult = ParkingLotSummary & { distanceKm?: number };
+import {
+    geocodeDestination,
+    retrieveDestination,
+    suggestDestinations,
+    type DestinationSuggestion,
+    type MapCoordinates,
+} from "./geocodeDestination";
 
 const MAX_PRICE = 50000;
 
@@ -37,48 +62,6 @@ const filterOptions = {
     ],
 };
 
-const parkingExamples = [
-    {
-        id: "parkside",
-        name: "Parkside Parking",
-        image: "/images/parkwise/dashboard-parking-entrance.webp",
-        type: "City parking entrance",
-        area: "District 1",
-        hourlyPrice: 25000,
-        distanceKm: 1.2,
-        spaces: 12,
-        compatible: ["car", "motorbike"],
-        amenities: ["covered", "always-open", "cctv"],
-        prebookable: true,
-    },
-    {
-        id: "sunrise",
-        name: "City parking",
-        image: "/images/parkwise/dashboard-parking-structure.webp",
-        type: "Multi-storey parking",
-        area: "Binh Thanh",
-        hourlyPrice: 15000,
-        distanceKm: 2.4,
-        spaces: 4,
-        compatible: ["motorbike"],
-        amenities: ["always-open", "cctv"],
-        prebookable: false,
-    },
-    {
-        id: "central",
-        name: "Covered garage",
-        image: "/images/parkwise/dashboard-parking-garage.webp",
-        type: "Sheltered spaces",
-        area: "District 3",
-        hourlyPrice: 40000,
-        distanceKm: 4.3,
-        spaces: 0,
-        compatible: ["car"],
-        amenities: ["covered", "ev-charging", "cctv"],
-        prebookable: false,
-    },
-];
-
 export function CustomerFindParkingPage({
     fontClassName,
     initialSearch = { destination: "", date: "", time: "", vehicle: "any" },
@@ -91,6 +74,7 @@ export function CustomerFindParkingPage({
         vehicle: string;
     };
 }) {
+    const { copy, language } = useCustomerLanguage();
     const [destination, setDestination] = useState(initialSearch.destination);
     const [parkingDate, setParkingDate] = useState(initialSearch.date);
     const [parkingTime, setParkingTime] = useState(initialSearch.time);
@@ -100,10 +84,40 @@ export function CustomerFindParkingPage({
     const [searchMessage, setSearchMessage] = useState("");
     const [submittedDestination, setSubmittedDestination] = useState("");
     const [locationBusy, setLocationBusy] = useState(false);
+    const [searchBusy, setSearchBusy] = useState(false);
+    const searchAbortRef = useRef<AbortController | null>(null);
+    const suggestionAbortRef = useRef<AbortController | null>(null);
+    const suggestionSessionRef = useRef<string | null>(null);
+    const destinationInputRef = useRef<HTMLInputElement>(null);
+    const [suggestions, setSuggestions] = useState<DestinationSuggestion[]>([]);
+    const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+    const [suggestionsBusy, setSuggestionsBusy] = useState(false);
+    const [suggestionsError, setSuggestionsError] = useState(false);
+    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+    const [selectedSuggestion, setSelectedSuggestion] =
+        useState<DestinationSuggestion | null>(null);
+    const [destinationLocation, setDestinationLocation] =
+        useState<MapCoordinates | null>(null);
     const [currentLocation, setCurrentLocation] = useState<{
         longitude: number;
         latitude: number;
     } | null>(null);
+    const [approvedLots, setApprovedLots] = useState<ParkingLotSummary[]>([]);
+    const [catalogState, setCatalogState] = useState<
+        "loading" | "ready" | "error"
+    >("loading");
+    useEffect(() => {
+        const controller = new AbortController();
+        getApprovedParkingLots(controller.signal)
+            .then((lots) => {
+                setApprovedLots(lots);
+                setCatalogState("ready");
+            })
+            .catch(() => {
+                if (!controller.signal.aborted) setCatalogState("error");
+            });
+        return () => controller.abort();
+    }, []);
     useEffect(() => {
         const frame = requestAnimationFrame(() => {
             const now = new Date();
@@ -135,6 +149,58 @@ export function CustomerFindParkingPage({
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
         );
     }, [initialSearch.destination]);
+    useEffect(
+        () => () => {
+            searchAbortRef.current?.abort();
+            suggestionAbortRef.current?.abort();
+        },
+        [],
+    );
+    useEffect(() => {
+        const query = destination.trim();
+        const token = getPublicMapboxToken();
+        if (
+            !token ||
+            query.length < 3 ||
+            query === "Current location" ||
+            selectedSuggestion?.name === query
+        ) {
+            return;
+        }
+
+        const controller = new AbortController();
+        suggestionAbortRef.current = controller;
+        const timer = window.setTimeout(async () => {
+            const sessionToken =
+                suggestionSessionRef.current ?? crypto.randomUUID();
+            suggestionSessionRef.current = sessionToken;
+            try {
+                const matches = await suggestDestinations(
+                    query,
+                    token,
+                    sessionToken,
+                    controller.signal,
+                );
+                if (controller.signal.aborted) return;
+                setSuggestions(matches);
+                setActiveSuggestionIndex(-1);
+                setSuggestionsOpen(
+                    document.activeElement === destinationInputRef.current,
+                );
+            } catch {
+                if (controller.signal.aborted) return;
+                setSuggestions([]);
+                setSuggestionsError(true);
+            } finally {
+                if (!controller.signal.aborted) setSuggestionsBusy(false);
+            }
+        }, 300);
+
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [destination, selectedSuggestion]);
     const [filters, setFilters] = useState(initialFilters);
     const activeFilterCount =
         Number(filters.maxPrice < MAX_PRICE) +
@@ -148,40 +214,81 @@ export function CustomerFindParkingPage({
         hasActiveFilters ||
         Boolean(destination.trim() || submittedDestination) ||
         vehicleType !== "any";
-    const visibleParkings = parkingExamples
-        .filter((parking) => {
-            const query = submittedDestination.toLocaleLowerCase();
-            return (
-                (!query ||
-                    query === "current location" ||
-                    `${parking.name} ${parking.type} ${parking.area} ho chi minh city`
-                        .toLocaleLowerCase()
-                        .includes(query)) &&
-                parking.hourlyPrice <= filters.maxPrice &&
-                (filters.distance === "any" ||
-                    parking.distanceKm <= Number(filters.distance)) &&
-                (filters.availability === "any" ||
-                    (filters.availability === "available" &&
-                        parking.spaces > 0) ||
-                    (filters.availability === "prebookable" &&
-                        parking.prebookable)) &&
-                (filters.compatibility.length === 0 ||
-                    filters.compatibility.some((type) =>
-                        parking.compatible.includes(type),
-                    )) &&
-                filters.amenities.every((amenity) =>
-                    parking.amenities.includes(amenity),
-                ) &&
-                (vehicleType === "any" ||
-                    parking.compatible.includes(vehicleType))
-            );
-        })
-        .sort((a, b) => {
-            if (filters.sort === "name") return a.name.localeCompare(b.name);
-            if (filters.sort === "price") return a.hourlyPrice - b.hourlyPrice;
-            if (filters.sort === "distance") return a.distanceKm - b.distanceKm;
-            return parkingExamples.indexOf(a) - parkingExamples.indexOf(b);
-        });
+    const searchOrigin = destinationLocation ?? currentLocation;
+    const radiusKm = filters.distance === "any" ? 5 : Number(filters.distance);
+    const [nearby, setNearby] = useState<{
+        key: string;
+        state: "loading" | "ready" | "error";
+        lots: NearbyParkingLot[];
+    } | null>(null);
+    const [recommendations, setRecommendations] = useState<{
+        key: string;
+        lots: RecommendedParkingLot[];
+    } | null>(null);
+    const originKey = searchOrigin
+        ? `${searchOrigin.latitude},${searchOrigin.longitude},${radiusKm}`
+        : "";
+    useEffect(() => {
+        if (!originKey) return;
+        const [latitude, longitude, radius] = originKey.split(",").map(Number);
+        const controller = new AbortController();
+        void (async () => {
+            setNearby({ key: originKey, state: "loading", lots: [] });
+            try {
+                const lots = await searchNearbyParkingLots(
+                    latitude,
+                    longitude,
+                    radius,
+                    controller.signal,
+                );
+                setNearby({ key: originKey, state: "ready", lots });
+            } catch {
+                if (!controller.signal.aborted)
+                    setNearby({ key: originKey, state: "error", lots: [] });
+            }
+
+            try {
+                const recResult = await getParkingLotRecommendations(
+                    latitude,
+                    longitude,
+                    {
+                        vehicleType:
+                            vehicleType === "motorbike" ? "Motorbike" : "Car",
+                        radiusKm: radius,
+                    },
+                    controller.signal,
+                );
+                if (!controller.signal.aborted) {
+                    setRecommendations({
+                        key: originKey,
+                        lots: recResult.recommendedLots,
+                    });
+                }
+            } catch {
+                if (!controller.signal.aborted) {
+                    setRecommendations({ key: originKey, lots: [] });
+                }
+            }
+        })();
+        return () => controller.abort();
+    }, [originKey, vehicleType]);
+    const currentRecommendations =
+        recommendations?.key === originKey ? recommendations.lots : null;
+    const nearbyCurrent = nearby?.key === originKey ? nearby : null;
+    const resultsState: "loading" | "ready" | "error" = originKey
+        ? (nearbyCurrent?.state ?? "loading")
+        : catalogState;
+    const results: SearchResult[] = originKey
+        ? (nearbyCurrent?.lots ?? [])
+        : approvedLots;
+    // Price, availability, vehicle type and amenity filters need data Parking does not return in search yet.
+    const visibleParkings = [...results].sort((a, b) => {
+        if (filters.sort === "name") return a.name.localeCompare(b.name);
+        return (
+            (a.distanceKm ?? 0) - (b.distanceKm ?? 0) ||
+            a.name.localeCompare(b.name)
+        );
+    });
     const activeSelectedId = visibleParkings.some(
         (parking) => parking.id === selectedId,
     )
@@ -189,6 +296,15 @@ export function CustomerFindParkingPage({
         : (visibleParkings[0]?.id ?? "");
 
     function useCurrentLocation() {
+        searchAbortRef.current?.abort();
+        suggestionAbortRef.current?.abort();
+        suggestionSessionRef.current = null;
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        setSuggestions([]);
+        setSelectedSuggestion(null);
+        setSearchBusy(false);
+        setDestinationLocation(null);
         if (!navigator.geolocation) {
             setSearchMessage(
                 "Location is not supported by this browser. Enter an address instead.",
@@ -204,6 +320,7 @@ export function CustomerFindParkingPage({
                     latitude: coords.latitude,
                 });
                 setDestination("Current location");
+                setSubmittedDestination("Current location");
                 setSearchMessage(
                     getPublicMapboxToken()
                         ? "Current location selected and shown on the map."
@@ -223,17 +340,158 @@ export function CustomerFindParkingPage({
         );
     }
 
-    function handleSearch(event: FormEvent<HTMLFormElement>) {
+    async function selectSuggestion(suggestion: DestinationSuggestion) {
+        const token = getPublicMapboxToken();
+        const sessionToken = suggestionSessionRef.current;
+        if (!token || !sessionToken) return;
+
+        suggestionAbortRef.current?.abort();
+        searchAbortRef.current?.abort();
+        setDestination(suggestion.name);
+        setSelectedSuggestion(suggestion);
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        setSuggestions([]);
+        setActiveSuggestionIndex(-1);
+        setSearchBusy(true);
+        setSearchMessage("Locating destination on Mapbox…");
+        destinationInputRef.current?.focus();
+
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        try {
+            const coordinates = await retrieveDestination(
+                suggestion.id,
+                token,
+                sessionToken,
+                controller.signal,
+            );
+            if (controller.signal.aborted) return;
+            if (!coordinates) {
+                setSearchMessage("Destination not found. Try another place.");
+                return;
+            }
+            setCurrentLocation(null);
+            setDestinationLocation(coordinates);
+            setSubmittedDestination("");
+            setSearchMessage(
+                `Showing approved parking lots near “${suggestion.name}”.`,
+            );
+        } catch {
+            if (!controller.signal.aborted) {
+                setSearchMessage(
+                    "Mapbox destination search is unavailable. Try again later.",
+                );
+            }
+        } finally {
+            if (searchAbortRef.current === controller) {
+                searchAbortRef.current = null;
+                setSearchBusy(false);
+            }
+            if (suggestionSessionRef.current === sessionToken) {
+                suggestionSessionRef.current = null;
+            }
+        }
+    }
+
+    function handleDestinationKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+        if (event.key === "Escape") {
+            setSuggestionsOpen(false);
+            return;
+        }
+        if (!suggestionsOpen || suggestions.length === 0) return;
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setActiveSuggestionIndex(
+                (index) => (index + 1) % suggestions.length,
+            );
+        } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setActiveSuggestionIndex(
+                (index) => (index <= 0 ? suggestions.length : index) - 1,
+            );
+        } else if (event.key === "Enter" && activeSuggestionIndex >= 0) {
+            event.preventDefault();
+            void selectSuggestion(suggestions[activeSuggestionIndex]);
+        }
+    }
+
+    async function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setSubmittedDestination(destination.trim());
-        setSearchMessage(
-            destination.trim()
-                ? `Showing matching example locations for “${destination.trim()}”.`
-                : "Showing all example parking locations.",
-        );
+        searchAbortRef.current?.abort();
+        suggestionAbortRef.current?.abort();
+        suggestionSessionRef.current = null;
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        const query = destination.trim();
+        const token = getPublicMapboxToken();
+
+        if (selectedSuggestion?.name === query && destinationLocation) {
+            setSearchBusy(false);
+            setSearchMessage(`Showing approved parking lots near “${query}”.`);
+            return;
+        }
+
+        if (!query || query === "Current location" || !token) {
+            setSearchBusy(false);
+            setDestinationLocation(null);
+            setSubmittedDestination(query);
+            setSearchMessage(
+                query
+                    ? "Destination search needs the Mapbox token. Showing all approved parking lots."
+                    : "Showing all approved parking lots.",
+            );
+            return;
+        }
+
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        setSearchBusy(true);
+        setDestinationLocation(null);
+        setSubmittedDestination("");
+        setSearchMessage("Finding destination on Mapbox…");
+        try {
+            const coordinates = await geocodeDestination(
+                query,
+                token,
+                controller.signal,
+            );
+            if (controller.signal.aborted) return;
+            if (!coordinates) {
+                setSearchMessage("Destination not found. Try another address.");
+                return;
+            }
+            setCurrentLocation(null);
+            setDestinationLocation(coordinates);
+            setSubmittedDestination("");
+            setSearchMessage(`Showing approved parking lots near “${query}”.`);
+        } catch {
+            if (!controller.signal.aborted) {
+                setSearchMessage(
+                    "Mapbox destination search is unavailable. Try again later.",
+                );
+            }
+        } finally {
+            if (searchAbortRef.current === controller) {
+                searchAbortRef.current = null;
+                setSearchBusy(false);
+            }
+        }
     }
 
     function clearFilters() {
+        searchAbortRef.current?.abort();
+        suggestionAbortRef.current?.abort();
+        suggestionSessionRef.current = null;
+        setSuggestions([]);
+        setSuggestionsOpen(false);
+        setSuggestionsBusy(false);
+        setSuggestionsError(false);
+        setActiveSuggestionIndex(-1);
+        setSelectedSuggestion(null);
+        setSearchBusy(false);
+        setDestinationLocation(null);
         setFilters(initialFilters);
         setSubmittedDestination("");
         setDestination("");
@@ -255,55 +513,124 @@ export function CustomerFindParkingPage({
     }
 
     const distanceLabels: Record<string, string> = {
-        "1": "Within 1 km",
-        "2": "Within 2 km",
-        "5": "Within 5 km",
+        "1": copy("Within 1 km", "Trong 1 km"),
+        "2": copy("Within 2 km", "Trong 2 km"),
+        "5": copy("Within 5 km", "Trong 5 km"),
     };
     const compatibilityLabels: Record<string, string> = {
-        car: "Car",
-        motorbike: "Motorbike",
-        ev: "Electric vehicle (EV)",
-        large: "Large vehicle",
+        car: copy("Car", "Ô tô"),
+        motorbike: copy("Motorbike", "Xe máy"),
+        ev: copy("Electric vehicle (EV)", "Xe điện"),
+        large: copy("Large vehicle", "Xe cỡ lớn"),
     };
     const amenityLabels: Record<string, string> = {
-        "ev-charging": "EV Charging",
-        covered: "Covered Parking",
-        "always-open": "24/7 Access",
+        "ev-charging": copy("EV Charging", "Sạc xe điện"),
+        covered: copy("Covered Parking", "Có mái che"),
+        "always-open": copy("24/7 Access", "Mở cửa 24/7"),
         cctv: "CCTV",
     };
 
     return (
         <div
-            lang="en"
+            lang={language}
             className={`parkwise-page customer-shell-page customer-search-page ${fontClassName}`}
         >
             <CustomerHeader active="search" />
             <main className="customer-shell-container customer-search-main">
                 <div className="customer-search-intro">
-                    <p className="customer-search-kicker">FIND YOUR SPACE</p>
-                    <h1>Find parking near your destination.</h1>
+                    <p className="customer-search-kicker">
+                        {copy("FIND YOUR SPACE", "TÌM CHỖ ĐỖ")}
+                    </p>
+                    <h1>
+                        {copy(
+                            "Find parking near your destination.",
+                            "Tìm bãi đỗ gần điểm đến của bạn.",
+                        )}
+                    </h1>
                     <p>
-                        Compare locations and plan your trip with a clearer view
-                        of the city.
+                        {copy(
+                            "Compare locations and plan your trip with a clearer view of the city.",
+                            "So sánh các địa điểm và lên kế hoạch di chuyển thuận tiện hơn.",
+                        )}
                     </p>
                 </div>
                 <form className="customer-search-form" onSubmit={handleSearch}>
-                    <div className="customer-search-field customer-search-destination">
+                    <div
+                        className="customer-search-field customer-search-destination"
+                        onBlur={(event) => {
+                            if (
+                                !event.currentTarget.contains(
+                                    event.relatedTarget as Node | null,
+                                )
+                            ) {
+                                setSuggestionsOpen(false);
+                            }
+                        }}
+                    >
                         <CustomerIcon name="location" size={21} />
                         <span>
                             <label htmlFor="customer-search-destination-input">
-                                Destination
+                                {copy("Destination", "Điểm đến")}
                             </label>
                             <input
+                                ref={destinationInputRef}
                                 id="customer-search-destination-input"
-                                aria-label="Destination"
+                                aria-label={copy("Destination", "Điểm đến")}
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-expanded={suggestionsOpen}
+                                aria-controls={
+                                    suggestionsOpen
+                                        ? "customer-destination-suggestions"
+                                        : undefined
+                                }
+                                aria-activedescendant={
+                                    suggestionsOpen &&
+                                    activeSuggestionIndex >= 0
+                                        ? `customer-destination-suggestion-${activeSuggestionIndex}`
+                                        : undefined
+                                }
                                 value={destination}
                                 onChange={(event) => {
-                                    setDestination(event.target.value);
+                                    const nextDestination = event.target.value;
+                                    const canSuggest =
+                                        !!getPublicMapboxToken() &&
+                                        nextDestination.trim().length >= 3 &&
+                                        nextDestination.trim() !==
+                                            "Current location";
+                                    searchAbortRef.current?.abort();
+                                    suggestionAbortRef.current?.abort();
+                                    setSearchBusy(false);
+                                    setDestination(nextDestination);
                                     setCurrentLocation(null);
+                                    setDestinationLocation(null);
+                                    setSelectedSuggestion(null);
+                                    setSuggestions([]);
+                                    setSuggestionsOpen(canSuggest);
+                                    setSuggestionsBusy(canSuggest);
+                                    setSuggestionsError(false);
+                                    setActiveSuggestionIndex(-1);
+                                    if (!canSuggest) {
+                                        suggestionSessionRef.current = null;
+                                    }
                                     setSearchMessage("");
                                 }}
-                                placeholder="Enter an address or landmark"
+                                onFocus={() => {
+                                    if (
+                                        suggestions.length > 0 ||
+                                        suggestionsBusy ||
+                                        suggestionsError
+                                    ) {
+                                        setSuggestionsOpen(true);
+                                    }
+                                }}
+                                onKeyDown={handleDestinationKeyDown}
+                                maxLength={256}
+                                placeholder={copy(
+                                    "Enter an address or landmark",
+                                    "Nhập địa chỉ hoặc địa điểm",
+                                )}
+                                autoComplete="off"
                             />
                         </span>
                         <button
@@ -311,18 +638,112 @@ export function CustomerFindParkingPage({
                             className="customer-search-locate"
                             onClick={useCurrentLocation}
                             disabled={locationBusy}
-                            aria-label="Use my current location"
-                            title="Use my current location"
+                            aria-label={copy(
+                                "Use my current location",
+                                "Dùng vị trí hiện tại",
+                            )}
+                            title={copy(
+                                "Use my current location",
+                                "Dùng vị trí hiện tại",
+                            )}
                         >
                             <CustomerIcon name="location" size={19} />
                         </button>
+                        {suggestionsOpen && (
+                            <div
+                                id="customer-destination-suggestions"
+                                className="customer-search-suggestions"
+                                role="listbox"
+                                aria-label={copy(
+                                    "Destination suggestions",
+                                    "Gợi ý điểm đến",
+                                )}
+                            >
+                                {suggestionsBusy ? (
+                                    <p
+                                        className="customer-search-suggestions-state"
+                                        role="status"
+                                    >
+                                        {copy(
+                                            "Searching places…",
+                                            "Đang tìm địa điểm…",
+                                        )}
+                                    </p>
+                                ) : suggestionsError ? (
+                                    <p
+                                        className="customer-search-suggestions-state"
+                                        role="status"
+                                    >
+                                        {copy(
+                                            "Places are unavailable. Try again shortly.",
+                                            "Không thể tải địa điểm. Vui lòng thử lại sau.",
+                                        )}
+                                    </p>
+                                ) : suggestions.length === 0 ? (
+                                    <p
+                                        className="customer-search-suggestions-state"
+                                        role="status"
+                                    >
+                                        {copy(
+                                            "No matching places found.",
+                                            "Không tìm thấy địa điểm phù hợp.",
+                                        )}
+                                    </p>
+                                ) : (
+                                    suggestions.map((suggestion, index) => (
+                                        <button
+                                            key={suggestion.id}
+                                            id={`customer-destination-suggestion-${index}`}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={
+                                                activeSuggestionIndex === index
+                                            }
+                                            className={`customer-search-suggestion ${activeSuggestionIndex === index ? "active" : ""}`}
+                                            onMouseEnter={() =>
+                                                setActiveSuggestionIndex(index)
+                                            }
+                                            onMouseDown={(event) =>
+                                                event.preventDefault()
+                                            }
+                                            onClick={() =>
+                                                void selectSuggestion(
+                                                    suggestion,
+                                                )
+                                            }
+                                        >
+                                            <CustomerIcon
+                                                name="location"
+                                                size={17}
+                                            />
+                                            <span>
+                                                <strong>
+                                                    {suggestion.name}
+                                                </strong>
+                                                {suggestion.place && (
+                                                    <small>
+                                                        {suggestion.place}
+                                                    </small>
+                                                )}
+                                            </span>
+                                        </button>
+                                    ))
+                                )}
+                                <span className="customer-search-suggestions-credit">
+                                    {copy(
+                                        "Search by Mapbox",
+                                        "Tìm kiếm bằng Mapbox",
+                                    )}
+                                </span>
+                            </div>
+                        )}
                     </div>
                     <label className="customer-search-field">
                         <CustomerIcon name="calendar" size={21} />
                         <span>
-                            <strong>Date</strong>
+                            <strong>{copy("Date", "Ngày")}</strong>
                             <input
-                                aria-label="Parking date"
+                                aria-label={copy("Parking date", "Ngày đỗ xe")}
                                 type="date"
                                 value={parkingDate}
                                 onChange={(event) =>
@@ -334,9 +755,9 @@ export function CustomerFindParkingPage({
                     <label className="customer-search-field">
                         <CustomerIcon name="clock" size={21} />
                         <span>
-                            <strong>Time</strong>
+                            <strong>{copy("Time", "Giờ")}</strong>
                             <input
-                                aria-label="Parking time"
+                                aria-label={copy("Parking time", "Giờ đỗ xe")}
                                 type="time"
                                 value={parkingTime}
                                 onChange={(event) =>
@@ -348,9 +769,17 @@ export function CustomerFindParkingPage({
                     <div className="customer-search-field customer-search-vehicle-field">
                         <CustomerIcon name="car" size={22} />
                         <CustomerSearchDropdown
-                            label="Vehicle type"
+                            label={copy("Vehicle type", "Loại xe")}
                             value={vehicleType}
-                            options={filterOptions.vehicle}
+                            options={filterOptions.vehicle.map((option) => ({
+                                ...option,
+                                label:
+                                    option.value === "any"
+                                        ? copy("Any vehicle", "Mọi loại xe")
+                                        : option.value === "car"
+                                          ? copy("Car", "Ô tô")
+                                          : copy("Motorbike", "Xe máy"),
+                            }))}
                             onChange={setVehicleType}
                             variant="field"
                             align="right"
@@ -359,9 +788,17 @@ export function CustomerFindParkingPage({
                     <button
                         className="customer-shell-primary customer-search-submit"
                         type="submit"
+                        disabled={searchBusy}
                     >
                         <CustomerIcon name="search" size={21} />
-                        <span>Find Parking</span>
+                        <span>
+                            {searchBusy
+                                ? copy(
+                                      "Searching map…",
+                                      "Đang tìm trên bản đồ…",
+                                  )
+                                : copy("Find Parking", "Tìm bãi đỗ")}
+                        </span>
                         <CustomerIcon name="arrow" size={19} />
                     </button>
                 </form>
@@ -383,7 +820,7 @@ export function CustomerFindParkingPage({
                             >
                                 <CustomerIcon name="filter" size={17} />
                                 <span>
-                                    All Filters
+                                    {copy("All Filters", "Bộ lọc")}
                                     {activeFilterCount > 0
                                         ? ` (${activeFilterCount})`
                                         : ""}
@@ -400,9 +837,12 @@ export function CustomerFindParkingPage({
                                             maxPrice: MAX_PRICE,
                                         }))
                                     }
-                                    aria-label="Remove price filter"
+                                    aria-label={copy(
+                                        "Remove price filter",
+                                        "Bỏ lọc giá",
+                                    )}
                                 >
-                                    Price: Under{" "}
+                                    {copy("Price: Under", "Giá: Dưới")}{" "}
                                     {filters.maxPrice.toLocaleString("vi-VN")}₫{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
@@ -417,9 +857,13 @@ export function CustomerFindParkingPage({
                                             distance: "any",
                                         }))
                                     }
-                                    aria-label="Remove distance filter"
+                                    aria-label={copy(
+                                        "Remove distance filter",
+                                        "Bỏ lọc khoảng cách",
+                                    )}
                                 >
-                                    Distance: {distanceLabels[filters.distance]}{" "}
+                                    {copy("Distance:", "Khoảng cách:")}{" "}
+                                    {distanceLabels[filters.distance]}{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
                             )}
@@ -433,11 +877,17 @@ export function CustomerFindParkingPage({
                                             availability: "any",
                                         }))
                                     }
-                                    aria-label="Remove availability filter"
+                                    aria-label={copy(
+                                        "Remove availability filter",
+                                        "Bỏ lọc tình trạng chỗ",
+                                    )}
                                 >
                                     {filters.availability === "available"
-                                        ? "Available now"
-                                        : "Pre-bookable"}{" "}
+                                        ? copy("Available now", "Còn chỗ")
+                                        : copy(
+                                              "Pre-bookable",
+                                              "Có thể đặt trước",
+                                          )}{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
                             )}
@@ -451,9 +901,12 @@ export function CustomerFindParkingPage({
                                             compatibility: [],
                                         }))
                                     }
-                                    aria-label="Remove vehicle compatibility filter"
+                                    aria-label={copy(
+                                        "Remove vehicle compatibility filter",
+                                        "Bỏ lọc loại xe",
+                                    )}
                                 >
-                                    Vehicle:{" "}
+                                    {copy("Vehicle:", "Loại xe:")}{" "}
                                     {filters.compatibility
                                         .map(
                                             (type) => compatibilityLabels[type],
@@ -472,9 +925,12 @@ export function CustomerFindParkingPage({
                                             amenities: [],
                                         }))
                                     }
-                                    aria-label="Remove amenities filter"
+                                    aria-label={copy(
+                                        "Remove amenities filter",
+                                        "Bỏ lọc tiện ích",
+                                    )}
                                 >
-                                    Amenities:{" "}
+                                    {copy("Amenities:", "Tiện ích:")}{" "}
                                     {filters.amenities
                                         .map(
                                             (amenity) => amenityLabels[amenity],
@@ -491,7 +947,7 @@ export function CustomerFindParkingPage({
                             disabled={!canClearFilters}
                         >
                             <CustomerIcon name="history" size={17} />
-                            Clear filters
+                            {copy("Clear filters", "Xóa bộ lọc")}
                         </button>
                     </div>
                     <div
@@ -500,14 +956,19 @@ export function CustomerFindParkingPage({
                         hidden={!filtersOpen}
                     >
                         <fieldset className="customer-search-filter-group customer-search-price-group">
-                            <legend>Price (₫/hour)</legend>
+                            <legend>
+                                {copy("Price (₫/hour)", "Giá (₫/giờ)")}
+                            </legend>
                             <input
                                 type="range"
                                 min="0"
                                 max={MAX_PRICE}
                                 step="5000"
                                 value={filters.maxPrice}
-                                aria-label="Maximum price per hour"
+                                aria-label={copy(
+                                    "Maximum price per hour",
+                                    "Giá tối đa mỗi giờ",
+                                )}
                                 onChange={(event) =>
                                     setFilters((current) => ({
                                         ...current,
@@ -519,7 +980,10 @@ export function CustomerFindParkingPage({
                                 <span>0₫</span>
                                 <label>
                                     <span className="customer-search-sr-only">
-                                        Maximum price per hour in dong
+                                        {copy(
+                                            "Maximum price per hour in dong",
+                                            "Giá tối đa mỗi giờ bằng đồng",
+                                        )}
                                     </span>
                                     <input
                                         type="number"
@@ -547,13 +1011,13 @@ export function CustomerFindParkingPage({
                             </div>
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Distance</legend>
+                            <legend>{copy("Distance", "Khoảng cách")}</legend>
                             {[
                                 ["any", "Any"],
                                 ["1", "Within 1 km"],
                                 ["2", "Within 2 km"],
                                 ["5", "Within 5 km"],
-                            ].map(([value, label]) => (
+                            ].map(([value]) => (
                                 <label
                                     className="customer-search-filter-choice"
                                     key={value}
@@ -570,17 +1034,23 @@ export function CustomerFindParkingPage({
                                             }))
                                         }
                                     />
-                                    <span>{label}</span>
+                                    <span>
+                                        {value === "any"
+                                            ? copy("Any", "Bất kỳ")
+                                            : distanceLabels[value]}
+                                    </span>
                                 </label>
                             ))}
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Availability</legend>
+                            <legend>
+                                {copy("Availability", "Tình trạng chỗ")}
+                            </legend>
                             {[
                                 ["any", "Any"],
                                 ["available", "Available now"],
                                 ["prebookable", "Pre-bookable"],
-                            ].map(([value, label]) => (
+                            ].map(([value]) => (
                                 <label
                                     className="customer-search-filter-choice"
                                     key={value}
@@ -597,12 +1067,26 @@ export function CustomerFindParkingPage({
                                             }))
                                         }
                                     />
-                                    <span>{label}</span>
+                                    <span>
+                                        {value === "any"
+                                            ? copy("Any", "Bất kỳ")
+                                            : value === "available"
+                                              ? copy("Available now", "Còn chỗ")
+                                              : copy(
+                                                    "Pre-bookable",
+                                                    "Có thể đặt trước",
+                                                )}
+                                    </span>
                                 </label>
                             ))}
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Vehicle compatibility</legend>
+                            <legend>
+                                {copy(
+                                    "Vehicle compatibility",
+                                    "Loại xe phù hợp",
+                                )}
+                            </legend>
                             {Object.entries(compatibilityLabels).map(
                                 ([value, label]) => (
                                     <label
@@ -627,7 +1111,7 @@ export function CustomerFindParkingPage({
                             )}
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>Amenities</legend>
+                            <legend>{copy("Amenities", "Tiện ích")}</legend>
                             {Object.entries(amenityLabels).map(
                                 ([value, label]) => (
                                     <label
@@ -654,18 +1138,33 @@ export function CustomerFindParkingPage({
                     </div>
                     <div className="customer-search-results-toolbar">
                         <span className="customer-search-preview-count">
-                            {visibleParkings.length} example{" "}
-                            {visibleParkings.length === 1
-                                ? "location"
-                                : "locations"}{" "}
-                            found
+                            {visibleParkings.length}{" "}
+                            {copy(
+                                visibleParkings.length === 1
+                                    ? "parking lot found"
+                                    : "parking lots found",
+                                "bãi đỗ được tìm thấy",
+                            )}
                         </span>
                         <div className="customer-search-sort-control">
-                            <span>Sort by</span>
+                            <span>{copy("Sort by", "Sắp xếp")}</span>
                             <CustomerSearchDropdown
-                                label="Sort by"
+                                label={copy("Sort by", "Sắp xếp")}
                                 value={filters.sort}
-                                options={filterOptions.sort}
+                                options={filterOptions.sort.map((option) => ({
+                                    ...option,
+                                    label:
+                                        option.value === "recommended"
+                                            ? copy("Best match", "Phù hợp nhất")
+                                            : option.value === "name"
+                                              ? copy("Name A–Z", "Tên A–Z")
+                                              : option.value === "price"
+                                                ? copy(
+                                                      "Lowest price",
+                                                      "Giá thấp nhất",
+                                                  )
+                                                : copy("Nearest", "Gần nhất"),
+                                }))}
                                 onChange={(sort) =>
                                     setFilters((current) => ({
                                         ...current,
@@ -682,155 +1181,271 @@ export function CustomerFindParkingPage({
                         <div className="customer-search-results-note">
                             <CustomerIcon name="location" size={17} />
                             <span>
-                                Prices, distances and spaces below are example
-                                values. Live availability and booking are not
-                                connected yet.
+                                {resultsState === "loading"
+                                    ? copy(
+                                          "Loading approved parking lots…",
+                                          "Đang tải bãi đỗ đã duyệt…",
+                                      )
+                                    : resultsState === "error"
+                                      ? copy(
+                                            "Parking search is unavailable right now. Try again later.",
+                                            "Không thể tìm bãi đỗ lúc này. Vui lòng thử lại sau.",
+                                        )
+                                      : searchOrigin
+                                        ? `${copy("Approved parking lots within", "Bãi đỗ đã duyệt trong phạm vi")} ${radiusKm} km. ${copy("Price and free spaces are on each lot's page.", "Xem giá và chỗ trống trong trang từng bãi.")}`
+                                        : copy(
+                                              "All approved parking lots. Search a destination to see the nearest ones.",
+                                              "Tất cả bãi đỗ đã duyệt. Tìm điểm đến để xem bãi gần nhất.",
+                                          )}
                             </span>
                         </div>
-                        <div className="customer-search-list">
-                            {visibleParkings.map((parking, index) => (
-                                <article
-                                    className={`customer-search-result ${activeSelectedId === parking.id ? "selected" : ""}`}
-                                    key={parking.id}
+                        {currentRecommendations &&
+                            currentRecommendations.length > 0 && (
+                                <section
+                                    className="ai-recommendation-banner"
+                                    aria-label="AI Top 3 Recommendations"
                                 >
-                                    <div className="customer-search-result-top">
-                                        <span>
-                                            {index === 0
-                                                ? "FEATURED PREVIEW"
-                                                : "DESIGN PREVIEW"}
-                                        </span>
-                                        {activeSelectedId === parking.id && (
-                                            <strong>
-                                                <CustomerIcon
-                                                    name="check"
-                                                    size={15}
-                                                />{" "}
-                                                Selected on map
-                                            </strong>
-                                        )}
-                                    </div>
-                                    <div className="customer-search-result-main">
-                                        <div className="customer-search-result-photo">
-                                            <Image
-                                                src={parking.image}
-                                                alt="Illustration of a parking facility"
-                                                fill
-                                                sizes="(max-width: 700px) 100vw, 200px"
+                                    <div className="ai-recommendation-header">
+                                        <div className="ai-recommendation-title">
+                                            <CustomerIcon
+                                                name="sparkles"
+                                                size={18}
                                             />
+                                            <span>
+                                                {copy(
+                                                    "AI Smart Recommendations (Top 3 Matches)",
+                                                    "Gợi ý thông minh từ AI (Top 3 Bãi Xe Tối Ưu)",
+                                                )}
+                                            </span>
                                         </div>
-                                        <div className="customer-search-result-content">
-                                            <h2>{parking.name}</h2>
-                                            <p className="customer-search-result-location">
-                                                <CustomerIcon
-                                                    name="location"
-                                                    size={15}
-                                                />{" "}
-                                                {parking.type} · {parking.area},
-                                                Ho Chi Minh City
-                                            </p>
-                                            <div className="customer-search-result-metrics">
-                                                <span>
+                                        <span className="ai-recommendation-badge">
+                                            {copy(
+                                                "Multi-criteria Ranking",
+                                                "Đa tiêu chí tối ưu",
+                                            )}
+                                        </span>
+                                    </div>
+                                    <div className="ai-recommendation-cards">
+                                        {currentRecommendations.map((rec) => (
+                                            <div
+                                                key={rec.lotId}
+                                                className={`ai-recommendation-card ${activeSelectedId === rec.lotId ? "active" : ""}`}
+                                                onClick={() =>
+                                                    setSelectedId(rec.lotId)
+                                                }
+                                            >
+                                                <div className="ai-card-rank">
+                                                    <strong>#{rec.rank}</strong>
+                                                    <span>
+                                                        {copy(
+                                                            "Top Match",
+                                                            "Phù hợp",
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    className="ai-card-name"
+                                                    title={rec.name}
+                                                >
+                                                    {rec.name}
+                                                </div>
+                                                <div className="ai-card-stats">
+                                                    <span>
+                                                        {rec.distanceKm} km
+                                                    </span>
+                                                    <span>·</span>
+                                                    <span>
+                                                        {rec.driveTimeMinutes
+                                                            ? `~${Math.round(rec.driveTimeMinutes)} ${copy("mins drive", "phút lái xe")}`
+                                                            : `${Math.round(rec.probabilityPercent)}% ${copy("available", "còn chỗ")}`}
+                                                    </span>
+                                                </div>
+                                                <div className="ai-card-reasons">
+                                                    {rec.reasons
+                                                        .slice(0, 2)
+                                                        .map((reason, idx) => (
+                                                            <span
+                                                                key={idx}
+                                                                className="ai-reason-pill"
+                                                            >
+                                                                {reason}
+                                                            </span>
+                                                        ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+                        <div className="customer-search-list">
+                            {visibleParkings.map((parking) => {
+                                const lotRec = currentRecommendations?.find(
+                                    (r) => r.lotId === parking.id,
+                                );
+                                return (
+                                    <article
+                                        className={`customer-search-result ${activeSelectedId === parking.id ? "selected" : ""}`}
+                                        key={parking.id}
+                                    >
+                                        <div className="customer-search-result-top">
+                                            <span>
+                                                {parking.type.toUpperCase()}
+                                            </span>
+                                            {lotRec && (
+                                                <span className="customer-ai-highlight-badge">
+                                                    ✨ Top {lotRec.rank}:{" "}
+                                                    {lotRec.reasons.join(" · ")}
+                                                </span>
+                                            )}
+                                            {activeSelectedId ===
+                                                parking.id && (
+                                                <strong>
+                                                    <CustomerIcon
+                                                        name="check"
+                                                        size={15}
+                                                    />{" "}
+                                                    {copy(
+                                                        "Selected on map",
+                                                        "Đã chọn trên bản đồ",
+                                                    )}
+                                                </strong>
+                                            )}
+                                        </div>
+                                        <div className="customer-search-result-main">
+                                            <div className="customer-search-result-photo">
+                                                <Image
+                                                    src="/images/parkwise/dashboard-parking-structure.webp"
+                                                    alt={copy(
+                                                        "Illustration of a parking facility",
+                                                        "Minh họa bãi đỗ xe",
+                                                    )}
+                                                    fill
+                                                    sizes="(max-width: 700px) 100vw, 200px"
+                                                />
+                                            </div>
+                                            <div className="customer-search-result-content">
+                                                <h2>{parking.name}</h2>
+                                                <p className="customer-search-result-location">
                                                     <CustomerIcon
                                                         name="location"
-                                                        size={17}
-                                                    />
-                                                    <small>Distance</small>
-                                                    <b>
-                                                        {parking.distanceKm} km
-                                                        demo
-                                                    </b>
-                                                </span>
-                                                <span>
-                                                    <CustomerIcon
-                                                        name="price"
-                                                        size={17}
-                                                    />
-                                                    <small>Price / hour</small>
-                                                    <b>
-                                                        {parking.hourlyPrice.toLocaleString(
-                                                            "vi-VN",
-                                                        )}
-                                                        ₫ demo
-                                                    </b>
-                                                </span>
-                                                <span>
-                                                    <CustomerIcon
-                                                        name="car"
-                                                        size={17}
-                                                    />
-                                                    <small>Spaces</small>
-                                                    <b>{parking.spaces} demo</b>
-                                                </span>
-                                            </div>
-                                            <div className="customer-search-result-actions">
-                                                <button
-                                                    type="button"
-                                                    className="customer-shell-secondary"
-                                                    onClick={() =>
-                                                        setSelectedId(
-                                                            parking.id,
-                                                        )
-                                                    }
-                                                >
-                                                    View on map{" "}
-                                                    <CustomerIcon
-                                                        name="arrow"
                                                         size={15}
-                                                    />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="customer-shell-primary"
-                                                    disabled
-                                                    title="Booking will be available when live parking data is connected"
-                                                >
-                                                    Book Now
-                                                </button>
+                                                    />{" "}
+                                                    {parking.address}
+                                                </p>
+                                                <div className="customer-search-result-metrics">
+                                                    <span>
+                                                        <CustomerIcon
+                                                            name="location"
+                                                            size={17}
+                                                        />
+                                                        <small>
+                                                            {copy(
+                                                                "Distance",
+                                                                "Khoảng cách",
+                                                            )}
+                                                        </small>
+                                                        <b>
+                                                            {parking.distanceKm ===
+                                                            undefined
+                                                                ? "—"
+                                                                : `${parking.distanceKm} km`}
+                                                        </b>
+                                                    </span>
+                                                </div>
+                                                <div className="customer-search-result-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="customer-shell-secondary"
+                                                        onClick={() =>
+                                                            setSelectedId(
+                                                                parking.id,
+                                                            )
+                                                        }
+                                                    >
+                                                        {copy(
+                                                            "View on map",
+                                                            "Xem trên bản đồ",
+                                                        )}{" "}
+                                                        <CustomerIcon
+                                                            name="arrow"
+                                                            size={15}
+                                                        />
+                                                    </button>
+                                                    <Link
+                                                        href={`/parking-lots/${parking.id}`}
+                                                        className="customer-shell-primary"
+                                                    >
+                                                        {copy(
+                                                            "View details",
+                                                            "Xem chi tiết",
+                                                        )}
+                                                        <CustomerIcon
+                                                            name="arrow"
+                                                            size={15}
+                                                        />
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </article>
-                            ))}
+                                    </article>
+                                );
+                            })}
                         </div>
-                        {visibleParkings.length === 0 && (
-                            <div className="customer-search-empty">
-                                <CustomerIcon name="search" size={28} />
-                                <strong>No matching example locations</strong>
-                                <p>
-                                    Try another destination or clear the
-                                    filters. Live parking search is not
-                                    connected yet.
-                                </p>
-                                <button
-                                    type="button"
-                                    className="customer-shell-secondary"
-                                    onClick={clearFilters}
-                                >
-                                    Clear filters
-                                </button>
-                            </div>
-                        )}
+                        {resultsState === "ready" &&
+                            visibleParkings.length === 0 && (
+                                <div className="customer-search-empty">
+                                    <CustomerIcon name="search" size={28} />
+                                    <strong>
+                                        {copy(
+                                            "No approved parking lots found",
+                                            "Không tìm thấy bãi đỗ đã duyệt",
+                                        )}
+                                    </strong>
+                                    <p>
+                                        {copy(
+                                            "Try another destination or a larger distance.",
+                                            "Thử điểm đến khác hoặc tăng khoảng cách tìm kiếm.",
+                                        )}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        className="customer-shell-secondary"
+                                        onClick={clearFilters}
+                                    >
+                                        {copy("Clear filters", "Xóa bộ lọc")}
+                                    </button>
+                                </div>
+                            )}
                     </div>
                     <div className="customer-search-map-column">
                         <div className="customer-search-map-header">
-                            <strong>Parking map</strong>
-                            <span>Ho Chi Minh City</span>
+                            <strong>
+                                {copy("Parking map", "Bản đồ bãi đỗ")}
+                            </strong>
+                            <span>
+                                {copy(
+                                    "Ho Chi Minh City",
+                                    "Thành phố Hồ Chí Minh",
+                                )}
+                            </span>
                         </div>
                         <CustomerMap
                             selectedId={activeSelectedId}
                             onSelect={setSelectedId}
                             currentLocation={currentLocation}
-                            visibleIds={visibleParkings.map(
-                                (parking) => parking.id,
-                            )}
+                            destinationLocation={destinationLocation}
+                            lots={visibleParkings}
                         />
                         <div className="customer-search-map-footer">
                             <span>
                                 <i className="customer-search-map-dot" />{" "}
-                                Example location
+                                {copy(
+                                    "Approved parking lot",
+                                    "Bãi đỗ đã duyệt",
+                                )}
                             </span>
                             <Link href="/customer/vehicles">
-                                Manage vehicles{" "}
+                                {copy("Manage vehicles", "Quản lý xe")}{" "}
                                 <CustomerIcon name="arrow" size={15} />
                             </Link>
                         </div>

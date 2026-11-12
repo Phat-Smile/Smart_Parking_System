@@ -3,6 +3,7 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts.Login;
+using ParkingSystem.Identity.Application.Accounts.Mfa;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Domain.Accounts;
@@ -10,7 +11,7 @@ using ParkingSystem.Identity.Domain.Profiles;
 
 namespace ParkingSystem.Identity.Application.Accounts.GoogleLogin;
 
-public sealed record GoogleLoginCommand(string IdToken, string? DeviceInfo = null, string? IpAddress = null) : IRequest<Result<LoginResponse>>;
+public sealed record GoogleLoginCommand(string IdToken, string? DeviceInfo = null, string? IpAddress = null) : IRequest<Result<LoginOutcome>>;
 
 public static class GoogleLoginErrors
 {
@@ -43,16 +44,17 @@ public sealed class GoogleLoginCommandHandler(
     IRefreshTokenRepository refreshTokens,
     IRefreshTokenGenerator refreshTokenGenerator,
     IJwtTokenIssuer jwtTokenIssuer,
-    IClock clock) : IRequestHandler<GoogleLoginCommand, Result<LoginResponse>>
+    IClock clock,
+    MfaLoginGate? mfaGate = null) : IRequestHandler<GoogleLoginCommand, Result<LoginOutcome>>
 {
-    public async Task<Result<LoginResponse>> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
+    public async Task<Result<LoginOutcome>> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
     {
         if (!googleTokens.IsConfigured)
-            return Result<LoginResponse>.Failure(GoogleLoginErrors.GoogleLoginUnavailable);
+            return Result<LoginOutcome>.Failure(GoogleLoginErrors.GoogleLoginUnavailable);
 
         var google = await googleTokens.ValidateAsync(request.IdToken, cancellationToken);
         if (google is null)
-            return Result<LoginResponse>.Failure(GoogleLoginErrors.InvalidGoogleToken);
+            return Result<LoginOutcome>.Failure(GoogleLoginErrors.InvalidGoogleToken);
 
         var email = Account.NormalizeEmail(google.Email);
         var now = clock.UtcNow;
@@ -78,26 +80,35 @@ public sealed class GoogleLoginCommandHandler(
 
             // The email belongs to an account already linked to a different Google account.
             if (account is null || (account.GoogleSubject is not null && account.GoogleSubject != google.Subject))
-                return Result<LoginResponse>.Failure(GoogleLoginErrors.InvalidGoogleToken);
+                return Result<LoginOutcome>.Failure(GoogleLoginErrors.InvalidGoogleToken);
 
             if (account.Status == AccountStatus.Suspended)
-                return Result<LoginResponse>.Failure(LoginErrors.AccountSuspended);
+                return Result<LoginOutcome>.Failure(LoginErrors.AccountSuspended);
 
             if (account.Status == AccountStatus.Disabled)
-                return Result<LoginResponse>.Failure(LoginErrors.AccountDisabled);
+                return Result<LoginOutcome>.Failure(LoginErrors.AccountDisabled);
 
             // Context 6.1: three wrong passwords lock the login for 15 minutes, whatever the sign-in method.
             if (account.IsLockedOut(now))
-                return Result<LoginResponse>.Failure(AccountMessages.Locked(account, now));
+                return Result<LoginOutcome>.Failure(AccountMessages.Locked(account, now));
 
             if (account.GoogleSubject is null || account.Status == AccountStatus.PendingEmailVerification)
                 account.LinkGoogle(google.Subject);
 
+            var mfaRequired = mfaGate is not null && await mfaGate.IsRequiredAsync(account.Id, cancellationToken);
+            if (mfaRequired)
+            {
+                var challenge = mfaGate!.IssueChallenge(account, "google", request.DeviceInfo, request.IpAddress, now);
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<LoginOutcome>.Success(LoginOutcome.MfaRequired(challenge));
+            }
+
             var response = await LoginSession.StartAsync(
                 account, request.DeviceInfo, request.IpAddress, now,
-                accounts, authSessions, refreshTokens, refreshTokenGenerator, jwtTokenIssuer, cancellationToken);
+                accounts, authSessions, refreshTokens, refreshTokenGenerator, jwtTokenIssuer, cancellationToken,
+                "google");
 
-            return Result<LoginResponse>.Success(response);
+            return Result<LoginOutcome>.Success(LoginOutcome.Completed(response));
         }, cancellationToken);
     }
 }

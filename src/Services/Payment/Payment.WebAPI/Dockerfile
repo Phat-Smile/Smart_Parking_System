@@ -14,6 +14,7 @@ RUN dotnet restore src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY contracts/events/ contracts/events/
+COPY contracts/grpc/ contracts/grpc/
 COPY src/Services/Payment/ src/Services/Payment/
 RUN dotnet publish src/Services/Payment/Payment.WebAPI/Payment.WebAPI.csproj \
     --configuration Release \

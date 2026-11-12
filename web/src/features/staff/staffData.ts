@@ -3,177 +3,100 @@
 import { useSyncExternalStore } from "react";
 import type {
     AssignedLotResponse,
+    LotParkingSessionItem,
     OccupancyStats,
+    SessionStatus,
     StaffSession,
+    VehicleType,
     VerificationIssue,
 } from "./types";
-import { DEFAULT_STAFF_LOT_ID, getAssignedLot } from "./staffApi";
-
-const initialSessions: StaffSession[] = [
-    {
-        id: "ses-101",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "51F-782.91",
-        vehicleType: "Car",
-        customerType: "Registered",
-        driverName: "Lê Hoàng Long",
-        entryTime: new Date(Date.now() - 3600000 * 3.5).toISOString(),
-        status: "Active",
-        qrToken: "QR-PARKWISE-REG-101",
-        slotCode: "B1-A04",
-        paymentStatus: "Paid",
-        totalFeeVnd: 75000,
-        prepaidVnd: 75000,
-        amountDueVnd: 0,
-        paymentMethod: "Wallet",
-    },
-    {
-        id: "ses-102",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "59T1-883.12",
-        vehicleType: "Motorbike",
-        customerType: "Guest",
-        driverName: "Guest",
-        entryTime: new Date(Date.now() - 3600000 * 1.8).toISOString(),
-        status: "Active",
-        qrToken: "QR-GUEST-59T1-88312",
-        slotCode: "B2-M12",
-        paymentStatus: "Pending",
-        totalFeeVnd: 12000,
-        prepaidVnd: 0,
-        amountDueVnd: 12000,
-    },
-    {
-        id: "ses-103",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "51K-892.41",
-        vehicleType: "Car",
-        customerType: "Guest",
-        driverName: "Guest",
-        entryTime: new Date(Date.now() - 3600000 * 2.2).toISOString(),
-        status: "Active",
-        qrToken: "QR-GUEST-51K-89241",
-        slotCode: "B1-B10",
-        paymentStatus: "Pending",
-        totalFeeVnd: 60000,
-        prepaidVnd: 0,
-        amountDueVnd: 60000,
-    },
-    {
-        id: "ses-104",
-        lotId: DEFAULT_STAFF_LOT_ID,
-        plateNumber: "50E-124.99",
-        vehicleType: "Car",
-        customerType: "Registered",
-        driverName: "Trần Anh Vũ",
-        entryTime: new Date(Date.now() - 3600000 * 0.5).toISOString(),
-        status: "Active",
-        qrToken: "QR-PARKWISE-REG-104",
-        slotCode: "B1-A12",
-        paymentStatus: "Paid",
-        totalFeeVnd: 30000,
-        prepaidVnd: 30000,
-        amountDueVnd: 0,
-        paymentMethod: "Wallet",
-    },
-];
-
-const initialIssues: VerificationIssue[] = [
-    {
-        id: "issue-1",
-        sessionId: "ses-103",
-        spot: "Gate In 01",
-        spotVi: "Cổng Vào 01",
-        spotEn: "Gate In 01",
-        plateNumber: "51K-892.41",
-        problem: "Low Camera OCR Confidence (64%)",
-        problemVi: "Độ tin cậy OCR camera thấp (64%)",
-        problemEn: "Low Camera OCR Confidence (64%)",
-        detectedPlate: "51K-892.4?",
-        confidence: 0.64,
-        currentState: "Waiting for staff confirmation",
-        currentStateVi: "Chờ nhân viên xác nhận",
-        currentStateEn: "Waiting for staff confirmation",
-        createdAt: new Date(Date.now() - 1000 * 180).toISOString(),
-        status: "Pending",
-    },
-    {
-        id: "issue-2",
-        spot: "Gate Out 02",
-        spotVi: "Cổng Ra 02",
-        spotEn: "Gate Out 02",
-        plateNumber: "59C2-441.80",
-        problem: "QR Damaged / Unreadable on Guest Phone",
-        problemVi: "Mã QR mờ / hỏng trên điện thoại khách",
-        problemEn: "QR Damaged / Unreadable on Guest Phone",
-        detectedPlate: "59C2-441.80",
-        confidence: 0.98,
-        currentState: "Vehicle waiting at barrier",
-        currentStateVi: "Phương tiện chờ tại rào chắn",
-        currentStateEn: "Vehicle waiting at barrier",
-        createdAt: new Date(Date.now() - 1000 * 60).toISOString(),
-        status: "Pending",
-    },
-];
+import {
+    calculateParkingFee,
+    getAssignedLot,
+    listLotInsideSessions,
+} from "./staffApi";
 
 export interface GateActivity {
     id: string;
     type: "entry" | "exit";
     plateNumber: string;
     vehicleType: string;
-    customerType: string;
+    customerType?: string;
     timestamp: string;
-    slotCode?: string;
+    slotCode?: string | null;
     amount?: number;
 }
 
-const initialActivities: GateActivity[] = [
-    {
-        id: "act-1",
-        type: "entry",
-        plateNumber: "50E-124.99",
-        vehicleType: "Car",
-        customerType: "Registered",
-        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        slotCode: "B1-A12",
-    },
-    {
-        id: "act-2",
-        type: "exit",
-        plateNumber: "51A-932.18",
-        vehicleType: "Car",
-        customerType: "Guest",
-        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-        amount: 60000,
-    },
-    {
-        id: "act-3",
-        type: "entry",
-        plateNumber: "51K-892.41",
-        vehicleType: "Car",
-        customerType: "Guest",
-        timestamp: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-        slotCode: "B1-B10",
-    },
-];
-
-let assignedLotState: AssignedLotResponse = {
-    lotId: DEFAULT_STAFF_LOT_ID,
-    lotName: "ParkWise Central Tower",
-    address: "72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-    availableMotorbikeSlots: 59,
-    availableCarSlots: 95,
-    totalCapacity: 240,
-    occupiedSlots: 86,
-};
-
-let sessionsState = [...initialSessions];
-let issuesState = [...initialIssues];
-let activitiesState = [...initialActivities];
+let assignedLotState: AssignedLotResponse | null = null;
+let selectedLotIdState: string | null = null;
+let assignedLotRequestSeq = 0;
+let sessionsState: StaffSession[] = [];
+const issuesState: VerificationIssue[] = [];
+let activitiesState: GateActivity[] = [];
+let loadErrorState: unknown = null;
+let loaded = false;
+let refreshing: Promise<AssignedLotResponse | null> | null = null;
 const listeners = new Set<() => void>();
 
 function notify() {
     listeners.forEach((l) => l());
+}
+
+function toStaffSession(
+    item: LotParkingSessionItem,
+    lotId: string,
+): StaffSession {
+    return {
+        id: item.sessionId,
+        lotId,
+        plateNumber: item.plateNumber,
+        vehicleType: item.vehicleType as VehicleType,
+        entryTime: item.entryTime,
+        status: item.status as SessionStatus,
+        slotCode: item.slotCode,
+        // Session payment does not exist before Sprint 3.
+        paymentStatus: "Pending",
+    };
+}
+
+function refresh(): Promise<AssignedLotResponse | null> {
+    refreshing ??= (async () => {
+        const requestSeq = ++assignedLotRequestSeq;
+        try {
+            const lot = await getAssignedLot(selectedLotIdState ?? undefined);
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
+            const page = lot ? await listLotInsideSessions(lot.lotId) : null;
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
+            assignedLotState = lot;
+            if (lot?.lotId) {
+                selectedLotIdState = lot.lotId;
+            }
+            sessionsState = page
+                ? page.items.map((item) => toStaffSession(item, lot!.lotId))
+                : [];
+            loadErrorState = null;
+        } catch (error) {
+            if (requestSeq === assignedLotRequestSeq) {
+                loadErrorState = error;
+            }
+        } finally {
+            refreshing = null;
+            if (requestSeq === assignedLotRequestSeq) {
+                loaded = true;
+                notify();
+            }
+        }
+        return assignedLotState;
+    })();
+    return refreshing;
+}
+
+function addActivity(activity: GateActivity) {
+    activitiesState = [activity, ...activitiesState].slice(0, 20);
 }
 
 export const staffStore = {
@@ -181,156 +104,155 @@ export const staffStore = {
     getIssues: () => issuesState,
     getActivities: () => activitiesState,
     getAssignedLot: () => assignedLotState,
+    getLoadError: () => loadErrorState,
 
-    setAssignedLot: (lot: AssignedLotResponse) => {
+    setAssignedLot: (lot: AssignedLotResponse | null) => {
         assignedLotState = lot;
+        selectedLotIdState = lot?.lotId ?? null;
         notify();
     },
 
-    fetchAssignedLot: async () => {
-        const lot = await getAssignedLot();
-        assignedLotState = lot;
-        notify();
-        return lot;
+    fetchAssignedLot: async (preferredLotId?: string) => {
+        const requestSeq = ++assignedLotRequestSeq;
+        try {
+            const targetPreferred =
+                preferredLotId ?? selectedLotIdState ?? undefined;
+            const lot = await getAssignedLot(targetPreferred);
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
+            const targetLotId = lot?.lotId ?? "";
+            const page = targetLotId
+                ? await listLotInsideSessions(targetLotId)
+                : null;
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
+            assignedLotState = lot;
+            selectedLotIdState =
+                lot?.lotId ?? preferredLotId ?? selectedLotIdState;
+            sessionsState =
+                page && targetLotId
+                    ? page.items.map((item) =>
+                          toStaffSession(item, targetLotId),
+                      )
+                    : [];
+            loadErrorState = null;
+        } catch (error) {
+            if (requestSeq === assignedLotRequestSeq) {
+                loadErrorState = error;
+            }
+        } finally {
+            if (requestSeq === assignedLotRequestSeq) {
+                loaded = true;
+                notify();
+            }
+        }
+        return assignedLotState;
     },
+    refresh,
 
+    /** Called after Parking opened the session; counts and the list are read again from Parking. */
     addSession: (session: StaffSession) => {
-        sessionsState = [session, ...sessionsState];
-        if (
-            session.vehicleType === "Motorbike" &&
-            assignedLotState.availableMotorbikeSlots > 0
-        ) {
-            assignedLotState = {
-                ...assignedLotState,
-                availableMotorbikeSlots:
-                    assignedLotState.availableMotorbikeSlots - 1,
-            };
-        }
-        activitiesState = [
-            {
-                id: `act-${Date.now()}`,
-                type: "entry",
-                plateNumber: session.plateNumber,
-                vehicleType: session.vehicleType,
-                customerType: session.customerType,
-                timestamp: session.entryTime,
-                slotCode: session.slotCode,
-            },
-            ...activitiesState,
+        sessionsState = [
+            session,
+            ...sessionsState.filter((s) => s.id !== session.id),
         ];
+        addActivity({
+            id: `act-${session.id || Date.now()}`,
+            type: "entry",
+            plateNumber: session.plateNumber,
+            vehicleType: session.vehicleType,
+            customerType: session.customerType,
+            timestamp: session.entryTime,
+            slotCode: session.slotCode,
+        });
         notify();
+        void refresh();
     },
 
-    cancelSession: (sessionId: string) => {
-        const found = sessionsState.find((s) => s.id === sessionId);
-        if (found && found.vehicleType === "Motorbike") {
-            assignedLotState = {
-                ...assignedLotState,
-                availableMotorbikeSlots:
-                    assignedLotState.availableMotorbikeSlots + 1,
-            };
-        }
-        sessionsState = sessionsState.map((s) =>
-            s.id === sessionId ? { ...s, status: "Cancelled" as const } : s,
-        );
-        notify();
+    /** Called after Parking cancelled the session. */
+    cancelSession: (sessionId?: string) => {
+        void sessionId;
+        void refresh();
     },
 
-    completeExit: (
-        sessionId: string,
-        paymentMethod: "Cash" | "VNPay" | "Wallet",
-    ) => {
+    /** Called after Parking completed the exit (not available before Sprint 3). */
+    completeExit: (sessionId: string, paymentMethod?: string) => {
+        void paymentMethod;
         const found = sessionsState.find((s) => s.id === sessionId);
-        if (found && found.vehicleType === "Motorbike") {
-            assignedLotState = {
-                ...assignedLotState,
-                availableMotorbikeSlots:
-                    assignedLotState.availableMotorbikeSlots + 1,
-            };
-        }
-
-        sessionsState = sessionsState.map((s) =>
-            s.id === sessionId
-                ? {
-                      ...s,
-                      status: "Completed" as const,
-                      paymentStatus: "Paid" as const,
-                      amountDueVnd: 0,
-                      exitTime: new Date().toISOString(),
-                      paymentMethod,
-                  }
-                : s,
-        );
-
         if (found) {
-            activitiesState = [
-                {
-                    id: `act-${Date.now()}`,
-                    type: "exit",
-                    plateNumber: found.plateNumber,
-                    vehicleType: found.vehicleType,
-                    customerType: found.customerType,
-                    timestamp: new Date().toISOString(),
-                    amount: found.amountDueVnd,
-                },
-                ...activitiesState,
-            ];
+            addActivity({
+                id: `act-exit-${sessionId}`,
+                type: "exit",
+                plateNumber: found.plateNumber,
+                vehicleType: found.vehicleType,
+                customerType: found.customerType,
+                timestamp: new Date().toISOString(),
+                amount: found.amountDueVnd,
+            });
         }
-        notify();
+        void refresh();
     },
 
-    resolveIssue: (issueId: string) => {
-        issuesState = issuesState.map((issue) =>
-            issue.id === issueId
-                ? { ...issue, status: "Resolved" as const }
-                : issue,
-        );
-        notify();
+    resolveIssue: (issueId?: string) => {
+        // No gate plate readings yet.
+        void issueId;
     },
 
     subscribe: (listener: () => void) => {
         listeners.add(listener);
+        if (!loaded) void refresh();
         return () => listeners.delete(listener);
     },
 };
+
+const EMPTY_SESSIONS: StaffSession[] = [];
+const EMPTY_ISSUES: VerificationIssue[] = [];
+const EMPTY_ACTIVITIES: GateActivity[] = [];
 
 export function useStaffData() {
     const sessions = useSyncExternalStore(
         staffStore.subscribe,
         staffStore.getSessions,
-        () => initialSessions,
+        () => EMPTY_SESSIONS,
     );
     const issues = useSyncExternalStore(
         staffStore.subscribe,
         staffStore.getIssues,
-        () => initialIssues,
+        () => EMPTY_ISSUES,
     );
     const activities = useSyncExternalStore(
         staffStore.subscribe,
         staffStore.getActivities,
-        () => initialActivities,
+        () => EMPTY_ACTIVITIES,
     );
     const assignedLot = useSyncExternalStore(
         staffStore.subscribe,
         staffStore.getAssignedLot,
-        () => assignedLotState,
+        () => null,
+    );
+    const loadError = useSyncExternalStore(
+        staffStore.subscribe,
+        staffStore.getLoadError,
+        () => null,
     );
 
-    const activeSessions = sessions.filter((s) => s.status === "Active");
+    // Active and Paid are both vehicles still inside the lot (Paid = paid, not exited yet).
+    const activeSessions = sessions.filter(
+        (s) => s.status === "Active" || s.status === "Paid",
+    );
     const pendingIssues = issues.filter((i) => i.status === "Pending");
 
-    const totalCap = assignedLot.totalCapacity ?? 240;
-    const occupied = activeSessions.length + (assignedLot.occupiedSlots ?? 86);
+    const totalCap =
+        assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
+    const occupied = activeSessions.length;
 
     const occupancy: OccupancyStats = {
-        totalCapacity: totalCap,
-        occupied,
-        carAvailable: Math.max(
-            0,
-            (assignedLot.availableCarSlots ?? 95) -
-                activeSessions.filter((s) => s.vehicleType === "Car").length,
-        ),
-        motorbikeAvailable: Math.max(0, assignedLot.availableMotorbikeSlots),
+        totalCapacity: assignedLot?.motorbikeCapacity ?? null,
+        occupied: activeSessions.length,
+        carAvailable: assignedLot?.availableCarSlots ?? null,
+        motorbikeAvailable: assignedLot?.availableMotorbikeSlots ?? null,
         activeSessionsCount: activeSessions.length,
         needsVerificationCount: pendingIssues.length,
     };
@@ -342,6 +264,7 @@ export function useStaffData() {
         activities,
         occupancy,
         assignedLot,
+        loadError,
         fetchAssignedLot: staffStore.fetchAssignedLot,
         setAssignedLot: staffStore.setAssignedLot,
         addSession: staffStore.addSession,

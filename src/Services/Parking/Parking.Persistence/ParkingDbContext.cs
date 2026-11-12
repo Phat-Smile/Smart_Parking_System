@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Parking.Persistence.Outbox;
 using ParkingSystem.Parking.Persistence.Inbox;
 using ParkingSystem.Parking.Domain.Entities;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
@@ -17,12 +18,16 @@ public sealed class ParkingDbContext(DbContextOptions<ParkingDbContext> options)
     public DbSet<PricingPolicy> PricingPolicies => Set<PricingPolicy>();
 
     public DbSet<ReservationDepositPolicy> ReservationDepositPolicies => Set<ReservationDepositPolicy>();
+    public DbSet<ReservationRatioPolicy> ReservationRatioPolicies => Set<ReservationRatioPolicy>();
+    public DbSet<ReservationAvailabilityPolicy> ReservationAvailabilityPolicies => Set<ReservationAvailabilityPolicy>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
     public DbSet<ParkingSession> ParkingSessions => Set<ParkingSession>();
+
+    public DbSet<Incident> Incidents => Set<Incident>();
 
     public DbSet<ParkingLot> ParkingLots => Set<ParkingLot>();
 

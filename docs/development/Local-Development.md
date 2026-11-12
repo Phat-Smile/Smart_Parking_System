@@ -33,10 +33,16 @@ The example PostgreSQL and RabbitMQ credentials are public local-development val
 
 The PostgreSQL port inside Docker is `5432`; the host port is `5433` by default. The five API containers receive `ConnectionStrings__DefaultConnection` from Compose, built from `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. Their connection uses `postgres:5432` on the Compose network. No database password is stored in the API `appsettings.json` files.
 
-Set `SECURITY_OTP_PEPPER` in `.env` to your own random value (at least 32 characters) before starting Identity; it refuses to start without it. On PowerShell:
+Set `SECURITY_OTP_PEPPER` in `.env` to your own random value (at least 32 characters) before starting Identity; it refuses to start without it. The quickest way is the helper script, which creates `.env` if needed and fills the blank `SECURITY_OTP_PEPPER` with a random value (add `-Keys` to fill other blank secrets), never printing it:
 
 ```powershell
-[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+.\scripts\dev\Initialize-DevEnv.ps1
+```
+
+To generate one by hand on PowerShell:
+
+```powershell
+$b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)
 ```
 
 APIs started directly on the host (IDE or `dotnet run`) in the `Development` environment read the repository `.env` themselves: the connection string (`localhost:POSTGRES_HOST_PORT`), the `RabbitMq:*` settings (`localhost:RABBITMQ_HOST_PORT`), `Security:Otp:Pepper` from `SECURITY_OTP_PEPPER`, and the other keys such as `SMTP_HOST` or `GOOGLE_CLIENT_ID`. No credential lives in the `appsettings*.json` files, so do not add one there.

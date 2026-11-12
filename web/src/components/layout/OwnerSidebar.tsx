@@ -13,6 +13,8 @@ const IC: Record<string, string> = {
     cal: "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4",
     car: "M4 15l1.5-5h13L20 15v4h-3v-2H7v2H4zM6 15h12",
     chart: "M4 20V4M4 20h16M8 16v-5M13 16V8M18 16v-9",
+    clock: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm.5-13H11v6l5.2 3.1.8-1.3-4.5-2.7z",
+    tag: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
 };
 
 // Các mục nav thẳng (không có submenu)
@@ -30,6 +32,18 @@ const NAV_FLAT = [
         match: (p: string) => p.startsWith("/owner/parking-lots"),
     },
     // "Sơ đồ 2D / 3D" được xử lý riêng bên dưới (có submenu)
+    {
+        href: "/owner/opening-hours",
+        label: "Giờ hoạt động",
+        icon: "clock",
+        match: (p: string) => p.startsWith("/owner/opening-hours"),
+    },
+    {
+        href: "/owner/pricing",
+        label: "Bảng giá & Cọc",
+        icon: "tag",
+        match: (p: string) => p.startsWith("/owner/pricing"),
+    },
     {
         href: "/owner/reservations",
         label: "Đặt chỗ",
@@ -54,6 +68,7 @@ const NAV_FLAT = [
 const LAYOUT_SUBMENU = [
     { href: "/owner/layout/3d", label: "Sơ đồ 3D", icon: "cube" },
     { href: "/owner/layout/2d", label: "Sơ đồ 2D", icon: "grid2d" },
+    { href: "/owner/layout/editor", label: "Chỉnh sửa sơ đồ", icon: "grid" },
 ];
 
 /** SVG icon helper */
@@ -117,6 +132,46 @@ export function OwnerSidebar() {
                 <ParkWiseLogoBadge />
                 <span>
                     Park<span style={{ color: "var(--pw-lime)" }}>Wise</span>
+                </span>
+            </Link>
+
+            {/* Shortcut vào Chế độ Mô phỏng / Sandbox */}
+            <Link
+                href="/owner/simulation"
+                className={pathname === "/owner/simulation" ? "on" : ""}
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background:
+                        pathname === "/owner/simulation"
+                            ? "rgba(234, 179, 8, 0.22)"
+                            : "rgba(234, 179, 8, 0.08)",
+                    border: "1px solid rgba(234, 179, 8, 0.35)",
+                    color: "#facc15",
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    marginBottom: 10,
+                    textDecoration: "none",
+                    transition: "all 0.15s ease",
+                }}
+            >
+                <span style={{ fontSize: 16 }}>🎮</span>
+                <span style={{ flex: 1 }}>Bản mô phỏng</span>
+                <span
+                    style={{
+                        fontSize: 9.5,
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        background: "#ca8a04",
+                        color: "#fff",
+                        textTransform: "uppercase",
+                        fontWeight: 800,
+                    }}
+                >
+                    Sandbox
                 </span>
             </Link>
 

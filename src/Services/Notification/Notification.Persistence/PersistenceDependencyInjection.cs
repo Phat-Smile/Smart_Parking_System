@@ -7,6 +7,8 @@ using ParkingSystem.Notification.Application.Common.Messaging.Outbox;
 using ParkingSystem.Notification.Application.Common.Messaging.Inbox;
 using ParkingSystem.Notification.Persistence.Outbox;
 using ParkingSystem.Notification.Persistence.Inbox;
+using ParkingSystem.Notification.Persistence.CustomerNotifications;
+using ParkingSystem.Notification.Application.CustomerNotifications;
 
 namespace ParkingSystem.Notification.Persistence;
 
@@ -32,6 +34,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, NotificationInboxExecutionCoordinator>();
+        services.AddScoped<ICustomerNotificationStore, CustomerNotificationStore>();
         return services;
     }
 }

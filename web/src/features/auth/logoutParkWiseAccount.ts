@@ -21,3 +21,16 @@ export async function logoutParkWiseAccount() {
         clearAuthSession();
     }
 }
+
+export async function logoutAllParkWiseAccount() {
+    try {
+        await gatewayFetch<{ message: string }>(
+            "/api/identity/accounts/logout-all",
+            {
+                method: "POST",
+            },
+        );
+    } finally {
+        clearAuthSession();
+    }
+}

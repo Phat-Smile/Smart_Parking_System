@@ -31,7 +31,7 @@ public sealed class ExitVerificationTests
     {
         var session = NewSession(status);
 
-        Assert.Equal(expected, ExitEligibility.CanExit(session, plateMatches, qrMatches));
+        Assert.Equal(expected, ExitEligibility.CanExit(session, plateMatches, qrMatches, Now));
     }
 
     [Fact]
@@ -301,6 +301,8 @@ public sealed class ExitVerificationTests
             LastPlateLookup = (lotId, normalizedPlate);
             return Task.FromResult(session?.LotId == lotId && session.PlateNumber == normalizedPlate ? session : null);
         }
+
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
 
         public void Add(ParkingSession added) => throw new NotSupportedException();
 

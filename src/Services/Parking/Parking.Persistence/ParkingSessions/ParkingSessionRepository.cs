@@ -17,6 +17,11 @@ internal sealed class ParkingSessionRepository(ParkingDbContext dbContext) : IPa
     public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
         dbContext.ParkingSessions.FirstOrDefaultAsync(session => session.Id == sessionId, cancellationToken);
 
+    public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) =>
+        dbContext.ParkingSessions
+            .FromSqlInterpolated($"SELECT * FROM parking.parking_sessions WHERE id = {sessionId} FOR UPDATE")
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) =>
         await dbContext.ParkingSessions.AsNoTracking()
             .Where(session => session.UserId == userId && ParkingSession.OpenStatuses.Contains(session.Status))

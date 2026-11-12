@@ -4,55 +4,55 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import type { PreviewParkingPin } from "./CustomerMapScene";
+import type { MapCoordinates } from "./geocodeDestination";
 
 const MapboxScene = dynamic(() => import("./CustomerMapScene"), { ssr: false });
 
-export const previewParkingPins: PreviewParkingPin[] = [
-    {
-        id: "parkside",
-        name: "Parkside Parking",
-        longitude: 106.7038,
-        latitude: 10.7782,
-        x: 48,
-        y: 38,
-    },
-    {
-        id: "sunrise",
-        name: "City parking",
-        longitude: 106.708,
-        latitude: 10.7727,
-        x: 69,
-        y: 57,
-    },
-    {
-        id: "central",
-        name: "Covered garage",
-        longitude: 106.696,
-        latitude: 10.7725,
-        x: 31,
-        y: 67,
-    },
-];
+export type MapParkingLot = {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+};
+
+// Without a Mapbox token the lots are drawn on the illustrated map, spread by their coordinates.
+function toPins(lots: MapParkingLot[]): PreviewParkingPin[] {
+    if (lots.length === 0) return [];
+    const lats = lots.map((lot) => lot.latitude);
+    const lngs = lots.map((lot) => lot.longitude);
+    const minLat = Math.min(...lats);
+    const minLng = Math.min(...lngs);
+    const latSpan = Math.max(...lats) - minLat || 1;
+    const lngSpan = Math.max(...lngs) - minLng || 1;
+    return lots.map((lot) => ({
+        id: lot.id,
+        name: lot.name,
+        latitude: lot.latitude,
+        longitude: lot.longitude,
+        x: 15 + 70 * ((lot.longitude - minLng) / lngSpan),
+        y: 15 + 70 * (1 - (lot.latitude - minLat) / latSpan),
+    }));
+}
 
 export function CustomerMap({
     selectedId,
     onSelect,
     currentLocation,
-    visibleIds,
+    destinationLocation,
+    lots,
 }: {
     selectedId: string;
     onSelect: (id: string) => void;
     currentLocation?: { longitude: number; latitude: number } | null;
-    visibleIds?: string[];
+    destinationLocation?: MapCoordinates | null;
+    lots: MapParkingLot[];
 }) {
     const token = getPublicMapboxToken();
-    const pins = visibleIds
-        ? previewParkingPins.filter((pin) => visibleIds.includes(pin.id))
-        : previewParkingPins;
+    const pins = toPins(lots);
     const selected = pins.find((pin) => pin.id === selectedId);
 
     return (
-        <div className="customer-map" aria-label="Parking map preview">
+        <div className="customer-map" aria-label="Parking map">
             {token ? (
                 <MapboxScene
                     token={token}
@@ -60,6 +60,7 @@ export function CustomerMap({
                     selectedId={selectedId}
                     onSelect={onSelect}
                     currentLocation={currentLocation}
+                    destinationLocation={destinationLocation}
                 />
             ) : (
                 <>
@@ -76,7 +77,7 @@ export function CustomerMap({
                             type="button"
                             className={`customer-map-pin customer-map-preview-pin ${selectedId === pin.id ? "selected" : ""}`}
                             style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-                            aria-label={`Select example location ${pin.name}`}
+                            aria-label={`Select parking lot ${pin.name}`}
                             aria-pressed={selectedId === pin.id}
                             onClick={() => onSelect(pin.id)}
                         >
@@ -90,7 +91,7 @@ export function CustomerMap({
                     <span className="customer-map-selected-icon">P</span>
                     <span>
                         <strong>{selected.name}</strong>
-                        <small>Design preview location</small>
+                        <small>Approved parking lot</small>
                     </span>
                 </div>
             )}
@@ -101,7 +102,7 @@ export function CustomerMap({
             )}
             <span className="customer-map-caption">
                 {token
-                    ? "MAPBOX · EXAMPLE LOCATIONS"
+                    ? "MAPBOX · APPROVED PARKING LOTS"
                     : "MAP PREVIEW · MAPBOX TOKEN NEEDED"}
             </span>
         </div>

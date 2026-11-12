@@ -15,6 +15,7 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.ListStaffLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
@@ -257,6 +258,7 @@ public sealed class StaffSessionQueriesHttpTests
         builder.Services.AddSingleton<IParkingLotAccess, AssignedLotOnly>();
         builder.Services.AddSingleton<IParkingLotAssignmentRepository, InMemoryAssignments>();
         builder.Services.AddSingleton<IParkingSessionRepository, InMemorySessions>();
+        builder.Services.AddSingleton<ISlotDesignator, NoSlots>();
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
@@ -320,6 +322,16 @@ public sealed class StaffSessionQueriesHttpTests
         public Task SaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }
 
+    private sealed class NoSlots : ISlotDesignator
+    {
+        public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+
+        public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
     private sealed class InMemorySessions : IParkingSessionRepository
     {
         private static readonly ParkingSession[] Sessions = [LotSession, CallerSession, OtherLotSession];
@@ -338,6 +350,8 @@ public sealed class StaffSessionQueriesHttpTests
         public Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
+
         public void Add(ParkingSession session) => throw new InvalidOperationException();
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }

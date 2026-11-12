@@ -107,7 +107,9 @@ public sealed class ApplyForOwnerApplicationCommandHandler(
                 }
             }
 
-            await accounts.SaveChangesAsync(cancellationToken);
+            // Two applications racing for one tax code both pass the check above; the unique index stops the loser.
+            if (!await accounts.TrySaveOwnerApplicationAsync(cancellationToken))
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.TaxCodeAlreadyRegistered);
 
             return Result<OwnerApplicationActionResult>.Success(new OwnerApplicationActionResult(
                 account.Id,

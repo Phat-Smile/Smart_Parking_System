@@ -139,6 +139,12 @@ export interface TranslationDictionary {
     assignmentsColStaff: string;
     assignmentsColContact: string;
     assignmentsColRole: string;
+    assignmentsColShift: string;
+    assignmentsSelectShift: string;
+    shiftMorning: string;
+    shiftAfternoon: string;
+    shiftNight: string;
+    shiftAllDay: string;
     assignmentsLoadingLots: string;
     assignmentsLoadingAssignments: string;
     assignmentsAssigning: string;
@@ -428,9 +434,9 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         // Admin Parking Lots
         parkingLotsTitle: "Quản trị bãi đỗ xe",
         parkingLotsEyebrow: "Mạng lưới bãi xe",
-        parkingLotsPendingTab: "🅿️ Bãi xe chờ duyệt",
-        parkingLotsOwnersTab: "👤 Duyệt hồ sơ Chủ bãi",
-        parkingLotsAssignmentsTab: "👥 Phân công nhân viên",
+        parkingLotsPendingTab: "Bãi xe chờ duyệt",
+        parkingLotsOwnersTab: "Duyệt hồ sơ Chủ bãi",
+        parkingLotsAssignmentsTab: "Phân công nhân viên",
         searchLotsPlaceholder: "Tìm theo tên bãi, chủ bãi, địa chỉ...",
         lookupLotId: "Nhập mã bãi (GUID) để tra cứu...",
         lookupBtn: "Mở",
@@ -443,7 +449,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         lotStatusHeader: "Trạng thái",
         approveLot: "Duyệt",
         rejectLot: "Từ chối",
-        assignLot: "👥 Phân công",
+        assignLot: "Phân công",
         viewLot: "Xem",
 
         // Admin Dashboard
@@ -494,7 +500,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsLegalDocs: "Giấy tờ pháp lý",
         ownerAppsSubmittedAt: "Ngày nộp",
         ownerAppsSearchPlaceholder:
-            "Tìm tên, email, MST, SĐT hoặc doanh nghiệp...",
+            "Tìm tên, email, MST, số điện thoại hoặc doanh nghiệp...",
         ownerAppsInspectDocsModalTitle: "Hồ sơ & Giấy tờ pháp lý Chủ bãi",
         ownerAppsApproveModalTitle:
             "Thẩm định giấy tờ & Phê duyệt hồ sơ Chủ bãi",
@@ -538,6 +544,12 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         assignmentsColStaff: "Nhân viên / Họ tên",
         assignmentsColContact: "Email & Số điện thoại",
         assignmentsColRole: "Vai trò tại bãi",
+        assignmentsColShift: "Ca trực",
+        assignmentsSelectShift: "Ca trực phân công",
+        shiftMorning: "Ca 1 - Sáng (06:00 - 14:00)",
+        shiftAfternoon: "Ca 2 - Chiều (14:00 - 22:00)",
+        shiftNight: "Ca 3 - Đêm (22:00 - 06:00)",
+        shiftAllDay: "Cả ngày / 24/7 (00:00 - 23:59)",
         assignmentsLoadingLots: "Đang tải danh sách bãi...",
         assignmentsLoadingAssignments: "Đang tải danh sách phân công...",
         assignmentsAssigning: "Đang gán...",
@@ -707,7 +719,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entrySummaryType: "Loại xe:",
         entrySummaryCap: "Chỗ trống bãi xe:",
         entrySummaryAccount: "Trạng thái tài khoản:",
-        entryAccountLinked: "✓ Đã liên kết: Nguyễn Văn An (Ví khả dụng)",
+        entryAccountLinked: "✓ Đã liên kết tài khoản (ví khả dụng)",
         entryAccountGuest: "Khách vãng lai (Cấp vé mã QR)",
         entryQrTokenLabel: "Mã QR phiên gửi xe:",
         entryMotorbikeSlotsLeft: "Số chỗ xe máy còn trống:",
@@ -840,9 +852,9 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         // Admin Parking Lots
         parkingLotsTitle: "Parking Lots Management",
         parkingLotsEyebrow: "Parking Network",
-        parkingLotsPendingTab: "🅿️ Pending Lots",
-        parkingLotsOwnersTab: "👤 Owner Applications",
-        parkingLotsAssignmentsTab: "👥 Staff Assignments",
+        parkingLotsPendingTab: "Pending Lots",
+        parkingLotsOwnersTab: "Owner Applications",
+        parkingLotsAssignmentsTab: "Staff Assignments",
         searchLotsPlaceholder: "Search by lot name, owner, city...",
         lookupLotId: "Enter Lot ID (GUID) to lookup...",
         lookupBtn: "Open",
@@ -855,7 +867,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         lotStatusHeader: "Status",
         approveLot: "Approve",
         rejectLot: "Reject",
-        assignLot: "👥 Assign",
+        assignLot: "Assign",
         viewLot: "View",
 
         // Admin Dashboard
@@ -949,6 +961,12 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         assignmentsColStaff: "Staff Member / Name",
         assignmentsColContact: "Email & Phone Number",
         assignmentsColRole: "Role at Lot",
+        assignmentsColShift: "Work Shift",
+        assignmentsSelectShift: "Assign Work Shift",
+        shiftMorning: "Shift 1 - Morning (06:00 - 14:00)",
+        shiftAfternoon: "Shift 2 - Afternoon (14:00 - 22:00)",
+        shiftNight: "Shift 3 - Night (22:00 - 06:00)",
+        shiftAllDay: "All Day / 24/7 (00:00 - 23:59)",
         assignmentsLoadingLots: "Loading parking lots...",
         assignmentsLoadingAssignments: "Loading staff assignments...",
         assignmentsAssigning: "Assigning...",
@@ -1120,7 +1138,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entrySummaryType: "Vehicle Type:",
         entrySummaryCap: "Lot Capacity Available:",
         entrySummaryAccount: "Account Status:",
-        entryAccountLinked: "✓ Linked: Nguyễn Văn An (Wallet Active)",
+        entryAccountLinked: "✓ Linked account (wallet active)",
         entryAccountGuest: "Guest (No account needed · QR Issued)",
         entryQrTokenLabel: "Parking Session QR Token:",
         entryMotorbikeSlotsLeft: "Motorbike slots available:",

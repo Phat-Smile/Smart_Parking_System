@@ -232,7 +232,10 @@ public sealed class SmtpEmailSender(
             using var client = new SmtpClient(host, port);
             if (hasCredentials)
             {
-                client.Credentials = new NetworkCredential(username!.Trim(), password!.Trim());
+                var sanitizedSecret = host.Contains("gmail", StringComparison.OrdinalIgnoreCase)
+                    ? password!.Trim().Replace(" ", "")
+                    : password!.Trim();
+                client.Credentials = new NetworkCredential(username!.Trim(), sanitizedSecret);
                 client.EnableSsl = port != 1025;
             }
             else

@@ -245,6 +245,20 @@ public sealed class AccountEndpointsHttpTests : IAsyncLifetime, IDisposable
         Assert.Equal("Customer", command.Role);
     }
 
+    [Fact]
+    public async Task Role_change_maps_owner_role_requires_application_to_409()
+    {
+        var admin = VerifiedAccount("admin@example.test");
+        admin.AssignRole(AccountRole.SystemAdmin);
+        var targetId = Guid.NewGuid();
+        _sender.Respond(Result<ChangedAccountRole>.Failure(ChangeAccountRoleErrors.OwnerRoleRequiresApplication));
+
+        using var response = await SendAsync(HttpMethod.Put, $"/api/identity/admin/accounts/{targetId}/role", new { role = "ParkingLotOwner" }, IssueToken(admin));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(ChangeAccountRoleErrors.OwnerRoleRequiresApplication.Code, await ErrorCodeAsync(response));
+    }
+
     // ── GET /api/identity/accounts/me ──────────────────────────────────────────
 
     [Fact]

@@ -7,8 +7,10 @@ namespace ParkingSystem.Parking.Domain.ParkingSessions;
 /// </summary>
 public static class ExitEligibility
 {
-    // "Nothing left to pay" is read as Status == Paid for now. The 15-minute rule after payment (BR-09.d) that sends a
-    // Paid session back to Active belongs to US-PAY-006 and will be added here.
-    public static bool CanExit(ParkingSession session, bool plateMatches, bool qrMatches) =>
-        plateMatches && qrMatches && session.Status == ParkingSessionStatus.Paid;
+    // "Nothing left to pay" is Status == Paid and still inside the 15-minute exit window (BR-09.d).
+    public static bool CanExit(ParkingSession session, bool plateMatches, bool qrMatches, DateTimeOffset arrivedAt) =>
+        plateMatches
+        && qrMatches
+        && session.Status == ParkingSessionStatus.Paid
+        && !session.IsExitWindowOver(arrivedAt);
 }

@@ -16,11 +16,13 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application;
+using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.Common.Interfaces;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Domain.Entities;
@@ -176,6 +178,7 @@ public sealed class ParkingLotScopeHttpTests
         builder.WebHost.UseTestServer();
         builder.AddParkingSystemWebFoundation();
         builder.Services.AddApplicationServices();
+        builder.Services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
         builder.Services.AddParkingAuthorization();
         builder.Services.AddAuthentication(HeaderRoleAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderRoleAuthenticationHandler>(HeaderRoleAuthenticationHandler.SchemeName, null);
@@ -187,6 +190,9 @@ public sealed class ParkingLotScopeHttpTests
         builder.Services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
         builder.Services.AddSingleton<IMotorbikeZoneCounter, UnusedMotorbikeZones>();
+        builder.Services.AddSingleton<ISlotDesignator, UnusedSlotDesignator>();
+        builder.Services.AddSingleton<IHeldQuotaReader, UnusedHeldQuotaReader>();
+        builder.Services.AddSingleton<IZoneLabelReader, UnusedZoneLabels>();
         builder.Services.AddSingleton<IParkingUnitOfWork, UnusedUnitOfWork>();
         builder.Services.AddSingleton<IPricingPolicyRepository, UnusedPricingPolicyRepository>();
         builder.Services.AddSingleton<IAuditWriter, UnusedAuditWriter>();
@@ -258,11 +264,32 @@ public sealed class ParkingLotScopeHttpTests
             Task.FromResult<ParkingSession?>(ParkingSession.Open(Guid.NewGuid(), Guid.NewGuid(), "51A-123.45", VehicleType.Car, DateTimeOffset.UtcNow, qrToken, null, null));
         public Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
+
         public void Add(ParkingSession session) => throw new InvalidOperationException();
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }
 
     // Không được gọi tới: request bị chặn ở bước kiểm quyền theo bãi, trước khi đụng tới chỗ xe máy.
+    // Không được gọi tới: request bị chặn ở bước kiểm quyền theo bãi, trước khi hỏi Booking hay chỉ định chỗ ô tô (US-PARK-007).
+    private sealed class UnusedSlotDesignator : ISlotDesignator
+    {
+        public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
+    private sealed class UnusedHeldQuotaReader : IHeldQuotaReader
+    {
+        public Task<int> CountHeldReservationsAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
+    private sealed class UnusedZoneLabels : IZoneLabelReader
+    {
+        public Task<IReadOnlyDictionary<Guid, ZoneLabel>> GetLabelsAsync(IReadOnlyCollection<Guid> zoneIds, CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
     private sealed class UnusedMotorbikeZones : IMotorbikeZoneCounter
     {
         public Task<MotorbikeSpaceTaken?> TakeSpaceAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
@@ -277,6 +304,9 @@ public sealed class ParkingLotScopeHttpTests
 
     private sealed class UnusedPricingPolicyRepository : IPricingPolicyRepository
     {
+        public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<PricingPolicy?> GetLatestAsync(Guid lotId, string vehicleType, CancellationToken cancellationToken) => Task.FromResult<PricingPolicy?>(null);
         public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<bool> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);

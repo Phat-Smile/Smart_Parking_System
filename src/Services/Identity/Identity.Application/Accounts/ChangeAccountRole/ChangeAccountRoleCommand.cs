@@ -15,6 +15,9 @@ public static class ChangeAccountRoleErrors
 {
     public static readonly Error CannotChangeOwnRole =
         new("identity.cannot_change_own_role", "Quản trị viên không thể tự thay đổi vai trò của chính mình.");
+
+    public static readonly Error OwnerRoleRequiresApplication =
+        new("identity.owner_role_requires_application", "Không thể gán trực tiếp vai trò Chủ bãi. Người dùng phải nộp hồ sơ đăng ký kèm tài liệu pháp lý và được phê duyệt qua quy trình thẩm định.");
 }
 
 public sealed class ChangeAccountRoleCommandValidator : AbstractValidator<ChangeAccountRoleCommand>
@@ -54,6 +57,10 @@ public sealed class ChangeAccountRoleCommandHandler(
             // Gọi lại với cùng vai trò thì không làm gì, không đăng xuất người dùng vô cớ.
             if (account.Role == role)
                 return Result<ChangedAccountRole>.Success(new ChangedAccountRole(account.Id, role.ToString(), "Tài khoản đã có vai trò này, không có gì thay đổi."));
+
+            // AGENTS.md mục 5.1: Vai trò Chủ bãi chỉ được cấp sau khi nộp đủ hồ sơ và được Admin duyệt qua quy trình nộp đơn.
+            if (role == AccountRole.ParkingLotOwner && account.OwnerApplicationStatus != OwnerApplicationStatus.Approved)
+                return Result<ChangedAccountRole>.Failure(ChangeAccountRoleErrors.OwnerRoleRequiresApplication);
 
             var now = clock.UtcNow;
             account.AssignRole(role);

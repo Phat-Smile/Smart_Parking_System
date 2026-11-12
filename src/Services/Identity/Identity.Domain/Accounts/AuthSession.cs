@@ -20,13 +20,19 @@ public sealed class AuthSession
     public DateTimeOffset? RevokedAtUtc { get; private set; }
     public string? RevokedReason { get; private set; }
 
+    // Cách người dùng đã xác thực khi mở phiên ("pwd", "google", thêm "mfa" nếu qua bước 2); refresh cấp lại đúng claim amr này.
+    public string AuthenticationMethods { get; private set; } = DefaultAuthenticationMethod;
+
+    public const string DefaultAuthenticationMethod = "pwd";
+
     public static AuthSession Create(
         Guid id,
         Guid accountId,
         string? deviceInfo,
         string? ipAddress,
         DateTimeOffset createdAtUtc,
-        DateTimeOffset absoluteExpiresAtUtc)
+        DateTimeOffset absoluteExpiresAtUtc,
+        string authenticationMethods = DefaultAuthenticationMethod)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Session Id must not be empty.", nameof(id));
@@ -45,7 +51,8 @@ public sealed class AuthSession
             LastActivityAtUtc = createdAtUtc,
             AbsoluteExpiresAtUtc = absoluteExpiresAtUtc,
             RevokedAtUtc = null,
-            RevokedReason = null
+            RevokedReason = null,
+            AuthenticationMethods = string.IsNullOrWhiteSpace(authenticationMethods) ? DefaultAuthenticationMethod : authenticationMethods.Trim()
         };
     }
 

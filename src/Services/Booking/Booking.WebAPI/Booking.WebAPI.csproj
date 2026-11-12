@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <Protobuf Include="..\..\..\..\contracts\grpc\parking_availability.proto" GrpcServices="Client" Link="Protos\parking_availability.proto" />
+    <Protobuf Include="..\..\..\..\contracts\grpc\identity_vehicle.proto" GrpcServices="Client" Link="Protos\identity_vehicle.proto" />
+    <Protobuf Include="..\..\..\..\contracts\grpc\payment_reservation.proto" GrpcServices="Client" Link="Protos\payment_reservation.proto" />
   </ItemGroup>
 
   <ItemGroup>

@@ -32,6 +32,12 @@ internal sealed class AuthSessionConfiguration : IEntityTypeConfiguration<AuthSe
 
         builder.Property(s => s.RevokedReason).HasColumnName("revoked_reason").HasMaxLength(128);
 
+        builder.Property(s => s.AuthenticationMethods)
+            .HasColumnName("authentication_methods")
+            .HasMaxLength(64)
+            .IsRequired()
+            .HasDefaultValue(AuthSession.DefaultAuthenticationMethod);
+
         builder.HasOne<Account>()
             .WithMany()
             .HasForeignKey(s => s.AccountId)

@@ -58,8 +58,8 @@ public sealed class VerifyParkingSessionExitCommandHandler(
             return Result<VerifiedParkingSessionExit>.Failure(VerifyParkingSessionExitErrors.SessionNotOpen);
 
         // Staff confirmed the vehicle and the session in person, so plate and QR count as matched; payment still decides.
-        var canExit = ExitEligibility.CanExit(session, plateMatches: true, qrMatches: true);
         var now = clock.UtcNow;
+        var canExit = ExitEligibility.CanExit(session, plateMatches: true, qrMatches: true, now);
 
         auditLog.Record(new AuditEntry(
             AuditActions.SessionExitManuallyVerified,

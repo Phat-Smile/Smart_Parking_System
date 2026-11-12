@@ -130,6 +130,8 @@ public sealed class RefreshTokenConcurrencyIntegrationTests(PostgreSqlContainerF
         public int AccessTokenExpirationSeconds => 900;
 
         public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => "access-token";
+
+        public string IssueAccessToken(Account account, Guid sessionId, string authenticationMethods, DateTimeOffset nowUtc) => "access-token";
     }
 
     private sealed class FixedClock : IClock

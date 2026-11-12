@@ -13,7 +13,7 @@ export function getRedirectPathForRole(role?: string): string {
             return "/owner";
         case "Customer":
         default:
-            return "/customer/vehicles";
+            return "/customer/dashboard";
     }
 }
 

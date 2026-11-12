@@ -30,8 +30,8 @@ public sealed class GoogleLoginIntegrationTests(PostgreSqlContainerFixture postg
         var result = await GoogleLoginAsync(provider, google, ct);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Customer", result.Value!.Account.Role);
-        Assert.Equal("EmailVerified", result.Value.Account.Status);
+        Assert.Equal("Customer", result.Value!.Session!.Account.Role);
+        Assert.Equal("EmailVerified", result.Value.Session!.Account.Status);
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         var account = await db.Accounts.AsNoTracking().SingleAsync(a => a.Email == "new.user@gmail.com", ct);
@@ -69,7 +69,7 @@ public sealed class GoogleLoginIntegrationTests(PostgreSqlContainerFixture postg
         var again = await GoogleLoginAsync(provider, new GoogleIdentity("sub-stable", "renamed@gmail.com", "A"), ct);
 
         Assert.True(again.IsSuccess);
-        Assert.Equal("old.address@gmail.com", again.Value!.Account.Email);
+        Assert.Equal("old.address@gmail.com", again.Value!.Session!.Account.Email);
     }
 
     [Theory]
@@ -167,7 +167,7 @@ public sealed class GoogleLoginIntegrationTests(PostgreSqlContainerFixture postg
         return account;
     }
 
-    private static async Task<Result<LoginResponse>> GoogleLoginAsync(
+    private static async Task<Result<LoginOutcome>> GoogleLoginAsync(
         ServiceProvider provider, GoogleIdentity? identity, CancellationToken cancellationToken, bool configured = true)
     {
         await using var scope = provider.CreateAsyncScope();
@@ -195,6 +195,7 @@ public sealed class GoogleLoginIntegrationTests(PostgreSqlContainerFixture postg
     {
         public int AccessTokenExpirationSeconds => 900;
         public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => "access-token";
+        public string IssueAccessToken(Account account, Guid sessionId, string authenticationMethods, DateTimeOffset nowUtc) => "access-token";
     }
 
     private sealed class FixedClock : IClock

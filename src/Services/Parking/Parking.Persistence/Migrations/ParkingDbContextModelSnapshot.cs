@@ -66,6 +66,30 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                     b.ToTable("pricing_policies", "parking");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationAvailabilityPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ReservationEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservation_availability_policies_lot_id");
+
+                    b.ToTable("reservation_availability_policies", "parking");
+                });
+
             modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationDepositPolicy", b =>
                 {
                     b.Property<Guid>("Id")
@@ -88,6 +112,127 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasDatabaseName("ux_reservation_deposit_policies_lot_id");
 
                     b.ToTable("reservation_deposit_policies", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Entities.ReservationRatioPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReservationRatioPercent")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LotId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservation_ratio_policies_lot_id");
+
+                    b.ToTable("reservation_ratio_policies", "parking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Incidents.Incident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ConfirmedPlate")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("confirmed_plate");
+
+                    b.Property<string>("ConfirmedVehicleType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("confirmed_vehicle_type");
+
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("device_id");
+
+                    b.Property<string>("IncidentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("incident_type");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<string>("ObservedPlate")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("observed_plate");
+
+                    b.Property<string>("ObservedVehicleType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("observed_vehicle_type");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<decimal?>("PlateConfidence")
+                        .HasPrecision(3, 2)
+                        .HasColumnType("numeric(3,2)")
+                        .HasColumnName("plate_confidence");
+
+                    b.Property<Guid?>("ReservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reservation_id");
+
+                    b.Property<string>("ResolutionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("resolution_reason");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid?>("SlotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("slot_id");
+
+                    b.Property<string>("Status")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_incidents");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("ix_incidents_session_id");
+
+                    b.HasIndex("SlotId")
+                        .HasDatabaseName("ix_incidents_slot_id");
+
+                    b.HasIndex("LotId", "Status", "IncidentType", "OccurredAt")
+                        .HasDatabaseName("ix_incidents_lot_status_type_occurred_at");
+
+                    b.ToTable("incidents", "parking");
                 });
 
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>
@@ -144,10 +289,22 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("lot_id");
 
+                    b.Property<DateTimeOffset?>("ManuallyParkedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("manually_parked_at");
+
+                    b.Property<DateTimeOffset?>("NeedsVerificationSince")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("needs_verification_since");
+
                     b.Property<string>("OverrideState")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("override_state");
+
+                    b.Property<DateTimeOffset?>("OwnerNotifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("owner_notified_at");
 
                     b.Property<int>("RowVersion")
                         .IsConcurrencyToken()
@@ -256,6 +413,24 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("approval_status");
 
+                    b.Property<bool>("HasCctv")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("has_cctv");
+
+                    b.Property<bool>("HasEvCharging")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("has_ev_charging");
+
+                    b.Property<bool>("IsCovered")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_covered");
+
                     b.Property<decimal>("Latitude")
                         .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)")
@@ -283,6 +458,18 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("rejection_reason");
+
+                    b.Property<bool>("SupportsElectricVehicles")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("supports_electric_vehicles");
+
+                    b.Property<bool>("SupportsLargeVehicles")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("supports_large_vehicles");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -361,6 +548,14 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                     b.Property<DateTimeOffset>("EntryTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("entry_time");
+
+                    b.Property<DateTimeOffset?>("ExitTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("exit_time");
+
+                    b.Property<DateTimeOffset?>("LastPaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_paid_at");
 
                     b.Property<Guid>("LotId")
                         .HasColumnType("uuid")
@@ -603,6 +798,28 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_layout_documents_version_positive", "version > 0");
                         });
+                });
+
+            modelBuilder.Entity("ParkingSystem.Parking.Domain.Incidents.Incident", b =>
+                {
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLots.ParkingLot", null)
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_incidents_parking_lots_lot_id");
+
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingSessions.ParkingSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_incidents_parking_sessions_session_id");
+
+                    b.HasOne("ParkingSystem.Parking.Domain.ParkingLayout.ParkingSlot", null)
+                        .WithMany()
+                        .HasForeignKey("SlotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_incidents_parking_slots_slot_id");
                 });
 
             modelBuilder.Entity("ParkingSystem.Parking.Domain.ParkingLayout.Floor", b =>

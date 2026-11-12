@@ -36,6 +36,15 @@ internal sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
             .HasColumnName("avatar_url")
             .HasMaxLength(500);
 
+        builder.Property(profile => profile.Address)
+            .HasColumnName("address")
+            .HasMaxLength(500);
+        builder.Property(x => x.IdentityDocumentType).HasColumnName("identity_document_type").HasMaxLength(30);
+        builder.Property(x => x.IdentityIssueDate).HasColumnName("identity_issue_date");
+        builder.Property(x => x.IdentityIssuedBy).HasColumnName("identity_issued_by").HasMaxLength(150);
+        builder.Property(x => x.IdentityFrontMediaId).HasColumnName("identity_front_media_id");
+        builder.Property(x => x.IdentityBackMediaId).HasColumnName("identity_back_media_id");
+
         builder.Property(profile => profile.CreatedAtUtc)
             .HasColumnName("created_at_utc")
             .IsRequired();

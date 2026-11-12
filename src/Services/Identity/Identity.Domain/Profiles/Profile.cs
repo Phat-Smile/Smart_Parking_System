@@ -14,6 +14,12 @@ public sealed class Profile
     public string? CitizenIdNumber { get; private set; }
     public string? DriverLicenseNumber { get; private set; }
     public string? AvatarUrl { get; private set; }
+    public string? Address { get; private set; }
+    public string? IdentityDocumentType { get; private set; }
+    public DateOnly? IdentityIssueDate { get; private set; }
+    public string? IdentityIssuedBy { get; private set; }
+    public Guid? IdentityFrontMediaId { get; private set; }
+    public Guid? IdentityBackMediaId { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? UpdatedAtUtc { get; private set; }
 
@@ -23,7 +29,8 @@ public sealed class Profile
         DateOnly? dateOfBirth = null,
         string? citizenIdNumber = null,
         string? driverLicenseNumber = null,
-        string? avatarUrl = null)
+        string? avatarUrl = null,
+        string? address = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
         var trimmedName = fullName.Trim();
@@ -35,6 +42,7 @@ public sealed class Profile
         CitizenIdNumber = NullIfBlank(citizenIdNumber);
         DriverLicenseNumber = NullIfBlank(driverLicenseNumber);
         AvatarUrl = NullIfBlank(avatarUrl);
+        Address = NullIfBlank(address);
         UpdatedAtUtc = updatedAtUtc;
     }
 
@@ -42,6 +50,22 @@ public sealed class Profile
     {
         CitizenIdNumber = null;
         DriverLicenseNumber = null;
+        IdentityDocumentType = null;
+        IdentityIssueDate = null;
+        IdentityIssuedBy = null;
+        IdentityFrontMediaId = null;
+        IdentityBackMediaId = null;
+        UpdatedAtUtc = updatedAtUtc;
+    }
+
+    public void SetIdentityDocument(string documentType, DateOnly issueDate, string issuedBy,
+        Guid frontMediaId, Guid backMediaId, DateTimeOffset updatedAtUtc)
+    {
+        IdentityDocumentType = documentType;
+        IdentityIssueDate = issueDate;
+        IdentityIssuedBy = issuedBy.Trim();
+        IdentityFrontMediaId = frontMediaId;
+        IdentityBackMediaId = backMediaId;
         UpdatedAtUtc = updatedAtUtc;
     }
 
@@ -52,7 +76,8 @@ public sealed class Profile
         DateOnly? dateOfBirth = null,
         string? citizenIdNumber = null,
         string? driverLicenseNumber = null,
-        string? avatarUrl = null)
+        string? avatarUrl = null,
+        string? address = null)
     {
         if (accountId == Guid.Empty)
             throw new ArgumentException("AccountId must not be empty.", nameof(accountId));
@@ -70,6 +95,7 @@ public sealed class Profile
             CitizenIdNumber = NullIfBlank(citizenIdNumber),
             DriverLicenseNumber = NullIfBlank(driverLicenseNumber),
             AvatarUrl = NullIfBlank(avatarUrl),
+            Address = NullIfBlank(address),
             CreatedAtUtc = createdAtUtc,
             UpdatedAtUtc = null
         };
