@@ -59,7 +59,9 @@ export function OwnerSidebar() {
 
     const displayName =
         session?.displayName ||
-        (session?.account?.email ? session.account.email.split("@")[0] : "Chủ bãi");
+        (session?.account?.email
+            ? session.account.email.split("@")[0]
+            : "Chủ bãi");
     const initial = (displayName.charAt(0) || "M").toUpperCase();
 
     async function handleLogout() {
@@ -99,7 +101,9 @@ export function OwnerSidebar() {
             match: (p: string) => p.startsWith("/owner/opening-hours"),
         },
         {
-            href: isSampleMode ? "/owner/pricing?mode=sample" : "/owner/pricing",
+            href: isSampleMode
+                ? "/owner/pricing?mode=sample"
+                : "/owner/pricing",
             label: "Bảng giá & Cọc",
             icon: "tag",
             match: (p: string) => p.startsWith("/owner/pricing"),
@@ -121,7 +125,9 @@ export function OwnerSidebar() {
             match: (p: string) => p.startsWith("/owner/sessions"),
         },
         {
-            href: isSampleMode ? "/owner/reports?mode=sample" : "/owner/reports",
+            href: isSampleMode
+                ? "/owner/reports?mode=sample"
+                : "/owner/reports",
             label: "Báo cáo doanh thu",
             icon: "chart",
             match: (p: string) => p.startsWith("/owner/reports"),
@@ -157,7 +163,9 @@ export function OwnerSidebar() {
             {/* Brand / Logo đồng nhất trang chủ & Chuông thông báo */}
             <div className="side-brand-header">
                 <Link
-                    href={isSampleMode ? "/owner/simulation" : "/owner/dashboard"}
+                    href={
+                        isSampleMode ? "/owner/simulation" : "/owner/dashboard"
+                    }
                     className="brand-logo-link"
                     aria-label="ParkWise Dashboard"
                 >

@@ -28,13 +28,15 @@ function FloorStatsPanel() {
     const setActiveFloor = useOwnerStore((s) => s.setActiveFloor);
 
     // Quản lý tầng đang mở rộng (Accordion). Mặc định mở tầng active hoặc 'all'.
-    const [expandedFloor, setExpandedFloor] = useState<string | null>(activeFloor || "all");
-
-    useEffect(() => {
-        if (activeFloor) {
-            setExpandedFloor(activeFloor);
-        }
-    }, [activeFloor]);
+    const [expandedFloor, setExpandedFloor] = useState<string | null>(
+        activeFloor || "all",
+    );
+    // Follow the active floor without an effect: remember the last one seen and sync while rendering.
+    const [syncedFloor, setSyncedFloor] = useState(activeFloor);
+    if (activeFloor && activeFloor !== syncedFloor) {
+        setSyncedFloor(activeFloor);
+        setExpandedFloor(activeFloor);
+    }
 
     const rows = ["all", ...FLOORS] as const;
 
@@ -68,7 +70,13 @@ function FloorStatsPanel() {
                         aria-expanded={isExpanded}
                     >
                         <div className="fs-label">
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                }}
+                            >
                                 <svg
                                     width="12"
                                     height="12"
@@ -79,9 +87,13 @@ function FloorStatsPanel() {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     style={{
-                                        transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                                        transform: isExpanded
+                                            ? "rotate(90deg)"
+                                            : "rotate(0deg)",
                                         transition: "transform 0.18s ease",
-                                        color: isActive ? "var(--ink, #0f1b3d)" : "#8a94a6",
+                                        color: isActive
+                                            ? "var(--ink, #0f1b3d)"
+                                            : "#8a94a6",
                                         flexShrink: 0,
                                     }}
                                     aria-hidden="true"
@@ -89,7 +101,9 @@ function FloorStatsPanel() {
                                     <polyline points="9 18 15 12 9 6" />
                                 </svg>
                                 <span className="fs-name">
-                                    {f === "all" ? "Tất cả tầng" : `Tầng ${f[1]}`}
+                                    {f === "all"
+                                        ? "Tất cả tầng"
+                                        : `Tầng ${f[1]}`}
                                 </span>
                             </div>
                             <span className="fs-total mut">
@@ -101,7 +115,9 @@ function FloorStatsPanel() {
                         {isExpanded && (
                             <div className="fs-content">
                                 {K_VISIBLE.map((k) => {
-                                    const pct = Math.round((counts[k] / total) * 100);
+                                    const pct = Math.round(
+                                        (counts[k] / total) * 100,
+                                    );
                                     return (
                                         <div key={k} className="fs-stat">
                                             <div className="fs-bar-row">

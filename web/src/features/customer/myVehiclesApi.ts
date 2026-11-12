@@ -76,7 +76,12 @@ export function addMyVehicle(
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ licensePlate, vehicleType, nickName, details }),
+            body: JSON.stringify({
+                licensePlate,
+                vehicleType,
+                nickName,
+                details,
+            }),
         },
     ).then(normalizeRegisteredVehicle);
 }

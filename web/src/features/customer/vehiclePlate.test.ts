@@ -18,7 +18,8 @@ describe("Vietnamese civilian plate format", () => {
         expect(validateVehiclePlate(plate, group).valid).toBe(valid);
     });
     it("normalizes spacing, separators and case", () => {
-        expect(validateVehiclePlate(" 59a1 - 123.45 ", "Motorbike").normalized)
-            .toBe("59A112345");
+        expect(
+            validateVehiclePlate(" 59a1 - 123.45 ", "Motorbike").normalized,
+        ).toBe("59A112345");
     });
 });
