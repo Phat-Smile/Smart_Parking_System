@@ -10,6 +10,7 @@ import {
     buildCheckOutSpeech,
     buildWarningSpeech,
 } from "./phoneticHelper";
+import { pickVoice } from "./voiceSelection";
 
 export interface VoiceLogItem {
     id: string;
@@ -129,40 +130,11 @@ class GateVoiceService {
         const all = this.synth.getVoices();
         if (!all || all.length === 0) return;
 
-        // Lọc các giọng tiếng Việt hoặc chứa 'vi' trong language tag
-        const viVoices = all.filter(
-            (v) =>
-                v.lang.toLowerCase().startsWith("vi") ||
-                v.lang.toLowerCase().includes("vietnam"),
-        );
-
-        this.availableVoices = viVoices.length > 0 ? viVoices : all;
-
-        // Ưu tiên chọn voice đã lưu, hoặc các giọng tự nhiên phổ biến
-        if (this.settings.voiceURI) {
-            const matched = this.availableVoices.find(
-                (v) => v.voiceURI === this.settings.voiceURI,
-            );
-            if (matched) {
-                this.selectedVoice = matched;
-                this.notify();
-                return;
-            }
-        }
-
-        // Tìm kiếm các giọng chất lượng cao: Google Tiếng Việt, HoaiMy, NamMinh, Linh
-        const preferred = this.availableVoices.find(
-            (v) =>
-                v.name.includes("HoaiMy") ||
-                v.name.includes("NamMinh") ||
-                v.name.includes("Google") ||
-                v.name.includes("Linh") ||
-                v.lang.startsWith("vi"),
-        );
-
-        this.selectedVoice = preferred || this.availableVoices[0] || null;
-        if (this.selectedVoice) {
-            this.settings.voiceURI = this.selectedVoice.voiceURI;
+        const pick = pickVoice(all, this.settings.voiceURI);
+        this.availableVoices = pick.options;
+        this.selectedVoice = pick.voice;
+        if (pick.voice) {
+            this.settings.voiceURI = pick.voice.voiceURI;
         }
         this.notify();
     }

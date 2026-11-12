@@ -48,6 +48,23 @@ describe("getParkingFeeReceiptApi", () => {
         );
     });
 
+    it("does not send credentials: the Gateway CORS policy has no Access-Control-Allow-Credentials", async () => {
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(JSON.stringify({}), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
+        vi.stubGlobal("fetch", fetchMock);
+
+        await getParkingFeeReceiptApi("sess-456");
+
+        // credentials "include" makes the browser refuse the response (net::ERR_FAILED) because the Gateway
+        // answers without Allow-Credentials; the call authenticates with the Bearer header instead.
+        const init = fetchMock.mock.calls[0][1] as RequestInit;
+        expect(init.credentials).not.toBe("include");
+    });
+
     it("correctly adapts backend ParkingFeeReceiptResponse contract via adaptBackendReceipt", () => {
         const backendPayload = {
             paymentId: "b3f6e07a-e455-4422-9cb5-cf12e584f22a",
