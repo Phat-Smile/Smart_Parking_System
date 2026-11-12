@@ -8,6 +8,7 @@ import Map, {
     type MapRef,
 } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { LotPin } from "./components/LotPin";
 import type { MapCoordinates } from "./geocodeDestination";
 
 export type PreviewParkingPin = {
@@ -17,6 +18,8 @@ export type PreviewParkingPin = {
     latitude: number;
     x: number;
     y: number;
+    /** Free-space probability at the chosen arrival hour; null when unknown. */
+    percent: number | null;
 };
 
 export default function CustomerMapScene({
@@ -84,18 +87,12 @@ export default function CustomerMapScene({
                     latitude={pin.latitude}
                     anchor="bottom"
                 >
-                    <button
-                        type="button"
-                        className={`customer-map-pin ${selectedId === pin.id ? "selected" : ""}`}
-                        aria-label={`Select parking lot ${pin.name}`}
-                        aria-pressed={selectedId === pin.id}
-                        onClick={() => onSelect(pin.id)}
-                    >
-                        <i
-                            className="fa-solid fa-car-rear"
-                            aria-hidden="true"
-                        />
-                    </button>
+                    <LotPin
+                        name={pin.name}
+                        percent={pin.percent}
+                        selected={selectedId === pin.id}
+                        onSelect={() => onSelect(pin.id)}
+                    />
                 </Marker>
             ))}
             {currentLocation && (
