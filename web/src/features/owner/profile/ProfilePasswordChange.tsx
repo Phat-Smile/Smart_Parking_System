@@ -408,7 +408,7 @@ export function ProfilePasswordChange() {
                 >
                     {isLoggingOutAll
                         ? "Đang xử lý..."
-                        : "🚪 Đăng xuất tất cả thiết bị"}
+                        : "Đăng xuất tất cả thiết bị"}
                 </button>
             </div>
         </div>
