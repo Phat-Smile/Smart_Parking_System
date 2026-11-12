@@ -9,9 +9,11 @@ import {
     getStaffAssignedShift,
     getStaffLots,
     getStaffProfile,
+    saveStoredStaffLotId,
     type StaffProfile,
     type StaffShiftDetails,
 } from "./staffApi";
+import type { StaffLotItem } from "./types";
 import { useLanguage, LanguageSwitcher } from "@/shared/i18n/LanguageContext";
 import { StaffNotifications } from "./StaffNotifications";
 
@@ -21,6 +23,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
     const [currentTime, setCurrentTime] = useState("");
 
     const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
+    const [staffLots, setStaffLots] = useState<StaffLotItem[]>([]);
     const [assignedShift, setAssignedShift] = useState<StaffShiftDetails>({
         shift: "morning",
         shiftName: "Ca 1 - Sáng",
@@ -44,22 +47,15 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         return () => clearInterval(timer);
     }, [fetchAssignedLot]);
 
-    // 100% Real API: 1 Staff chỉ quản lý 1 bãi duy nhất được Admin phân công
     useEffect(() => {
         let active = true;
         Promise.all([getStaffProfile(), getStaffLots()])
             .then(async ([profile, lots]) => {
                 if (!active) return;
                 setStaffProfile(profile);
-                const singleLot = lots.length > 0 ? lots[0] : null;
-                const targetLotId = singleLot?.id || assignedLot?.lotId || "";
-                if (
-                    singleLot &&
-                    assignedLot &&
-                    singleLot.id !== assignedLot.lotId
-                ) {
-                    fetchAssignedLot(singleLot.id);
-                }
+                setStaffLots(lots);
+                const targetLotId =
+                    assignedLot?.lotId || (lots.length > 0 ? lots[0].id : "");
                 const shiftInfo = await getStaffAssignedShift(
                     targetLotId,
                     profile?.id,
@@ -70,7 +66,13 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         return () => {
             active = false;
         };
-    }, [assignedLot?.lotId, fetchAssignedLot]);
+    }, [assignedLot?.lotId]);
+
+    const handleLotSelect = (lotId: string) => {
+        if (!lotId || lotId === assignedLot?.lotId) return;
+        saveStoredStaffLotId(lotId);
+        fetchAssignedLot(lotId).catch(() => {});
+    };
 
     const { t, language } = useLanguage();
 
@@ -254,13 +256,43 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             <div className="staff-main-wrapper">
                 <header className="staff-topbar">
                     <div className="staff-topbar-left">
-                        {/* 1 Staff chỉ quản lý 1 bãi duy nhất được Admin phân công */}
                         <div className="staff-lot-badge">
                             <span className="staff-lot-dot" />
-                            <span className="staff-lot-name">
-                                {assignedLot?.lotName ??
-                                    "Chưa được phân công bãi"}
-                            </span>
+                            {staffLots.length > 1 ? (
+                                <select
+                                    aria-label={
+                                        language === "en"
+                                            ? "Select active parking lot"
+                                            : "Chọn bãi trực"
+                                    }
+                                    className="staff-lot-name"
+                                    value={
+                                        assignedLot?.lotId ??
+                                        staffLots[0]?.id ??
+                                        ""
+                                    }
+                                    onChange={(e) =>
+                                        handleLotSelect(e.target.value)
+                                    }
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        outline: "none",
+                                    }}
+                                >
+                                    {staffLots.map((lot) => (
+                                        <option key={lot.id} value={lot.id}>
+                                            {lot.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <span className="staff-lot-name">
+                                    {assignedLot?.lotName ??
+                                        "Chưa được phân công bãi"}
+                                </span>
+                            )}
                             <span className="staff-lot-zone">
                                 {assignedLot?.address || "Bãi trực phân công"}
                             </span>

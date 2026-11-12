@@ -130,7 +130,6 @@ export async function getParkingFeeReceiptApi(
             method: "GET",
             headers,
             signal,
-            credentials: "include",
         },
     );
 

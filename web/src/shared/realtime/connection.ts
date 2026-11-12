@@ -8,7 +8,6 @@ import { getGatewayBaseUrl } from "@/shared/config/env";
 export interface RealtimeConnectionOptions {
     hubPath: string;
     accessTokenFactory?: IHttpConnectionOptions["accessTokenFactory"];
-    withCredentials?: boolean;
 }
 
 export const DEFAULT_RECONNECT_DELAYS_MS = [0, 2_000, 10_000, 30_000] as const;
@@ -25,14 +24,15 @@ export function createRealtimeConnection(
     }
 
     return new HubConnectionBuilder()
-        .withUrl(url.toString(), {
-            ...(options.accessTokenFactory
-                ? { accessTokenFactory: options.accessTokenFactory }
-                : {}),
-            ...(options.withCredentials !== undefined
-                ? { withCredentials: options.withCredentials }
-                : {}),
-        })
+        .withUrl(
+            url.toString(),
+            options.accessTokenFactory
+                ? {
+                      withCredentials: false,
+                      accessTokenFactory: options.accessTokenFactory,
+                  }
+                : { withCredentials: false },
+        )
         .withAutomaticReconnect([...DEFAULT_RECONNECT_DELAYS_MS])
         .build();
 }

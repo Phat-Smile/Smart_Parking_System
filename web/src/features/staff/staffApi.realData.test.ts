@@ -171,7 +171,10 @@ describe("sessions", () => {
     it("a missing completion route is an error, not a completed exit", async () => {
         stub(problem(404, "not_found"));
         await expect(
-            completeParkingSession(SESSION, { paymentMethod: "Cash" }),
+            completeParkingSession(SESSION, {
+                plateNumber: "59A-12345",
+                qrToken: "qr",
+            }),
         ).rejects.toBeInstanceOf(ApiError);
     });
 });

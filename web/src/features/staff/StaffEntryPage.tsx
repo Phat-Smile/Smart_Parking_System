@@ -19,7 +19,7 @@ import { useGateVoice } from "./audio";
 export function StaffEntryPage() {
     const { addSession, occupancy, assignedLot, fetchAssignedLot } =
         useStaffData();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { announceCheckIn, announceWarning } = useGateVoice();
 
     // Load assigned lot on mount
@@ -123,9 +123,12 @@ export function StaffEntryPage() {
                 vehicleType: res.vehicleType,
                 customerType: res.customerType || entryType,
                 driverName:
-                    entryType === "Registered"
+                    res.driverName?.trim() ||
+                    res.customerName?.trim() ||
+                    res.accountOwnerName?.trim() ||
+                    (entryType === "Registered"
                         ? "Khách đã đăng ký"
-                        : "Khách vãng lai",
+                        : "Khách vãng lai"),
                 entryTime: res.entryTime,
                 status: "Active",
                 qrToken: res.qrToken,
@@ -554,7 +557,25 @@ export function StaffEntryPage() {
                                 <span>{t("entrySummaryAccount")}</span>
                                 {entryType === "Registered" ? (
                                     <span className="text-emerald">
-                                        {t("entryAccountLinked")}
+                                        {(() => {
+                                            const activePlate = (
+                                                isEditingPlate
+                                                    ? editedPlate
+                                                    : plateNumber
+                                            )
+                                                .trim()
+                                                .toUpperCase();
+                                            const matchedOwner =
+                                                lastOpened?.plateNumber?.toUpperCase() ===
+                                                activePlate
+                                                    ? lastOpened?.driverName?.trim() ||
+                                                      lastOpened?.customerName?.trim() ||
+                                                      lastOpened?.accountOwnerName?.trim()
+                                                    : "";
+                                            return matchedOwner
+                                                ? `✓ ${matchedOwner} (${language === "en" ? "Wallet active" : "Ví khả dụng"})`
+                                                : t("entryAccountLinked");
+                                        })()}
                                     </span>
                                 ) : (
                                     <span className="text-amber">

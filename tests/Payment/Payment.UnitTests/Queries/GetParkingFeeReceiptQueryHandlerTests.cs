@@ -76,8 +76,18 @@ public class GetParkingFeeReceiptQueryHandlerTests
         }
     }
 
+    private sealed class FakeMembershipGateway : IParkingLotMembershipGateway
+    {
+        public ParkingLotMembershipInfo Membership { get; set; } = new(false, string.Empty);
+
+        public Task<Result<ParkingLotMembershipInfo>> GetMembershipAsync(
+            Guid lotId, Guid accountId, CancellationToken cancellationToken = default)
+            => Task.FromResult(Result<ParkingLotMembershipInfo>.Success(Membership));
+    }
+
     private readonly FakePaymentRepository _paymentRepo = new();
     private readonly FakeParkingSessionGateway _parkingGateway = new();
+    private readonly FakeMembershipGateway _membership = new();
     private readonly Guid _ownerAccountId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Guid _otherAccountId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private readonly Guid _sessionId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -107,7 +117,7 @@ public class GetParkingFeeReceiptQueryHandlerTests
     [Fact]
     public async Task Handle_EmptyIdentifier_ReturnsTransactionIdInvalidError()
     {
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
         var query = new GetParkingFeeReceiptQuery(Guid.Empty, _ownerAccountId, "Customer");
 
         var result = await handler.Handle(query, CancellationToken.None);
@@ -119,7 +129,7 @@ public class GetParkingFeeReceiptQueryHandlerTests
     [Fact]
     public async Task Handle_PaymentNotFound_ReturnsTransactionNotFoundError()
     {
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
         var query = new GetParkingFeeReceiptQuery(Guid.NewGuid(), _ownerAccountId, "Customer");
 
         var result = await handler.Handle(query, CancellationToken.None);
@@ -134,7 +144,7 @@ public class GetParkingFeeReceiptQueryHandlerTests
         var payment = CreateTestPayment();
         _paymentRepo.Seed(payment);
 
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
         var query = new GetParkingFeeReceiptQuery(_sessionId, _otherAccountId, "Customer");
 
         var result = await handler.Handle(query, CancellationToken.None);
@@ -149,8 +159,8 @@ public class GetParkingFeeReceiptQueryHandlerTests
         var payment = CreateTestPayment();
         _paymentRepo.Seed(payment);
 
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
-        var query = new GetParkingFeeReceiptQuery(_sessionId, _otherAccountId, "Admin");
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
+        var query = new GetParkingFeeReceiptQuery(_sessionId, _otherAccountId, "SystemAdmin");
 
         var result = await handler.Handle(query, CancellationToken.None);
 
@@ -159,18 +169,51 @@ public class GetParkingFeeReceiptQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_StaffRole_AllowsAccessRegardlessOfAccountId()
+    public async Task Handle_StaffOfThePaymentsLot_CanReadReceipt()
     {
         var payment = CreateTestPayment();
         _paymentRepo.Seed(payment);
+        _membership.Membership = new ParkingLotMembershipInfo(true, "Staff");
 
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
         var query = new GetParkingFeeReceiptQuery(_sessionId, _otherAccountId, "Staff");
 
         var result = await handler.Handle(query, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(payment.Id, result.Value!.PaymentId);
+    }
+
+    [Fact]
+    public async Task Handle_StaffRoleWithoutMembershipOfTheLot_IsDenied()
+    {
+        // Before: any Staff token read every receipt (IDOR across lots).
+        var payment = CreateTestPayment();
+        _paymentRepo.Seed(payment);
+
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
+        var query = new GetParkingFeeReceiptQuery(_sessionId, _otherAccountId, "Staff");
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.SessionAccessDenied.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Handle_CallerWithoutAccountId_IsDenied()
+    {
+        // Before: a missing caller id skipped the ownership check.
+        var payment = CreateTestPayment();
+        _paymentRepo.Seed(payment);
+
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
+        var query = new GetParkingFeeReceiptQuery(_sessionId, null, "Customer");
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.SessionAccessDenied.Code, result.Error!.Code);
     }
 
     [Fact]
@@ -190,7 +233,7 @@ public class GetParkingFeeReceiptQueryHandlerTests
             BookingId: Guid.NewGuid(),
             Pricing: new PricingSnapshotDto("POLICY_01", "PerBlock", 60, 10000)));
 
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
         var query = new GetParkingFeeReceiptQuery(_sessionId, _ownerAccountId, "Customer");
 
         var result = await handler.Handle(query, CancellationToken.None);
@@ -219,7 +262,7 @@ public class GetParkingFeeReceiptQueryHandlerTests
         var payment = CreateTestPayment();
         _paymentRepo.Seed(payment);
 
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
         var query = new GetParkingFeeReceiptQuery(payment.Id, _ownerAccountId, "Customer");
 
         var result = await handler.Handle(query, CancellationToken.None);
@@ -236,7 +279,7 @@ public class GetParkingFeeReceiptQueryHandlerTests
         _paymentRepo.Seed(payment);
         _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.ParkingServiceUnavailable);
 
-        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway);
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
         var query = new GetParkingFeeReceiptQuery(_sessionId, _ownerAccountId, "Customer");
 
         var result = await handler.Handle(query, CancellationToken.None);

@@ -16,6 +16,7 @@ import {
     findSessionByQr,
     getParkingSessionFee,
     manualVerifyExit,
+    payParkingSessionCash,
     reissueParkingSessionQr,
 } from "./staffApi";
 import { useStaffData } from "./staffData";
@@ -221,15 +222,35 @@ export function StaffExitPage() {
         }
     }
 
-    // Exit payment is Sprint 3 (Demo B): Payment has no session payment yet, so the screen never marks a
-    // session as paid and the gate stays closed.
+    // VNPay at the gate is not wired to Payment yet: nothing is recorded and the gate stays closed.
     const EXIT_PAYMENT_NOT_READY =
-        "Thanh toán phiên đỗ ở cổng ra chưa có trong Sprint 2. Chưa ghi nhận tiền, chưa mở cổng.";
+        "Thanh toán VNPay ở cổng ra chưa nối với Payment. Chưa ghi nhận tiền, chưa mở cổng.";
 
-    function handleCompleteCashPayment() {
+    // The amount sent is the amount Payment quoted for this session; Payment rejects the call when the fee
+    // changed in the meantime, so the screen never marks a session paid on its own.
+    async function handleCompleteCashPayment() {
         if (!scannedSession) return;
-        setPaymentModal(null);
-        setErrorMsg(EXIT_PAYMENT_NOT_READY);
+        setLoading(true);
+        setErrorMsg("");
+        try {
+            await payParkingSessionCash(
+                scannedSession.id,
+                scannedSession.amountDueVnd ?? 0,
+            );
+            setPaymentModal(null);
+            setPaymentSuccess(true);
+            setScannedSession({
+                ...scannedSession,
+                paymentStatus: "Paid",
+                paymentMethod: "Cash",
+                amountDueVnd: 0,
+            });
+        } catch (err) {
+            setPaymentModal(null);
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setLoading(false);
+        }
     }
 
     function handleCompleteVnPayPayment() {
@@ -252,8 +273,8 @@ export function StaffExitPage() {
         setErrorMsg("");
         try {
             await completeParkingSession(scannedSession.id, {
-                paymentMethod: scannedSession.paymentMethod || "Cash",
-                amountPaidVnd: scannedSession.totalFeeVnd,
+                plateNumber: scannedSession.plateNumber,
+                qrToken: scannedSession.qrToken || qrInput.trim(),
             });
             completeExit(
                 scannedSession.id,

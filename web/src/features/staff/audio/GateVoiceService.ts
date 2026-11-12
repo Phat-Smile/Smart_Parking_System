@@ -10,6 +10,7 @@ import {
     buildCheckOutSpeech,
     buildWarningSpeech,
 } from "./phoneticHelper";
+import { pickVoice } from "./voiceSelection";
 
 export interface VoiceLogItem {
     id: string;
@@ -43,6 +44,7 @@ class GateVoiceService {
         playChime?: boolean;
     }> = [];
     private processingQueue = false;
+    private queueRunId = 0;
 
     // Giữ tham chiếu utterance tránh V8 Garbage Collection bug trên Chrome
     private activeUtterances: Set<SpeechSynthesisUtterance> = new Set();
@@ -114,7 +116,11 @@ class GateVoiceService {
         // Khắc phục bug Chrome treo speech synthesis sau khi chạy ngầm
         window.setInterval(() => {
             if (this.synth && this.synth.paused) {
-                this.synth.resume();
+                try {
+                    this.synth.resume();
+                } catch {
+                    // Bỏ qua nếu trình duyệt chặn resume khi chưa có thao tác người dùng
+                }
             }
         }, 10000);
     }
@@ -124,40 +130,11 @@ class GateVoiceService {
         const all = this.synth.getVoices();
         if (!all || all.length === 0) return;
 
-        // Lọc các giọng tiếng Việt hoặc chứa 'vi' trong language tag
-        const viVoices = all.filter(
-            (v) =>
-                v.lang.toLowerCase().startsWith("vi") ||
-                v.lang.toLowerCase().includes("vietnam"),
-        );
-
-        this.availableVoices = viVoices.length > 0 ? viVoices : all;
-
-        // Ưu tiên chọn voice đã lưu, hoặc các giọng tự nhiên phổ biến
-        if (this.settings.voiceURI) {
-            const matched = this.availableVoices.find(
-                (v) => v.voiceURI === this.settings.voiceURI,
-            );
-            if (matched) {
-                this.selectedVoice = matched;
-                this.notify();
-                return;
-            }
-        }
-
-        // Tìm kiếm các giọng chất lượng cao: Google Tiếng Việt, HoaiMy, NamMinh, Linh
-        const preferred = this.availableVoices.find(
-            (v) =>
-                v.name.includes("HoaiMy") ||
-                v.name.includes("NamMinh") ||
-                v.name.includes("Google") ||
-                v.name.includes("Linh") ||
-                v.lang.startsWith("vi"),
-        );
-
-        this.selectedVoice = preferred || this.availableVoices[0] || null;
-        if (this.selectedVoice) {
-            this.settings.voiceURI = this.selectedVoice.voiceURI;
+        const pick = pickVoice(all, this.settings.voiceURI);
+        this.availableVoices = pick.options;
+        this.selectedVoice = pick.voice;
+        if (pick.voice) {
+            this.settings.voiceURI = pick.voice.voiceURI;
         }
         this.notify();
     }
@@ -247,11 +224,16 @@ class GateVoiceService {
 
     public stop() {
         if (this.synth) {
-            this.synth.cancel();
+            try {
+                this.synth.cancel();
+            } catch {
+                // Bỏ qua lỗi khi trình duyệt chặn audio
+            }
         }
         this.queue = [];
         this.activeUtterances.clear();
         this.isSpeakingState = false;
+        this.queueRunId++;
         this.processingQueue = false;
         this.notify();
     }
@@ -302,21 +284,30 @@ class GateVoiceService {
             });
         }
 
-        this.processQueue();
+        return this.processQueue();
     }
 
     private async processQueue() {
         if (this.processingQueue || this.queue.length === 0) return;
         this.processingQueue = true;
+        const runId = ++this.queueRunId;
 
-        while (this.queue.length > 0) {
-            const item = this.queue.shift();
-            if (!item) break;
+        try {
+            while (this.queueRunId === runId && this.queue.length > 0) {
+                const item = this.queue.shift();
+                if (!item) break;
 
-            await this.speakUtterance(item);
+                try {
+                    await this.speakUtterance(item);
+                } catch {
+                    // Bỏ qua lỗi phát âm hoặc autoplay not-allowed để không kẹt hàng đợi
+                }
+            }
+        } finally {
+            if (this.queueRunId === runId) {
+                this.processingQueue = false;
+            }
         }
-
-        this.processingQueue = false;
     }
 
     private async speakUtterance(item: {
@@ -325,19 +316,35 @@ class GateVoiceService {
         urgent?: boolean;
         playChime?: boolean;
     }): Promise<void> {
-        if (!this.synth || !this.settings.enabled) return;
+        if (
+            !this.synth ||
+            !this.settings.enabled ||
+            typeof SpeechSynthesisUtterance === "undefined"
+        ) {
+            return;
+        }
 
         // Phát chuông báo hiệu trước khi nói
         if (item.playChime) {
-            if (item.type === "warning") {
-                await playWarningBeep(this.settings.volume * 0.7);
-            } else {
-                await playGateChime(this.settings.volume * 0.5);
+            try {
+                if (item.type === "warning") {
+                    await playWarningBeep(this.settings.volume * 0.7);
+                } else {
+                    await playGateChime(this.settings.volume * 0.5);
+                }
+            } catch {
+                // Không chặn lời thoại nếu chuông Web Audio thất bại
             }
         }
 
         return new Promise((resolve) => {
-            const utterance = new SpeechSynthesisUtterance(item.text);
+            let utterance: SpeechSynthesisUtterance;
+            try {
+                utterance = new SpeechSynthesisUtterance(item.text);
+            } catch {
+                resolve();
+                return;
+            }
 
             if (this.selectedVoice) {
                 utterance.voice = this.selectedVoice;
@@ -352,10 +359,15 @@ class GateVoiceService {
             this.notify();
 
             let hasFinished = false;
+            let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
             const cleanup = () => {
                 if (hasFinished) return;
                 hasFinished = true;
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
                 this.activeUtterances.delete(utterance);
                 this.isSpeakingState = false;
                 this.notify();
@@ -372,11 +384,15 @@ class GateVoiceService {
 
             // Timeout bảo vệ nếu trình duyệt bị drop sự kiện onend
             const maxWait = Math.max(4000, item.text.length * 150);
-            setTimeout(() => {
+            timeoutId = setTimeout(() => {
                 cleanup();
             }, maxWait);
 
-            this.synth?.speak(utterance);
+            try {
+                this.synth?.speak(utterance);
+            } catch {
+                cleanup();
+            }
         });
     }
 

@@ -39,6 +39,9 @@ export interface OpenedSessionResponse {
     floorName?: string | null;
     slotCode?: string | null;
     availableMotorbikeSlots: number | null;
+    driverName?: string | null;
+    customerName?: string | null;
+    accountOwnerName?: string | null;
 }
 
 export interface CancelledSessionResponse {

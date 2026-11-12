@@ -20,12 +20,34 @@ export interface OpenSessionPayload {
     vehicleType: VehicleType;
 }
 
+// CompleteParkingSessionRequest on the server: the exit needs the plate and the session QR (BR exit rule).
 export interface CompleteSessionPayload {
-    paymentMethod?: "Cash" | "VNPay" | "Wallet";
-    amountPaidVnd?: number;
+    plateNumber: string;
+    qrToken: string;
 }
 
+/** @deprecated Giữ lại để tương thích test cũ; không dùng làm mặc định chọn bãi. */
 export const DEFAULT_STAFF_LOT_ID = "10000000-0000-0000-0000-000000000002";
+
+export const STAFF_SELECTED_LOT_STORAGE_KEY = "parkwise_staff_selected_lot_id";
+
+export function getStoredStaffLotId(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+        return window.sessionStorage.getItem(STAFF_SELECTED_LOT_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+export function saveStoredStaffLotId(lotId: string): void {
+    if (typeof window === "undefined") return;
+    try {
+        window.sessionStorage.setItem(STAFF_SELECTED_LOT_STORAGE_KEY, lotId);
+    } catch {
+        // Bỏ qua nếu môi trường chặn sessionStorage
+    }
+}
 
 function sanitizeLotName(name: string): string {
     return name
@@ -62,7 +84,7 @@ interface LotAvailabilityResponse {
 // A count Parking cannot give (no motorbike zone, lot not public yet) is unknown: null, never a guess.
 async function countOrNull<T>(
     path: string,
-    pick: (body: T) => number,
+    pick: (body: T) => number | null,
 ): Promise<number | null> {
     try {
         return pick(await gatewayFetch<T>(path, { method: "GET" }));
@@ -87,10 +109,27 @@ export async function getAssignedLot(
 ): Promise<AssignedLotResponse | null> {
     const lots = await getStaffLots();
     if (!lots || lots.length === 0) return null;
-    const chosen =
-        (preferredLotId ? lots.find((l) => l.id === preferredLotId) : null) ||
-        lots.find((l) => l.id === DEFAULT_STAFF_LOT_ID) ||
-        lots[0];
+
+    const targetId = preferredLotId ?? getStoredStaffLotId();
+    let chosen = targetId ? lots.find((l) => l.id === targetId) : undefined;
+    let preloadedCarAvailable: number | null | undefined;
+
+    if (!chosen && lots.length > 1) {
+        for (const candidate of lots) {
+            const candidateCarAvailable =
+                await countOrNull<LotAvailabilityResponse>(
+                    `/api/parking/lots/${encodeURIComponent(candidate.id)}/availability`,
+                    (body) => body.car?.available ?? null,
+                );
+            if (candidateCarAvailable !== null && candidateCarAvailable > 0) {
+                chosen = candidate;
+                preloadedCarAvailable = candidateCarAvailable;
+                break;
+            }
+        }
+    }
+
+    chosen ??= lots[0];
     if (!chosen) return null;
 
     const lotPath = `/api/parking/lots/${encodeURIComponent(chosen.id)}`;
@@ -109,10 +148,13 @@ export async function getAssignedLot(
             },
         );
 
-    const availableCarSlots = await countOrNull<LotAvailabilityResponse>(
-        `${lotPath}/availability`,
-        (body) => body.car.available,
-    );
+    const availableCarSlots =
+        preloadedCarAvailable !== undefined
+            ? preloadedCarAvailable
+            : await countOrNull<LotAvailabilityResponse>(
+                  `${lotPath}/availability`,
+                  (body) => body.car?.available ?? null,
+              );
 
     return {
         lotId: chosen.id,
@@ -244,14 +286,48 @@ export async function findSessionByQr(
  */
 export async function completeParkingSession(
     sessionId: string,
-    payload?: CompleteSessionPayload,
+    payload: CompleteSessionPayload,
 ): Promise<CompletedSessionResponse> {
     return await gatewayFetch<CompletedSessionResponse>(
         `/api/parking/sessions/${encodeURIComponent(sessionId)}/complete`,
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload ?? {}),
+            body: JSON.stringify({
+                plateNumber: payload.plateNumber,
+                qrToken: payload.qrToken,
+            }),
+        },
+    );
+}
+
+export interface CashPaymentResponse {
+    transactionId: string;
+    sessionId: string;
+    amountPaid: number;
+    paymentTimeUtc?: string;
+    exitWindowExpiresUtc?: string;
+    isReplayed?: boolean;
+}
+
+/**
+ * Staff records cash taken at the exit gate for a session of the staff member's lot.
+ * Endpoint: POST /api/payment/parking-sessions/{id}/pay/cash. The route needs a GUID in
+ * X-Idempotency-Key; every collection gets its own key so a second click is never a silent replay.
+ */
+export async function payParkingSessionCash(
+    sessionId: string,
+    expectedAmountDue: number,
+): Promise<CashPaymentResponse> {
+    return await gatewayFetch<CashPaymentResponse>(
+        `/api/payment/parking-sessions/${encodeURIComponent(sessionId)}/pay/cash`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Idempotency-Key": crypto.randomUUID(),
+            },
+            body: JSON.stringify({ expectedAmountDue }),
         },
     );
 }
@@ -271,6 +347,12 @@ export function describeStaffError(error: unknown): string {
     if (code === "parking.session.not_found") {
         return "Không tìm thấy phiên gửi xe nào cho phương tiện này trong bãi.";
     }
+    if (
+        code === "parking.walk_in.full" ||
+        code === "parking.motorbike_zone.full"
+    ) {
+        return "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.";
+    }
     if (code === "parking.session.already_open" || error.status === 409) {
         return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
     }
@@ -279,12 +361,6 @@ export function describeStaffError(error: unknown): string {
     }
     if (code === "parking.lot.access_denied" || error.status === 403) {
         return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
-    }
-    if (
-        code === "parking.walk_in.full" ||
-        code === "parking.motorbike_zone.full"
-    ) {
-        return "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.";
     }
     if (error.status === 404) {
         return "Không tìm thấy thông tin bãi xe hoặc dữ liệu yêu cầu (not found or is not approved).";

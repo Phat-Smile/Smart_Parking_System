@@ -25,6 +25,10 @@ import {
     RefreshCw,
     ExternalLink,
 } from "lucide-react";
+import {
+    getApprovedParkingLot,
+    type ParkingLotDetail,
+} from "@/features/customer/parkingLotApi";
 import { ApiError } from "@/shared/errors/api-error";
 
 type TabFilter = "all" | "active" | "used" | "cancelled";
@@ -51,6 +55,9 @@ export default function BookingsPage() {
     const [passTarget, setPassTarget] = useState<ReservationSummaryDto | null>(
         null,
     );
+    const [lotsById, setLotsById] = useState<
+        Record<string, Pick<ParkingLotDetail, "name" | "address">>
+    >({});
 
     const loadReservations = useCallback(async () => {
         setLoading(true);
@@ -105,6 +112,44 @@ export default function BookingsPage() {
             active = false;
         };
     }, [loadReservations]);
+
+    useEffect(() => {
+        const uniqueLotIds = Array.from(
+            new Set(reservations.map((b) => b.lotId).filter(Boolean)),
+        );
+        if (uniqueLotIds.length === 0) return;
+
+        const controller = new AbortController();
+        void Promise.allSettled(
+            uniqueLotIds.map(async (lotId) => {
+                const detail = await getApprovedParkingLot(
+                    lotId,
+                    controller.signal,
+                );
+                return [
+                    lotId,
+                    { name: detail.name, address: detail.address },
+                ] as const;
+            }),
+        ).then((results) => {
+            if (controller.signal.aborted) return;
+            const next: Record<
+                string,
+                Pick<ParkingLotDetail, "name" | "address">
+            > = {};
+            for (const res of results) {
+                if (res.status === "fulfilled") {
+                    const [id, info] = res.value;
+                    next[id] = info;
+                }
+            }
+            setLotsById(next);
+        });
+
+        return () => {
+            controller.abort();
+        };
+    }, [reservations]);
 
     const activeCount = reservations.filter((b) => {
         const badge = mapStatusToBadge(b.status);
@@ -367,6 +412,15 @@ export default function BookingsPage() {
                             },
                         );
 
+                        const lotInfo = lotsById[booking.lotId];
+                        const shortLotCode = `#${booking.lotId.slice(0, 8)}`;
+                        const displayLotName =
+                            lotInfo?.name ||
+                            `${copy("Parking lot", "Bãi đỗ xe")} ${shortLotCode}`;
+                        const displayLotAddress =
+                            lotInfo?.address ||
+                            `${copy("Lot ID", "Mã bãi")}: ${shortLotCode}`;
+
                         return (
                             <div
                                 key={booking.reservationId}
@@ -380,15 +434,14 @@ export default function BookingsPage() {
                                 </div>
 
                                 <h3 className="text-lg font-bold text-white mb-1 truncate">
-                                    {copy("Parking lot", "Bãi đỗ xe")} #
-                                    {booking.lotId.slice(0, 8)}
+                                    {displayLotName}
                                 </h3>
                                 <p className="text-[#8790a3] text-sm flex items-center gap-2 mb-5 truncate">
                                     <MapPin
                                         size={14}
                                         className="shrink-0 text-[#6246ea]"
                                     />
-                                    <span>ParkWise Smart Lot</span>
+                                    <span>{displayLotAddress}</span>
                                 </p>
 
                                 <div className="mt-auto space-y-2.5 bg-[#101426] rounded-xl p-4 border border-white/5 text-sm">
@@ -421,7 +474,7 @@ export default function BookingsPage() {
                                         <span className="text-white font-medium">
                                             {timeStr}{" "}
                                             {booking.durationMinutes
-                                                ? `(${booking.durationMinutes}p)`
+                                                ? `(${booking.durationMinutes} ${copy("min", "phút")})`
                                                 : ""}
                                         </span>
                                     </div>
@@ -625,7 +678,11 @@ export default function BookingsPage() {
                     isOpen={Boolean(passTarget)}
                     onClose={() => setPassTarget(null)}
                     reservationId={passTarget.reservationId}
-                    lotName={`${copy("Parking lot", "Bãi đỗ xe")} #${passTarget.lotId.slice(0, 8)}`}
+                    lotName={
+                        lotsById[passTarget.lotId]?.name ||
+                        `${copy("Parking lot", "Bãi đỗ xe")} #${passTarget.lotId.slice(0, 8)}`
+                    }
+                    lotAddress={lotsById[passTarget.lotId]?.address}
                     plateNumber={passTarget.plateNumber}
                     appointmentTime={passTarget.appointmentTime}
                     durationMinutes={passTarget.durationMinutes}

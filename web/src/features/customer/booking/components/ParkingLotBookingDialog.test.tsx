@@ -68,16 +68,18 @@ describe("ParkingLotBookingDialog", () => {
         expect(screen.getByText("Review booking details")).toBeInTheDocument();
         expect(screen.getByText("ParkWise Central Saigon")).toBeInTheDocument();
         expect(screen.getByText("51H-999.88")).toBeInTheDocument();
-        expect(screen.getByText("50.000 đ")).toBeInTheDocument();
+        expect(
+            screen.getByText("Calculated after holding"),
+        ).toBeInTheDocument();
         expect(screen.getByText("A-01")).toBeInTheDocument();
         expect(
             screen.getByRole("button", {
-                name: "Confirm and hold for 15 minutes",
+                name: "Confirm and hold spot",
             }),
         ).toBeInTheDocument();
     });
 
-    it("creates hold, displays 15m timer, and confirms reservation with wallet", async () => {
+    it("creates hold, displays countdown timer, and confirms reservation with wallet", async () => {
         vi.spyOn(walletApi, "getMyWallet").mockResolvedValue({
             walletId: "w-01",
             balance: 150000,
@@ -140,7 +142,7 @@ describe("ParkingLotBookingDialog", () => {
 
         // Bấm Giữ chỗ
         const holdBtn = screen.getByRole("button", {
-            name: "Confirm and hold for 15 minutes",
+            name: "Confirm and hold spot",
         });
         fireEvent.click(holdBtn);
 
@@ -149,7 +151,6 @@ describe("ParkingLotBookingDialog", () => {
                 expect.objectContaining({
                     lotId: mockLot.id,
                     plateNumber: mockVehicle.licensePlate,
-                    prepaidAmount: 50000,
                 }),
             );
         });
@@ -232,7 +233,7 @@ describe("ParkingLotBookingDialog", () => {
 
         fireEvent.click(
             screen.getByRole("button", {
-                name: "Confirm and hold for 15 minutes",
+                name: "Confirm and hold spot",
             }),
         );
 
@@ -242,5 +243,280 @@ describe("ParkingLotBookingDialog", () => {
             ).toBeInTheDocument();
             expect(screen.getByText("Top up wallet →")).toBeInTheDocument();
         });
+    });
+
+    it("does not display fixed 50000 deposit or 15 minutes before creating hold", () => {
+        vi.spyOn(walletApi, "getMyWallet").mockResolvedValue({
+            walletId: "w-01",
+            balance: 100000,
+            currency: "VND",
+            isDemo: false,
+            demoNotice: "",
+            limits: {
+                minTopUp: 10000,
+                maxTopUp: 5000000,
+                maxBalance: 10000000,
+            },
+            gatewayMode: "Sandbox",
+            pendingTopUps: [],
+        });
+
+        render(
+            <ParkingLotBookingDialog
+                isOpen={true}
+                onClose={vi.fn()}
+                lot={mockLot}
+                vehicle={mockVehicle}
+                date="2026-10-31"
+                time="14:30"
+                duration={2}
+                selectedSpot={null}
+            />,
+        );
+
+        expect(
+            screen.getByText("Calculated after holding"),
+        ).toBeInTheDocument();
+        expect(screen.queryByText("50.000 đ")).not.toBeInTheDocument();
+        expect(
+            screen.queryByText(/15 minutes|15 phút/i),
+        ).not.toBeInTheDocument();
+    });
+
+    it("uses prepaidAmount and tempHoldExpiresAt from hold response instead of 50000 or 15 minutes", async () => {
+        vi.spyOn(walletApi, "getMyWallet").mockResolvedValue({
+            walletId: "w-01",
+            balance: 150000,
+            currency: "VND",
+            isDemo: false,
+            demoNotice: "",
+            limits: {
+                minTopUp: 10000,
+                maxTopUp: 5000000,
+                maxBalance: 10000000,
+            },
+            gatewayMode: "Sandbox",
+            pendingTopUps: [],
+        });
+
+        vi.spyOn(bookingApi, "createReservationHold").mockResolvedValue({
+            reservationId: "res-hold-060",
+            lotId: mockLot.id,
+            vehicleId: mockVehicle.vehicleId,
+            plateNumber: mockVehicle.licensePlate,
+            vehicleGroup: "Car",
+            reservationType: "Scheduled",
+            status: "TemporaryHold",
+            appointmentTime: "2026-10-31T14:30:00.000Z",
+            durationMinutes: 120,
+            tempHoldExpiresAt: new Date(
+                Date.now() + 4 * 60 * 1000,
+            ).toISOString(),
+            windowStartAt: "2026-10-31T14:15:00.000Z",
+            windowEndAt: "2026-10-31T16:30:00.000Z",
+            prepaidAmount: 60000,
+            priceSnapshot: null,
+            createdAt: "2026-10-31T14:00:00.000Z",
+        });
+
+        const confirmSpy = vi
+            .spyOn(bookingApi, "confirmReservation")
+            .mockResolvedValue({
+                reservationId: "res-hold-060",
+                status: "Confirmed",
+                confirmedAt: "2026-10-31T14:02:00.000Z",
+                qrCodeToken: "RES-QR-HOLD060",
+                prepaidAmount: 60000,
+            });
+
+        render(
+            <ParkingLotBookingDialog
+                isOpen={true}
+                onClose={vi.fn()}
+                lot={mockLot}
+                vehicle={mockVehicle}
+                date="2026-10-31"
+                time="14:30"
+                duration={2}
+                selectedSpot={null}
+            />,
+        );
+
+        const holdBtn = screen
+            .getAllByRole("button")
+            .find((b) => /Confirm and hold/i.test(b.textContent || ""));
+        expect(holdBtn).toBeDefined();
+        fireEvent.click(holdBtn!);
+
+        await waitFor(() => {
+            expect(screen.getByText("Pay booking deposit")).toBeInTheDocument();
+        });
+
+        expect(screen.getByText("60.000 đ")).toBeInTheDocument();
+        const timer = screen.getByRole("timer");
+        expect(timer.textContent).toMatch(/0[34]:\d{2}/);
+
+        const payBtn = screen.getByRole("button", {
+            name: "Pay 60.000 đ from wallet and get pass",
+        });
+        fireEvent.click(payBtn);
+
+        await waitFor(() => {
+            expect(confirmSpy).toHaveBeenCalledWith(
+                "res-hold-060",
+                expect.objectContaining({
+                    paymentMethod: "Wallet",
+                    depositAmount: 60000,
+                }),
+            );
+        });
+
+        expect(screen.getByText("Booking Pass")).toBeInTheDocument();
+        expect(screen.getByText("60.000 đ")).toBeInTheDocument();
+    });
+
+    it("checks wallet sufficiency against actual prepaidAmount from hold response (55000 < 60000)", async () => {
+        vi.spyOn(walletApi, "getMyWallet").mockResolvedValue({
+            walletId: "w-01",
+            balance: 55000,
+            currency: "VND",
+            isDemo: false,
+            demoNotice: "",
+            limits: {
+                minTopUp: 10000,
+                maxTopUp: 5000000,
+                maxBalance: 10000000,
+            },
+            gatewayMode: "Sandbox",
+            pendingTopUps: [],
+        });
+
+        vi.spyOn(bookingApi, "createReservationHold").mockResolvedValue({
+            reservationId: "res-hold-061",
+            lotId: mockLot.id,
+            vehicleId: mockVehicle.vehicleId,
+            plateNumber: mockVehicle.licensePlate,
+            vehicleGroup: "Car",
+            reservationType: "Scheduled",
+            status: "TemporaryHold",
+            appointmentTime: "2026-10-31T14:30:00.000Z",
+            durationMinutes: 120,
+            tempHoldExpiresAt: new Date(
+                Date.now() + 4 * 60 * 1000,
+            ).toISOString(),
+            windowStartAt: "2026-10-31T14:15:00.000Z",
+            windowEndAt: "2026-10-31T16:30:00.000Z",
+            prepaidAmount: 60000,
+            priceSnapshot: null,
+            createdAt: "2026-10-31T14:00:00.000Z",
+        });
+
+        render(
+            <ParkingLotBookingDialog
+                isOpen={true}
+                onClose={vi.fn()}
+                lot={mockLot}
+                vehicle={mockVehicle}
+                date="2026-10-31"
+                time="14:30"
+                duration={2}
+                selectedSpot={null}
+            />,
+        );
+
+        const holdBtn = screen
+            .getAllByRole("button")
+            .find((b) => /Confirm and hold/i.test(b.textContent || ""));
+        fireEvent.click(holdBtn!);
+
+        await waitFor(() => {
+            expect(
+                screen.getByText(/Insufficient wallet balance/),
+            ).toBeInTheDocument();
+            expect(screen.getByText(/5\.000 VND/)).toBeInTheDocument();
+        });
+    });
+
+    it("closes Pay booking deposit dialog when BookingPassModal opens so only one modal is visible", async () => {
+        vi.spyOn(walletApi, "getMyWallet").mockResolvedValue({
+            walletId: "w-01",
+            balance: 150000,
+            currency: "VND",
+            isDemo: false,
+            demoNotice: "",
+            limits: {
+                minTopUp: 10000,
+                maxTopUp: 5000000,
+                maxBalance: 10000000,
+            },
+            gatewayMode: "Sandbox",
+            pendingTopUps: [],
+        });
+
+        vi.spyOn(bookingApi, "createReservationHold").mockResolvedValue({
+            reservationId: "res-hold-062",
+            lotId: mockLot.id,
+            vehicleId: mockVehicle.vehicleId,
+            plateNumber: mockVehicle.licensePlate,
+            vehicleGroup: "Car",
+            reservationType: "Scheduled",
+            status: "TemporaryHold",
+            appointmentTime: "2026-10-31T14:30:00.000Z",
+            durationMinutes: 120,
+            tempHoldExpiresAt: new Date(
+                Date.now() + 4 * 60 * 1000,
+            ).toISOString(),
+            windowStartAt: "2026-10-31T14:15:00.000Z",
+            windowEndAt: "2026-10-31T16:30:00.000Z",
+            prepaidAmount: 60000,
+            priceSnapshot: null,
+            createdAt: "2026-10-31T14:00:00.000Z",
+        });
+
+        vi.spyOn(bookingApi, "confirmReservation").mockResolvedValue({
+            reservationId: "res-hold-062",
+            status: "Confirmed",
+            confirmedAt: "2026-10-31T14:02:00.000Z",
+            qrCodeToken: "RES-QR-HOLD062",
+            prepaidAmount: 60000,
+        });
+
+        render(
+            <ParkingLotBookingDialog
+                isOpen={true}
+                onClose={vi.fn()}
+                lot={mockLot}
+                vehicle={mockVehicle}
+                date="2026-10-31"
+                time="14:30"
+                duration={2}
+                selectedSpot={null}
+            />,
+        );
+
+        const holdBtn = screen
+            .getAllByRole("button")
+            .find((b) => /Confirm and hold/i.test(b.textContent || ""));
+        fireEvent.click(holdBtn!);
+
+        await waitFor(() => {
+            expect(screen.getByText("Pay booking deposit")).toBeInTheDocument();
+        });
+
+        const payBtn = screen
+            .getAllByRole("button")
+            .find((b) =>
+                /Pay .* from wallet and get pass/i.test(b.textContent || ""),
+            );
+        fireEvent.click(payBtn!);
+
+        await waitFor(() => {
+            expect(screen.getByText("Booking Pass")).toBeInTheDocument();
+        });
+
+        expect(
+            screen.queryByText("Pay booking deposit"),
+        ).not.toBeInTheDocument();
+        expect(screen.getAllByRole("dialog")).toHaveLength(1);
     });
 });

@@ -97,6 +97,50 @@ describe("useParkingRealtime", () => {
         expect(onLotOccupancyChanged).toHaveBeenCalledWith(eventData);
     });
 
+    it("public mode sends no access token and never joins the operations group", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        renderHook(() => useParkingRealtime({ lotId }));
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        const options = vi.mocked(realtimeConn.createRealtimeConnection).mock
+            .calls[0][0];
+        expect(options.accessTokenFactory).toBeUndefined();
+        expect(mockInvoke).not.toHaveBeenCalledWith(
+            "JoinLotOperationsGroup",
+            expect.anything(),
+        );
+    });
+
+    it("operations mode sends the access token and joins the operations group", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        const { unmount } = renderHook(() =>
+            useParkingRealtime({ lotId, operations: true }),
+        );
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        const options = vi.mocked(realtimeConn.createRealtimeConnection).mock
+            .calls[0][0];
+        expect(options.hubPath).toBe("/hubs/parking");
+        expect(typeof options.accessTokenFactory).toBe("function");
+        expect(mockInvoke).toHaveBeenCalledWith("JoinLotGroup", lotId);
+        expect(mockInvoke).toHaveBeenCalledWith(
+            "JoinLotOperationsGroup",
+            lotId,
+        );
+
+        unmount();
+        expect(mockInvoke).toHaveBeenCalledWith(
+            "LeaveLotOperationsGroup",
+            lotId,
+        );
+    });
+
     it("leaves group and stops connection on unmount", async () => {
         const lotId = "11111111-1111-1111-1111-111111111111";
         const { unmount } = renderHook(() => useParkingRealtime({ lotId }));

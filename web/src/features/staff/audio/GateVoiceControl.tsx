@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useGateVoice } from "./useGateVoice";
+import { isVietnameseVoice } from "./voiceSelection";
 
 export function GateVoiceControl() {
     const {
@@ -220,6 +221,14 @@ export function GateVoiceControl() {
                                         </option>
                                     ))}
                                 </select>
+                                {!availableVoices.some(isVietnameseVoice) && (
+                                    <p className="mt-1 text-[11px] text-amber-400">
+                                        Máy chưa có giọng tiếng Việt nên có thể
+                                        đọc bằng giọng tiếng Anh. Cài giọng
+                                        Vietnamese trong cài đặt Giọng nói của
+                                        hệ điều hành rồi tải lại trang.
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>

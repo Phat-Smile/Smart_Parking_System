@@ -9,6 +9,7 @@ import { ParkingLotDetailExperience } from "./ParkingLotDetailExperience";
 import {
     describeLotAvailability,
     describeLotPricing,
+    estimateLotBookingPricing,
     getApprovedParkingLot,
     ParkingLotNotFoundError,
     type ParkingLotDetail,
@@ -80,6 +81,12 @@ export function CustomerParkingLotDetailPage({
                     latitude: lot.latitude,
                     longitude: lot.longitude,
                     openingHours: lot.openingHours?.days,
+                    pricing: lot.pricing,
+                    hourlyPrice: estimateLotBookingPricing(
+                        lot.pricing,
+                        1,
+                        "CAR",
+                    )?.rateValue,
                     priceText: describeLotPricing(lot.pricing),
                     spacesText: describeLotAvailability(lot.availability),
                 }}

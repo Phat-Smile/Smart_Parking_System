@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { HubConnection } from "@microsoft/signalr";
 import { createRealtimeConnection } from "@/shared/realtime/connection";
+import { getAccessToken } from "@/shared/api/access-token";
 
 export interface SlotStatusChangedEvent {
     lotId: string;
@@ -24,12 +25,18 @@ export interface UseParkingRealtimeOptions {
     lotId?: string | null;
     onSlotStatusChanged?: (event: SlotStatusChangedEvent) => void;
     onLotOccupancyChanged?: (event: LotOccupancyChangedEvent) => void;
+    /**
+     * Staff, owner and admin screens: send the JWT and join the lot's operations
+     * group, which carries per-slot status. Public pages only get lot totals.
+     */
+    operations?: boolean;
 }
 
 export function useParkingRealtime({
     lotId,
     onSlotStatusChanged,
     onLotOccupancyChanged,
+    operations = false,
 }: UseParkingRealtimeOptions) {
     const [isConnected, setIsConnected] = useState(false);
     const [lastSlotChange, setLastSlotChange] =
@@ -52,10 +59,14 @@ export function useParkingRealtime({
         let connection: HubConnection;
 
         try {
-            connection = createRealtimeConnection({
-                hubPath: "/hubs/parking",
-                withCredentials: false,
-            });
+            connection = createRealtimeConnection(
+                operations
+                    ? {
+                          hubPath: "/hubs/parking",
+                          accessTokenFactory: () => getAccessToken() ?? "",
+                      }
+                    : { hubPath: "/hubs/parking" },
+            );
         } catch (err) {
             console.warn(
                 "Failed to create SignalR connection for parking hub",
@@ -85,24 +96,29 @@ export function useParkingRealtime({
                 if (!isMounted) return;
                 setIsConnected(true);
                 await connection.invoke("JoinLotGroup", lotId);
+                if (operations) {
+                    await connection.invoke("JoinLotOperationsGroup", lotId);
+                }
             } catch (err) {
                 // SignalR hub might be offline in mock/dev mode; degrade gracefully
-                if (isMounted)
-                    console.warn("Could not connect to SignalR parking hub", err);
+                console.warn("Could not connect to SignalR parking hub", err);
             }
         }
 
-        // Defer the handshake so React's development effect cleanup can cancel it.
-        const startTimer = window.setTimeout(() => void start(), 0);
+        start();
 
         return () => {
             isMounted = false;
-            window.clearTimeout(startTimer);
             setIsConnected(false);
             connection.invoke("LeaveLotGroup", lotId).catch(() => {});
+            if (operations) {
+                connection
+                    .invoke("LeaveLotOperationsGroup", lotId)
+                    .catch(() => {});
+            }
             connection.stop().catch(() => {});
         };
-    }, [lotId]);
+    }, [lotId, operations]);
 
     return {
         isConnected,
