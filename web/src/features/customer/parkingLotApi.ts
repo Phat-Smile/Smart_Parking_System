@@ -110,6 +110,77 @@ export function describeLotPricing(
         .join(" · ");
 }
 
+export type LotPricingEstimate = {
+    rateValue: number;
+    isPerEntry: boolean;
+    estimatedTotal: number;
+};
+
+export function findLotPrice(
+    pricing: LotPrice[] | undefined,
+    vehicleType?: string,
+): LotPrice | null {
+    if (!pricing?.length) return null;
+    if (vehicleType) {
+        const wanted = vehicleType.toUpperCase();
+        const exact = pricing.find(
+            (item) => item.vehicleType.toUpperCase() === wanted,
+        );
+        if (exact) return exact;
+    }
+    return (
+        pricing.find((item) => item.vehicleType.toUpperCase() === "CAR") ??
+        pricing[0]
+    );
+}
+
+export function estimateLotBookingPricing(
+    pricing: LotPrice[] | undefined,
+    durationHours: number,
+    vehicleType?: string,
+    fallbackHourlyPrice?: number,
+): LotPricingEstimate | null {
+    const matched = findLotPrice(pricing, vehicleType);
+    if (matched) {
+        if (
+            matched.billingMode === "Block" &&
+            matched.blockMinutes &&
+            matched.blockMinutes > 0
+        ) {
+            const hourlyRate = Math.round(
+                (matched.price * 60) / matched.blockMinutes,
+            );
+            const blocks = Math.max(
+                1,
+                Math.ceil((durationHours * 60) / matched.blockMinutes),
+            );
+            return {
+                rateValue: hourlyRate,
+                isPerEntry: false,
+                estimatedTotal: blocks * matched.price,
+            };
+        }
+        return {
+            rateValue: matched.price,
+            isPerEntry: matched.billingMode === "PerEntry",
+            estimatedTotal:
+                matched.billingMode === "PerEntry"
+                    ? matched.price
+                    : matched.price * durationHours,
+        };
+    }
+
+    if (fallbackHourlyPrice !== undefined) {
+        return {
+            rateValue: fallbackHourlyPrice,
+            isPerEntry: false,
+            estimatedTotal: fallbackHourlyPrice * durationHours,
+        };
+    }
+
+    return null;
+}
+
 /** "7 cars · 30 motorbikes", or null when Parking gave no counts. */
 export function describeLotAvailability(
     availability: LotAvailability | null | undefined,

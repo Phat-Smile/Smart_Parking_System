@@ -12,7 +12,6 @@ import type {
 } from "./types";
 import {
     calculateParkingFee,
-    DEFAULT_STAFF_LOT_ID,
     getAssignedLot,
     listLotInsideSessions,
 } from "./staffApi";
@@ -29,6 +28,8 @@ export interface GateActivity {
 }
 
 let assignedLotState: AssignedLotResponse | null = null;
+let selectedLotIdState: string | null = null;
+let assignedLotRequestSeq = 0;
 let sessionsState: StaffSession[] = [];
 const issuesState: VerificationIssue[] = [];
 let activitiesState: GateActivity[] = [];
@@ -60,20 +61,34 @@ function toStaffSession(
 
 function refresh(): Promise<AssignedLotResponse | null> {
     refreshing ??= (async () => {
+        const requestSeq = ++assignedLotRequestSeq;
         try {
-            const lot = await getAssignedLot();
+            const lot = await getAssignedLot(selectedLotIdState ?? undefined);
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
             const page = lot ? await listLotInsideSessions(lot.lotId) : null;
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
             assignedLotState = lot;
+            if (lot?.lotId) {
+                selectedLotIdState = lot.lotId;
+            }
             sessionsState = page
                 ? page.items.map((item) => toStaffSession(item, lot!.lotId))
                 : [];
             loadErrorState = null;
         } catch (error) {
-            loadErrorState = error;
+            if (requestSeq === assignedLotRequestSeq) {
+                loadErrorState = error;
+            }
         } finally {
-            loaded = true;
             refreshing = null;
-            notify();
+            if (requestSeq === assignedLotRequestSeq) {
+                loaded = true;
+                notify();
+            }
         }
         return assignedLotState;
     })();
@@ -91,28 +106,47 @@ export const staffStore = {
     getAssignedLot: () => assignedLotState,
     getLoadError: () => loadErrorState,
 
-    setAssignedLot: (lot: AssignedLotResponse) => {
+    setAssignedLot: (lot: AssignedLotResponse | null) => {
         assignedLotState = lot;
+        selectedLotIdState = lot?.lotId ?? null;
         notify();
     },
 
     fetchAssignedLot: async (preferredLotId?: string) => {
+        const requestSeq = ++assignedLotRequestSeq;
         try {
-            const lot = await getAssignedLot(preferredLotId);
-            const targetLotId = lot?.lotId || DEFAULT_STAFF_LOT_ID;
+            const targetPreferred =
+                preferredLotId ?? selectedLotIdState ?? undefined;
+            const lot = await getAssignedLot(targetPreferred);
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
+            const targetLotId = lot?.lotId ?? "";
             const page = targetLotId
                 ? await listLotInsideSessions(targetLotId)
                 : null;
+            if (requestSeq !== assignedLotRequestSeq) {
+                return assignedLotState;
+            }
             assignedLotState = lot;
-            sessionsState = page
-                ? page.items.map((item) => toStaffSession(item, targetLotId))
-                : [];
+            selectedLotIdState =
+                lot?.lotId ?? preferredLotId ?? selectedLotIdState;
+            sessionsState =
+                page && targetLotId
+                    ? page.items.map((item) =>
+                          toStaffSession(item, targetLotId),
+                      )
+                    : [];
             loadErrorState = null;
         } catch (error) {
-            loadErrorState = error;
+            if (requestSeq === assignedLotRequestSeq) {
+                loadErrorState = error;
+            }
         } finally {
-            loaded = true;
-            notify();
+            if (requestSeq === assignedLotRequestSeq) {
+                loaded = true;
+                notify();
+            }
         }
         return assignedLotState;
     },
