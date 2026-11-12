@@ -320,6 +320,16 @@ public sealed class SecurityFoundationTests
             Assert.False(preflightResponse.Headers.Contains("Access-Control-Allow-Credentials"));
             AssertSecurityHeaders(preflightResponse);
 
+            // Payment's pay/cash and pay/wallet routes require X-Idempotency-Key; the browser preflight for it was refused.
+            using var idempotencyPreflight = new HttpRequestMessage(HttpMethod.Options, "/hubs/parking/negotiate");
+            idempotencyPreflight.Headers.Add("Origin", "http://localhost:3000");
+            idempotencyPreflight.Headers.Add("Access-Control-Request-Method", "POST");
+            idempotencyPreflight.Headers.Add("Access-Control-Request-Headers", "authorization,content-type,x-idempotency-key");
+            using var idempotencyResponse = await client.SendAsync(idempotencyPreflight, TestContext.Current.CancellationToken);
+            var idempotencyAllowed = idempotencyResponse.Headers.GetValues("Access-Control-Allow-Headers").Single()
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            Assert.Contains("x-idempotency-key", idempotencyAllowed, StringComparer.OrdinalIgnoreCase);
+
             using var unapprovedHeaderPreflight = new HttpRequestMessage(HttpMethod.Options, "/hubs/parking/negotiate");
             unapprovedHeaderPreflight.Headers.Add("Origin", "http://localhost:3000");
             unapprovedHeaderPreflight.Headers.Add("Access-Control-Request-Method", "POST");
