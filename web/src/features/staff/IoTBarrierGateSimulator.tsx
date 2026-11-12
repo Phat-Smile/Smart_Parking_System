@@ -55,7 +55,7 @@ export function IoTBarrierGateSimulator({
     isOpen: controlledIsOpen,
     physicalState: controlledPhysicalState,
     vehicleState: controlledVehicleState,
-    detectedPlate = "51F-782.91",
+    detectedPlate = "",
     vehicleType = "Car",
     confidence = 0.98,
     onGateStateChange,

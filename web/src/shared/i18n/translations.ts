@@ -606,11 +606,10 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         staffCompleteSessionBtn: "Xác nhận hoàn tất & Cho xe ra",
 
         // Staff Sessions Management
-        sessionsTitle: "Quản lý Phiên đỗ xe Khách & Đang gửi",
+        sessionsTitle: "Lịch sử phiên xe",
         sessionsSubtitle:
-            "Kiểm tra các phương tiện đang đỗ trong bãi, xem vé QR của khách và hủy phiên xe nếu cần.",
-        sessionsSearchPlaceholder:
-            "Tìm kiếm biển số xe, vị trí đỗ, hoặc tên tài xế...",
+            "Theo dõi, tra cứu và quản lý toàn bộ phiên gửi xe tại bãi.",
+        sessionsSearchPlaceholder: "Tìm biển số xe, mã phiên hoặc vị trí đỗ...",
         sessionsAllTab: "Tất cả phiên xe",
         sessionsGuestTab: "Khách vãng lai",
         sessionsRegisteredTab: "Khách đăng ký App",
@@ -627,8 +626,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         sessionsGuest: "Vãng lai",
         sessionsRegistered: "Đã đăng ký",
         sessionsDue: "Cần thu",
-        sessionsViewQr: "🎟️ Xem vé QR",
-        sessionsCancelEntry: "Hủy phiên vào",
+        sessionsViewQr: "Vé QR",
+        sessionsCancelEntry: "Hủy phiên",
         sessionsCancelTitle: "Hủy phiên gửi xe",
         sessionsCancelConfirmText: "Bạn có chắc muốn hủy phiên xe cho biển số",
         sessionsCancelReasonLabel: "Lý do hủy phiên:",
@@ -689,16 +688,16 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entryPageTitle: "Cổng Vào — Kiểm Soát Xe Vào Bãi",
         entryPageSubtitle:
             "Tự động nhận diện biển số (ANPR), hiệu chỉnh biển số và khởi tạo phiên gửi xe.",
-        entryClearBtn: "🔄 Xóa / Tiếp nhận xe tiếp theo",
+        entryClearBtn: "Xóa / Tiếp nhận xe tiếp theo",
         entrySimulateLabel: "Mô phỏng xe vào cổng:",
-        entryPresetRegCar: "🚙 Ô tô đăng ký (97% OCR)",
-        entryPresetGuestBike: "🛵 Xe máy vãng lai (99% OCR)",
-        entryPresetLowConf: "⚠️ OCR độ tin cậy thấp (62%)",
+        entryPresetRegCar: "Ô tô đăng ký (97% OCR)",
+        entryPresetGuestBike: "Xe máy vãng lai (99% OCR)",
+        entryPresetLowConf: "OCR độ tin cậy thấp (62%)",
         entryCameraTitle: "Cổng Vào 01 · Camera ANPR HD",
         entryPlateVerifTitle: "Xác Thực Biển Số Xe",
         entryConfidence: "Độ tin cậy:",
         entryLowConfWarning:
-            "⚠️ Độ tin cậy OCR của camera dưới ngưỡng (80%). Vui lòng kiểm tra và chỉnh sửa biển số trước khi mở rào chắn.",
+            "Độ tin cậy OCR của camera dưới ngưỡng (80%). Vui lòng kiểm tra và chỉnh sửa biển số trước khi mở rào chắn.",
         entryHighConfHint:
             "Nhận diện biển số khớp độ tin cậy cao. Nhân viên vẫn có thể sửa thủ công nếu cần.",
         entryPlateLabel: "Biển số xe",
@@ -736,7 +735,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitPageTitle: "Cổng Ra — Xác Thực & Thu Phí",
         exitPageSubtitle:
             "Quét QR, đối chiếu biển số, xử lý cước phí gửi xe và giải phóng vị trí đỗ.",
-        exitClearBtn: "🔄 Xóa / Reset Cổng Ra",
+        exitClearBtn: "Xóa / Reset Cổng Ra",
         exitSimulateLabel: "Mô phỏng xe tại cổng ra:",
         exitPresetGuestUnpaid: "Ô tô vãng lai (Chưa trả: 60.000₫)",
         exitPresetRegPrepaid: "Ô tô đăng ký (Trả trước: 0₫)",
@@ -771,17 +770,17 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitPrepaidWallet: "Đã trừ qua Ví App:",
         exitAmountDue: "Tiền cần thu tại cổng:",
         exitCollectWarning:
-            "⚠️ Còn tiền cước chưa trả. Thu phí trước khi cho xe ra.",
-        exitCollectCash: "💵 Thu tiền mặt",
-        exitVnPayQr: "📱 Quét mã VNPay QR",
+            "Còn tiền cước chưa trả. Thu phí trước khi cho xe ra.",
+        exitCollectCash: "Thu tiền mặt",
+        exitVnPayQr: "Quét mã VNPay QR",
         exitBarrierRaised: "ĐÃ ĐÓNG PHIÊN & NÂNG RÀO CHẮN",
         exitBarrierHint:
             "Vị trí đỗ đã được giải phóng. Cập nhật sức chứa thành công.",
         exitAuthorizeBtn: "Xác nhận ra & Mở rào chắn",
         exitBlockedBtn: "Chặn cổng (Chưa đủ điều kiện)",
         exitDoneBtn: "Hoàn tất / Tiếp nhận xe tiếp theo",
-        exitCashModalTitle: "💵 Thu Phí Tiền Mặt",
-        exitVnPayModalTitle: "📱 Thanh Toán VNPay QR",
+        exitCashModalTitle: "Thu Phí Tiền Mặt",
+        exitVnPayModalTitle: "Thanh Toán VNPay QR",
         exitModalSub:
             "Xác nhận giao dịch thanh toán tại bốt trước khi mở barrier",
         exitPlateLabel: "Biển số phương tiện:",
@@ -791,9 +790,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitCashHint: "Nhập hoặc chọn nhanh",
         exitChangeDue: "Tiền thối lại cho khách:",
         exitExactCash: "Đủ tiền",
-        exitConfirmCashPayment: "✓ Xác nhận đã nhận tiền mặt",
-        exitSimulateVnPaySuccess:
-            "✓ Mô phỏng khách thanh toán VNPay thành công",
+        exitConfirmCashPayment: "Xác nhận đã nhận tiền mặt",
+        exitSimulateVnPaySuccess: "Mô phỏng khách thanh toán VNPay thành công",
         exitClose: "Đóng",
 
         // Staff Verification Queue
@@ -807,7 +805,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         verifColState: "Trạng thái hiện tại",
         verifColReportedAt: "Thời gian báo",
         verifColAction: "Thao tác xử lý",
-        verifEmpty: "🎉 Không có sự cố nào đang chờ nhân viên xác thực!",
+        verifEmpty: "Không có sự cố nào đang chờ nhân viên xác thực!",
         verifApproveBarrier: "Mở Barrier",
         verifDismiss: "Bỏ qua",
     },
@@ -1024,11 +1022,11 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         staffCompleteSessionBtn: "Complete Payment & Open Barrier",
 
         // Staff Sessions Management
-        sessionsTitle: "Guest & Active Session Management",
+        sessionsTitle: "Parking Session History",
         sessionsSubtitle:
-            "Inspect active parked vehicles, view guest QR tickets, and handle cancellations.",
+            "Track, search, and manage all parking sessions in the lot.",
         sessionsSearchPlaceholder:
-            "Search license plate, slot, or driver name...",
+            "Search license plate, session code, or spot...",
         sessionsAllTab: "All Sessions",
         sessionsGuestTab: "Guest Vehicles",
         sessionsRegisteredTab: "Registered App Users",
@@ -1045,8 +1043,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         sessionsGuest: "Guest",
         sessionsRegistered: "Registered",
         sessionsDue: "Due",
-        sessionsViewQr: "🎟️ View QR",
-        sessionsCancelEntry: "Cancel Entry",
+        sessionsViewQr: "QR Ticket",
+        sessionsCancelEntry: "Cancel",
         sessionsCancelTitle: "Cancel Parking Session",
         sessionsCancelConfirmText:
             "Are you sure you want to cancel the session for",
@@ -1108,16 +1106,16 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entryPageTitle: "Gate In — Vehicle Entry Control",
         entryPageSubtitle:
             "Automated ANPR camera detection, plate correction, and session opening.",
-        entryClearBtn: "🔄 Clear / Scan Next Vehicle",
+        entryClearBtn: "Clear / Scan Next Vehicle",
         entrySimulateLabel: "Simulate incoming vehicle:",
-        entryPresetRegCar: "🚙 Registered Car (97% OCR)",
-        entryPresetGuestBike: "🛵 Guest Motorbike (99% OCR)",
-        entryPresetLowConf: "⚠️ Low Confidence OCR (62%)",
+        entryPresetRegCar: "Registered Car (97% OCR)",
+        entryPresetGuestBike: "Guest Motorbike (99% OCR)",
+        entryPresetLowConf: "Low Confidence OCR (62%)",
         entryCameraTitle: "Gate In 01 · HD ANPR Camera",
         entryPlateVerifTitle: "License Plate Verification",
         entryConfidence: "Confidence:",
         entryLowConfWarning:
-            "⚠️ Camera OCR confidence is below threshold (80%). Please review and correct the license plate before opening the gate.",
+            "Camera OCR confidence is below threshold (80%). Please review and correct the license plate before opening the gate.",
         entryHighConfHint:
             "High confidence match detected. Staff can still edit manually if needed.",
         entryPlateLabel: "License plate",
@@ -1155,7 +1153,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitPageTitle: "Gate Out — Exit Verification & Payment",
         exitPageSubtitle:
             "Scan QR, cross-check license plate, process parking fee, and release spot.",
-        exitClearBtn: "🔄 Clear Exit Gate",
+        exitClearBtn: "Clear Exit Gate",
         exitSimulateLabel: "Simulate vehicle at exit:",
         exitPresetGuestUnpaid: "Guest Car (Unpaid: 60,000₫)",
         exitPresetRegPrepaid: "Registered Car (Prepaid: 0₫ Due)",
@@ -1190,16 +1188,16 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitPrepaidWallet: "Prepaid via App Wallet:",
         exitAmountDue: "Amount Due at Exit:",
         exitCollectWarning:
-            "⚠️ Amount Due > 0. Collect payment before allowing vehicle exit.",
-        exitCollectCash: "💵 Collect Cash",
-        exitVnPayQr: "📱 VNPay QR Payment",
+            "Amount Due > 0. Collect payment before allowing vehicle exit.",
+        exitCollectCash: "Collect Cash",
+        exitVnPayQr: "VNPay QR Payment",
         exitBarrierRaised: "SESSION CLOSED & BARRIER RAISED",
         exitBarrierHint: "Spot is now released. Capacity updated.",
         exitAuthorizeBtn: "Authorize Exit & Raise Barrier",
         exitBlockedBtn: "Exit Blocked (Requirements Unmet)",
         exitDoneBtn: "Done / Process Next Vehicle",
-        exitCashModalTitle: "💵 Cash Payment",
-        exitVnPayModalTitle: "📱 VNPay QR Payment",
+        exitCashModalTitle: "Cash Payment",
+        exitVnPayModalTitle: "VNPay QR Payment",
         exitModalSub:
             "Confirm payment transaction at kiosk before raising barrier",
         exitPlateLabel: "License Plate:",
@@ -1209,8 +1207,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         exitCashHint: "Type or select quickly",
         exitChangeDue: "Change Due to Customer:",
         exitExactCash: "Exact",
-        exitConfirmCashPayment: "✓ Confirm Cash Collected",
-        exitSimulateVnPaySuccess: "✓ Simulate VNPay Success",
+        exitConfirmCashPayment: "Confirm Cash Collected",
+        exitSimulateVnPaySuccess: "Simulate VNPay Success",
         exitClose: "Close",
 
         // Staff Verification Queue
@@ -1224,7 +1222,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         verifColState: "Current State",
         verifColReportedAt: "Reported At",
         verifColAction: "Verification Action",
-        verifEmpty: "🎉 No issues currently pending operator verification!",
+        verifEmpty: "No issues currently pending operator verification!",
         verifApproveBarrier: "Approve Barrier",
         verifDismiss: "Dismiss",
     },

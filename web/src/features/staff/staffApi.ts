@@ -1,5 +1,7 @@
 import { gatewayFetch } from "@/shared/api/client";
+import { getAccessToken } from "@/shared/api/access-token";
 import { ApiError } from "@/shared/errors/api-error";
+import { parseProblemDetails } from "@/shared/errors/problem-details";
 import type {
     AssignedLotResponse,
     CancelledSessionResponse,
@@ -9,6 +11,7 @@ import type {
     OpenSessionByPlateResponse,
     ReissuedQrResponse,
     SessionByQrResponse,
+    SessionStatus,
     StaffLotItem,
     VehicleType,
     VerifiedExitResponse,
@@ -22,8 +25,10 @@ export interface OpenSessionPayload {
 
 // CompleteParkingSessionRequest on the server: the exit needs the plate and the session QR (BR exit rule).
 export interface CompleteSessionPayload {
-    plateNumber: string;
-    qrToken: string;
+    plateNumber?: string;
+    qrToken?: string;
+    paymentMethod?: "Cash" | "VNPay" | "Wallet";
+    amountPaidVnd?: number;
 }
 
 /** @deprecated Giữ lại để tương thích test cũ; không dùng làm mặc định chọn bãi. */
@@ -260,6 +265,229 @@ export async function getParkingSessionFee(
     );
 }
 
+export interface PayCashPayload {
+    expectedAmountDue: number;
+    reason?: string;
+}
+
+export interface PayCashResponse {
+    transactionId: string;
+    sessionId: string;
+    amountPaid: number;
+    paymentMethod: string;
+    confirmedByStaffId: string;
+    parkingLotId: string;
+    paymentTimeUtc: string;
+    exitWindowExpiresUtc: string;
+}
+
+async function paymentGatewayFetch<T>(
+    path: string,
+    init?: RequestInit,
+): Promise<T> {
+    if (typeof window !== "undefined") {
+        try {
+            const token = getAccessToken();
+            const headers = new Headers(init?.headers);
+            if (!headers.has("Accept")) headers.set("Accept", "application/json");
+            if (token && !headers.has("Authorization")) {
+                headers.set("Authorization", `Bearer ${token}`);
+            }
+            const res = await fetch(path, { ...init, headers });
+            if (res.ok) {
+                if (res.status === 204) return undefined as T;
+                return (await res.json()) as T;
+            }
+            if (
+                res.status === 400 ||
+                res.status === 401 ||
+                res.status === 403 ||
+                res.status === 404 ||
+                res.status === 409
+            ) {
+                const body: unknown = await res.json().catch(() => undefined);
+                const problem = parseProblemDetails(body);
+                throw new ApiError(res.status, problem);
+            }
+        } catch (err) {
+            if (err instanceof ApiError) throw err;
+        }
+    }
+    return await gatewayFetch<T>(path, init);
+}
+
+/**
+ * 100% Real API: Nhân viên xác nhận thu tiền mặt phí đỗ xe tại quầy
+ * Endpoint: POST /api/payment/parking-sessions/{sessionId}/pay/cash
+ */
+export async function payCashParkingFee(
+    sessionId: string,
+    payload: PayCashPayload,
+): Promise<PayCashResponse> {
+    const idempotencyKey = crypto.randomUUID();
+    return await paymentGatewayFetch<PayCashResponse>(
+        `/api/payment/parking-sessions/${encodeURIComponent(sessionId)}/pay/cash`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Idempotency-Key": idempotencyKey,
+                "X-Idempotency-Key": idempotencyKey,
+            },
+            body: JSON.stringify({
+                expectedAmountDue: payload.expectedAmountDue,
+                reason: payload.reason || "Khách thanh toán tiền mặt tại bãi",
+            }),
+        },
+    );
+}
+
+export interface CreateVnPayPayload {
+    expectedAmountDue: number;
+}
+
+export interface CreateVnPayResponse {
+    transactionId: string;
+    paymentUrl: string;
+    amount: number;
+    expiresAtUtc: string;
+    status: string;
+    isReused?: boolean;
+    isReplayed?: boolean;
+}
+
+/**
+ * 100% Real API: Tạo yêu cầu thanh toán tiền gửi xe qua VNPay QR
+ * Endpoint: POST /api/payment/parking-sessions/{sessionId}/pay/vnpay
+ */
+export async function createVnPayParkingFee(
+    sessionId: string,
+    payload: CreateVnPayPayload,
+): Promise<CreateVnPayResponse> {
+    const idempotencyKey = crypto.randomUUID();
+    return await paymentGatewayFetch<CreateVnPayResponse>(
+        `/api/payment/parking-sessions/${encodeURIComponent(sessionId)}/pay/vnpay`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Idempotency-Key": idempotencyKey,
+                "X-Idempotency-Key": idempotencyKey,
+            },
+            body: JSON.stringify({
+                expectedAmountDue: payload.expectedAmountDue,
+            }),
+        },
+    );
+}
+
+export interface ParkingFeePaymentStatusResponse {
+    transactionId: string;
+    sessionId: string;
+    method: string;
+    status: string;
+    amount: number;
+    paymentUrl?: string | null;
+    expiresAtUtc?: string | null;
+    paymentTimeUtc?: string | null;
+    exitWindowExpiresUtc?: string | null;
+    confirmedAtUtc?: string | null;
+    failureCode?: string | null;
+}
+
+/**
+ * 100% Real API: Tra cứu trạng thái hóa đơn thanh toán tiền gửi xe
+ * Endpoint: GET /api/payment/parking-fee-payments/{transactionId}
+ */
+export async function getParkingFeePaymentStatus(
+    transactionId: string,
+): Promise<ParkingFeePaymentStatusResponse> {
+    return await paymentGatewayFetch<ParkingFeePaymentStatusResponse>(
+        `/api/payment/parking-fee-payments/${encodeURIComponent(transactionId)}`,
+        { method: "GET" },
+    );
+}
+
+export interface ParkingSessionDetailResponse {
+    sessionId: string;
+    lotId: string;
+    plateNumber: string;
+    vehicleType: VehicleType;
+    status: SessionStatus;
+    entryTime: string;
+    slotCode: string | null;
+    qrToken: string | null;
+    paidAtUtc: string | null;
+    graceUntilUtc: string | null;
+}
+
+/**
+ * 100% Real API: Lấy chi tiết phiên đỗ xe thực tế từ CSDL
+ * Endpoint: GET /api/parking/sessions/{sessionId}
+ */
+export async function getParkingSession(
+    sessionId: string,
+): Promise<ParkingSessionDetailResponse> {
+    return await gatewayFetch<ParkingSessionDetailResponse>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}`,
+        { method: "GET" },
+    );
+}
+
+export interface PendingGateReadingResponse {
+    incidentId: string;
+    observedPlate: string | null;
+    vehicleType: string;
+    confidence: number;
+    plateFormatValid: boolean;
+    occurredAt: string;
+}
+
+export interface ConfirmedGateReadingResponse {
+    incidentId: string;
+    lotId: string;
+    plateNumber: string;
+    vehicleType: string;
+    decision: string;
+    plateFormatValid: boolean;
+    confirmedAt: string;
+}
+
+/**
+ * 100% Real API: Lấy danh sách các trường hợp OCR cần nhân viên xác nhận
+ * Endpoint: GET /api/parking/gate-readings/pending?lotId={lotId}
+ */
+export async function listPendingGateReadings(
+    lotId: string,
+): Promise<PendingGateReadingResponse[]> {
+    return await gatewayFetch<PendingGateReadingResponse[]>(
+        `/api/parking/gate-readings/pending?lotId=${encodeURIComponent(lotId)}`,
+        { method: "GET" },
+    );
+}
+
+/**
+ * 100% Real API: Xác nhận hoặc chỉnh sửa biển số OCR
+ * Endpoint: POST /api/parking/gate-readings/{incidentId}/confirm
+ */
+export async function confirmGateReading(
+    incidentId: string,
+    plateNumber: string,
+    vehicleType: VehicleType,
+): Promise<ConfirmedGateReadingResponse> {
+    return await gatewayFetch<ConfirmedGateReadingResponse>(
+        `/api/parking/gate-readings/${encodeURIComponent(incidentId)}/confirm`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                plateNumber: plateNumber.trim().toUpperCase(),
+                vehicleType,
+            }),
+        },
+    );
+}
+
 /**
  * 100% Real API: Tra cứu phiên đỗ xe thực tế bằng mã QR token
  * Endpoint: GET /api/parking/sessions/by-qr/{qrToken}
@@ -337,7 +565,11 @@ export async function payParkingSessionCash(
  */
 export function describeStaffError(error: unknown): string {
     if (!(error instanceof ApiError)) {
-        return "Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng hoặc kết nối cổng điều khiển.";
+        return "Không thể kết nối đến máy chủ hoặc cổng dịch vụ thanh toán (Port 5004). Vui lòng kiểm tra kết nối mạng.";
+    }
+
+    if (error.status === 502 || error.status === 503 || error.status === 504) {
+        return "Cổng thanh toán tự động (Payment API - Port 5004) đang ngoại tuyến hoặc chưa kết nối.";
     }
 
     const code = error.problem?.errorCode;
@@ -361,6 +593,33 @@ export function describeStaffError(error: unknown): string {
     }
     if (code === "parking.lot.access_denied" || error.status === 403) {
         return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
+    }
+    if (code === "parking.session.payment_required") {
+        return "Xe chưa thanh toán phí gửi xe. Vui lòng hoàn tất thanh toán trước khi mở rào chắn.";
+    }
+    if (code === "parking.session.exit_window_expired") {
+        return "Đã quá thời gian xuất bãi 15 phút sau khi thanh toán. Cần thanh toán phụ thu trước khi ra cổng.";
+    }
+    if (code === "parking.session.exit_not_verified") {
+        return "Biển số xe hoặc mã vé QR không khớp với phiên đỗ xe này.";
+    }
+    if (code === "parking.session.not_open") {
+        return "Phiên đỗ xe này không còn ở trạng thái mở (đã hoàn tất hoặc đã bị hủy).";
+    }
+    if (code === "payment.parking_fee.already_paid") {
+        return "Phiên đỗ xe này đã được thanh toán cước phí thành công trước đó.";
+    }
+    if (code === "payment.parking_fee.fee_changed") {
+        return "Cước phí gửi xe đã thay đổi do thời gian đỗ xe tăng thêm. Vui lòng tải lại thông tin phí mới.";
+    }
+    if (code === "payment.parking_fee.idempotency_key_reused") {
+        return "Yêu cầu thanh toán trùng lặp. Đang kiểm tra trạng thái thanh toán.";
+    }
+    if (code === "parking.gate_reading.not_found") {
+        return "Không tìm thấy dữ liệu đọc biển số cần xác nhận.";
+    }
+    if (code === "parking.gate_reading.not_pending") {
+        return "Sự cố đọc biển số này đã được nhân viên khác xử lý.";
     }
     if (error.status === 404) {
         return "Không tìm thấy thông tin bãi xe hoặc dữ liệu yêu cầu (not found or is not approved).";
@@ -602,22 +861,35 @@ export async function getStaffAssignedLotsDetails(
     const details = await Promise.all(
         lots.map(async (lot) => {
             const shiftInfo = await getStaffAssignedShift(lot.id, accountId);
-            let motoAvailable = 20;
+            const lotPath = `/api/parking/lots/${encodeURIComponent(lot.id)}`;
+            let motoAvailable = 0;
+            let motoCap: number | null = null;
+            let carAvailable = 0;
             let activeCount = 0;
+
             try {
-                const [motoRes, sessionPage] = await Promise.all([
-                    gatewayFetch<{
-                        availableSpaces?: number;
-                        totalCapacity?: number;
-                    }>(
-                        `/api/parking/lots/${encodeURIComponent(lot.id)}/motorbike-availability`,
+                const [motoRes, carRes, sessionPage] = await Promise.all([
+                    gatewayFetch<MotorbikeAvailabilityResponse>(
+                        `${lotPath}/motorbike-availability`,
+                        { method: "GET" },
+                    ).catch(() => null),
+                    gatewayFetch<LotAvailabilityResponse>(
+                        `${lotPath}/availability`,
                         { method: "GET" },
                     ).catch(() => null),
                     listLotInsideSessions(lot.id).catch(() => null),
                 ]);
 
-                if (typeof motoRes?.availableSpaces === "number") {
-                    motoAvailable = motoRes.availableSpaces;
+                if (motoRes) {
+                    motoAvailable =
+                        motoRes.available ??
+                        (motoRes as unknown as { availableSpaces?: number })
+                            .availableSpaces ??
+                        0;
+                    motoCap = motoRes.totalCapacity ?? null;
+                }
+                if (carRes?.car) {
+                    carAvailable = carRes.car.available ?? 0;
                 }
                 if (sessionPage && Array.isArray(sessionPage.items)) {
                     activeCount = sessionPage.items.length;
@@ -626,8 +898,10 @@ export async function getStaffAssignedLotsDetails(
                 // ignore
             }
 
-            const totalCap = 70;
-            const carAvail = Math.max(0, 50 - activeCount);
+            const totalCap =
+                (motoCap ?? 0) > 0
+                    ? (motoCap ?? 0) + carAvailable + activeCount
+                    : motoAvailable + carAvailable + activeCount;
 
             return {
                 lotId: lot.id,
@@ -639,7 +913,7 @@ export async function getStaffAssignedLotsDetails(
                 hours: shiftInfo.hours,
                 isCurrentShift: isCurrentShiftActive(shiftInfo.shift),
                 totalCapacity: totalCap,
-                carAvailable: carAvail,
+                carAvailable,
                 motorbikeAvailable: motoAvailable,
                 activeSessionsCount: activeCount,
                 barrierStatus: "Online" as const,

@@ -4,6 +4,19 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+    LayoutDashboard,
+    CarFront,
+    CreditCard,
+    Sliders,
+    ClipboardList,
+    AlertTriangle,
+    UserCheck,
+    ShieldCheck,
+    LogOut,
+    MapPin,
+    Clock,
+} from "lucide-react";
 import { useStaffData } from "./staffData";
 import {
     getStaffAssignedShift,
@@ -80,17 +93,17 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         {
             href: "/staff/dashboard",
             label: t("staffDashboard"),
-            icon: "📊",
+            icon: <LayoutDashboard size={17} strokeWidth={2.1} />,
         },
         {
             href: "/staff/entry",
             label: t("staffEntryGate"),
-            icon: "🚗",
+            icon: <CarFront size={17} strokeWidth={2.1} />,
         },
         {
             href: "/staff/exit",
             label: t("staffExitGate"),
-            icon: "💳",
+            icon: <CreditCard size={17} strokeWidth={2.1} />,
         },
         {
             href: "/staff/simulator",
@@ -98,18 +111,18 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 language === "en"
                     ? "IoT Barrier Simulator"
                     : "Mô phỏng Barrier IoT",
-            icon: "🚧",
+            icon: <Sliders size={17} strokeWidth={2.1} />,
         },
         {
             href: "/staff/sessions",
             label: t("staffSessions"),
-            icon: "📋",
+            icon: <ClipboardList size={17} strokeWidth={2.1} />,
             badge: occupancy.activeSessionsCount,
         },
         {
             href: "/staff/verification",
             label: t("dashNeedsVerif"),
-            icon: "⚠️",
+            icon: <AlertTriangle size={17} strokeWidth={2.1} />,
             badge: issues.length,
             badgeDanger: issues.length > 0,
         },
@@ -198,42 +211,37 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
 
                 <div className="staff-sidebar-footer">
                     <div className="staff-operator-card">
-                        <div className="staff-operator-avatar">👤</div>
+                        <div className="staff-operator-avatar">
+                            <UserCheck size={16} strokeWidth={2.2} />
+                        </div>
                         <div className="staff-operator-info">
-                            <span className="staff-operator-shift">
-                                {assignedShift.shiftName}
-                                {assignedShift.hours && (
-                                    <small
-                                        style={{
-                                            display: "block",
-                                            opacity: 0.8,
-                                            fontSize: "0.75rem",
-                                        }}
-                                    >
-                                        {assignedShift.hours}
-                                    </small>
-                                )}
-                            </span>
                             <strong className="staff-operator-name">
                                 {operatorName}
                             </strong>
+                            <span className="staff-operator-shift">
+                                {assignedShift.shiftName}
+                                {assignedShift.hours
+                                    ? ` · ${assignedShift.hours}`
+                                    : ""}
+                            </span>
                         </div>
                     </div>
 
                     <div className="staff-gate-health-card">
                         <div className="staff-gate-health-title">
                             <span className="staff-pulse-dot green" />
+                            <ShieldCheck size={13} strokeWidth={2.2} />
                             <span>{t("barrierStatus")}</span>
                         </div>
                         <div className="staff-gate-health-meta">
                             <div className="staff-health-row">
-                                <span>{t("gateIn")} 01:</span>
+                                <span>{t("gateIn")} 01</span>
                                 <strong className="text-emerald">
                                     {t("gateOnline")}
                                 </strong>
                             </div>
                             <div className="staff-health-row">
-                                <span>{t("gateOut")} 02:</span>
+                                <span>{t("gateOut")} 02</span>
                                 <strong className="text-emerald">
                                     {t("gateOnline")}
                                 </strong>
@@ -247,7 +255,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         title="Return to ParkWise Home"
                     >
                         <span>{t("signOut")}</span>
-                        <span>⎋</span>
+                        <LogOut size={15} strokeWidth={2.1} />
                     </Link>
                 </div>
             </aside>
@@ -294,6 +302,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                 </span>
                             )}
                             <span className="staff-lot-zone">
+                                <MapPin size={12} strokeWidth={2.2} />
                                 {assignedLot?.address || "Bãi trực phân công"}
                             </span>
                         </div>
@@ -305,7 +314,11 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                                 className="staff-clock-badge"
                                 suppressHydrationWarning
                             >
-                                <span className="staff-clock-icon">🕒</span>
+                                <Clock
+                                    size={14}
+                                    strokeWidth={2.2}
+                                    className="staff-clock-icon"
+                                />
                                 <span className="staff-clock-time">
                                     {currentTime}
                                 </span>
