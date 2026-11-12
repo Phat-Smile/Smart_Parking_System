@@ -629,7 +629,7 @@ export default function LotPoliciesPage() {
                                 lineHeight: "1.6",
                             }}
                         >
-                            <b>📌 Quy định vận hành Smart Parking:</b>
+                            <b>Quy định vận hành Smart Parking:</b>
                             <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
                                 <li>
                                     Nếu khách check-in đúng giờ: Tiền cọc được

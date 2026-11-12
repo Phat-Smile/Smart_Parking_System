@@ -36,6 +36,13 @@ interface WizardData {
     type: ParkingLotTypeEnum;
     floors: number;
     rowsPerFloor: number;
+    features: {
+        supportsElectricVehicles: boolean;
+        supportsLargeVehicles: boolean;
+        hasEvCharging: boolean;
+        isCovered: boolean;
+        hasCctv: boolean;
+    };
 }
 
 const INITIAL_DATA: WizardData = {
@@ -54,6 +61,13 @@ const INITIAL_DATA: WizardData = {
     type: "MultiStorey",
     floors: 5,
     rowsPerFloor: 4,
+    features: {
+        supportsElectricVehicles: false,
+        supportsLargeVehicles: false,
+        hasEvCharging: false,
+        isCovered: false,
+        hasCctv: false,
+    },
 };
 
 export default function NewParkingLotPage() {
@@ -142,6 +156,7 @@ export default function NewParkingLotPage() {
                 latitude,
                 longitude,
                 type: data.type,
+                features: data.features,
             });
             await loadOwnerLots();
             const registeredId = localLotId(res.id);
@@ -218,7 +233,7 @@ export default function NewParkingLotPage() {
                             href={`/owner/lots/${createdLotId}/pricing`}
                             className="btn p"
                         >
-                            ⚙️ Cấu hình bảng giá cho bãi này →
+                            Cấu hình bảng giá cho bãi này →
                         </Link>
                         <Link href="/owner/parking-lots" className="btn">
                             Về danh sách bãi của tôi
@@ -479,6 +494,131 @@ export default function NewParkingLotPage() {
                             </label>
                         </div>
 
+                        {/* Tiện ích & Đặc tính bãi xe (US-MAP-005, BR-Features) */}
+                        <div
+                            style={{
+                                marginTop: 24,
+                                paddingTop: 20,
+                                borderTop: "1px solid var(--line)",
+                            }}
+                        >
+                            <div style={{ marginBottom: 12 }}>
+                                <strong
+                                    style={{
+                                        fontSize: 14,
+                                        color: "var(--ink)",
+                                    }}
+                                >
+                                    Tiện ích & Đặc tính bãi đỗ (Parking Lot Features)
+                                </strong>
+                                <p
+                                    style={{
+                                        fontSize: 12,
+                                        color: "var(--muted)",
+                                        margin: "4px 0 0",
+                                    }}
+                                >
+                                    Các đặc tính này sẽ hiển thị trên bộ lọc tìm kiếm cho khách hàng sau khi bãi được duyệt.
+                                </p>
+                            </div>
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns:
+                                        "repeat(auto-fit, minmax(240px, 1fr))",
+                                    gap: 12,
+                                }}
+                            >
+                                {[
+                                    {
+                                        key: "supportsElectricVehicles" as const,
+                                        title: "Hỗ trợ xe điện (EV)",
+                                        desc: "Tiếp nhận và có vị trí đỗ dành cho xe điện",
+                                    },
+                                    {
+                                        key: "hasEvCharging" as const,
+                                        title: "Trạm sạc xe điện (EV Charging)",
+                                        desc: "Có sẵn trụ sạc tại chỗ cho xe điện",
+                                    },
+                                    {
+                                        key: "hasCctv" as const,
+                                        title: "Camera an ninh (CCTV)",
+                                        desc: "Giám sát 24/7 toàn bộ khu vực bãi",
+                                    },
+                                    {
+                                        key: "isCovered" as const,
+                                        title: "Có mái che / Trong nhà",
+                                        desc: "Bảo vệ xe tránh mưa nắng",
+                                    },
+                                    {
+                                        key: "supportsLargeVehicles" as const,
+                                        title: "Xe kích thước lớn / SUV",
+                                        desc: "Có ô đỗ rộng cho xe bán tải, SUV cỡ lớn",
+                                    },
+                                ].map((item) => {
+                                    const checked = Boolean(
+                                        data.features?.[item.key],
+                                    );
+                                    return (
+                                        <label
+                                            key={item.key}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: 10,
+                                                padding: "10px 12px",
+                                                borderRadius: 10,
+                                                border: checked
+                                                    ? "1.5px solid #0284c7"
+                                                    : "1px solid var(--line)",
+                                                background: checked
+                                                    ? "#f0f9ff"
+                                                    : "var(--card)",
+                                                cursor: "pointer",
+                                                transition: "all 0.15s ease",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(e) =>
+                                                    setData({
+                                                        ...data,
+                                                        features: {
+                                                            ...data.features,
+                                                            [item.key]:
+                                                                e.target.checked,
+                                                        },
+                                                    })
+                                                }
+                                                style={{ marginTop: 3 }}
+                                            />
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 13,
+                                                        fontWeight: 700,
+                                                        color: "var(--ink)",
+                                                    }}
+                                                >
+                                                    {item.title}
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 11,
+                                                        color: "var(--muted)",
+                                                        marginTop: 2,
+                                                    }}
+                                                >
+                                                    {item.desc}
+                                                </div>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
                         <div className="form" style={{ marginTop: "14px" }}>
                             <label className="f ck">
                                 <input
@@ -637,6 +777,42 @@ export default function NewParkingLotPage() {
                                             {data.hold > 0
                                                 ? `Giữ chỗ ${data.hold} phút`
                                                 : "Không"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Tiện ích khai báo</td>
+                                        <td>
+                                            {Object.values(data.features || {}).some(Boolean) ? (
+                                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                                    {data.features?.supportsElectricVehicles && (
+                                                        <span className="pw-badge" style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Xe điện (EV)
+                                                        </span>
+                                                    )}
+                                                    {data.features?.hasEvCharging && (
+                                                        <span className="pw-badge" style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Trạm sạc EV
+                                                        </span>
+                                                    )}
+                                                    {data.features?.hasCctv && (
+                                                        <span className="pw-badge" style={{ background: "#f3e8ff", color: "#6b21a8", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Camera 24/7
+                                                        </span>
+                                                    )}
+                                                    {data.features?.isCovered && (
+                                                        <span className="pw-badge" style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Có mái che
+                                                        </span>
+                                                    )}
+                                                    {data.features?.supportsLargeVehicles && (
+                                                        <span className="pw-badge" style={{ background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Xe cỡ lớn
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: "var(--muted)" }}>Chưa chọn tiện ích bổ sung</span>
+                                            )}
                                         </td>
                                     </tr>
                                 </tbody>

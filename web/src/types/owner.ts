@@ -68,6 +68,7 @@ export interface ParkingSpot {
     i: number; // 0..499
     s: SlotStatusKey;
     p: string; // license plate
+    sensorCode?: string; // e.g. "SN-CAR-A01"
 }
 
 export type ApprovalStatus = "approved" | "pending" | "rejected" | "draft";
@@ -117,6 +118,13 @@ export interface ParkingLot {
     ap: ApprovalStatus;
     why?: string;
     zones: ParkingZone[];
+    features?: {
+        supportsElectricVehicles?: boolean;
+        supportsLargeVehicles?: boolean;
+        hasEvCharging?: boolean;
+        isCovered?: boolean;
+        hasCctv?: boolean;
+    };
 }
 
 export interface Reservation {
