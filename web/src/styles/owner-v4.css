@@ -62,6 +62,27 @@ body {
     overflow: auto;
 }
 
+.side-brand-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 18px;
+    border-bottom: 1px solid var(--pw-dark-border);
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.brand-logo-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+
+.brand-logo-link:hover {
+    opacity: 0.88;
+}
+
 .brand {
     display: flex;
     align-items: center;
@@ -176,9 +197,11 @@ body {
 }
 
 #m {
-    padding: 24px clamp(16px, 3vw, 40px) 48px;
-    max-width: 1500px;
+    padding: 24px clamp(20px, 2.5vw, 40px) 48px;
+    max-width: 100%;
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .crumb {
@@ -989,4 +1012,144 @@ th {
 }
 .ov2-notif-list::-webkit-scrollbar-thumb:hover {
     background: #6b7280;
+}
+
+/* ── Bảng giá & Chính sách cọc (Pricing & Deposit Page) ── */
+.pricing-page-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding-bottom: 60px;
+    box-sizing: border-box;
+}
+
+.pricing-top-bar {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #E1E7DE;
+    padding: 14px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 22px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 4px rgba(25, 48, 29, 0.03);
+}
+
+/* Hàng 1 & Hàng 2: Grid 2 Cột chuẩn 50/50 trên Desktop */
+.pricing-grid-row-50 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+    margin-bottom: 22px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pricing-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #E1E7DE;
+    padding: 24px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 4px rgba(25, 48, 29, 0.03);
+    width: 100%;
+    min-width: 0;
+    transition: box-shadow 0.2s ease;
+}
+
+.pricing-card:hover {
+    box-shadow: 0 4px 14px rgba(25, 48, 29, 0.06);
+}
+
+.pricing-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.pricing-card-header h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #172018;
+    margin: 0;
+}
+
+.pricing-options-2col {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Hàng 3: Card 5 Mô phỏng tính tiền Full Width */
+.pricing-sim-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #E1E7DE;
+    padding: 26px;
+    box-sizing: border-box;
+    width: 100%;
+    box-shadow: 0 1px 4px rgba(25, 48, 29, 0.03);
+    transition: box-shadow 0.2s ease;
+}
+
+.pricing-sim-card:hover {
+    box-shadow: 0 4px 14px rgba(25, 48, 29, 0.06);
+}
+
+.pricing-sim-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+    align-items: start;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pricing-sim-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+}
+
+.pricing-sim-results {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 960px) {
+    .pricing-grid-row-50 {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+    .pricing-sim-grid {
+        grid-template-columns: 1fr;
+        gap: 22px;
+    }
+}
+
+@media (max-width: 600px) {
+    .pricing-options-2col {
+        grid-template-columns: 1fr;
+    }
+    .pricing-top-bar {
+        padding: 12px 14px;
+    }
+    .pricing-card,
+    .pricing-sim-card {
+        padding: 18px;
+    }
 }

@@ -926,7 +926,6 @@ export function OwnerRegisterPage({
                                                         fontSize: 12,
                                                     }}
                                                 >
-                                                    👉{" "}
                                                     {isVi
                                                         ? "Đăng nhập để tiếp tục hoàn thiện hồ sơ →"
                                                         : "Log in to continue legal profile →"}

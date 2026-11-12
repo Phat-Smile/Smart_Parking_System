@@ -783,7 +783,6 @@ export function OwnerOnboardingWizard({
                 }}
             >
                 <div style={{ textAlign: "center", color: "#94a3b8" }}>
-                    <div style={{ fontSize: 24, marginBottom: 12 }}>⚡</div>
                     <p>Đang tải thông tin hồ sơ đối tác...</p>
                 </div>
             </div>
@@ -809,7 +808,7 @@ export function OwnerOnboardingWizard({
                         />
                     </Link>
                     <div className="pw-onboarding-badge">
-                        <span>🛡️</span> Xác thực Pháp lý & Đối tác Chủ bãi đỗ xe
+                        Xác thực Pháp lý & Đối tác Chủ bãi đỗ xe
                     </div>
                 </div>
 
@@ -971,7 +970,7 @@ export function OwnerOnboardingWizard({
                         {ownerType === "Individual" && (
                             <div className="pw-entity-form-block">
                                 <div className="pw-section-divider">
-                                    <span>👤</span> Thông tin chủ sở hữu & Cơ sở
+                                    Thông tin chủ sở hữu & Cơ sở
                                     bãi xe cá nhân
                                 </div>
 
@@ -1062,7 +1061,7 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực & Điền nhanh qua Căn cước công dân điện tử VNeID"
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID
+                                                Điền nhanh qua VNeID
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1235,7 +1234,7 @@ export function OwnerOnboardingWizard({
                         {ownerType === "HouseholdBusiness" && (
                             <div className="pw-entity-form-block">
                                 <div className="pw-section-divider">
-                                    <span>🏪</span> Thông tin Hộ kinh doanh cá
+                                    Thông tin Hộ kinh doanh cá
                                     thể
                                 </div>
 
@@ -1272,8 +1271,8 @@ export function OwnerOnboardingWizard({
                                             disabled={taxLookupLoading}
                                         >
                                             {taxLookupLoading
-                                                ? "⏳ Đang tra cứu..."
-                                                : "🔍 Tra cứu MST"}
+                                                ? "Đang tra cứu..."
+                                                : "Tra cứu MST"}
                                         </button>
                                     </div>
                                     <div className="pw-help-text">
@@ -1466,7 +1465,7 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực CCCD người đại diện qua VNeID"
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID
+                                                Điền nhanh qua VNeID
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1569,7 +1568,7 @@ export function OwnerOnboardingWizard({
                         {ownerType === "Enterprise" && (
                             <div className="pw-entity-form-block">
                                 <div className="pw-section-divider">
-                                    <span>🏢</span> Thông tin Doanh nghiệp /
+                                    Thông tin Doanh nghiệp /
                                     Pháp nhân
                                 </div>
 
@@ -1606,8 +1605,8 @@ export function OwnerOnboardingWizard({
                                             disabled={taxLookupLoading}
                                         >
                                             {taxLookupLoading
-                                                ? "⏳ Đang kết nối..."
-                                                : "🔍 Tra cứu Doanh nghiệp"}
+                                                ? "Đang kết nối..."
+                                                : "Tra cứu Doanh nghiệp"}
                                         </button>
                                     </div>
                                     <div className="pw-help-text">
@@ -1745,7 +1744,7 @@ export function OwnerOnboardingWizard({
                                 </div>
 
                                 <div className="pw-section-divider">
-                                    <span>👔</span> Người đại diện theo pháp
+                                    Người đại diện theo pháp
                                     luật
                                 </div>
 
@@ -1831,7 +1830,7 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực CCCD người đại diện pháp luật qua VNeID"
                                             >
-                                                🇻🇳 Điền nhanh qua VNeID
+                                                Điền nhanh qua VNeID
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -2044,7 +2043,7 @@ export function OwnerOnboardingWizard({
                                     <div className="pw-doc-verify-card">
                                         <div className="pw-doc-verify-header">
                                             <span className="pw-doc-verify-badge">
-                                                🔍 Thông tin cơ bản đối chiếu
+                                                Thông tin cơ bản đối chiếu
                                             </span>
                                             <span className="pw-doc-verify-hint">
                                                 Nhập thông tin cơ bản để hệ
@@ -2278,7 +2277,7 @@ export function OwnerOnboardingWizard({
                         {/* Review Summary Grid */}
                         <div className="pw-review-box">
                             <div className="pw-review-title">
-                                <span>📋</span> Tóm tắt thông tin pháp lý (
+                                Tóm tắt thông tin pháp lý (
                                 {ownerType === "Individual"
                                     ? "Cá nhân"
                                     : ownerType === "HouseholdBusiness"
@@ -2390,7 +2389,7 @@ export function OwnerOnboardingWizard({
                         {/* Uploaded Documents List */}
                         <div className="pw-review-box">
                             <div className="pw-review-title">
-                                <span>📁</span> Giấy tờ pháp lý & Thông tin đối
+                                Giấy tờ pháp lý & Thông tin đối
                                 chiếu đính kèm ({uploadedDocuments.length})
                             </div>
                             <div
@@ -2470,7 +2469,7 @@ export function OwnerOnboardingWizard({
                                                         color: "#64748b",
                                                     }}
                                                 >
-                                                    📎 {doc.fileName} (
+                                                    {doc.fileName} (
                                                     {(
                                                         doc.sizeBytes / 1024
                                                     ).toFixed(0)}{" "}
@@ -2615,7 +2614,7 @@ export function OwnerOnboardingWizard({
                             >
                                 {isSubmitting
                                     ? "Đang gửi hồ sơ..."
-                                    : "Nộp hồ sơ xét duyệt chính thức 🚀"}
+                                    : "Nộp hồ sơ xét duyệt chính thức"}
                             </button>
                         </div>
                     </div>
@@ -2976,7 +2975,7 @@ export function OwnerOnboardingWizard({
                                 }}
                             >
                                 <h4 style={{ color: "#a16207" }}>
-                                    💡 Trải nghiệm Bản mô phỏng trong thời gian
+                                    Trải nghiệm Bản mô phỏng trong thời gian
                                     chờ duyệt
                                 </h4>
                                 <p style={{ color: "#854d0e" }}>
@@ -3009,17 +3008,16 @@ export function OwnerOnboardingWizard({
                                         setApplicationStatus("None");
                                     }}
                                 >
-                                    ✏️ Cập nhật lại hồ sơ
+                                    Cập nhật lại hồ sơ
                                 </button>
                                 <Link
                                     href="/owner/simulation"
                                     className="pw-btn-primary"
                                 >
-                                    🎮 Trải nghiệm Dashboard mô phỏng (Sandbox)
-                                    →
+                                    Trải nghiệm Dashboard mô phỏng (Sandbox) →
                                 </Link>
                                 <Link href="/" className="pw-btn-secondary">
-                                    🏠 Về trang chủ
+                                    Về trang chủ
                                 </Link>
                             </div>
                         </div>
