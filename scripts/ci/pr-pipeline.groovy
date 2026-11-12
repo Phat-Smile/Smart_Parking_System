@@ -282,7 +282,7 @@ pipeline {
                                 script {
                                     runReportedTest(
                                         'Python AI Tests',
-                                        'cd ai/ai-service && .ci-venv/bin/python ../../scripts/ci/unittest_junit.py --start-directory tests --output ../../ci-results/ai/junit.xml',
+                                        'cd ai/ai-service && PYTHONPATH=. .ci-venv/bin/python ../../scripts/ci/unittest_junit.py --start-directory tests --output ../../ci-results/ai/junit.xml',
                                         'ci-results/ai/junit.xml',
                                         'ai-unittest'
                                     )
