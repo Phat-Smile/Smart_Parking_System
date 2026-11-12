@@ -270,7 +270,7 @@ export default function Layout2DPage() {
                                 gap: 6,
                             }}
                         >
-                            ✏️ Chỉnh sửa sơ đồ
+                            Chỉnh sửa sơ đồ
                         </Link>
                         <button
                             type="button"
