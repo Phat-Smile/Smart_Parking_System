@@ -329,7 +329,6 @@ public sealed class SecurityFoundationTests
             var idempotencyAllowed = idempotencyResponse.Headers.GetValues("Access-Control-Allow-Headers").Single()
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             Assert.Contains("x-idempotency-key", idempotencyAllowed, StringComparer.OrdinalIgnoreCase);
-
             using var unapprovedHeaderPreflight = new HttpRequestMessage(HttpMethod.Options, "/hubs/parking/negotiate");
             unapprovedHeaderPreflight.Headers.Add("Origin", "http://localhost:3000");
             unapprovedHeaderPreflight.Headers.Add("Access-Control-Request-Method", "POST");

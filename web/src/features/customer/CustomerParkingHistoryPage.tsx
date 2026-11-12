@@ -44,23 +44,35 @@ export default function ParkingHistoryPage() {
         } catch (err: unknown) {
             if (err instanceof ApiError) {
                 setError(
-                    err.problem?.detail ||
-                        err.message ||
-                        "Could not load parking history.",
+                    err.status === 401
+                        ? copy(
+                              "Sign in to view your parking history.",
+                              "Vui lòng đăng nhập để xem lịch sử đỗ xe.",
+                          )
+                        : copy(
+                              "Could not load parking history. Please try again.",
+                              "Không thể tải lịch sử đỗ xe. Vui lòng thử lại.",
+                          ),
                 );
             } else if (err instanceof TypeError) {
                 setError(
-                    "Could not connect to load parking history. Please try again later.",
+                    copy(
+                        "Could not connect to load parking history. Please try again later.",
+                        "Không thể kết nối để tải lịch sử đỗ xe. Vui lòng thử lại sau.",
+                    ),
                 );
-            } else if (err instanceof Error) {
-                setError(err.message);
             } else {
-                setError("An error occurred while loading parking history.");
+                setError(
+                    copy(
+                        "An error occurred while loading parking history.",
+                        "Đã xảy ra lỗi khi tải lịch sử đỗ xe.",
+                    ),
+                );
             }
         } finally {
             setLoading(false);
         }
-    }, [page, pageSize, statusFilter]);
+    }, [copy, page, pageSize, statusFilter]);
 
     useEffect(() => {
         let active = true;
@@ -95,30 +107,27 @@ export default function ParkingHistoryPage() {
                             setStatusFilter(e.target.value);
                             setPage(1);
                         }}
-                        className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold focus:outline-none focus:border-[#6246ea]"
+                        className="customer-data-filter"
                         aria-label={copy(
                             "Filter by status",
                             "Lọc theo trạng thái",
                         )}
                     >
-                        <option value="" className="bg-[#0b0c17] text-white">
+                        <option value="">
                             {copy("All statuses", "Tất cả trạng thái")}
                         </option>
                         <option
                             value="Active"
-                            className="bg-[#0b0c17] text-white"
                         >
                             {copy("Active (in lot)", "Đang đỗ xe")}
                         </option>
                         <option
                             value="Completed"
-                            className="bg-[#0b0c17] text-white"
                         >
                             {copy("Completed", "Đã hoàn thành")}
                         </option>
                         <option
                             value="Cancelled"
-                            className="bg-[#0b0c17] text-white"
                         >
                             {copy("Cancelled", "Đã hủy")}
                         </option>
@@ -127,9 +136,10 @@ export default function ParkingHistoryPage() {
                         type="button"
                         onClick={loadHistory}
                         disabled={loading}
-                        className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[#8790a3] hover:text-white hover:border-white/20 transition-colors"
+                        className="customer-data-refresh"
                         title={copy("Refresh history", "Làm mới lịch sử")}
                         aria-label={copy("Refresh history", "Làm mới lịch sử")}
+                        aria-busy={loading}
                     >
                         <RefreshCw
                             size={18}
@@ -174,7 +184,7 @@ export default function ParkingHistoryPage() {
 
             {/* Trạng thái Trống (Empty) */}
             {!loading && !error && sessions.length === 0 && (
-                <div className="bg-[#0b0c17] border border-white/10 rounded-2xl p-12 text-center space-y-4 shadow-card-light">
+                <div className="customer-data-empty bg-[#0b0c17] border border-white/10 rounded-2xl p-12 text-center space-y-4 shadow-card-light">
                     <div className="w-16 h-16 rounded-full bg-[#6246ea]/10 border border-[#6246ea]/20 flex items-center justify-center mx-auto text-[#a28aff]">
                         <History size={28} />
                     </div>
@@ -185,12 +195,7 @@ export default function ParkingHistoryPage() {
                                 "Không tìm thấy lịch sử đỗ xe",
                             )}
                         </h3>
-                        <p className="text-[#8790a3] text-sm max-w-md mx-auto">
-                            {copy(
-                                "Your parking sessions will appear here after you enter or exit a ParkWise parking lot.",
-                                "Các phiên đỗ của bạn sẽ xuất hiện tại đây sau khi bạn vào hoặc ra khỏi bãi ParkWise.",
-                            )}
-                        </p>
+
                     </div>
                     <Link
                         href="/search"

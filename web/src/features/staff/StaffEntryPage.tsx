@@ -77,13 +77,19 @@ export function StaffEntryPage() {
             .trim()
             .toUpperCase();
         if (!finalPlate) {
-            setErrorMsg("Vui lòng nhập biển số xe.");
+            setErrorMsg(
+                language === "vi"
+                    ? "Vui lòng nhập biển số xe."
+                    : "Enter the vehicle license plate.",
+            );
             return;
         }
 
         if (!assignedLot?.lotId) {
             setErrorMsg(
-                "Chưa tải được thông tin bãi xe được phân công. Vui lòng kiểm tra lại tài khoản nhân viên.",
+                language === "vi"
+                    ? "Chưa tải được thông tin bãi xe được phân công. Vui lòng kiểm tra lại tài khoản nhân viên."
+                    : "Could not load your assigned parking lot. Check your staff account and try again.",
             );
             return;
         }
@@ -103,8 +109,12 @@ export function StaffEntryPage() {
             setLastOpened(res);
             setStep("session_created");
             emitLiveToast(
-                "Xác nhận xe vào cổng thành công!",
-                `Biển số ${res.plateNumber} đã qua barrier. Phiếu gửi xe đã sẵn sàng.`,
+                language === "vi"
+                    ? "Xác nhận xe vào cổng thành công!"
+                    : "Vehicle check-in successful!",
+                language === "vi"
+                    ? `Biển số ${res.plateNumber} đã qua barrier. Phiếu gửi xe đã sẵn sàng.`
+                    : `License plate ${res.plateNumber} passed the gate. The parking ticket is ready.`,
                 "success",
             );
 

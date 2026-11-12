@@ -37,6 +37,7 @@ import {
 import { CustomerFooter, CustomerHeader } from "./CustomerShell";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkingLayoutView } from "./ParkingLayoutView";
+import { CustomerLiveParkingLayout } from "./CustomerLiveParkingLayout";
 import { ParkingLotBookingDialog } from "./booking/components/ParkingLotBookingDialog";
 import {
     getAuthSessionSnapshot,
@@ -480,18 +481,16 @@ export function ParkingLotDetailExperience({
                                     <Image
                                         key={photos[photoIndex]}
                                         src={photos[photoIndex]}
-                                        alt={`Parking view ${photoIndex + 1}`}
+                                        alt={lot.photos.length ? `Parking view ${photoIndex + 1}` : "Illustration of a parking facility"}
                                         fill
                                         sizes="(max-width: 900px) 100vw, 600px"
                                         priority
                                     />
                                     <span className="lot-detail-gallery-count">
                                         <Images size={14} aria-hidden="true" />{" "}
-                                        {copy(
-                                            "View all photos",
-                                            "Xem tất cả ảnh",
-                                        )}{" "}
-                                        ({photos.length})
+                                        {lot.photos.length
+                                            ? `${copy("View all photos", "Xem tất cả ảnh")} (${lot.photos.length})`
+                                            : copy("Illustration · No lot photos published", "Ảnh minh họa · Bãi chưa cung cấp ảnh")}
                                     </span>
                                     {photos.length > 1 && (
                                         <>
@@ -550,8 +549,8 @@ export function ParkingLotDetailExperience({
                                               `${lot.name} là bãi đỗ hiện đại tại trung tâm Quận 1, TP. Hồ Chí Minh, gần phố đi bộ Nguyễn Huệ và các trung tâm mua sắm.`,
                                           )
                                         : copy(
-                                              `${lot.name} is an approved ${lot.type.toLowerCase()} at ${lot.address}. Additional facility details have not been published yet.`,
-                                              `${lot.name} là bãi đỗ đã được duyệt tại ${lot.address}. Chưa có thêm thông tin về cơ sở vật chất.`,
+                                               `Approved ${lot.type.toLowerCase()} parking at ${lot.address}. Opening hours, amenities and payment methods appear when the operator provides them.`,
+                                               `Bãi đỗ đã được duyệt tại ${lot.address}. Giờ mở cửa, tiện ích và phương thức thanh toán sẽ hiển thị khi đơn vị vận hành cung cấp.`,
                                           )}
                                 </p>
                                 <div className="lot-detail-info-split">
@@ -619,8 +618,8 @@ export function ParkingLotDetailExperience({
                                                           "Mở cửa 24/7",
                                                       )
                                                     : copy(
-                                                          "Hours not published",
-                                                          "Chưa công bố giờ mở cửa",
+                                                           "Ask the operator for opening hours",
+                                                           "Liên hệ đơn vị vận hành để biết giờ mở cửa",
                                                       )}
                                             </p>
                                         )}
@@ -648,8 +647,8 @@ export function ParkingLotDetailExperience({
                                         ) : (
                                             <p>
                                                 {copy(
-                                                    "Amenities not published",
-                                                    "Chưa công bố tiện ích",
+                                                     "No amenities listed by the operator",
+                                                     "Đơn vị vận hành chưa cung cấp tiện ích",
                                                 )}
                                             </p>
                                         )}
@@ -682,8 +681,8 @@ export function ParkingLotDetailExperience({
                                         ) : (
                                             <p>
                                                 {copy(
-                                                    "Not published",
-                                                    "Chưa công bố",
+                                                     "Ask the operator",
+                                                     "Liên hệ đơn vị vận hành",
                                                 )}
                                             </p>
                                         )}
@@ -738,6 +737,9 @@ export function ParkingLotDetailExperience({
                                 selectedSpot={selectedSpot}
                                 onSelectSpot={setSelectedSpot}
                             />
+                        )}
+                        {!lot.isPreview && (
+                            <CustomerLiveParkingLayout lotId={lot.id} />
                         )}
                     </div>
 

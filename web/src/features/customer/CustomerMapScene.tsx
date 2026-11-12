@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Map, {
+    FullscreenControl,
     Marker,
     NavigationControl,
     type MapRef,
@@ -35,6 +36,9 @@ export default function CustomerMapScene({
 }) {
     const mapRef = useRef<MapRef>(null);
     const mapTarget = destinationLocation ?? currentLocation;
+    const selectedPin = pins.find((pin) => pin.id === selectedId);
+    const selectedLatitude = selectedPin?.latitude;
+    const selectedLongitude = selectedPin?.longitude;
 
     useEffect(() => {
         if (mapTarget) {
@@ -45,6 +49,16 @@ export default function CustomerMapScene({
             });
         }
     }, [mapTarget]);
+
+    useEffect(() => {
+        if (selectedLatitude === undefined || selectedLongitude === undefined)
+            return;
+        mapRef.current?.flyTo({
+            center: [selectedLongitude, selectedLatitude],
+            zoom: 15.5,
+            essential: true,
+        });
+    }, [selectedLatitude, selectedLongitude]);
 
     return (
         <Map
@@ -57,6 +71,10 @@ export default function CustomerMapScene({
             }}
             mapStyle="mapbox://styles/mapbox/streets-v12"
             style={{ width: "100%", height: "100%" }}
+            scrollZoom
+            doubleClickZoom
+            touchZoomRotate
+            dragRotate={false}
             aria-label="Mapbox map of central Ho Chi Minh City"
         >
             {pins.map((pin) => (
@@ -69,11 +87,11 @@ export default function CustomerMapScene({
                     <button
                         type="button"
                         className={`customer-map-pin ${selectedId === pin.id ? "selected" : ""}`}
-                        aria-label={`Select example location ${pin.name}`}
+                        aria-label={`Select parking lot ${pin.name}`}
                         aria-pressed={selectedId === pin.id}
                         onClick={() => onSelect(pin.id)}
                     >
-                        <span>P</span>
+                        <i className="fa-solid fa-car-rear" aria-hidden="true" />
                     </button>
                 </Marker>
             ))}
@@ -101,7 +119,12 @@ export default function CustomerMapScene({
                     />
                 </Marker>
             )}
-            <NavigationControl position="bottom-right" showCompass={false} />
+            <NavigationControl
+                position="bottom-right"
+                showCompass={false}
+                showZoom
+            />
+            <FullscreenControl position="bottom-right" />
         </Map>
     );
 }

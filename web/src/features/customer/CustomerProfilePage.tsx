@@ -20,7 +20,14 @@ import {
     getAuthSessionSnapshot,
     subscribeAuthSession,
 } from "@/features/auth/authSession";
-import { getMyProfile, type CustomerProfile } from "./customerProfileApi";
+import {
+    deleteCustomerMedia,
+    deleteMyProfileIdentity,
+    getCustomerMediaBlob,
+    getMyProfile,
+    saveMyProfile,
+    type CustomerProfile,
+} from "./customerProfileApi";
 
 function ProfileField({
     icon: Icon,
@@ -54,6 +61,9 @@ export function CustomerProfilePage() {
 
     const [profile, setProfile] = useState<CustomerProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [avatarObjectUrl, setAvatarObjectUrl] = useState<string | null>(null);
+    const [privacyBusy, setPrivacyBusy] = useState(false);
+    const [privacyMessage, setPrivacyMessage] = useState("");
 
     useEffect(() => {
         let active = true;
@@ -72,6 +82,95 @@ export function CustomerProfilePage() {
             active = false;
         };
     }, []);
+
+    useEffect(() => {
+        const mediaUrl = profile?.avatarUrl;
+        if (!mediaUrl?.startsWith("/api/identity/accounts/me/media/")) return;
+        let active = true;
+        let objectUrl: string | null = null;
+        void getCustomerMediaBlob(mediaUrl)
+            .then((blob) => {
+                objectUrl = URL.createObjectURL(blob);
+                if (active) setAvatarObjectUrl(objectUrl);
+                else URL.revokeObjectURL(objectUrl);
+            })
+            .catch(() => {
+                if (active) setAvatarObjectUrl(null);
+            });
+        return () => {
+            active = false;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [profile?.avatarUrl]);
+
+    async function removeIdentity() {
+        if (
+            !window.confirm(
+                copy(
+                    "Delete your saved identity details and documents?",
+                    "Xóa thông tin và giấy tờ định danh đã lưu?",
+                ),
+            )
+        )
+            return;
+        setPrivacyBusy(true);
+        setPrivacyMessage("");
+        try {
+            await deleteMyProfileIdentity();
+            setProfile(await getMyProfile());
+            setPrivacyMessage(
+                copy(
+                    "Identity details deleted.",
+                    "Đã xóa thông tin định danh.",
+                ),
+            );
+        } catch {
+            setPrivacyMessage(
+                copy(
+                    "Could not delete identity details.",
+                    "Không thể xóa thông tin định danh.",
+                ),
+            );
+        } finally {
+            setPrivacyBusy(false);
+        }
+    }
+
+    async function removeAvatar() {
+        if (
+            !profile?.avatarUrl ||
+            !window.confirm(
+                copy("Remove your profile photo?", "Xóa ảnh đại diện?"),
+            )
+        )
+            return;
+        const mediaId = profile.avatarUrl.split("/").pop();
+        if (
+            !mediaId ||
+            !profile.avatarUrl.startsWith("/api/identity/accounts/me/media/")
+        )
+            return;
+        setPrivacyBusy(true);
+        setPrivacyMessage("");
+        try {
+            await saveMyProfile({ ...profile, avatarUrl: null });
+            await deleteCustomerMedia(mediaId);
+            setProfile(await getMyProfile());
+            setAvatarObjectUrl(null);
+            setPrivacyMessage(
+                copy("Profile photo removed.", "Đã xóa ảnh đại diện."),
+            );
+        } catch {
+            setPrivacyMessage(
+                copy(
+                    "Could not remove profile photo. Refresh your profile and retry.",
+                    "Không thể xóa ảnh. Hãy tải lại hồ sơ và thử lại.",
+                ),
+            );
+        } finally {
+            setPrivacyBusy(false);
+        }
+    }
 
     const name =
         profile?.fullName?.trim() ||
@@ -132,8 +231,20 @@ export function CustomerProfilePage() {
                 className="customer-profile-hero"
                 aria-label={copy("Profile overview", "Tổng quan hồ sơ")}
             >
-                <div className="customer-profile-avatar" aria-hidden="true">
-                    {initial}
+                <div
+                    className="customer-profile-avatar"
+                    aria-hidden="true"
+                    style={
+                        avatarObjectUrl
+                            ? {
+                                  backgroundImage: `url(${avatarObjectUrl})`,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                              }
+                            : undefined
+                    }
+                >
+                    {avatarObjectUrl ? null : initial}
                 </div>
                 <div className="customer-profile-hero-copy">
                     <span className="customer-profile-kicker">
@@ -148,6 +259,40 @@ export function CustomerProfilePage() {
                         : copy("Preview", "Xem trước")}
                 </span>
             </section>
+
+            {profile && (
+                <div className="customer-account-card" style={{ padding: 20 }}>
+                    <h2>{copy("Privacy controls", "Quyền riêng tư")}</h2>
+                    {profile.avatarUrl?.startsWith(
+                        "/api/identity/accounts/me/media/",
+                    ) && (
+                        <button
+                            type="button"
+                            disabled={privacyBusy}
+                            onClick={() => void removeAvatar()}
+                        >
+                            {copy("Remove profile photo", "Xóa ảnh đại diện")}
+                        </button>
+                    )}
+                    {(profile.citizenIdNumber ||
+                        profile.driverLicenseNumber ||
+                        profile.identityFrontMediaId ||
+                        profile.identityBackMediaId) && (
+                        <button
+                            type="button"
+                            disabled={privacyBusy}
+                            onClick={() => void removeIdentity()}
+                            style={{ marginLeft: 16 }}
+                        >
+                            {copy(
+                                "Delete identity details and documents",
+                                "Xóa thông tin và giấy tờ định danh",
+                            )}
+                        </button>
+                    )}
+                    {privacyMessage && <p role="status">{privacyMessage}</p>}
+                </div>
+            )}
 
             <div className="customer-profile-grid">
                 <section

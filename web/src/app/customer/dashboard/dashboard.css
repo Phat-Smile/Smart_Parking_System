@@ -1,17 +1,12 @@
 .customer-dashboard-page {
-    --dashboard-navy: #10162d;
-    --dashboard-blue: #354b78;
-    background: #f6f9f7;
+    --dashboard-navy: #171717;
+    --dashboard-blue: #404040;
+    background: #fafafa;
     color: var(--dashboard-navy);
 }
 .customer-dashboard-page .parkwise-navbar .parkwise-container {
     width: calc(100% - 48px);
     max-width: 1300px;
-}
-.customer-dashboard-page .parkwise-desktop-nav {
-    left: 50%;
-    transform: translateX(-50%);
-    gap: 34px;
 }
 .customer-dashboard-page .dashboard-hero,
 .customer-dashboard-page .dashboard-search-card {
@@ -43,11 +38,11 @@
     inset: 0;
     background: linear-gradient(
         90deg,
-        #f8fcf8f7 0%,
-        #f8fcf8ee 25%,
-        #f8fcf8ad 42%,
-        #f8fcf81a 67%,
-        transparent 82%
+        rgb(0 0 0 / 82%) 0%,
+        rgb(0 0 0 / 70%) 27%,
+        rgb(0 0 0 / 34%) 48%,
+        rgb(0 0 0 / 8%) 70%,
+        transparent 84%
     );
 }
 .dashboard-hero-copy {
@@ -56,7 +51,7 @@
     padding-top: 30px;
 }
 .dashboard-hero-copy > p:first-child {
-    color: #61738d;
+    color: #eafe89;
     font-size: clamp(21px, 1.5vw, 24px);
     font-weight: 650;
     line-height: 1.3;
@@ -64,7 +59,7 @@
 .dashboard-hero-copy h1 {
     margin-top: 1px !important;
     max-width: 700px;
-    color: #070c24;
+    color: #fff;
     font-size: clamp(36px, 2.5vw, 43px);
     font-weight: 850;
     letter-spacing: -0.05em;
@@ -76,14 +71,14 @@
 }
 .dashboard-hero-copy h2 {
     margin-top: 6px !important;
-    color: #64758c;
+    color: #f5f5f5;
     font-size: clamp(18px, 1.2vw, 20px);
     font-weight: 650;
     letter-spacing: -0.025em;
 }
 .dashboard-hero-subtitle {
     margin-top: 2px !important;
-    color: #7986a4;
+    color: #d4d4d4;
     font-size: clamp(16px, 1.2vw, 20px);
 }
 .dashboard-weather {
@@ -93,18 +88,18 @@
     gap: 9px;
     margin-top: 14px;
     padding: 5px 13px 5px 6px;
-    border: 1px solid #d7e6f1;
+    border: 1px solid #e5e5e5;
     border-radius: 30px;
     background: #ffffffdf;
-    color: #415a7e;
+    color: #525252;
     font: inherit;
     font-size: 14px;
-    box-shadow: 0 4px 15px #285d8210;
+    box-shadow: 0 4px 15px #17171710;
     cursor: pointer;
 }
 .dashboard-weather:hover {
     background: #fff;
-    border-color: #b5d6eb;
+    border-color: #b9ed3c;
 }
 .dashboard-weather-icon {
     display: grid;
@@ -112,20 +107,20 @@
     height: 29px;
     place-items: center;
     border-radius: 50%;
-    background: #e7f5ff;
-    color: #1984cc;
+    background: #f2f2f2;
+    color: #171717;
 }
 .dashboard-weather strong {
-    color: #142545;
+    color: #171717;
     font-weight: 800;
 }
 .dashboard-weather-divider {
     width: 1px;
     height: 16px;
-    background: #c8d8e9;
+    background: #d4d4d4;
 }
 .dashboard-weather small {
-    color: #1778ac;
+    color: #525252;
     font-size: 11px;
     font-weight: 750;
 }
@@ -138,10 +133,11 @@
 .dashboard-search-card {
     width: 100%;
     overflow: visible;
-    border: 1px solid #eaf0f5;
+    border: 1px solid rgb(255 255 255 / 18%);
     border-radius: 20px;
-    background: #fffffff7;
-    box-shadow: 0 12px 36px #35577c14;
+    background: rgb(10 12 14 / 90%);
+    color: #fff;
+    box-shadow: 0 16px 38px rgb(0 0 0 / 35%);
     backdrop-filter: blur(12px);
 }
 .dashboard-tabs {
@@ -150,7 +146,7 @@
     gap: 18px;
     height: 52px;
     padding: 0 20px;
-    border-bottom: 1px solid #edf1f5;
+    border-bottom: 1px solid rgb(255 255 255 / 18%);
 }
 .dashboard-tabs button {
     position: relative;
@@ -161,14 +157,14 @@
     padding: 0 10px;
     border: 0;
     background: none;
-    color: #30456f;
+    color: #d4d4d4;
     font: inherit;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
 }
 .dashboard-tabs button.active {
-    color: #00952a;
+    color: #fff;
 }
 .dashboard-tabs button.active::after {
     position: absolute;
@@ -177,7 +173,7 @@
     left: 0;
     height: 3px;
     border-radius: 3px 3px 0 0;
-    background: #04a333;
+    background: #b9ed3c;
     content: "";
 }
 .dashboard-search-form {
@@ -195,15 +191,15 @@
     height: 60px;
     gap: 14px;
     padding: 10px 15px;
-    border: 1px solid #e3eaf2;
+    border: 1px solid #e5e5e5;
     border-radius: 13px;
     background: #fff;
     color: var(--dashboard-blue);
-    box-shadow: 0 2px 8px #25466d05;
+    box-shadow: 0 2px 8px #17171705;
 }
 .dashboard-search-field:focus-within {
-    border-color: #60a9e9;
-    box-shadow: 0 0 0 3px #bfdfff8c;
+    border-color: #b9ed3c;
+    box-shadow: 0 0 0 3px #b9ed3c40;
 }
 .dashboard-search-field > svg {
     flex: none;
@@ -215,7 +211,7 @@
     flex: 1;
 }
 .dashboard-field-label {
-    color: #68799e;
+    color: #737373;
     font-size: 13px;
     line-height: 1.25;
 }
@@ -227,7 +223,7 @@
     border: 0;
     outline: 0;
     background: transparent;
-    color: #111627;
+    color: #171717;
     font: inherit;
     font-size: 15px;
     font-weight: 700;
@@ -244,12 +240,12 @@
     place-items: center;
     border: 0;
     border-radius: 50%;
-    background: #eaf3ff;
-    color: #0876ec;
+    background: #f2f2f2;
+    color: #171717;
     cursor: pointer;
 }
 .dashboard-locate:hover {
-    background: #d9eaff;
+    background: #e5e5e5;
 }
 .dashboard-locate:disabled {
     cursor: wait;
@@ -270,7 +266,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: #111627;
+    color: #171717;
     font: inherit;
     text-align: left;
     cursor: pointer;
@@ -282,7 +278,7 @@
     white-space: nowrap;
 }
 .dashboard-vehicle-field .customer-search-dropdown-label {
-    color: #68799e;
+    color: #737373;
     font-size: 13px;
     line-height: 1.25;
 }
@@ -308,10 +304,10 @@
     right: -15px;
     width: max(calc(100% + 54px), 180px);
     padding: 6px;
-    border: 1px solid #dce5ef;
+    border: 1px solid #e5e5e5;
     border-radius: 12px;
     background: #fff;
-    box-shadow: 0 16px 40px #263d5c24;
+    box-shadow: 0 16px 40px #17171718;
 }
 .dashboard-vehicle-field .customer-search-dropdown-menu button {
     display: flex;
@@ -324,14 +320,14 @@
     border: 0;
     border-radius: 8px;
     background: transparent;
-    color: #26344b;
+    color: #525252;
     font: inherit;
     font-size: 13px;
     text-align: left;
 }
 .dashboard-vehicle-field .customer-search-dropdown-menu button:hover,
 .dashboard-vehicle-field .customer-search-dropdown-menu button:focus-visible {
-    background: #f1f6fb;
+    background: #f5f5f5;
 }
 .dashboard-vehicle-field .customer-search-dropdown-menu button.selected {
     background: #f3fbdc;
@@ -345,7 +341,7 @@
 }
 .dashboard-vehicle-field .customer-search-dropdown-option-label svg {
     flex: none;
-    color: #48618d;
+    color: #525252;
 }
 .dashboard-vehicle-field .selected .customer-search-dropdown-option-label svg {
     color: #3a7e08;
@@ -368,8 +364,8 @@
     padding: 0 18px;
     border: 0;
     border-radius: 12px;
-    background: #dfff70;
-    color: #071023;
+    background: #eafe89;
+    color: #171717;
     font: inherit;
     font-size: 16px;
     font-weight: 850;
@@ -379,7 +375,7 @@
         transform 0.2s;
 }
 .dashboard-search-submit:hover {
-    background: #d3fa55;
+    background: #ddf66f;
     transform: translateY(-2px);
 }
 .customer-dashboard-page .dashboard-search-submit,
@@ -388,7 +384,7 @@
 }
 .dashboard-location-message {
     margin: -2px 20px 8px !important;
-    color: #386791;
+    color: #525252;
     font-size: 12px;
 }
 .dashboard-search-error {
@@ -402,7 +398,7 @@
     min-height: 43px;
     gap: 17px;
     padding: 0 24px 10px;
-    color: #30456f;
+    color: #e5e5e5;
     font-size: 13px;
 }
 .dashboard-recent > span {
@@ -423,10 +419,10 @@
     gap: 9px;
     min-height: 30px;
     padding: 4px 14px;
-    border: 1px solid #e1e8f0;
+    border: 1px solid #e5e5e5;
     border-radius: 30px;
     background: #fff;
-    color: #314771;
+    color: #525252;
     font: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -459,7 +455,7 @@
     font-weight: 850;
 }
 .dashboard-quick-heading span {
-    color: #7889a5;
+    color: #737373;
     font-size: 13px;
 }
 .dashboard-quick-places {
@@ -474,10 +470,10 @@
     min-height: 63px;
     gap: 10px;
     padding: 9px 12px;
-    border: 1px solid #e1e9f1;
+    border: 1px solid #e5e5e5;
     border-radius: 12px;
     background: #fff;
-    color: #1b2a49;
+    color: #171717;
     font: inherit;
     font-size: 13px;
     text-align: left;
@@ -509,10 +505,10 @@
     align-items: center;
     gap: 13px;
     padding: 16px;
-    border: 1px solid #e3eaf2;
+    border: 1px solid #e5e5e5;
     border-radius: 14px;
     background: #fff;
-    color: #17213e;
+    color: #171717;
     font: inherit;
     text-align: left;
     cursor: pointer;
@@ -523,7 +519,7 @@
     flex-direction: column;
 }
 .dashboard-saved-options small {
-    color: #7c8ba8;
+    color: #737373;
     font-size: 12px;
 }
 .dashboard-saved-icon {
@@ -545,10 +541,10 @@
     min-width: 0;
     min-height: 220px;
     padding: 16px 18px !important;
-    border: 1px solid #e5edf4;
+    border: 1px solid #e5e5e5;
     border-radius: 17px;
     background: #fff;
-    box-shadow: 0 5px 22px #2446690a;
+    box-shadow: 0 5px 22px #1717170a;
 }
 .dashboard-session {
     background: linear-gradient(110deg, #f7fff5 0%, #fff 85%);
@@ -586,8 +582,8 @@
     color: #009c31;
 }
 .dashboard-heading-icon.blue {
-    background: #e8f2ff;
-    color: #176deb;
+    background: #f2f2f2;
+    color: #171717;
 }
 .dashboard-status {
     padding: 6px 11px;
@@ -600,8 +596,8 @@
     color: #048b3a;
 }
 .dashboard-status.blue {
-    background: #e9f2ff;
-    color: #136be1;
+    background: #f2f2f2;
+    color: #404040;
 }
 .dashboard-card-head > a {
     display: inline-flex;
@@ -612,7 +608,7 @@
     border: 1px solid #e4eaf0;
     border-radius: 10px;
     background: #fff;
-    color: #243b67;
+    color: #171717;
     font-size: 12px;
     font-weight: 750;
 }
@@ -645,7 +641,7 @@
 }
 .dashboard-info-card p {
     margin-top: 3px !important;
-    color: #697a9c;
+    color: #737373;
     font-size: 13px;
     line-height: 1.4;
 }
@@ -654,7 +650,7 @@
     justify-content: space-between;
     gap: 10px;
     padding-top: 12px;
-    border-top: 1px solid #e9eef0;
+    border-top: 1px solid #e5e5e5;
 }
 .dashboard-session-facts > span,
 .dashboard-booking-facts > span {
@@ -662,7 +658,7 @@
     align-items: flex-start;
     min-width: 0;
     gap: 8px;
-    color: #324c7b;
+    color: #525252;
 }
 .dashboard-session-facts > span > span,
 .dashboard-booking-facts > span > span {
@@ -672,12 +668,12 @@
 }
 .dashboard-session-facts small,
 .dashboard-booking-facts small {
-    color: #7686a3;
+    color: #737373;
     font-size: 11px;
 }
 .dashboard-session-facts strong,
 .dashboard-booking-facts strong {
-    color: #151b2d;
+    color: #171717;
     font-size: 12px;
     white-space: nowrap;
 }
@@ -687,8 +683,8 @@
     justify-content: center;
     flex-direction: column;
     gap: 11px;
-    border-left: 1px solid #e8edf0;
-    color: #435f88;
+    border-left: 1px solid #e5e5e5;
+    color: #525252;
     text-align: center;
 }
 .dashboard-session-qr small {
@@ -716,7 +712,7 @@
     gap: 9px;
     margin-top: 5px;
     padding-top: 14px;
-    border-top: 1px solid #e6ebf1;
+    border-top: 1px solid #e5e5e5;
 }
 .dashboard-places {
     position: relative;
@@ -727,10 +723,10 @@
     overflow: hidden;
     margin-top: 20px;
     padding: 14px 22px !important;
-    border: 1px solid #e7edf5;
+    border: 1px solid #e5e5e5;
     border-radius: 16px;
     background: #fff;
-    box-shadow: 0 5px 20px #24466908;
+    box-shadow: 0 5px 20px #17171708;
 }
 .dashboard-places-copy {
     position: relative;
@@ -752,14 +748,14 @@
 }
 .dashboard-places-copy h2 small {
     margin-left: 6px;
-    color: #597a9b;
+    color: #525252;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0;
 }
 .dashboard-places-copy p {
     margin: 1px 0 8px !important;
-    color: #6e7e9f;
+    color: #737373;
     font-size: 13px;
 }
 .dashboard-places-copy button {
@@ -767,10 +763,10 @@
     align-items: center;
     gap: 10px;
     padding: 6px 16px;
-    border: 1px solid #e4eaf2;
+    border: 1px solid #e5e5e5;
     border-radius: 9px;
     background: #fff;
-    color: #253e6b;
+    color: #525252;
     font: inherit;
     font-size: 12px;
     font-weight: 750;
@@ -798,13 +794,13 @@
     gap: 8px;
     min-width: 125px;
     padding: 8px 10px;
-    border: 1px solid #e5edf2;
+    border: 1px solid #e5e5e5;
     border-radius: 14px;
     background: #fffffff0;
-    color: #182243;
+    color: #171717;
     font: inherit;
     text-align: left;
-    box-shadow: 0 4px 12px #253f6417;
+    box-shadow: 0 4px 12px #17171712;
     cursor: pointer;
 }
 .dashboard-pin-icon {
@@ -815,7 +811,7 @@
     place-items: center;
     border-radius: 50%;
     background: #effec3;
-    color: #27852e;
+    color: #171717;
 }
 .dashboard-map-pins button > span:last-child {
     display: flex;
@@ -825,7 +821,7 @@
     font-size: 12px;
 }
 .dashboard-map-pins small {
-    color: #7889a6;
+    color: #737373;
     font-size: 10px;
     white-space: nowrap;
 }
@@ -871,7 +867,12 @@
         object-position: 63% center;
     }
     .dashboard-hero-shade {
-        background: linear-gradient(90deg, #f9fcfff9, #f9fcffe7 72%, #f9fcff8f);
+        background: linear-gradient(
+            90deg,
+            rgb(0 0 0 / 84%),
+            rgb(0 0 0 / 55%) 72%,
+            rgb(0 0 0 / 24%)
+        );
     }
     .dashboard-hero-copy {
         padding-top: 33px;

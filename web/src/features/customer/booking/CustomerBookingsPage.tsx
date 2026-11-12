@@ -68,23 +68,40 @@ export default function BookingsPage() {
         } catch (err: unknown) {
             if (err instanceof ApiError) {
                 setError(
-                    err.problem?.detail ||
-                        err.message ||
-                        "Could not load your bookings.",
+                    err.status === 401
+                        ? copy(
+                              "Sign in to view your bookings.",
+                              "Vui lòng đăng nhập để xem đặt chỗ.",
+                          )
+                        : err.status === 403
+                          ? copy(
+                                "You do not have access to these bookings.",
+                                "Bạn không có quyền xem các đặt chỗ này.",
+                            )
+                          : copy(
+                                "Could not load your bookings. Please try again.",
+                                "Không thể tải đặt chỗ. Vui lòng thử lại.",
+                            ),
                 );
             } else if (err instanceof TypeError) {
                 setError(
-                    "Could not connect to load your bookings. Please try again later.",
+                    copy(
+                        "Could not connect to load your bookings. Please try again later.",
+                        "Không thể kết nối để tải đặt chỗ. Vui lòng thử lại sau.",
+                    ),
                 );
-            } else if (err instanceof Error) {
-                setError(err.message);
             } else {
-                setError("Something went wrong while loading your bookings.");
+                setError(
+                    copy(
+                        "Something went wrong while loading your bookings.",
+                        "Đã xảy ra lỗi khi tải đặt chỗ.",
+                    ),
+                );
             }
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [copy]);
 
     useEffect(() => {
         let active = true;
@@ -157,24 +174,41 @@ export default function BookingsPage() {
             const result = await cancelReservation(cancelTarget.reservationId, {
                 reason: cancelReason,
             });
+            const refund = new Intl.NumberFormat(
+                language === "vi" ? "vi-VN" : "en-US",
+            ).format(result.refundAmount);
             setSuccessMessage(
-                result.message ||
-                    "Booking cancelled. Your deposit has been refunded to your wallet.",
+                copy(
+                    `Booking cancelled. ${refund} VND was returned to your wallet.`,
+                    `Đã hủy đặt chỗ. ${refund} VND đã được hoàn vào ví của bạn.`,
+                ),
             );
             setCancelTarget(null);
             await loadReservations();
         } catch (err: unknown) {
             if (err instanceof ApiError) {
                 setCancelError(
-                    err.problem?.detail ||
-                        err.message ||
-                        "Could not cancel the booking.",
+                        err.status === 401
+                            ? copy(
+                                  "Sign in to cancel this booking.",
+                                  "Vui lòng đăng nhập để hủy đặt chỗ này.",
+                              )
+                            : err.status === 403
+                              ? copy(
+                                    "You do not have permission to cancel this booking.",
+                                    "Bạn không có quyền hủy đặt chỗ này.",
+                                )
+                              : copy(
+                                    "Could not cancel the booking. Please try again.",
+                                    "Không thể hủy đặt chỗ. Vui lòng thử lại.",
+                                ),
                 );
-            } else if (err instanceof Error) {
-                setCancelError(err.message);
             } else {
                 setCancelError(
-                    "Something went wrong while cancelling the booking.",
+                        copy(
+                            "Something went wrong while cancelling the booking.",
+                            "Đã xảy ra lỗi khi hủy đặt chỗ.",
+                        ),
                 );
             }
         } finally {
@@ -199,10 +233,11 @@ export default function BookingsPage() {
                     <button
                         type="button"
                         onClick={loadReservations}
-                        disabled={loading}
-                        className="p-3 rounded-xl bg-white/5 border border-white/10 text-[#8790a3] hover:text-white hover:border-white/20 transition-colors"
+                        className="customer-data-refresh"
                         title={copy("Reload bookings", "Tải lại đặt chỗ")}
                         aria-label={copy("Reload bookings", "Tải lại đặt chỗ")}
+                        aria-busy={loading}
+                        disabled={loading}
                     >
                         <RefreshCw
                             size={18}
@@ -237,7 +272,7 @@ export default function BookingsPage() {
             )}
 
             {/* Tab lọc */}
-            <div className="flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
+            <div className="customer-bookings-tabs flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
                 <button
                     type="button"
                     onClick={() => setActiveTab("all")}
@@ -305,7 +340,7 @@ export default function BookingsPage() {
 
             {/* Trạng thái Lỗi */}
             {!loading && error && (
-                <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3">
+                <div className="p-6 pb-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3" role="alert">
                     <AlertCircle size={32} className="mx-auto text-red-400" />
                     <p className="text-red-300 text-sm font-medium">{error}</p>
                     <button
@@ -362,7 +397,7 @@ export default function BookingsPage() {
                             booking.appointmentTime,
                         );
                         const dateStr = appointmentDate.toLocaleDateString(
-                            "vi-VN",
+                            language === "vi" ? "vi-VN" : "en-GB",
                             {
                                 day: "2-digit",
                                 month: "2-digit",
@@ -370,7 +405,7 @@ export default function BookingsPage() {
                             },
                         );
                         const timeStr = appointmentDate.toLocaleTimeString(
-                            "vi-VN",
+                            language === "vi" ? "vi-VN" : "en-GB",
                             {
                                 hour: "2-digit",
                                 minute: "2-digit",

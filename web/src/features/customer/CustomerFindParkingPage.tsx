@@ -16,15 +16,18 @@ import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import {
     getApprovedParkingLots,
+    getApprovedParkingLot,
     getParkingLotRecommendations,
     searchNearbyParkingLots,
+    searchCustomerParkingLots,
+    type CustomerLotSearchItem,
     type NearbyParkingLot,
     type ParkingLotSummary,
     type RecommendedParkingLot,
 } from "./parkingLotApi";
 
-// A search result: an approved lot, with its distance when the search had a point.
-type SearchResult = ParkingLotSummary & { distanceKm?: number };
+// Catalog/nearby responses don't include price or live availability.
+type SearchResult = CustomerLotSearchItem;
 import {
     geocodeDestination,
     retrieveDestination,
@@ -38,11 +41,46 @@ const MAX_PRICE = 50000;
 const initialFilters = {
     maxPrice: MAX_PRICE,
     distance: "any",
-    availability: "any",
-    compatibility: [] as string[],
-    amenities: [] as string[],
+    evChargingOnly: false,
     sort: "recommended",
 };
+
+function toSearchResults(lots: ParkingLotSummary[]): SearchResult[];
+function toSearchResults(lots: NearbyParkingLot[]): SearchResult[];
+function toSearchResults(
+    lots: ParkingLotSummary[] | NearbyParkingLot[],
+): SearchResult[] {
+    return lots.map((lot) => ({
+        ...lot,
+        distanceKm: "distanceKm" in lot ? lot.distanceKm : null,
+        drivingTimeMinutes: null,
+        startingPrice: null,
+        billingMode: null,
+        availableSpaces: null,
+        prebookable: false,
+        compatibility: [],
+        amenities: [],
+    }));
+}
+
+async function withLiveLotDetails(lots: SearchResult[], signal: AbortSignal): Promise<SearchResult[]> {
+    const detailResults = await Promise.allSettled(
+        lots.map((lot) => getApprovedParkingLot(lot.id, signal)),
+    );
+    return lots.map((lot, index) => {
+        const detail = detailResults[index];
+        if (detail.status !== "fulfilled") return lot;
+        const prices = detail.value.pricing?.map((item) => item.price) ?? [];
+        const availability = detail.value.availability;
+        return {
+            ...lot,
+            startingPrice: lot.startingPrice ?? (prices.length ? Math.min(...prices) : null),
+            availableSpaces: lot.availableSpaces ?? (availability
+                ? availability.car.available + (availability.motorbike?.available ?? 0)
+                : null),
+        };
+    });
+}
 
 const filterOptions = {
     sort: [
@@ -102,22 +140,12 @@ export function CustomerFindParkingPage({
         longitude: number;
         latitude: number;
     } | null>(null);
-    const [approvedLots, setApprovedLots] = useState<ParkingLotSummary[]>([]);
+    const [approvedLots, setApprovedLots] = useState<CustomerLotSearchItem[]>(
+        [],
+    );
     const [catalogState, setCatalogState] = useState<
         "loading" | "ready" | "error"
     >("loading");
-    useEffect(() => {
-        const controller = new AbortController();
-        getApprovedParkingLots(controller.signal)
-            .then((lots) => {
-                setApprovedLots(lots);
-                setCatalogState("ready");
-            })
-            .catch(() => {
-                if (!controller.signal.aborted) setCatalogState("error");
-            });
-        return () => controller.abort();
-    }, []);
     useEffect(() => {
         const frame = requestAnimationFrame(() => {
             const now = new Date();
@@ -202,12 +230,14 @@ export function CustomerFindParkingPage({
         };
     }, [destination, selectedSuggestion]);
     const [filters, setFilters] = useState(initialFilters);
+    const [distanceChoice, setDistanceChoice] = useState("any");
+    const [customDistanceInput, setCustomDistanceInput] = useState("");
+    const [customDistanceError, setCustomDistanceError] = useState("");
+    const filterKey = JSON.stringify(filters);
     const activeFilterCount =
         Number(filters.maxPrice < MAX_PRICE) +
         Number(filters.distance !== "any") +
-        Number(filters.availability !== "any") +
-        Number(filters.compatibility.length > 0) +
-        Number(filters.amenities.length > 0);
+        Number(filters.evChargingOnly);
     const hasActiveFilters =
         activeFilterCount > 0 || filters.sort !== initialFilters.sort;
     const canClearFilters =
@@ -219,7 +249,7 @@ export function CustomerFindParkingPage({
     const [nearby, setNearby] = useState<{
         key: string;
         state: "loading" | "ready" | "error";
-        lots: NearbyParkingLot[];
+        lots: CustomerLotSearchItem[];
     } | null>(null);
     const [recommendations, setRecommendations] = useState<{
         key: string;
@@ -228,25 +258,121 @@ export function CustomerFindParkingPage({
     const originKey = searchOrigin
         ? `${searchOrigin.latitude},${searchOrigin.longitude},${radiusKm}`
         : "";
+    const requestKey = `${originKey}:${vehicleType}:${filterKey}`;
+    useEffect(() => {
+        if (originKey || !parkingDate || !parkingTime) return;
+        const controller = new AbortController();
+        const selected = JSON.parse(filterKey) as typeof initialFilters;
+        const needsSearchEndpoint =
+            selected.maxPrice < MAX_PRICE || selected.evChargingOnly;
+        queueMicrotask(() => setCatalogState("loading"));
+        const vehicle =
+            vehicleType === "any"
+                ? undefined
+                : vehicleType === "car"
+                  ? "Car"
+                  : "Motorbike";
+        const arrivalAt =
+            parkingDate && parkingTime
+                ? new Date(`${parkingDate}T${parkingTime}`).toISOString()
+                : undefined;
+        const request = needsSearchEndpoint
+            ? searchCustomerParkingLots(
+                  {
+                      vehicleType: vehicle,
+                      maxPrice:
+                          selected.maxPrice < MAX_PRICE
+                              ? selected.maxPrice
+                              : undefined,
+                      amenities: selected.evChargingOnly
+                          ? ["ev-charging"]
+                          : [],
+                      sort:
+                          selected.sort === "distance"
+                              ? "recommended"
+                              : (selected.sort as
+                                    | "recommended"
+                                    | "name"
+                                    | "price"),
+                  },
+                  controller.signal,
+              )
+            : getApprovedParkingLots(
+                  { vehicleType: vehicle, arrivalAt },
+                  controller.signal,
+              ).then(toSearchResults);
+        void request
+            .then((lots) => needsSearchEndpoint ? lots : withLiveLotDetails(lots, controller.signal))
+            .then((lots) => {
+                if (!controller.signal.aborted) {
+                    setApprovedLots(lots);
+                    setCatalogState("ready");
+                }
+            })
+            .catch(() => {
+                if (!controller.signal.aborted) setCatalogState("error");
+            });
+        return () => controller.abort();
+    }, [originKey, filterKey, vehicleType, parkingDate, parkingTime]);
+    useEffect(() => {
+        if (!originKey) return;
+        const [latitude, longitude, radius] = originKey.split(",").map(Number);
+        const selected = JSON.parse(filterKey) as typeof initialFilters;
+        const controller = new AbortController();
+        const needsSearchEndpoint =
+            selected.maxPrice < MAX_PRICE ||
+            selected.evChargingOnly ||
+            vehicleType !== "any";
+        void (async () => {
+            setNearby({ key: requestKey, state: "loading", lots: [] });
+            try {
+                const lots = needsSearchEndpoint
+                    ? await searchCustomerParkingLots(
+                          {
+                              latitude,
+                              longitude,
+                              radiusKm: radius,
+                              vehicleType:
+                                  vehicleType === "car"
+                                      ? "Car"
+                                      : vehicleType === "motorbike"
+                                        ? "Motorbike"
+                                        : undefined,
+                              maxPrice:
+                                  selected.maxPrice < MAX_PRICE
+                                      ? selected.maxPrice
+                                      : undefined,
+                              amenities: selected.evChargingOnly
+                                  ? ["ev-charging"]
+                                  : [],
+                              sort: selected.sort as
+                                  "recommended" | "name" | "price" | "distance",
+                          },
+                          controller.signal,
+                      )
+                    : toSearchResults(
+                          await searchNearbyParkingLots(
+                              latitude,
+                              longitude,
+                              radius,
+                              controller.signal,
+                          ),
+                      );
+                const enriched = needsSearchEndpoint ? lots : await withLiveLotDetails(lots, controller.signal);
+                if (!controller.signal.aborted)
+                    setNearby({ key: requestKey, state: "ready", lots: enriched });
+            } catch {
+                if (!controller.signal.aborted)
+                    setNearby({ key: requestKey, state: "error", lots: [] });
+            }
+        })();
+        return () => controller.abort();
+    }, [originKey, requestKey, vehicleType, filterKey]);
     useEffect(() => {
         if (!originKey) return;
         const [latitude, longitude, radius] = originKey.split(",").map(Number);
         const controller = new AbortController();
         void (async () => {
-            setNearby({ key: originKey, state: "loading", lots: [] });
-            try {
-                const lots = await searchNearbyParkingLots(
-                    latitude,
-                    longitude,
-                    radius,
-                    controller.signal,
-                );
-                setNearby({ key: originKey, state: "ready", lots });
-            } catch {
-                if (!controller.signal.aborted)
-                    setNearby({ key: originKey, state: "error", lots: [] });
-            }
-
             try {
                 const recResult = await getParkingLotRecommendations(
                     latitude,
@@ -272,23 +398,20 @@ export function CustomerFindParkingPage({
         })();
         return () => controller.abort();
     }, [originKey, vehicleType]);
-    const currentRecommendations =
-        recommendations?.key === originKey ? recommendations.lots : null;
-    const nearbyCurrent = nearby?.key === originKey ? nearby : null;
+    const nearbyCurrent = nearby?.key === requestKey ? nearby : null;
     const resultsState: "loading" | "ready" | "error" = originKey
         ? (nearbyCurrent?.state ?? "loading")
         : catalogState;
     const results: SearchResult[] = originKey
         ? (nearbyCurrent?.lots ?? [])
         : approvedLots;
-    // Price, availability, vehicle type and amenity filters need data Parking does not return in search yet.
-    const visibleParkings = [...results].sort((a, b) => {
-        if (filters.sort === "name") return a.name.localeCompare(b.name);
-        return (
-            (a.distanceKm ?? 0) - (b.distanceKm ?? 0) ||
-            a.name.localeCompare(b.name)
-        );
-    });
+    const visibleParkings = results;
+    const currentRecommendations =
+        recommendations?.key === originKey
+            ? recommendations.lots.filter((rec) =>
+                  visibleParkings.some((lot) => lot.id === rec.lotId),
+              )
+            : null;
     const activeSelectedId = visibleParkings.some(
         (parking) => parking.id === selectedId,
     )
@@ -493,6 +616,9 @@ export function CustomerFindParkingPage({
         setSearchBusy(false);
         setDestinationLocation(null);
         setFilters(initialFilters);
+        setDistanceChoice("any");
+        setCustomDistanceInput("");
+        setCustomDistanceError("");
         setSubmittedDestination("");
         setDestination("");
         setVehicleType("any");
@@ -500,36 +626,48 @@ export function CustomerFindParkingPage({
         setCurrentLocation(null);
     }
 
-    function toggleFilterValue(
-        key: "compatibility" | "amenities",
-        value: string,
-    ) {
+    function clearDistanceFilter() {
+        setFilters((current) => ({ ...current, distance: "any" }));
+        setDistanceChoice("any");
+        setCustomDistanceInput("");
+        setCustomDistanceError("");
+    }
+
+    function applyCustomDistance() {
+        const distanceKm = Number(customDistanceInput);
+        if (!Number.isFinite(distanceKm) || distanceKm <= 0 || distanceKm > 50) {
+            setCustomDistanceError(
+                copy(
+                    "Enter a distance greater than 0 and no more than 50 km.",
+                    "Nhập khoảng cách lớn hơn 0 và không quá 50 km.",
+                ),
+            );
+            return;
+        }
+        if (!searchOrigin) {
+            setCustomDistanceError(
+                copy(
+                    "Choose a destination or use your current location first.",
+                    "Hãy chọn điểm đến hoặc dùng vị trí hiện tại trước.",
+                ),
+            );
+            return;
+        }
         setFilters((current) => ({
             ...current,
-            [key]: current[key].includes(value)
-                ? current[key].filter((item) => item !== value)
-                : [...current[key], value],
+            distance: String(distanceKm),
         }));
+        setDistanceChoice("custom");
+        setCustomDistanceError("");
     }
 
     const distanceLabels: Record<string, string> = {
         "1": copy("Within 1 km", "Trong 1 km"),
         "2": copy("Within 2 km", "Trong 2 km"),
         "5": copy("Within 5 km", "Trong 5 km"),
+        "10": copy("Within 10 km", "Trong 10 km"),
+        "20": copy("Within 20 km", "Trong 20 km"),
     };
-    const compatibilityLabels: Record<string, string> = {
-        car: copy("Car", "Ô tô"),
-        motorbike: copy("Motorbike", "Xe máy"),
-        ev: copy("Electric vehicle (EV)", "Xe điện"),
-        large: copy("Large vehicle", "Xe cỡ lớn"),
-    };
-    const amenityLabels: Record<string, string> = {
-        "ev-charging": copy("EV Charging", "Sạc xe điện"),
-        covered: copy("Covered Parking", "Có mái che"),
-        "always-open": copy("24/7 Access", "Mở cửa 24/7"),
-        cctv: "CCTV",
-    };
-
     return (
         <div
             lang={language}
@@ -852,10 +990,7 @@ export function CustomerFindParkingPage({
                                     type="button"
                                     className="customer-search-filter-chip"
                                     onClick={() =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            distance: "any",
-                                        }))
+                                        clearDistanceFilter()
                                     }
                                     aria-label={copy(
                                         "Remove distance filter",
@@ -863,79 +998,27 @@ export function CustomerFindParkingPage({
                                     )}
                                 >
                                     {copy("Distance:", "Khoảng cách:")}{" "}
-                                    {distanceLabels[filters.distance]}{" "}
+                                    {distanceLabels[filters.distance] ??
+                                        `${filters.distance} km`}{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
                             )}
-                            {filters.availability !== "any" && (
+                            {filters.evChargingOnly && (
                                 <button
                                     type="button"
                                     className="customer-search-filter-chip"
                                     onClick={() =>
                                         setFilters((current) => ({
                                             ...current,
-                                            availability: "any",
+                                            evChargingOnly: false,
                                         }))
                                     }
                                     aria-label={copy(
-                                        "Remove availability filter",
-                                        "Bỏ lọc tình trạng chỗ",
+                                        "Remove EV charging filter",
+                                        "Bỏ lọc trạm sạc",
                                     )}
                                 >
-                                    {filters.availability === "available"
-                                        ? copy("Available now", "Còn chỗ")
-                                        : copy(
-                                              "Pre-bookable",
-                                              "Có thể đặt trước",
-                                          )}{" "}
-                                    <span aria-hidden="true">×</span>
-                                </button>
-                            )}
-                            {filters.compatibility.length > 0 && (
-                                <button
-                                    type="button"
-                                    className="customer-search-filter-chip"
-                                    onClick={() =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            compatibility: [],
-                                        }))
-                                    }
-                                    aria-label={copy(
-                                        "Remove vehicle compatibility filter",
-                                        "Bỏ lọc loại xe",
-                                    )}
-                                >
-                                    {copy("Vehicle:", "Loại xe:")}{" "}
-                                    {filters.compatibility
-                                        .map(
-                                            (type) => compatibilityLabels[type],
-                                        )
-                                        .join(", ")}{" "}
-                                    <span aria-hidden="true">×</span>
-                                </button>
-                            )}
-                            {filters.amenities.length > 0 && (
-                                <button
-                                    type="button"
-                                    className="customer-search-filter-chip"
-                                    onClick={() =>
-                                        setFilters((current) => ({
-                                            ...current,
-                                            amenities: [],
-                                        }))
-                                    }
-                                    aria-label={copy(
-                                        "Remove amenities filter",
-                                        "Bỏ lọc tiện ích",
-                                    )}
-                                >
-                                    {copy("Amenities:", "Tiện ích:")}{" "}
-                                    {filters.amenities
-                                        .map(
-                                            (amenity) => amenityLabels[amenity],
-                                        )
-                                        .join(", ")}{" "}
+                                    {copy("EV charging", "Có trạm sạc")}{" "}
                                     <span aria-hidden="true">×</span>
                                 </button>
                             )}
@@ -957,7 +1040,7 @@ export function CustomerFindParkingPage({
                     >
                         <fieldset className="customer-search-filter-group customer-search-price-group">
                             <legend>
-                                {copy("Price (₫/hour)", "Giá (₫/giờ)")}
+                                {copy("Starting price (₫)", "Giá từ (₫)")}
                             </legend>
                             <input
                                 type="range"
@@ -966,8 +1049,8 @@ export function CustomerFindParkingPage({
                                 step="5000"
                                 value={filters.maxPrice}
                                 aria-label={copy(
-                                    "Maximum price per hour",
-                                    "Giá tối đa mỗi giờ",
+                                    "Maximum starting price",
+                                    "Giá từ tối đa",
                                 )}
                                 onChange={(event) =>
                                     setFilters((current) => ({
@@ -981,8 +1064,8 @@ export function CustomerFindParkingPage({
                                 <label>
                                     <span className="customer-search-sr-only">
                                         {copy(
-                                            "Maximum price per hour in dong",
-                                            "Giá tối đa mỗi giờ bằng đồng",
+                                            "Maximum starting price in dong",
+                                            "Giá từ tối đa bằng đồng",
                                         )}
                                     </span>
                                     <input
@@ -1012,128 +1095,123 @@ export function CustomerFindParkingPage({
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
                             <legend>{copy("Distance", "Khoảng cách")}</legend>
-                            {[
-                                ["any", "Any"],
-                                ["1", "Within 1 km"],
-                                ["2", "Within 2 km"],
-                                ["5", "Within 5 km"],
-                            ].map(([value]) => (
-                                <label
-                                    className="customer-search-filter-choice"
-                                    key={value}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="parking-distance"
-                                        value={value}
-                                        checked={filters.distance === value}
-                                        onChange={() =>
-                                            setFilters((current) => ({
-                                                ...current,
-                                                distance: value,
-                                            }))
+                            <label
+                                className="customer-search-distance-label"
+                                htmlFor="parking-distance"
+                            >
+                                {copy("Maximum distance", "Khoảng cách tối đa")}
+                            </label>
+                            <select
+                                id="parking-distance"
+                                className="customer-search-filter-select"
+                                value={distanceChoice}
+                                onChange={(event) => {
+                                    const value = event.target.value;
+                                    setSearchMessage("");
+                                    setCustomDistanceError("");
+                                    setDistanceChoice(value);
+                                    if (value === "any") {
+                                        clearDistanceFilter();
+                                    } else if (value === "custom") {
+                                        if (filters.distance !== "any" &&
+                                            !distanceLabels[filters.distance]) {
+                                            setCustomDistanceInput(filters.distance);
                                         }
-                                    />
-                                    <span>
-                                        {value === "any"
-                                            ? copy("Any", "Bất kỳ")
-                                            : distanceLabels[value]}
-                                    </span>
-                                </label>
-                            ))}
-                        </fieldset>
-                        <fieldset className="customer-search-filter-group">
-                            <legend>
-                                {copy("Availability", "Tình trạng chỗ")}
-                            </legend>
-                            {[
-                                ["any", "Any"],
-                                ["available", "Available now"],
-                                ["prebookable", "Pre-bookable"],
-                            ].map(([value]) => (
-                                <label
-                                    className="customer-search-filter-choice"
-                                    key={value}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="parking-availability"
-                                        value={value}
-                                        checked={filters.availability === value}
-                                        onChange={() =>
-                                            setFilters((current) => ({
-                                                ...current,
-                                                availability: value,
-                                            }))
-                                        }
-                                    />
-                                    <span>
-                                        {value === "any"
-                                            ? copy("Any", "Bất kỳ")
-                                            : value === "available"
-                                              ? copy("Available now", "Còn chỗ")
-                                              : copy(
-                                                    "Pre-bookable",
-                                                    "Có thể đặt trước",
-                                                )}
-                                    </span>
-                                </label>
-                            ))}
-                        </fieldset>
-                        <fieldset className="customer-search-filter-group">
-                            <legend>
-                                {copy(
-                                    "Vehicle compatibility",
-                                    "Loại xe phù hợp",
+                                    } else if (!searchOrigin) {
+                                        setDistanceChoice("any");
+                                        setSearchMessage(
+                                            copy(
+                                                "Choose a destination or use your current location to filter by distance.",
+                                                "Chọn điểm đến hoặc dùng vị trí hiện tại để lọc theo khoảng cách.",
+                                            ),
+                                        );
+                                    } else {
+                                        setFilters((current) => ({
+                                            ...current,
+                                            distance: value,
+                                        }));
+                                    }
+                                }}
+                                aria-label={copy(
+                                    "Maximum distance from destination",
+                                    "Khoảng cách tối đa từ điểm đến",
                                 )}
-                            </legend>
-                            {Object.entries(compatibilityLabels).map(
-                                ([value, label]) => (
-                                    <label
-                                        className="customer-search-filter-choice"
-                                        key={value}
-                                    >
+                            >
+                                <option value="any">{copy("Any distance", "Mọi khoảng cách")}</option>
+                                {["1", "2", "5", "10", "20"].map((value) => (
+                                    <option value={value} key={value}>
+                                        {distanceLabels[value]}
+                                    </option>
+                                ))}
+                                <option value="custom">
+                                    {copy("Other / custom distance", "Khác / tùy chỉnh")}
+                                </option>
+                            </select>
+                            {distanceChoice === "custom" && (
+                                <div className="customer-search-custom-distance">
+                                    <label htmlFor="custom-distance-km">
+                                        {copy("Distance in km", "Khoảng cách (km)")}
+                                    </label>
+                                    <div className="customer-search-custom-distance-row">
                                         <input
-                                            type="checkbox"
-                                            checked={filters.compatibility.includes(
-                                                value,
-                                            )}
-                                            onChange={() =>
-                                                toggleFilterValue(
-                                                    "compatibility",
-                                                    value,
-                                                )
+                                            id="custom-distance-km"
+                                            type="number"
+                                            min="0.1"
+                                            max="50"
+                                            step="0.1"
+                                            inputMode="decimal"
+                                            required
+                                            value={customDistanceInput}
+                                            onChange={(event) => {
+                                                setCustomDistanceInput(event.target.value);
+                                                setCustomDistanceError("");
+                                            }}
+                                            aria-invalid={Boolean(customDistanceError)}
+                                            aria-describedby={
+                                                customDistanceError
+                                                    ? "custom-distance-error"
+                                                    : "custom-distance-hint"
                                             }
                                         />
-                                        <span>{label}</span>
-                                    </label>
-                                ),
+                                        <button
+                                            type="button"
+                                            className="customer-search-apply-distance"
+                                            onClick={applyCustomDistance}
+                                        >
+                                            {copy("Apply", "Áp dụng")}
+                                        </button>
+                                    </div>
+                                    <small
+                                        id={customDistanceError ? "custom-distance-error" : "custom-distance-hint"}
+                                        role={customDistanceError ? "alert" : undefined}
+                                    >
+                                        {customDistanceError ||
+                                            copy("Enter a value from 0.1 to 50 km.", "Nhập giá trị từ 0,1 đến 50 km.")}
+                                    </small>
+                                </div>
                             )}
                         </fieldset>
                         <fieldset className="customer-search-filter-group">
-                            <legend>{copy("Amenities", "Tiện ích")}</legend>
-                            {Object.entries(amenityLabels).map(
-                                ([value, label]) => (
-                                    <label
-                                        className="customer-search-filter-choice"
-                                        key={value}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={filters.amenities.includes(
-                                                value,
-                                            )}
-                                            onChange={() =>
-                                                toggleFilterValue(
-                                                    "amenities",
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                        <span>{label}</span>
-                                    </label>
-                                ),
-                            )}
+                            <legend>{copy("EV charging", "Trạm sạc")}</legend>
+                            <label className="customer-search-filter-choice">
+                                <input
+                                    type="checkbox"
+                                    checked={filters.evChargingOnly}
+                                    onChange={(event) =>
+                                        setFilters((current) => ({
+                                            ...current,
+                                            evChargingOnly:
+                                                event.target.checked,
+                                        }))
+                                    }
+                                />
+                                <span>
+                                    {copy(
+                                        "Has EV charging station",
+                                        "Có trạm sạc xe điện",
+                                    )}
+                                </span>
+                            </label>
                         </fieldset>
                     </div>
                     <div className="customer-search-results-toolbar">
@@ -1151,20 +1229,32 @@ export function CustomerFindParkingPage({
                             <CustomerSearchDropdown
                                 label={copy("Sort by", "Sắp xếp")}
                                 value={filters.sort}
-                                options={filterOptions.sort.map((option) => ({
-                                    ...option,
-                                    label:
-                                        option.value === "recommended"
-                                            ? copy("Best match", "Phù hợp nhất")
-                                            : option.value === "name"
-                                              ? copy("Name A–Z", "Tên A–Z")
-                                              : option.value === "price"
+                                options={filterOptions.sort
+                                    .filter(
+                                        (option) =>
+                                            searchOrigin ||
+                                            option.value !== "distance",
+                                    )
+                                    .map((option) => ({
+                                        ...option,
+                                        label:
+                                            option.value === "recommended"
                                                 ? copy(
-                                                      "Lowest price",
-                                                      "Giá thấp nhất",
+                                                      "Best match",
+                                                      "Phù hợp nhất",
                                                   )
-                                                : copy("Nearest", "Gần nhất"),
-                                }))}
+                                                : option.value === "name"
+                                                  ? copy("Name A–Z", "Tên A–Z")
+                                                  : option.value === "price"
+                                                    ? copy(
+                                                          "Lowest price",
+                                                          "Giá thấp nhất",
+                                                      )
+                                                    : copy(
+                                                          "Nearest",
+                                                          "Gần nhất",
+                                                      ),
+                                    }))}
                                 onChange={(sort) =>
                                     setFilters((current) => ({
                                         ...current,
@@ -1192,7 +1282,7 @@ export function CustomerFindParkingPage({
                                             "Không thể tìm bãi đỗ lúc này. Vui lòng thử lại sau.",
                                         )
                                       : searchOrigin
-                                        ? `${copy("Approved parking lots within", "Bãi đỗ đã duyệt trong phạm vi")} ${radiusKm} km. ${copy("Price and free spaces are on each lot's page.", "Xem giá và chỗ trống trong trang từng bãi.")}`
+                                        ? `${copy("Approved parking lots within", "Bãi đỗ đã duyệt trong phạm vi")} ${radiusKm} km.`
                                         : copy(
                                               "All approved parking lots. Search a destination to see the nearest ones.",
                                               "Tất cả bãi đỗ đã duyệt. Tìm điểm đến để xem bãi gần nhất.",
@@ -1322,6 +1412,9 @@ export function CustomerFindParkingPage({
                                                     fill
                                                     sizes="(max-width: 700px) 100vw, 200px"
                                                 />
+                                                <span className="customer-search-result-photo-label">
+                                                    {copy("Illustration", "Ảnh minh họa")}
+                                                </span>
                                             </div>
                                             <div className="customer-search-result-content">
                                                 <h2>{parking.name}</h2>
@@ -1345,13 +1438,53 @@ export function CustomerFindParkingPage({
                                                             )}
                                                         </small>
                                                         <b>
-                                                            {parking.distanceKm ===
-                                                            undefined
-                                                                ? "—"
+                                                            {parking.distanceKm ==
+                                                            null
+                                                                ? copy("Search to see", "Tìm để xem")
                                                                 : `${parking.distanceKm} km`}
                                                         </b>
                                                     </span>
+                                                    <span>
+                                                        <small>
+                                                            {copy(
+                                                                "Starting price",
+                                                                "Giá khởi điểm",
+                                                            )}
+                                                        </small>
+                                                        <b>
+                                                            {parking.startingPrice ==
+                                                            null
+                                                                ? copy("Not set", "Chưa có giá")
+                                                                : `${new Intl.NumberFormat("vi-VN").format(parking.startingPrice)} ₫`}
+                                                        </b>
+                                                    </span>
+                                                    <span>
+                                                        <small>
+                                                            {copy(
+                                                                "Spaces now",
+                                                                "Chỗ trống hiện tại",
+                                                            )}
+                                                        </small>
+                                                        <b>
+                                                            {parking.availableSpaces ?? copy("Unavailable", "Chưa có dữ liệu")}
+                                                        </b>
+                                                    </span>
                                                 </div>
+                                                {originKey && (
+                                                    <p className="customer-search-driving-time">
+                                                        <CustomerIcon
+                                                            name="clock"
+                                                            size={15}
+                                                        />
+                                                        {parking.drivingTimeMinutes ==
+                                                        null
+                                                            ? copy(
+                                                                  "Driving time unavailable",
+                                                                  "Chưa có thời gian lái xe",
+                                                              )
+                                                            : `~${parking.drivingTimeMinutes.toLocaleString(copy("en-US", "vi-VN"), { maximumFractionDigits: 1 })} ${copy("min drive", "phút lái xe")}`}
+                                                    </p>
+                                                )}
                                                 <div className="customer-search-result-actions">
                                                     <button
                                                         type="button"

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import QRCode from "react-qr-code";
+import { CustomerSessionPayment } from "./CustomerSessionPayment";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import {
     getMyParkingSessions,
@@ -160,10 +161,10 @@ export function CustomerSessionsList() {
         );
     if (state.sessions.length === 0)
         return (
-            <p>
-                {copy(EMPTY_TEXT, "Bạn chưa có phiên đỗ nào đang mở.")}{" "}
+            <div className="customer-sessions-empty">
+                <p>{copy(EMPTY_TEXT, "Bạn chưa có phiên đỗ nào đang mở.")}</p>
                 <Link href="/search">{copy("Find parking", "Tìm bãi đỗ")}</Link>
-            </p>
+            </div>
         );
 
     return (
@@ -186,6 +187,7 @@ export function CustomerSessionsList() {
                         session={session}
                         lot={state.lots[session.lotId] ?? null}
                     />
+                    <CustomerSessionPayment sessionId={session.sessionId} />
                 </li>
             ))}
         </ul>

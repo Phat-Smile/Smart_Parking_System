@@ -133,8 +133,11 @@ export function ParkingLotBookingDialog({
             );
             setBookingConfirmed(confirmed);
             emitLiveToast(
-                "Đặt chỗ thành công!",
-                `Vé Booking Pass đã cấp với ô đỗ ${selectedSpot || "A-01"}.`,
+                copy("Booking successful!", "Đặt chỗ thành công!"),
+                copy(
+                    `Your Booking Pass is ready${selectedSpot ? ` for space ${selectedSpot}` : ""}.`,
+                    `Vé Booking Pass đã được cấp${selectedSpot ? ` cho ô đỗ ${selectedSpot}` : ""}.`,
+                ),
                 "success",
             );
             setIsPassModalOpen(true);

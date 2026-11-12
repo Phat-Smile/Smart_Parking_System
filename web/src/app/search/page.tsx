@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CustomerFindParkingPage } from "@/features/customer/CustomerFindParkingPage";
 import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 import "../parkwise.css";
 import "@/features/customer/customer-shell.css";
 import "./search.css";
