@@ -56,6 +56,18 @@ describe("ParkWise Login form", () => {
         getSearchParam.mockReturnValue(null);
     });
 
+    it("allows the password to be shown and hidden", () => {
+        render(<ParkWiseLoginPage fontClassName="test-font" />);
+        const password = screen.getByLabelText("Password");
+        expect(password).toHaveAttribute("type", "password");
+
+        fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+        expect(password).toHaveAttribute("type", "text");
+
+        fireEvent.click(screen.getByRole("button", { name: "Hide password" }));
+        expect(password).toHaveAttribute("type", "password");
+    });
+
     it("requires email and password before calling Identity", async () => {
         loginMock.mockResolvedValue({
             id: "account-id",
