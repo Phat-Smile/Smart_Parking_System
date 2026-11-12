@@ -1,11 +1,11 @@
 import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
-import { sampleLots } from "./adminLotsData";
 import type {
+    AdminLotLayout,
+    AdminLotPricing,
     AdminParkingLot,
+    AdminParkingLotDetail,
     ApprovalStatus,
-    LotFloorLayout,
-    LotZone,
     ReviewedParkingLot,
 } from "./types";
 
@@ -21,101 +21,89 @@ export function isParkingLotId(value: string) {
     );
 }
 
+interface AdminLotListResponse {
+    items: Array<{
+        id: string;
+        ownerUserId: string | null;
+        name: string;
+        address: string;
+        latitude: number;
+        longitude: number;
+        type: string;
+        approvalStatus: ApprovalStatus;
+        rejectionReason: string | null;
+    }>;
+}
+
 /**
- * Lấy danh sách bãi chờ duyệt bằng GET /api/parking/admin/lots?status=Pending
+ * Danh sách bãi cho Admin (mọi trạng thái hoặc lọc theo trạng thái), tối đa 100 bãi một lần gọi.
+ * Endpoint: GET /api/parking/admin/lots?status=...&page=1&pageSize=100
  */
 export async function getAdminParkingLots(
     status?: ApprovalStatus | "All",
 ): Promise<AdminParkingLot[]> {
-    const statusQuery =
-        status && status !== "All"
-            ? `?status=${encodeURIComponent(status)}`
-            : "";
-    try {
-        const response = await gatewayFetch<
-            AdminParkingLot[] | { items: AdminParkingLot[] }
-        >(`/api/parking/admin/lots${statusQuery}`, {
-            method: "GET",
-        });
-        const items = Array.isArray(response)
-            ? response
-            : Array.isArray(response?.items)
-              ? response.items
-              : [];
+    const query = new URLSearchParams({ page: "1", pageSize: "100" });
+    if (status && status !== "All") query.set("status", status);
+    const response = await gatewayFetch<AdminLotListResponse>(
+        `/api/parking/admin/lots?${query.toString()}`,
+        { method: "GET" },
+    );
+    return response.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        address: item.address,
+        type: item.type,
+        ownerUserId: item.ownerUserId,
+        status: item.approvalStatus,
+        rejectionReason: item.rejectionReason,
+        latitude: item.latitude,
+        longitude: item.longitude,
+    }));
+}
 
-        if (items.length > 0) {
-            return items.map((raw) => {
-                const item = raw as unknown as Record<string, unknown>;
-                return {
-                    id: String(item.id || item.parkingLotId || ""),
-                    name: String(
-                        item.name || item.parkingLotName || "Bãi đỗ xe",
-                    ),
-                    ownerName: String(
-                        item.ownerName || item.ownerFullName || "Chủ bãi",
-                    ),
-                    ownerEmail: String(item.ownerEmail || ""),
-                    submittedAtUtc: String(
-                        item.submittedAtUtc ||
-                            item.createdAtUtc ||
-                            new Date().toISOString(),
-                    ),
-                    status: (item.status ||
-                        item.approvalStatus ||
-                        "Pending") as ApprovalStatus,
-                    rejectionReason:
-                        (item.rejectionReason as string | null) ?? null,
-                    reviewedAtUtc:
-                        (item.reviewedAtUtc as string | null) ?? null,
-                    address: String(item.address || ""),
-                    city: String(item.city || "TP. Hồ Chí Minh"),
-                    latitude:
-                        typeof item.latitude === "number"
-                            ? item.latitude
-                            : 10.77808,
-                    longitude:
-                        typeof item.longitude === "number"
-                            ? item.longitude
-                            : 106.70201,
-                    is24h: typeof item.is24h === "boolean" ? item.is24h : true,
-                    openTime: String(item.openTime || "00:00"),
-                    closeTime: String(item.closeTime || "23:59"),
-                    vehicleTypes: Array.isArray(item.vehicleTypes)
-                        ? (item.vehicleTypes as string[])
-                        : ["Car", "Motorbike"],
-                    totalCapacity:
-                        typeof item.totalCapacity === "number"
-                            ? item.totalCapacity
-                            : 100,
-                    zones: (item.zones as LotZone[]) || [],
-                    pricing: (item.pricing as AdminParkingLot["pricing"]) || {
-                        firstHourVnd: 20000,
-                        extraHourVnd: 15000,
-                        dailyCapVnd: 200000,
-                        overnightVnd: 100000,
-                    },
-                    holdDepositVnd:
-                        typeof item.holdDepositVnd === "number"
-                            ? item.holdDepositVnd
-                            : 10000,
-                    reservation:
-                        (item.reservation as AdminParkingLot["reservation"]) || {
-                            holdMinutes: 30,
-                            freeCancelMinutes: 15,
-                            noShowRule:
-                                "Deposit is kept after the hold window expires.",
-                        },
-                    layout: (item.layout as LotFloorLayout[]) || [],
-                    source: "backend" as const,
-                };
-            });
-        }
-        return items;
-    } catch {
-        // Fallback for offline development / preview
-        return sampleLots.filter(
-            (l) => !status || status === "All" || l.status === status,
+/** Chi tiết bãi ở mọi trạng thái duyệt (#128). Endpoint: GET /api/parking/admin/lots/{id} */
+export async function getAdminParkingLotDetail(
+    parkingLotId: string,
+): Promise<AdminParkingLotDetail> {
+    return await gatewayFetch<AdminParkingLotDetail>(
+        `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}`,
+        { method: "GET" },
+    );
+}
+
+/** Tầng, khu và chỗ của bãi (#128). Endpoint: GET /api/parking/admin/lots/{id}/layout */
+export async function getAdminParkingLotLayout(
+    parkingLotId: string,
+): Promise<AdminLotLayout> {
+    try {
+        return await gatewayFetch<AdminLotLayout>(
+            `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/layout`,
+            { method: "GET" },
         );
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+            return { lotId: parkingLotId, version: 0, floors: [] };
+        }
+        throw error;
+    }
+}
+
+/**
+ * Bảng giá hiện hành của một loại xe (#128); null khi chủ bãi chưa đặt giá.
+ * Endpoint: GET /api/parking/admin/lots/{id}/pricing/{vehicleType}
+ */
+export async function getAdminParkingLotPricing(
+    parkingLotId: string,
+    vehicleType: "Car" | "Motorbike",
+): Promise<AdminLotPricing | null> {
+    try {
+        return await gatewayFetch<AdminLotPricing>(
+            `/api/parking/admin/lots/${encodeURIComponent(parkingLotId)}/pricing/${vehicleType}`,
+            { method: "GET" },
+        );
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
     }
 }
 

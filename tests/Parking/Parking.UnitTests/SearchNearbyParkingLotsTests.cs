@@ -44,7 +44,8 @@ public sealed class SearchNearbyParkingLotsTests
 
         public Task<IReadOnlyList<NearbyParkingLotItem>> SearchAsync(
             decimal latitude, decimal longitude, double radiusKm, int limit,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            ParkingSystem.Parking.Domain.ParkingSessions.VehicleType? vehicleType = null)
         {
             Latitude = latitude;
             Longitude = longitude;

@@ -12,18 +12,21 @@ public class ProcessVnpayIpnCommandHandler : IRequestHandler<ProcessVnpayIpnComm
     private readonly IPaymentGateway _paymentGateway;
     private readonly IVnpayTransactionRepository _transactionRepository;
     private readonly IEnumerable<IVnpayResultHandler> _resultHandlers;
+    private readonly IParkingFeeIpnHandler? _parkingFeeHandler;
     private readonly ILogger<ProcessVnpayIpnCommandHandler> _logger;
 
     public ProcessVnpayIpnCommandHandler(
         IPaymentGateway paymentGateway,
         IVnpayTransactionRepository transactionRepository,
         IEnumerable<IVnpayResultHandler> resultHandlers,
-        ILogger<ProcessVnpayIpnCommandHandler> logger)
+        ILogger<ProcessVnpayIpnCommandHandler> logger,
+        IParkingFeeIpnHandler? parkingFeeHandler = null)
     {
         _paymentGateway = paymentGateway;
         _transactionRepository = transactionRepository;
         _resultHandlers = resultHandlers;
         _logger = logger;
+        _parkingFeeHandler = parkingFeeHandler;
     }
 
     public async Task<VnpayIpnResponseDto> Handle(ProcessVnpayIpnCommand request, CancellationToken cancellationToken)
@@ -42,6 +45,18 @@ public class ProcessVnpayIpnCommandHandler : IRequestHandler<ProcessVnpayIpnComm
         {
             _logger.LogWarning("VNPay IPN missing vnp_TxnRef");
             return VnpayIpnResponseDto.OrderNotFound();
+        }
+
+        // 2. Phân tuyến: Nếu là giao dịch thanh toán gửi xe
+        if (txnRef.StartsWith("PARK_", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_parkingFeeHandler == null)
+            {
+                _logger.LogError("Parking fee IPN handler is not configured");
+                return VnpayIpnResponseDto.UnknownError();
+            }
+
+            return await _parkingFeeHandler.HandleAsync(query, txnRef, cancellationToken);
         }
 
         // 2. Tra cứu đơn hàng trong Database theo mã giao dịch.

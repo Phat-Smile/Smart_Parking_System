@@ -3,18 +3,31 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Booking.Application;
+using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Infrastructure;
+using ParkingSystem.Booking.Infrastructure.Messaging.Consumers;
 using ParkingSystem.Booking.Persistence;
+using ParkingSystem.Booking.WebAPI.Endpoints;
 using ParkingSystem.Booking.WebAPI.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("booking-api");
-builder.Services.AddApplicationServices();
+
+var bookingCapacityOptions = builder.Configuration
+    .GetSection(BookingCapacityOptions.SectionName)
+    .Get<BookingCapacityOptions>() ?? new BookingCapacityOptions();
+builder.Services.AddApplicationServices(bookingCapacityOptions);
 builder.Services.AddPersistence(builder.Configuration);
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddBookingConsumers();
+builder.Services.AddInfrastructure(builder.Configuration, bus =>
+{
+    bus.AddConsumer<SlotStatusChangedConsumer>();
+});
 builder.Services.AddParkingServiceClient(builder.Configuration);
+builder.Services.AddIdentityServiceClient(builder.Configuration);
+builder.Services.AddPaymentServiceClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<BookingDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>
@@ -31,6 +44,8 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemServiceSecurity();
+app.MapReservationEndpoints();
+app.MapArrivalHeldQuotaEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

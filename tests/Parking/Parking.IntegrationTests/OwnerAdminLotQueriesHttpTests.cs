@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using MediatR;
+using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -353,6 +355,113 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
         }
     }
 
+    [Fact]
+    public async Task Admin_detail_reads_all_approval_states_but_public_detail_remains_approved_only()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var (owner, admin) = (Guid.NewGuid(), Guid.NewGuid());
+
+        var pending = await RegisterLotAsync(client, owner, NewName("Detail Pending"), ct);
+        var rejected = await RegisterLotAsync(client, owner, NewName("Detail Rejected"), ct);
+        var approved = await RegisterLotAsync(client, owner, NewName("Detail Approved"), ct);
+        await ReviewAsync(client, admin, rejected, approve: false, "need valid documents", ct);
+        await ReviewAsync(client, admin, approved, approve: true, null, ct);
+
+        foreach (var (lotId, expectedStatus) in new[]
+                 { (pending, "Pending"), (rejected, "Rejected"), (approved, "Approved") })
+        {
+            using var response = await SendAsync(client, HttpMethod.Get,
+                $"/api/parking/admin/lots/{lotId}", AdminRole, admin, null, ct);
+            await AssertStatusAsync(HttpStatusCode.OK, response, ct);
+            var detail = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+            Assert.Equal(lotId, detail.GetProperty("id").GetGuid());
+            Assert.Equal(owner, detail.GetProperty("ownerUserId").GetGuid());
+            Assert.Equal(expectedStatus, detail.GetProperty("approvalStatus").GetString());
+            Assert.Equal("1 Demo Street", detail.GetProperty("address").GetString());
+            Assert.Equal(expectedStatus == "Rejected" ? "need valid documents" : null,
+                detail.GetProperty("rejectionReason").GetString());
+        }
+
+        foreach (var hidden in new[] { pending, rejected })
+        {
+            using var publicResponse = await SendAsync(client, HttpMethod.Get,
+                $"/api/parking/lots/{hidden}", null, null, null, ct);
+            await AssertStatusAsync(HttpStatusCode.NotFound, publicResponse, ct);
+        }
+
+        using var missing = await SendAsync(client, HttpMethod.Get,
+            $"/api/parking/admin/lots/{Guid.NewGuid()}", AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.NotFound, missing, ct);
+    }
+
+    [Fact]
+    public async Task Admin_may_review_pending_layout_and_pricing_without_exposing_them_to_others()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var (owner, admin) = (Guid.NewGuid(), Guid.NewGuid());
+        var pending = await RegisterLotAsync(client, owner, NewName("Review Layout Price"), ct);
+        await SetPriceAsync(app, pending, ct);
+
+        var floor = new LayoutFloorInput(Guid.NewGuid(), "Ground", [
+            new LayoutZoneInput(Guid.NewGuid(), "A", "Car", 1, false, [
+                new LayoutSlotInput(Guid.NewGuid(), "A01", null, new GridPoint(1, 1))
+            ])
+        ]);
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            var saved = await sender.Send(new SaveParkingLayoutCommand(pending, owner, 0, [floor]), ct);
+            Assert.True(saved.IsSuccess, saved.Error?.Message);
+        }
+
+        var detailRoute = $"/api/parking/admin/lots/{pending}";
+        var layoutRoute = detailRoute + "/layout";
+        var priceRoute = detailRoute + "/pricing/car";
+        foreach (var route in new[] { detailRoute, layoutRoute, priceRoute })
+        {
+            using var anonymous = await SendAsync(client, HttpMethod.Get, route, null, null, null, ct);
+            using var wrongRole = await SendAsync(client, HttpMethod.Get, route, OwnerRole, owner, null, ct);
+            await AssertStatusAsync(HttpStatusCode.Unauthorized, anonymous, ct);
+            await AssertStatusAsync(HttpStatusCode.Forbidden, wrongRole, ct);
+        }
+
+        using var layoutResponse = await SendAsync(client, HttpMethod.Get, layoutRoute, AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.OK, layoutResponse, ct);
+        var layout = await layoutResponse.Content.ReadFromJsonAsync<JsonElement>(ct);
+        Assert.Equal(pending, layout.GetProperty("lotId").GetGuid());
+        Assert.Equal(1, layout.GetProperty("version").GetInt32());
+        Assert.Equal("A01", layout.GetProperty("floors")[0].GetProperty("zones")[0]
+            .GetProperty("slots")[0].GetProperty("slotCode").GetString());
+
+        using var priceResponse = await SendAsync(client, HttpMethod.Get, priceRoute, AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.OK, priceResponse, ct);
+        var price = await priceResponse.Content.ReadFromJsonAsync<JsonElement>(ct);
+        Assert.Equal(15000m, price.GetProperty("price").GetDecimal());
+        Assert.Equal("CAR", price.GetProperty("vehicleType").GetString());
+
+        using var invalidVehicle = await SendAsync(client, HttpMethod.Get,
+            detailRoute + "/pricing/TRUCK", AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.BadRequest, invalidVehicle, ct);
+        using var noPolicy = await SendAsync(client, HttpMethod.Get,
+            detailRoute + "/pricing/MOTORBIKE", AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.NotFound, noPolicy, ct);
+        using var noLotLayout = await SendAsync(client, HttpMethod.Get,
+            $"/api/parking/admin/lots/{Guid.NewGuid()}/layout", AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.NotFound, noLotLayout, ct);
+        using var noLotPrice = await SendAsync(client, HttpMethod.Get,
+            $"/api/parking/admin/lots/{Guid.NewGuid()}/pricing/CAR", AdminRole, admin, null, ct);
+        await AssertStatusAsync(HttpStatusCode.NotFound, noLotPrice, ct);
+
+        // The public endpoint must still hide this pending lot, even if pricing exists.
+        using var publicPrice = await SendAsync(client, HttpMethod.Get,
+            $"/api/parking/lots/{pending}/pricing/CAR", null, null, null, ct);
+        await AssertStatusAsync(HttpStatusCode.NotFound, publicPrice, ct);
+    }
+
     private static string NewName(string prefix) => $"{prefix} {Guid.NewGuid():N}";
 
     private static IEnumerable<JsonElement> Items(JsonElement page) => page.GetProperty("items").EnumerateArray();
@@ -486,6 +595,7 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapParkingLotEndpoints();
+        app.MapAdminParkingLotReviewEndpoints();
         app.MapParkingLotAssignmentEndpoints();
         app.MapPricingEndpoints();
         await app.StartAsync(ct);

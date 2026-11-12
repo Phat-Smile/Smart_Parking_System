@@ -64,6 +64,10 @@ public static class DependencyInjection
         services.AddIdempotentConsumer<PasswordResetOtpIssuedConsumer>("notification.password-reset-otp-issued.v1");
         services.AddIdempotentConsumer<OwnerApplicationApprovedConsumer>("notification.owner-application-approved.v1");
         services.AddIdempotentConsumer<OwnerApplicationRejectedConsumer>("notification.owner-application-rejected.v1");
+        services.AddIdempotentConsumer<WalletTopUpNotificationConsumer>("notification.wallet-top-up.v1");
+        services.AddIdempotentConsumer<ParkingSessionClosedNotificationConsumer>("notification.parking-session-closed.v1");
+        services.AddIdempotentConsumer<ParkingSessionOpenedNotificationConsumer>("notification.parking-session-opened.v1");
+        services.AddIdempotentConsumer<ReservationConfirmedNotificationConsumer>("notification.reservation-confirmed.v1");
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>
@@ -72,6 +76,10 @@ public static class DependencyInjection
             bus.AddConsumer<PasswordResetOtpIssuedConsumer>();
             bus.AddConsumer<OwnerApplicationApprovedConsumer>();
             bus.AddConsumer<OwnerApplicationRejectedConsumer>();
+            bus.AddConsumer<WalletTopUpNotificationConsumer>();
+            bus.AddConsumer<ParkingSessionClosedNotificationConsumer>();
+            bus.AddConsumer<ParkingSessionOpenedNotificationConsumer>();
+            bus.AddConsumer<ReservationConfirmedNotificationConsumer>();
             configureConsumers?.Invoke(bus);
             bus.UsingRabbitMq((context, rabbit) =>
             {

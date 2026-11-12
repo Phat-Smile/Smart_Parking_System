@@ -136,7 +136,7 @@ public sealed class AuthConcurrencyIntegrationTests(PostgreSqlContainerFixture p
         return rawToken;
     }
 
-    private static async Task<Result<LoginResponse>> LoginAsync(ServiceProvider provider, string email, CancellationToken cancellationToken)
+    private static async Task<Result<LoginOutcome>> LoginAsync(ServiceProvider provider, string email, CancellationToken cancellationToken)
     {
         await using var scope = provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -210,6 +210,8 @@ public sealed class AuthConcurrencyIntegrationTests(PostgreSqlContainerFixture p
         public int AccessTokenExpirationSeconds => 900;
 
         public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => "access-token";
+
+        public string IssueAccessToken(Account account, Guid sessionId, string authenticationMethods, DateTimeOffset nowUtc) => "access-token";
     }
 
     private sealed class FixedClock : IClock

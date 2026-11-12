@@ -261,6 +261,106 @@ public sealed class SecurityFoundationTests
     }
 
     [Fact]
+    public async Task Gateway_cors_allows_signalr_negotiate_preflight_headers_without_credentials_or_wildcards()
+    {
+        using var keys = new TestJwtKeys();
+        var destBuilder = CreateBuilder(keys.PublicKeyPath);
+        destBuilder.WebHost.UseUrls("http://127.0.0.1:0");
+        await using var destination = destBuilder.Build();
+        destination.MapPost("/hubs/parking/negotiate", () => Results.Ok(new { connectionId = "test-conn" }));
+        await destination.StartAsync(TestContext.Current.CancellationToken);
+        var destinationAddress = destination.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!.Addresses.Single();
+
+        var builder = CreateBuilder(keys.PublicKeyPath, allowedOrigins: "http://localhost:3000");
+        builder.WebHost.UseTestServer();
+        builder.AddParkingSystemWebFoundation();
+        builder.AddParkingSystemGatewaySecurity();
+        builder.Services.AddReverseProxy().LoadFromMemory(
+            [new RouteConfig
+            {
+                RouteId = "parking-hub",
+                ClusterId = "parking",
+                Match = new RouteMatch { Path = "/hubs/parking/{**catch-all}" }
+            }],
+            [new ClusterConfig
+            {
+                ClusterId = "parking",
+                Destinations = new Dictionary<string, DestinationConfig>
+                {
+                    ["default"] = new() { Address = destinationAddress }
+                }
+            }]);
+
+        var gateway = builder.Build();
+        gateway.UseParkingSystemWebFoundation();
+        gateway.UseParkingSystemGatewaySecurity();
+        gateway.MapReverseProxy();
+        await gateway.StartAsync(TestContext.Current.CancellationToken);
+        await using (gateway)
+        {
+            var client = gateway.GetTestClient();
+
+            using var preflight = new HttpRequestMessage(HttpMethod.Options, "/hubs/parking/negotiate");
+            preflight.Headers.Add("Origin", "http://localhost:3000");
+            preflight.Headers.Add("Access-Control-Request-Method", "POST");
+            preflight.Headers.Add("Access-Control-Request-Headers", "authorization,x-requested-with,x-signalr-user-agent");
+            using var preflightResponse = await client.SendAsync(preflight, TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.NoContent, preflightResponse.StatusCode);
+            Assert.Equal("http://localhost:3000", preflightResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+            var allowMethods = preflightResponse.Headers.GetValues("Access-Control-Allow-Methods").Single();
+            Assert.Contains("POST", allowMethods, StringComparison.OrdinalIgnoreCase);
+            var allowHeaders = preflightResponse.Headers.GetValues("Access-Control-Allow-Headers").Single();
+            Assert.NotEqual("*", allowHeaders.Trim());
+            var allowedHeaderTokens = allowHeaders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            Assert.Contains("authorization", allowedHeaderTokens, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("x-requested-with", allowedHeaderTokens, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("x-signalr-user-agent", allowedHeaderTokens, StringComparer.OrdinalIgnoreCase);
+            Assert.False(preflightResponse.Headers.Contains("Access-Control-Allow-Credentials"));
+            AssertSecurityHeaders(preflightResponse);
+
+            // Payment's pay/cash and pay/wallet routes require X-Idempotency-Key; the browser preflight for it was refused.
+            using var idempotencyPreflight = new HttpRequestMessage(HttpMethod.Options, "/hubs/parking/negotiate");
+            idempotencyPreflight.Headers.Add("Origin", "http://localhost:3000");
+            idempotencyPreflight.Headers.Add("Access-Control-Request-Method", "POST");
+            idempotencyPreflight.Headers.Add("Access-Control-Request-Headers", "authorization,content-type,x-idempotency-key");
+            using var idempotencyResponse = await client.SendAsync(idempotencyPreflight, TestContext.Current.CancellationToken);
+            var idempotencyAllowed = idempotencyResponse.Headers.GetValues("Access-Control-Allow-Headers").Single()
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            Assert.Contains("x-idempotency-key", idempotencyAllowed, StringComparer.OrdinalIgnoreCase);
+
+            using var unapprovedHeaderPreflight = new HttpRequestMessage(HttpMethod.Options, "/hubs/parking/negotiate");
+            unapprovedHeaderPreflight.Headers.Add("Origin", "http://localhost:3000");
+            unapprovedHeaderPreflight.Headers.Add("Access-Control-Request-Method", "POST");
+            unapprovedHeaderPreflight.Headers.Add("Access-Control-Request-Headers", "x-unapproved-header");
+            using var unapprovedHeaderResponse = await client.SendAsync(unapprovedHeaderPreflight, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NoContent, unapprovedHeaderResponse.StatusCode);
+            var unapprovedAllowHeaders = unapprovedHeaderResponse.Headers.GetValues("Access-Control-Allow-Headers").Single();
+            Assert.NotEqual("*", unapprovedAllowHeaders.Trim());
+            var unapprovedAllowedTokens = unapprovedAllowHeaders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            Assert.DoesNotContain("x-unapproved-header", unapprovedAllowedTokens, StringComparer.OrdinalIgnoreCase);
+
+            using var blockedOriginPreflight = new HttpRequestMessage(HttpMethod.Options, "/hubs/parking/negotiate");
+            blockedOriginPreflight.Headers.Add("Origin", "https://unlisted.test");
+            blockedOriginPreflight.Headers.Add("Access-Control-Request-Method", "POST");
+            blockedOriginPreflight.Headers.Add("Access-Control-Request-Headers", "authorization,x-requested-with,x-signalr-user-agent");
+            using var blockedOriginResponse = await client.SendAsync(blockedOriginPreflight, TestContext.Current.CancellationToken);
+            Assert.False(blockedOriginResponse.Headers.Contains("Access-Control-Allow-Origin"));
+
+            using var negotiateRequest = new HttpRequestMessage(HttpMethod.Post, "/hubs/parking/negotiate");
+            negotiateRequest.Headers.Add("Origin", "http://localhost:3000");
+            negotiateRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+            negotiateRequest.Headers.Add("X-SignalR-User-Agent", "Microsoft SignalR/8.0");
+            using var negotiateResponse = await client.SendAsync(negotiateRequest, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, negotiateResponse.StatusCode);
+            Assert.Equal("http://localhost:3000", negotiateResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+            Assert.False(negotiateResponse.Headers.Contains("Access-Control-Allow-Credentials"));
+            AssertSecurityHeaders(negotiateResponse);
+        }
+    }
+
+    [Fact]
     public async Task Authenticated_grpc_test_service_accepts_bearer_metadata_while_health_stays_anonymous()
     {
         using var keys = new TestJwtKeys();

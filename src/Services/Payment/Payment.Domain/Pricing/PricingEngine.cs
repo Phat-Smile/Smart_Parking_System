@@ -17,6 +17,59 @@ public static class PricingEngine
     // Múi giờ địa phương mặc định của Việt Nam theo BR-09.b (UTC+7)
     public static readonly TimeSpan DefaultVietnamOffset = TimeSpan.FromHours(7);
 
+    // Khung giờ cao điểm đô thị: Sáng 07:30 - 09:00, Chiều 17:00 - 19:00
+    public static readonly (TimeSpan Start, TimeSpan End) MorningPeak = (new TimeSpan(7, 30, 0), new TimeSpan(9, 0, 0));
+    public static readonly (TimeSpan Start, TimeSpan End) EveningPeak = (new TimeSpan(17, 0, 0), new TimeSpan(19, 0, 0));
+    public const decimal DefaultPeakMultiplier = 1.2m; // +20% phụ thu giờ cao điểm
+    public const decimal DefaultCongestionMultiplier = 1.3m; // +30% phụ thu bão ô đỗ (>85% lấp đầy)
+
+    public static bool IsPeakHour(DateTimeOffset time, TimeSpan? localTimeZoneOffset = null)
+    {
+        var offset = localTimeZoneOffset ?? DefaultVietnamOffset;
+        var local = time.ToOffset(offset);
+        if (local.DayOfWeek == DayOfWeek.Saturday || local.DayOfWeek == DayOfWeek.Sunday)
+        {
+            return false;
+        }
+
+        var tod = local.TimeOfDay;
+        return (tod >= MorningPeak.Start && tod <= MorningPeak.End)
+            || (tod >= EveningPeak.Start && tod <= EveningPeak.End);
+    }
+
+    public static decimal CalculateSurgeMultiplier(
+        DateTimeOffset time,
+        double occupancyRate = 0.0,
+        bool enablePeakSurge = true,
+        bool enableOccupancySurge = true,
+        TimeSpan? localTimeZoneOffset = null)
+    {
+        decimal multiplier = 1.0m;
+        if (enablePeakSurge && IsPeakHour(time, localTimeZoneOffset))
+        {
+            multiplier = Math.Max(multiplier, DefaultPeakMultiplier);
+        }
+
+        if (enableOccupancySurge && occupancyRate >= 0.85)
+        {
+            multiplier = Math.Max(multiplier, DefaultCongestionMultiplier);
+        }
+
+        return multiplier;
+    }
+
+    public static decimal CalculateSurgeFee(
+        decimal baseFee,
+        DateTimeOffset time,
+        double occupancyRate = 0.0,
+        bool enablePeakSurge = true,
+        bool enableOccupancySurge = true,
+        TimeSpan? localTimeZoneOffset = null)
+    {
+        var multiplier = CalculateSurgeMultiplier(time, occupancyRate, enablePeakSurge, enableOccupancySurge, localTimeZoneOffset);
+        return Math.Round(baseFee * multiplier, MidpointRounding.AwayFromZero);
+    }
+
     public static decimal CalculateBaseFee(
         DateTimeOffset startTime,
         DateTimeOffset endTime,

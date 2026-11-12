@@ -2,12 +2,13 @@ using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Identity.Application.Accounts.Mfa;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.Login;
 
-public sealed record LoginCommand(string Email, string Password, string? DeviceInfo = null, string? IpAddress = null) : IRequest<Result<LoginResponse>>;
+public sealed record LoginCommand(string Email, string Password, string? DeviceInfo = null, string? IpAddress = null) : IRequest<Result<LoginOutcome>>;
 
 public sealed record LoginResponse(
     string AccessToken,
@@ -69,9 +70,10 @@ public sealed class LoginCommandHandler(
     IPasswordHasher passwordHasher,
     IJwtTokenIssuer jwtTokenIssuer,
     IRefreshTokenGenerator refreshTokenGenerator,
-    IClock clock) : IRequestHandler<LoginCommand, Result<LoginResponse>>
+    IClock clock,
+    MfaLoginGate? mfaGate = null) : IRequestHandler<LoginCommand, Result<LoginOutcome>>
 {
-    public async Task<Result<LoginResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
+    public async Task<Result<LoginOutcome>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         var email = Account.NormalizeEmail(request.Email);
         var now = clock.UtcNow;
@@ -83,12 +85,12 @@ public sealed class LoginCommandHandler(
             if (account is null)
             {
                 passwordHasher.VerifyDummy(request.Password);
-                return Result<LoginResponse>.Failure(LoginErrors.InvalidCredentials);
+                return Result<LoginOutcome>.Failure(LoginErrors.InvalidCredentials);
             }
 
             if (account.IsLockedOut(now))
             {
-                return Result<LoginResponse>.Failure(AccountMessages.Locked(account, now));
+                return Result<LoginOutcome>.Failure(AccountMessages.Locked(account, now));
             }
 
             account.ClearExpiredLockout(now);
@@ -111,39 +113,48 @@ public sealed class LoginCommandHandler(
                 await accounts.SaveChangesAsync(cancellationToken);
 
                 if (account.IsLockedOut(now))
-                    return Result<LoginResponse>.Failure(AccountMessages.Locked(account, now));
+                    return Result<LoginOutcome>.Failure(AccountMessages.Locked(account, now));
 
-                return Result<LoginResponse>.Failure(account.HasPassword
+                return Result<LoginOutcome>.Failure(account.HasPassword
                     ? AccountMessages.InvalidCredentials(account)
                     : LoginErrors.PasswordNotSet);
             }
 
-            // Correct password breaks consecutive failed attempts streak
-            account.RecordCorrectCredential();
+            // Đã bật MFA thì chưa xoá chuỗi sai: chỉ qua được bước 2 mới xoá, nếu không có mật khẩu là đoán mã vô hạn được.
+            var mfaRequired = mfaGate is not null && await mfaGate.IsRequiredAsync(account.Id, cancellationToken);
+            if (!mfaRequired)
+                account.RecordCorrectCredential();
 
             if (account.Status == AccountStatus.Suspended)
             {
                 await accounts.SaveChangesAsync(cancellationToken);
-                return Result<LoginResponse>.Failure(LoginErrors.AccountSuspended);
+                return Result<LoginOutcome>.Failure(LoginErrors.AccountSuspended);
             }
 
             if (account.Status == AccountStatus.Disabled)
             {
                 await accounts.SaveChangesAsync(cancellationToken);
-                return Result<LoginResponse>.Failure(LoginErrors.AccountDisabled);
+                return Result<LoginOutcome>.Failure(LoginErrors.AccountDisabled);
             }
 
             if (account.Status != AccountStatus.EmailVerified)
             {
                 await accounts.SaveChangesAsync(cancellationToken);
-                return Result<LoginResponse>.Failure(LoginErrors.EmailNotVerified);
+                return Result<LoginOutcome>.Failure(LoginErrors.EmailNotVerified);
+            }
+
+            if (mfaRequired)
+            {
+                var challenge = mfaGate!.IssueChallenge(account, AuthSession.DefaultAuthenticationMethod, request.DeviceInfo, request.IpAddress, now);
+                await accounts.SaveChangesAsync(cancellationToken);
+                return Result<LoginOutcome>.Success(LoginOutcome.MfaRequired(challenge));
             }
 
             var response = await LoginSession.StartAsync(
                 account, request.DeviceInfo, request.IpAddress, now,
                 accounts, authSessions, refreshTokens, refreshTokenGenerator, jwtTokenIssuer, cancellationToken);
 
-            return Result<LoginResponse>.Success(response);
+            return Result<LoginOutcome>.Success(LoginOutcome.Completed(response));
         }, cancellationToken);
     }
 }

@@ -27,8 +27,11 @@ export function createRealtimeConnection(
         .withUrl(
             url.toString(),
             options.accessTokenFactory
-                ? { accessTokenFactory: options.accessTokenFactory }
-                : {},
+                ? {
+                      withCredentials: false,
+                      accessTokenFactory: options.accessTokenFactory,
+                  }
+                : { withCredentials: false },
         )
         .withAutomaticReconnect([...DEFAULT_RECONNECT_DELAYS_MS])
         .build();

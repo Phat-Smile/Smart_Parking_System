@@ -2,6 +2,7 @@ using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Profiles;
 using ParkingSystem.Identity.Application.Profiles.DeleteProfileIdentity;
+using ParkingSystem.Identity.Application.Profiles.CustomerMedia;
 using ParkingSystem.Identity.Application.Profiles.UpsertProfile;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Domain.Profiles;
@@ -30,7 +31,7 @@ public sealed class DeleteProfileIdentityCommandTests
 
         var repo = new TrackingFakeProfiles(profile);
         var clock = new FakeClock(Now.AddMinutes(5));
-        var handler = new DeleteProfileIdentityCommandHandler(new FakeAccounts(account), repo, clock);
+        var handler = new DeleteProfileIdentityCommandHandler(new FakeAccounts(account), repo, new FakeCustomerMedia(), clock);
 
         var result = await handler.Handle(
             new DeleteProfileIdentityCommand(AccountId),
@@ -51,7 +52,7 @@ public sealed class DeleteProfileIdentityCommandTests
         var account = Account.Register(AccountId, "user@example.com", "hash", null, Now);
         var repo = new TrackingFakeProfiles(null);
         var clock = new FakeClock(Now);
-        var handler = new DeleteProfileIdentityCommandHandler(new FakeAccounts(account), repo, clock);
+        var handler = new DeleteProfileIdentityCommandHandler(new FakeAccounts(account), repo, new FakeCustomerMedia(), clock);
 
         var result = await handler.Handle(
             new DeleteProfileIdentityCommand(AccountId),
@@ -66,7 +67,7 @@ public sealed class DeleteProfileIdentityCommandTests
     {
         var repo = new TrackingFakeProfiles(null);
         var clock = new FakeClock(Now);
-        var handler = new DeleteProfileIdentityCommandHandler(new FakeAccounts(null), repo, clock);
+        var handler = new DeleteProfileIdentityCommandHandler(new FakeAccounts(null), repo, new FakeCustomerMedia(), clock);
 
         var result = await handler.Handle(
             new DeleteProfileIdentityCommand(Guid.NewGuid()),
@@ -75,6 +76,17 @@ public sealed class DeleteProfileIdentityCommandTests
         Assert.False(result.IsSuccess);
         Assert.Equal(DeleteProfileIdentityErrors.AccountNotFound.Code, result.Error!.Code);
     }
+}
+
+internal sealed class FakeCustomerMedia : ICustomerMediaStore
+{
+    public Task<bool> ExistsAsync(Guid accountId, Guid mediaId, string kind, CancellationToken ct) => Task.FromResult(false);
+    public Task<CustomerMediaResult> SaveAsync(Guid accountId, string kind, Stream content, long sizeBytes, CancellationToken ct) =>
+        throw new NotSupportedException();
+    public Task<(Stream Content, string ContentType)?> OpenReadAsync(Guid accountId, Guid mediaId, CancellationToken ct) =>
+        Task.FromResult<(Stream Content, string ContentType)?>(null);
+    public Task<bool> DeleteAsync(Guid accountId, Guid mediaId, CancellationToken ct) => Task.FromResult(false);
+    public Task DeleteIdentityMediaAsync(Guid accountId, CancellationToken ct) => Task.CompletedTask;
 }
 
 internal sealed class TrackingFakeProfiles(Profile? initial) : IProfileRepository

@@ -36,7 +36,7 @@ Chạy lại bao nhiêu lần cũng được: mỗi bước bỏ qua phần đã
 
 | Tham số | Mặc định | Ý nghĩa |
 |---|---|---|
-| `-IdentityUrl`, `-ParkingUrl` | `http://127.0.0.1:5001`, `:5002` | Địa chỉ hai API. Từ chối địa chỉ không phải máy cục bộ nếu không có `-AllowRemoteHost` |
+| `-IdentityUrl`, `-ParkingUrl`, `-PaymentUrl` | `http://127.0.0.1:5001`, `:5002`, `:5004` | Địa chỉ các API. Từ chối địa chỉ không phải máy cục bộ nếu không có `-AllowRemoteHost` |
 | `-ServiceKey` | `SERVICE_KEY` trong môi trường hoặc `.env`, nếu không thì bỏ trống | Gửi qua header `X-Service-Key` khi `.env` bật khóa dịch vụ |
 | `-Password` | `Demo@12345` | Mật khẩu chung của mọi tài khoản demo |
 | `-EmailDomain` | `demo.local` | Tên miền email của tài khoản demo |
@@ -45,6 +45,10 @@ Chạy lại bao nhiêu lần cũng được: mỗi bước bỏ qua phần đã
 | `-PostgresContainer` | trống | Tên container để dùng `docker exec` thay cho dịch vụ compose `postgres` |
 | `-SkipParkingCatalog` | tắt | Không nạp bốn bãi mẫu (đã có sẵn) |
 | `-SkipLotDetails` | tắt | Không đặt giờ mở cửa và giá cho bãi mẫu |
+| `-SkipWalletSeed` | tắt | Bỏ qua bước nạp số dư ví cho hai tài khoản khách hàng demo |
+| `-WalletSeedAmount` | `200000` | Số dư ví mục tiêu (VND) cho customer và customer2 (qua giả lập VNPay IPN) |
+| `-AdminTotpSecret` | `DEMO_ADMIN_TOTP_SECRET` trong môi trường hoặc `.env` | Khóa bí mật Base32 TOTP của Admin để tự động vượt qua thử thách MFA |
+| `-AdminTotpCode` | trống | Mã OTP 6 chữ số trực tiếp nếu không dùng secret tính toán tự động |
 
 ## Dữ liệu tạo ra
 
@@ -52,12 +56,13 @@ Mật khẩu chung `Demo@12345`. Họ tên không dấu có chủ ý (tệp scri
 
 | Email | Vai trò | Trạng thái | Dùng cho |
 |---|---|---|---|
-| `admin@demo.local` | SystemAdmin | Đã xác thực | Duyệt hồ sơ Chủ bãi và bãi, gán nhân viên |
+| `admin@demo.local` | SystemAdmin | Đã xác thực | Duyệt hồ sơ Chủ bãi và bãi, gán nhân viên (hỗ trợ MFA bước 2) |
 | `owner@demo.local` | ParkingLotOwner | Hồ sơ Approved (loại hộ kinh doanh, đủ giấy tờ bắt buộc) | Chủ bãi sở hữu cả bốn bãi mẫu; chạy ngay luồng bãi đỗ mà không chờ duyệt |
 | `owner.pending@demo.local` | Customer | Hồ sơ Pending (loại cá nhân, đủ giấy tờ) | Admin xem giấy tờ và duyệt ngay trên sân khấu |
 | `owner.rejected@demo.local` | Customer | Hồ sơ Rejected có lý do (loại doanh nghiệp, đủ giấy tờ) | Người nộp xem lý do, sửa và nộp lại |
 | `staff@demo.local` | Staff | Đã xác thực | Nhân viên mở phiên đỗ ở bãi A và B |
-| `customer@demo.local` | Customer | Có hồ sơ cá nhân, một ô tô `51A-123.45`, một xe máy `59X1-234.56` | Khách tìm bãi, xem xe của tôi |
+| `customer@demo.local` | Customer | Có hồ sơ cá nhân, một ô tô `51A-123.45`, một xe máy `59X1-234.56`, ví 200.000đ | Khách tìm bãi, xem xe của tôi |
+| `customer2@demo.local` | Customer | Khách thứ 2 (Khach Hang Demo Hai), ô tô `51B-999.88`, ví 200.000đ | Kịch bản tranh chấp/đấu cọc slot cuối cùng (Concurrency) |
 
 Giấy tờ là tệp PDF mẫu ghi rõ "DEMO DOCUMENT - NOT A REAL PAPER". Không dùng giấy tờ thật để thử (AGENTS.md mục 5.1). Tệp nằm trong thư mục lưu giấy tờ của container Identity, không nằm trong Git hay cơ sở dữ liệu.
 
@@ -85,7 +90,7 @@ Khi không dùng Docker cho PostgreSQL, tự chạy hai câu sau trên cơ sở 
 
 ```sql
 UPDATE identity.accounts SET status = 'EmailVerified'
- WHERE email IN ('admin@demo.local','owner@demo.local','owner.pending@demo.local','owner.rejected@demo.local','staff@demo.local','customer@demo.local');
+ WHERE email IN ('admin@demo.local','owner@demo.local','owner.pending@demo.local','owner.rejected@demo.local','staff@demo.local','customer@demo.local','customer2@demo.local');
 UPDATE identity.accounts SET role = 'SystemAdmin' WHERE email = 'admin@demo.local';
 ```
 

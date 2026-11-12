@@ -168,7 +168,7 @@ body {
     flex-shrink: 0;
 }
 
-main {
+#m {
     padding: 24px clamp(16px, 3vw, 40px) 48px;
     max-width: 1500px;
     width: 100%;

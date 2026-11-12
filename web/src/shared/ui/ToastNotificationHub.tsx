@@ -1,0 +1,166 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Bell, CheckCircle, AlertTriangle, Info, X } from "lucide-react";
+import {
+    isPushSupported,
+    getPushPermission,
+    requestPushPermission,
+    sendWebPushNotification,
+} from "../notifications/webPushService";
+
+export interface LiveToast {
+    id: string;
+    title: string;
+    message: string;
+    type: "info" | "success" | "warning";
+    timestamp: Date;
+}
+
+type ToastListener = (toast: LiveToast) => void;
+const listeners = new Set<ToastListener>();
+
+export function emitLiveToast(
+    title: string,
+    message: string,
+    type: "info" | "success" | "warning" = "info",
+) {
+    const toast: LiveToast = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        title,
+        message,
+        type,
+        timestamp: new Date(),
+    };
+
+    // Trigger native Web Push & Chime sound
+    sendWebPushNotification(title, {
+        body: message,
+        type:
+            type === "warning"
+                ? "warning"
+                : type === "success"
+                  ? "success"
+                  : "info",
+    });
+
+    listeners.forEach((listener) => listener(toast));
+}
+
+export function ToastNotificationHub() {
+    const [toasts, setToasts] = useState<LiveToast[]>([]);
+    const [permission, setPermission] = useState<NotificationPermission>(() => {
+        if (typeof window === "undefined") return "default";
+        return getPushPermission();
+    });
+    const [isSupported] = useState<boolean>(() => {
+        if (typeof window === "undefined") return false;
+        return isPushSupported();
+    });
+
+    useEffect(() => {
+        const handleNewToast: ToastListener = (toast) => {
+            setToasts((prev) => [toast, ...prev].slice(0, 4));
+            setTimeout(() => {
+                setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+            }, 6000);
+        };
+
+        listeners.add(handleNewToast);
+        return () => {
+            listeners.delete(handleNewToast);
+        };
+    }, []);
+
+    async function handleRequestPermission() {
+        const result = await requestPushPermission();
+        setPermission(result);
+        if (result === "granted") {
+            emitLiveToast(
+                "Thông Báo Đẩy Đã Bật!",
+                "Bạn sẽ nhận được cảnh báo thời gian thực khi xe vào bãi hoặc gần hết hạn.",
+                "success",
+            );
+        }
+    }
+
+    return (
+        <div
+            className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3 pointer-events-none select-none max-w-sm w-full no-print"
+            aria-live="polite"
+        >
+            {/* Quick Web Push Enabler Badge if not granted */}
+            {isSupported && permission !== "granted" && (
+                <div className="pointer-events-auto bg-neutral-900/90 backdrop-blur border border-neutral-700/80 text-white px-3.5 py-2 rounded-full shadow-lg flex items-center gap-2.5 text-xs">
+                    <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                    <span>Nhận thông báo khi xe vào/ra?</span>
+                    <button
+                        type="button"
+                        onClick={handleRequestPermission}
+                        className="bg-brand-500 hover:bg-brand-400 text-white font-semibold px-2.5 py-1 rounded-full text-[11px] transition cursor-pointer"
+                    >
+                        Bật ngay
+                    </button>
+                </div>
+            )}
+
+            {/* Render active floating toasts */}
+            {toasts.map((toast) => {
+                const isSuccess = toast.type === "success";
+                const isWarning = toast.type === "warning";
+                const borderColor = isSuccess
+                    ? "border-emerald-500/40"
+                    : isWarning
+                      ? "border-amber-500/40"
+                      : "border-blue-500/40";
+                const bgColor = isSuccess
+                    ? "bg-emerald-950/90"
+                    : isWarning
+                      ? "bg-amber-950/90"
+                      : "bg-neutral-900/95";
+
+                return (
+                    <div
+                        key={toast.id}
+                        className={`pointer-events-auto w-full ${bgColor} backdrop-blur-md border ${borderColor} text-white p-3.5 rounded-xl shadow-2xl transition-all duration-300 animate-in slide-in-from-right-4 fade-in`}
+                    >
+                        <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-start gap-2.5">
+                                {isSuccess ? (
+                                    <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                                ) : isWarning ? (
+                                    <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                                ) : (
+                                    <Info className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                                )}
+                                <div>
+                                    <strong className="block text-xs font-bold leading-tight">
+                                        {toast.title}
+                                    </strong>
+                                    <p className="text-[11px] text-neutral-300 mt-0.5 leading-snug">
+                                        {toast.message}
+                                    </p>
+                                    <span className="text-[9px] text-neutral-400 mt-1 block">
+                                        Vừa xong
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setToasts((prev) =>
+                                        prev.filter((t) => t.id !== toast.id),
+                                    )
+                                }
+                                className="text-neutral-400 hover:text-white p-0.5 rounded cursor-pointer"
+                                aria-label="Đóng"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}

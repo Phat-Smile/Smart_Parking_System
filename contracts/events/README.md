@@ -33,3 +33,4 @@ contracts/events/ParkingSystem.Contracts.Events/
 |---|---|---|
 | `identity.user-verification-otp-issued.v1` | Identity (register, resend OTP) | Notification — sends the OTP email |
 | `identity.account-email-verified.v1` | Identity (verify email) | none yet |
+| `booking.reservation-confirmed.v1` | Booking (confirm reservation) | Notification — sends booking confirmation |

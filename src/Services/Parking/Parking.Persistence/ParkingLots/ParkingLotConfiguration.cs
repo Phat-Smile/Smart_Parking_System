@@ -51,6 +51,11 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
         builder.Property(parkingLot => parkingLot.RejectionReason)
             .HasColumnName("rejection_reason")
             .HasMaxLength(ParkingLot.RejectionReasonMaxLength);
+        builder.Property(x => x.SupportsElectricVehicles).HasColumnName("supports_electric_vehicles").HasDefaultValue(false);
+        builder.Property(x => x.SupportsLargeVehicles).HasColumnName("supports_large_vehicles").HasDefaultValue(false);
+        builder.Property(x => x.HasEvCharging).HasColumnName("has_ev_charging").HasDefaultValue(false);
+        builder.Property(x => x.IsCovered).HasColumnName("is_covered").HasDefaultValue(false);
+        builder.Property(x => x.HasCctv).HasColumnName("has_cctv").HasDefaultValue(false);
 
         builder.HasIndex(parkingLot => parkingLot.OwnerUserId)
             .HasDatabaseName("ix_parking_lots_owner_user_id");

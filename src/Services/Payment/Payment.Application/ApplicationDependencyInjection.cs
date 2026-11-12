@@ -18,6 +18,11 @@ public static class ApplicationDependencyInjection
 
         services.AddScoped<Features.Vnpay.Commands.ProcessVnpayIpn.IVnpayResultHandler, 
             Features.Vnpay.Commands.ProcessVnpayIpn.WalletTopUpResultHandler>();
+        services.AddScoped<Features.Vnpay.Commands.ProcessVnpayIpn.IVnpayResultHandler, 
+            Features.Vnpay.Commands.ProcessVnpayIpn.DirectPaymentResultHandler>();
+
+        services.AddScoped<Features.Vnpay.Commands.ProcessVnpayIpn.IParkingFeeIpnHandler, 
+            Features.Vnpay.Commands.ProcessVnpayIpn.ParkingFeeIpnHandler>();
 
         return services;
     }

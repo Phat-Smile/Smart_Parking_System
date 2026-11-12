@@ -39,6 +39,31 @@ public class PricingPolicy
         };
     }
 
+    public static PricingPolicy Create(
+        Guid id,
+        Guid lotId, 
+        string vehicleType, 
+        int version, 
+        string billingMode, 
+        int? blockMinutes, 
+        decimal price, 
+        decimal overnightFee,
+        DateTime effectiveFromUtc)
+    {
+        return new PricingPolicy
+        {
+            Id = id == Guid.Empty ? Guid.NewGuid() : id,
+            LotId = lotId,
+            VehicleType = vehicleType.ToUpperInvariant(),
+            Version = version,
+            BillingMode = billingMode,
+            BlockMinutes = blockMinutes,
+            Price = price,
+            OvernightFee = overnightFee,
+            EffectiveFromUtc = effectiveFromUtc
+        };
+    }
+
     public bool HasSameValues(string billingMode, int? blockMinutes, decimal price, decimal overnightFee)
     {
         return BillingMode == billingMode &&

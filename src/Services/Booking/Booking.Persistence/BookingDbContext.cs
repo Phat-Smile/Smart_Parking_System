@@ -11,6 +11,8 @@ public sealed class BookingDbContext(DbContextOptions<BookingDbContext> options)
 
     public DbSet<Reservation> Reservations => Set<Reservation>();
 
+    public DbSet<ReservationCapacity> ReservationCapacities => Set<ReservationCapacity>();
+
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();

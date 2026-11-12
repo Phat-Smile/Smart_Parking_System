@@ -15,6 +15,7 @@ public static class ApplicationDependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddSingleton<ILicensePlateNormalizer, LicensePlateNormalizer>();
         services.AddScoped<Accounts.IAuthSessionManager, Accounts.AuthSessionManager>();
+        services.AddScoped<Accounts.Mfa.MfaLoginGate>();
         return services;
     }
 }

@@ -73,7 +73,9 @@ export function StaffNotifications() {
     const { language } = useLanguage();
     const isVi = language === "vi";
     const [isOpen, setIsOpen] = useState(false);
-    const [items, setItems] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+    const [items, setItems] = useState<NotificationItem[]>(
+        INITIAL_NOTIFICATIONS,
+    );
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const { issues } = useStaffData();
@@ -213,7 +215,10 @@ export function StaffNotifications() {
                         }}
                     >
                         <strong style={{ fontSize: "14px", color: "#0f172a" }}>
-                            🔔 {isVi ? "Thông báo trạm trực" : "Station Notifications"}
+                            🔔{" "}
+                            {isVi
+                                ? "Thông báo trạm trực"
+                                : "Station Notifications"}
                         </strong>
                         {unreadCount > 0 && (
                             <button
@@ -277,7 +282,9 @@ export function StaffNotifications() {
                                         <span
                                             style={{
                                                 fontSize: "13px",
-                                                fontWeight: item.read ? 600 : 700,
+                                                fontWeight: item.read
+                                                    ? 600
+                                                    : 700,
                                                 color: item.read
                                                     ? "#334155"
                                                     : "#0f172a",

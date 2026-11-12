@@ -2359,3 +2359,193 @@
         padding: 20px 16px 40px;
     }
 }
+
+/* ==========================================================================
+   STAFF SESSIONS TOOLBAR & SEGMENTED TABS
+   ========================================================================== */
+.staff-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 20px;
+    background: #ffffff;
+    padding: 16px 20px;
+    border-radius: var(--pw-admin-radius-lg);
+    border: 1px solid var(--pw-admin-line);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.staff-toolbar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.staff-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 260px;
+    max-width: 440px;
+    background: var(--pw-admin-soft);
+    border: 1px solid var(--pw-admin-line);
+    border-radius: var(--pw-admin-radius-full);
+    padding: 0 16px;
+    height: 42px;
+    transition: all 0.2s ease;
+}
+
+.staff-search-box:focus-within {
+    background: #ffffff;
+    border-color: var(--pw-admin-blue);
+    box-shadow: 0 0 0 3px rgba(30, 25, 216, 0.1);
+}
+
+.staff-search-box .search-icon {
+    font-size: 15px;
+    color: var(--pw-admin-muted);
+    margin-right: 8px;
+    user-select: none;
+}
+
+.staff-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13.5px;
+    color: var(--pw-admin-ink);
+    font-family: inherit;
+}
+
+.staff-search-input::placeholder {
+    color: #94a3b8;
+}
+
+.staff-toolbar-summary {
+    display: flex;
+    align-items: center;
+}
+
+.staff-summary-pill {
+    font-size: 12.5px;
+    color: var(--pw-admin-muted);
+    background: var(--pw-admin-soft);
+    padding: 6px 14px;
+    border-radius: var(--pw-admin-radius-full);
+    border: 1px solid var(--pw-admin-line);
+}
+
+.staff-summary-pill strong {
+    color: var(--pw-admin-ink);
+    font-weight: 700;
+}
+
+.staff-toolbar-bottom {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--pw-admin-soft);
+    padding-top: 14px;
+}
+
+.staff-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.staff-filter-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--pw-admin-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+}
+
+.staff-filter-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    background: #eeeff2;
+    border-radius: var(--pw-admin-radius-full);
+    border: 1px solid var(--pw-admin-line);
+}
+
+.staff-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: var(--pw-admin-radius-full);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--pw-admin-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.staff-filter-btn:hover {
+    color: var(--pw-admin-ink);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.staff-filter-btn.active {
+    background: #ffffff;
+    color: var(--pw-admin-ink);
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.staff-filter-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 7px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 800;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--pw-admin-muted);
+    line-height: 1.4;
+}
+
+.staff-filter-btn.active .staff-filter-badge {
+    background: var(--pw-admin-ink);
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   IOT BARRIER GATE SIMULATOR KEYFRAME ANIMATIONS
+   ========================================================================== */
+@keyframes iotPulse {
+    0% {
+        opacity: 0.4;
+        transform: scale(0.96);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes iotStrobe {
+    0% {
+        background-color: rgba(239, 68, 68, 0.2);
+        border-color: #ef4444;
+    }
+    100% {
+        background-color: rgba(245, 158, 11, 0.35);
+        border-color: #f59e0b;
+    }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 import { AdminIcon } from "./AdminUi";
@@ -25,8 +25,8 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
         type: "lot",
         titleVi: "Bãi đỗ xe chờ phê duyệt",
         titleEn: "Parking lot awaiting approval",
-        descVi: "Vincom Center Basement vừa nộp hồ sơ xin phê duyệt mở bãi.",
-        descEn: "Vincom Center Basement submitted for review.",
+        descVi: "Kiểm tra các bãi xe mới gửi hồ sơ xin phê duyệt mở bãi.",
+        descEn: "Review newly submitted parking lot applications.",
         timeVi: "15 phút trước",
         timeEn: "15m ago",
         href: "/admin/parking-lots/pending",
@@ -35,10 +35,10 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     {
         id: "notif-2",
         type: "application",
-        titleVi: "Hồ sơ chủ bãi mới",
-        titleEn: "New owner application",
-        descVi: "Lê Thành Công vừa nộp hồ sơ doanh nghiệp kèm đầy đủ giấy tờ.",
-        descEn: "Le Thanh Cong submitted business documents.",
+        titleVi: "Hồ sơ đối tác chủ bãi",
+        titleEn: "Partner owner application",
+        descVi: "Có hồ sơ đăng ký chủ bãi mới cần đối chiếu giấy tờ pháp lý.",
+        descEn: "New partner documents awaiting legal verification.",
         timeVi: "1 giờ trước",
         timeEn: "1h ago",
         href: "/admin/owner-applications",
@@ -46,14 +46,14 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     },
     {
         id: "notif-3",
-        type: "lot",
-        titleVi: "Bãi xe cần thẩm định",
-        titleEn: "Lot inspection required",
-        descVi: "Thảo Điền Riverside Parking chờ duyệt bảng giá và layout.",
-        descEn: "Thao Dien Riverside Parking pending pricing & layout.",
-        timeVi: "3 giờ trước",
-        timeEn: "3h ago",
-        href: "/admin/parking-lots/pending",
+        type: "system",
+        titleVi: "Đối soát & Nhật ký kiểm toán",
+        titleEn: "Audit & Financial Reconciliation",
+        descVi: "Hệ thống ghi nhận tự động các biến động ví và cấu hình giá.",
+        descEn: "System audit trail is actively recording wallet and pricing events.",
+        timeVi: "Hôm nay",
+        timeEn: "Today",
+        href: "/admin/audit-logs",
         read: false,
     },
 ];
@@ -62,15 +62,40 @@ export function AdminNotifications() {
     const { language } = useLanguage();
     const isVi = language === "vi";
     const [isOpen, setIsOpen] = useState(false);
-    const [items, setItems] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+    const [tab, setTab] = useState<"all" | "unread">("all");
+    const [items, setItems] = useState<NotificationItem[]>(
+        INITIAL_NOTIFICATIONS,
+    );
+    const [liveRead, setLiveRead] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const lots = useAdminLots();
     const pendingLotsCount = countByStatus(lots).Pending;
 
-    const unreadCount = items.filter((n) => !n.read).length;
+    const combinedItems = useMemo(() => {
+        const list = [...items];
+        if (pendingLotsCount > 0) {
+            list.unshift({
+                id: "live-pending-lots",
+                type: "lot",
+                titleVi: `${pendingLotsCount} bãi xe đang chờ thẩm định`,
+                titleEn: `${pendingLotsCount} parking lot(s) awaiting review`,
+                descVi: "Nhấn để mở danh sách hàng đợi xét duyệt bãi đỗ xe ngay.",
+                descEn: "Click to open the pending parking lot review queue.",
+                timeVi: "Trực tiếp",
+                timeEn: "Live",
+                href: "/admin/parking-lots/pending",
+                read: liveRead,
+            });
+        }
+        return list;
+    }, [items, pendingLotsCount, liveRead]);
 
-    // Close on click outside
+    const unreadCount = combinedItems.filter((n) => !n.read).length;
+    const filteredItems =
+        tab === "unread" ? combinedItems.filter((n) => !n.read) : combinedItems;
+
+    // Close on click outside or Escape
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (
@@ -80,240 +105,198 @@ export function AdminNotifications() {
                 setIsOpen(false);
             }
         }
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === "Escape") setIsOpen(false);
+        }
         if (isOpen) {
             document.addEventListener("mousedown", handleClickOutside);
+            document.addEventListener("keydown", handleKeyDown);
         }
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
         };
     }, [isOpen]);
 
     function markAllAsRead() {
+        setLiveRead(true);
         setItems((prev) => prev.map((item) => ({ ...item, read: true })));
     }
 
     function markAsRead(id: string) {
-        setItems((prev) =>
-            prev.map((item) =>
-                item.id === id ? { ...item, read: true } : item,
-            ),
-        );
+        if (id === "live-pending-lots") {
+            setLiveRead(true);
+        } else {
+            setItems((prev) =>
+                prev.map((item) =>
+                    item.id === id ? { ...item, read: true } : item,
+                ),
+            );
+        }
         setIsOpen(false);
     }
 
+    function getIconName(type: NotificationItem["type"]) {
+        if (type === "lot") return "lots";
+        if (type === "application") return "fileCheck";
+        if (type === "assignment") return "briefcase";
+        return "shield";
+    }
+
     return (
-        <div
-            ref={dropdownRef}
-            className="admin-notifications-container"
-            style={{ position: "relative", display: "inline-block" }}
-        >
+        <div ref={dropdownRef} className="admin-notif-wrap">
             <button
                 type="button"
-                className="admin-notifications-btn"
+                className={`admin-topbar-btn admin-notifications-btn ${isOpen ? "is-open" : ""}`}
                 onClick={() => setIsOpen(!isOpen)}
                 aria-label={isVi ? "Thông báo" : "Notifications"}
                 aria-expanded={isOpen}
-                style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    padding: "7px 12px",
-                    borderRadius: "10px",
-                    color: "#1e293b",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                    transition: "all 0.15s ease",
-                }}
             >
-                <span style={{ position: "relative", display: "inline-flex" }}>
-                    <AdminIcon name="bell" size={17} />
+                <span className="admin-notif-bell-wrap">
+                    <AdminIcon name="bell" size={18} />
                     {unreadCount > 0 && (
                         <span
-                            style={{
-                                position: "absolute",
-                                top: "-6px",
-                                right: "-7px",
-                                background: "#ef4444",
-                                color: "#ffffff",
-                                fontSize: "10px",
-                                fontWeight: 800,
-                                minWidth: "16px",
-                                height: "16px",
-                                borderRadius: "999px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                padding: "0 3px",
-                                border: "1.5px solid #ffffff",
-                            }}
+                            className="admin-notif-badge"
+                            aria-label={
+                                isVi
+                                    ? `${unreadCount} thông báo chưa đọc`
+                                    : `${unreadCount} unread notifications`
+                            }
                         >
-                            {unreadCount}
+                            {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                     )}
                 </span>
-                <span>{isVi ? "Thông báo" : "Notifications"}</span>
+                <span className="admin-topbar-btn-label">
+                    {isVi ? "Thông báo" : "Notifications"}
+                </span>
             </button>
 
-            {/* Notification Dropdown */}
             {isOpen && (
                 <div
-                    className="admin-notifications-dropdown"
-                    style={{
-                        position: "absolute",
-                        top: "calc(100% + 8px)",
-                        right: 0,
-                        width: "360px",
-                        maxWidth: "90vw",
-                        background: "#ffffff",
-                        borderRadius: "12px",
-                        boxShadow:
-                            "0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06)",
-                        border: "1px solid #e2e8f0",
-                        zIndex: 9999,
-                        overflow: "hidden",
-                        textAlign: "left",
-                        animation: "fadeIn 0.15s ease",
-                    }}
+                    className="admin-dropdown-panel admin-notifications-dropdown"
+                    role="dialog"
+                    aria-label={
+                        isVi ? "Thông báo hệ thống" : "System Notifications"
+                    }
                 >
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "12px 16px",
-                            borderBottom: "1px solid #f1f5f9",
-                            background: "#fafafa",
-                        }}
-                    >
-                        <strong style={{ fontSize: "14px", color: "#0f172a" }}>
-                            🔔 {isVi ? "Thông báo hệ thống" : "System Notifications"}
-                        </strong>
+                    <div className="admin-dropdown-header">
+                        <div className="admin-dropdown-title-row">
+                            <strong>
+                                {isVi
+                                    ? "Thông báo hệ thống"
+                                    : "System Notifications"}
+                            </strong>
+                            {unreadCount > 0 && (
+                                <span className="admin-notif-unread-pill">
+                                    {unreadCount} {isVi ? "chưa đọc" : "unread"}
+                                </span>
+                            )}
+                        </div>
                         {unreadCount > 0 && (
                             <button
                                 type="button"
+                                className="admin-notif-mark-all"
                                 onClick={markAllAsRead}
-                                style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: "#2563eb",
-                                    fontSize: "12px",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                    padding: "2px 4px",
-                                }}
                             >
-                                {isVi ? "Đã đọc tất cả" : "Mark all as read"}
+                                {isVi ? "Đánh dấu đã đọc" : "Mark all read"}
                             </button>
                         )}
                     </div>
 
-                    <div style={{ maxHeight: "340px", overflowY: "auto" }}>
-                        {items.length === 0 ? (
-                            <p
-                                style={{
-                                    padding: "24px",
-                                    textAlign: "center",
-                                    color: "#94a3b8",
-                                    fontSize: "13px",
-                                    margin: 0,
-                                }}
-                            >
-                                {isVi
-                                    ? "Không có thông báo mới"
-                                    : "No new notifications"}
-                            </p>
+                    <div className="admin-notif-tabs" role="tablist">
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === "all"}
+                            className={tab === "all" ? "active" : ""}
+                            onClick={() => setTab("all")}
+                        >
+                            {isVi ? "Tất cả" : "All"} ({combinedItems.length})
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === "unread"}
+                            className={tab === "unread" ? "active" : ""}
+                            onClick={() => setTab("unread")}
+                        >
+                            {isVi ? "Chưa đọc" : "Unread"} ({unreadCount})
+                        </button>
+                    </div>
+
+                    <div className="admin-notif-list">
+                        {filteredItems.length === 0 ? (
+                            <div className="admin-notif-empty">
+                                <span className="admin-notif-empty-icon">
+                                    <AdminIcon name="checkCircle" size={22} />
+                                </span>
+                                <p>
+                                    {tab === "unread"
+                                        ? isVi
+                                            ? "Bạn đã đọc hết mọi thông báo!"
+                                            : "You're all caught up!"
+                                        : isVi
+                                          ? "Không có thông báo mới"
+                                          : "No new notifications"}
+                                </p>
+                            </div>
                         ) : (
-                            items.map((item) => (
+                            filteredItems.map((item) => (
                                 <Link
                                     key={item.id}
                                     href={item.href}
                                     onClick={() => markAsRead(item.id)}
-                                    style={{
-                                        display: "block",
-                                        padding: "12px 16px",
-                                        borderBottom: "1px solid #f1f5f9",
-                                        background: item.read
-                                            ? "#ffffff"
-                                            : "#f8fafc",
-                                        textDecoration: "none",
-                                        transition: "background 0.15s ease",
-                                    }}
+                                    className={`admin-notif-item ${item.read ? "is-read" : "is-unread"}`}
                                 >
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "baseline",
-                                            marginBottom: "3px",
-                                        }}
+                                    <span
+                                        className={`admin-notif-type-icon type-${item.type}`}
                                     >
-                                        <span
-                                            style={{
-                                                fontSize: "13px",
-                                                fontWeight: item.read ? 600 : 700,
-                                                color: item.read
-                                                    ? "#334155"
-                                                    : "#0f172a",
-                                            }}
-                                        >
-                                            {item.type === "lot"
-                                                ? "📋 "
-                                                : item.type === "application"
-                                                  ? "🏢 "
-                                                  : "👤 "}
-                                            {isVi ? item.titleVi : item.titleEn}
-                                        </span>
-                                        <small
-                                            style={{
-                                                fontSize: "11px",
-                                                color: "#94a3b8",
-                                            }}
-                                        >
-                                            {isVi ? item.timeVi : item.timeEn}
-                                        </small>
+                                        <AdminIcon
+                                            name={getIconName(item.type)}
+                                            size={16}
+                                        />
+                                    </span>
+                                    <div className="admin-notif-content">
+                                        <div className="admin-notif-top">
+                                            <span className="admin-notif-item-title">
+                                                {isVi
+                                                    ? item.titleVi
+                                                    : item.titleEn}
+                                            </span>
+                                            <small className="admin-notif-time">
+                                                {isVi
+                                                    ? item.timeVi
+                                                    : item.timeEn}
+                                            </small>
+                                        </div>
+                                        <p className="admin-notif-desc">
+                                            {isVi ? item.descVi : item.descEn}
+                                        </p>
                                     </div>
-                                    <p
-                                        style={{
-                                            margin: 0,
-                                            fontSize: "12px",
-                                            color: "#64748b",
-                                            lineHeight: "1.4",
-                                        }}
-                                    >
-                                        {isVi ? item.descVi : item.descEn}
-                                    </p>
+                                    {!item.read && (
+                                        <span
+                                            className="admin-notif-dot"
+                                            aria-hidden="true"
+                                        />
+                                    )}
                                 </Link>
                             ))
                         )}
                     </div>
 
-                    <div
-                        style={{
-                            padding: "10px 16px",
-                            background: "#fafafa",
-                            borderTop: "1px solid #f1f5f9",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            fontSize: "12px",
-                        }}
-                    >
+                    <div className="admin-dropdown-footer">
                         <Link
                             href="/admin/parking-lots/pending"
                             onClick={() => setIsOpen(false)}
-                            style={{
-                                color: "#0f172a",
-                                fontWeight: 600,
-                                textDecoration: "none",
-                            }}
+                            className="admin-dropdown-footer-link"
                         >
-                            {isVi
-                                ? `Xem hàng chờ duyệt (${pendingLotsCount})`
-                                : `Review queue (${pendingLotsCount})`} →
+                            <span>
+                                {isVi
+                                    ? `Xem hàng chờ duyệt (${pendingLotsCount})`
+                                    : `Review queue (${pendingLotsCount})`}
+                            </span>
+                            <AdminIcon name="arrow" size={14} />
                         </Link>
                     </div>
                 </div>

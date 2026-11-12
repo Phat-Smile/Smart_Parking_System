@@ -5,8 +5,10 @@ using Microsoft.Extensions.Options;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.Login;
+using ParkingSystem.Identity.Application.Accounts.Mfa;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
+using ParkingSystem.Identity.Domain.Mfa;
 using ParkingSystem.Identity.Infrastructure.Security;
 using Xunit;
 
@@ -61,14 +63,14 @@ public sealed class LoginTests
         var result = await handler.Handle(new LoginCommand("  User@Example.COM ", CorrectPassword), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("signed-jwt-token", result.Value!.AccessToken);
-        Assert.Equal("Bearer", result.Value.TokenType);
-        Assert.Equal(900, result.Value.ExpiresIn);
-        Assert.Equal("raw-refresh-token", result.Value.RefreshToken);
-        Assert.Equal(account.Id, result.Value.Account.Id);
-        Assert.Equal("user@example.com", result.Value.Account.Email);
-        Assert.Equal("EmailVerified", result.Value.Account.Status);
-        Assert.Equal("Customer", result.Value.Account.Role);
+        Assert.Equal("signed-jwt-token", result.Value!.Session!.AccessToken);
+        Assert.Equal("Bearer", result.Value.Session!.TokenType);
+        Assert.Equal(900, result.Value.Session!.ExpiresIn);
+        Assert.Equal("raw-refresh-token", result.Value.Session!.RefreshToken);
+        Assert.Equal(account.Id, result.Value.Session!.Account.Id);
+        Assert.Equal("user@example.com", result.Value.Session!.Account.Email);
+        Assert.Equal("EmailVerified", result.Value.Session!.Account.Status);
+        Assert.Equal("Customer", result.Value.Session!.Account.Role);
 
         var savedRefreshToken = Assert.Single(refreshTokenRepo.Saved);
         Assert.Equal(account.Id, savedRefreshToken.AccountId);
@@ -421,7 +423,8 @@ public sealed class LoginTests
             using var issuer = new JwtTokenIssuer(options);
             var account = Account.Register(Guid.NewGuid(), "test@smartparking.io", "hash", null, InitialTime);
 
-            var token = issuer.IssueAccessToken(account, InitialTime);
+            var sessionId = Guid.NewGuid();
+            var token = issuer.IssueAccessToken(account, sessionId, "pwd", InitialTime);
             Assert.NotNull(token);
 
             var parts = token.Split('.');
@@ -440,6 +443,7 @@ public sealed class LoginTests
             Assert.Equal(account.Id.ToString(), root.GetProperty("sub").GetString());
             Assert.Equal("test@smartparking.io", root.GetProperty("email").GetString());
             Assert.Equal("Customer", root.GetProperty("role").GetString());
+            Assert.Equal(sessionId.ToString(), root.GetProperty("sid").GetString());
             Assert.Equal("ParkingSystem.Identity", root.GetProperty("iss").GetString());
             Assert.Equal("ParkingSystem", root.GetProperty("aud").GetString());
             Assert.Equal(InitialTime.ToUnixTimeSeconds(), root.GetProperty("iat").GetInt64());
@@ -639,7 +643,23 @@ public sealed class LoginTests
         IRefreshTokenGenerator refreshTokenGenerator,
         IClock clock,
         IAuthSessionRepository? authSessions = null) =>
-        new(accounts, authSessions ?? new FakeAuthSessionRepository(), refreshTokens, passwordHasher, jwtTokenIssuer, refreshTokenGenerator, clock);
+        new(accounts, authSessions ?? new FakeAuthSessionRepository(), refreshTokens, passwordHasher, jwtTokenIssuer, refreshTokenGenerator,
+            clock, new MfaLoginGate(new NoMfaRepository()));
+
+    // Các test đăng nhập ở đây đều cho tài khoản chưa bật MFA; luồng MFA được test trên PostgreSQL thật.
+    private sealed class NoMfaRepository : IMfaRepository
+    {
+        public Task<AccountMfa?> FindAsync(Guid accountId, CancellationToken cancellationToken) => Task.FromResult<AccountMfa?>(null);
+        public Task<bool> IsEnabledAsync(Guid accountId, CancellationToken cancellationToken) => Task.FromResult(false);
+        public void Add(AccountMfa mfa) => throw new NotSupportedException();
+        public void Remove(AccountMfa mfa) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MfaRecoveryCode>> ListUnusedRecoveryCodesAsync(Guid accountId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public void AddRecoveryCodes(IEnumerable<MfaRecoveryCode> codes) => throw new NotSupportedException();
+        public Task DeleteRecoveryCodesAsync(Guid accountId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public void AddChallenge(MfaChallenge challenge) => throw new NotSupportedException();
+        public Task<MfaChallenge?> FindChallengeByTokenHashAsync(string tokenHash, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task ReloadAsync(MfaChallenge challenge, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
 
     private sealed class FakeAuthSessionRepository : IAuthSessionRepository
     {
@@ -725,6 +745,8 @@ public sealed class LoginTests
         public int AccessTokenExpirationSeconds => expirationSeconds;
 
         public string IssueAccessToken(Account account, DateTimeOffset nowUtc) => token;
+
+        public string IssueAccessToken(Account account, Guid sessionId, string authenticationMethods, DateTimeOffset nowUtc) => token;
     }
 
     private sealed class FakeRefreshTokenGenerator(string rawToken, string tokenHash) : IRefreshTokenGenerator

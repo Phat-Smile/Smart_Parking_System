@@ -1,8 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { changePassword } from "@/features/auth/changePassword";
+import { logoutAllParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
+import { ApiError } from "@/shared/errors/api-error";
 
 export function ProfilePasswordChange() {
+    const router = useRouter();
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -12,11 +17,14 @@ export function ProfilePasswordChange() {
         newPassword?: string;
         confirmPassword?: string;
     }>({});
+    const [apiError, setApiError] = useState<string | null>(null);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setApiError(null);
         const newErrors: typeof errors = {};
 
         if (!currentPassword) {
@@ -47,13 +55,43 @@ export function ProfilePasswordChange() {
         if (Object.keys(newErrors).length > 0) return;
 
         setIsSubmitting(true);
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-        setErrors({});
-        setToastMessage("Đã đổi mật khẩu");
-        setIsSubmitting(false);
-        setTimeout(() => setToastMessage(null), 3000);
+        try {
+            await changePassword(currentPassword, newPassword);
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+            setErrors({});
+            setToastMessage("Đã đổi mật khẩu thành công!");
+            setTimeout(() => setToastMessage(null), 3000);
+        } catch (err: unknown) {
+            if (err instanceof ApiError) {
+                setApiError(
+                    err.message ||
+                        "Mật khẩu hiện tại không chính xác hoặc vi phạm chính sách bảo mật.",
+                );
+            } else {
+                setApiError("Đã có lỗi xảy ra khi đổi mật khẩu.");
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleLogoutAll = async () => {
+        if (
+            !window.confirm(
+                "Bạn có chắc chắn muốn đăng xuất khỏi tất cả các thiết bị?",
+            )
+        ) {
+            return;
+        }
+        setIsLoggingOutAll(true);
+        try {
+            await logoutAllParkWiseAccount();
+            router.push("/login");
+        } catch {
+            router.push("/login");
+        }
     };
 
     return (
@@ -257,6 +295,24 @@ export function ProfilePasswordChange() {
                     </div>
                 </div>
 
+                {apiError && (
+                    <div
+                        role="alert"
+                        style={{
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            background: "#fde8e8",
+                            border: "1px solid #fbd5d5",
+                            color: "#9b1c1c",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            marginBottom: 16,
+                        }}
+                    >
+                        ⚠️ {apiError}
+                    </div>
+                )}
+
                 <button
                     type="submit"
                     disabled={isSubmitting}
@@ -298,6 +354,63 @@ export function ProfilePasswordChange() {
                     {toastMessage}
                 </div>
             )}
+
+            {/* Session Security Card - US-AUTH-005 */}
+            <div
+                style={{
+                    marginTop: 24,
+                    paddingTop: 20,
+                    borderTop: "1px solid #e3e8f2",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 16,
+                }}
+            >
+                <div>
+                    <div
+                        style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: "#0f1b3d",
+                        }}
+                    >
+                        Phiên đăng nhập & Thiết bị
+                    </div>
+                    <div
+                        style={{
+                            fontSize: 12.5,
+                            color: "#6a7491",
+                            marginTop: 2,
+                        }}
+                    >
+                        Đăng xuất khỏi tất cả thiết bị khác đang lưu tài khoản
+                        của bạn
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleLogoutAll}
+                    disabled={isLoggingOutAll}
+                    style={{
+                        background: "#fff",
+                        color: "#e5484d",
+                        border: "1.5px solid #fbd5d5",
+                        borderRadius: 10,
+                        padding: "8px 16px",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: isLoggingOutAll ? "not-allowed" : "pointer",
+                        opacity: isLoggingOutAll ? 0.6 : 1,
+                        transition: "all 0.15s ease",
+                    }}
+                >
+                    {isLoggingOutAll
+                        ? "Đang xử lý..."
+                        : "Đăng xuất tất cả thiết bị"}
+                </button>
+            </div>
         </div>
     );
 }
