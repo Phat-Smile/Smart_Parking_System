@@ -26,16 +26,23 @@ public sealed class ReservationNoShowWorker(
         var intervalSeconds = _options.IntervalSeconds > 0 ? _options.IntervalSeconds : 60;
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
 
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
             {
-                await ProcessNoShowsAsync(stoppingToken);
+                try
+                {
+                    await ProcessNoShowsAsync(stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogError(ex, "Unexpected error in reservation no-show worker cycle.");
+                }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogError(ex, "Unexpected error in reservation no-show worker cycle.");
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Expected during graceful application shutdown.
         }
     }
 

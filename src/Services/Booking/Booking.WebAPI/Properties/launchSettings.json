@@ -14,7 +14,8 @@
         "Security__Jwt__PublicKeyPath": "../../../../.local/security/jwt/public.pem",
         "ParkingService__GrpcEndpoint": "http://localhost:5102",
         "IdentityService__GrpcEndpoint": "http://localhost:5101",
-        "PaymentService__GrpcEndpoint": "http://localhost:5104"
+        "PaymentService__GrpcEndpoint": "http://localhost:5104",
+        "ArrivalIntegration__Key": "arrival_secret_local_dev_only"
       }
     }
   }

@@ -24,16 +24,23 @@ public sealed class ReservationPaymentReconciliationWorker(
         var intervalSeconds = _options.IntervalSeconds > 0 ? _options.IntervalSeconds : 60;
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
 
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
             {
-                await ReconcileBatchAsync(stoppingToken);
+                try
+                {
+                    await ReconcileBatchAsync(stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogError(ex, "Unexpected error in reservation payment reconciliation worker cycle.");
+                }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogError(ex, "Unexpected error in reservation payment reconciliation worker cycle.");
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Expected during graceful application shutdown.
         }
     }
 
