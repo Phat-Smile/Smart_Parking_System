@@ -1026,7 +1026,7 @@ th {
 .pricing-top-bar {
     background: #ffffff;
     border-radius: 14px;
-    border: 1px solid #E1E7DE;
+    border: 1px solid #e1e7de;
     padding: 14px 22px;
     display: flex;
     justify-content: space-between;
@@ -1051,7 +1051,7 @@ th {
 .pricing-card {
     background: #ffffff;
     border-radius: 16px;
-    border: 1px solid #E1E7DE;
+    border: 1px solid #e1e7de;
     padding: 24px;
     box-sizing: border-box;
     display: flex;
@@ -1093,7 +1093,7 @@ th {
 .pricing-sim-card {
     background: #ffffff;
     border-radius: 16px;
-    border: 1px solid #E1E7DE;
+    border: 1px solid #e1e7de;
     padding: 26px;
     box-sizing: border-box;
     width: 100%;

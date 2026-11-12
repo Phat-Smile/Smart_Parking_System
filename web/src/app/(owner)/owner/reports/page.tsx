@@ -47,7 +47,8 @@ export default function ReportsPage() {
             {/* Banner Thông báo Chế độ Thống Kê Mẫu */}
             <div
                 style={{
-                    background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                    background:
+                        "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
                     border: "1.5px solid #cbd5e1",
                     borderRadius: 14,
                     padding: "14px 20px",
@@ -61,11 +62,26 @@ export default function ReportsPage() {
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div>
-                        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 13.5 }}>
+                        <div
+                            style={{
+                                fontWeight: 800,
+                                color: "#0f172a",
+                                fontSize: 13.5,
+                            }}
+                        >
                             Chế độ Dữ liệu Thống Kê Mẫu (Demonstration Mode)
                         </div>
-                        <div style={{ fontSize: 12.5, color: "#64748b", marginTop: 2 }}>
-                            Số liệu doanh thu, lưu lượng xe theo giờ và tỷ trọng phương thức thanh toán đang được minh họa trực quan. Khi các bãi xe phát sinh giao dịch thật, báo cáo sẽ tự động đối soát thời gian thực.
+                        <div
+                            style={{
+                                fontSize: 12.5,
+                                color: "#64748b",
+                                marginTop: 2,
+                            }}
+                        >
+                            Số liệu doanh thu, lưu lượng xe theo giờ và tỷ trọng
+                            phương thức thanh toán đang được minh họa trực quan.
+                            Khi các bãi xe phát sinh giao dịch thật, báo cáo sẽ
+                            tự động đối soát thời gian thực.
                         </div>
                     </div>
                 </div>

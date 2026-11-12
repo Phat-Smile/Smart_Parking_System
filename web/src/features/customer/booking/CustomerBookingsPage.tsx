@@ -188,27 +188,27 @@ export default function BookingsPage() {
         } catch (err: unknown) {
             if (err instanceof ApiError) {
                 setCancelError(
-                        err.status === 401
-                            ? copy(
-                                  "Sign in to cancel this booking.",
-                                  "Vui lòng đăng nhập để hủy đặt chỗ này.",
-                              )
-                            : err.status === 403
-                              ? copy(
-                                    "You do not have permission to cancel this booking.",
-                                    "Bạn không có quyền hủy đặt chỗ này.",
-                                )
-                              : copy(
-                                    "Could not cancel the booking. Please try again.",
-                                    "Không thể hủy đặt chỗ. Vui lòng thử lại.",
-                                ),
+                    err.status === 401
+                        ? copy(
+                              "Sign in to cancel this booking.",
+                              "Vui lòng đăng nhập để hủy đặt chỗ này.",
+                          )
+                        : err.status === 403
+                          ? copy(
+                                "You do not have permission to cancel this booking.",
+                                "Bạn không có quyền hủy đặt chỗ này.",
+                            )
+                          : copy(
+                                "Could not cancel the booking. Please try again.",
+                                "Không thể hủy đặt chỗ. Vui lòng thử lại.",
+                            ),
                 );
             } else {
                 setCancelError(
-                        copy(
-                            "Something went wrong while cancelling the booking.",
-                            "Đã xảy ra lỗi khi hủy đặt chỗ.",
-                        ),
+                    copy(
+                        "Something went wrong while cancelling the booking.",
+                        "Đã xảy ra lỗi khi hủy đặt chỗ.",
+                    ),
                 );
             }
         } finally {
@@ -340,7 +340,10 @@ export default function BookingsPage() {
 
             {/* Trạng thái Lỗi */}
             {!loading && error && (
-                <div className="p-6 pb-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3" role="alert">
+                <div
+                    className="p-6 pb-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3"
+                    role="alert"
+                >
                     <AlertCircle size={32} className="mx-auto text-red-400" />
                     <p className="text-red-300 text-sm font-medium">{error}</p>
                     <button

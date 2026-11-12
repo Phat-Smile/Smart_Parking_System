@@ -150,7 +150,11 @@ export default function ParkingLotDetailPage() {
                         <Link
                             href={`/owner/lots/${lot?.backendId || id}/policies`}
                             className="btn"
-                            style={{ background: "#eef2ff", color: "#1e19d8", fontWeight: 700 }}
+                            style={{
+                                background: "#eef2ff",
+                                color: "#1e19d8",
+                                fontWeight: 700,
+                            }}
                         >
                             Chính sách đặt chỗ & cọc
                         </Link>
@@ -163,7 +167,11 @@ export default function ParkingLotDetailPage() {
                         <Link
                             href={`/owner/lots/${lot?.backendId || id}/staff`}
                             className="btn"
-                            style={{ background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }}
+                            style={{
+                                background: "#f0fdfa",
+                                color: "#0f766e",
+                                fontWeight: 700,
+                            }}
                         >
                             Nhân viên
                         </Link>
@@ -403,14 +411,13 @@ export default function ParkingLotDetailPage() {
                                                         features: {
                                                             ...lot?.features,
                                                             [item.key]:
-                                                                e.target.checked,
+                                                                e.target
+                                                                    .checked,
                                                         },
                                                     })
                                                 }
                                             />
-                                            <span>
-                                                {item.label}
-                                            </span>
+                                            <span>{item.label}</span>
                                         </label>
                                     );
                                 })}

@@ -91,7 +91,10 @@ export default function CustomerMapScene({
                         aria-pressed={selectedId === pin.id}
                         onClick={() => onSelect(pin.id)}
                     >
-                        <i className="fa-solid fa-car-rear" aria-hidden="true" />
+                        <i
+                            className="fa-solid fa-car-rear"
+                            aria-hidden="true"
+                        />
                     </button>
                 </Marker>
             ))}

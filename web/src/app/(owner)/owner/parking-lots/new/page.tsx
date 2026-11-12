@@ -509,7 +509,8 @@ export default function NewParkingLotPage() {
                                         color: "var(--ink)",
                                     }}
                                 >
-                                    Tiện ích & Đặc tính bãi đỗ (Parking Lot Features)
+                                    Tiện ích & Đặc tính bãi đỗ (Parking Lot
+                                    Features)
                                 </strong>
                                 <p
                                     style={{
@@ -518,7 +519,8 @@ export default function NewParkingLotPage() {
                                         margin: "4px 0 0",
                                     }}
                                 >
-                                    Các đặc tính này sẽ hiển thị trên bộ lọc tìm kiếm cho khách hàng sau khi bãi được duyệt.
+                                    Các đặc tính này sẽ hiển thị trên bộ lọc tìm
+                                    kiếm cho khách hàng sau khi bãi được duyệt.
                                 </p>
                             </div>
                             <div
@@ -587,7 +589,8 @@ export default function NewParkingLotPage() {
                                                         features: {
                                                             ...data.features,
                                                             [item.key]:
-                                                                e.target.checked,
+                                                                e.target
+                                                                    .checked,
                                                         },
                                                     })
                                                 }
@@ -782,36 +785,109 @@ export default function NewParkingLotPage() {
                                     <tr>
                                         <td>Tiện ích khai báo</td>
                                         <td>
-                                            {Object.values(data.features || {}).some(Boolean) ? (
-                                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                                    {data.features?.supportsElectricVehicles && (
-                                                        <span className="pw-badge" style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                            {Object.values(
+                                                data.features || {},
+                                            ).some(Boolean) ? (
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        gap: 6,
+                                                        flexWrap: "wrap",
+                                                    }}
+                                                >
+                                                    {data.features
+                                                        ?.supportsElectricVehicles && (
+                                                        <span
+                                                            className="pw-badge"
+                                                            style={{
+                                                                background:
+                                                                    "#e0f2fe",
+                                                                color: "#0369a1",
+                                                                padding:
+                                                                    "2px 8px",
+                                                                borderRadius: 6,
+                                                                fontSize: 11,
+                                                            }}
+                                                        >
                                                             Xe điện (EV)
                                                         </span>
                                                     )}
-                                                    {data.features?.hasEvCharging && (
-                                                        <span className="pw-badge" style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                    {data.features
+                                                        ?.hasEvCharging && (
+                                                        <span
+                                                            className="pw-badge"
+                                                            style={{
+                                                                background:
+                                                                    "#fef3c7",
+                                                                color: "#b45309",
+                                                                padding:
+                                                                    "2px 8px",
+                                                                borderRadius: 6,
+                                                                fontSize: 11,
+                                                            }}
+                                                        >
                                                             Trạm sạc EV
                                                         </span>
                                                     )}
                                                     {data.features?.hasCctv && (
-                                                        <span className="pw-badge" style={{ background: "#f3e8ff", color: "#6b21a8", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                        <span
+                                                            className="pw-badge"
+                                                            style={{
+                                                                background:
+                                                                    "#f3e8ff",
+                                                                color: "#6b21a8",
+                                                                padding:
+                                                                    "2px 8px",
+                                                                borderRadius: 6,
+                                                                fontSize: 11,
+                                                            }}
+                                                        >
                                                             Camera 24/7
                                                         </span>
                                                     )}
-                                                    {data.features?.isCovered && (
-                                                        <span className="pw-badge" style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                    {data.features
+                                                        ?.isCovered && (
+                                                        <span
+                                                            className="pw-badge"
+                                                            style={{
+                                                                background:
+                                                                    "#dcfce7",
+                                                                color: "#15803d",
+                                                                padding:
+                                                                    "2px 8px",
+                                                                borderRadius: 6,
+                                                                fontSize: 11,
+                                                            }}
+                                                        >
                                                             Có mái che
                                                         </span>
                                                     )}
-                                                    {data.features?.supportsLargeVehicles && (
-                                                        <span className="pw-badge" style={{ background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                    {data.features
+                                                        ?.supportsLargeVehicles && (
+                                                        <span
+                                                            className="pw-badge"
+                                                            style={{
+                                                                background:
+                                                                    "#f1f5f9",
+                                                                color: "#334155",
+                                                                padding:
+                                                                    "2px 8px",
+                                                                borderRadius: 6,
+                                                                fontSize: 11,
+                                                            }}
+                                                        >
                                                             Xe cỡ lớn
                                                         </span>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <span style={{ color: "var(--muted)" }}>Chưa chọn tiện ích bổ sung</span>
+                                                <span
+                                                    style={{
+                                                        color: "var(--muted)",
+                                                    }}
+                                                >
+                                                    Chưa chọn tiện ích bổ sung
+                                                </span>
                                             )}
                                         </td>
                                     </tr>
