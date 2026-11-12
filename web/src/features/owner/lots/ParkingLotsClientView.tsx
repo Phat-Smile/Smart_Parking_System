@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { OwnerMapbox } from "@/features/owner/lots/OwnerMapbox";
 import { LotStatusPanel } from "@/features/owner/lots/LotStatusPanel";
@@ -102,6 +103,47 @@ export function ParkingLotsClientView({
                     );
                 })}
             </div>
+
+            {/* Empty State when no lots match */}
+            {filteredLots.length === 0 && (
+                <div
+                    style={{
+                        background: "#fff",
+                        borderRadius: 18,
+                        border: "1px solid #e3e8f2",
+                        padding: "48px 24px",
+                        textAlign: "center",
+                        boxShadow: "0 2px 6px rgba(15,27,61,0.04)",
+                        marginBottom: 20,
+                    }}
+                >
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>🅿️</div>
+                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f1b3d", margin: "0 0 8px" }}>
+                        Chưa có bãi đỗ xe nào trong danh mục này
+                    </h3>
+                    <p style={{ color: "#64748b", fontSize: 14, maxWidth: 520, margin: "0 auto 20px" }}>
+                        Hãy đăng ký bãi đỗ xe mới để bắt đầu thiết lập sơ đồ ô đỗ, bảng giá cước và đưa bãi xe vào hoạt động.
+                    </p>
+                    <Link
+                        href="/owner/parking-lots/new"
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            background: "#E6F85E",
+                            color: "#09090B",
+                            padding: "10px 20px",
+                            borderRadius: 10,
+                            fontWeight: 800,
+                            fontSize: 14,
+                            textDecoration: "none",
+                            boxShadow: "0 2px 8px rgba(230,248,94,0.3)",
+                        }}
+                    >
+                        + Đăng ký bãi xe mới →
+                    </Link>
+                </div>
+            )}
 
             {/* Lot Cards Grid */}
             {filteredLots.length === 0 ? (

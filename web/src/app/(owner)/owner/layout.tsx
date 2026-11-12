@@ -21,11 +21,12 @@ export default function OwnerRootLayout({ children }: { children: ReactNode }) {
         pathname?.startsWith("/owner/register") ||
         pathname === "/owner/onboarding" ||
         pathname?.startsWith("/owner/onboarding");
+    const isSimulation = pathname?.startsWith("/owner/simulation");
     const [lotsError, setLotsError] = useState("");
 
     // The portal shows the signed-in owner's lots from Parking (D02.5), not the design list.
     useEffect(() => {
-        if (isAuthPage) return;
+        if (isAuthPage || isSimulation) return;
         loadOwnerLots()
             .then(() => setLotsError(""))
             .catch(() =>
@@ -33,7 +34,7 @@ export default function OwnerRootLayout({ children }: { children: ReactNode }) {
                     "Không tải được danh sách bãi của bạn từ máy chủ. Vui lòng đăng nhập lại hoặc thử lại sau.",
                 ),
             );
-    }, [isAuthPage]);
+    }, [isAuthPage, isSimulation]);
 
     if (isAuthPage) {
         return (

@@ -177,7 +177,7 @@ describe("OwnerLayoutEditorPage", () => {
             expect(screen.getByText(/Tầng 1/)).toBeInTheDocument();
         });
 
-        const saveBtn = screen.getByText("💾 Lưu sơ đồ");
+        const saveBtn = screen.getByText("Lưu sơ đồ");
         fireEvent.click(saveBtn);
 
         await waitFor(() => {
@@ -213,7 +213,7 @@ describe("OwnerLayoutEditorPage", () => {
             expect(screen.getByText(/Tầng 1/)).toBeInTheDocument();
         });
 
-        const saveBtn = screen.getByText("💾 Lưu sơ đồ");
+        const saveBtn = screen.getByText("Lưu sơ đồ");
         fireEvent.click(saveBtn);
 
         await waitFor(() => {
