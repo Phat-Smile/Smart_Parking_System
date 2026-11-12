@@ -199,7 +199,7 @@ describe("OwnerOpeningHoursPage", () => {
         expect(mondayCloseSelect).toHaveValue("22:00");
 
         // 07:00 to 22:00 = 15 hours
-        expect(screen.getByText("⏳ 15 tiếng/ngày")).toBeInTheDocument();
+        expect(screen.getByText("15 tiếng/ngày")).toBeInTheDocument();
     });
 
     it("allows switching day mode to 24/7 or Closed", async () => {

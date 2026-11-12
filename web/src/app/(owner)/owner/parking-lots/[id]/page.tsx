@@ -148,16 +148,24 @@ export default function ParkingLotDetailPage() {
                             ← Danh sách
                         </Link>
                         <Link
-                            href={`/owner/lots/${id}/policies`}
+                            href={`/owner/lots/${lot?.backendId || id}/policies`}
                             className="btn"
+                            style={{ background: "#eef2ff", color: "#1e19d8", fontWeight: 700 }}
                         >
                             Chính sách đặt chỗ & cọc
                         </Link>
                         <Link
-                            href={`/owner/lots/${id}/pricing`}
+                            href={`/owner/lots/${lot?.backendId || id}/pricing`}
                             className="btn"
                         >
                             Biểu giá
+                        </Link>
+                        <Link
+                            href={`/owner/lots/${lot?.backendId || id}/staff`}
+                            className="btn"
+                            style={{ background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }}
+                        >
+                            Nhân viên
                         </Link>
                         {!isPending &&
                             (editing ? (
@@ -282,6 +290,132 @@ export default function ParkingLotDetailPage() {
                                 }
                             />
                         </label>
+
+                        {/* Tiện ích bãi xe */}
+                        <div
+                            style={{
+                                marginTop: 20,
+                                paddingTop: 16,
+                                borderTop: "1px solid var(--line)",
+                            }}
+                        >
+                            <span
+                                style={{
+                                    display: "block",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color: "var(--ink)",
+                                    marginBottom: 8,
+                                }}
+                            >
+                                Tiện ích & Đặc tính khai báo
+                            </span>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                }}
+                            >
+                                {[
+                                    {
+                                        key: "supportsElectricVehicles" as const,
+                                        label: "Xe điện (EV)",
+                                    },
+                                    {
+                                        key: "hasEvCharging" as const,
+                                        label: "Trạm sạc EV",
+                                    },
+                                    {
+                                        key: "hasCctv" as const,
+                                        label: "Camera an ninh",
+                                    },
+                                    {
+                                        key: "isCovered" as const,
+                                        label: "Có mái che",
+                                    },
+                                    {
+                                        key: "supportsLargeVehicles" as const,
+                                        label: "Xe cỡ lớn / SUV",
+                                    },
+                                ].map((item) => {
+                                    const active = Boolean(
+                                        lot?.features?.[item.key],
+                                    );
+                                    if (isLocked) {
+                                        return (
+                                            <span
+                                                key={item.key}
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                    padding: "6px 12px",
+                                                    borderRadius: 8,
+                                                    fontSize: 12,
+                                                    fontWeight: 600,
+                                                    background: active
+                                                        ? "#f0f9ff"
+                                                        : "#f1f5f9",
+                                                    color: active
+                                                        ? "#0369a1"
+                                                        : "#94a3b8",
+                                                    border: active
+                                                        ? "1px solid #bae6fd"
+                                                        : "1px solid #e2e8f0",
+                                                }}
+                                            >
+                                                <span>{item.label}</span>
+                                                <span>
+                                                    {active ? "✓" : "—"}
+                                                </span>
+                                            </span>
+                                        );
+                                    }
+                                    return (
+                                        <label
+                                            key={item.key}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 6,
+                                                padding: "6px 12px",
+                                                borderRadius: 8,
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                cursor: "pointer",
+                                                background: active
+                                                    ? "#f0f9ff"
+                                                    : "var(--card)",
+                                                color: active
+                                                    ? "#0369a1"
+                                                    : "var(--muted)",
+                                                border: active
+                                                    ? "1.5px solid #0284c7"
+                                                    : "1px solid var(--line)",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={active}
+                                                onChange={(e) =>
+                                                    updateLot(lot.id, {
+                                                        features: {
+                                                            ...lot?.features,
+                                                            [item.key]:
+                                                                e.target.checked,
+                                                        },
+                                                    })
+                                                }
+                                            />
+                                            <span>
+                                                {item.label}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 )}
 
