@@ -61,7 +61,10 @@ export function subscribeOwnerViewMode(listener: () => void) {
  * Hook useOwnerViewMode:
  * Cung cấp ngữ cảnh phân biệt tuyệt đối giữa "live" (Dashboard chính) và "sample" (Bản mẫu/Sandbox).
  */
-export function useOwnerViewMode(): [OwnerViewMode, (mode: OwnerViewMode) => void] {
+export function useOwnerViewMode(): [
+    OwnerViewMode,
+    (mode: OwnerViewMode) => void,
+] {
     const mode = useSyncExternalStore(
         subscribeOwnerViewMode,
         getOwnerViewMode,

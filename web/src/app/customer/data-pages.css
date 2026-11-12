@@ -227,7 +227,11 @@
     padding: clamp(28px, 5vw, 56px);
     border-color: #dce5d0 !important;
     background:
-        radial-gradient(circle at 50% 0%, rgb(234 254 137 / 25%), transparent 48%),
+        radial-gradient(
+            circle at 50% 0%,
+            rgb(234 254 137 / 25%),
+            transparent 48%
+        ),
         #fff !important;
     box-shadow: 0 14px 36px rgb(23 35 59 / 6%);
 }

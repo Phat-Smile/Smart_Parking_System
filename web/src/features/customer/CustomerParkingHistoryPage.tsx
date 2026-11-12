@@ -116,19 +116,13 @@ export default function ParkingHistoryPage() {
                         <option value="">
                             {copy("All statuses", "Tất cả trạng thái")}
                         </option>
-                        <option
-                            value="Active"
-                        >
+                        <option value="Active">
                             {copy("Active (in lot)", "Đang đỗ xe")}
                         </option>
-                        <option
-                            value="Completed"
-                        >
+                        <option value="Completed">
                             {copy("Completed", "Đã hoàn thành")}
                         </option>
-                        <option
-                            value="Cancelled"
-                        >
+                        <option value="Cancelled">
                             {copy("Cancelled", "Đã hủy")}
                         </option>
                     </select>
@@ -195,7 +189,6 @@ export default function ParkingHistoryPage() {
                                 "Không tìm thấy lịch sử đỗ xe",
                             )}
                         </h3>
-
                     </div>
                     <Link
                         href="/search"

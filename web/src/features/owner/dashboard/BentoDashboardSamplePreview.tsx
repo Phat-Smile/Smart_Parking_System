@@ -79,10 +79,38 @@ const TRAFFIC_7DAYS: TrafficDataPoint[] = [
 ];
 
 const TRAFFIC_MONTH: TrafficDataPoint[] = [
-    { time: "Tuần 1", inCount: 3120, outCount: 3010, x: 50, yIn: 115, yOut: 118 },
-    { time: "Tuần 2", inCount: 3450, outCount: 3380, x: 220, yIn: 105, yOut: 108 },
-    { time: "Tuần 3", inCount: 3890, outCount: 3750, x: 390, yIn: 75, yOut: 80 },
-    { time: "Tuần 4", inCount: 3620, outCount: 3510, x: 560, yIn: 95, yOut: 100 },
+    {
+        time: "Tuần 1",
+        inCount: 3120,
+        outCount: 3010,
+        x: 50,
+        yIn: 115,
+        yOut: 118,
+    },
+    {
+        time: "Tuần 2",
+        inCount: 3450,
+        outCount: 3380,
+        x: 220,
+        yIn: 105,
+        yOut: 108,
+    },
+    {
+        time: "Tuần 3",
+        inCount: 3890,
+        outCount: 3750,
+        x: 390,
+        yIn: 75,
+        yOut: 80,
+    },
+    {
+        time: "Tuần 4",
+        inCount: 3620,
+        outCount: 3510,
+        x: 560,
+        yIn: 95,
+        yOut: 100,
+    },
 ];
 
 const SAMPLE_SESSIONS = [
@@ -139,7 +167,9 @@ const SAMPLE_SESSIONS = [
 ];
 
 export function BentoDashboardSamplePreview() {
-    const [chartTimeframe, setChartTimeframe] = useState<"today" | "week" | "month">("today");
+    const [chartTimeframe, setChartTimeframe] = useState<
+        "today" | "week" | "month"
+    >("today");
     const [surgeAutoEnabled, setSurgeAutoEnabled] = useState(true);
     const [activePointIndex, setActivePointIndex] = useState<number>(4);
 
@@ -150,16 +180,19 @@ export function BentoDashboardSamplePreview() {
               ? TRAFFIC_7DAYS
               : TRAFFIC_MONTH;
 
-    const currentPoint = trafficData[Math.min(activePointIndex, trafficData.length - 1)];
+    const currentPoint =
+        trafficData[Math.min(activePointIndex, trafficData.length - 1)];
 
     const inPath = trafficData.reduce(
-        (acc, p, i) => (i === 0 ? `M ${p.x} ${p.yIn}` : `${acc} L ${p.x} ${p.yIn}`),
+        (acc, p, i) =>
+            i === 0 ? `M ${p.x} ${p.yIn}` : `${acc} L ${p.x} ${p.yIn}`,
         "",
     );
     const inAreaPath = `${inPath} L ${trafficData[trafficData.length - 1].x} 160 L ${trafficData[0].x} 160 Z`;
 
     const outPath = trafficData.reduce(
-        (acc, p, i) => (i === 0 ? `M ${p.x} ${p.yOut}` : `${acc} L ${p.x} ${p.yOut}`),
+        (acc, p, i) =>
+            i === 0 ? `M ${p.x} ${p.yOut}` : `${acc} L ${p.x} ${p.yOut}`,
         "",
     );
 
@@ -168,19 +201,51 @@ export function BentoDashboardSamplePreview() {
             {/* ── ROW 1: 3 BENTO COLUMNS ── */}
             <div className="bento-row-top">
                 {/* CỘT 1: DOANH THU HÔM NAY + 3 THẺ PHÂN BỔ NHANH */}
-                <div className="bento-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div
+                    className="bento-card"
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                    }}
+                >
                     <div>
-                        <div className="bento-card-header" style={{ marginBottom: 8 }}>
+                        <div
+                            className="bento-card-header"
+                            style={{ marginBottom: 8 }}
+                        >
                             <div className="bento-card-title-wrap">
-                                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#EAF7EE", display: "flex", alignItems: "center", justifyContent: "center", color: "#19301D" }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <div
+                                    style={{
+                                        width: 22,
+                                        height: 22,
+                                        borderRadius: "50%",
+                                        background: "#EAF7EE",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "#19301D",
+                                    }}
+                                >
+                                    <svg
+                                        width="13"
+                                        height="13"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                    >
                                         <line x1="12" y1="1" x2="12" y2="23" />
                                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                                     </svg>
                                 </div>
-                                <h3 className="bento-card-title">Doanh thu hôm nay</h3>
+                                <h3 className="bento-card-title">
+                                    Doanh thu hôm nay
+                                </h3>
                             </div>
-                            <span className="bento-badge-success">↑ +14.2% so với hôm qua</span>
+                            <span className="bento-badge-success">
+                                ↑ +14.2% so với hôm qua
+                            </span>
                         </div>
 
                         <div className="bento-rev-number">
@@ -191,12 +256,37 @@ export function BentoDashboardSamplePreview() {
                         </div>
 
                         {/* Sparkline wave */}
-                        <div style={{ width: "100%", height: 48, margin: "10px 0" }}>
-                            <svg viewBox="0 0 340 48" width="100%" height="100%" preserveAspectRatio="none">
+                        <div
+                            style={{
+                                width: "100%",
+                                height: 48,
+                                margin: "10px 0",
+                            }}
+                        >
+                            <svg
+                                viewBox="0 0 340 48"
+                                width="100%"
+                                height="100%"
+                                preserveAspectRatio="none"
+                            >
                                 <defs>
-                                    <linearGradient id="simWaveGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#269B62" stopOpacity="0.32" />
-                                        <stop offset="100%" stopColor="#269B62" stopOpacity="0.0" />
+                                    <linearGradient
+                                        id="simWaveGrad"
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="1"
+                                    >
+                                        <stop
+                                            offset="0%"
+                                            stopColor="#269B62"
+                                            stopOpacity="0.32"
+                                        />
+                                        <stop
+                                            offset="100%"
+                                            stopColor="#269B62"
+                                            stopOpacity="0.0"
+                                        />
                                     </linearGradient>
                                 </defs>
                                 <path
@@ -210,54 +300,115 @@ export function BentoDashboardSamplePreview() {
                                     strokeWidth="2.4"
                                     strokeLinecap="round"
                                 />
-                                <circle cx="340" cy="10" r="3.5" fill="#269B62" stroke="#FFFFFF" strokeWidth="2" />
+                                <circle
+                                    cx="340"
+                                    cy="10"
+                                    r="3.5"
+                                    fill="#269B62"
+                                    stroke="#FFFFFF"
+                                    strokeWidth="2"
+                                />
                             </svg>
                         </div>
                     </div>
 
                     <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#172018", margin: "10px 0 6px" }}>
+                        <div
+                            style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "#172018",
+                                margin: "10px 0 6px",
+                            }}
+                        >
                             Chỉ số phân bổ nhanh
                         </div>
                         <div className="bento-mini-kpis">
                             <div className="bento-mini-kpi-card highlight">
                                 <div className="bento-mini-kpi-label">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                                    <svg
+                                        width="11"
+                                        height="11"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                    >
+                                        <rect
+                                            x="2"
+                                            y="5"
+                                            width="20"
+                                            height="14"
+                                            rx="2"
+                                        />
                                         <circle cx="7" cy="15" r="2" />
                                         <circle cx="17" cy="15" r="2" />
                                     </svg>
                                     Bãi đông nhất
                                 </div>
                                 <div className="bento-mini-kpi-val">86%</div>
-                                <div className="bento-mini-kpi-desc">Nguyễn Huệ</div>
+                                <div className="bento-mini-kpi-desc">
+                                    Nguyễn Huệ
+                                </div>
                             </div>
 
                             <div className="bento-mini-kpi-card">
                                 <div className="bento-mini-kpi-label">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#269B62" strokeWidth="2.5">
+                                    <svg
+                                        width="11"
+                                        height="11"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="#269B62"
+                                        strokeWidth="2.5"
+                                    >
                                         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                                         <circle cx="8.5" cy="7" r="4" />
                                     </svg>
                                     Lượt gửi xe
                                 </div>
                                 <div className="bento-mini-kpi-val">476</div>
-                                <div className="bento-mini-kpi-desc" style={{ color: "#269B62", fontWeight: 700 }}>
+                                <div
+                                    className="bento-mini-kpi-desc"
+                                    style={{
+                                        color: "#269B62",
+                                        fontWeight: 700,
+                                    }}
+                                >
                                     ↑ +12% so với hôm qua
                                 </div>
                             </div>
 
                             <div className="bento-mini-kpi-card">
                                 <div className="bento-mini-kpi-label">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#718071" strokeWidth="2.5">
-                                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                                    <svg
+                                        width="11"
+                                        height="11"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="#718071"
+                                        strokeWidth="2.5"
+                                    >
+                                        <rect
+                                            x="3"
+                                            y="4"
+                                            width="18"
+                                            height="18"
+                                            rx="2"
+                                        />
                                         <line x1="16" y1="2" x2="16" y2="6" />
                                         <line x1="8" y1="2" x2="8" y2="6" />
                                     </svg>
                                     Đặt giữ chỗ
                                 </div>
                                 <div className="bento-mini-kpi-val">24</div>
-                                <div className="bento-mini-kpi-desc" style={{ color: "#269B62", fontWeight: 700 }}>
+                                <div
+                                    className="bento-mini-kpi-desc"
+                                    style={{
+                                        color: "#269B62",
+                                        fontWeight: 700,
+                                    }}
+                                >
                                     ↑ +8%
                                 </div>
                             </div>
@@ -269,23 +420,63 @@ export function BentoDashboardSamplePreview() {
                 <div className="bento-card">
                     <div className="bento-card-header">
                         <div className="bento-card-title-wrap">
-                            <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#EAF7EE", display: "flex", alignItems: "center", justifyContent: "center", color: "#19301D" }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <rect x="2" y="5" width="20" height="14" rx="2" />
+                            <div
+                                style={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: "50%",
+                                    background: "#EAF7EE",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "#19301D",
+                                }}
+                            >
+                                <svg
+                                    width="13"
+                                    height="13"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                >
+                                    <rect
+                                        x="2"
+                                        y="5"
+                                        width="20"
+                                        height="14"
+                                        rx="2"
+                                    />
                                     <circle cx="7" cy="15" r="2" />
                                     <circle cx="17" cy="15" r="2" />
                                 </svg>
                             </div>
-                            <h3 className="bento-card-title">Tình trạng sức chứa cơ sở bãi xe</h3>
+                            <h3 className="bento-card-title">
+                                Tình trạng sức chứa cơ sở bãi xe
+                            </h3>
                         </div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#718071" }}>
+                        <span
+                            style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "#718071",
+                            }}
+                        >
                             3 cơ sở mẫu
                         </span>
                     </div>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 10,
+                        }}
+                    >
                         {SAMPLE_LOTS.map((lot) => {
-                            const pct = Math.round((lot.occupied / lot.total) * 100);
+                            const pct = Math.round(
+                                (lot.occupied / lot.total) * 100,
+                            );
                             return (
                                 <div key={lot.id} className="bento-lot-item">
                                     <Image
@@ -297,8 +488,12 @@ export function BentoDashboardSamplePreview() {
                                     />
                                     <div className="bento-lot-info">
                                         <div className="bento-lot-name-row">
-                                            <h4 className="bento-lot-name">{lot.name}</h4>
-                                            <span className="bento-lot-tag">{lot.district}</span>
+                                            <h4 className="bento-lot-name">
+                                                {lot.name}
+                                            </h4>
+                                            <span className="bento-lot-tag">
+                                                {lot.district}
+                                            </span>
                                         </div>
                                         <div className="bento-progress-wrap">
                                             <div className="bento-progress-bar">
@@ -308,16 +503,27 @@ export function BentoDashboardSamplePreview() {
                                                 />
                                             </div>
                                             <span className="bento-lot-spots-text">
-                                                {lot.occupied}/{lot.total} chỗ ({pct}%)
+                                                {lot.occupied}/{lot.total} chỗ (
+                                                {pct}%)
                                             </span>
                                         </div>
                                     </div>
                                     <div className="bento-lot-side">
                                         <div className="bento-lot-rev">
-                                            {lot.revenue.toLocaleString("vi-VN")} đ
+                                            {lot.revenue.toLocaleString(
+                                                "vi-VN",
+                                            )}{" "}
+                                            đ
                                         </div>
                                         <div className="bento-lot-status">
-                                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#269B62" }} />
+                                            <span
+                                                style={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: "50%",
+                                                    background: "#269B62",
+                                                }}
+                                            />
                                             Đang đón xe
                                         </div>
                                     </div>
@@ -329,15 +535,41 @@ export function BentoDashboardSamplePreview() {
 
                 {/* CỘT 3: LƯU LƯỢNG 7 NGÀY & VẬN HÀNH THÔNG MINH */}
                 <div className="bento-right-col">
-                    <div className="bento-card" style={{ padding: "16px 18px" }}>
-                        <div className="bento-card-header" style={{ marginBottom: 6 }}>
+                    <div
+                        className="bento-card"
+                        style={{ padding: "16px 18px" }}
+                    >
+                        <div
+                            className="bento-card-header"
+                            style={{ marginBottom: 6 }}
+                        >
                             <div className="bento-card-title-wrap">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#269B62" strokeWidth="2.5">
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="#269B62"
+                                    strokeWidth="2.5"
+                                >
                                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
                                 </svg>
-                                <h3 className="bento-card-title" style={{ fontSize: 13.5 }}>Lưu lượng 7 ngày qua</h3>
+                                <h3
+                                    className="bento-card-title"
+                                    style={{ fontSize: 13.5 }}
+                                >
+                                    Lưu lượng 7 ngày qua
+                                </h3>
                             </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "#269B62" }}>↑ +8.5%</span>
+                            <span
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: "#269B62",
+                                }}
+                            >
+                                ↑ +8.5%
+                            </span>
                         </div>
 
                         <div className="bento-bars-grid">
@@ -346,30 +578,80 @@ export function BentoDashboardSamplePreview() {
                                 { day: "T3", count: 480, height: 56 },
                                 { day: "T4", count: 510, height: 60 },
                                 { day: "T5", count: 570, height: 68 },
-                                { day: "T6", count: 620, height: 78, isPeak: true },
+                                {
+                                    day: "T6",
+                                    count: 620,
+                                    height: 78,
+                                    isPeak: true,
+                                },
                                 { day: "T7", count: 500, height: 58 },
                                 { day: "CN", count: 470, height: 54 },
                             ].map((col) => (
-                                <div key={col.day} className={`bento-bar-col ${col.isPeak ? "highlight" : ""}`}>
-                                    {col.isPeak && <div className="bento-bar-tag">620 lượt</div>}
-                                    <div className="bento-bar-rect" style={{ height: col.height }} />
-                                    <div className="bento-bar-label">{col.day}</div>
-                                    <div className="bento-bar-sub">{col.count}</div>
+                                <div
+                                    key={col.day}
+                                    className={`bento-bar-col ${col.isPeak ? "highlight" : ""}`}
+                                >
+                                    {col.isPeak && (
+                                        <div className="bento-bar-tag">
+                                            620 lượt
+                                        </div>
+                                    )}
+                                    <div
+                                        className="bento-bar-rect"
+                                        style={{ height: col.height }}
+                                    />
+                                    <div className="bento-bar-label">
+                                        {col.day}
+                                    </div>
+                                    <div className="bento-bar-sub">
+                                        {col.count}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
                     <div className="bento-smart-card">
-                        <div style={{ position: "relative", zIndex: 2, maxWidth: "62%" }}>
-                            <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.8, color: "#B8F34A", marginBottom: 3, textTransform: "uppercase" }}>
+                        <div
+                            style={{
+                                position: "relative",
+                                zIndex: 2,
+                                maxWidth: "62%",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontSize: 9.5,
+                                    fontWeight: 800,
+                                    letterSpacing: 0.8,
+                                    color: "#B8F34A",
+                                    marginBottom: 3,
+                                    textTransform: "uppercase",
+                                }}
+                            >
                                 VẬN HÀNH THÔNG MINH
                             </div>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.3, marginBottom: 4 }}>
+                            <div
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 800,
+                                    color: "#FFFFFF",
+                                    lineHeight: 1.3,
+                                    marginBottom: 4,
+                                }}
+                            >
                                 Bật tự động giá cao điểm chiều nay?
                             </div>
-                            <div style={{ fontSize: 10.5, color: "#A8BFA9", lineHeight: 1.3, marginBottom: 10 }}>
-                                Tự động tăng +20% biểu phí từ 17:00 - 19:00 tại 2 bãi Quận 1.
+                            <div
+                                style={{
+                                    fontSize: 10.5,
+                                    color: "#A8BFA9",
+                                    lineHeight: 1.3,
+                                    marginBottom: 10,
+                                }}
+                            >
+                                Tự động tăng +20% biểu phí từ 17:00 - 19:00 tại
+                                2 bãi Quận 1.
                             </div>
                             <span
                                 style={{
@@ -388,25 +670,49 @@ export function BentoDashboardSamplePreview() {
                             </span>
                         </div>
 
-                        <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+                        <div
+                            style={{
+                                position: "relative",
+                                zIndex: 2,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "flex-end",
+                                gap: 12,
+                            }}
+                        >
                             <button
                                 type="button"
-                                onClick={() => setSurgeAutoEnabled(!surgeAutoEnabled)}
+                                onClick={() =>
+                                    setSurgeAutoEnabled(!surgeAutoEnabled)
+                                }
                                 style={{
                                     width: 44,
                                     height: 24,
                                     borderRadius: 999,
-                                    background: surgeAutoEnabled ? "#B8F34A" : "#324A36",
+                                    background: surgeAutoEnabled
+                                        ? "#B8F34A"
+                                        : "#324A36",
                                     border: "none",
                                     cursor: "pointer",
                                     padding: 2,
                                     display: "flex",
                                     alignItems: "center",
-                                    justifyContent: surgeAutoEnabled ? "flex-end" : "flex-start",
+                                    justifyContent: surgeAutoEnabled
+                                        ? "flex-end"
+                                        : "flex-start",
                                     transition: "all 0.2s ease",
                                 }}
                             >
-                                <span style={{ width: 20, height: 20, borderRadius: "50%", background: surgeAutoEnabled ? "#19301D" : "#A8BFA9" }} />
+                                <span
+                                    style={{
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: "50%",
+                                        background: surgeAutoEnabled
+                                            ? "#19301D"
+                                            : "#A8BFA9",
+                                    }}
+                                />
                             </button>
                         </div>
 
@@ -427,17 +733,45 @@ export function BentoDashboardSamplePreview() {
                 <div className="bento-card">
                     <div className="bento-card-header">
                         <div className="bento-card-title-wrap">
-                            <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#EAF7EE", display: "flex", alignItems: "center", justifyContent: "center", color: "#19301D" }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <div
+                                style={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: "50%",
+                                    background: "#EAF7EE",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "#19301D",
+                                }}
+                            >
+                                <svg
+                                    width="13"
+                                    height="13"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                >
                                     <line x1="18" y1="20" x2="18" y2="10" />
                                     <line x1="12" y1="20" x2="12" y2="4" />
                                     <line x1="6" y1="20" x2="6" y2="14" />
                                 </svg>
                             </div>
-                            <h3 className="bento-card-title">Biến động lưu lượng xe vào/ra theo khung giờ (06:00 - 23:00)</h3>
+                            <h3 className="bento-card-title">
+                                Biến động lưu lượng xe vào/ra theo khung giờ
+                                (06:00 - 23:00)
+                            </h3>
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 16,
+                                flexWrap: "wrap",
+                            }}
+                        >
                             <div className="bento-timeframe-pills">
                                 <button
                                     type="button"
@@ -471,25 +805,83 @@ export function BentoDashboardSamplePreview() {
                                 </button>
                             </div>
 
-                            <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, fontWeight: 700 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#19301D" }} />
-                                    <span style={{ color: "#172018" }}>Vào</span>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 5,
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            width: 8,
+                                            height: 8,
+                                            borderRadius: "50%",
+                                            background: "#19301D",
+                                        }}
+                                    />
+                                    <span style={{ color: "#172018" }}>
+                                        Vào
+                                    </span>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#A7E34A" }} />
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 5,
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            width: 8,
+                                            height: 8,
+                                            borderRadius: "50%",
+                                            background: "#A7E34A",
+                                        }}
+                                    />
                                     <span style={{ color: "#718071" }}>Ra</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bento-chart-container" style={{ height: 180 }}>
-                        <svg viewBox="0 0 600 180" width="100%" height="100%" preserveAspectRatio="none">
+                    <div
+                        className="bento-chart-container"
+                        style={{ height: 180 }}
+                    >
+                        <svg
+                            viewBox="0 0 600 180"
+                            width="100%"
+                            height="100%"
+                            preserveAspectRatio="none"
+                        >
                             <defs>
-                                <linearGradient id="simAreaGreenFill" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#A7E34A" stopOpacity="0.30" />
-                                    <stop offset="100%" stopColor="#A7E34A" stopOpacity="0.0" />
+                                <linearGradient
+                                    id="simAreaGreenFill"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="0%"
+                                        stopColor="#A7E34A"
+                                        stopOpacity="0.30"
+                                    />
+                                    <stop
+                                        offset="100%"
+                                        stopColor="#A7E34A"
+                                        stopOpacity="0.0"
+                                    />
                                 </linearGradient>
                             </defs>
 
@@ -497,30 +889,100 @@ export function BentoDashboardSamplePreview() {
                                 const y = 160 - (val / 100) * 110;
                                 return (
                                     <g key={idx}>
-                                        <line x1="40" y1={y} x2="580" y2={y} stroke="#EEF2EB" strokeWidth="1" strokeDasharray="3 3" />
-                                        <text x="32" y={y + 3} textAnchor="end" fontSize="10" fill="#718071" fontWeight="600">
+                                        <line
+                                            x1="40"
+                                            y1={y}
+                                            x2="580"
+                                            y2={y}
+                                            stroke="#EEF2EB"
+                                            strokeWidth="1"
+                                            strokeDasharray="3 3"
+                                        />
+                                        <text
+                                            x="32"
+                                            y={y + 3}
+                                            textAnchor="end"
+                                            fontSize="10"
+                                            fill="#718071"
+                                            fontWeight="600"
+                                        >
                                             {val}
                                         </text>
                                     </g>
                                 );
                             })}
 
-                            <path d={inAreaPath} fill="url(#simAreaGreenFill)" />
-                            <path d={inPath} fill="none" stroke="#19301D" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d={outPath} fill="none" stroke="#A7E34A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path
+                                d={inAreaPath}
+                                fill="url(#simAreaGreenFill)"
+                            />
+                            <path
+                                d={inPath}
+                                fill="none"
+                                stroke="#19301D"
+                                strokeWidth="2.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d={outPath}
+                                fill="none"
+                                stroke="#A7E34A"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
 
                             {trafficData.map((pt, idx) => (
-                                <g key={idx} style={{ cursor: "pointer" }} onClick={() => setActivePointIndex(idx)}>
-                                    <circle cx={pt.x} cy={pt.yOut} r="3.5" fill="#A7E34A" stroke="#FFFFFF" strokeWidth="1.5" />
+                                <g
+                                    key={idx}
+                                    style={{ cursor: "pointer" }}
+                                    onClick={() => setActivePointIndex(idx)}
+                                >
+                                    <circle
+                                        cx={pt.x}
+                                        cy={pt.yOut}
+                                        r="3.5"
+                                        fill="#A7E34A"
+                                        stroke="#FFFFFF"
+                                        strokeWidth="1.5"
+                                    />
                                     <circle
                                         cx={pt.x}
                                         cy={pt.yIn}
-                                        r={activePointIndex === idx ? "5.5" : "3.5"}
+                                        r={
+                                            activePointIndex === idx
+                                                ? "5.5"
+                                                : "3.5"
+                                        }
                                         fill="#19301D"
-                                        stroke={activePointIndex === idx ? "#B8F34A" : "#FFFFFF"}
-                                        strokeWidth={activePointIndex === idx ? "2.5" : "1.5"}
+                                        stroke={
+                                            activePointIndex === idx
+                                                ? "#B8F34A"
+                                                : "#FFFFFF"
+                                        }
+                                        strokeWidth={
+                                            activePointIndex === idx
+                                                ? "2.5"
+                                                : "1.5"
+                                        }
                                     />
-                                    <text x={pt.x} y="174" textAnchor="middle" fontSize="10.5" fill={activePointIndex === idx ? "#172018" : "#718071"} fontWeight={activePointIndex === idx ? "800" : "500"}>
+                                    <text
+                                        x={pt.x}
+                                        y="174"
+                                        textAnchor="middle"
+                                        fontSize="10.5"
+                                        fill={
+                                            activePointIndex === idx
+                                                ? "#172018"
+                                                : "#718071"
+                                        }
+                                        fontWeight={
+                                            activePointIndex === idx
+                                                ? "800"
+                                                : "500"
+                                        }
+                                    >
                                         {pt.time}
                                     </text>
                                 </g>
@@ -535,29 +997,92 @@ export function BentoDashboardSamplePreview() {
                                     top: `${(currentPoint.yIn / 180) * 100}%`,
                                 }}
                             >
-                                <span style={{ color: "#19301D", fontWeight: 800 }}>{currentPoint.time}</span>
-                                <span style={{ margin: "0 6px", color: "#E1E7DE" }}>|</span>
-                                <span style={{ color: "#19301D" }}>Vào: <strong>{currentPoint.inCount} xe</strong></span>
-                                <span style={{ margin: "0 6px", color: "#E1E7DE" }}>|</span>
-                                <span style={{ color: "#718071" }}>Ra: <strong>{currentPoint.outCount} xe</strong></span>
+                                <span
+                                    style={{
+                                        color: "#19301D",
+                                        fontWeight: 800,
+                                    }}
+                                >
+                                    {currentPoint.time}
+                                </span>
+                                <span
+                                    style={{
+                                        margin: "0 6px",
+                                        color: "#E1E7DE",
+                                    }}
+                                >
+                                    |
+                                </span>
+                                <span style={{ color: "#19301D" }}>
+                                    Vào:{" "}
+                                    <strong>{currentPoint.inCount} xe</strong>
+                                </span>
+                                <span
+                                    style={{
+                                        margin: "0 6px",
+                                        color: "#E1E7DE",
+                                    }}
+                                >
+                                    |
+                                </span>
+                                <span style={{ color: "#718071" }}>
+                                    Ra:{" "}
+                                    <strong>{currentPoint.outCount} xe</strong>
+                                </span>
                             </div>
                         )}
                     </div>
                 </div>
 
-                <div className="bento-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div
+                    className="bento-card"
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                    }}
+                >
                     <div>
                         <div className="bento-card-header">
                             <div className="bento-card-title-wrap">
-                                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#EAF7EE", display: "flex", alignItems: "center", justifyContent: "center", color: "#19301D" }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <div
+                                    style={{
+                                        width: 22,
+                                        height: 22,
+                                        borderRadius: "50%",
+                                        background: "#EAF7EE",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "#19301D",
+                                    }}
+                                >
+                                    <svg
+                                        width="13"
+                                        height="13"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                    >
                                         <circle cx="12" cy="12" r="10" />
                                         <path d="M12 2a10 10 0 0 1 10 10" />
                                     </svg>
                                 </div>
-                                <h3 className="bento-card-title">Cơ cấu doanh thu theo phương thức</h3>
+                                <h3 className="bento-card-title">
+                                    Cơ cấu doanh thu theo phương thức
+                                </h3>
                             </div>
-                            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#269B62", background: "#EAF7EE", padding: "2px 8px", borderRadius: 999 }}>
+                            <span
+                                style={{
+                                    fontSize: 11.5,
+                                    fontWeight: 700,
+                                    color: "#269B62",
+                                    background: "#EAF7EE",
+                                    padding: "2px 8px",
+                                    borderRadius: 999,
+                                }}
+                            >
                                 Online 88%
                             </span>
                         </div>
@@ -565,40 +1090,124 @@ export function BentoDashboardSamplePreview() {
                         <div className="bento-pay-item">
                             <div className="bento-pay-header">
                                 <span>Ví ParkWise / VNPay (QR)</span>
-                                <span>16.230.000 đ <span className="bento-pay-sub">(88%)</span></span>
+                                <span>
+                                    16.230.000 đ{" "}
+                                    <span className="bento-pay-sub">(88%)</span>
+                                </span>
                             </div>
                             <div className="bento-pay-bar-wrap">
-                                <div className="bento-pay-bar-fill" style={{ width: "88%" }} />
+                                <div
+                                    className="bento-pay-bar-fill"
+                                    style={{ width: "88%" }}
+                                />
                             </div>
                         </div>
 
-                        <div className="bento-pay-item" style={{ marginBottom: 16 }}>
+                        <div
+                            className="bento-pay-item"
+                            style={{ marginBottom: 16 }}
+                        >
                             <div className="bento-pay-header">
-                                <span style={{ color: "#718071" }}>Tiền mặt tại bốt trực</span>
-                                <span style={{ color: "#718071" }}>2.220.000 đ <span className="bento-pay-sub">(12%)</span></span>
+                                <span style={{ color: "#718071" }}>
+                                    Tiền mặt tại bốt trực
+                                </span>
+                                <span style={{ color: "#718071" }}>
+                                    2.220.000 đ{" "}
+                                    <span className="bento-pay-sub">(12%)</span>
+                                </span>
                             </div>
                             <div className="bento-pay-bar-wrap">
-                                <div className="bento-pay-bar-fill cash" style={{ width: "12%" }} />
+                                <div
+                                    className="bento-pay-bar-fill cash"
+                                    style={{ width: "12%" }}
+                                />
                             </div>
                         </div>
                     </div>
 
                     <div className="bento-highlight-banner">
                         <div>
-                            <div style={{ fontSize: 11, color: "#718071", fontWeight: 600, display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                                <span style={{ color: "#269B62" }}>↗</span> Tỷ lệ thanh toán thành công
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color: "#718071",
+                                    fontWeight: 600,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    marginBottom: 2,
+                                }}
+                            >
+                                <span style={{ color: "#269B62" }}>↗</span> Tỷ
+                                lệ thanh toán thành công
                             </div>
-                            <div style={{ fontSize: 16, fontWeight: 850, color: "#172018" }}>
-                                98.6% <span style={{ fontSize: 12, fontWeight: 600, color: "#718071" }}>không ùn tắc</span>
+                            <div
+                                style={{
+                                    fontSize: 16,
+                                    fontWeight: 850,
+                                    color: "#172018",
+                                }}
+                            >
+                                98.6%{" "}
+                                <span
+                                    style={{
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        color: "#718071",
+                                    }}
+                                >
+                                    không ùn tắc
+                                </span>
                             </div>
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 24 }}>
-                                <span style={{ width: 4, height: 10, background: "#C6E8AF", borderRadius: 1 }} />
-                                <span style={{ width: 4, height: 14, background: "#A7E34A", borderRadius: 1 }} />
-                                <span style={{ width: 4, height: 18, background: "#64B82A", borderRadius: 1 }} />
-                                <span style={{ width: 4, height: 22, background: "#269B62", borderRadius: 1 }} />
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 12,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "flex-end",
+                                    gap: 3,
+                                    height: 24,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        width: 4,
+                                        height: 10,
+                                        background: "#C6E8AF",
+                                        borderRadius: 1,
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        width: 4,
+                                        height: 14,
+                                        background: "#A7E34A",
+                                        borderRadius: 1,
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        width: 4,
+                                        height: 18,
+                                        background: "#64B82A",
+                                        borderRadius: 1,
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        width: 4,
+                                        height: 22,
+                                        background: "#269B62",
+                                        borderRadius: 1,
+                                    }}
+                                />
                             </div>
 
                             <span
@@ -620,7 +1229,10 @@ export function BentoDashboardSamplePreview() {
             </div>
 
             {/* ── ROW 3: BẢNG PHIÊN XE RA/VÀO TRỰC TIẾP TẠI BỐT KIỂM SOÁT ── */}
-            <div className="bento-card" style={{ padding: 0, overflow: "hidden" }}>
+            <div
+                className="bento-card"
+                style={{ padding: 0, overflow: "hidden" }}
+            >
                 <div
                     style={{
                         padding: "16px 20px",
@@ -632,21 +1244,75 @@ export function BentoDashboardSamplePreview() {
                         gap: 12,
                     }}
                 >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#EAF7EE", display: "flex", alignItems: "center", justifyContent: "center", color: "#19301D" }}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: "50%",
+                                background: "#EAF7EE",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#19301D",
+                            }}
+                        >
+                            <svg
+                                width="13"
+                                height="13"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                            >
+                                <rect
+                                    x="3"
+                                    y="11"
+                                    width="18"
+                                    height="11"
+                                    rx="2"
+                                />
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                             </svg>
                         </div>
-                        <h3 className="bento-card-title">Phiên xe ra/vào trực tiếp tại bốt kiểm soát</h3>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#269B62", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#269B62" }} />
+                        <h3 className="bento-card-title">
+                            Phiên xe ra/vào trực tiếp tại bốt kiểm soát
+                        </h3>
+                        <span
+                            style={{
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                color: "#269B62",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: "50%",
+                                    background: "#269B62",
+                                }}
+                            />
                             Đang hoạt động
                         </span>
                     </div>
 
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: "#718071" }}>
+                    <span
+                        style={{
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            color: "#718071",
+                        }}
+                    >
                         Xem tất cả 476 phiên (Mẫu)
                     </span>
                 </div>
@@ -668,37 +1334,115 @@ export function BentoDashboardSamplePreview() {
                         <tbody>
                             {SAMPLE_SESSIONS.map((row) => (
                                 <tr key={row.id}>
-                                    <td style={{ fontWeight: 800, color: "#19301D" }}>{row.id}</td>
+                                    <td
+                                        style={{
+                                            fontWeight: 800,
+                                            color: "#19301D",
+                                        }}
+                                    >
+                                        {row.id}
+                                    </td>
                                     <td>
-                                        <span style={{ padding: "3px 8px", background: "#F6F8F4", border: "1px solid #E1E7DE", borderRadius: 6, fontWeight: 750 }}>
+                                        <span
+                                            style={{
+                                                padding: "3px 8px",
+                                                background: "#F6F8F4",
+                                                border: "1px solid #E1E7DE",
+                                                borderRadius: 6,
+                                                fontWeight: 750,
+                                            }}
+                                        >
                                             {row.plate}
                                         </span>
                                     </td>
-                                    <td style={{ color: "#718071", display: "flex", alignItems: "center", gap: 6 }}>
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#718071" strokeWidth="2">
-                                            <rect x="2" y="5" width="20" height="14" rx="2" />
+                                    <td
+                                        style={{
+                                            color: "#718071",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 6,
+                                        }}
+                                    >
+                                        <svg
+                                            width="13"
+                                            height="13"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="#718071"
+                                            strokeWidth="2"
+                                        >
+                                            <rect
+                                                x="2"
+                                                y="5"
+                                                width="20"
+                                                height="14"
+                                                rx="2"
+                                            />
                                             <circle cx="7" cy="15" r="2" />
                                             <circle cx="17" cy="15" r="2" />
                                         </svg>
                                         <span>{row.type}</span>
                                     </td>
-                                    <td style={{ fontWeight: 800, color: "#19301D" }}>{row.slot}</td>
-                                    <td style={{ color: "#718071" }}>{row.time}</td>
+                                    <td
+                                        style={{
+                                            fontWeight: 800,
+                                            color: "#19301D",
+                                        }}
+                                    >
+                                        {row.slot}
+                                    </td>
+                                    <td style={{ color: "#718071" }}>
+                                        {row.time}
+                                    </td>
                                     <td>{row.duration}</td>
-                                    <td style={{ fontWeight: 800, color: "#172018" }}>{row.fee}</td>
+                                    <td
+                                        style={{
+                                            fontWeight: 800,
+                                            color: "#172018",
+                                        }}
+                                    >
+                                        {row.fee}
+                                    </td>
                                     <td>
                                         {row.status === "active" && (
-                                            <span style={{ background: "#EAF7EE", color: "#269B62", padding: "3px 9px", borderRadius: 99, fontSize: 11.5, fontWeight: 750 }}>
+                                            <span
+                                                style={{
+                                                    background: "#EAF7EE",
+                                                    color: "#269B62",
+                                                    padding: "3px 9px",
+                                                    borderRadius: 99,
+                                                    fontSize: 11.5,
+                                                    fontWeight: 750,
+                                                }}
+                                            >
                                                 Đang đỗ
                                             </span>
                                         )}
                                         {row.status === "overstay" && (
-                                            <span style={{ background: "#FDEEEE", color: "#DC4545", padding: "3px 9px", borderRadius: 99, fontSize: 11.5, fontWeight: 750 }}>
+                                            <span
+                                                style={{
+                                                    background: "#FDEEEE",
+                                                    color: "#DC4545",
+                                                    padding: "3px 9px",
+                                                    borderRadius: 99,
+                                                    fontSize: 11.5,
+                                                    fontWeight: 750,
+                                                }}
+                                            >
                                                 Quá giờ
                                             </span>
                                         )}
                                         {row.status === "completed" && (
-                                            <span style={{ background: "#F1F5F9", color: "#64748B", padding: "3px 9px", borderRadius: 99, fontSize: 11.5, fontWeight: 750 }}>
+                                            <span
+                                                style={{
+                                                    background: "#F1F5F9",
+                                                    color: "#64748B",
+                                                    padding: "3px 9px",
+                                                    borderRadius: 99,
+                                                    fontSize: 11.5,
+                                                    fontWeight: 750,
+                                                }}
+                                            >
                                                 Đã ra bãi
                                             </span>
                                         )}

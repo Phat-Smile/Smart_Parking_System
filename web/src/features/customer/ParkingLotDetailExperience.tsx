@@ -481,7 +481,11 @@ export function ParkingLotDetailExperience({
                                     <Image
                                         key={photos[photoIndex]}
                                         src={photos[photoIndex]}
-                                        alt={lot.photos.length ? `Parking view ${photoIndex + 1}` : "Illustration of a parking facility"}
+                                        alt={
+                                            lot.photos.length
+                                                ? `Parking view ${photoIndex + 1}`
+                                                : "Illustration of a parking facility"
+                                        }
                                         fill
                                         sizes="(max-width: 900px) 100vw, 600px"
                                         priority
@@ -490,7 +494,10 @@ export function ParkingLotDetailExperience({
                                         <Images size={14} aria-hidden="true" />{" "}
                                         {lot.photos.length
                                             ? `${copy("View all photos", "Xem tất cả ảnh")} (${lot.photos.length})`
-                                            : copy("Illustration · No lot photos published", "Ảnh minh họa · Bãi chưa cung cấp ảnh")}
+                                            : copy(
+                                                  "Illustration · No lot photos published",
+                                                  "Ảnh minh họa · Bãi chưa cung cấp ảnh",
+                                              )}
                                     </span>
                                     {photos.length > 1 && (
                                         <>
@@ -549,8 +556,8 @@ export function ParkingLotDetailExperience({
                                               `${lot.name} là bãi đỗ hiện đại tại trung tâm Quận 1, TP. Hồ Chí Minh, gần phố đi bộ Nguyễn Huệ và các trung tâm mua sắm.`,
                                           )
                                         : copy(
-                                               `Approved ${lot.type.toLowerCase()} parking at ${lot.address}. Opening hours, amenities and payment methods appear when the operator provides them.`,
-                                               `Bãi đỗ đã được duyệt tại ${lot.address}. Giờ mở cửa, tiện ích và phương thức thanh toán sẽ hiển thị khi đơn vị vận hành cung cấp.`,
+                                              `Approved ${lot.type.toLowerCase()} parking at ${lot.address}. Opening hours, amenities and payment methods appear when the operator provides them.`,
+                                              `Bãi đỗ đã được duyệt tại ${lot.address}. Giờ mở cửa, tiện ích và phương thức thanh toán sẽ hiển thị khi đơn vị vận hành cung cấp.`,
                                           )}
                                 </p>
                                 <div className="lot-detail-info-split">
@@ -618,8 +625,8 @@ export function ParkingLotDetailExperience({
                                                           "Mở cửa 24/7",
                                                       )
                                                     : copy(
-                                                           "Ask the operator for opening hours",
-                                                           "Liên hệ đơn vị vận hành để biết giờ mở cửa",
+                                                          "Ask the operator for opening hours",
+                                                          "Liên hệ đơn vị vận hành để biết giờ mở cửa",
                                                       )}
                                             </p>
                                         )}
@@ -647,8 +654,8 @@ export function ParkingLotDetailExperience({
                                         ) : (
                                             <p>
                                                 {copy(
-                                                     "No amenities listed by the operator",
-                                                     "Đơn vị vận hành chưa cung cấp tiện ích",
+                                                    "No amenities listed by the operator",
+                                                    "Đơn vị vận hành chưa cung cấp tiện ích",
                                                 )}
                                             </p>
                                         )}
@@ -681,8 +688,8 @@ export function ParkingLotDetailExperience({
                                         ) : (
                                             <p>
                                                 {copy(
-                                                     "Ask the operator",
-                                                     "Liên hệ đơn vị vận hành",
+                                                    "Ask the operator",
+                                                    "Liên hệ đơn vị vận hành",
                                                 )}
                                             </p>
                                         )}
