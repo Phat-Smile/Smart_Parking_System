@@ -530,7 +530,7 @@ export function GoogleStyleMap({ filteredLots }: GoogleStyleMapProps) {
                                             marginTop: 2,
                                         }}
                                     >
-                                        📍 {selectedLot.addr}
+                                        {selectedLot.addr}
                                     </div>
                                 </div>
 

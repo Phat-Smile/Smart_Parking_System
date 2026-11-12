@@ -35,6 +35,48 @@ export default function ParkingLotDetailPage() {
     const [zoneType, setZoneType] = useState<"car" | "moto">("car");
     const [zoneCap, setZoneCap] = useState(10);
 
+    if (!lot) {
+        return (
+            <div
+                style={{
+                    maxWidth: 800,
+                    margin: "60px auto",
+                    textAlign: "center",
+                    padding: "32px 20px",
+                }}
+            >
+                <h2
+                    style={{
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "#0f1b3d",
+                        marginBottom: 12,
+                    }}
+                >
+                    Không tìm thấy bãi đỗ xe
+                </h2>
+                <p style={{ color: "#6a7491", fontSize: 14, marginBottom: 24 }}>
+                    Bãi đỗ xe này chưa được tạo hoặc danh sách bãi đang được
+                    đồng bộ từ hệ thống.
+                </p>
+                <Link
+                    href="/owner/parking-lots"
+                    style={{
+                        display: "inline-block",
+                        padding: "10px 20px",
+                        background: "#0f1b3d",
+                        color: "#fff",
+                        borderRadius: 8,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                    }}
+                >
+                    ← Quay lại danh sách bãi
+                </Link>
+            </div>
+        );
+    }
+
     const showToast = (msg: string) => {
         setToastMsg(msg);
         setTimeout(() => setToastMsg(null), 2200);
@@ -104,6 +146,26 @@ export default function ParkingLotDetailPage() {
                     >
                         <Link href="/owner/parking-lots" className="btn">
                             ← Danh sách
+                        </Link>
+                        <Link
+                            href={`/owner/lots/${lot?.backendId || id}/policies`}
+                            className="btn"
+                            style={{ background: "#eef2ff", color: "#1e19d8", fontWeight: 700 }}
+                        >
+                            Chính sách đặt chỗ & cọc
+                        </Link>
+                        <Link
+                            href={`/owner/lots/${lot?.backendId || id}/pricing`}
+                            className="btn"
+                        >
+                            Biểu giá
+                        </Link>
+                        <Link
+                            href={`/owner/lots/${lot?.backendId || id}/staff`}
+                            className="btn"
+                            style={{ background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }}
+                        >
+                            Nhân viên
                         </Link>
                         {!isPending &&
                             (editing ? (
@@ -228,6 +290,132 @@ export default function ParkingLotDetailPage() {
                                 }
                             />
                         </label>
+
+                        {/* Tiện ích bãi xe */}
+                        <div
+                            style={{
+                                marginTop: 20,
+                                paddingTop: 16,
+                                borderTop: "1px solid var(--line)",
+                            }}
+                        >
+                            <span
+                                style={{
+                                    display: "block",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color: "var(--ink)",
+                                    marginBottom: 8,
+                                }}
+                            >
+                                Tiện ích & Đặc tính khai báo
+                            </span>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                }}
+                            >
+                                {[
+                                    {
+                                        key: "supportsElectricVehicles" as const,
+                                        label: "Xe điện (EV)",
+                                    },
+                                    {
+                                        key: "hasEvCharging" as const,
+                                        label: "Trạm sạc EV",
+                                    },
+                                    {
+                                        key: "hasCctv" as const,
+                                        label: "Camera an ninh",
+                                    },
+                                    {
+                                        key: "isCovered" as const,
+                                        label: "Có mái che",
+                                    },
+                                    {
+                                        key: "supportsLargeVehicles" as const,
+                                        label: "Xe cỡ lớn / SUV",
+                                    },
+                                ].map((item) => {
+                                    const active = Boolean(
+                                        lot?.features?.[item.key],
+                                    );
+                                    if (isLocked) {
+                                        return (
+                                            <span
+                                                key={item.key}
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                    padding: "6px 12px",
+                                                    borderRadius: 8,
+                                                    fontSize: 12,
+                                                    fontWeight: 600,
+                                                    background: active
+                                                        ? "#f0f9ff"
+                                                        : "#f1f5f9",
+                                                    color: active
+                                                        ? "#0369a1"
+                                                        : "#94a3b8",
+                                                    border: active
+                                                        ? "1px solid #bae6fd"
+                                                        : "1px solid #e2e8f0",
+                                                }}
+                                            >
+                                                <span>{item.label}</span>
+                                                <span>
+                                                    {active ? "✓" : "—"}
+                                                </span>
+                                            </span>
+                                        );
+                                    }
+                                    return (
+                                        <label
+                                            key={item.key}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 6,
+                                                padding: "6px 12px",
+                                                borderRadius: 8,
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                cursor: "pointer",
+                                                background: active
+                                                    ? "#f0f9ff"
+                                                    : "var(--card)",
+                                                color: active
+                                                    ? "#0369a1"
+                                                    : "var(--muted)",
+                                                border: active
+                                                    ? "1.5px solid #0284c7"
+                                                    : "1px solid var(--line)",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={active}
+                                                onChange={(e) =>
+                                                    updateLot(lot.id, {
+                                                        features: {
+                                                            ...lot?.features,
+                                                            [item.key]:
+                                                                e.target.checked,
+                                                        },
+                                                    })
+                                                }
+                                            />
+                                            <span>
+                                                {item.label}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -478,6 +666,51 @@ export default function ParkingLotDetailPage() {
                 {/* Tab 5: Đặt chỗ */}
                 {tab === "policy" && (
                     <div className="form">
+                        <div
+                            style={{
+                                padding: "12px 16px",
+                                backgroundColor: "#eff6ff",
+                                border: "1px solid #bfdbfe",
+                                borderRadius: "8px",
+                                marginBottom: "16px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "12px",
+                            }}
+                        >
+                            <div>
+                                <div
+                                    style={{
+                                        fontWeight: 600,
+                                        color: "#1e40af",
+                                        fontSize: "14px",
+                                    }}
+                                >
+                                    Trang Cấu hình Chính sách Nâng cao
+                                </div>
+                                <div
+                                    style={{
+                                        fontSize: "12px",
+                                        color: "#3b82f6",
+                                    }}
+                                >
+                                    Cấu hình tỷ lệ suất đặt trước (10% - 50%),
+                                    mức tiền cọc 15 phút và đồng bộ trực tiếp
+                                    với máy chủ.
+                                </div>
+                            </div>
+                            <Link
+                                href={`/owner/lots/${id}/policies`}
+                                className="btn p"
+                                style={{
+                                    whiteSpace: "nowrap",
+                                    fontSize: "13px",
+                                }}
+                            >
+                                Mở trang chính sách →
+                            </Link>
+                        </div>
                         <label className="f">
                             <span>Cho phép đặt trước</span>
                             <select
