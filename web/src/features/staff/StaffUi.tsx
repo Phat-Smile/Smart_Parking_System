@@ -2,6 +2,20 @@
 
 import React, { useState } from "react";
 import QRCode from "react-qr-code";
+import {
+    QrCode,
+    Printer,
+    Copy,
+    Check,
+    CheckCircle2,
+    X,
+    ShieldCheck,
+    PhoneCall,
+    Car,
+    Bike,
+    Clock,
+    Hash,
+} from "lucide-react";
 import { Barcode1D } from "@/shared/ui/Barcode1D";
 import type { PaymentStatus, SessionStatus, VehicleType } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
@@ -53,6 +67,18 @@ export function PlateBadge({
     plate: string;
     size?: "normal" | "large";
 }) {
+    if (!plate || !plate.trim()) {
+        return (
+            <span
+                className={`staff-plate-badge ${size === "large" ? "plate-large" : ""}`}
+                style={{ opacity: 0.6, borderStyle: "dashed" }}
+                title="Chưa nhận diện được biển số"
+            >
+                <span className="staff-plate-text font-mono">Chờ quét biển số...</span>
+            </span>
+        );
+    }
+
     return (
         <span
             className={`staff-plate-badge ${size === "large" ? "plate-large" : ""}`}
@@ -92,60 +118,6 @@ export function StatusPill({
     return <span className={`staff-pill ${cls}`}>{label}</span>;
 }
 
-export function CameraFeedMock({
-    title = "Gate ANPR Camera 01",
-    detectedPlate,
-    confidence,
-    isScanning = false,
-}: {
-    title?: string;
-    detectedPlate?: string;
-    confidence?: number;
-    isScanning?: boolean;
-}) {
-    return (
-        <div className="staff-camera-feed">
-            <div className="staff-camera-header">
-                <span className="staff-rec-indicator">
-                    <span className="staff-rec-dot" /> REC LIVE
-                </span>
-                <span className="staff-camera-title">{title}</span>
-                <span className="staff-camera-fps">30 FPS · 1080p</span>
-            </div>
-
-            <div className="staff-camera-viewport">
-                <div className="staff-camera-grid" />
-                {isScanning && <div className="staff-camera-scanline" />}
-
-                {/* Target box */}
-                <div className="staff-camera-target">
-                    <div className="staff-target-corner top-left" />
-                    <div className="staff-target-corner top-right" />
-                    <div className="staff-target-corner bottom-left" />
-                    <div className="staff-target-corner bottom-right" />
-
-                    {detectedPlate && (
-                        <div className="staff-camera-overlay-info">
-                            <PlateBadge plate={detectedPlate} />
-                            {typeof confidence === "number" && (
-                                <span
-                                    className={`staff-camera-conf ${
-                                        confidence >= 0.8
-                                            ? "conf-high"
-                                            : "conf-low"
-                                    }`}
-                                >
-                                    {(confidence * 100).toFixed(0)}% OCR
-                                </span>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export function QrCodeModal({
     qrToken,
     plateNumber,
@@ -162,6 +134,8 @@ export function QrCodeModal({
     const { t } = useLanguage();
     const [copied, setCopied] = useState(false);
 
+    const isValidTicket = Boolean(qrToken && qrToken.trim());
+
     function copy() {
         navigator.clipboard.writeText(qrToken);
         setCopied(true);
@@ -177,258 +151,230 @@ export function QrCodeModal({
             <div
                 className="staff-modal-card staff-qr-modal print:shadow-none"
                 onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: 420 }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="staff-qr-ticket-title"
             >
-                <div className="staff-modal-head no-print">
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                        }}
-                    >
-                        <span style={{ fontSize: 18 }}>🎫</span>
-                        <h3>
-                            {t("qrTicketTitle") ||
-                                "Phiếu Gửi Xe Thông Minh (Thermal Ticket)"}
-                        </h3>
-                    </div>
-                    <button
-                        type="button"
-                        className="staff-modal-close"
-                        onClick={onClose}
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                {/* Print-ready Thermal Ticket Layout */}
-                <div
-                    id="thermal-receipt"
-                    style={{
-                        background: "#ffffff",
-                        color: "#171717",
-                        padding: "16px 20px",
-                        borderRadius: 8,
-                        boxShadow: "inset 0 0 0 1px #e5e5e5",
-                        fontFamily: "monospace",
-                    }}
-                >
-                    <div
-                        style={{
-                            textAlign: "center",
-                            borderBottom: "1px dashed #737373",
-                            paddingBottom: 8,
-                            marginBottom: 12,
-                        }}
-                    >
-                        <div
-                            style={{
-                                fontSize: 14,
-                                fontWeight: 900,
-                                letterSpacing: "0.08em",
-                            }}
-                        >
-                            PARKWISE SMART PARKING
-                        </div>
-                        <div
-                            style={{
-                                fontSize: 11,
-                                color: "#525252",
-                                fontWeight: 700,
-                            }}
-                        >
-                            TRẠM KIỂM SOÁT CỔNG VÀO (ENTRY GATE)
-                        </div>
-                        <div style={{ fontSize: 10, color: "#737373" }}>
-                            Mã trạm: GATE-01 • TP. HỒ CHÍ MINH
-                        </div>
-                    </div>
-
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            margin: "10px 0",
-                            padding: 8,
-                            background: "#ffffff",
-                            borderRadius: 4,
-                            border: "1px solid #e5e5e5",
-                        }}
-                    >
-                        <QRCode value={qrToken} size={130} />
+                {/* B. Header */}
+                <div className="staff-ticket-modal-head no-print">
+                    <div className="staff-ticket-head-left">
                         <span
-                            style={{
-                                fontSize: 10,
-                                fontFamily: "monospace",
-                                color: "#737373",
-                                marginTop: 4,
-                            }}
+                            className="staff-ticket-head-icon"
+                            aria-hidden="true"
                         >
-                            MÃ PHIÊN QR HỢP LỆ
+                            <QrCode size={18} strokeWidth={2.2} />
                         </span>
-                    </div>
-
-                    <div
-                        style={{
-                            margin: "10px 0",
-                            padding: "6px 0",
-                            borderTop: "1px dashed #a3a3a3",
-                            borderBottom: "1px dashed #a3a3a3",
-                        }}
-                    >
-                        <Barcode1D
-                            value={plateNumber || "PARKWISE"}
-                            height={38}
-                        />
-                    </div>
-
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 6,
-                            fontSize: 12,
-                            color: "#262626",
-                            marginTop: 10,
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                            }}
-                        >
-                            <span style={{ color: "#737373" }}>
-                                Biển số xe:
-                            </span>
-                            <span
-                                style={{
-                                    fontWeight: 800,
-                                    fontSize: 13,
-                                    background: "#f5f5f5",
-                                    padding: "2px 8px",
-                                    borderRadius: 4,
-                                    border: "1px solid #d4d4d4",
-                                    color: "#171717",
-                                }}
-                            >
-                                {plateNumber}
-                            </span>
-                        </div>
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                            }}
-                        >
-                            <span style={{ color: "#737373" }}>Loại xe:</span>
-                            <strong style={{ color: "#171717" }}>
-                                {vehicleType === "Car"
-                                    ? "Ô TÔ (4-7 Chỗ)"
-                                    : "XE MÁY"}
-                            </strong>
-                        </div>
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                            }}
-                        >
-                            <span style={{ color: "#737373" }}>Giờ vào:</span>
-                            <strong style={{ color: "#171717" }}>
-                                {formatDateTime(entryTime)}
-                            </strong>
-                        </div>
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                fontSize: 10,
-                                color: "#737373",
-                            }}
-                        >
-                            <span>Mã phiên:</span>
-                            <span
-                                style={{
-                                    maxWidth: 160,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                {qrToken.slice(0, 16)}...
+                        <div className="staff-ticket-head-titles">
+                            <h3 id="staff-qr-ticket-title">
+                                {t("qrTicketTitle") || "Vé giữ xe điện tử"}
+                            </h3>
+                            <span className="staff-ticket-head-sub">
+                                ParkWise Digital Parking Pass
                             </span>
                         </div>
                     </div>
 
-                    <div
-                        style={{
-                            borderTop: "1px dashed #737373",
-                            paddingTop: 8,
-                            marginTop: 12,
-                            textAlign: "center",
-                            fontSize: 10,
-                            color: "#737373",
-                            lineHeight: 1.4,
-                        }}
-                    >
-                        <p style={{ fontWeight: 700, margin: 0 }}>
-                            * Quý khách vui lòng giữ vé để đối chiếu khi ra bãi
-                            *
-                        </p>
-                        <p style={{ margin: 0 }}>
-                            Quét mã QR để thanh toán phí đỗ xe tự động
-                        </p>
-                        <p
-                            style={{
-                                fontWeight: 800,
-                                color: "#262626",
-                                margin: "2px 0 0 0",
-                            }}
+                    <div className="staff-ticket-head-right">
+                        {isValidTicket && (
+                            <span className="staff-ticket-valid-badge">
+                                <ShieldCheck size={13} strokeWidth={2.4} />
+                                VÉ HỢP LỆ
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            className="staff-modal-close"
+                            onClick={onClose}
+                            title="Đóng modal (Esc)"
+                            aria-label="Đóng vé giữ xe điện tử"
                         >
-                            Hotline hỗ trợ: 1900 8888 (24/7)
-                        </p>
+                            <X size={16} strokeWidth={2.2} />
+                        </button>
                     </div>
                 </div>
 
-                <div
-                    className="staff-modal-actions no-print"
-                    style={{ display: "flex", gap: 8, marginTop: 16 }}
-                >
+                {/* Scrollable Ticket Body */}
+                <div className="staff-ticket-scroll-area">
+                    <div id="thermal-receipt" className="staff-digital-ticket">
+                        {/* C. Khu vực nhận diện ParkWise */}
+                        <div className="staff-ticket-brand-head">
+                            <div className="staff-ticket-brand-logo-row">
+                                <span
+                                    className="staff-ticket-brand-mark"
+                                    aria-hidden="true"
+                                >
+                                    P
+                                </span>
+                                <span className="staff-ticket-brand-name">
+                                    PARKWISE SMART PARKING
+                                </span>
+                            </div>
+                            <div className="staff-ticket-gate-name">
+                                TRẠM KIỂM SOÁT CỔNG VÀO (ENTRY GATE)
+                            </div>
+                            <div className="staff-ticket-station-meta">
+                                Mã trạm: GATE-01 • TP. HỒ CHÍ MINH
+                            </div>
+                        </div>
+
+                        {/* Perforated Ticket Divider */}
+                        <div
+                            className="staff-ticket-perforation"
+                            aria-hidden="true"
+                        >
+                            <span className="notch notch-left" />
+                            <span className="perforation-line" />
+                            <span className="notch notch-right" />
+                        </div>
+
+                        {/* D. Khu vực QR CODE */}
+                        <div className="staff-ticket-qr-section">
+                            <div className="staff-ticket-qr-quietzone">
+                                <QRCode
+                                    value={qrToken}
+                                    size={156}
+                                    style={{
+                                        height: "auto",
+                                        maxWidth: "100%",
+                                        width: "156px",
+                                        display: "block",
+                                    }}
+                                />
+                            </div>
+                            {isValidTicket && (
+                                <div className="staff-ticket-qr-caption">
+                                    <CheckCircle2 size={13} strokeWidth={2.4} />
+                                    <span>MÃ QR HỢP LỆ</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* E. BARCODE */}
+                        <div className="staff-ticket-barcode-section">
+                            <Barcode1D
+                                value={plateNumber || "PARKWISE"}
+                                height={40}
+                            />
+                        </div>
+
+                        {/* F. THÔNG TIN PHIÊN XE */}
+                        <div className="staff-ticket-info-list">
+                            <div className="staff-ticket-info-row row-highlight">
+                                <span className="staff-ticket-info-label">
+                                    Biển số xe
+                                </span>
+                                <span className="staff-ticket-plate-value">
+                                    {plateNumber}
+                                </span>
+                            </div>
+
+                            <div className="staff-ticket-info-row">
+                                <span className="staff-ticket-info-label">
+                                    {vehicleType === "Car" ? (
+                                        <Car size={13} strokeWidth={2} />
+                                    ) : (
+                                        <Bike size={13} strokeWidth={2} />
+                                    )}
+                                    Loại xe
+                                </span>
+                                <strong className="staff-ticket-info-value">
+                                    {vehicleType === "Car"
+                                        ? "Ô TÔ (4-7 Chỗ)"
+                                        : "XE MÁY"}
+                                </strong>
+                            </div>
+
+                            <div className="staff-ticket-info-row">
+                                <span className="staff-ticket-info-label">
+                                    <Clock size={13} strokeWidth={2} />
+                                    Giờ vào
+                                </span>
+                                <strong
+                                    className="staff-ticket-info-value"
+                                    suppressHydrationWarning
+                                >
+                                    {formatDateTime(entryTime)}
+                                </strong>
+                            </div>
+
+                            <div className="staff-ticket-info-row">
+                                <span className="staff-ticket-info-label">
+                                    <Hash size={13} strokeWidth={2} />
+                                    Mã phiên
+                                </span>
+                                <div className="staff-ticket-token-group">
+                                    <code
+                                        className="staff-ticket-token-value"
+                                        title={qrToken}
+                                    >
+                                        {qrToken}
+                                    </code>
+                                    <button
+                                        type="button"
+                                        className="staff-ticket-inline-copy no-print"
+                                        onClick={copy}
+                                        title="Sao chép mã phiên"
+                                        aria-label="Sao chép mã phiên"
+                                    >
+                                        {copied ? (
+                                            <Check
+                                                size={12}
+                                                strokeWidth={2.5}
+                                            />
+                                        ) : (
+                                            <Copy size={12} strokeWidth={2.2} />
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* G. FOOTER – HƯỚNG DẪN */}
+                        <div className="staff-ticket-guide-foot">
+                            <p className="guide-primary">
+                                Quý khách vui lòng giữ vé để đối chiếu khi ra
+                                bãi.
+                            </p>
+                            <p className="guide-secondary">
+                                Quét mã QR để thanh toán phí và đổi xe tự động.
+                            </p>
+                            <p className="guide-hotline">
+                                <PhoneCall size={11} strokeWidth={2.2} />
+                                <span>Hotline hỗ trợ: 1900 8888 (24/7)</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. KHU VỰC BUTTON – Sticky Action Footer */}
+                <div className="staff-ticket-modal-actions no-print">
                     <button
                         type="button"
-                        className="staff-btn staff-btn-primary"
+                        className="staff-ticket-btn btn-print"
                         onClick={printTicket}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            background: "#059669",
-                        }}
                     >
-                        <span>🖨️</span>
+                        <Printer size={16} strokeWidth={2.2} />
                         <span>In vé nhiệt (80mm)</span>
                     </button>
                     <button
                         type="button"
-                        className="staff-btn staff-btn-secondary"
+                        className="staff-ticket-btn btn-copy"
                         onClick={copy}
                     >
-                        {copied ? t("qrCopied") : t("qrCopy")}
+                        {copied ? (
+                            <Check size={15} strokeWidth={2.4} />
+                        ) : (
+                            <Copy size={15} strokeWidth={2.2} />
+                        )}
+                        <span>{copied ? t("qrCopied") : t("qrCopy")}</span>
                     </button>
                     <button
                         type="button"
-                        className="staff-btn staff-btn-secondary"
+                        className="staff-ticket-btn btn-done"
                         onClick={onClose}
                     >
-                        {t("qrDone")}
+                        <CheckCircle2 size={16} strokeWidth={2.2} />
+                        <span>{t("qrDone")}</span>
                     </button>
                 </div>
             </div>

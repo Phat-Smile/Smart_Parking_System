@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { PlateBadge, FormattedTime } from "./StaffUi";
 import { useStaffData } from "./staffData";
+import {
+    confirmGateReading,
+    describeStaffError,
+    listPendingGateReadings,
+} from "./staffApi";
 import type { VerificationIssue } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
@@ -48,20 +54,118 @@ export function StaffVerificationPage() {
     const { t, language } = useLanguage();
     const isVi = language === "vi";
     const [actionMsg, setActionMsg] = useState("");
+    const [errorMsg, setErrorMsg] = useState("");
     const [resolvingId, setResolvingId] = useState("");
+    const [backendIssues, setBackendIssues] = useState<
+        VerificationIssue[] | null
+    >(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    function handleResolve(issue: VerificationIssue, action: string) {
+    const loadPendingReadings = React.useCallback(async (lotId: string) => {
+        try {
+            const data = await listPendingGateReadings(lotId);
+            if (Array.isArray(data)) {
+                const mapped: VerificationIssue[] = data.map((item) => ({
+                    id: item.incidentId,
+                    spot: "Gate In 01",
+                    spotVi: "Cổng Vào 01 (Camera ANPR)",
+                    spotEn: "Gate In 01 (ANPR Camera)",
+                    plateNumber: item.observedPlate || "CHƯA RÕ",
+                    problem: `Low Camera OCR Confidence: ${(item.confidence * 100).toFixed(0)}%`,
+                    problemVi: `Độ tin cậy OCR thấp (${(item.confidence * 100).toFixed(0)}%)${!item.plateFormatValid ? " · Định dạng chưa chuẩn VN" : ""}`,
+                    detectedPlate: item.observedPlate || "CHƯA RÕ",
+                    confidence: Number(item.confidence),
+                    currentState: "Waiting for staff confirmation",
+                    currentStateVi: "Chờ nhân viên xác nhận biển số",
+                    createdAt: item.occurredAt,
+                    status: "Pending",
+                }));
+                setBackendIssues(mapped);
+            }
+        } catch {
+            // fallback to local issues
+        }
+    }, []);
+
+    useEffect(() => {
+        let active = true;
+        if (assignedLot?.lotId) {
+            listPendingGateReadings(assignedLot.lotId)
+                .then((data) => {
+                    if (!active || !Array.isArray(data)) return;
+                    const mapped: VerificationIssue[] = data.map((item) => ({
+                        id: item.incidentId,
+                        spot: "Gate In 01",
+                        spotVi: "Cổng Vào 01 (Camera ANPR)",
+                        spotEn: "Gate In 01 (ANPR Camera)",
+                        plateNumber: item.observedPlate || "CHƯA RÕ",
+                        problem: `Low Camera OCR Confidence: ${(item.confidence * 100).toFixed(0)}%`,
+                        problemVi: `Độ tin cậy OCR thấp (${(item.confidence * 100).toFixed(0)}%)${!item.plateFormatValid ? " · Định dạng chưa chuẩn VN" : ""}`,
+                        detectedPlate: item.observedPlate || "CHƯA RÕ",
+                        confidence: Number(item.confidence),
+                        currentState: "Waiting for staff confirmation",
+                        currentStateVi: "Chờ nhân viên xác nhận biển số",
+                        createdAt: item.occurredAt,
+                        status: "Pending",
+                    }));
+                    setBackendIssues(mapped);
+                })
+                .catch(() => {});
+        }
+        return () => {
+            active = false;
+        };
+    }, [assignedLot?.lotId]);
+
+    async function handleRefresh() {
+        if (!assignedLot?.lotId) return;
+        setIsRefreshing(true);
+        setErrorMsg("");
+        try {
+            await loadPendingReadings(assignedLot.lotId);
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setIsRefreshing(false);
+        }
+    }
+
+    async function handleResolve(issue: VerificationIssue, action: string) {
         setResolvingId(issue.id);
-        setTimeout(() => {
-            resolveIssue(issue.id);
-            setResolvingId("");
+        setErrorMsg("");
+        setActionMsg("");
+
+        try {
+            // 100% Real API: Nếu là sự cố từ Backend Gate Readings thì gọi confirmGateReading
+            const isBackendItem = backendIssues?.some((b) => b.id === issue.id);
+            if (isBackendItem) {
+                const plateToConfirm =
+                    issue.detectedPlate && issue.detectedPlate !== "CHƯA RÕ"
+                        ? issue.detectedPlate
+                        : issue.plateNumber && issue.plateNumber !== "CHƯA RÕ"
+                          ? issue.plateNumber
+                          : "";
+                await confirmGateReading(issue.id, plateToConfirm, "Car");
+                if (assignedLot?.lotId) {
+                    await loadPendingReadings(assignedLot.lotId);
+                }
+            } else {
+                resolveIssue(issue.id);
+            }
+
             const msg = isVi
-                ? `Sự cố #${issue.id} cho xe ${issue.plateNumber} đã được xử lý: ${action}.`
+                ? `Biển số ${issue.detectedPlate || issue.plateNumber} đã được xác nhận thành công: ${action}.`
                 : `Issue #${issue.id} for ${issue.plateNumber} resolved: ${action}.`;
             setActionMsg(msg);
-            setTimeout(() => setActionMsg(""), 4000);
-        }, 500);
+            setTimeout(() => setActionMsg(""), 5000);
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setResolvingId("");
+        }
     }
+
+    const displayedIssues = backendIssues ?? issues;
 
     return (
         <div className="staff-page">
@@ -75,7 +179,33 @@ export function StaffVerificationPage() {
                         {t("verifSubtitle")}
                     </p>
                 </div>
+                <div className="staff-header-actions">
+                    <button
+                        type="button"
+                        className="staff-btn staff-btn-secondary"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        title="Đồng bộ lại danh sách OCR từ CSDL"
+                    >
+                        <RefreshCw
+                            size={14}
+                            strokeWidth={2.2}
+                            className={isRefreshing ? "staff-spin" : ""}
+                        />
+                        <span>
+                            {isRefreshing
+                                ? "Đang tải CSDL..."
+                                : "Làm mới từ CSDL"}
+                        </span>
+                    </button>
+                </div>
             </header>
+
+            {errorMsg && (
+                <div className="staff-alert staff-alert-danger">
+                    <span>⚠️ {errorMsg}</span>
+                </div>
+            )}
 
             {actionMsg && (
                 <div className="staff-alert staff-alert-success">
@@ -112,7 +242,7 @@ export function StaffVerificationPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {issues.length === 0 ? (
+                        {displayedIssues.length === 0 ? (
                             <tr>
                                 <td
                                     colSpan={7}
@@ -148,7 +278,7 @@ export function StaffVerificationPage() {
                                 </td>
                             </tr>
                         ) : (
-                            issues.map((issue) => (
+                            displayedIssues.map((issue) => (
                                 <tr key={issue.id}>
                                     <td>
                                         <span className="staff-gate-badge">

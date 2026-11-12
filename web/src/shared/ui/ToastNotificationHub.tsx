@@ -21,6 +21,7 @@ export interface LiveToast {
 type ToastListener = (toast: LiveToast) => void;
 const listeners = new Set<ToastListener>();
 
+
 export function emitLiveToast(
     title: string,
     message: string,
@@ -51,25 +52,25 @@ export function emitLiveToast(
 export function ToastNotificationHub() {
     const { copy } = useCustomerLanguage();
     const [toasts, setToasts] = useState<LiveToast[]>([]);
-    // Match the server's first render, then read browser-only Push capabilities.
-    const [permission, setPermission] =
-        useState<NotificationPermission>("default");
-    const [isSupported, setIsSupported] = useState(false);
+    const [userPermission, setUserPermission] =
+        useState<NotificationPermission | null>(null);
+    const [promptDismissed, setPromptDismissed] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        const timer = window.setTimeout(() => {
-            setIsSupported(isPushSupported());
-            setPermission(getPushPermission());
-        }, 0);
-        return () => window.clearTimeout(timer);
+        setIsMounted(true);
     }, []);
+
+    const isSupported = isMounted && typeof window !== "undefined" ? isPushSupported() : false;
+    const detectedPermission = isMounted && typeof window !== "undefined" ? getPushPermission() : "default";
+    const permission = userPermission ?? detectedPermission;
 
     useEffect(() => {
         const handleNewToast: ToastListener = (toast) => {
-            setToasts((prev) => [toast, ...prev].slice(0, 4));
+            setToasts((prev) => [toast, ...prev].slice(0, 3));
             setTimeout(() => {
                 setToasts((prev) => prev.filter((t) => t.id !== toast.id));
-            }, 6000);
+            }, 5000);
         };
 
         listeners.add(handleNewToast);
@@ -78,9 +79,18 @@ export function ToastNotificationHub() {
         };
     }, []);
 
+    useEffect(() => {
+        if (!isSupported || permission === "granted" || promptDismissed) return;
+        const timer = setTimeout(() => {
+            setPromptDismissed(true);
+        }, 8000);
+        return () => clearTimeout(timer);
+    }, [isSupported, permission, promptDismissed]);
+
     async function handleRequestPermission() {
         const result = await requestPushPermission();
-        setPermission(result);
+        setUserPermission(result);
+        setPromptDismissed(true);
         if (result === "granted") {
             emitLiveToast(
                 copy("Push notifications enabled", "Đã bật thông báo đẩy"),
@@ -93,30 +103,42 @@ export function ToastNotificationHub() {
         }
     }
 
+    if (!isMounted) return null;
+
     return (
         <div
-            className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3 pointer-events-none select-none max-w-sm w-full no-print"
+            className="pw-toast-hub fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2.5 pointer-events-none select-none max-w-xs w-full no-print"
             aria-live="polite"
         >
             {/* Quick Web Push Enabler Badge if not granted */}
-            {isSupported && permission !== "granted" && (
-                <div className="pointer-events-auto bg-neutral-900/90 backdrop-blur border border-neutral-700/80 text-white px-3.5 py-2 rounded-full shadow-lg flex items-center gap-2.5 text-xs">
-                    <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                    <span>
-                        {copy(
-                            "Get parking entry and exit alerts?",
-                            "Nhận thông báo khi xe vào/ra?",
-                        )}
-                    </span>
-                    <button
-                        type="button"
-                        onClick={handleRequestPermission}
-                        className="bg-brand-500 hover:bg-brand-400 text-white font-semibold px-2.5 py-1 rounded-full text-[11px] transition cursor-pointer"
-                    >
-                        {copy("Enable", "Bật ngay")}
-                    </button>
-                </div>
-            )}
+            {isSupported &&
+                permission !== "granted" &&
+                !promptDismissed && (
+                    <div className="pointer-events-auto bg-neutral-900/92 backdrop-blur border border-neutral-700/80 text-white px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-xs">
+                        <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                        <span className="truncate">
+                            {copy(
+                                "Get parking entry and exit alerts?",
+                                "Nhận thông báo khi xe vào/ra?",
+                            )}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={handleRequestPermission}
+                            className="bg-brand-500 hover:bg-brand-400 text-white font-semibold px-2.5 py-0.5 rounded-full text-[11px] transition cursor-pointer shrink-0"
+                        >
+                            {copy("Enable", "Bật ngay")}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPromptDismissed(true)}
+                            className="text-neutral-400 hover:text-white p-0.5 rounded-full transition cursor-pointer shrink-0"
+                            aria-label="Đóng gợi ý thông báo"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </div>
+                )}
 
             {/* Render active floating toasts */}
             {toasts.map((toast) => {

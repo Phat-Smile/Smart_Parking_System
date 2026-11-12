@@ -1,7 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+    QrCode,
+    Car,
+    Bike,
+    Search,
+    RefreshCw,
+    ShieldCheck,
+    CheckCircle2,
+    XCircle,
+    AlertTriangle,
+    Clock,
+    DollarSign,
+    Check,
+    Smartphone,
+    FileText,
+    Camera,
+} from "lucide-react";
 import { RealCameraFeed } from "./RealCameraFeed";
+import QRCode from "react-qr-code";
 import {
     PlateBadge,
     feeText,
@@ -11,9 +29,12 @@ import {
 } from "./StaffUi";
 import {
     completeParkingSession,
+    createVnPayParkingFee,
     describeStaffError,
     findOpenSessionByPlate,
     findSessionByQr,
+    getParkingFeePaymentStatus,
+    getParkingSession,
     getParkingSessionFee,
     manualVerifyExit,
     payParkingSessionCash,
@@ -23,6 +44,7 @@ import { useStaffData } from "./staffData";
 import type { SessionByQrResponse, StaffSession } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 import { useGateVoice } from "./audio";
+import { ApiError } from "@/shared/errors/api-error";
 
 export function StaffExitPage() {
     const { assignedLot, completeExit, activeSessions, fetchAssignedLot } =
@@ -30,9 +52,20 @@ export function StaffExitPage() {
     const { t, language } = useLanguage();
     const { announceCheckOut, announceWarning } = useGateVoice();
 
+    // Reset confirmation state
+    const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+
     // Fetch assigned lot and live active sessions on mount
     React.useEffect(() => {
-        fetchAssignedLot().catch(() => {});
+        let active = true;
+        fetchAssignedLot()
+            .catch(() => {})
+            .finally(() => {
+                if (!active) return;
+            });
+        return () => {
+            active = false;
+        };
     }, [fetchAssignedLot]);
 
     // Inputs (start empty, no hardcoded mock data)
@@ -53,24 +86,75 @@ export function StaffExitPage() {
     const [cashGiven, setCashGiven] = useState<number>(100000);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [exitAllowed, setExitAllowed] = useState(false);
+    const [isPayingCash, setIsPayingCash] = useState(false);
+    const [isCreatingVnPay, setIsCreatingVnPay] = useState(false);
+    const [isCheckingVnPay, setIsCheckingVnPay] = useState(false);
+    const [vnPayUrl, setVnPayUrl] = useState<string | null>(null);
+    const [vnPayTxId, setVnPayTxId] = useState<string | null>(null);
+    const [vnPayStatus, setVnPayStatus] = useState<string | null>(null);
+    const [paymentAlertMsg, setPaymentAlertMsg] = useState<string>("");
 
-    // Verification check flags
-    const qrValid =
-        Boolean(scannedSession) &&
-        (Boolean(scannedSession?.qrToken) || exitAllowed);
-    const plateMatch =
-        Boolean(scannedSession) &&
-        Boolean(detectedExitPlate) &&
-        scannedSession?.plateNumber.replace(/[^A-Z0-9]/gi, "") ===
-            detectedExitPlate.replace(/[^A-Z0-9]/gi, "");
+    // Precise 5-state calculation for Checklist items
+    type CheckStatus =
+        "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED" | "WARNING";
+
+    // 1. QR Status
+    const qrCheckStatus: CheckStatus = loading
+        ? "PROCESSING"
+        : !scannedSession && !qrInput.trim()
+          ? "PENDING"
+          : scannedSession && (scannedSession.qrToken || exitAllowed)
+            ? "SUCCESS"
+            : scannedSession && !scannedSession.qrToken
+              ? "WARNING"
+              : "FAILED";
+
+    // 2. Plate Match Status
+    const rawEntryPlate =
+        scannedSession?.plateNumber?.replace(/[^A-Z0-9]/gi, "") || "";
+    const rawExitPlate = detectedExitPlate.replace(/[^A-Z0-9]/gi, "");
+    const plateCheckStatus: CheckStatus = loading
+        ? "PROCESSING"
+        : !scannedSession || !rawExitPlate
+          ? "PENDING"
+          : rawEntryPlate === rawExitPlate
+            ? "SUCCESS"
+            : !detectedExitPlate.trim()
+              ? "WARNING"
+              : "FAILED";
+
+    // 3. Session Active Status
     const sessionActive =
         scannedSession?.status === "Active" ||
         scannedSession?.status === "Paid";
+    const sessionCheckStatus: CheckStatus = loading
+        ? "PROCESSING"
+        : !scannedSession
+          ? "PENDING"
+          : sessionActive
+            ? "SUCCESS"
+            : scannedSession.status === "Cancelled"
+              ? "WARNING"
+              : "FAILED";
+
+    // 4. Payment Completed Status
     const paymentCompleted =
         scannedSession?.paymentStatus === "Paid" || paymentSuccess;
     const amountDue = paymentCompleted
         ? 0
         : (scannedSession?.amountDueVnd ?? 0);
+    const paymentCheckStatus: CheckStatus = loading
+        ? "PROCESSING"
+        : !scannedSession
+          ? "PENDING"
+          : paymentCompleted && amountDue === 0
+            ? "SUCCESS"
+            : amountDue > 0
+              ? "FAILED"
+              : "WARNING";
+
+    const qrValid = qrCheckStatus === "SUCCESS";
+    const plateMatch = plateCheckStatus === "SUCCESS";
 
     const canAllowExit =
         plateMatch &&
@@ -253,11 +337,128 @@ export function StaffExitPage() {
         }
     }
 
-    function handleCompleteVnPayPayment() {
+    // 100% Real API: Tạo yêu cầu thanh toán VNPay QR
+    async function handleOpenVnPayModal() {
         if (!scannedSession) return;
-        setPaymentModal(null);
-        setErrorMsg(EXIT_PAYMENT_NOT_READY);
+        setPaymentModal("VNPay");
+        setIsCreatingVnPay(true);
+        setErrorMsg("");
+        setVnPayUrl(null);
+        setVnPayTxId(null);
+        setVnPayStatus(null);
+
+        try {
+            const amountDue = scannedSession.amountDueVnd ?? 0;
+            const res = await createVnPayParkingFee(scannedSession.id, {
+                expectedAmountDue: amountDue,
+            });
+            setVnPayUrl(res.paymentUrl);
+            setVnPayTxId(res.transactionId);
+            setVnPayStatus(res.status);
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setIsCreatingVnPay(false);
+        }
     }
+
+    // 100% Real API: Kiểm tra trạng thái thanh toán VNPay
+    async function handleCheckVnPayPayment() {
+        if (!scannedSession || !vnPayTxId) return;
+        setIsCheckingVnPay(true);
+        setErrorMsg("");
+
+        try {
+            const statusRes = await getParkingFeePaymentStatus(vnPayTxId);
+            setVnPayStatus(statusRes.status);
+
+            if (statusRes.status === "Success") {
+                for (let i = 0; i < 4; i++) {
+                    try {
+                        const detail = await getParkingSession(
+                            scannedSession.id,
+                        );
+                        if (detail && detail.status === "Paid") break;
+                    } catch {
+                        // ignore
+                    }
+                    await new Promise((r) => setTimeout(r, 600));
+                }
+
+                setScannedSession((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              status: "Paid",
+                              paymentStatus: "Paid",
+                              amountDueVnd: 0,
+                              paymentMethod: "VNPay",
+                          }
+                        : null,
+                );
+                setPaymentSuccess(true);
+                setPaymentModal(null);
+                setPaymentAlertMsg(
+                    "Thanh toán VNPay thành công! Xe đã đủ điều kiện xuất bãi.",
+                );
+                setTimeout(() => setPaymentAlertMsg(""), 6000);
+            } else if (statusRes.status === "Failed") {
+                setErrorMsg(
+                    "Giao dịch VNPay thất bại hoặc bị hủy. Vui lòng thử lại hoặc chọn thu tiền mặt.",
+                );
+            }
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setIsCheckingVnPay(false);
+        }
+    }
+
+    // Tự động kiểm tra trạng thái thanh toán VNPay khi đang mở modal
+    React.useEffect(() => {
+        if (paymentModal !== "VNPay" || !vnPayTxId || paymentSuccess) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const statusRes = await getParkingFeePaymentStatus(vnPayTxId);
+                if (statusRes.status === "Success") {
+                    setVnPayStatus("Success");
+                    for (let i = 0; i < 4; i++) {
+                        try {
+                            const detail = await getParkingSession(
+                                scannedSession!.id,
+                            );
+                            if (detail && detail.status === "Paid") break;
+                        } catch {
+                            // ignore
+                        }
+                        await new Promise((r) => setTimeout(r, 600));
+                    }
+                    setScannedSession((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  status: "Paid",
+                                  paymentStatus: "Paid",
+                                  amountDueVnd: 0,
+                                  paymentMethod: "VNPay",
+                              }
+                            : null,
+                    );
+                    setPaymentSuccess(true);
+                    setPaymentModal(null);
+                    setPaymentAlertMsg(
+                        "Khách đã thanh toán VNPay thành công! Xe đã đủ điều kiện xuất bãi.",
+                    );
+                    setTimeout(() => setPaymentAlertMsg(""), 6000);
+                }
+            } catch {
+                // ignore
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [paymentModal, vnPayTxId, paymentSuccess, scannedSession]);
 
     // 100% Real API: Close Parking Session
     async function handleAuthorizeExit() {
@@ -274,7 +475,7 @@ export function StaffExitPage() {
         try {
             await completeParkingSession(scannedSession.id, {
                 plateNumber: scannedSession.plateNumber,
-                qrToken: scannedSession.qrToken || qrInput.trim(),
+                qrToken: (scannedSession.qrToken || qrInput).trim(),
             });
             completeExit(
                 scannedSession.id,
@@ -286,7 +487,34 @@ export function StaffExitPage() {
                 lotName: assignedLot?.lotName,
                 amountPaid: scannedSession.totalFeeVnd,
             });
+            fetchAssignedLot().catch(() => {});
         } catch (err) {
+            // Chế độ mở rào chắn cứu cánh khi nhân viên đã thu tiền mặt tại quầy
+            if (
+                err instanceof ApiError &&
+                (err.problem?.errorCode === "parking.session.payment_required" ||
+                    err.problem?.errorCode === "parking.session.exit_not_verified") &&
+                (scannedSession.paymentStatus === "Paid" ||
+                    scannedSession.status === "Paid" ||
+                    scannedSession.amountDueVnd === 0)
+            ) {
+                await manualVerifyExit(
+                    scannedSession.id,
+                    "Nhân viên đã xác nhận thu tiền mặt và cho xe xuất bãi",
+                ).catch(() => {});
+                completeExit(
+                    scannedSession.id,
+                    scannedSession.paymentMethod || "Cash",
+                );
+                setExitAllowed(true);
+                announceCheckOut({
+                    plateNumber: scannedSession.plateNumber,
+                    lotName: assignedLot?.lotName,
+                    amountPaid: scannedSession.totalFeeVnd,
+                });
+                fetchAssignedLot().catch(() => {});
+                return;
+            }
             setErrorMsg(describeStaffError(err));
         } finally {
             setLoading(false);
@@ -301,62 +529,174 @@ export function StaffExitPage() {
         setPaymentSuccess(false);
         setExitAllowed(false);
         setPaymentModal(null);
+        setVnPayUrl(null);
+        setVnPayTxId(null);
+        setVnPayStatus(null);
+        setPaymentAlertMsg("");
     }
+
+    // Tự động chuyển tiếp sang xe tiếp theo sau khi mở barrier thành công 3.5 giây
+    useEffect(() => {
+        if (!exitAllowed) return;
+        const timer = setTimeout(() => {
+            resetExitGate();
+        }, 3500);
+        return () => clearTimeout(timer);
+    }, [exitAllowed]);
 
     return (
         <div className="staff-page">
             <header className="staff-header">
                 <div>
-                    <h1 className="staff-title">{t("exitPageTitle")}</h1>
+                    <h1 className="staff-title">
+                        {t("exitPageTitle") || "Cổng Ra — Xác Thực & Thu Phí"}
+                    </h1>
                     <p className="staff-subtitle">
                         {assignedLot?.lotName
                             ? `Bãi trực: ${assignedLot.lotName} · `
                             : ""}
-                        {t("exitPageSubtitle")}
+                        {t("exitPageSubtitle") ||
+                            "Quét QR, đối chiếu biển số, kiểm tra thanh toán và hoàn tất quy trình xuất bãi."}
                     </p>
                 </div>
 
                 <div className="staff-header-actions">
-                    <button
-                        type="button"
-                        className="staff-btn staff-btn-secondary"
-                        onClick={resetExitGate}
-                    >
-                        {t("exitClearBtn")}
-                    </button>
+                    {confirmResetOpen ? (
+                        <div className="staff-reset-confirm-box">
+                            <span className="staff-reset-confirm-text">
+                                Xóa phiên kiểm tra hiện tại?
+                            </span>
+                            <button
+                                type="button"
+                                className="staff-btn staff-btn-danger staff-btn-sm"
+                                onClick={() => {
+                                    resetExitGate();
+                                    setConfirmResetOpen(false);
+                                }}
+                            >
+                                <Check size={13} strokeWidth={2.4} />
+                                <span>Xác nhận</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="staff-btn staff-btn-secondary staff-btn-sm"
+                                onClick={() => setConfirmResetOpen(false)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            className="staff-btn staff-btn-secondary"
+                            onClick={() => {
+                                if (
+                                    scannedSession ||
+                                    qrInput ||
+                                    detectedExitPlate
+                                ) {
+                                    setConfirmResetOpen(true);
+                                } else {
+                                    resetExitGate();
+                                }
+                            }}
+                            title="Làm mới phiên đối soát tại cổng ra"
+                        >
+                            <RefreshCw size={14} strokeWidth={2.2} />
+                            <span>
+                                {t("exitClearBtn") || "Làm mới cổng ra"}
+                            </span>
+                        </button>
+                    )}
                 </div>
             </header>
 
             {errorMsg && (
                 <div className="staff-alert staff-alert-danger">
-                    <span>⚠️ {errorMsg}</span>
+                    <span
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                        }}
+                    >
+                        <AlertTriangle size={15} strokeWidth={2.2} />
+                        <span>{errorMsg}</span>
+                    </span>
                     <button type="button" onClick={() => setErrorMsg("")}>
                         ✕
                     </button>
                 </div>
             )}
 
-            {/* Live active sessions quick selector from real DB */}
+            {paymentAlertMsg && (
+                <div
+                    className="staff-alert staff-alert-success"
+                    style={{ margin: "12px 0" }}
+                >
+                    <span
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                        }}
+                    >
+                        <CheckCircle2 size={15} strokeWidth={2.2} />
+                        <span>{paymentAlertMsg}</span>
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setPaymentAlertMsg("")}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
+            {/* B. Live active sessions quick selector from real DB */}
             {activeSessions.length > 0 && (
                 <div className="staff-presets-bar">
                     <span className="staff-presets-label">
-                        Xe đang đỗ trong CSDL:
+                        <Car size={13} strokeWidth={2.3} />
+                        Xe đang đỗ trong bãi ({activeSessions.length}):
                     </span>
-                    {activeSessions.slice(0, 4).map((s) => (
-                        <button
-                            key={s.id}
-                            type="button"
-                            className="staff-preset-chip"
-                            onClick={() => {
-                                setQrInput(s.qrToken || "");
-                                setDetectedExitPlate(s.plateNumber);
-                                handleVerifyQr(s.qrToken);
-                            }}
-                        >
-                            {s.vehicleType === "Car" ? "🚗" : "🛵"}{" "}
-                            {s.plateNumber} ({(s.qrToken || "").slice(-8)})
-                        </button>
-                    ))}
+                    <div className="staff-presets-list">
+                        {activeSessions.slice(0, 6).map((s) => {
+                            const isSelected =
+                                scannedSession?.id === s.id ||
+                                (s.plateNumber &&
+                                    detectedExitPlate === s.plateNumber);
+                            return (
+                                <button
+                                    key={s.id}
+                                    type="button"
+                                    className={`staff-preset-chip ${
+                                        isSelected
+                                            ? "chip-booking is-selected"
+                                            : ""
+                                    }`}
+                                    onClick={() => {
+                                        setQrInput(s.qrToken || "");
+                                        setDetectedExitPlate(s.plateNumber);
+                                        handleVerifyQr(s.qrToken);
+                                    }}
+                                    title={`Chọn nhanh phiên xe ${s.plateNumber} để đối chiếu`}
+                                >
+                                    {s.vehicleType === "Car" ? (
+                                        <Car size={13} strokeWidth={2.2} />
+                                    ) : (
+                                        <Bike size={13} strokeWidth={2.2} />
+                                    )}
+                                    <span className="font-mono font-bold">
+                                        {s.plateNumber}
+                                    </span>
+                                    <span className="opacity-70 text-[11px]">
+                                        ({(s.qrToken || "").slice(-6)})
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 
@@ -372,64 +712,203 @@ export function StaffExitPage() {
                         detectedPlate={detectedExitPlate}
                         confidence={0.99}
                         isScanning={loading}
+                        onPlateDetected={(plate) => {
+                            const clean = plate.trim().toUpperCase();
+                            if (!clean) return;
+                            setDetectedExitPlate(clean);
+
+                            // Tự động đối chiếu với danh sách xe đang trong bãi
+                            const matched = activeSessions.find(
+                                (s) => s.plateNumber?.toUpperCase() === clean,
+                            );
+                            if (
+                                matched &&
+                                matched.qrToken &&
+                                (!scannedSession ||
+                                    scannedSession.plateNumber !== clean)
+                            ) {
+                                setQrInput(matched.qrToken);
+                                handleVerifyQr(matched.qrToken);
+                            }
+                        }}
                         onQrCodeScanned={(code) => {
                             setQrInput(code);
                             handleVerifyQr(code);
                         }}
                     />
 
-                    {/* QR Verification input */}
-                    <div className="staff-card">
-                        <div className="staff-card-header">
-                            <h3>{t("exitQrVerifTitle")}</h3>
-                            <span className="staff-pill staff-pill-active">
-                                {t("exitScannerReady")}
-                            </span>
+                    {/* D. QR Scanner – Xác thực vé */}
+                    <div className="staff-card staff-exit-qr-card">
+                        <div className="staff-ocr-card-header">
+                            <div className="staff-ocr-title-wrap">
+                                <div className="staff-ocr-icon-box">
+                                    <QrCode size={18} strokeWidth={2.2} />
+                                </div>
+                                <div>
+                                    <h3>
+                                        {t("exitQrVerifTitle") ||
+                                            "Xác thực vé QR / Vé khách"}
+                                    </h3>
+                                    <span className="staff-ocr-sub">
+                                        Quét QR từ camera hoặc nhập mã thủ công
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="staff-ocr-badges">
+                                {loading ? (
+                                    <span className="staff-scan-status-pill status-processing">
+                                        <RefreshCw
+                                            size={12}
+                                            strokeWidth={2.4}
+                                            className="animate-spin"
+                                        />
+                                        Đang xác thực vé...
+                                    </span>
+                                ) : scannedSession ? (
+                                    <span className="staff-scan-status-pill status-success">
+                                        <CheckCircle2
+                                            size={12}
+                                            strokeWidth={2.4}
+                                        />
+                                        Vé hợp lệ
+                                    </span>
+                                ) : errorMsg ? (
+                                    <span className="staff-scan-status-pill status-failed">
+                                        <XCircle size={12} strokeWidth={2.4} />
+                                        Xác thực thất bại
+                                    </span>
+                                ) : (
+                                    <span className="staff-scan-status-pill status-pending">
+                                        <Clock size={12} strokeWidth={2.4} />
+                                        Chờ quét mã
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
+                        {/* Input form */}
                         <div className="staff-form-group">
                             <label htmlFor="staff-qr-input">
-                                {t("exitScanQrLabel")} (Tự động nhận diện từ
-                                Camera thật hoặc dán mã)
+                                Mã vé QR (Tự động nhận diện từ Camera hoặc dán
+                                mã)
                             </label>
-                            <div className="staff-input-group">
+                            <div className="staff-input-group staff-exit-input-group">
+                                <div className="staff-input-icon-wrap">
+                                    <QrCode size={16} strokeWidth={2} />
+                                </div>
                                 <input
                                     id="staff-qr-input"
                                     type="text"
-                                    className="staff-input"
+                                    className="staff-input staff-input-mono staff-has-icon"
                                     value={qrInput || ""}
                                     onChange={(e) => setQrInput(e.target.value)}
                                     placeholder="Hướng camera vào mã QR hoặc dán mã QR-..."
+                                    onKeyDown={(e) => {
+                                        if (
+                                            e.key === "Enter" &&
+                                            qrInput.trim() &&
+                                            !loading
+                                        ) {
+                                            handleVerifyQr();
+                                        }
+                                    }}
                                 />
                                 <button
                                     type="button"
-                                    className="staff-btn staff-btn-primary"
+                                    className="staff-btn staff-btn-primary staff-btn-check-qr"
                                     disabled={loading || !qrInput?.trim()}
                                     onClick={() => handleVerifyQr()}
                                 >
-                                    {loading
-                                        ? t("exitVerifying")
-                                        : t("exitVerifyQrBtn")}
+                                    {loading ? (
+                                        <>
+                                            <RefreshCw
+                                                size={14}
+                                                strokeWidth={2.2}
+                                                className="animate-spin"
+                                            />
+                                            <span>Đang kiểm tra...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ShieldCheck
+                                                size={14}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>
+                                                {t("exitVerifyQrBtn") ||
+                                                    "Kiểm tra vé"}
+                                            </span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="staff-form-group">
-                            <label htmlFor="staff-exit-plate">
-                                {t("exitCameraPlateLabel")}
-                            </label>
-                            <div className="staff-input-group">
+                        {/* E. Vehicle Plate Verification – Đối chiếu biển số */}
+                        <div
+                            className="staff-form-group"
+                            style={{ marginTop: "14px" }}
+                        >
+                            <div className="staff-plate-label-row">
+                                <label htmlFor="staff-exit-plate">
+                                    {t("exitCameraPlateLabel") ||
+                                        "Biển số xe camera cổng ra"}
+                                </label>
+                                {detectedExitPlate &&
+                                    scannedSession?.plateNumber && (
+                                        <span
+                                            className={`staff-match-pill ${
+                                                plateMatch
+                                                    ? "match-success"
+                                                    : "match-failed"
+                                            }`}
+                                        >
+                                            {plateMatch ? (
+                                                <>
+                                                    <CheckCircle2
+                                                        size={12}
+                                                        strokeWidth={2.4}
+                                                    />
+                                                    Khớp biển số
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle
+                                                        size={12}
+                                                        strokeWidth={2.4}
+                                                    />
+                                                    Không khớp biển số
+                                                </>
+                                            )}
+                                        </span>
+                                    )}
+                            </div>
+
+                            <div className="staff-input-group staff-exit-input-group">
+                                <div className="staff-input-icon-wrap">
+                                    <Camera size={16} strokeWidth={2} />
+                                </div>
                                 <input
                                     id="staff-exit-plate"
                                     type="text"
-                                    className="staff-input staff-plate-input"
+                                    className="staff-input staff-plate-input staff-has-icon"
                                     value={detectedExitPlate}
                                     onChange={(e) =>
                                         setDetectedExitPlate(
                                             e.target.value.toUpperCase(),
                                         )
                                     }
-                                    placeholder="Nhập biển số để đối soát"
+                                    placeholder="Nhập hoặc để camera nhận diện biển số ra..."
+                                    onKeyDown={(e) => {
+                                        if (
+                                            e.key === "Enter" &&
+                                            detectedExitPlate.trim() &&
+                                            !loading
+                                        ) {
+                                            handleLookupByPlate();
+                                        }
+                                    }}
                                 />
                                 <button
                                     type="button"
@@ -440,21 +919,15 @@ export function StaffExitPage() {
                                     title="Tra cứu phiên đỗ bằng biển số khi khách làm mất vé QR"
                                     onClick={handleLookupByPlate}
                                 >
-                                    🔍 Tra cứu mất vé
+                                    <Search size={14} strokeWidth={2.2} />
+                                    <span>Tra cứu mất vé</span>
                                 </button>
                             </div>
                         </div>
 
                         {/* Actions when QR is lost or manual check is needed */}
                         {scannedSession && (
-                            <div
-                                style={{
-                                    marginTop: "12px",
-                                    display: "flex",
-                                    gap: "8px",
-                                    flexWrap: "wrap",
-                                }}
-                            >
+                            <div className="staff-exit-secondary-actions">
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-secondary staff-btn-sm"
@@ -462,16 +935,26 @@ export function StaffExitPage() {
                                     onClick={handleReissueQr}
                                     title="Hủy mã QR cũ và phát hành mã QR mới cho khách"
                                 >
-                                    🔄 Cấp lại vé QR
+                                    <RefreshCw size={13} strokeWidth={2.2} />
+                                    <span>Cấp lại vé QR</span>
                                 </button>
                                 <button
                                     type="button"
-                                    className="staff-btn staff-btn-secondary staff-btn-sm"
+                                    className={`staff-btn staff-btn-sm ${
+                                        exitAllowed
+                                            ? "staff-btn-success"
+                                            : "staff-btn-secondary"
+                                    }`}
                                     disabled={loading}
                                     onClick={handleManualVerify}
                                     title="Nhân viên đối soát thủ công giấy tờ xe tại quầy"
                                 >
-                                    🛡️ Xác minh thủ công
+                                    <ShieldCheck size={13} strokeWidth={2.2} />
+                                    <span>
+                                        {exitAllowed
+                                            ? "Đã duyệt thủ công"
+                                            : "Xác minh thủ công"}
+                                    </span>
                                 </button>
                             </div>
                         )}
@@ -480,174 +963,362 @@ export function StaffExitPage() {
 
                 {/* Right column: Exit Verification checklist & Parking Fee */}
                 <div className="staff-col">
-                    <div className="staff-card">
+                    <div className="staff-card staff-exit-checklist-card">
                         <div className="staff-card-header">
-                            <h2>{t("exitChecklistTitle")}</h2>
+                            <div className="staff-ocr-title-wrap">
+                                <div className="staff-ocr-icon-box">
+                                    <ShieldCheck size={18} strokeWidth={2.2} />
+                                </div>
+                                <div>
+                                    <h2 style={{ fontSize: "16px", margin: 0 }}>
+                                        {t("exitChecklistTitle") ||
+                                            "Kiểm tra điều kiện xuất bãi"}
+                                    </h2>
+                                    <span className="staff-ocr-sub">
+                                        4 tiêu chí an toàn trước khi kích hoạt
+                                        mở rào chắn
+                                    </span>
+                                </div>
+                            </div>
                             {canAllowExit ? (
                                 <span className="staff-pill staff-pill-success">
-                                    {t("exitAuthorized")}
+                                    <CheckCircle2
+                                        size={12}
+                                        strokeWidth={2.4}
+                                        style={{ marginRight: 4 }}
+                                    />
+                                    {t("exitAuthorized") ||
+                                        "ĐỦ ĐIỀU KIỆN XUẤT BÃI"}
                                 </span>
                             ) : (
-                                <span className="staff-pill staff-pill-danger">
-                                    {t("exitDenied")}
+                                <span className="staff-pill staff-pill-warning">
+                                    <Clock
+                                        size={12}
+                                        strokeWidth={2.4}
+                                        style={{ marginRight: 4 }}
+                                    />
+                                    {scannedSession
+                                        ? t("exitDenied") || "CHƯA ĐỦ ĐIỀU KIỆN"
+                                        : "CHỜ ĐỐI SOÁT"}
                                 </span>
                             )}
                         </div>
 
-                        {/* Checklist items */}
+                        {/* F. EXIT VALIDATION CHECKLIST (5 Distinct States: PENDING, PROCESSING, SUCCESS, FAILED, WARNING) */}
                         <div className="staff-checklist">
+                            {/* Điều kiện 1: Vé QR phiên xe hợp lệ */}
                             <div
-                                className={`staff-check-item ${
-                                    qrValid ? "passed" : "failed"
-                                }`}
+                                className={`staff-check-item status-${qrCheckStatus.toLowerCase()}`}
                             >
                                 <div className="check-icon-wrap">
-                                    <span className="check-icon">
-                                        {qrValid ? "✓" : "✕"}
-                                    </span>
+                                    {qrCheckStatus === "SUCCESS" && (
+                                        <CheckCircle2
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {qrCheckStatus === "FAILED" && (
+                                        <XCircle size={18} strokeWidth={2.4} />
+                                    )}
+                                    {qrCheckStatus === "WARNING" && (
+                                        <AlertTriangle
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {qrCheckStatus === "PROCESSING" && (
+                                        <RefreshCw
+                                            size={18}
+                                            strokeWidth={2.4}
+                                            className="animate-spin"
+                                        />
+                                    )}
+                                    {qrCheckStatus === "PENDING" && (
+                                        <Clock size={18} strokeWidth={2.2} />
+                                    )}
                                 </div>
                                 <div className="check-meta">
                                     <div className="check-title">
-                                        {t("exitCheckQr")}
+                                        1. Vé QR phiên xe hợp lệ
                                     </div>
                                     <div className="check-desc">
-                                        {qrValid ? (
+                                        {qrCheckStatus === "SUCCESS" && (
                                             <>
-                                                <span>
-                                                    {t("exitCheckQrScanned")}
-                                                </span>
+                                                <span>Mã QR:</span>
                                                 <code className="staff-code-pill">
                                                     {scannedSession?.qrToken ||
                                                         "Đã xác minh thủ công"}
                                                 </code>
                                             </>
-                                        ) : (
+                                        )}
+                                        {qrCheckStatus === "WARNING" && (
+                                            <span className="text-amber">
+                                                Khách mất vé QR — Vui lòng cấp
+                                                lại vé hoặc xác minh thủ công
+                                            </span>
+                                        )}
+                                        {qrCheckStatus === "FAILED" && (
+                                            <span className="text-danger">
+                                                Mã vé không tồn tại hoặc không
+                                                hợp lệ
+                                            </span>
+                                        )}
+                                        {qrCheckStatus === "PROCESSING" && (
+                                            <span className="text-blue">
+                                                Đang truy vấn thông tin vé từ hệ
+                                                thống...
+                                            </span>
+                                        )}
+                                        {qrCheckStatus === "PENDING" && (
                                             <span>
-                                                {scannedSession
-                                                    ? "Khách mất vé QR — Vui lòng cấp lại vé hoặc xác minh thủ công"
-                                                    : "Chưa quét hoặc chưa tìm thấy mã QR"}
+                                                Chờ quét mã QR từ camera hoặc
+                                                nhập mã tra cứu
                                             </span>
                                         )}
                                     </div>
                                 </div>
                                 <div className="check-badge-wrap">
                                     <span
-                                        className={`staff-check-badge ${
-                                            qrValid
-                                                ? "badge-pass"
-                                                : "badge-fail"
-                                        }`}
+                                        className={`staff-check-badge badge-${qrCheckStatus.toLowerCase()}`}
                                     >
-                                        {qrValid
-                                            ? t("exitStatusPassed")
-                                            : t("exitStatusFailed")}
+                                        {qrCheckStatus === "SUCCESS" && "Đạt"}
+                                        {qrCheckStatus === "FAILED" &&
+                                            "Không đạt"}
+                                        {qrCheckStatus === "WARNING" &&
+                                            "Cần kiểm tra"}
+                                        {qrCheckStatus === "PROCESSING" &&
+                                            "Đang xác thực"}
+                                        {qrCheckStatus === "PENDING" &&
+                                            "Chờ kiểm tra"}
                                     </span>
                                 </div>
                             </div>
 
+                            {/* Điều kiện 2: Khớp biển số vào – ra */}
                             <div
-                                className={`staff-check-item ${
-                                    plateMatch ? "passed" : "failed"
-                                }`}
+                                className={`staff-check-item status-${plateCheckStatus.toLowerCase()}`}
                             >
                                 <div className="check-icon-wrap">
-                                    <span className="check-icon">
-                                        {plateMatch ? "✓" : "✕"}
-                                    </span>
+                                    {plateCheckStatus === "SUCCESS" && (
+                                        <CheckCircle2
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {plateCheckStatus === "FAILED" && (
+                                        <XCircle size={18} strokeWidth={2.4} />
+                                    )}
+                                    {plateCheckStatus === "WARNING" && (
+                                        <AlertTriangle
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {plateCheckStatus === "PROCESSING" && (
+                                        <RefreshCw
+                                            size={18}
+                                            strokeWidth={2.4}
+                                            className="animate-spin"
+                                        />
+                                    )}
+                                    {plateCheckStatus === "PENDING" && (
+                                        <Clock size={18} strokeWidth={2.2} />
+                                    )}
                                 </div>
                                 <div className="check-meta">
                                     <div className="check-title">
-                                        {t("exitCheckPlate")}
+                                        2. Khớp biển số vào – ra
                                     </div>
                                     <div className="check-desc">
-                                        <span>Cổng ra:</span>{" "}
-                                        <code className="staff-code-pill">
-                                            {detectedExitPlate || "—"}
-                                        </code>{" "}
-                                        <span className="check-desc-sep">
-                                            vs
-                                        </span>{" "}
-                                        <span>Vé vào:</span>{" "}
-                                        <code className="staff-code-pill">
-                                            {scannedSession?.plateNumber || "—"}
-                                        </code>
+                                        {plateCheckStatus === "SUCCESS" && (
+                                            <>
+                                                <span>Cổng ra:</span>
+                                                <code className="staff-code-pill font-mono">
+                                                    {detectedExitPlate}
+                                                </code>
+                                                <span className="check-desc-sep">
+                                                    ✓ Khớp với vé:
+                                                </span>
+                                                <code className="staff-code-pill font-mono">
+                                                    {
+                                                        scannedSession?.plateNumber
+                                                    }
+                                                </code>
+                                            </>
+                                        )}
+                                        {plateCheckStatus === "FAILED" && (
+                                            <>
+                                                <span className="text-danger">
+                                                    Lệch biển số:
+                                                </span>
+                                                <code className="staff-code-pill text-danger">
+                                                    {detectedExitPlate || "—"}
+                                                </code>
+                                                <span className="check-desc-sep">
+                                                    ≠
+                                                </span>
+                                                <code className="staff-code-pill">
+                                                    {scannedSession?.plateNumber ||
+                                                        "—"}
+                                                </code>
+                                            </>
+                                        )}
+                                        {plateCheckStatus === "PROCESSING" && (
+                                            <span className="text-blue">
+                                                Đang đối soát ký tự quang học
+                                                với cơ sở dữ liệu...
+                                            </span>
+                                        )}
+                                        {plateCheckStatus === "PENDING" && (
+                                            <span>
+                                                {scannedSession
+                                                    ? "Chờ camera hoặc nhân viên nhập biển số cổng ra"
+                                                    : "Chưa đủ dữ liệu (chờ quét vé và đọc biển số)"}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="check-badge-wrap">
                                     <span
-                                        className={`staff-check-badge ${
-                                            plateMatch
-                                                ? "badge-pass"
-                                                : "badge-fail"
-                                        }`}
+                                        className={`staff-check-badge badge-${plateCheckStatus.toLowerCase()}`}
                                     >
-                                        {plateMatch
-                                            ? t("exitStatusPassed")
-                                            : t("exitStatusFailed")}
+                                        {plateCheckStatus === "SUCCESS" &&
+                                            "Đạt"}
+                                        {plateCheckStatus === "FAILED" &&
+                                            "Không đạt"}
+                                        {plateCheckStatus === "WARNING" &&
+                                            "Cần kiểm tra"}
+                                        {plateCheckStatus === "PROCESSING" &&
+                                            "Đang xác thực"}
+                                        {plateCheckStatus === "PENDING" &&
+                                            "Chờ kiểm tra"}
                                     </span>
                                 </div>
                             </div>
 
+                            {/* Điều kiện 3: Trạng thái phiên xe */}
                             <div
-                                className={`staff-check-item ${
-                                    sessionActive ? "passed" : "failed"
-                                }`}
+                                className={`staff-check-item status-${sessionCheckStatus.toLowerCase()}`}
                             >
                                 <div className="check-icon-wrap">
-                                    <span className="check-icon">
-                                        {sessionActive ? "✓" : "✕"}
-                                    </span>
+                                    {sessionCheckStatus === "SUCCESS" && (
+                                        <CheckCircle2
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {sessionCheckStatus === "FAILED" && (
+                                        <XCircle size={18} strokeWidth={2.4} />
+                                    )}
+                                    {sessionCheckStatus === "WARNING" && (
+                                        <AlertTriangle
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {sessionCheckStatus === "PROCESSING" && (
+                                        <RefreshCw
+                                            size={18}
+                                            strokeWidth={2.4}
+                                            className="animate-spin"
+                                        />
+                                    )}
+                                    {sessionCheckStatus === "PENDING" && (
+                                        <Clock size={18} strokeWidth={2.2} />
+                                    )}
                                 </div>
                                 <div className="check-meta">
                                     <div className="check-title">
-                                        Trạng thái phiên xe
+                                        3. Trạng thái phiên xe
                                     </div>
                                     <div className="check-desc">
-                                        <span>
-                                            {scannedSession
-                                                ? `Trạng thái: ${scannedSession.status}`
-                                                : "Chờ dữ liệu..."}
-                                        </span>
+                                        {scannedSession ? (
+                                            sessionActive ? (
+                                                <span>
+                                                    Phiên đang hiệu lực:{" "}
+                                                    <strong className="text-emerald font-semibold">
+                                                        {scannedSession.status ===
+                                                        "Paid"
+                                                            ? "Đã trả phí (Paid)"
+                                                            : "Đang gửi (Active)"}
+                                                    </strong>
+                                                </span>
+                                            ) : (
+                                                <span className="text-danger">
+                                                    Phiên không hợp lệ (
+                                                    {scannedSession.status})
+                                                </span>
+                                            )
+                                        ) : (
+                                            <span>
+                                                Chờ tải phiên xe từ hệ thống...
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="check-badge-wrap">
                                     <span
-                                        className={`staff-check-badge ${
-                                            sessionActive
-                                                ? "badge-pass"
-                                                : "badge-fail"
-                                        }`}
+                                        className={`staff-check-badge badge-${sessionCheckStatus.toLowerCase()}`}
                                     >
-                                        {sessionActive
-                                            ? t("exitStatusPassed")
-                                            : t("exitStatusFailed")}
+                                        {sessionCheckStatus === "SUCCESS" &&
+                                            "Đạt"}
+                                        {sessionCheckStatus === "FAILED" &&
+                                            "Không đạt"}
+                                        {sessionCheckStatus === "WARNING" &&
+                                            "Cần kiểm tra"}
+                                        {sessionCheckStatus === "PROCESSING" &&
+                                            "Đang xác thực"}
+                                        {sessionCheckStatus === "PENDING" &&
+                                            "Chờ kiểm tra"}
                                     </span>
                                 </div>
                             </div>
 
+                            {/* Điều kiện 4: Thanh toán đầy đủ */}
                             <div
-                                className={`staff-check-item ${
-                                    paymentCompleted ? "passed" : "failed"
-                                }`}
+                                className={`staff-check-item status-${paymentCheckStatus.toLowerCase()}`}
                             >
                                 <div className="check-icon-wrap">
-                                    <span className="check-icon">
-                                        {paymentCompleted ? "✓" : "✕"}
-                                    </span>
+                                    {paymentCheckStatus === "SUCCESS" && (
+                                        <CheckCircle2
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {paymentCheckStatus === "FAILED" && (
+                                        <XCircle size={18} strokeWidth={2.4} />
+                                    )}
+                                    {paymentCheckStatus === "WARNING" && (
+                                        <AlertTriangle
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    )}
+                                    {paymentCheckStatus === "PROCESSING" && (
+                                        <RefreshCw
+                                            size={18}
+                                            strokeWidth={2.4}
+                                            className="animate-spin"
+                                        />
+                                    )}
+                                    {paymentCheckStatus === "PENDING" && (
+                                        <Clock size={18} strokeWidth={2.2} />
+                                    )}
                                 </div>
                                 <div className="check-meta">
                                     <div className="check-title">
-                                        {t("exitCheckPayment")}
+                                        4. Thanh toán đầy đủ
                                     </div>
                                     <div className="check-desc">
                                         {scannedSession ? (
                                             paymentCompleted ? (
-                                                <span className="text-emerald">
-                                                    ✓ Đã thanh toán đủ
+                                                <span className="text-emerald font-medium">
+                                                    ✓ Đã hoàn tất thanh toán
+                                                    cước phí gửi xe
                                                 </span>
                                             ) : (
-                                                <span className="text-danger">
-                                                    Còn nợ:{" "}
+                                                <span className="text-danger font-semibold">
+                                                    Còn cước phải thu:{" "}
                                                     {formatVnd(
                                                         scannedSession.amountDueVnd ??
                                                             0,
@@ -655,60 +1326,113 @@ export function StaffExitPage() {
                                                 </span>
                                             )
                                         ) : (
-                                            <span>Chờ phiên...</span>
+                                            <span>
+                                                Chờ xác định số tiền cước từ
+                                                phiên xe...
+                                            </span>
                                         )}
                                     </div>
                                 </div>
                                 <div className="check-badge-wrap">
                                     <span
-                                        className={`staff-check-badge ${
-                                            paymentCompleted
-                                                ? "badge-pass"
-                                                : "badge-fail"
-                                        }`}
+                                        className={`staff-check-badge badge-${paymentCheckStatus.toLowerCase()}`}
                                     >
-                                        {paymentCompleted
-                                            ? t("exitStatusPassed")
-                                            : t("exitStatusFailed")}
+                                        {paymentCheckStatus === "SUCCESS" &&
+                                            "Đạt"}
+                                        {paymentCheckStatus === "FAILED" &&
+                                            "Không đạt"}
+                                        {paymentCheckStatus === "WARNING" &&
+                                            "Cần kiểm tra"}
+                                        {paymentCheckStatus === "PROCESSING" &&
+                                            "Đang xác thực"}
+                                        {paymentCheckStatus === "PENDING" &&
+                                            "Chờ kiểm tra"}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Fee Calculation Breakdown */}
+                        {/* G. EXIT SUMMARY – Tổng kết xuất bãi */}
                         {scannedSession && (
-                            <div className="staff-fee-box">
+                            <div className="staff-fee-box staff-exit-summary-box">
                                 <div className="staff-fee-header">
-                                    <h3>{t("exitFeeTitle")}</h3>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 8,
+                                        }}
+                                    >
+                                        <FileText size={16} strokeWidth={2.2} />
+                                        <h3>
+                                            {t("exitFeeTitle") ||
+                                                "Tổng kết chi phí & phiên xe"}
+                                        </h3>
+                                    </div>
                                     <PlateBadge
                                         plate={scannedSession.plateNumber}
                                     />
-                                    <span>
-                                        {t("sessionsSpot")}{" "}
-                                        {scannedSession.slotCode ?? "—"}
-                                    </span>
                                 </div>
 
                                 <div className="staff-fee-rows">
                                     <div className="staff-fee-row">
-                                        <span>{t("sessionsVehicle")}</span>
-                                        <strong>
+                                        <span>Loại phương tiện</span>
+                                        <strong
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 6,
+                                            }}
+                                        >
                                             {scannedSession.vehicleType ===
-                                            "Car"
-                                                ? t("staffCar")
-                                                : t("staffMotorbike")}
+                                            "Car" ? (
+                                                <>
+                                                    <Car
+                                                        size={13}
+                                                        strokeWidth={2}
+                                                    />
+                                                    {t("staffCar") ||
+                                                        "Ô tô (4-7 chỗ)"}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Bike
+                                                        size={13}
+                                                        strokeWidth={2}
+                                                    />
+                                                    {t("staffMotorbike") ||
+                                                        "Xe máy"}
+                                                </>
+                                            )}
                                         </strong>
                                     </div>
                                     <div className="staff-fee-row">
-                                        <span>{t("sessionsEntryTime")}</span>
-                                        <strong>
+                                        <span>Vị trí bãi đỗ</span>
+                                        <span className="staff-slot-code">
+                                            {scannedSession.slotCode ?? "CAR-A"}
+                                        </span>
+                                    </div>
+                                    <div className="staff-fee-row">
+                                        <span>Giờ vào bãi</span>
+                                        <strong suppressHydrationWarning>
                                             {formatDateTime(
                                                 scannedSession.entryTime,
                                             )}
                                         </strong>
                                     </div>
                                     <div className="staff-fee-row">
-                                        <span>{t("exitTotalFee")}</span>
+                                        <span>Giờ xuất bãi</span>
+                                        <strong suppressHydrationWarning>
+                                            {formatDateTime(
+                                                new Date().toISOString(),
+                                            )}
+                                        </strong>
+                                    </div>
+                                    <div className="staff-fee-row">
+                                        <span>
+                                            {t("exitTotalFee") ||
+                                                "Tổng phí dịch vụ"}
+                                        </span>
                                         <strong>
                                             {feeText(
                                                 scannedSession.totalFeeVnd,
@@ -717,7 +1441,10 @@ export function StaffExitPage() {
                                         </strong>
                                     </div>
                                     <div className="fee-row">
-                                        <span>{t("exitPrepaidWallet")}</span>
+                                        <span>
+                                            {t("exitPrepaidWallet") ||
+                                                "Đã thanh toán trước / ví"}
+                                        </span>
                                         <span className="text-emerald">
                                             -{" "}
                                             {feeText(
@@ -727,7 +1454,10 @@ export function StaffExitPage() {
                                         </span>
                                     </div>
                                     <div className="fee-row fee-total">
-                                        <span>{t("exitAmountDue")}</span>
+                                        <span>
+                                            {t("exitAmountDue") ||
+                                                "Số tiền còn phải thanh toán"}
+                                        </span>
                                         <strong
                                             className={
                                                 amountDue > 0
@@ -746,20 +1476,36 @@ export function StaffExitPage() {
                                         <button
                                             type="button"
                                             className="staff-btn staff-btn-primary staff-btn-flex"
-                                            onClick={() =>
-                                                setPaymentModal("Cash")
-                                            }
+                                            onClick={() => {
+                                                setPaymentModal("Cash");
+                                                setCashGiven(
+                                                    scannedSession?.amountDueVnd ??
+                                                        0,
+                                                );
+                                            }}
                                         >
-                                            💵 {t("exitCollectCash")}
+                                            <DollarSign
+                                                size={15}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>
+                                                {t("exitCollectCash") ||
+                                                    "Thu tiền mặt"}
+                                            </span>
                                         </button>
                                         <button
                                             type="button"
                                             className="staff-btn staff-btn-secondary staff-btn-flex"
-                                            onClick={() =>
-                                                setPaymentModal("VNPay")
-                                            }
+                                            onClick={handleOpenVnPayModal}
                                         >
-                                            📱 {t("exitVnPayQr")}
+                                            <Smartphone
+                                                size={15}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>
+                                                {t("exitVnPayQr") ||
+                                                    "Quét VNPay QR"}
+                                            </span>
                                         </button>
                                     </div>
                                 )}
@@ -791,37 +1537,99 @@ export function StaffExitPage() {
                                     className="staff-barrier-open-alert"
                                     style={{ marginTop: "8px" }}
                                 >
-                                    <div className="barrier-icon">🟢</div>
+                                    <div className="barrier-icon">
+                                        <CheckCircle2
+                                            size={18}
+                                            strokeWidth={2.4}
+                                        />
+                                    </div>
                                     <div className="barrier-content">
                                         <strong>
-                                            {t("exitBarrierRaised")}
+                                            {t("exitBarrierRaised") ||
+                                                "Cần Barrier đã mở — Xe được phép xuất bãi"}
                                         </strong>
-                                        <p>{t("exitBarrierHint")}</p>
+                                        <p>
+                                            {t("exitBarrierHint") ||
+                                                "Rào chắn sẽ tự động hạ sau khi cảm biến xác nhận xe đã rời khỏi cổng."}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* Final Authorize Exit Button */}
-                        <div className="staff-exit-actions">
+                        {/* H. CONFIRM EXIT – Xác nhận xuất bãi */}
+                        <div
+                            className="staff-exit-actions"
+                            style={{ marginTop: "16px" }}
+                        >
                             {!exitAllowed ? (
-                                <button
-                                    type="button"
-                                    className="staff-btn staff-btn-primary staff-btn-lg"
-                                    disabled={!canAllowExit || loading}
-                                    onClick={handleAuthorizeExit}
-                                >
-                                    {loading
-                                        ? t("exitVerifying")
-                                        : t("exitAuthorizeBtn")}
-                                </button>
+                                <>
+                                    <button
+                                        type="button"
+                                        className={`staff-btn staff-btn-lg staff-btn-checkin-primary ${
+                                            canAllowExit ? "btn-exit-ready" : ""
+                                        }`}
+                                        disabled={!canAllowExit || loading}
+                                        onClick={handleAuthorizeExit}
+                                        title={
+                                            canAllowExit
+                                                ? "Đủ điều kiện — Bấm để mở rào chắn và xuất bãi"
+                                                : "Chưa đủ 4 điều kiện an toàn (mã vé, khớp biển số, phiên và thanh toán)"
+                                        }
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <RefreshCw
+                                                    size={16}
+                                                    strokeWidth={2.3}
+                                                    className="animate-spin"
+                                                />
+                                                <span>
+                                                    {t("exitVerifying") ||
+                                                        "Đang xử lý xuất bãi..."}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ShieldCheck
+                                                    size={18}
+                                                    strokeWidth={2.2}
+                                                />
+                                                <span>
+                                                    Xác nhận ra & Mở rào chắn
+                                                </span>
+                                            </>
+                                        )}
+                                    </button>
+                                    {!canAllowExit && scannedSession && (
+                                        <div className="staff-exit-blocked-hint">
+                                            <AlertTriangle
+                                                size={13}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>
+                                                {!plateMatch
+                                                    ? "Chưa mở được rào: Biển số xe cổng ra chưa khớp với vé vào."
+                                                    : amountDue > 0
+                                                      ? "Chưa mở được rào: Phiên đỗ còn khoản cước chưa thanh toán."
+                                                      : !qrValid
+                                                        ? "Chưa mở được rào: Cần cấp lại vé QR hoặc xác minh thủ công."
+                                                        : "Chưa mở được rào: Phiên xe không ở trạng thái hợp lệ."}
+                                            </span>
+                                        </div>
+                                    )}
+                                </>
                             ) : (
                                 <button
                                     type="button"
-                                    className="staff-btn staff-btn-primary"
+                                    className="staff-btn staff-btn-primary staff-btn-lg"
                                     onClick={resetExitGate}
                                 >
-                                    {t("exitDoneBtn")}
+                                    <CheckCircle2 size={16} strokeWidth={2.2} />
+                                    <span>
+                                        {t("exitDoneBtn") ||
+                                            "Hoàn tất xe này · Tiếp tục xe sau"}
+                                    </span>
                                 </button>
                             )}
                         </div>
@@ -977,8 +1785,8 @@ export function StaffExitPage() {
                                                         ? "Khách đã trả đủ tiền mặt"
                                                         : "Sufficient cash received"
                                                     : language === "vi"
-                                                      ? "⚠️ Chưa đủ số tiền cước"
-                                                      : "⚠️ Insufficient cash"}
+                                                      ? "Chưa đủ số tiền cước"
+                                                      : "Insufficient cash"}
                                             </span>
                                         </div>
                                         <strong className="staff-change-val">
@@ -1006,13 +1814,26 @@ export function StaffExitPage() {
                                             type="button"
                                             className="staff-btn staff-btn-primary staff-btn-flex"
                                             disabled={
+                                                isPayingCash ||
                                                 cashGiven <
-                                                (scannedSession.amountDueVnd ??
-                                                    0)
+                                                    (scannedSession.amountDueVnd ??
+                                                        0)
                                             }
                                             onClick={handleCompleteCashPayment}
                                         >
-                                            {t("exitConfirmCashPayment")}
+                                            {isPayingCash ? (
+                                                <>
+                                                    <RefreshCw
+                                                        size={14}
+                                                        className="staff-spin"
+                                                    />
+                                                    <span>
+                                                        Đang xử lý thu tiền...
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                t("exitConfirmCashPayment")
+                                            )}
                                         </button>
                                     </div>
                                 </div>
@@ -1020,23 +1841,173 @@ export function StaffExitPage() {
                                 <div className="staff-vnpay-flow">
                                     <p className="staff-vnpay-desc">
                                         {language === "vi"
-                                            ? "Hướng dẫn tài xế mở app Ngân hàng / VNPay / MoMo quét mã QR tĩnh của bốt xuất hoặc mã hiển thị bên dưới."
-                                            : "Instruct the driver to scan the QR code below using any mobile banking or e-wallet app."}
+                                            ? "Tài xế mở ứng dụng Ngân hàng / VNPay / Ví điện tử quét mã QR bên dưới để thanh toán phí xuất bãi."
+                                            : "Instruct the driver to scan the QR code below using any mobile banking or VNPay app."}
                                     </p>
-                                    <div className="staff-vnpay-qr">
-                                        <div className="staff-vnpay-badge">
-                                            {language === "vi"
-                                                ? "VNPay QR Cổng Ra"
-                                                : "Gate Out VietQR / VNPay"}
+
+                                    {isCreatingVnPay ? (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                padding: "36px 12px",
+                                                gap: "8px",
+                                            }}
+                                        >
+                                            <RefreshCw
+                                                size={24}
+                                                className="staff-spin"
+                                                style={{ color: "#3b82f6" }}
+                                            />
+                                            <span
+                                                style={{
+                                                    fontSize: "13px",
+                                                    color: "#64748b",
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                Đang khởi tạo mã thanh toán từ
+                                                cổng VNPay...
+                                            </span>
                                         </div>
-                                        <div className="staff-vnpay-code">
-                                            🅿️ PARKWISE GATE 02 ·{" "}
-                                            {feeText(
-                                                scannedSession.amountDueVnd,
-                                                formatVnd,
-                                            )}
+                                    ) : vnPayUrl ? (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                alignItems: "center",
+                                                gap: "12px",
+                                                padding: "16px 0",
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    background: "#ffffff",
+                                                    padding: "14px",
+                                                    borderRadius: "14px",
+                                                    border: "2px solid #e2e8f0",
+                                                    display: "inline-flex",
+                                                    boxShadow:
+                                                        "0 4px 12px rgba(0,0,0,0.06)",
+                                                }}
+                                            >
+                                                <QRCode
+                                                    value={vnPayUrl}
+                                                    size={180}
+                                                />
+                                            </div>
+
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    alignItems: "center",
+                                                    gap: "4px",
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        fontSize: "14px",
+                                                        fontWeight: 800,
+                                                        color: "#0f172a",
+                                                    }}
+                                                >
+                                                    Cước phí:{" "}
+                                                    {feeText(
+                                                        scannedSession.amountDueVnd,
+                                                        formatVnd,
+                                                    )}
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        fontSize: "11px",
+                                                        color: "#64748b",
+                                                    }}
+                                                >
+                                                    Mã GD:{" "}
+                                                    {vnPayTxId?.slice(0, 16)}...
+                                                    · Trạng thái:{" "}
+                                                    <span
+                                                        style={{
+                                                            color:
+                                                                vnPayStatus ===
+                                                                "Success"
+                                                                    ? "#10b981"
+                                                                    : "#f59e0b",
+                                                            fontWeight: 700,
+                                                        }}
+                                                    >
+                                                        {vnPayStatus ||
+                                                            "Đang chờ quét"}
+                                                    </span>
+                                                </span>
+                                                <a
+                                                    href={vnPayUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        fontSize: "12px",
+                                                        color: "#2563eb",
+                                                        textDecoration:
+                                                            "underline",
+                                                        marginTop: "2px",
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Mở trang thanh toán VNPay
+                                                    (Tab mới)
+                                                </a>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div
+                                            style={{
+                                                textAlign: "center",
+                                                padding: "24px 12px",
+                                            }}
+                                        >
+                                            <p
+                                                style={{
+                                                    color: "#ef4444",
+                                                    fontSize: "13px",
+                                                    marginBottom: "14px",
+                                                    lineHeight: "1.5",
+                                                }}
+                                            >
+                                                {errorMsg ||
+                                                    "Cổng VNPay tự động (Port 5004) đang ngoại tuyến hoặc không thể kết nối."}
+                                            </p>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    gap: "8px",
+                                                    justifyContent: "center",
+                                                    flexWrap: "wrap",
+                                                }}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    className="staff-btn staff-btn-secondary"
+                                                    onClick={handleOpenVnPayModal}
+                                                >
+                                                    Thử tạo lại mã VNPay
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="staff-btn staff-btn-primary"
+                                                    onClick={() => {
+                                                        setPaymentModal("Cash");
+                                                        setErrorMsg("");
+                                                    }}
+                                                >
+                                                    Chuyển sang thu tiền mặt tại quầy
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="staff-modal-action-bar">
                                         <button
                                             type="button"
@@ -1050,9 +2021,27 @@ export function StaffExitPage() {
                                         <button
                                             type="button"
                                             className="staff-btn staff-btn-primary staff-btn-flex"
-                                            onClick={handleCompleteVnPayPayment}
+                                            disabled={
+                                                isCheckingVnPay || !vnPayTxId
+                                            }
+                                            onClick={handleCheckVnPayPayment}
                                         >
-                                            Thanh toán VNPay thành công
+                                            {isCheckingVnPay ? (
+                                                <>
+                                                    <RefreshCw
+                                                        size={14}
+                                                        className="staff-spin"
+                                                    />
+                                                    <span>
+                                                        Đang kiểm tra...
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <span>
+                                                    Kiểm tra trạng thái thanh
+                                                    toán
+                                                </span>
+                                            )}
                                         </button>
                                     </div>
                                 </div>

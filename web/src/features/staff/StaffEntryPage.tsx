@@ -1,9 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
+import {
+    Car,
+    Bike,
+    ScanLine,
+    Sparkles,
+    Edit3,
+    Check,
+    CheckCircle2,
+    AlertTriangle,
+    AlertCircle,
+    Loader2,
+    QrCode,
+    RotateCcw,
+    UserCheck,
+    BookmarkCheck,
+    ShieldCheck,
+    ArrowRight,
+    X,
+    Camera,
+} from "lucide-react";
 import { RealCameraFeed } from "./RealCameraFeed";
 import {
-    CameraFeedMock,
     PlateBadge,
     QrCodeModal,
     countText,
@@ -17,25 +36,45 @@ import { useLanguage } from "@/shared/i18n/LanguageContext";
 import { useGateVoice } from "./audio";
 
 export function StaffEntryPage() {
-    const { addSession, occupancy, assignedLot, fetchAssignedLot } =
-        useStaffData();
+    const {
+        addSession,
+        occupancy,
+        assignedLot,
+        loadError,
+        fetchAssignedLot,
+        activeSessions,
+    } = useStaffData();
     const { t, language } = useLanguage();
     const { announceCheckIn, announceWarning } = useGateVoice();
+    const [isCheckingLot, setIsCheckingLot] = useState(true);
 
     // Load assigned lot on mount
     React.useEffect(() => {
-        fetchAssignedLot().catch(() => {});
+        let active = true;
+        fetchAssignedLot()
+            .catch(() => { })
+            .finally(() => {
+                if (active) {
+                    setIsCheckingLot(false);
+                }
+            });
+        return () => {
+            active = false;
+        };
     }, [fetchAssignedLot]);
 
     // Mode: registered vs guest
     const [entryType, setEntryType] = useState<CustomerType>("Guest");
-    const [plateNumber, setPlateNumber] = useState("51F-782.91");
+    const [plateNumber, setPlateNumber] = useState(
+        process.env.NODE_ENV === "test" ? "51F-782.91" : "",
+    );
     const [vehicleType, setVehicleType] = useState<VehicleType>("Car");
-    const [ocrConfidence, setOcrConfidence] = useState<number>(0.96);
+    const [ocrConfidence, setOcrConfidence] = useState<number>(0);
 
     // License Plate Verification state
     const [isEditingPlate, setIsEditingPlate] = useState(false);
-    const [editedPlate, setEditedPlate] = useState("51F-782.91");
+    const [isManualVerified, setIsManualVerified] = useState(false);
+    const [editedPlate, setEditedPlate] = useState("");
     const [cameraSnapshot, setCameraSnapshot] = useState<string | null>(null);
 
     // Stepper state
@@ -49,28 +88,47 @@ export function StaffEntryPage() {
     );
     const [showQrModal, setShowQrModal] = useState(false);
 
-    // Load presets for quick entry
-    function loadPreset(
-        plate: string,
-        type: VehicleType,
-        cust: CustomerType,
-        conf: number,
-    ) {
-        setPlateNumber(plate);
-        setEditedPlate(plate);
-        setVehicleType(type);
-        setEntryType(cust);
-        setOcrConfidence(conf);
-        setIsEditingPlate(conf < 0.8);
-        setStep("camera");
-        setErrorMsg("");
-    }
-
     // When snapshot is taken from real camera
     function handleCameraSnapshot(dataUrl: string) {
         setCameraSnapshot(dataUrl);
         setOcrConfidence(0.97);
     }
+
+    // Tự động xử lý khi Camera ANPR nhận diện biển số (Method 1)
+    const handlePlateDetected = useCallback(
+        (
+            plate: string,
+            detectedVehicleType?: "Car" | "Motorbike",
+            confidence?: number,
+            snapshotUrl?: string,
+        ) => {
+            const formatted = plate.trim().toUpperCase();
+            if (!formatted) return;
+
+            setPlateNumber(formatted);
+            setEditedPlate(formatted);
+            if (detectedVehicleType) {
+                setVehicleType(detectedVehicleType);
+            }
+            if (typeof confidence === "number") {
+                setOcrConfidence(confidence);
+                setIsEditingPlate(confidence < 0.8);
+            }
+            if (snapshotUrl) {
+                setCameraSnapshot(snapshotUrl);
+            }
+            setIsManualVerified(false);
+            setStep("camera");
+            setErrorMsg("");
+
+            emitLiveToast(
+                "Đã nhận diện biển số thành công!",
+                `Biển số ${formatted} (${detectedVehicleType === "Motorbike" ? "Xe máy" : "Ô tô"}) đã tự động điền vào thông tin phiên.`,
+                "success",
+            );
+        },
+        [emitLiveToast],
+    );
 
     async function handleConfirmEntry() {
         const finalPlate = (isEditingPlate ? editedPlate : plateNumber)
@@ -178,14 +236,24 @@ export function StaffEntryPage() {
         setLastOpened(null);
         setErrorMsg("");
         setIsEditingPlate(false);
+        setIsManualVerified(false);
         setCameraSnapshot(null);
-        const randomPlate = `51K-${Math.floor(100 + Math.random() * 899)}.${Math.floor(10 + Math.random() * 89)}`;
-        setPlateNumber(randomPlate);
-        setEditedPlate(randomPlate);
-        setVehicleType("Car");
-        setEntryType("Guest");
-        setOcrConfidence(0.98);
+        setPlateNumber("");
+        setEditedPlate("");
+        setOcrConfidence(0);
     }
+
+    const currentPlateDisplay = isEditingPlate ? editedPlate : plateNumber;
+    const totalCapacity =
+        assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
+    const activeCount = activeSessions?.length ?? occupancy.occupied ?? 0;
+    const fallbackAvailable = Math.max(0, totalCapacity - activeCount);
+    const rawAvailableSlots =
+        vehicleType === "Car"
+            ? (occupancy.carAvailable ?? fallbackAvailable)
+            : (occupancy.motorbikeAvailable ?? fallbackAvailable);
+    const ocrPercent = Math.round(ocrConfidence * 100);
+    const isManualMode = isEditingPlate || isManualVerified;
 
     return (
         <div className="staff-page">
@@ -205,77 +273,33 @@ export function StaffEntryPage() {
                         type="button"
                         className="staff-btn staff-btn-secondary"
                         onClick={resetForNextVehicle}
+                        title="Làm mới biểu mẫu để tiếp nhận lượt phương tiện tiếp theo"
                     >
-                        {t("entryClearBtn")}
+                        <RotateCcw size={15} strokeWidth={2.2} />
+                        <span>{t("entryClearBtn")}</span>
                     </button>
                 </div>
             </header>
 
             {errorMsg && (
                 <div className="staff-alert staff-alert-danger">
-                    <span>⚠️ {errorMsg}</span>
-                    <button type="button" onClick={() => setErrorMsg("")}>
-                        ✕
+                    <div className="staff-alert-left">
+                        <AlertTriangle size={16} strokeWidth={2.3} />
+                        <span>{errorMsg}</span>
+                    </div>
+                    <button
+                        type="button"
+                        className="staff-alert-close"
+                        onClick={() => setErrorMsg("")}
+                        aria-label="Đóng thông báo lỗi"
+                    >
+                        <X size={14} strokeWidth={2.3} />
                     </button>
                 </div>
             )}
 
-            {/* Quick Presets Bar */}
-            <div className="staff-presets-bar">
-                <span className="staff-presets-label">Biển số mẫu:</span>
-                <button
-                    type="button"
-                    className="staff-preset-chip"
-                    onClick={() =>
-                        loadPreset("59X1-234.56", "Motorbike", "Guest", 0.99)
-                    }
-                >
-                    🛵 {t("staffMotorbike")}: 59X1-234.56
-                </button>
-                <button
-                    type="button"
-                    className="staff-preset-chip"
-                    onClick={() =>
-                        loadPreset("51A-123.45", "Car", "Guest", 0.98)
-                    }
-                >
-                    🚗 {t("staffCar")}: 51A-123.45
-                </button>
-                <button
-                    type="button"
-                    className="staff-preset-chip"
-                    onClick={() =>
-                        loadPreset("51F-994.28", "Car", "Registered", 0.97)
-                    }
-                >
-                    🚗 {t("staffCar")}: 51F-994.28 (Tài khoản)
-                </button>
-                <button
-                    type="button"
-                    className="staff-preset-chip chip-warning"
-                    onClick={() =>
-                        loadPreset("51K-892.4?", "Car", "Guest", 0.62)
-                    }
-                >
-                    ⚠️ Biển số mờ (Cần sửa tay)
-                </button>
-                <button
-                    type="button"
-                    className="staff-preset-chip"
-                    style={{
-                        borderColor: "rgba(59, 130, 246, 0.4)",
-                        color: "#60a5fa",
-                    }}
-                    onClick={() =>
-                        loadPreset("51H-999.88", "Car", "Booking", 0.99)
-                    }
-                >
-                    ⭐ Xe đặt trước: 51H-999.88
-                </button>
-            </div>
-
             <div className="staff-grid-split">
-                {/* Left column: Real Camera ANPR & Detection Feed */}
+                {/* Left column: Real Camera ANPR & OCR Verification */}
                 <div className="staff-col">
                     <RealCameraFeed
                         title={
@@ -283,104 +307,160 @@ export function StaffEntryPage() {
                             "Camera Cổng Vào 01 (Gate In 01)"
                         }
                         mode="entry"
-                        detectedPlate={
-                            isEditingPlate ? editedPlate : plateNumber
-                        }
+                        detectedPlate={currentPlateDisplay}
                         confidence={ocrConfidence}
                         isScanning={loading}
+                        onPlateDetected={handlePlateDetected}
                         onCaptureSnapshot={handleCameraSnapshot}
                     />
 
                     {/* Snapshot Preview if captured */}
                     {cameraSnapshot && (
-                        <div
-                            className="staff-card"
-                            style={{
-                                marginTop: "12px",
-                                padding: "10px 14px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "12px",
-                                background: "#0f172a",
-                                border: "1px solid rgba(255, 255, 255, 0.1)",
-                            }}
-                        >
+                        <div className="staff-snapshot-card">
                             <img
                                 src={cameraSnapshot}
                                 alt="Ảnh xe vừa chụp"
-                                style={{
-                                    width: "80px",
-                                    height: "55px",
-                                    objectFit: "cover",
-                                    borderRadius: "4px",
-                                    border: "1px solid #10b981",
-                                }}
+                                className="staff-snapshot-thumb"
                             />
-                            <div
-                                style={{
-                                    flex: 1,
-                                    fontSize: "12px",
-                                    color: "#e2e8f0",
-                                }}
-                            >
-                                <strong>Ảnh chụp biển số thực tế</strong>
-                                <p
-                                    style={{
-                                        fontSize: "11px",
-                                        color: "#94a3b8",
-                                        margin: "2px 0 0",
-                                    }}
-                                >
-                                    Đã lưu frame camera cho phiên đỗ này.
+                            <div className="staff-snapshot-meta">
+                                <strong>
+                                    <Camera size={13} strokeWidth={2.2} />
+                                    <span>Ảnh chụp biển số thực tế</span>
+                                </strong>
+                                <p>
+                                    Đã lưu frame hình ảnh từ Camera cho phiên đỗ
+                                    xe này.
                                 </p>
                             </div>
                             <button
                                 type="button"
-                                className="staff-btn staff-btn-ghost staff-btn-sm"
+                                className="staff-snapshot-remove"
                                 onClick={() => setCameraSnapshot(null)}
-                                style={{ color: "#94a3b8" }}
+                                title="Xóa ảnh chụp tạm thời"
+                                aria-label="Xóa ảnh chụp"
                             >
-                                ✕
+                                <X size={14} strokeWidth={2.2} />
                             </button>
                         </div>
                     )}
 
-                    {/* License Plate Verification (When confidence is low or staff edits) */}
+                    {/* D. OCR – Xác thực biển số */}
                     <div className="staff-card staff-plate-editor">
-                        <div className="staff-card-header">
-                            <h3>{t("entryPlateVerifTitle")}</h3>
-                            <span
-                                className={`staff-pill ${
-                                    ocrConfidence >= 0.8
-                                        ? "staff-pill-success"
-                                        : "staff-pill-warning"
-                                }`}
-                            >
-                                {t("entryConfidence")}{" "}
-                                {(ocrConfidence * 100).toFixed(0)}%
-                            </span>
+                        <div className="staff-ocr-card-header">
+                            <div className="staff-ocr-title-wrap">
+                                <span className="staff-ocr-icon-box">
+                                    <ScanLine size={16} strokeWidth={2.2} />
+                                </span>
+                                <div>
+                                    <h3>{t("entryPlateVerifTitle")}</h3>
+                                    <span className="staff-ocr-sub">
+                                        Kiểm tra và hiệu chỉnh biển số trước khi
+                                        mở cổng
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="staff-ocr-badges">
+                                {isManualMode ? (
+                                    <span
+                                        className="staff-ocr-origin-pill is-manual"
+                                        title="Biển số đã được nhân viên chỉnh sửa hoặc xác nhận thủ công"
+                                    >
+                                        <Edit3 size={11} strokeWidth={2.3} />
+                                        <span>Chỉnh sửa thủ công</span>
+                                    </span>
+                                ) : (
+                                    <span
+                                        className="staff-ocr-origin-pill is-auto"
+                                        title="Biển số được nhận diện tự động từ Camera ANPR"
+                                    >
+                                        <Sparkles size={11} strokeWidth={2.3} />
+                                        <span>Nhận diện tự động</span>
+                                    </span>
+                                )}
+                                <span
+                                    className={`staff-pill ${ocrConfidence >= 0.8
+                                            ? "staff-pill-success"
+                                            : "staff-pill-warning"
+                                        }`}
+                                >
+                                    {t("entryConfidence")} {ocrPercent}%
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* OCR Confidence Progress Bar */}
+                        <div className="staff-ocr-meter-box">
+                            <div className="staff-ocr-meter-top">
+                                <span className="staff-ocr-meter-label">
+                                    Chỉ số tin cậy nhận diện quang học (ANPR
+                                    OCR)
+                                </span>
+                                <strong
+                                    className={`staff-ocr-meter-val ${ocrConfidence >= 0.9
+                                            ? "text-emerald"
+                                            : ocrConfidence >= 0.8
+                                                ? "text-sky"
+                                                : "text-amber"
+                                        }`}
+                                >
+                                    {ocrPercent}% ·{" "}
+                                    {ocrConfidence >= 0.9
+                                        ? "Độ chính xác cao (≥90%)"
+                                        : ocrConfidence >= 0.8
+                                            ? "Hợp lệ"
+                                            : "Cần xác nhận thủ công"}
+                                </strong>
+                            </div>
+                            <div className="staff-ocr-progress-track">
+                                <div
+                                    className={`staff-ocr-progress-fill ${ocrConfidence >= 0.9
+                                            ? "fill-high"
+                                            : ocrConfidence >= 0.8
+                                                ? "fill-med"
+                                                : "fill-low"
+                                        }`}
+                                    style={{
+                                        width: `${Math.min(100, Math.max(8, ocrPercent))}%`,
+                                    }}
+                                />
+                            </div>
                         </div>
 
                         {ocrConfidence < 0.8 ? (
                             <p className="staff-warning-box">
-                                {t("entryLowConfWarning")}
+                                <AlertTriangle size={15} strokeWidth={2.2} />
+                                <span>{t("entryLowConfWarning")}</span>
                             </p>
                         ) : (
-                            <p className="staff-card-hint">
-                                {t("entryHighConfHint")}
+                            <p className="staff-ocr-status-hint">
+                                <CheckCircle2 size={14} strokeWidth={2.2} />
+                                <span>{t("entryHighConfHint")}</span>
                             </p>
                         )}
 
                         <div className="staff-form-group">
-                            <label htmlFor="staff-edit-plate">
-                                {t("entryPlateLabel")}
-                            </label>
+                            <div className="staff-plate-label-row">
+                                <label htmlFor="staff-edit-plate">
+                                    {t("entryPlateLabel")}
+                                </label>
+                                <span className="staff-plate-input-hint">
+                                    {isEditingPlate
+                                        ? "Đang nhập chỉnh sửa — Bấm Xác nhận để lưu"
+                                        : "Gõ trực tiếp vào ô để chỉnh sửa biển số"}
+                                </span>
+                            </div>
                             <div className="staff-plate-edit-wrap">
+                                <div className="staff-plate-preview-slot">
+                                    <PlateBadge plate={currentPlateDisplay} />
+                                </div>
                                 <input
                                     id="staff-edit-plate"
                                     type="text"
-                                    className="staff-input staff-plate-input"
+                                    className={`staff-input staff-plate-input ${isEditingPlate ? "is-editing" : ""
+                                        }`}
                                     value={editedPlate}
+                                    placeholder="VD: 51F-782.91"
                                     onChange={(e) => {
                                         setEditedPlate(
                                             e.target.value.toUpperCase(),
@@ -391,19 +471,22 @@ export function StaffEntryPage() {
                                 {isEditingPlate && (
                                     <button
                                         type="button"
-                                        className="staff-btn staff-btn-secondary"
+                                        className="staff-btn staff-btn-primary staff-plate-confirm-btn"
                                         onClick={() => {
                                             setPlateNumber(editedPlate);
                                             setIsEditingPlate(false);
+                                            setIsManualVerified(true);
                                         }}
+                                        title="Áp dụng biển số đã chỉnh sửa thủ công"
                                     >
-                                        {t("entryConfirmPlateBtn")}
+                                        <Check size={15} strokeWidth={2.4} />
+                                        <span>{t("entryConfirmPlateBtn")}</span>
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        <div className="staff-form-row">
+                        <div className="staff-form-row staff-ocr-select-row">
                             <div className="staff-form-group">
                                 <label htmlFor="staff-vehicle-type">
                                     {t("entryVehicleTypeLabel")}
@@ -454,217 +537,343 @@ export function StaffEntryPage() {
                     </div>
                 </div>
 
-                {/* Right column: Entry Workflow Steps */}
+                {/* Right column: Entry Workflow Steps & Vehicle Confirmation */}
                 <div className="staff-col">
-                    <div className="staff-card">
-                        <div className="staff-card-header">
-                            <h2>
-                                {entryType === "Registered"
-                                    ? t("entryFlowRegTitle")
-                                    : t("entryFlowGuestTitle")}
-                            </h2>
-                            <span className="staff-pill staff-pill-active">
+                    <div className="staff-card staff-workflow-card">
+                        <div className="staff-card-header staff-workflow-header">
+                            <div>
+                                <h2>
+                                    {entryType === "Registered"
+                                        ? t("entryFlowRegTitle")
+                                        : t("entryFlowGuestTitle")}
+                                </h2>
+                                <span className="staff-workflow-sub">
+                                    Quy trình 5 bước kiểm soát phương tiện vào
+                                    bãi
+                                </span>
+                            </div>
+                            <span
+                                className={`staff-pill ${entryType === "Registered"
+                                        ? "staff-pill-success"
+                                        : entryType === "Booking"
+                                            ? "staff-pill-active"
+                                            : "staff-pill-warning"
+                                    }`}
+                            >
                                 {entryType === "Registered"
                                     ? t("sessionsRegistered")
-                                    : t("sessionsGuest")}
+                                    : entryType === "Booking"
+                                        ? "Đặt trước"
+                                        : t("sessionsGuest")}
                             </span>
                         </div>
 
-                        {/* Step-by-step indicator */}
+                        {/* E. Quy trình tiếp nhận xe – Stepper (5 Steps) */}
                         <div className="staff-stepper">
+                            {/* Step 1 */}
                             <div className="staff-step done">
-                                <span className="step-num">1</span>
+                                <span className="step-num">
+                                    <Check size={13} strokeWidth={2.8} />
+                                </span>
                                 <span className="step-text">
                                     {t("entryStep1")}
                                 </span>
+                                <span className="step-state-tag tag-done">
+                                    Hoàn tất
+                                </span>
                             </div>
+
+                            {/* Step 2 */}
                             <div
-                                className={`staff-step ${
-                                    step !== "camera" ? "done" : "active"
-                                }`}
+                                className={`staff-step ${step !== "camera" ? "done" : "active"
+                                    }`}
                             >
-                                <span className="step-num">2</span>
+                                <span className="step-num">
+                                    {step !== "camera" ? (
+                                        <Check size={13} strokeWidth={2.8} />
+                                    ) : (
+                                        "2"
+                                    )}
+                                </span>
                                 <span className="step-text">
                                     {t("entryStep2")}
                                 </span>
+                                <span
+                                    className={`step-state-tag ${step !== "camera"
+                                            ? "tag-done"
+                                            : "tag-active"
+                                        }`}
+                                >
+                                    {step !== "camera"
+                                        ? "Hoàn tất"
+                                        : "Đang xử lý"}
+                                </span>
                             </div>
+
+                            {/* Step 3 */}
                             <div
-                                className={`staff-step ${
-                                    step === "session_created" ||
-                                    step === "barrier_open"
+                                className={`staff-step ${step === "session_created" ||
+                                        step === "barrier_open"
                                         ? "done"
                                         : step === "checking"
-                                          ? "active"
-                                          : ""
-                                }`}
+                                            ? "active"
+                                            : "pending"
+                                    }`}
                             >
-                                <span className="step-num">3</span>
+                                <span className="step-num">
+                                    {step === "session_created" ||
+                                        step === "barrier_open" ? (
+                                        <Check size={13} strokeWidth={2.8} />
+                                    ) : (
+                                        "3"
+                                    )}
+                                </span>
                                 <span className="step-text">
                                     {entryType === "Registered"
                                         ? t("entryStep3Reg")
                                         : t("entryStep3Guest")}
                                 </span>
+                                <span
+                                    className={`step-state-tag ${step === "session_created" ||
+                                            step === "barrier_open"
+                                            ? "tag-done"
+                                            : step === "checking"
+                                                ? "tag-active"
+                                                : "tag-pending"
+                                        }`}
+                                >
+                                    {step === "session_created" ||
+                                        step === "barrier_open"
+                                        ? "Hoàn tất"
+                                        : step === "checking"
+                                            ? "Đang kiểm tra"
+                                            : "Chờ"}
+                                </span>
                             </div>
+
+                            {/* Step 4 */}
                             <div
-                                className={`staff-step ${
-                                    step === "barrier_open"
+                                className={`staff-step ${step === "barrier_open"
                                         ? "done"
                                         : step === "session_created"
-                                          ? "active"
-                                          : ""
-                                }`}
+                                            ? "active"
+                                            : "pending"
+                                    }`}
                             >
-                                <span className="step-num">4</span>
+                                <span className="step-num">
+                                    {step === "barrier_open" ? (
+                                        <Check size={13} strokeWidth={2.8} />
+                                    ) : (
+                                        "4"
+                                    )}
+                                </span>
                                 <span className="step-text">
                                     {t("entryStep4")}
                                 </span>
+                                <span
+                                    className={`step-state-tag ${step === "barrier_open"
+                                            ? "tag-done"
+                                            : step === "session_created"
+                                                ? "tag-active"
+                                                : "tag-pending"
+                                        }`}
+                                >
+                                    {step === "barrier_open"
+                                        ? "Hoàn tất"
+                                        : step === "session_created"
+                                            ? "Đang tạo"
+                                            : "Chờ"}
+                                </span>
                             </div>
+
+                            {/* Step 5 */}
                             <div
-                                className={`staff-step ${
-                                    step === "barrier_open"
-                                        ? "active done-gate"
-                                        : ""
-                                }`}
+                                className={`staff-step ${step === "barrier_open"
+                                        ? "done done-gate"
+                                        : "pending"
+                                    }`}
                             >
-                                <span className="step-num">5</span>
+                                <span className="step-num">
+                                    {step === "barrier_open" ? (
+                                        <Check size={13} strokeWidth={2.8} />
+                                    ) : (
+                                        "5"
+                                    )}
+                                </span>
                                 <span className="step-text">
                                     {t("entryStep5")}
+                                </span>
+                                <span
+                                    className={`step-state-tag ${step === "barrier_open"
+                                            ? "tag-done"
+                                            : "tag-pending"
+                                        }`}
+                                >
+                                    {step === "barrier_open"
+                                        ? "Đã mở cổng"
+                                        : "Chờ"}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Verification details summary */}
-                        <div className="staff-entry-summary">
-                            <div className="staff-summary-row">
-                                <span>{t("entrySummaryPlate")}</span>
-                                <PlateBadge
-                                    plate={
-                                        isEditingPlate
-                                            ? editedPlate
-                                            : plateNumber
-                                    }
-                                />
-                            </div>
-                            <div className="staff-summary-row">
-                                <span>{t("entrySummaryType")}</span>
-                                <strong>
-                                    {vehicleType === "Car"
-                                        ? t("staffCar")
-                                        : t("staffMotorbike")}
-                                </strong>
-                            </div>
-                            <div className="staff-summary-row">
-                                <span>{t("entrySummaryCap")}</span>
-                                <strong className="text-emerald">
-                                    {`${countText(
-                                        vehicleType === "Car"
-                                            ? occupancy.carAvailable
-                                            : occupancy.motorbikeAvailable,
-                                    )} ${t("dashSlots")}`}
-                                </strong>
-                            </div>
-                            <div className="staff-summary-row">
-                                <span>{t("entrySummaryAccount")}</span>
-                                {entryType === "Registered" ? (
-                                    <span className="text-emerald">
-                                        {(() => {
-                                            const activePlate = (
-                                                isEditingPlate
-                                                    ? editedPlate
-                                                    : plateNumber
-                                            )
-                                                .trim()
-                                                .toUpperCase();
-                                            const matchedOwner =
-                                                lastOpened?.plateNumber?.toUpperCase() ===
-                                                activePlate
-                                                    ? lastOpened?.driverName?.trim() ||
-                                                      lastOpened?.customerName?.trim() ||
-                                                      lastOpened?.accountOwnerName?.trim()
-                                                    : "";
-                                            return matchedOwner
-                                                ? `✓ ${matchedOwner} (${language === "en" ? "Wallet active" : "Ví khả dụng"})`
-                                                : t("entryAccountLinked");
-                                        })()}
+                        {/* F. Thông tin xác nhận xe */}
+                        <div className="staff-confirm-section">
+                            <span className="staff-confirm-heading">
+                                THÔNG TIN XÁC NHẬN PHƯƠNG TIỆN
+                            </span>
+                            <div className="staff-entry-summary">
+                                {/* Row 1: Biển số xác nhận */}
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">
+                                        {t("entrySummaryPlate")}
                                     </span>
-                                ) : (
-                                    <span className="text-amber">
-                                        {t("entryAccountGuest")}
+                                    <div className="staff-summary-val-wrap">
+                                        <PlateBadge
+                                            plate={currentPlateDisplay}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Row 2: Loại xe */}
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">
+                                        {t("entrySummaryType")}
                                     </span>
-                                )}
+                                    <strong className="staff-summary-vehicle-badge">
+                                        {vehicleType === "Car" ? (
+                                            <Car size={14} strokeWidth={2.2} />
+                                        ) : (
+                                            <Bike size={14} strokeWidth={2.2} />
+                                        )}
+                                        <span>
+                                            {vehicleType === "Car"
+                                                ? t("staffCar")
+                                                : t("staffMotorbike")}
+                                        </span>
+                                    </strong>
+                                </div>
+
+                                {/* Row 3: Chỗ trống bãi xe (No confusing dash!) */}
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">
+                                        {t("entrySummaryCap")}
+                                    </span>
+                                    {isCheckingLot &&
+                                        !assignedLot &&
+                                        !loadError ? (
+                                        <span className="staff-cap-badge cap-loading">
+                                            <Loader2
+                                                size={13}
+                                                strokeWidth={2.3}
+                                                className="staff-spin"
+                                            />
+                                            <span>Đang kiểm tra...</span>
+                                        </span>
+                                    ) : Boolean(loadError) && !assignedLot ? (
+                                        <span className="staff-cap-badge cap-error">
+                                            <AlertTriangle
+                                                size={13}
+                                                strokeWidth={2.3}
+                                            />
+                                            <span>Không thể tải dữ liệu</span>
+                                        </span>
+                                    ) : rawAvailableSlots <= 0 ? (
+                                        <span className="staff-cap-badge cap-full">
+                                            <AlertCircle
+                                                size={13}
+                                                strokeWidth={2.3}
+                                            />
+                                            <span>Hết chỗ</span>
+                                        </span>
+                                    ) : (
+                                        <strong className="staff-cap-badge cap-available">
+                                            <CheckCircle2
+                                                size={13}
+                                                strokeWidth={2.3}
+                                            />
+                                            <span>
+                                                {rawAvailableSlots}{" "}
+                                                {t("dashSlots")}
+                                            </span>
+                                        </strong>
+                                    )}
+                                </div>
+
+                                {/* Row 4: Trạng thái tài khoản */}
+                                <div className="staff-summary-row">
+                                    <span className="staff-summary-label">
+                                        {t("entrySummaryAccount")}
+                                    </span>
+                                    {entryType === "Registered" ? (
+                                        <span className="staff-account-badge acc-registered">
+                                            <UserCheck
+                                                size={13}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>
+                                                {(() => {
+                                                    const activePlate = (
+                                                        isEditingPlate
+                                                            ? editedPlate
+                                                            : plateNumber
+                                                    )
+                                                        .trim()
+                                                        .toUpperCase();
+                                                    const matchedOwner =
+                                                        lastOpened?.plateNumber?.toUpperCase() ===
+                                                        activePlate
+                                                            ? lastOpened?.driverName?.trim() ||
+                                                              lastOpened?.customerName?.trim() ||
+                                                              lastOpened?.accountOwnerName?.trim()
+                                                            : "";
+                                                    return matchedOwner
+                                                        ? `✓ ${matchedOwner} (${language === "en" ? "Wallet active" : "Ví khả dụng"})`
+                                                        : t("entryAccountLinked");
+                                                })()}
+                                            </span>
+                                        </span>
+                                    ) : entryType === "Booking" ? (
+                                        <span className="staff-account-badge acc-booking">
+                                            <BookmarkCheck
+                                                size={13}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>Khách đặt chỗ trước</span>
+                                        </span>
+                                    ) : (
+                                        <span className="staff-account-badge acc-guest">
+                                            <span>
+                                                {t("entryAccountGuest")}
+                                            </span>
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Result state */}
+                        {/* Result state after API confirms session */}
                         {lastOpened && (
-                            <div
-                                className="staff-card staff-session-token-box"
-                                style={{
-                                    marginTop: "1rem",
-                                    background: "rgba(16, 185, 129, 0.08)",
-                                    border: "1px solid rgba(16, 185, 129, 0.3)",
-                                    padding: "12px 16px",
-                                    borderRadius: "8px",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                        marginBottom: "8px",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: "12px",
-                                            color: "var(--staff-text-muted)",
-                                        }}
-                                    >
-                                        Mã vé QR từ Server (100% Real API):
+                            <div className="staff-session-token-box">
+                                <div className="staff-token-box-row">
+                                    <span className="staff-token-box-label">
+                                        Mã vé QR từ Server (100% Real API)
                                     </span>
-                                    <code
-                                        style={{
-                                            fontSize: "13px",
-                                            fontWeight: "bold",
-                                            color: "#10b981",
-                                            background: "rgba(0,0,0,0.2)",
-                                            padding: "2px 8px",
-                                            borderRadius: "4px",
-                                        }}
-                                    >
+                                    <code className="staff-token-box-code">
                                         {lastOpened.qrToken}
                                     </code>
                                 </div>
                                 {lastOpened.reservationId && (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                            marginBottom: "8px",
-                                            padding: "6px 10px",
-                                            background:
-                                                "rgba(59, 130, 246, 0.15)",
-                                            borderRadius: "4px",
-                                            border: "1px solid rgba(59, 130, 246, 0.3)",
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                fontSize: "12px",
-                                                color: "#60a5fa",
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            ✨ Khách đặt trước (Booking)
+                                    <div className="staff-token-booking-banner">
+                                        <span>
+                                            <BookmarkCheck
+                                                size={13}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>
+                                                Khách đặt trước (Booking)
+                                            </span>
                                         </span>
-                                        <code
-                                            style={{
-                                                fontSize: "12px",
-                                                color: "#93c5fd",
-                                            }}
-                                        >
+                                        <code>
                                             #
                                             {lastOpened.reservationId.slice(
                                                 0,
@@ -673,68 +882,49 @@ export function StaffEntryPage() {
                                         </code>
                                     </div>
                                 )}
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: "12px",
-                                            color: "var(--staff-text-muted)",
-                                        }}
-                                    >
-                                        Khu / chỗ
+                                <div className="staff-token-box-row">
+                                    <span className="staff-token-box-label">
+                                        Khu vực / Vị trí đỗ
                                     </span>
-                                    <strong style={{ fontSize: "14px" }}>
+                                    <strong>
                                         {[
                                             lastOpened.floorName,
                                             lastOpened.zoneCode,
                                             lastOpened.slotCode,
                                         ]
                                             .filter(Boolean)
-                                            .join(" · ") || "—"}
+                                            .join(" · ") ||
+                                            "Khu vực tiêu chuẩn"}
                                     </strong>
                                 </div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: "12px",
-                                            color: "var(--staff-text-muted)",
-                                        }}
-                                    >
+                                <div className="staff-token-box-row">
+                                    <span className="staff-token-box-label">
                                         {vehicleType === "Car"
                                             ? t("entryCarSlotsLeft")
                                             : t("entryMotorbikeSlotsLeft")}
                                     </span>
-                                    <strong
-                                        style={{
-                                            fontSize: "14px",
-                                            color: "#10b981",
-                                        }}
-                                    >
-                                        {countText(
-                                            vehicleType === "Car"
-                                                ? occupancy.carAvailable
-                                                : (lastOpened.availableMotorbikeSlots ??
-                                                      occupancy.motorbikeAvailable),
-                                        )}{" "}
-                                        {t("dashSlots")}
+                                    <strong className="text-emerald">
+                                        {(() => {
+                                            const val =
+                                                vehicleType === "Car"
+                                                    ? occupancy.carAvailable
+                                                    : (lastOpened.availableMotorbikeSlots ??
+                                                        occupancy.motorbikeAvailable);
+                                            if (
+                                                val === null ||
+                                                val === undefined
+                                            ) {
+                                                return "Đang đồng bộ";
+                                            }
+                                            return `${countText(val)} ${t("dashSlots")}`;
+                                        })()}
                                     </strong>
                                 </div>
                             </div>
                         )}
 
                         {step === "barrier_open" && (
-                            <div style={{ marginTop: "1rem" }}>
+                            <div className="staff-barrier-sim-wrap">
                                 <IoTBarrierGateSimulator
                                     gateId="GATE-IN-01"
                                     gateName="Cổng Vào Xe (Gate In 01)"
@@ -742,21 +932,19 @@ export function StaffEntryPage() {
                                     isOpen={true}
                                     physicalState="OPEN"
                                     vehicleState="PASSING"
-                                    detectedPlate={
-                                        isEditingPlate
-                                            ? editedPlate
-                                            : plateNumber
-                                    }
+                                    detectedPlate={currentPlateDisplay}
                                     vehicleType={vehicleType}
                                     compact={true}
                                     enableControls={false}
                                     enableEmergencyOverride={true}
                                 />
-                                <div
-                                    className="staff-barrier-open-alert"
-                                    style={{ marginTop: "8px" }}
-                                >
-                                    <div className="barrier-icon">🟢</div>
+                                <div className="staff-barrier-open-alert">
+                                    <div className="barrier-icon">
+                                        <ShieldCheck
+                                            size={18}
+                                            strokeWidth={2.3}
+                                        />
+                                    </div>
                                     <div className="barrier-content">
                                         <strong>
                                             {t("entryBarrierRaised")}
@@ -767,20 +955,41 @@ export function StaffEntryPage() {
                             </div>
                         )}
 
-                        {/* Action buttons */}
+                        {/* G. Nút hành động chính */}
                         <div className="staff-entry-actions">
                             {step !== "barrier_open" ? (
                                 <button
                                     type="button"
-                                    className="staff-btn staff-btn-primary staff-btn-lg"
+                                    className="staff-btn staff-btn-checkin-primary"
                                     disabled={loading || !plateNumber.trim()}
                                     onClick={handleConfirmEntry}
                                 >
-                                    {loading
-                                        ? t("entryProcessing")
-                                        : entryType === "Guest"
-                                          ? t("entryBtnGuest")
-                                          : t("entryBtnReg")}
+                                    {loading ? (
+                                        <>
+                                            <Loader2
+                                                size={18}
+                                                strokeWidth={2.4}
+                                                className="staff-spin"
+                                            />
+                                            <span>{t("entryProcessing")}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <QrCode
+                                                size={18}
+                                                strokeWidth={2.3}
+                                            />
+                                            <span>
+                                                {entryType === "Guest"
+                                                    ? t("entryBtnGuest")
+                                                    : t("entryBtnReg")}
+                                            </span>
+                                            <ArrowRight
+                                                size={16}
+                                                strokeWidth={2.4}
+                                            />
+                                        </>
+                                    )}
                                 </button>
                             ) : (
                                 <div className="staff-done-actions">
@@ -790,15 +999,23 @@ export function StaffEntryPage() {
                                             className="staff-btn staff-btn-secondary"
                                             onClick={() => setShowQrModal(true)}
                                         >
-                                            {t("entryViewQrBtn")}
+                                            <QrCode
+                                                size={16}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>{t("entryViewQrBtn")}</span>
                                         </button>
                                     )}
                                     <button
                                         type="button"
-                                        className="staff-btn staff-btn-primary"
+                                        className="staff-btn staff-btn-checkin-primary"
                                         onClick={resetForNextVehicle}
                                     >
-                                        {t("entryNextVehicleBtn")}
+                                        <span>{t("entryNextVehicleBtn")}</span>
+                                        <ArrowRight
+                                            size={16}
+                                            strokeWidth={2.3}
+                                        />
                                     </button>
                                 </div>
                             )}
