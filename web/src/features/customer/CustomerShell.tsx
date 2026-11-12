@@ -18,6 +18,10 @@ import {
     subscribeAuthSession,
 } from "@/features/auth/authSession";
 import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
+import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
+import { useCustomerLanguage } from "./i18n/customerLanguage";
+import { getMyNotifications } from "./customerNotificationApi";
+import { getMyProfile } from "./customerProfileApi";
 
 export type CustomerIconName =
     | "arrow"
@@ -193,31 +197,103 @@ export function CustomerIcon({
     );
 }
 
-export function CustomerHeader({ active }: { active: "home" | "search" }) {
+export function CustomerHeader({
+    active,
+    profilePhotoUrl,
+    showTriggerName = true,
+}: {
+    active:
+        | "home"
+        | "search"
+        | "detail"
+        | "wallet"
+        | "bookings"
+        | "history"
+        | "sessions"
+        | "profile"
+        | "notifications"
+        | "vehicles"
+        | "completeProfile";
+    profilePhotoUrl?: string;
+    showTriggerName?: boolean;
+}) {
+    const activeHref = {
+        home: "/customer/dashboard",
+        search: "/search",
+        detail: "/search",
+        wallet: "/customer/wallet",
+        bookings: "/customer/bookings",
+        history: "/customer/parking-history",
+        sessions: "/customer/sessions",
+        profile: "/customer/profile",
+        notifications: "/customer/notifications",
+        vehicles: "/customer/vehicles",
+        completeProfile: "/customer/complete-profile",
+    }[active];
+
     return (
         <ParkWiseNavbar
             variant="customer"
-            navigationMode={active === "home" ? "dashboard" : "customer"}
-            activeHref={active === "home" ? "/customer/dashboard" : "/search"}
+            navigationMode="dashboard"
+            activeHref={activeHref}
             accountControl={
-                active === "home" ? (
-                    <div className="dashboard-header-actions">
-                        <CustomerNotifications />
-                        <CustomerAccountMenu activeHref="/customer/dashboard" />
-                    </div>
-                ) : (
-                    <CustomerAccountMenu activeHref="/search" />
-                )
+                <div className="dashboard-header-actions">
+                    <CustomerLanguageSwitcher />
+                    <CustomerNotifications />
+                    <CustomerAccountMenu
+                        activeHref={activeHref}
+                        profilePhotoUrl={profilePhotoUrl}
+                        showTriggerName={showTriggerName}
+                    />
+                </div>
             }
         />
     );
 }
 
 function CustomerNotifications() {
+    const { copy } = useCustomerLanguage();
     const [open, setOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelId = useId();
+
+    useEffect(() => {
+        let active = true;
+        const refresh = () => {
+            void getMyNotifications(true, 1, 1)
+                .then((result) => {
+                    if (active) setUnreadCount(result.unreadCount);
+                })
+                .catch(() => {
+                    if (active) setUnreadCount(0);
+                });
+        };
+
+        refresh();
+        const onFocus = () => refresh();
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") refresh();
+        };
+        window.addEventListener("focus", onFocus);
+        window.addEventListener("customer-notifications-changed", onFocus);
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        const timer = window.setInterval(refresh, 30_000);
+        return () => {
+            active = false;
+            window.clearInterval(timer);
+            window.removeEventListener("focus", onFocus);
+            window.removeEventListener(
+                "customer-notifications-changed",
+                onFocus,
+            );
+            document.removeEventListener(
+                "visibilitychange",
+                onVisibilityChange,
+            );
+        };
+    }, []);
 
     useEffect(() => {
         if (!open) return;
@@ -244,25 +320,66 @@ function CustomerNotifications() {
             <button
                 ref={triggerRef}
                 type="button"
-                aria-label="Notifications"
+                aria-label={
+                    unreadCount > 0
+                        ? copy(
+                              `Notifications, ${unreadCount} unread`,
+                              `Thông báo, ${unreadCount} chưa đọc`,
+                          )
+                        : copy("Notifications", "Thông báo")
+                }
                 aria-expanded={open}
                 aria-controls={open ? panelId : undefined}
                 onClick={() => setOpen((current) => !current)}
+                className={unreadCount > 0 ? "has-unread" : undefined}
             >
                 <CustomerIcon name="bell" size={22} />
+                {unreadCount > 0 && (
+                    <span
+                        className="dashboard-notification-badge"
+                        aria-hidden="true"
+                    >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                )}
             </button>
+            <span
+                className="dashboard-notification-sr-only"
+                role="status"
+                aria-atomic="true"
+            >
+                {unreadCount > 0
+                    ? copy(
+                          `${unreadCount} unread notifications`,
+                          `${unreadCount} thông báo chưa đọc`,
+                      )
+                    : ""}
+            </span>
             {open && (
                 <div
                     className="dashboard-notification-panel"
                     id={panelId}
                     role="region"
-                    aria-label="Notifications"
+                    aria-label={copy("Notifications", "Thông báo")}
                 >
-                    <strong>Notifications</strong>
+                    <strong>{copy("Notifications", "Thông báo")}</strong>
                     <p>
-                        Booking and parking updates will appear here when
-                        notifications are connected.
+                        {unreadCount > 0
+                            ? copy(
+                                  `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`,
+                                  `Bạn có ${unreadCount} thông báo chưa đọc.`,
+                              )
+                            : copy(
+                                  "You're all caught up. New wallet and parking updates will appear here.",
+                                  "Bạn đã xem hết thông báo. Cập nhật ví và bãi đỗ sẽ xuất hiện tại đây.",
+                              )}
                     </p>
+                    <Link
+                        href="/customer/notifications"
+                        onClick={() => setOpen(false)}
+                    >
+                        {copy("Open notifications", "Xem thông báo")}
+                    </Link>
                 </div>
             )}
         </div>
@@ -275,13 +392,22 @@ const accountLinks: {
     icon: CustomerIconName;
 }[] = [
     {
-        href: "/customer/complete-profile",
-        label: "Complete Profile",
-        icon: "id-card",
+        href: "/customer/profile",
+        label: "My Profile",
+        icon: "user",
     },
     { href: "/customer/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/search", label: "Find Parking", icon: "location" },
     { href: "/customer/vehicles", label: "My Vehicles", icon: "car" },
+    { href: "/customer/bookings", label: "My Bookings", icon: "calendar" },
+    { href: "/customer/sessions", label: "My Sessions", icon: "clock" },
+    {
+        href: "/customer/parking-history",
+        label: "Parking History",
+        icon: "history",
+    },
+    { href: "/customer/wallet", label: "Wallet", icon: "price" },
+    { href: "/customer/notifications", label: "Notifications", icon: "bell" },
 ];
 
 function initials(name: string) {
@@ -298,10 +424,13 @@ function initials(name: string) {
 export function CustomerAccountMenu({
     activeHref,
     profilePhotoUrl,
+    showTriggerName = true,
 }: {
     activeHref?: string;
     profilePhotoUrl?: string;
+    showTriggerName?: boolean;
 }) {
+    const { copy, isVietnamese } = useCustomerLanguage();
     const router = useRouter();
     const session = useSyncExternalStore(
         subscribeAuthSession,
@@ -311,12 +440,71 @@ export function CustomerAccountMenu({
     const [open, setOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [logoutError, setLogoutError] = useState("");
+    const [profileNameState, setProfileName] = useState({
+        accountId: "",
+        name: "",
+    });
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuId = useId();
+    const accountId = session?.account.id;
+    const profileName =
+        profileNameState.accountId === accountId ? profileNameState.name : "";
+
+    useEffect(() => {
+        if (!accountId) return;
+
+        let active = true;
+        let profileWasChanged = false;
+        const onProfileNameChanged = (event: Event) => {
+            profileWasChanged = true;
+            const name = (event as CustomEvent<string>).detail?.trim();
+            if (name) setProfileName({ accountId, name });
+        };
+
+        window.addEventListener(
+            "customer-profile-name-changed",
+            onProfileNameChanged,
+        );
+        void getMyProfile()
+            .then((profile) => {
+                if (active && !profileWasChanged) {
+                    setProfileName({
+                        accountId,
+                        name: profile.fullName?.trim() ?? "",
+                    });
+                }
+            })
+            .catch(() => undefined);
+
+        return () => {
+            active = false;
+            window.removeEventListener(
+                "customer-profile-name-changed",
+                onProfileNameChanged,
+            );
+        };
+    }, [accountId]);
+
     const accountName =
-        session?.displayName || session?.account.email || "Sign in required";
-    const accountEmail = session?.account.email || "No account email available";
+        profileName ||
+        session?.displayName?.trim() ||
+        session?.account.email ||
+        copy("Sign in required", "Cần đăng nhập");
+    const accountEmail =
+        session?.account.email ||
+        copy("No account email available", "Chưa có email tài khoản");
+    const accountLabels: Record<string, string> = {
+        "My Profile": "Hồ sơ của tôi",
+        Dashboard: "Trang chủ",
+        "Find Parking": "Tìm bãi đỗ",
+        "My Vehicles": "Xe của tôi",
+        "My Bookings": "Đặt chỗ của tôi",
+        "My Sessions": "Phiên đỗ của tôi",
+        "Parking History": "Lịch sử đỗ xe",
+        Wallet: "Ví của tôi",
+        Notifications: "Thông báo",
+    };
 
     useEffect(() => {
         if (!open) return;
@@ -345,7 +533,12 @@ export function CustomerAccountMenu({
             await logoutParkWiseAccount();
             router.replace("/login");
         } catch {
-            setLogoutError("We couldn't sign you out. Please try again.");
+            setLogoutError(
+                copy(
+                    "We couldn't sign you out. Please try again.",
+                    "Không thể đăng xuất. Vui lòng thử lại.",
+                ),
+            );
         } finally {
             setLoggingOut(false);
         }
@@ -359,8 +552,8 @@ export function CustomerAccountMenu({
             height={48}
             unoptimized
         />
-    ) : session?.displayName ? (
-        initials(session.displayName)
+    ) : profileName || session?.displayName?.trim() ? (
+        initials(profileName || session?.displayName?.trim() || "")
     ) : (
         <CustomerIcon name="user" size={22} />
     );
@@ -370,10 +563,10 @@ export function CustomerAccountMenu({
             <button
                 ref={triggerRef}
                 type="button"
-                className="customer-account-trigger"
+                className={`customer-account-trigger${showTriggerName ? "" : " is-compact"}`}
                 aria-expanded={open}
                 aria-controls={open ? menuId : undefined}
-                aria-label={`Account menu: ${accountName}`}
+                aria-label={`${copy("Account menu", "Tài khoản")}: ${accountName}`}
                 onClick={() => setOpen((current) => !current)}
             >
                 <span
@@ -382,16 +575,21 @@ export function CustomerAccountMenu({
                 >
                     {avatar}
                 </span>
-                <span className="customer-account-trigger-name">
-                    {accountName}
-                </span>
+                {showTriggerName && (
+                    <span className="customer-account-trigger-name">
+                        {accountName}
+                    </span>
+                )}
                 <CustomerIcon name="chevron" size={17} />
             </button>
             {open && (
                 <nav
                     id={menuId}
                     className="customer-account-panel"
-                    aria-label="Account navigation"
+                    aria-label={copy(
+                        "Account navigation",
+                        "Điều hướng tài khoản",
+                    )}
                 >
                     <div className="customer-account-identity">
                         <span
@@ -417,7 +615,11 @@ export function CustomerAccountMenu({
                                 onClick={() => setOpen(false)}
                             >
                                 <CustomerIcon name={icon} size={21} />
-                                <span>{label}</span>
+                                <span>
+                                    {isVietnamese
+                                        ? (accountLabels[label] ?? label)
+                                        : label}
+                                </span>
                                 <CustomerIcon name="chevron-right" size={17} />
                             </Link>
                         ))}
@@ -431,14 +633,19 @@ export function CustomerAccountMenu({
                             >
                                 <CustomerIcon name="sign-out" size={21} />
                                 <span>
-                                    {loggingOut ? "Signing out…" : "Log out"}
+                                    {loggingOut
+                                        ? copy(
+                                              "Signing out…",
+                                              "Đang đăng xuất…",
+                                          )
+                                        : copy("Log out", "Đăng xuất")}
                                 </span>
                                 <CustomerIcon name="chevron-right" size={17} />
                             </button>
                         ) : (
                             <Link href="/login" onClick={() => setOpen(false)}>
                                 <CustomerIcon name="sign-in" size={21} />
-                                <span>Log in</span>
+                                <span>{copy("Log in", "Đăng nhập")}</span>
                                 <CustomerIcon name="chevron-right" size={17} />
                             </Link>
                         )}
@@ -451,5 +658,6 @@ export function CustomerAccountMenu({
 }
 
 export function CustomerFooter() {
-    return <ParkWiseFooter />;
+    const { language } = useCustomerLanguage();
+    return <ParkWiseFooter language={language} />;
 }

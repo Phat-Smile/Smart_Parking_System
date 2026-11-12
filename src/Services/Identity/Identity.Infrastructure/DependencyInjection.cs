@@ -64,7 +64,7 @@ public static class DependencyInjection
         services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
         services.AddOptions<OtpSecurityOptions>()
             .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Pepper), "Security:Otp:Pepper must be configured for secure HMAC OTP hashing.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Pepper), OtpSecurityOptions.MissingPepperMessage)
             .ValidateOnStart();
         services.AddSingleton<IOtpHasher, HmacSha256OtpHasher>();
         services.AddIntegrationEventRegistry();

@@ -527,6 +527,22 @@ public sealed class EmailOtpTests
     }
 
     [Fact]
+    public void Missing_pepper_message_names_the_env_variable_and_the_guide()
+    {
+        Assert.Contains("SECURITY_OTP_PEPPER", OtpSecurityOptions.MissingPepperMessage);
+        Assert.Contains(".env", OtpSecurityOptions.MissingPepperMessage);
+        Assert.Contains("Local-Development.md", OtpSecurityOptions.MissingPepperMessage);
+    }
+
+    [Fact]
+    public void HmacSha256OtpHasher_reports_the_actionable_message_when_pepper_is_empty()
+    {
+        var emptyOptions = Options.Create(new OtpSecurityOptions { Pepper = "" });
+        var error = Assert.Throws<InvalidOperationException>(() => new HmacSha256OtpHasher(emptyOptions));
+        Assert.Equal(OtpSecurityOptions.MissingPepperMessage, error.Message);
+    }
+
+    [Fact]
     public void Account_VerifyEmail_rejects_transition_from_non_pending_status()
     {
         var account = Account.Register(Guid.NewGuid(), "user@example.com", "hash", null, InitialTime);

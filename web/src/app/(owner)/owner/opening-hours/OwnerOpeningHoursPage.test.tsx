@@ -22,17 +22,39 @@ vi.mock("@/components/layout/OwnerPageHeader", () => ({
     ),
 }));
 
+const LOT_GUID = "10000000-0000-0000-0000-000000000001";
+const { lotsRef } = vi.hoisted(() => ({
+    lotsRef: {
+        current: [] as Array<{
+            id: number;
+            name: string;
+            ap: string;
+            backendId?: string;
+        }>,
+    },
+}));
 vi.mock("@/features/owner/lots/useOwnerMapStore", () => ({
-    useAllLots: () => [
-        { id: 1, name: "Bãi xe Nguyễn Huệ", ap: "approved" },
-        { id: 2, name: "Bãi xe Lê Lợi", ap: "pending" },
-    ],
+    useAllLots: () => lotsRef.current,
 }));
 
 describe("OwnerOpeningHoursPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         localStorage.clear();
+        lotsRef.current = [
+            {
+                id: 1,
+                name: "Bãi xe Nguyễn Huệ",
+                ap: "approved",
+                backendId: LOT_GUID,
+            },
+            {
+                id: 2,
+                name: "Bãi xe Lê Lợi",
+                ap: "pending",
+                backendId: "10000000-0000-0000-0000-000000000002",
+            },
+        ];
         vi.spyOn(ownerApi, "getOpeningHoursApi").mockResolvedValue({
             days: [
                 {
@@ -177,7 +199,7 @@ describe("OwnerOpeningHoursPage", () => {
         expect(mondayCloseSelect).toHaveValue("22:00");
 
         // 07:00 to 22:00 = 15 hours
-        expect(screen.getByText("⏳ 15 tiếng/ngày")).toBeInTheDocument();
+        expect(screen.getByText("15 tiếng/ngày")).toBeInTheDocument();
     });
 
     it("allows switching day mode to 24/7 or Closed", async () => {
@@ -240,7 +262,7 @@ describe("OwnerOpeningHoursPage", () => {
 
         await waitFor(() => {
             expect(saveSpy).toHaveBeenCalledWith(
-                1,
+                LOT_GUID,
                 expect.objectContaining({
                     days: expect.any(Array),
                 }),
@@ -252,5 +274,40 @@ describe("OwnerOpeningHoursPage", () => {
                 /Đã lưu và đồng bộ lịch hoạt động 7 ngày lên máy chủ bãi xe thành công!/i,
             ),
         ).toBeInTheDocument();
+    });
+
+    it("a lost connection while saving is an error, not a saved schedule", async () => {
+        vi.spyOn(ownerApi, "configureOpeningHoursApi").mockRejectedValue(
+            new TypeError("Failed to fetch"),
+        );
+
+        render(<OwnerOpeningHoursPage />);
+        fireEvent.click(
+            screen.getAllByRole("button", { name: /Lưu giờ hoạt động/i })[0],
+        );
+
+        expect(
+            await screen.findByText(/Giờ hoạt động chưa được lưu/i),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText(/lưu giờ hoạt động vào hệ thống thành công/i),
+        ).not.toBeInTheDocument();
+        expect(localStorage.length).toBe(0);
+    });
+
+    it("a design lot without a Parking id is never sent to the backend", async () => {
+        lotsRef.current = [{ id: 7, name: "Bãi mẫu", ap: "approved" }];
+        const saveSpy = vi.spyOn(ownerApi, "configureOpeningHoursApi");
+
+        render(<OwnerOpeningHoursPage />);
+        fireEvent.click(
+            screen.getAllByRole("button", { name: /Lưu giờ hoạt động/i })[0],
+        );
+
+        expect(
+            await screen.findByText(/chưa có trên hệ thống/i),
+        ).toBeInTheDocument();
+        expect(saveSpy).not.toHaveBeenCalled();
+        expect(ownerApi.getOpeningHoursApi).not.toHaveBeenCalled();
     });
 });

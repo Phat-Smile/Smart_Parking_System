@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package smartparking.parking.sessionfee.v1;
+
+option csharp_namespace = "SmartParking.Contracts.Parking.SessionFee.V1";
+
+// Contract 6, Parking part (master sheet, caller BE-5 Payment): what Payment needs to compute the fee of a session.
+// Parking does not compute the fee and does not check the caller: Payment decides who may pay.
+service ParkingSessionFeeContract {
+  rpc GetSessionFeeContext(GetSessionFeeContextRequest)
+      returns (GetSessionFeeContextResponse);
+}
+
+message GetSessionFeeContextRequest {
+  // Canonical UUID "D" format (36 chars). Malformed -> INVALID_ARGUMENT.
+  // Unknown session -> NOT_FOUND. No price list in force at entry -> FAILED_PRECONDITION.
+  string session_id = 1;
+}
+
+message GetSessionFeeContextResponse {
+  string session_id = 1;
+  string lot_id = 2;
+  string plate_number = 3;
+  // Car or Motorbike.
+  string vehicle_type = 4;
+  // Active, Paid, Completed or Cancelled.
+  string status = 5;
+  // ISO 8601, UTC.
+  string entry_time_utc = 6;
+  // Booking, RegisteredWalkIn or UnregisteredWalkIn.
+  string customer_type = 7;
+  // Empty when the plate has no account.
+  string account_id = 8;
+  // Empty when the session has no reservation.
+  string booking_id = 9;
+  SessionPricing pricing = 10;
+}
+
+// BR-09.a: the price list in force when the vehicle entered, not the current one.
+message SessionPricing {
+  string policy_id = 1;
+  // PerEntry or Block.
+  string calculation_method = 2;
+  // 0 for PerEntry.
+  int32 block_minutes = 3;
+  // VND: the price of one entry or one block.
+  int64 price_per_unit = 4;
+}

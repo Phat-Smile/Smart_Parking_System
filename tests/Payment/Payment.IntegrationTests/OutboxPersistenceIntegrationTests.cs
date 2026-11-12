@@ -42,7 +42,16 @@ public sealed class OutboxPersistenceIntegrationTests(PostgreSqlContainerFixture
         var dbContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
 
         await dbContext.Database.MigrateAsync(cancellationToken);
-        await PostgreSqlOutboxAssertions.AssertServiceIsolationAndOutboxMetadataAsync(dbContext, "payment", cancellationToken, "audit_logs", "vnpay_transactions", "wallet_ledger_entries", "wallets");
+        await PostgreSqlOutboxAssertions.AssertServiceIsolationAndOutboxMetadataAsync(
+            dbContext,
+            "payment",
+            cancellationToken,
+            "audit_logs",
+            "parking_fee_payments",
+            "payment_idempotency_records",
+            "vnpay_transactions",
+            "wallet_ledger_entries",
+            "wallets");
         var probeMessageId = Guid.NewGuid();
         var inboxProbeBus = serviceProvider.GetRequiredService<IBusControl>();
         await inboxProbeBus.StartAsync(cancellationToken);

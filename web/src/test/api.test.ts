@@ -75,4 +75,20 @@ describe("Gateway config and API client", () => {
     it("ignores non-object error payloads", () => {
         expect(parseProblemDetails("raw server exception")).toBeUndefined();
     });
+
+    it("attaches X-Correlation-ID header to outbound requests", async () => {
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(JSON.stringify({ ok: true }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
+        vi.stubGlobal("fetch", fetchMock);
+        await gatewayFetch("/api/test");
+        const headers = fetchMock.mock.calls[0][1]?.headers as Headers;
+        expect(headers.get("X-Correlation-ID")).toBeDefined();
+        expect(headers.get("X-Correlation-ID")).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
+    });
 });

@@ -59,13 +59,63 @@ public class GetMyWalletQueryHandlerTests
         }
     }
 
+    private class FakeVnpayTransactionRepository : IVnpayTransactionRepository
+    {
+        public readonly List<VnpayTransaction> Transactions = [];
+
+        public Task<VnpayTransaction?> GetByTxnRefAsync(string txnRef, CancellationToken cancellationToken) =>
+            Task.FromResult(Transactions.FirstOrDefault(t => t.TxnRef == txnRef));
+
+        public Task<VnpayTransaction?> GetByWalletIdAndRequestKeyAsync(Guid walletId, string clientRequestKey, CancellationToken cancellationToken) =>
+            Task.FromResult(Transactions.FirstOrDefault(t => t.WalletId == walletId && t.ClientRequestKey == clientRequestKey));
+
+        public Task AddAsync(VnpayTransaction transaction, CancellationToken cancellationToken)
+        {
+            Transactions.Add(transaction);
+            return Task.CompletedTask;
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<VnpayTransaction?> GetTopupByTxnRefAndUserIdAsync(string txnRef, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(Transactions.FirstOrDefault(t => t.TxnRef == txnRef));
+
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentPendingByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
+        {
+            var items = Transactions
+                .Where(t => t.WalletId == walletId
+                    && t.Status == VnpayTransactionStatus.Pending
+                    && t.ExpiresAt > DateTimeOffset.UtcNow)
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
+        }
+
+        public Task<IReadOnlyList<VnpayTransaction>> GetRecentExpiredTopupsByWalletIdAsync(Guid walletId, int limit, CancellationToken cancellationToken)
+        {
+            var nowUtc = DateTimeOffset.UtcNow;
+            var items = Transactions
+                .Where(t => t.WalletId == walletId
+                    && t.Purpose == VnpayTransactionPurpose.WalletTopUp
+                    && (t.Status == VnpayTransactionStatus.Expired
+                        || (t.Status == VnpayTransactionStatus.Pending && t.ExpiresAt <= nowUtc)))
+                .OrderByDescending(t => t.ExpiresAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<VnpayTransaction>>(items);
+        }
+    }
+
     private readonly FakeWalletRepository _fakeRepository;
+    private readonly FakeVnpayTransactionRepository _fakeTxnRepository;
     private readonly IOptions<WalletOptions> _walletOptions;
     private readonly IOptions<VnpayOptions> _vnpayOptions;
 
     public GetMyWalletQueryHandlerTests()
     {
         _fakeRepository = new FakeWalletRepository();
+        _fakeTxnRepository = new FakeVnpayTransactionRepository();
         _walletOptions = Options.Create(new WalletOptions
         {
             MinTopUpVnd = 10000m,
@@ -78,11 +128,14 @@ public class GetMyWalletQueryHandlerTests
         });
     }
 
+    private GetMyWalletQueryHandler CreateHandler() =>
+        new(_fakeRepository, _fakeTxnRepository, _walletOptions, _vnpayOptions);
+
     [Fact]
     public async Task Handle_WhenCustomerHasNoWallet_ShouldReturnZeroBalanceAndEmptyPendingTopUps()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var userId = Guid.NewGuid();
         var query = new GetMyWalletQuery(userId);
 
@@ -109,7 +162,7 @@ public class GetMyWalletQueryHandlerTests
         wallet.AddEntry(LedgerEntryType.TopUp, 150000m);
         _fakeRepository.SeedWallet(wallet);
 
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var query = new GetMyWalletQuery(userId);
 
         // Act
@@ -127,7 +180,7 @@ public class GetMyWalletQueryHandlerTests
     public async Task Handle_ShouldReturnLimitsAndGatewayModeFromConfiguration()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var userId = Guid.NewGuid();
         var query = new GetMyWalletQuery(userId);
 
@@ -147,7 +200,7 @@ public class GetMyWalletQueryHandlerTests
     public async Task Handle_ShouldAlwaysIncludeNfr11DemoNoticeAndIsDemoTrue()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var userId = Guid.NewGuid();
         var query = new GetMyWalletQuery(userId);
 
@@ -165,7 +218,7 @@ public class GetMyWalletQueryHandlerTests
     public async Task Handle_WhenUserIdIsEmpty_ShouldReturnFailure()
     {
         // Arrange
-        var handler = new GetMyWalletQueryHandler(_fakeRepository, _walletOptions, _vnpayOptions);
+        var handler = CreateHandler();
         var query = new GetMyWalletQuery(Guid.Empty);
 
         // Act
@@ -175,5 +228,121 @@ public class GetMyWalletQueryHandlerTests
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
         Assert.Equal("payment.invalid_user", result.Error.Code);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCustomerHasPendingTopUps_ShouldReturnRecentPendingTopUps()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var wallet = Wallet.Create(userId);
+        _fakeRepository.SeedWallet(wallet);
+
+        var txn1 = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            Guid.NewGuid().ToString("N"),
+            wallet.Id,
+            50000m,
+            "req-key-1",
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            DateTimeOffset.UtcNow.AddMinutes(10));
+
+        var txn2 = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(),
+            Guid.NewGuid().ToString("N"),
+            wallet.Id,
+            100000m,
+            "req-key-2",
+            DateTimeOffset.UtcNow.AddMinutes(-2),
+            DateTimeOffset.UtcNow.AddMinutes(13));
+
+        _fakeTxnRepository.Transactions.Add(txn1);
+        _fakeTxnRepository.Transactions.Add(txn2);
+
+        var handler = CreateHandler();
+        var query = new GetMyWalletQuery(userId);
+
+        // Act
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(2, result.Value.PendingTopUps.Count);
+        Assert.Equal(txn2.TxnRef, result.Value.PendingTopUps[0].TopupId); // Mới nhất lên đầu
+        Assert.Equal(100000m, result.Value.PendingTopUps[0].Amount);
+        Assert.Equal(txn2.ExpiresAt, result.Value.PendingTopUps[0].ExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTopupLinkExpired_DoesNotListItAsPending()
+    {
+        var userId = Guid.NewGuid();
+        var wallet = Wallet.Create(userId);
+        _fakeRepository.SeedWallet(wallet);
+        var createdAt = DateTimeOffset.UtcNow.AddMinutes(-20);
+        var expiredTxn = VnpayTransaction.CreateTopup(
+            Guid.NewGuid(), Guid.NewGuid().ToString("N"), wallet.Id, 50000m,
+            "expired-key", createdAt, createdAt.AddMinutes(5));
+        _fakeTxnRepository.Transactions.Add(expiredTxn);
+
+        var result = await CreateHandler().Handle(new GetMyWalletQuery(userId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value!.PendingTopUps);
+        Assert.Single(result.Value.ExpiredTopUps);
+        Assert.Equal(expiredTxn.TxnRef, result.Value.ExpiredTopUps[0].TopupId);
+        Assert.Equal(VnpayTransactionStatus.Pending, expiredTxn.Status);
+    }
+
+    [Fact]
+    public async Task Handle_WhenModeIsProduction_ShouldSetIsDemoFalseAndEmptyNotice()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var prodVnpayOptions = Options.Create(new VnpayOptions
+        {
+            Mode = "Production",
+            TmnCode = "PROD_CODE",
+            HashSecret = "PROD_SECRET",
+            BaseUrl = "https://pay.vnpay.vn",
+            ReturnUrl = "https://parkwise.vn/return"
+        });
+
+        var handler = new GetMyWalletQueryHandler(
+            _fakeRepository,
+            _fakeTxnRepository,
+            _walletOptions,
+            prodVnpayOptions);
+
+        var query = new GetMyWalletQuery(userId);
+
+        // Act
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(result.Value.IsDemo);
+        Assert.Empty(result.Value.DemoNotice);
+        Assert.Equal("Production", result.Value.GatewayMode);
+    }
+
+    [Fact]
+    public async Task Handle_WhenModeIsSandbox_ShouldSetIsDemoTrueAndContainNotice()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var handler = CreateHandler();
+        var query = new GetMyWalletQuery(userId);
+
+        // Act
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.IsDemo);
+        Assert.NotEmpty(result.Value.DemoNotice);
+        Assert.Contains("sandbox", result.Value.DemoNotice, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Sandbox", result.Value.GatewayMode);
     }
 }

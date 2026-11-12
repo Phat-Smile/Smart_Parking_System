@@ -1,16 +1,46 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OwnerOnboardingWizard } from "./OwnerOnboardingWizard";
 import * as ownerLegalApi from "@/features/owner/api/ownerLegalApi";
+import { clearAuthSession, setAuthSession } from "@/features/auth/authSession";
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const { push, replace, router } = vi.hoisted(() => {
+    const push = vi.fn();
+    const replace = vi.fn();
+    // Next.js returns the same router object on every render.
+    return { push, replace, router: { push, replace } };
+});
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 describe("OwnerOnboardingWizard", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         window.localStorage.clear();
+        // The application belongs to the signed-in account.
+        setAuthSession({
+            accessToken: "access",
+            tokenType: "Bearer",
+            expiresIn: 3600,
+            refreshToken: "refresh",
+            account: {
+                id: "acc-123",
+                email: "partner@parkwise.vn",
+                phoneNumber: null,
+                status: "EmailVerified",
+                role: "Customer",
+            },
+        });
+        vi.spyOn(ownerLegalApi, "updateOwnerType").mockResolvedValue({
+            accountId: "acc-123",
+            email: "partner@parkwise.vn",
+            status: "None",
+            taxCode: null,
+            businessName: null,
+            rejectionReason: null,
+            reviewedAtUtc: null,
+            ownerType: "Enterprise",
+        });
 
         vi.spyOn(ownerLegalApi, "getMyOwnerApplication").mockResolvedValue({
             accountId: "acc-123",
@@ -40,6 +70,52 @@ describe("OwnerOnboardingWizard", () => {
         });
 
         vi.spyOn(ownerLegalApi, "getMyOwnerDocuments").mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+        clearAuthSession();
+    });
+
+    it("sends an owner who is not signed in to the login page first", async () => {
+        clearAuthSession();
+        render(<OwnerOnboardingWizard />);
+
+        await waitFor(() =>
+            expect(replace).toHaveBeenCalledWith(
+                "/login?redirect=%2Fowner%2Fonboarding",
+            ),
+        );
+        expect(ownerLegalApi.getMyOwnerApplication).not.toHaveBeenCalled();
+    });
+
+    it("saves the owner type before the document step and stops when Identity refuses", async () => {
+        const user = userEvent.setup();
+        vi.mocked(ownerLegalApi.updateOwnerType).mockRejectedValueOnce(
+            new Error("offline"),
+        );
+        render(<OwnerOnboardingWizard />);
+
+        await screen.findByText("1. Chọn hình thức hoạt động");
+        await user.type(
+            screen.getByLabelText(/Tên Doanh nghiệp/i),
+            "Công ty Cổ phần Bãi xe ParkWise",
+        );
+        await user.type(screen.getByLabelText(/Mã số thuế/i), "0312345678");
+        await user.click(
+            screen.getByRole("button", {
+                name: /Tiếp tục: Tải giấy tờ chứng thực/i,
+            }),
+        );
+
+        expect(ownerLegalApi.updateOwnerType).toHaveBeenCalledWith(
+            "Enterprise",
+        );
+        expect(
+            await screen.findByText(/Không kết nối được máy chủ/i),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText("1. Chọn hình thức hoạt động"),
+        ).toBeInTheDocument();
     });
 
     it("renders Step 1 with entity type selector and inputs", async () => {
@@ -302,5 +378,51 @@ describe("OwnerOnboardingWizard", () => {
         expect(
             screen.getByRole("link", { name: /Về trang chủ/i }),
         ).toBeInTheDocument();
+    });
+
+    it("opens VNeID modal and auto-fills CCCD and representative information", async () => {
+        vi.mocked(ownerLegalApi.getMyOwnerApplication).mockResolvedValue({
+            accountId: "acc-test",
+            email: "owner@demo.local",
+            status: "None",
+            taxCode: null,
+            businessName: null,
+            rejectionReason: null,
+            reviewedAtUtc: null,
+            ownerType: "Individual",
+        });
+
+        render(<OwnerOnboardingWizard />);
+
+        const user = userEvent.setup();
+        await screen.findByText("1. Chọn hình thức hoạt động");
+        await user.click(screen.getByText("Cá nhân"));
+
+        // Check VNeID button exists
+        const vneidBtn = screen.getByRole("button", {
+            name: /Điền nhanh qua VNeID/i,
+        });
+        expect(vneidBtn).toBeInTheDocument();
+
+        // Click to open VNeID modal
+        fireEvent.click(vneidBtn);
+        expect(screen.getByTestId("vneid-auth-modal")).toBeInTheDocument();
+
+        // Confirm sharing
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận chia sẻ thông tin/i,
+        });
+        fireEvent.click(confirmBtn);
+
+        // Verify auto-filled values
+        expect(screen.getByTestId("vneid-verified-badge")).toBeInTheDocument();
+        const idCardInput = screen.getByPlaceholderText(
+            /079201234567/i,
+        ) as HTMLInputElement;
+        expect(idCardInput.value).toBe("079201234567");
+        const fullNameInput = screen.getByPlaceholderText(
+            /Nguyễn Văn An/i,
+        ) as HTMLInputElement;
+        expect(fullNameInput.value).toBe("NGUYỄN VĂN AN");
     });
 });

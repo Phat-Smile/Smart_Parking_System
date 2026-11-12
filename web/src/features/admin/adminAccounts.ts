@@ -33,99 +33,6 @@ export interface AccountQuery {
     pageSize?: number;
 }
 
-export const sampleAccounts: AccountSummary[] = [
-    {
-        id: "a0000001-0000-0000-0000-000000000001",
-        email: "admin@parking.test",
-        fullName: "System Administrator",
-        role: "SystemAdmin",
-        status: "EmailVerified",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-01T08:00:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000002",
-        email: "hopu3338+t141454adm@gmail.com",
-        fullName: "Hồ Phúc (Admin)",
-        role: "SystemAdmin",
-        status: "EmailVerified",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-05T09:15:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000003",
-        email: "owner@parking.test",
-        fullName: "Nguyễn Minh Khoa",
-        role: "ParkingLotOwner",
-        status: "EmailVerified",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-10T10:30:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000004",
-        email: "staff@parking.test",
-        fullName: "Trần Văn Nhân",
-        role: "Staff",
-        status: "EmailVerified",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-12T14:20:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000005",
-        email: "qa-staff-7197@example.test",
-        fullName: "Lê Hoàng Staff",
-        role: "Staff",
-        status: "EmailVerified",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-15T11:00:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000006",
-        email: "customer@parking.test",
-        fullName: "Phạm Hải Đăng",
-        role: "Customer",
-        status: "EmailVerified",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-18T16:45:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000007",
-        email: "qa-user-17854@example.test",
-        fullName: "Đỗ Quốc Bảo",
-        role: "Customer",
-        status: "EmailVerified",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-19T08:10:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000008",
-        email: "unverified@example.test",
-        fullName: "Nguyễn Văn Chờ",
-        role: "Customer",
-        status: "PendingEmailVerification",
-        isLocked: false,
-        lockoutEndUtc: null,
-        createdAtUtc: "2026-10-21T12:00:00Z",
-    },
-    {
-        id: "a0000001-0000-0000-0000-000000000009",
-        email: "suspended@example.test",
-        fullName: "Võ Hoài Nam",
-        role: "Customer",
-        status: "Suspended",
-        isLocked: true,
-        lockoutEndUtc: "2026-11-01T00:00:00Z",
-        createdAtUtc: "2026-10-22T15:30:00Z",
-    },
-];
-
 export async function searchAccounts(
     query: AccountQuery = {},
 ): Promise<AccountPage> {
@@ -135,62 +42,20 @@ export async function searchAccounts(
     if (query.status) params.set("status", query.status);
     params.set("page", String(query.page ?? 1));
     params.set("pageSize", String(query.pageSize ?? 20));
-    try {
-        return await gatewayFetch<AccountPage>(
-            `/api/identity/admin/accounts?${params.toString()}`,
-            { method: "GET" },
-        );
-    } catch {
-        // Fallback for offline development / preview
-        let filtered = [...sampleAccounts];
-        if (query.search?.trim()) {
-            const term = query.search.trim().toLowerCase();
-            filtered = filtered.filter(
-                (a) =>
-                    a.email.toLowerCase().includes(term) ||
-                    (a.fullName && a.fullName.toLowerCase().includes(term)),
-            );
-        }
-        if (query.role) {
-            filtered = filtered.filter((a) => a.role === query.role);
-        }
-        if (query.status) {
-            filtered = filtered.filter((a) => a.status === query.status);
-        }
-        const page = query.page ?? 1;
-        const pageSize = query.pageSize ?? 20;
-        const start = (page - 1) * pageSize;
-        const items = filtered.slice(start, start + pageSize);
-        return {
-            items,
-            page,
-            pageSize,
-            totalCount: filtered.length,
-        };
-    }
+    return await gatewayFetch<AccountPage>(
+        `/api/identity/admin/accounts?${params.toString()}`,
+        { method: "GET" },
+    );
 }
 
 async function post(
     accountId: string,
     action: "suspend" | "activate" | "unlock",
 ) {
-    try {
-        return await gatewayFetch<{ message?: string }>(
-            `/api/identity/admin/accounts/${encodeURIComponent(accountId)}/${action}`,
-            { method: "POST" },
-        );
-    } catch {
-        const item = sampleAccounts.find((a) => a.id === accountId);
-        if (item) {
-            if (action === "suspend") item.status = "Suspended";
-            if (action === "activate") item.status = "EmailVerified";
-            if (action === "unlock") {
-                item.isLocked = false;
-                item.lockoutEndUtc = null;
-            }
-        }
-        return { message: "Updated (offline preview)" };
-    }
+    return await gatewayFetch<{ message?: string }>(
+        `/api/identity/admin/accounts/${encodeURIComponent(accountId)}/${action}`,
+        { method: "POST" },
+    );
 }
 
 export const suspendAccount = (accountId: string) => post(accountId, "suspend");
@@ -199,28 +64,15 @@ export const activateAccount = (accountId: string) =>
 export const unlockAccount = (accountId: string) => post(accountId, "unlock");
 
 export async function changeAccountRole(accountId: string, role: AccountRole) {
-    try {
-        return await gatewayFetch<{
-            accountId: string;
-            role: AccountRole;
-            message?: string;
-        }>(
-            `/api/identity/admin/accounts/${encodeURIComponent(accountId)}/role`,
-            {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role }),
-            },
-        );
-    } catch {
-        const item = sampleAccounts.find((a) => a.id === accountId);
-        if (item) item.role = role;
-        return {
-            accountId,
-            role,
-            message: "Role updated (offline preview)",
-        };
-    }
+    return await gatewayFetch<{
+        accountId: string;
+        role: AccountRole;
+        message?: string;
+    }>(`/api/identity/admin/accounts/${encodeURIComponent(accountId)}/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+    });
 }
 
 export function describeAccountError(error: unknown, language: string = "en") {
@@ -246,6 +98,10 @@ export function describeAccountError(error: unknown, language: string = "en") {
             return isVi
                 ? "Tài khoản này chưa hoàn tất xác thực email."
                 : "This account hasn't verified its email yet.";
+        case "identity.owner_role_requires_application":
+            return isVi
+                ? "Chỉ cấp vai trò Chủ bãi khi hồ sơ chủ bãi của tài khoản này đã được duyệt."
+                : "The Parking Lot Owner role needs an approved owner application first.";
         case "identity.account_not_found":
             return isVi
                 ? "Tài khoản này không còn tồn tại. Danh sách đã được làm mới."

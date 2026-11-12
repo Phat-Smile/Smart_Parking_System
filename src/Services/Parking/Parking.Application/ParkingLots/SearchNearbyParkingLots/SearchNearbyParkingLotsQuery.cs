@@ -7,7 +7,8 @@ public sealed record SearchNearbyParkingLotsQuery(
     decimal Latitude,
     decimal Longitude,
     double RadiusKm = 5,
-    int Limit = 20) : IRequest<IReadOnlyList<NearbyParkingLotItem>>;
+    int Limit = 20,
+    ParkingSystem.Parking.Domain.ParkingSessions.VehicleType? VehicleType = null) : IRequest<IReadOnlyList<NearbyParkingLotItem>>;
 
 public sealed class SearchNearbyParkingLotsQueryValidator : AbstractValidator<SearchNearbyParkingLotsQuery>
 {
@@ -31,5 +32,6 @@ public sealed class SearchNearbyParkingLotsQueryHandler(INearbyParkingLotReader 
             request.Longitude,
             request.RadiusKm,
             request.Limit,
-            cancellationToken);
+            cancellationToken,
+            request.VehicleType);
 }

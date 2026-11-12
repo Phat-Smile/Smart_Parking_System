@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package smartparking.parking.recommendation.v1;
+
+option csharp_namespace = "SmartParking.Contracts.Parking.Recommendation.V1";
+
+// AI-based Top-3 Parking Lot Recommendations Contract (US-AI-001, FR-AI-001, BR-08).
+// Consumed by Parking Service as client; implemented by AI Service as server.
+service ParkingRecommendationContract {
+  rpc RecommendLots(RecommendLotsRequest) returns (RecommendLotsResponse);
+}
+
+message CandidateLotInput {
+  // Canonical UUID string (36 chars).
+  string lot_id = 1;
+  string name = 2;
+  double latitude = 3;
+  double longitude = 4;
+  // Estimated parking price for the requested duration in VND (whole amount).
+  int64 price_for_duration = 5;
+  // Number of active reservations / held quota at estimated arrival time.
+  int32 held_quota = 6;
+  // 15-minute historical physical availability snapshots (synthetic for OJT).
+  repeated SnapshotProto snapshots = 7;
+}
+
+message SnapshotProto {
+  string lot_id = 1;
+  string vehicle_type = 2;
+  // ISO 8601 UTC string.
+  string captured_at = 3;
+  int32 available_slots = 4;
+}
+
+message RecommendLotsRequest {
+  double customer_latitude = 1;
+  double customer_longitude = 2;
+  // "Car" or "Motorbike".
+  string vehicle_type = 3;
+  // ISO 8601 UTC string.
+  string arrival_at = 4;
+  // Expected parking duration in minutes (e.g. 120).
+  int32 duration_minutes = 5;
+  // Up to 10 approved candidate lots matching vehicle group.
+  repeated CandidateLotInput candidate_lots = 6;
+}
+
+message RecommendedLotProto {
+  string lot_id = 1;
+  string name = 2;
+  int32 rank = 3; // 1, 2, or 3
+  // Estimated driving time in minutes (0 if unavailable).
+  int32 drive_time_minutes = 4;
+  // Estimated probability of physical space availability at arrival (0.0 to 100.0).
+  double probability_percent = 5;
+  // Expected parking price for duration in VND.
+  int64 price = 6;
+  // Whether the lot has high risk of becoming full (p < 30%).
+  bool warning_high_full_risk = 7;
+  // Human-readable reasons for ranking (e.g. "Gần nhất", "Giá rẻ nhất", "Tỷ lệ còn chỗ cao").
+  repeated string reasons = 8;
+}
+
+message RecommendLotsResponse {
+  // Up to 3 ranked recommendations.
+  repeated RecommendedLotProto recommended_lots = 1;
+  // True if fallback mode was engaged (e.g. drive time service failed, falling back to Haversine/pure probability).
+  bool fallback_used = 2;
+  string fallback_reason = 3;
+}

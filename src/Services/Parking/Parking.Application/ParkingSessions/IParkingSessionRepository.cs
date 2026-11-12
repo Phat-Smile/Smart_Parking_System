@@ -10,6 +10,12 @@ public interface IParkingSessionRepository
     /// <summary>Returns the tracked session, or null when it does not exist.</summary>
     Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Returns the tracked session and locks its row until the current transaction ends, or null when it does not exist.
+    /// Must be called inside an IParkingUnitOfWork transaction.
+    /// </summary>
+    Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken);
+
     /// <summary>Active or Paid sessions linked to the account, newest entry first (read only).</summary>
     Task<IReadOnlyList<ParkingSession>> ListOpenByUserAsync(Guid userId, CancellationToken cancellationToken);
 

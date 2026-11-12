@@ -5,6 +5,21 @@ namespace ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
 
 public sealed record GetParkingLayoutQuery(Guid LotId, Guid ActorId) : IRequest<Result<ParkingLotLayout>>;
 
+// Only approved lots are visible to unauthenticated visitors. No owner draft geometry is leaked.
+public sealed record GetPublicParkingLayoutQuery(Guid LotId) : IRequest<Result<ParkingLotLayout>>;
+
+public sealed class GetPublicParkingLayoutQueryHandler(IManageParkingLayoutRepository repository)
+    : IRequestHandler<GetPublicParkingLayoutQuery, Result<ParkingLotLayout>>
+{
+    public async Task<Result<ParkingLotLayout>> Handle(GetPublicParkingLayoutQuery request, CancellationToken cancellationToken)
+    {
+        if (!await repository.IsApprovedAsync(request.LotId, cancellationToken))
+            return Result<ParkingLotLayout>.Failure(ParkingLayoutErrors.LotNotFound);
+
+        return Result<ParkingLotLayout>.Success(await repository.ReadAsync(request.LotId, cancellationToken));
+    }
+}
+
 public sealed record SaveParkingLayoutCommand(Guid LotId, Guid ActorId, int ExpectedVersion, IReadOnlyList<LayoutFloorInput>? Floors)
     : IRequest<Result<ParkingLotLayout>>;
 

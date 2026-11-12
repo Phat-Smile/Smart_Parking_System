@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
+import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 import {
     configureOpeningHoursApi,
     getOpeningHoursApi,
@@ -137,16 +138,21 @@ export default function OwnerOpeningHoursPage() {
     const [bulkClosesAt, setBulkClosesAt] = useState("23:00");
 
     const currentLot = lots.find((l) => l.id === selectedLotId) || lots[0];
+    // Parking keys lots by GUID; a design lot without one cannot be saved.
+    const lotKey = backendLotId(currentLot);
 
     // Load opening hours for selected lot
     useEffect(() => {
         async function loadHours() {
-            if (!selectedLotId) return;
-            setIsLoading(true);
             setErrorMessage("");
             setSuccessMessage("");
+            if (!lotKey) {
+                setDays(DEFAULT_DAYS);
+                return;
+            }
+            setIsLoading(true);
             try {
-                const res = await getOpeningHoursApi(selectedLotId);
+                const res = await getOpeningHoursApi(lotKey);
                 if (res?.days && res.days.length === 7) {
                     const sorted = [...res.days].sort(
                         (a, b) => a.dayOfWeek - b.dayOfWeek,
@@ -154,30 +160,21 @@ export default function OwnerOpeningHoursPage() {
                     setDays(sorted);
                     return;
                 }
-            } catch {
-                // Fallback to local storage
-            }
-
-            try {
-                const cached = localStorage.getItem(
-                    `parkwise_opening_hours_${selectedLotId}`,
+                // Not configured yet: start from the default week.
+                setDays(DEFAULT_DAYS);
+            } catch (err: unknown) {
+                setDays(DEFAULT_DAYS);
+                setErrorMessage(
+                    err instanceof ApiError
+                        ? err.message ||
+                              "Không tải được giờ hoạt động của bãi này."
+                        : "Không kết nối được máy chủ để tải giờ hoạt động.",
                 );
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (Array.isArray(parsed) && parsed.length === 7) {
-                        setDays(parsed);
-                        return;
-                    }
-                }
-            } catch {
-                // ignore
             }
-
-            setDays(DEFAULT_DAYS);
         }
 
         void loadHours().finally(() => setIsLoading(false));
-    }, [selectedLotId]);
+    }, [lotKey]);
 
     const handleUpdateDay = (
         index: number,
@@ -285,33 +282,22 @@ export default function OwnerOpeningHoursPage() {
     };
 
     const handleSave = async () => {
-        setIsSubmitting(true);
         setErrorMessage("");
         setSuccessMessage("");
+        if (!lotKey) {
+            setErrorMessage(
+                "Bãi này chưa có trên hệ thống nên không lưu được. Hãy chọn một bãi bạn đã đăng ký.",
+            );
+            return;
+        }
+        setIsSubmitting(true);
 
         try {
-            await configureOpeningHoursApi(selectedLotId, { days });
-            try {
-                localStorage.setItem(
-                    `parkwise_opening_hours_${selectedLotId}`,
-                    JSON.stringify(days),
-                );
-            } catch {
-                // ignore
-            }
+            await configureOpeningHoursApi(lotKey, { days });
             setSuccessMessage(
                 "Đã lưu và đồng bộ lịch hoạt động 7 ngày lên máy chủ bãi xe thành công!",
             );
         } catch (err: unknown) {
-            try {
-                localStorage.setItem(
-                    `parkwise_opening_hours_${selectedLotId}`,
-                    JSON.stringify(days),
-                );
-            } catch {
-                // ignore
-            }
-
             if (err instanceof ApiError) {
                 if (err.status === 400) {
                     setErrorMessage(
@@ -329,8 +315,8 @@ export default function OwnerOpeningHoursPage() {
                     );
                 }
             } else {
-                setSuccessMessage(
-                    "Đã lưu giờ hoạt động vào hệ thống thành công!",
+                setErrorMessage(
+                    "Không kết nối được máy chủ. Giờ hoạt động chưa được lưu.",
                 );
             }
         } finally {
@@ -390,7 +376,7 @@ export default function OwnerOpeningHoursPage() {
                         >
                             {isSubmitting
                                 ? "Đang lưu..."
-                                : "💾 Lưu giờ hoạt động"}
+                                : "Lưu giờ hoạt động"}
                         </button>
                     </div>
                 }
@@ -453,21 +439,6 @@ export default function OwnerOpeningHoursPage() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <div
-                        style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 12,
-                            background: "#111113",
-                            color: "#E6F85E",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 22,
-                        }}
-                    >
-                        🏬
-                    </div>
                     <div>
                         <div
                             style={{
@@ -555,13 +526,9 @@ export default function OwnerOpeningHoursPage() {
             >
                 <div
                     style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
                         marginBottom: 14,
                     }}
                 >
-                    <span style={{ fontSize: 18 }}>⚡</span>
                     <h4
                         style={{
                             margin: 0,
@@ -677,7 +644,7 @@ export default function OwnerOpeningHoursPage() {
                                 gap: 6,
                             }}
                         >
-                            <span>💼</span> Áp dụng Thứ 2 - Thứ 6 (T2 - T6)
+                            Áp dụng Thứ 2 - Thứ 6 (T2 - T6)
                         </button>
                         <button
                             type="button"
@@ -696,7 +663,7 @@ export default function OwnerOpeningHoursPage() {
                                 gap: 6,
                             }}
                         >
-                            <span>🌟</span> Áp dụng Cả tuần (7 ngày)
+                            Áp dụng Cả tuần (7 ngày)
                         </button>
                         <button
                             type="button"
@@ -712,7 +679,7 @@ export default function OwnerOpeningHoursPage() {
                                 cursor: "pointer",
                             }}
                         >
-                            🌙 Mở 24/7 cả tuần
+                            Mở 24/7 cả tuần
                         </button>
                         <button
                             type="button"
@@ -728,7 +695,7 @@ export default function OwnerOpeningHoursPage() {
                                 cursor: "pointer",
                             }}
                         >
-                            🚫 Nghỉ Cuối tuần
+                            Nghỉ Cuối tuần
                         </button>
                     </div>
                 </div>
@@ -797,15 +764,6 @@ export default function OwnerOpeningHoursPage() {
                             color: "#71717A",
                         }}
                     >
-                        <span
-                            style={{
-                                fontSize: 24,
-                                display: "block",
-                                marginBottom: 8,
-                            }}
-                        >
-                            ⏳
-                        </span>
                         Đang tải dữ liệu giờ hoạt động bãi xe...
                     </div>
                 ) : (
@@ -940,7 +898,7 @@ export default function OwnerOpeningHoursPage() {
                                                 gap: 5,
                                             }}
                                         >
-                                            <span>🕒</span> Theo khung giờ
+                                            Theo khung giờ
                                         </button>
 
                                         <button
@@ -1019,7 +977,7 @@ export default function OwnerOpeningHoursPage() {
                                                     fontWeight: 700,
                                                 }}
                                             >
-                                                <span>🚫</span> Bãi xe tạm ngừng
+                                                Bãi xe tạm ngừng
                                                 đón khách ngày này
                                             </div>
                                         ) : d.is24Hours ? (
@@ -1037,7 +995,7 @@ export default function OwnerOpeningHoursPage() {
                                                     fontWeight: 700,
                                                 }}
                                             >
-                                                <span>✨</span> Phục vụ liên tục
+                                                Phục vụ liên tục
                                                 cả ngày và đêm (24/24)
                                             </div>
                                         ) : (
@@ -1174,7 +1132,7 @@ export default function OwnerOpeningHoursPage() {
                                                                 borderRadius: 6,
                                                             }}
                                                         >
-                                                            ⏳ {duration}
+                                                            {duration}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1326,7 +1284,7 @@ export default function OwnerOpeningHoursPage() {
                     >
                         {isSubmitting
                             ? "Đang lưu..."
-                            : "💾 Lưu giờ hoạt động lên hệ thống"}
+                            : "Lưu giờ hoạt động lên hệ thống"}
                     </button>
                 </div>
             </div>

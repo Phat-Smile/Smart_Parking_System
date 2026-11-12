@@ -9,5 +9,6 @@ public enum LedgerEntryType
     FeePayment = 5,             // Trừ phí đỗ xe
     Refund = 6,                 // Hoàn tiền cho khách
     Adjustment = 7,             // Đền bù/cộng trừ lại tiền khi hệ thống tính sai
-    BalanceCancellation = 8     // Hủy số dư (khi đóng ví)
+    BalanceCancellation = 8,    // Hủy số dư (khi đóng ví)
+    ReservationDeposit = 9      // Đặt cọc giữ chỗ (Task N2)
 }

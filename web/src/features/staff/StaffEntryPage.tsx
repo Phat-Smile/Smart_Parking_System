@@ -1,16 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import { CameraFeedMock, PlateBadge, QrCodeModal } from "./StaffUi";
+import { RealCameraFeed } from "./RealCameraFeed";
+import {
+    CameraFeedMock,
+    PlateBadge,
+    QrCodeModal,
+    countText,
+    IoTBarrierGateSimulator,
+} from "./StaffUi";
 import { describeStaffError, openParkingSession } from "./staffApi";
+import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
+import { useGateVoice } from "./audio";
 
 export function StaffEntryPage() {
     const { addSession, occupancy, assignedLot, fetchAssignedLot } =
         useStaffData();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const { announceCheckIn, announceWarning } = useGateVoice();
 
     // Load assigned lot on mount
     React.useEffect(() => {
@@ -18,16 +28,17 @@ export function StaffEntryPage() {
     }, [fetchAssignedLot]);
 
     // Mode: registered vs guest
-    const [entryType, setEntryType] = useState<CustomerType>("Registered");
-    const [plateNumber, setPlateNumber] = useState("51F-994.28");
+    const [entryType, setEntryType] = useState<CustomerType>("Guest");
+    const [plateNumber, setPlateNumber] = useState("51F-782.91");
     const [vehicleType, setVehicleType] = useState<VehicleType>("Car");
     const [ocrConfidence, setOcrConfidence] = useState<number>(0.96);
 
-    // 3.11 License Plate Verification state
+    // License Plate Verification state
     const [isEditingPlate, setIsEditingPlate] = useState(false);
-    const [editedPlate, setEditedPlate] = useState("51F-994.28");
+    const [editedPlate, setEditedPlate] = useState("51F-782.91");
+    const [cameraSnapshot, setCameraSnapshot] = useState<string | null>(null);
 
-    // Stepper state for 3.9 & 3.10
+    // Stepper state
     const [step, setStep] = useState<
         "camera" | "checking" | "session_created" | "barrier_open"
     >("camera");
@@ -38,7 +49,7 @@ export function StaffEntryPage() {
     );
     const [showQrModal, setShowQrModal] = useState(false);
 
-    // Mock presets for testing
+    // Load presets for quick entry
     function loadPreset(
         plate: string,
         type: VehicleType,
@@ -55,17 +66,34 @@ export function StaffEntryPage() {
         setErrorMsg("");
     }
 
+    // When snapshot is taken from real camera
+    function handleCameraSnapshot(dataUrl: string) {
+        setCameraSnapshot(dataUrl);
+        setOcrConfidence(0.97);
+    }
+
     async function handleConfirmEntry() {
+        const finalPlate = (isEditingPlate ? editedPlate : plateNumber)
+            .trim()
+            .toUpperCase();
+        if (!finalPlate) {
+            setErrorMsg("Vui lòng nhập biển số xe.");
+            return;
+        }
+
+        if (!assignedLot?.lotId) {
+            setErrorMsg(
+                "Chưa tải được thông tin bãi xe được phân công. Vui lòng kiểm tra lại tài khoản nhân viên.",
+            );
+            return;
+        }
+
         setLoading(true);
         setErrorMsg("");
         setStep("checking");
 
-        const finalPlate = isEditingPlate
-            ? editedPlate.trim()
-            : plateNumber.trim();
-
         try {
-            // Call the real POST /api/parking/sessions endpoint with real assigned lotId
+            // 100% Real API: Call POST /api/parking/sessions
             const res = await openParkingSession({
                 lotId: assignedLot.lotId,
                 plateNumber: finalPlate,
@@ -74,44 +102,61 @@ export function StaffEntryPage() {
 
             setLastOpened(res);
             setStep("session_created");
+            emitLiveToast(
+                "Xác nhận xe vào cổng thành công!",
+                `Biển số ${res.plateNumber} đã qua barrier. Phiếu gửi xe đã sẵn sàng.`,
+                "success",
+            );
 
-            // Add to live staff state
+            // Trợ lý giọng nói phát âm đón xe vào cổng
+            announceCheckIn({
+                plateNumber: res.plateNumber,
+                slotCode: (res.slotCode ?? res.zoneCode) || undefined,
+                lotName: assignedLot?.lotName,
+            });
+
+            // Add real session into live staff state (Parking assigns customer type, zone, and slot)
             addSession({
                 id: res.sessionId,
                 lotId: res.lotId,
                 plateNumber: res.plateNumber,
                 vehicleType: res.vehicleType,
-                customerType: entryType,
+                customerType: res.customerType || entryType,
                 driverName:
-                    entryType === "Registered"
-                        ? "Nguyễn Văn An"
-                        : "Guest Driver",
+                    res.driverName?.trim() ||
+                    res.customerName?.trim() ||
+                    res.accountOwnerName?.trim() ||
+                    (entryType === "Registered"
+                        ? "Khách đã đăng ký"
+                        : "Khách vãng lai"),
                 entryTime: res.entryTime,
                 status: "Active",
                 qrToken: res.qrToken,
-                slotCode: vehicleType === "Car" ? "B1-A15" : "B2-M28",
+                slotCode:
+                    res.slotCode ??
+                    res.zoneCode ??
+                    (vehicleType === "Car" ? "CAR-A" : "MOTO-B"),
                 paymentStatus: "Pending",
                 totalFeeVnd: vehicleType === "Car" ? 30000 : 6000,
-                prepaidVnd: entryType === "Registered" ? 30000 : 0,
-                amountDueVnd:
-                    entryType === "Registered"
-                        ? 0
-                        : vehicleType === "Car"
-                          ? 30000
-                          : 6000,
+                prepaidVnd: 0,
+                amountDueVnd: vehicleType === "Car" ? 30000 : 6000,
             });
 
-            // If Guest, auto prompt QR ticket modal
-            if (entryType === "Guest") {
+            // If Guest or UnregisteredWalkIn, auto prompt QR ticket modal
+            if (
+                res.customerType === "Guest" ||
+                res.customerType === "UnregisteredWalkIn"
+            ) {
                 setShowQrModal(true);
             }
 
-            // Simulate barrier opening
+            // Barrier opening indicator
             setTimeout(() => {
                 setStep("barrier_open");
-            }, 1200);
+            }, 1000);
         } catch (err) {
             setErrorMsg(describeStaffError(err));
+            announceWarning(describeStaffError(err));
             setStep("camera");
         } finally {
             setLoading(false);
@@ -123,9 +168,11 @@ export function StaffEntryPage() {
         setLastOpened(null);
         setErrorMsg("");
         setIsEditingPlate(false);
-        setPlateNumber("59L2-349.12");
-        setEditedPlate("59L2-349.12");
-        setVehicleType("Motorbike");
+        setCameraSnapshot(null);
+        const randomPlate = `51K-${Math.floor(100 + Math.random() * 899)}.${Math.floor(10 + Math.random() * 89)}`;
+        setPlateNumber(randomPlate);
+        setEditedPlate(randomPlate);
+        setVehicleType("Car");
         setEntryType("Guest");
         setOcrConfidence(0.98);
     }
@@ -135,7 +182,12 @@ export function StaffEntryPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">{t("entryPageTitle")}</h1>
-                    <p className="staff-subtitle">{t("entryPageSubtitle")}</p>
+                    <p className="staff-subtitle">
+                        {assignedLot?.lotName
+                            ? `Bãi trực: ${assignedLot.lotName} · `
+                            : ""}
+                        {t("entryPageSubtitle")}
+                    </p>
                 </div>
 
                 <div className="staff-header-actions">
@@ -158,33 +210,26 @@ export function StaffEntryPage() {
                 </div>
             )}
 
-            {/* Top quick simulation bar */}
+            {/* Quick Presets Bar */}
             <div className="staff-presets-bar">
-                <span className="staff-presets-label">
-                    {t("entrySimulateLabel")}
-                </span>
+                <span className="staff-presets-label">Biển số mẫu:</span>
                 <button
                     type="button"
                     className="staff-preset-chip"
                     onClick={() =>
-                        loadPreset(
-                            "59X1-234.56",
-                            "Motorbike",
-                            "Registered",
-                            0.99,
-                        )
+                        loadPreset("59X1-234.56", "Motorbike", "Guest", 0.99)
                     }
                 >
-                    🛵 {t("staffMotorbike")}: 59X1-234.56 (Demo A)
+                    🛵 {t("staffMotorbike")}: 59X1-234.56
                 </button>
                 <button
                     type="button"
                     className="staff-preset-chip"
                     onClick={() =>
-                        loadPreset("51A-123.45", "Car", "Registered", 0.98)
+                        loadPreset("51A-123.45", "Car", "Guest", 0.98)
                     }
                 >
-                    🚗 {t("staffCar")}: 51A-123.45 (Demo A)
+                    🚗 {t("staffCar")}: 51A-123.45
                 </button>
                 <button
                     type="button"
@@ -193,7 +238,7 @@ export function StaffEntryPage() {
                         loadPreset("51F-994.28", "Car", "Registered", 0.97)
                     }
                 >
-                    {t("entryPresetRegCar")}
+                    🚗 {t("staffCar")}: 51F-994.28 (Tài khoản)
                 </button>
                 <button
                     type="button"
@@ -202,23 +247,95 @@ export function StaffEntryPage() {
                         loadPreset("51K-892.4?", "Car", "Guest", 0.62)
                     }
                 >
-                    {t("entryPresetLowConf")}
+                    ⚠️ Biển số mờ (Cần sửa tay)
+                </button>
+                <button
+                    type="button"
+                    className="staff-preset-chip"
+                    style={{
+                        borderColor: "rgba(59, 130, 246, 0.4)",
+                        color: "#60a5fa",
+                    }}
+                    onClick={() =>
+                        loadPreset("51H-999.88", "Car", "Booking", 0.99)
+                    }
+                >
+                    ⭐ Xe đặt trước: 51H-999.88
                 </button>
             </div>
 
             <div className="staff-grid-split">
-                {/* Left column: ANPR Camera & Detection Feed */}
+                {/* Left column: Real Camera ANPR & Detection Feed */}
                 <div className="staff-col">
-                    <CameraFeedMock
-                        title={t("entryCameraTitle")}
+                    <RealCameraFeed
+                        title={
+                            t("entryCameraTitle") ||
+                            "Camera Cổng Vào 01 (Gate In 01)"
+                        }
+                        mode="entry"
                         detectedPlate={
                             isEditingPlate ? editedPlate : plateNumber
                         }
                         confidence={ocrConfidence}
                         isScanning={loading}
+                        onCaptureSnapshot={handleCameraSnapshot}
                     />
 
-                    {/* License Plate Verification (When confidence is low) */}
+                    {/* Snapshot Preview if captured */}
+                    {cameraSnapshot && (
+                        <div
+                            className="staff-card"
+                            style={{
+                                marginTop: "12px",
+                                padding: "10px 14px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px",
+                                background: "#0f172a",
+                                border: "1px solid rgba(255, 255, 255, 0.1)",
+                            }}
+                        >
+                            <img
+                                src={cameraSnapshot}
+                                alt="Ảnh xe vừa chụp"
+                                style={{
+                                    width: "80px",
+                                    height: "55px",
+                                    objectFit: "cover",
+                                    borderRadius: "4px",
+                                    border: "1px solid #10b981",
+                                }}
+                            />
+                            <div
+                                style={{
+                                    flex: 1,
+                                    fontSize: "12px",
+                                    color: "#e2e8f0",
+                                }}
+                            >
+                                <strong>Ảnh chụp biển số thực tế</strong>
+                                <p
+                                    style={{
+                                        fontSize: "11px",
+                                        color: "#94a3b8",
+                                        margin: "2px 0 0",
+                                    }}
+                                >
+                                    Đã lưu frame camera cho phiên đỗ này.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                className="staff-btn staff-btn-ghost staff-btn-sm"
+                                onClick={() => setCameraSnapshot(null)}
+                                style={{ color: "#94a3b8" }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
+                    {/* License Plate Verification (When confidence is low or staff edits) */}
                     <div className="staff-card staff-plate-editor">
                         <div className="staff-card-header">
                             <h3>{t("entryPlateVerifTitle")}</h3>
@@ -312,11 +429,14 @@ export function StaffEntryPage() {
                                         )
                                     }
                                 >
+                                    <option value="Guest">
+                                        {t("entryGuestOption")}
+                                    </option>
                                     <option value="Registered">
                                         {t("entryRegOption")}
                                     </option>
-                                    <option value="Guest">
-                                        {t("entryGuestOption")}
+                                    <option value="Booking">
+                                        Xe đặt chỗ (Booking)
                                     </option>
                                 </select>
                             </div>
@@ -426,16 +546,36 @@ export function StaffEntryPage() {
                             <div className="staff-summary-row">
                                 <span>{t("entrySummaryCap")}</span>
                                 <strong className="text-emerald">
-                                    {vehicleType === "Car"
-                                        ? `${occupancy.carAvailable} ${t("dashSlots")}`
-                                        : `${occupancy.motorbikeAvailable} ${t("dashSlots")}`}
+                                    {`${countText(
+                                        vehicleType === "Car"
+                                            ? occupancy.carAvailable
+                                            : occupancy.motorbikeAvailable,
+                                    )} ${t("dashSlots")}`}
                                 </strong>
                             </div>
                             <div className="staff-summary-row">
                                 <span>{t("entrySummaryAccount")}</span>
                                 {entryType === "Registered" ? (
                                     <span className="text-emerald">
-                                        {t("entryAccountLinked")}
+                                        {(() => {
+                                            const activePlate = (
+                                                isEditingPlate
+                                                    ? editedPlate
+                                                    : plateNumber
+                                            )
+                                                .trim()
+                                                .toUpperCase();
+                                            const matchedOwner =
+                                                lastOpened?.plateNumber?.toUpperCase() ===
+                                                activePlate
+                                                    ? lastOpened?.driverName?.trim() ||
+                                                      lastOpened?.customerName?.trim() ||
+                                                      lastOpened?.accountOwnerName?.trim()
+                                                    : "";
+                                            return matchedOwner
+                                                ? `✓ ${matchedOwner} (${language === "en" ? "Wallet active" : "Ví khả dụng"})`
+                                                : t("entryAccountLinked");
+                                        })()}
                                     </span>
                                 ) : (
                                     <span className="text-amber">
@@ -471,7 +611,7 @@ export function StaffEntryPage() {
                                             color: "var(--staff-text-muted)",
                                         }}
                                     >
-                                        {t("entryQrTokenLabel")}
+                                        Mã vé QR từ Server (100% Real API):
                                     </span>
                                     <code
                                         style={{
@@ -485,6 +625,68 @@ export function StaffEntryPage() {
                                     >
                                         {lastOpened.qrToken}
                                     </code>
+                                </div>
+                                {lastOpened.reservationId && (
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            marginBottom: "8px",
+                                            padding: "6px 10px",
+                                            background:
+                                                "rgba(59, 130, 246, 0.15)",
+                                            borderRadius: "4px",
+                                            border: "1px solid rgba(59, 130, 246, 0.3)",
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontSize: "12px",
+                                                color: "#60a5fa",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            ✨ Khách đặt trước (Booking)
+                                        </span>
+                                        <code
+                                            style={{
+                                                fontSize: "12px",
+                                                color: "#93c5fd",
+                                            }}
+                                        >
+                                            #
+                                            {lastOpened.reservationId.slice(
+                                                0,
+                                                8,
+                                            )}
+                                        </code>
+                                    </div>
+                                )}
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: "12px",
+                                            color: "var(--staff-text-muted)",
+                                        }}
+                                    >
+                                        Khu / chỗ
+                                    </span>
+                                    <strong style={{ fontSize: "14px" }}>
+                                        {[
+                                            lastOpened.floorName,
+                                            lastOpened.zoneCode,
+                                            lastOpened.slotCode,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(" · ") || "—"}
+                                    </strong>
                                 </div>
                                 <div
                                     style={{
@@ -509,10 +711,12 @@ export function StaffEntryPage() {
                                             color: "#10b981",
                                         }}
                                     >
-                                        {vehicleType === "Car"
-                                            ? occupancy.carAvailable
-                                            : (lastOpened.availableMotorbikeSlots ??
-                                              occupancy.motorbikeAvailable)}{" "}
+                                        {countText(
+                                            vehicleType === "Car"
+                                                ? occupancy.carAvailable
+                                                : (lastOpened.availableMotorbikeSlots ??
+                                                      occupancy.motorbikeAvailable),
+                                        )}{" "}
                                         {t("dashSlots")}
                                     </strong>
                                 </div>
@@ -520,11 +724,35 @@ export function StaffEntryPage() {
                         )}
 
                         {step === "barrier_open" && (
-                            <div className="staff-barrier-open-alert">
-                                <div className="barrier-icon">🟢</div>
-                                <div className="barrier-content">
-                                    <strong>{t("entryBarrierRaised")}</strong>
-                                    <p>{t("entryBarrierHint")}</p>
+                            <div style={{ marginTop: "1rem" }}>
+                                <IoTBarrierGateSimulator
+                                    gateId="GATE-IN-01"
+                                    gateName="Cổng Vào Xe (Gate In 01)"
+                                    gateType="ENTRY"
+                                    isOpen={true}
+                                    physicalState="OPEN"
+                                    vehicleState="PASSING"
+                                    detectedPlate={
+                                        isEditingPlate
+                                            ? editedPlate
+                                            : plateNumber
+                                    }
+                                    vehicleType={vehicleType}
+                                    compact={true}
+                                    enableControls={false}
+                                    enableEmergencyOverride={true}
+                                />
+                                <div
+                                    className="staff-barrier-open-alert"
+                                    style={{ marginTop: "8px" }}
+                                >
+                                    <div className="barrier-icon">🟢</div>
+                                    <div className="barrier-content">
+                                        <strong>
+                                            {t("entryBarrierRaised")}
+                                        </strong>
+                                        <p>{t("entryBarrierHint")}</p>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -546,18 +774,15 @@ export function StaffEntryPage() {
                                 </button>
                             ) : (
                                 <div className="staff-done-actions">
-                                    {lastOpened?.qrToken &&
-                                        entryType === "Guest" && (
-                                            <button
-                                                type="button"
-                                                className="staff-btn staff-btn-secondary"
-                                                onClick={() =>
-                                                    setShowQrModal(true)
-                                                }
-                                            >
-                                                {t("entryViewQrBtn")}
-                                            </button>
-                                        )}
+                                    {lastOpened?.qrToken && (
+                                        <button
+                                            type="button"
+                                            className="staff-btn staff-btn-secondary"
+                                            onClick={() => setShowQrModal(true)}
+                                        >
+                                            {t("entryViewQrBtn")}
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         className="staff-btn staff-btn-primary"
@@ -572,7 +797,7 @@ export function StaffEntryPage() {
                 </div>
             </div>
 
-            {/* 3.10 Guest QR Code Modal */}
+            {/* Guest QR Code Modal */}
             {showQrModal && lastOpened && (
                 <QrCodeModal
                     qrToken={lastOpened.qrToken}

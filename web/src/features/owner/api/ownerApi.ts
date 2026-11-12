@@ -5,12 +5,21 @@ import { gatewayFetch } from "@/shared/api/client";
 // ==========================================
 export type ParkingLotTypeEnum = "Outdoor" | "Underground" | "MultiStorey";
 
+export interface ParkingLotFeaturesRequest {
+    supportsElectricVehicles?: boolean;
+    supportsLargeVehicles?: boolean;
+    hasEvCharging?: boolean;
+    isCovered?: boolean;
+    hasCctv?: boolean;
+}
+
 export interface RegisterParkingLotRequest {
     name: string;
     address: string;
     latitude: number;
     longitude: number;
     type: ParkingLotTypeEnum;
+    features?: ParkingLotFeaturesRequest;
 }
 
 export interface RegisteredParkingLotResponse {
@@ -22,6 +31,7 @@ export interface RegisteredParkingLotResponse {
     longitude: number;
     type: string;
     approvalStatus: "Pending" | string;
+    features?: ParkingLotFeaturesRequest;
 }
 
 // ==========================================
@@ -71,6 +81,7 @@ export interface ParkingLotDetail {
     longitude: number;
     type: string;
     approvalStatus: string;
+    features?: ParkingLotFeaturesRequest;
 }
 
 /**
@@ -89,6 +100,7 @@ export async function registerParkingLotApi(
             latitude: req.latitude,
             longitude: req.longitude,
             type: req.type,
+            features: req.features,
         }),
     });
 }
@@ -135,6 +147,7 @@ export interface OwnerParkingLotItem {
     rejectionReason?: string | null;
     hasOpeningHours?: boolean;
     hasPricing?: boolean;
+    features?: ParkingLotFeaturesRequest;
 }
 
 export interface OwnerParkingLotsPagedResult {
@@ -253,39 +266,137 @@ export async function getOpeningHoursApi(
 }
 
 // ==========================================
-// 6. DEPOSIT POLICY (OwnerDepositConfig)
+// 6. DEPOSIT & RESERVATION POLICIES (Owner Policies)
 // ==========================================
 export interface ConfigureDepositPolicyRequest {
-    depositAmount: number; // integer VND >= 0
+    holdDepositVnd: number; // integer VND >= 0
 }
 
+/** GET/PUT /api/parking/lots/{lotId}/deposit-policy (DepositPolicyResponse in Parking). */
 export interface DepositPolicyResponse {
     lotId: string;
-    depositAmount: number | null;
-    configuredAtUtc: string | null;
+    holdDepositVnd: number;
+    isConfigured: boolean;
+    updatedAtUtc: string | null;
 }
 
 export async function configureDepositPolicyApi(
     lotId: string | number,
     req: ConfigureDepositPolicyRequest,
 ): Promise<DepositPolicyResponse> {
-    return gatewayFetch<DepositPolicyResponse>(
-        `/api/v1/parking-lots/${lotId}/deposit-policy`,
-        {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(req),
-        },
-    );
+    const raw = await gatewayFetch<
+        DepositPolicyResponse | { result: DepositPolicyResponse }
+    >(`/api/parking/lots/${lotId}/deposit-policy`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+    });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as DepositPolicyResponse;
 }
 
 export async function getDepositPolicyApi(
     lotId: string | number,
 ): Promise<DepositPolicyResponse> {
-    return gatewayFetch<DepositPolicyResponse>(
-        `/api/v1/parking-lots/${lotId}/deposit-policy`,
-        { method: "GET" },
-    );
+    const raw = await gatewayFetch<
+        DepositPolicyResponse | { result: DepositPolicyResponse }
+    >(`/api/parking/lots/${lotId}/deposit-policy`, { method: "GET" });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as DepositPolicyResponse;
+}
+
+export interface ConfigureReservationRatioPolicyRequest {
+    reservationRatioPercent: number; // 10 to 50
+}
+
+export interface ReservationRatioPolicyResponse {
+    lotId: string;
+    reservationRatioPercent: number;
+    isConfigured: boolean;
+    updatedAtUtc: string | null;
+}
+
+export async function configureReservationRatioPolicyApi(
+    lotId: string | number,
+    req: ConfigureReservationRatioPolicyRequest | number,
+): Promise<ReservationRatioPolicyResponse> {
+    const payload =
+        typeof req === "number" ? { reservationRatioPercent: req } : req;
+    const raw = await gatewayFetch<
+        | ReservationRatioPolicyResponse
+        | { result: ReservationRatioPolicyResponse }
+    >(`/api/parking/lots/${lotId}/reservation-ratio-policy`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationRatioPolicyResponse;
+}
+
+export async function getReservationRatioPolicyApi(
+    lotId: string | number,
+): Promise<ReservationRatioPolicyResponse> {
+    const raw = await gatewayFetch<
+        | ReservationRatioPolicyResponse
+        | { result: ReservationRatioPolicyResponse }
+    >(`/api/parking/lots/${lotId}/reservation-ratio-policy`, { method: "GET" });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationRatioPolicyResponse;
+}
+
+export interface ConfigureReservationAvailabilityPolicyRequest {
+    reservationEnabled: boolean;
+}
+
+export interface ReservationAvailabilityPolicyResponse {
+    lotId: string;
+    reservationEnabled: boolean;
+    isConfigured: boolean;
+    updatedAtUtc: string | null;
+}
+
+export async function configureReservationAvailabilityApi(
+    lotId: string | number,
+    req: ConfigureReservationAvailabilityPolicyRequest,
+): Promise<ReservationAvailabilityPolicyResponse> {
+    const raw = await gatewayFetch<
+        | ReservationAvailabilityPolicyResponse
+        | {
+              result: ReservationAvailabilityPolicyResponse;
+          }
+    >(`/api/parking/lots/${lotId}/reservation-availability`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+    });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationAvailabilityPolicyResponse;
+}
+
+export async function getReservationAvailabilityApi(
+    lotId: string | number,
+): Promise<ReservationAvailabilityPolicyResponse> {
+    const raw = await gatewayFetch<
+        | ReservationAvailabilityPolicyResponse
+        | {
+              result: ReservationAvailabilityPolicyResponse;
+          }
+    >(`/api/parking/lots/${lotId}/reservation-availability`, { method: "GET" });
+    if (raw && "result" in raw && raw.result) {
+        return raw.result;
+    }
+    return raw as ReservationAvailabilityPolicyResponse;
 }
 
 // ==========================================
@@ -294,6 +405,7 @@ export async function getDepositPolicyApi(
 export interface LayoutSlotDto {
     id: string;
     slotCode: string;
+    sensorCode?: string | null;
     overrideState?: "Maintenance" | "Unavailable" | null;
     position: { x: number; y: number };
 }
@@ -346,3 +458,37 @@ export async function saveParkingLayoutApi(
         },
     );
 }
+
+// ==========================================
+// 12. SET SLOT MAINTENANCE (US-OWNER-003/008)
+// ==========================================
+export interface SetSlotMaintenanceRequest {
+    underMaintenance: boolean;
+    reason?: string | null;
+}
+
+export interface SlotMaintenanceResponse {
+    lotId: string;
+    slotId: string;
+    slotCode: string;
+    effectiveStatus: string;
+    overrideState: string | null;
+    updatedAtUtc: string;
+}
+
+export async function setSlotMaintenanceApi(
+    lotId: string,
+    slotId: string,
+    req: SetSlotMaintenanceRequest,
+): Promise<SlotMaintenanceResponse> {
+    return gatewayFetch<SlotMaintenanceResponse>(
+        `/api/parking/owner/lots/${lotId}/slots/${slotId}/maintenance`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(req),
+        },
+    );
+}
+
+

@@ -13,6 +13,8 @@ import {
     subscribeAuthSession,
 } from "@/features/auth/authSession";
 import { CUSTOMER_UI_PREVIEW } from "@/features/customer/customerUiPreview";
+import { CustomerLanguageSwitcher } from "@/features/customer/i18n/CustomerLanguageSwitcher";
+import { useCustomerLanguage } from "@/features/customer/i18n/customerLanguage";
 
 const landingNavigation = [
     { label: "Home", href: "/" },
@@ -23,13 +25,16 @@ const landingNavigation = [
 const customerNavigation = [
     { label: "Customer", href: "/customer/dashboard" },
     { label: "Find Parking", href: "/search" },
-    { label: "My Vehicles", href: "/customer/vehicles" },
+    { label: "Vehicles", href: "/customer/vehicles" },
 ];
 const dashboardNavigation = [
-    { label: "Home", href: "/customer/dashboard" },
-    { label: "Find Parking", href: "/search" },
-    { label: "My Bookings", href: "/customer/dashboard#upcoming-booking" },
-    { label: "My Vehicles", href: "/customer/vehicles" },
+    { label: "Overview", href: "/customer/dashboard" },
+    { label: "Search", href: "/search" },
+    { label: "Vehicles", href: "/customer/vehicles" },
+    { label: "Bookings", href: "/customer/bookings" },
+    { label: "Sessions", href: "/customer/sessions" },
+    { label: "History", href: "/customer/parking-history" },
+    { label: "Wallet", href: "/customer/wallet" },
 ];
 
 const customerLandingNavigation = [
@@ -57,6 +62,7 @@ export function ParkWiseNavbar({
         () => null,
     );
     const isCustomer = session?.account.role === "Customer";
+    const { language, copy } = useCustomerLanguage();
     const canViewCustomer = CUSTOMER_UI_PREVIEW || isCustomer;
     const navigation = canViewCustomer
         ? navigationMode === "dashboard"
@@ -72,9 +78,9 @@ export function ParkWiseNavbar({
             canViewCustomer ? (
                 <Link
                     className="parkwise-customer-account-link"
-                    href="/customer/complete-profile"
+                    href="/customer/profile"
                 >
-                    My Profile
+                    {copy("My Profile", "Hồ sơ của tôi")}
                 </Link>
             ) : (
                 <span className="parkwise-signed-in-account">
@@ -100,12 +106,36 @@ export function ParkWiseNavbar({
         };
     }, [menuOpen]);
 
+    useEffect(() => {
+        if (variant !== "customer") return;
+        document.documentElement.lang = language;
+    }, [variant, language]);
+
     const dark = scrolled && !menuOpen;
+    const customerLabels: Record<string, string> = {
+        Overview: "Tổng quan",
+        Wallet: "Ví",
+        Sessions: "Phiên đỗ",
+        Home: "Trang chủ",
+        Customer: "Khách hàng",
+        "Find Parking": "Tìm bãi",
+        Search: "Tìm bãi",
+        Bookings: "Đặt chỗ",
+        Vehicles: "Xe",
+        History: "Lịch sử",
+        "My Profile": "Hồ sơ của tôi",
+        "How It Works": "Cách hoạt động",
+        About: "Giới thiệu",
+    };
+    const customerLabel = (label: string) =>
+        variant === "customer" && language === "vi"
+            ? (customerLabels[label] ?? label)
+            : label;
 
     return (
         <>
             <div
-                className={`parkwise-mobile-menu ${menuOpen ? "active" : ""}`}
+                className={`parkwise-mobile-menu ${variant === "customer" ? "parkwise-mobile-menu-customer" : ""} ${menuOpen ? "active" : ""}`}
                 aria-hidden={!menuOpen}
             >
                 <div className="parkwise-container">
@@ -121,11 +151,11 @@ export function ParkWiseNavbar({
                                         activeHref === href ? "page" : undefined
                                     }
                                 >
-                                    {label}
+                                    {customerLabel(label)}
                                 </Link>
                             ) : (
                                 <span key={label} aria-disabled="true">
-                                    {label}
+                                    {customerLabel(label)}
                                 </span>
                             ),
                         )}
@@ -135,8 +165,11 @@ export function ParkWiseNavbar({
                                 onClick={() => setMenuOpen(false)}
                                 tabIndex={menuOpen ? 0 : -1}
                             >
-                                My Profile
+                                {copy("My Profile", "Hồ sơ của tôi")}
                             </Link>
+                        )}
+                        {menuOpen && variant === "customer" && (
+                            <CustomerLanguageSwitcher mobile />
                         )}
                         {!session && (
                             <div className="parkwise-mobile-auth">
@@ -147,13 +180,17 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        Login
+                                        {variant === "customer"
+                                            ? copy("Login", "Đăng nhập")
+                                            : "Login"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        Login
+                                        {variant === "customer"
+                                            ? copy("Login", "Đăng nhập")
+                                            : "Login"}
                                     </span>
                                 </Link>
                                 <Link
@@ -163,13 +200,43 @@ export function ParkWiseNavbar({
                                     tabIndex={menuOpen ? 0 : -1}
                                 >
                                     <span className="parkwise-auth-label">
-                                        Sign Up
+                                        {variant === "customer"
+                                            ? copy("Sign Up", "Đăng ký")
+                                            : "Sign Up"}
                                     </span>
                                     <span
                                         className="parkwise-auth-label-fill"
                                         aria-hidden="true"
                                     >
-                                        Sign Up
+                                        {variant === "customer"
+                                            ? copy("Sign Up", "Đăng ký")
+                                            : "Sign Up"}
+                                    </span>
+                                </Link>
+                                <Link
+                                    href="/owner/register"
+                                    className="parkwise-button parkwise-auth-owner"
+                                    onClick={() => setMenuOpen(false)}
+                                    tabIndex={menuOpen ? 0 : -1}
+                                >
+                                    <span className="parkwise-auth-label">
+                                        {variant === "customer"
+                                            ? copy(
+                                                  "For Lot Owners",
+                                                  "Dành cho chủ bãi",
+                                              )
+                                            : "For Lot Owners"}
+                                    </span>
+                                    <span
+                                        className="parkwise-auth-label-fill"
+                                        aria-hidden="true"
+                                    >
+                                        {variant === "customer"
+                                            ? copy(
+                                                  "For Lot Owners",
+                                                  "Dành cho chủ bãi",
+                                              )
+                                            : "For Lot Owners"}
                                     </span>
                                 </Link>
                                 <Link
@@ -199,7 +266,7 @@ export function ParkWiseNavbar({
                 </div>
             </div>
             <header
-                className={`parkwise-navbar ${dark ? "parkwise-navbar-dark" : "parkwise-navbar-light"}`}
+                className={`parkwise-navbar ${variant === "customer" ? "parkwise-navbar-customer" : ""} ${dark ? "parkwise-navbar-dark" : "parkwise-navbar-light"}`}
             >
                 <div className="parkwise-container parkwise-navbar-inner">
                     <Link
@@ -229,11 +296,11 @@ export function ParkWiseNavbar({
                                         activeHref === href ? "page" : undefined
                                     }
                                 >
-                                    {label}
+                                    {customerLabel(label)}
                                 </Link>
                             ) : (
                                 <span key={label} aria-disabled="true">
-                                    {label}
+                                    {customerLabel(label)}
                                 </span>
                             ),
                         )}

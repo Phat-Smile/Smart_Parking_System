@@ -49,5 +49,27 @@ public sealed class ReservationModelMetadataTests
         Assert.NotNull(holdExpIndex);
         var holdExpCols = holdExpIndex.Properties.Select(p => p.GetColumnName()).ToArray();
         Assert.Equal(["status", "temp_hold_expires_at"], holdExpCols);
+
+        // 6. Verify ix_reservations_capacity_check index
+        var capacityCheckIndex = entityType.GetIndexes()
+            .SingleOrDefault(i => i.GetDatabaseName() == "ix_reservations_capacity_check");
+        Assert.NotNull(capacityCheckIndex);
+        var capacityCols = capacityCheckIndex.Properties.Select(p => p.GetColumnName()).ToArray();
+        Assert.Equal(["lot_id", "vehicle_group", "status", "window_start_at", "window_end_at"], capacityCols);
+
+        // 7. Verify ix_reservations_active_hold index
+        var activeHoldIndex = entityType.GetIndexes()
+            .SingleOrDefault(i => i.GetDatabaseName() == "ix_reservations_active_hold");
+        Assert.NotNull(activeHoldIndex);
+        var activeHoldCols = activeHoldIndex.Properties.Select(p => p.GetColumnName()).ToArray();
+        Assert.Equal(["lot_id", "vehicle_group", "status", "window_start_at", "hold_end_at"], activeHoldCols);
+
+        // 8. Verify ReservationCapacity entity and composite primary key
+        var capacityEntityType = dbContext.Model.FindEntityType(typeof(ReservationCapacity));
+        Assert.NotNull(capacityEntityType);
+        var pk = capacityEntityType.FindPrimaryKey();
+        Assert.NotNull(pk);
+        var pkCols = pk.Properties.Select(p => p.GetColumnName()).ToArray();
+        Assert.Equal(["lot_id", "vehicle_group"], pkCols);
     }
 }

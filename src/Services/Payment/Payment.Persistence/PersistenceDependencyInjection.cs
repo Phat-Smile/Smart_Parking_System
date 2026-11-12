@@ -10,9 +10,6 @@ using ParkingSystem.Payment.Persistence.Outbox;
 using ParkingSystem.Payment.Persistence.Inbox;
 using ParkingSystem.Payment.Persistence.Repositories;
 
-using ParkingSystem.Payment.Application.Common.Interfaces;
-using ParkingSystem.Payment.Persistence.Repositories;
-
 namespace ParkingSystem.Payment.Persistence;
 
 public static class PersistenceDependencyInjection
@@ -39,9 +36,12 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IInboxExecutionCoordinator, PaymentInboxExecutionCoordinator>();
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IAuditLogQueryRepository, AuditLogQueryRepository>();
+        services.AddScoped<IPrepaymentReader, PrepaymentReader>();
         services.AddScoped<IWalletTransactionQueryRepository, WalletTransactionQueryRepository>();
         services.AddScoped<IWalletRepository, WalletRepository>();
         services.AddScoped<IVnpayTransactionRepository, VnpayTransactionRepository>();
+        services.AddScoped<IParkingFeePaymentRepository, ParkingFeePaymentRepository>();
+        services.AddScoped<IIdempotencyStore, PaymentIdempotencyStore>();
         return services;
     }
 }

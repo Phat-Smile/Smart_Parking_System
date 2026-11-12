@@ -2,6 +2,18 @@ import { gatewayFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/errors/api-error";
 import type { ParkingLotAssignmentMember } from "./types";
 
+export type ShiftType = "morning" | "afternoon" | "night" | "allday";
+
+export const SHIFT_DETAILS: Record<
+    ShiftType,
+    { shiftName: string; hours: string }
+> = {
+    morning: { shiftName: "Ca 1 - Sáng", hours: "06:00 - 14:00" },
+    afternoon: { shiftName: "Ca 2 - Chiều", hours: "14:00 - 22:00" },
+    night: { shiftName: "Ca 3 - Đêm", hours: "22:00 - 06:00" },
+    allday: { shiftName: "Cả ngày", hours: "00:00 - 23:59" },
+};
+
 export interface StaffAccountOption {
     accountId: string;
     fullName: string;
@@ -12,203 +24,195 @@ export interface StaffAccountOption {
     assignedLotName?: string | null;
 }
 
-const sampleStaffAccounts: StaffAccountOption[] = [
-    {
-        accountId: "88888888-8888-8888-8888-888888888881",
-        fullName: "Nguyễn Văn Tuấn (Trực ca sáng)",
-        email: "staff.tuan@smartpark.vn",
-        phoneNumber: "0909112233",
-        role: "Staff",
-        assignedLotId: "11111111-1111-1111-1111-111111111111",
-        assignedLotName: "Bãi xe Bitexco Financial Tower",
-    },
-    {
-        accountId: "88888888-8888-8888-8888-888888888882",
-        fullName: "Trần Thị Mai (Trực ca chiều)",
-        email: "staff.mai@smartpark.vn",
-        phoneNumber: "0909445566",
-        role: "Staff",
-        assignedLotId: "11111111-1111-1111-1111-111111111111",
-        assignedLotName: "Bãi xe Bitexco Financial Tower",
-    },
-    {
-        accountId: "88888888-8888-8888-8888-888888888883",
-        fullName: "Lê Văn Hùng (Trực ca đêm)",
-        email: "staff.hung@smartpark.vn",
-        phoneNumber: "0909778899",
-        role: "Staff",
-        assignedLotId: "22222222-2222-2222-2222-222222222222",
-        assignedLotName: "Bãi xe Landmark 81",
-    },
-    {
-        accountId: "88888888-8888-8888-8888-888888888884",
-        fullName: "Phạm Quốc Dũng (Nhân viên dự bị)",
-        email: "staff.dung@smartpark.vn",
-        phoneNumber: "0912334455",
-        role: "Staff",
-        assignedLotId: null,
-        assignedLotName: null,
-    },
-    {
-        accountId: "88888888-8888-8888-8888-888888888885",
-        fullName: "Hoàng Anh Đức (Nhân viên mới)",
-        email: "staff.duc@smartpark.vn",
-        phoneNumber: "0934556677",
-        role: "Staff",
-        assignedLotId: null,
-        assignedLotName: null,
-    },
-];
+interface AccountPageResponse {
+    items: Array<{
+        id: string;
+        email: string;
+        fullName: string | null;
+        phoneNumber?: string | null;
+    }>;
+}
 
-// In-memory assignment storage for dev/demo fallback
-let localAssignments: ParkingLotAssignmentMember[] = [
-    {
-        lotId: "11111111-1111-1111-1111-111111111111",
-        accountId: "88888888-8888-8888-8888-888888888881",
-        role: "Staff",
-        assignedAtUtc: "2026-10-20T08:00:00Z",
-        accountFullName: "Nguyễn Văn Tuấn (Trực ca sáng)",
-        accountEmail: "staff.tuan@smartpark.vn",
-        accountPhoneNumber: "0909112233",
-    },
-    {
-        lotId: "11111111-1111-1111-1111-111111111111",
-        accountId: "88888888-8888-8888-8888-888888888882",
-        role: "Staff",
-        assignedAtUtc: "2026-10-20T08:00:00Z",
-        accountFullName: "Trần Thị Mai (Trực ca chiều)",
-        accountEmail: "staff.mai@smartpark.vn",
-        accountPhoneNumber: "0909445566",
-    },
-    {
-        lotId: "22222222-2222-2222-2222-222222222222",
-        accountId: "88888888-8888-8888-8888-888888888883",
-        role: "Staff",
-        assignedAtUtc: "2026-10-21T08:00:00Z",
-        accountFullName: "Lê Văn Hùng (Trực ca đêm)",
-        accountEmail: "staff.hung@smartpark.vn",
-        accountPhoneNumber: "0909778899",
-    },
-];
+interface LotAssignmentResponse {
+    accountId: string;
+    role: "Staff" | "Owner";
+    assignedAtUtc: string;
+}
+
+function assignmentRoute(lotId: string, accountId?: string) {
+    const base = `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments`;
+    return accountId ? `${base}/${encodeURIComponent(accountId)}` : base;
+}
+
+async function fetchShiftMap(
+    lotId: string,
+): Promise<
+    Map<string, { shift: ShiftType; shiftName: string; hours: string }>
+> {
+    const shiftMap = new Map<
+        string,
+        { shift: ShiftType; shiftName: string; hours: string }
+    >();
+    if (typeof window === "undefined") return shiftMap;
+    try {
+        const res = await fetch(
+            `/api/staff-shifts?lotId=${encodeURIComponent(lotId)}`,
+        );
+        if (res.ok) {
+            const list = await res.json();
+            if (Array.isArray(list)) {
+                list.forEach(
+                    (s: {
+                        accountId: string;
+                        shift: ShiftType;
+                        shiftName: string;
+                        hours: string;
+                    }) => {
+                        shiftMap.set(s.accountId.toLowerCase(), {
+                            shift: s.shift,
+                            shiftName: s.shiftName,
+                            hours: s.hours,
+                        });
+                    },
+                );
+            }
+        }
+    } catch {
+        // Ignore internal shift fetch errors
+    }
+    return shiftMap;
+}
 
 /**
- * Gán tài khoản (Staff/Owner) vào bãi đỗ xe.
+ * Gán tài khoản (Staff/Owner) vào bãi đỗ xe và lưu ca trực.
  * Endpoint BE: PUT /api/parking/admin/lots/{lotId}/assignments/{accountId}
  */
 export async function assignLotMember(
     lotId: string,
     accountId: string,
     role: "Staff" | "Owner" = "Staff",
+    shift: ShiftType = "morning",
 ): Promise<ParkingLotAssignmentMember> {
-    try {
-        const res = await gatewayFetch<ParkingLotAssignmentMember>(
-            `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments/${encodeURIComponent(accountId)}`,
-            {
-                method: "PUT",
+    const member = await gatewayFetch<LotAssignmentResponse>(
+        assignmentRoute(lotId, accountId),
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role }),
+        },
+    );
+
+    if (typeof window !== "undefined") {
+        try {
+            await fetch("/api/staff-shifts", {
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role }),
-            },
-        );
-
-        // Update local memory
-        const staff = sampleStaffAccounts.find(
-            (s) => s.accountId === accountId,
-        );
-        const item: ParkingLotAssignmentMember = {
-            lotId,
-            accountId,
-            role,
-            assignedAtUtc: new Date().toISOString(),
-            accountFullName: staff?.fullName || "Nhân viên trực bãi",
-            accountEmail: staff?.email,
-            accountPhoneNumber: staff?.phoneNumber,
-        };
-        localAssignments = localAssignments
-            .filter((a) => !(a.lotId === lotId && a.accountId === accountId))
-            .concat(item);
-
-        return res || item;
-    } catch {
-        // Fallback for offline/demo if BE is offline
-        const staff = sampleStaffAccounts.find(
-            (s) => s.accountId === accountId,
-        );
-        const item: ParkingLotAssignmentMember = {
-            lotId,
-            accountId,
-            role,
-            assignedAtUtc: new Date().toISOString(),
-            accountFullName: staff?.fullName || "Nhân viên trực bãi",
-            accountEmail: staff?.email,
-            accountPhoneNumber: staff?.phoneNumber,
-        };
-        localAssignments = localAssignments
-            .filter((a) => !(a.lotId === lotId && a.accountId === accountId))
-            .concat(item);
-        return item;
+                body: JSON.stringify({
+                    lotId,
+                    accountId,
+                    shift,
+                    ...SHIFT_DETAILS[shift],
+                }),
+            });
+        } catch {
+            // Ignore shift storage failure
+        }
     }
+
+    return {
+        lotId,
+        accountId: member.accountId,
+        role: member.role,
+        assignedAtUtc: member.assignedAtUtc,
+        shift,
+        shiftName: SHIFT_DETAILS[shift]?.shiftName,
+        hours: SHIFT_DETAILS[shift]?.hours,
+    };
 }
 
 /**
- * Gỡ tài khoản khỏi bãi đỗ xe.
+ * Gỡ tài khoản khỏi bãi đỗ xe và xóa ca trực tương ứng.
  * Endpoint BE: DELETE /api/parking/admin/lots/{lotId}/assignments/{accountId}
  */
 export async function removeLotMember(
     lotId: string,
     accountId: string,
 ): Promise<void> {
-    try {
-        await gatewayFetch<void>(
-            `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments/${encodeURIComponent(accountId)}`,
-            {
-                method: "DELETE",
-            },
-        );
-        localAssignments = localAssignments.filter(
-            (a) => !(a.lotId === lotId && a.accountId === accountId),
-        );
-    } catch {
-        // Fallback for offline/demo
-        localAssignments = localAssignments.filter(
-            (a) => !(a.lotId === lotId && a.accountId === accountId),
-        );
+    await gatewayFetch<void>(assignmentRoute(lotId, accountId), {
+        method: "DELETE",
+    });
+
+    if (typeof window !== "undefined") {
+        try {
+            await fetch(
+                `/api/staff-shifts?lotId=${encodeURIComponent(lotId)}&accountId=${encodeURIComponent(accountId)}`,
+                { method: "DELETE" },
+            );
+        } catch {
+            // Ignore shift removal failure
+        }
     }
 }
 
 /**
- * Lấy danh sách phân công cho bãi đỗ xe.
+ * Danh sách phân công của bãi kèm ca trực (nếu có).
+ * Endpoint BE: GET /api/parking/admin/lots/{lotId}/assignments
  */
 export async function getLotAssignments(
     lotId: string,
 ): Promise<ParkingLotAssignmentMember[]> {
-    try {
-        const res = await gatewayFetch<ParkingLotAssignmentMember[]>(
-            `/api/parking/admin/lots/${encodeURIComponent(lotId)}/assignments`,
-            { method: "GET" },
-        );
-        if (Array.isArray(res) && res.length > 0) return res;
-    } catch {
-        // Backend doesn't have GET assignments route yet, use local state
-    }
-    return localAssignments.filter((a) => a.lotId === lotId);
+    const [rows, shiftMap] = await Promise.all([
+        gatewayFetch<LotAssignmentResponse[]>(assignmentRoute(lotId), {
+            method: "GET",
+        }),
+        fetchShiftMap(lotId),
+    ]);
+
+    return rows.map((row) => {
+        const shiftRecord = shiftMap.get(row.accountId.toLowerCase());
+        const base: ParkingLotAssignmentMember = {
+            lotId,
+            accountId: row.accountId,
+            role: row.role,
+            assignedAtUtc: row.assignedAtUtc,
+        };
+        if (shiftRecord) {
+            base.shift = shiftRecord.shift;
+            base.shiftName = shiftRecord.shiftName;
+            base.hours = shiftRecord.hours;
+        }
+        return base;
+    });
+}
+
+async function listAccountsByRole(
+    role: "Staff" | "ParkingLotOwner",
+): Promise<StaffAccountOption[]> {
+    const page = await gatewayFetch<AccountPageResponse>(
+        `/api/identity/admin/accounts?role=${role}&page=1&pageSize=100`,
+        { method: "GET" },
+    );
+    return page.items.map((account) => ({
+        accountId: account.id,
+        fullName: account.fullName || account.email,
+        email: account.email,
+        ...(account.phoneNumber ? { phoneNumber: account.phoneNumber } : {}),
+        role: role === "Staff" ? ("Staff" as const) : ("Owner" as const),
+    }));
 }
 
 /**
- * Lấy danh sách nhân viên có sẵn trong hệ thống để chọn phân công.
+ * Tài khoản Nhân viên và Chủ bãi có thể gán vào bãi (tối đa 100 mỗi vai trò).
+ * Endpoint BE: GET /api/identity/admin/accounts?role=...
  */
 export async function getAvailableStaffAccounts(): Promise<
     StaffAccountOption[]
 > {
-    try {
-        const res = await gatewayFetch<StaffAccountOption[]>(
-            `/api/identity/admin/accounts?role=Staff`,
-            { method: "GET" },
-        );
-        if (Array.isArray(res) && res.length > 0) return res;
-    } catch {
-        // fallback
-    }
-    return sampleStaffAccounts;
+    const [staff, owners] = await Promise.all([
+        listAccountsByRole("Staff"),
+        listAccountsByRole("ParkingLotOwner"),
+    ]);
+    return [...staff, ...owners];
 }
 
 export function describeAssignmentError(

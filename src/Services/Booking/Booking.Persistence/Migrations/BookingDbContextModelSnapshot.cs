@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.Booking.Persistence;
 
 #nullable disable
@@ -38,7 +39,7 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("appointment_time");
 
-                    b.Property<int?>("CancelReason")
+                    b.Property<CancelReason?>("CancelReason")
                         .HasColumnType("booking.cancel_reason")
                         .HasColumnName("cancel_reason");
 
@@ -57,6 +58,10 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                     b.Property<int?>("DurationMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("duration_minutes");
+
+                    b.Property<DateTimeOffset>("HoldEndAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hold_end_at");
 
                     b.Property<bool>("IsNoShow")
                         .ValueGeneratedOnAdd()
@@ -79,7 +84,7 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                         .HasColumnType("numeric(12,0)")
                         .HasColumnName("prepaid_amount");
 
-                    b.Property<int?>("PrepaidOutcome")
+                    b.Property<PrepaidOutcome?>("PrepaidOutcome")
                         .HasColumnType("booking.prepaid_outcome")
                         .HasColumnName("prepaid_outcome");
 
@@ -87,7 +92,7 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("price_snapshot");
 
-                    b.Property<int>("ReservationType")
+                    b.Property<ReservationType>("ReservationType")
                         .HasColumnType("booking.reservation_type")
                         .HasColumnName("reservation_type");
 
@@ -102,7 +107,7 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("session_id");
 
-                    b.Property<int>("Status")
+                    b.Property<ReservationStatus>("Status")
                         .HasColumnType("booking.reservation_status")
                         .HasColumnName("status");
 
@@ -118,13 +123,21 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.Property<int>("VehicleGroup")
+                    b.Property<VehicleGroup>("VehicleGroup")
                         .HasColumnType("booking.vehicle_group")
                         .HasColumnName("vehicle_group");
 
                     b.Property<Guid>("VehicleId")
                         .HasColumnType("uuid")
                         .HasColumnName("vehicle_id");
+
+                    b.Property<DateTimeOffset>("WindowEndAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("window_end_at");
+
+                    b.Property<DateTimeOffset>("WindowStartAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("window_start_at");
 
                     b.HasKey("Id")
                         .HasName("pk_reservations");
@@ -138,7 +151,36 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                     b.HasIndex("Status", "TempHoldExpiresAt")
                         .HasDatabaseName("ix_reservations_status_temp_hold_expires_at");
 
+                    b.HasIndex("PlateNumber", "Status", "WindowStartAt", "WindowEndAt")
+                        .HasDatabaseName("ix_reservations_plate_overlap");
+
+                    b.HasIndex("LotId", "VehicleGroup", "Status", "WindowStartAt", "HoldEndAt")
+                        .HasDatabaseName("ix_reservations_active_hold");
+
+                    b.HasIndex("LotId", "VehicleGroup", "Status", "WindowStartAt", "WindowEndAt")
+                        .HasDatabaseName("ix_reservations_capacity_check");
+
                     b.ToTable("reservations", "booking");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Booking.Domain.Reservations.ReservationCapacity", b =>
+                {
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<VehicleGroup>("VehicleGroup")
+                        .HasColumnType("booking.vehicle_group")
+                        .HasColumnName("vehicle_group");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("LotId", "VehicleGroup")
+                        .HasName("pk_reservation_capacity");
+
+                    b.ToTable("reservation_capacity", "booking");
                 });
 
             modelBuilder.Entity("ParkingSystem.Booking.Persistence.Inbox.InboxMessage", b =>

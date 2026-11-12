@@ -5,7 +5,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { PageHeader } from "../../../../../components/layout/PageHeader";
 import { Plan2D } from "../../../../../components/viz/Plan2D";
-import { useOwnerStore } from "../../../../../store/useOwnerStore";
 import { AP, vnd, ST, K } from "../../../../../types/owner";
 
 const ParkingScene3DViewer = dynamic(
@@ -17,9 +16,9 @@ import {
     registerParkingLotApi,
     ParkingLotTypeEnum,
 } from "@/features/owner/api/ownerApi";
-import { useOwnerMapStore } from "@/features/owner/lots/useOwnerMapStore";
 import { useLotInfoStore } from "@/features/owner/lots/lotInfo";
 import { ApiError } from "@/shared/errors/api-error";
+import { loadOwnerLots, localLotId } from "@/features/owner/lots/ownerLotsSync";
 
 interface WizardData {
     name: string;
@@ -37,6 +36,13 @@ interface WizardData {
     type: ParkingLotTypeEnum;
     floors: number;
     rowsPerFloor: number;
+    features: {
+        supportsElectricVehicles: boolean;
+        supportsLargeVehicles: boolean;
+        hasEvCharging: boolean;
+        isCovered: boolean;
+        hasCctv: boolean;
+    };
 }
 
 const INITIAL_DATA: WizardData = {
@@ -55,11 +61,16 @@ const INITIAL_DATA: WizardData = {
     type: "MultiStorey",
     floors: 5,
     rowsPerFloor: 4,
+    features: {
+        supportsElectricVehicles: false,
+        supportsLargeVehicles: false,
+        hasEvCharging: false,
+        isCovered: false,
+        hasCctv: false,
+    },
 };
 
 export default function NewParkingLotPage() {
-    const addLot = useOwnerStore((s) => s.addLot);
-
     const [step, setStep] = useState(0);
     const [data, setData] = useState<WizardData>(INITIAL_DATA);
     const [errors, setErrors] = useState<string[]>([]);
@@ -115,113 +126,70 @@ export default function NewParkingLotPage() {
     const [createdLotId, setCreatedLotId] = useState<number>(1);
 
     const handleConfirmSend = async () => {
-        setIsSubmitting(true);
         setErrors([]);
+        const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
+        const latitude = Number(latStr);
+        const longitude = Number(lngStr);
+        if (
+            !latStr ||
+            !lngStr ||
+            !Number.isFinite(latitude) ||
+            !Number.isFinite(longitude) ||
+            Math.abs(latitude) > 90 ||
+            Math.abs(longitude) > 180
+        ) {
+            setErrors([
+                "Tọa độ GPS chưa hợp lệ. Nhập theo dạng 'vĩ độ, kinh độ', ví dụ 10.7769, 106.7009.",
+            ]);
+            setConfirming(false);
+            setStep(0);
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
-            const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
-            const latitude = Number(latStr) || 10.7769;
-            const longitude = Number(lngStr) || 106.7009;
-
-            let registeredId = (Date.now() % 100000) + 10;
-
-            // Gọi API đăng ký bãi xe chuẩn BE (POST /api/parking/lots)
-            try {
-                const res = await registerParkingLotApi({
-                    name: data.name,
-                    address: data.addr,
-                    latitude,
-                    longitude,
-                    type: data.type,
-                });
-                if (res?.id) {
-                    // If BE returns a string UUID, we generate a stable local numeric ID for store mapping
-                    registeredId =
-                        Math.abs(
-                            res.id
-                                .split("")
-                                .reduce(
-                                    (acc, char) =>
-                                        (acc << 5) - acc + char.charCodeAt(0),
-                                    0,
-                                ) % 100000,
-                        ) + 10;
-                }
-            } catch (err: unknown) {
-                if (err instanceof ApiError) {
-                    if (err.status === 409) {
-                        setErrors([
-                            "Tên bãi đỗ xe này đã được bạn đăng ký trước đó. Vui lòng chọn tên khác (Mã lỗi: parking.lot_duplicate).",
-                        ]);
-                        setConfirming(false);
-                        setStep(0);
-                        return;
-                    }
-                    if (err.status === 400) {
-                        setErrors([
-                            err.problem?.detail ||
-                                "Thông tin đăng ký bãi đỗ xe chưa đúng định dạng.",
-                        ]);
-                        setConfirming(false);
-                        setStep(0);
-                        return;
-                    }
-                    if (err.status === 401 || err.status === 403) {
-                        setErrors([
-                            "Tài khoản của bạn chưa có quyền Chủ bãi (ParkingLotOwner) để thực hiện thao tác này.",
-                        ]);
-                        setConfirming(false);
-                        return;
-                    }
-                }
-                console.warn(
-                    "Backend API registration call skipped or offline, falling back to local store:",
-                    err,
-                );
-            }
-
-            setCreatedLotId(registeredId);
-
-            const newLotObj = {
-                id: registeredId,
-                name: data.name.trim(),
-                addr: data.addr.trim(),
-                gps: data.gps.trim(),
-                op: data.op,
-                cl2: data.cl2,
-                vc: data.vc,
-                vm: data.vm,
-                cc: data.vc ? data.cap : 0,
-                cm: data.vm ? data.cap : 0,
-                fls: data.type === "Outdoor" ? 1 : data.floors,
-                pc: data.pc,
-                pm: data.pm,
-                dep: data.dep,
-                res: Number(data.hold) > 0 ? ("on" as const) : ("off" as const),
-                hold: Number(data.hold) || 15,
-                maxr: 6,
-                fc: 10,
-                ap: "pending" as const,
-                zones: [],
-            };
-
-            // Cập nhật bãi xe vào cả 2 store để đảm bảo hiển thị tức thì trên mọi view (Bản đồ, Danh sách, Thống kê)
-            addLot(newLotObj);
-            useOwnerMapStore.getState().addOverlayLot(newLotObj);
-
-            // Cập nhật thông tin chi tiết bãi
-            const today = new Date().toISOString().split("T")[0];
-            useLotInfoStore.getState().setLotInfo(registeredId, {
-                submittedAt: today,
-                openingHours: `${data.op} – ${data.cl2}`,
-                phone: "Chưa cập nhật",
-                prices: {
-                    carFirstHour: data.pc,
-                    carNextHour: data.pc,
-                    reservationDeposit: data.dep,
-                },
+            // D02.1: Parking stores the lot as Pending. Hours, prices and layout are saved on their own
+            // screens, so they are not part of this request.
+            const res = await registerParkingLotApi({
+                name: data.name,
+                address: data.addr,
+                latitude,
+                longitude,
+                type: data.type,
+                features: data.features,
             });
-
+            await loadOwnerLots();
+            const registeredId = localLotId(res.id);
+            setCreatedLotId(registeredId);
+            useLotInfoStore.getState().setLotInfo(registeredId, {
+                submittedAt: new Date().toISOString().split("T")[0],
+            });
             setDone(true);
+        } catch (err: unknown) {
+            setConfirming(false);
+            if (err instanceof ApiError && err.status === 409) {
+                setErrors([
+                    "Tên bãi đỗ xe này đã được bạn đăng ký trước đó. Vui lòng chọn tên khác (Mã lỗi: parking.lot_duplicate).",
+                ]);
+                setStep(0);
+            } else if (err instanceof ApiError && err.status === 400) {
+                setErrors([
+                    err.problem?.detail ||
+                        "Thông tin đăng ký bãi đỗ xe chưa đúng định dạng.",
+                ]);
+                setStep(0);
+            } else if (
+                err instanceof ApiError &&
+                (err.status === 401 || err.status === 403)
+            ) {
+                setErrors([
+                    "Tài khoản của bạn chưa có quyền Chủ bãi (ParkingLotOwner) để thực hiện thao tác này.",
+                ]);
+            } else {
+                setErrors([
+                    "Không kết nối được máy chủ. Bãi chưa được tạo, vui lòng thử lại.",
+                ]);
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -265,7 +233,7 @@ export default function NewParkingLotPage() {
                             href={`/owner/lots/${createdLotId}/pricing`}
                             className="btn p"
                         >
-                            ⚙️ Cấu hình bảng giá cho bãi này →
+                            Cấu hình bảng giá cho bãi này →
                         </Link>
                         <Link href="/owner/parking-lots" className="btn">
                             Về danh sách bãi của tôi
@@ -526,6 +494,131 @@ export default function NewParkingLotPage() {
                             </label>
                         </div>
 
+                        {/* Tiện ích & Đặc tính bãi xe (US-MAP-005, BR-Features) */}
+                        <div
+                            style={{
+                                marginTop: 24,
+                                paddingTop: 20,
+                                borderTop: "1px solid var(--line)",
+                            }}
+                        >
+                            <div style={{ marginBottom: 12 }}>
+                                <strong
+                                    style={{
+                                        fontSize: 14,
+                                        color: "var(--ink)",
+                                    }}
+                                >
+                                    Tiện ích & Đặc tính bãi đỗ (Parking Lot Features)
+                                </strong>
+                                <p
+                                    style={{
+                                        fontSize: 12,
+                                        color: "var(--muted)",
+                                        margin: "4px 0 0",
+                                    }}
+                                >
+                                    Các đặc tính này sẽ hiển thị trên bộ lọc tìm kiếm cho khách hàng sau khi bãi được duyệt.
+                                </p>
+                            </div>
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns:
+                                        "repeat(auto-fit, minmax(240px, 1fr))",
+                                    gap: 12,
+                                }}
+                            >
+                                {[
+                                    {
+                                        key: "supportsElectricVehicles" as const,
+                                        title: "Hỗ trợ xe điện (EV)",
+                                        desc: "Tiếp nhận và có vị trí đỗ dành cho xe điện",
+                                    },
+                                    {
+                                        key: "hasEvCharging" as const,
+                                        title: "Trạm sạc xe điện (EV Charging)",
+                                        desc: "Có sẵn trụ sạc tại chỗ cho xe điện",
+                                    },
+                                    {
+                                        key: "hasCctv" as const,
+                                        title: "Camera an ninh (CCTV)",
+                                        desc: "Giám sát 24/7 toàn bộ khu vực bãi",
+                                    },
+                                    {
+                                        key: "isCovered" as const,
+                                        title: "Có mái che / Trong nhà",
+                                        desc: "Bảo vệ xe tránh mưa nắng",
+                                    },
+                                    {
+                                        key: "supportsLargeVehicles" as const,
+                                        title: "Xe kích thước lớn / SUV",
+                                        desc: "Có ô đỗ rộng cho xe bán tải, SUV cỡ lớn",
+                                    },
+                                ].map((item) => {
+                                    const checked = Boolean(
+                                        data.features?.[item.key],
+                                    );
+                                    return (
+                                        <label
+                                            key={item.key}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: 10,
+                                                padding: "10px 12px",
+                                                borderRadius: 10,
+                                                border: checked
+                                                    ? "1.5px solid #0284c7"
+                                                    : "1px solid var(--line)",
+                                                background: checked
+                                                    ? "#f0f9ff"
+                                                    : "var(--card)",
+                                                cursor: "pointer",
+                                                transition: "all 0.15s ease",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(e) =>
+                                                    setData({
+                                                        ...data,
+                                                        features: {
+                                                            ...data.features,
+                                                            [item.key]:
+                                                                e.target.checked,
+                                                        },
+                                                    })
+                                                }
+                                                style={{ marginTop: 3 }}
+                                            />
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 13,
+                                                        fontWeight: 700,
+                                                        color: "var(--ink)",
+                                                    }}
+                                                >
+                                                    {item.title}
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 11,
+                                                        color: "var(--muted)",
+                                                        marginTop: 2,
+                                                    }}
+                                                >
+                                                    {item.desc}
+                                                </div>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
                         <div className="form" style={{ marginTop: "14px" }}>
                             <label className="f ck">
                                 <input
@@ -684,6 +777,42 @@ export default function NewParkingLotPage() {
                                             {data.hold > 0
                                                 ? `Giữ chỗ ${data.hold} phút`
                                                 : "Không"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Tiện ích khai báo</td>
+                                        <td>
+                                            {Object.values(data.features || {}).some(Boolean) ? (
+                                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                                    {data.features?.supportsElectricVehicles && (
+                                                        <span className="pw-badge" style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Xe điện (EV)
+                                                        </span>
+                                                    )}
+                                                    {data.features?.hasEvCharging && (
+                                                        <span className="pw-badge" style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Trạm sạc EV
+                                                        </span>
+                                                    )}
+                                                    {data.features?.hasCctv && (
+                                                        <span className="pw-badge" style={{ background: "#f3e8ff", color: "#6b21a8", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Camera 24/7
+                                                        </span>
+                                                    )}
+                                                    {data.features?.isCovered && (
+                                                        <span className="pw-badge" style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Có mái che
+                                                        </span>
+                                                    )}
+                                                    {data.features?.supportsLargeVehicles && (
+                                                        <span className="pw-badge" style={{ background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
+                                                            Xe cỡ lớn
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: "var(--muted)" }}>Chưa chọn tiện ích bổ sung</span>
+                                            )}
                                         </td>
                                     </tr>
                                 </tbody>
