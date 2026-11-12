@@ -1,10 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import {
+    getAuthSessionSnapshot,
+    subscribeAuthSession,
+} from "@/features/auth/authSession";
+import { logoutParkWiseAccount } from "@/features/auth/logoutParkWiseAccount";
 import { NotificationBell } from "@/features/owner/notifications/NotificationBell";
-import { useOwnerProfileStore } from "@/features/owner/profile/useOwnerProfileStore";
+import { useOwnerViewMode } from "@/features/owner/mode/useOwnerViewMode";
 
 const IC: Record<string, string> = {
     grid: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
@@ -15,48 +21,9 @@ const IC: Record<string, string> = {
     cal: "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4",
     car: "M4 15l1.5-5h13L20 15v4h-3v-2H7v2H4zM6 15h12",
     chart: "M4 20V4M4 20h16M8 16v-5M13 16V8M18 16v-9",
+    clock: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm.5-13H11v6l5.2 3.1.8-1.3-4.5-2.7z",
+    tag: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
 };
-
-// Các mục nav thẳng (không có submenu)
-const NAV_FLAT = [
-    {
-        href: "/owner/dashboard",
-        label: "Tổng quan",
-        icon: "grid",
-        match: (p: string) => p === "/owner/dashboard" || p === "/owner",
-    },
-    {
-        href: "/owner/parking-lots",
-        label: "Bãi của tôi",
-        icon: "lot",
-        match: (p: string) => p.startsWith("/owner/parking-lots"),
-    },
-    // "Sơ đồ 2D / 3D" được xử lý riêng bên dưới (có submenu)
-    {
-        href: "/owner/reservations",
-        label: "Đặt chỗ",
-        icon: "cal",
-        match: (p: string) => p.startsWith("/owner/reservations"),
-    },
-    {
-        href: "/owner/sessions",
-        label: "Phiên đỗ xe",
-        icon: "car",
-        match: (p: string) => p.startsWith("/owner/sessions"),
-    },
-    {
-        href: "/owner/reports",
-        label: "Báo cáo doanh thu",
-        icon: "chart",
-        match: (p: string) => p.startsWith("/owner/reports"),
-    },
-];
-
-// Submenu của "Sơ đồ 2D / 3D"
-const LAYOUT_SUBMENU = [
-    { href: "/owner/layout/3d", label: "Sơ đồ 3D", icon: "cube" },
-    { href: "/owner/layout/2d", label: "Sơ đồ 2D", icon: "grid2d" },
-];
 
 /** SVG icon helper */
 function Icon({ d, size = 18 }: { d: string; size?: number }) {
@@ -77,72 +44,141 @@ function Icon({ d, size = 18 }: { d: string; size?: number }) {
     );
 }
 
-/** ParkWise brand logo badge – blue-to-teal gradient với parking location-pin icon */
-function ParkWiseLogoBadge() {
-    return (
-        <span className="logo" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path
-                    d="M12 2C8.686 2 6 4.686 6 8c0 4.5 6 13 6 13s6-8.5 6-13c0-3.314-2.686-6-6-6z"
-                    fill="white"
-                    fillOpacity="0.92"
-                />
-                <text
-                    x="12"
-                    y="10.8"
-                    textAnchor="middle"
-                    fontSize="6.5"
-                    fontWeight="800"
-                    fill="#1e7cd6"
-                    fontFamily="system-ui, -apple-system, sans-serif"
-                >
-                    P
-                </text>
-            </svg>
-        </span>
-    );
-}
-
 export function OwnerSidebar() {
     const pathname = usePathname();
-
     const router = useRouter();
+    const [viewMode, setViewMode] = useOwnerViewMode();
+    const isSampleMode =
+        viewMode === "sample" || pathname.startsWith("/owner/simulation");
+
+    const session = useSyncExternalStore(
+        subscribeAuthSession,
+        getAuthSessionSnapshot,
+        () => null,
+    );
+
+    const displayName =
+        session?.displayName ||
+        (session?.account?.email ? session.account.email.split("@")[0] : "Chủ bãi");
+    const initial = (displayName.charAt(0) || "M").toUpperCase();
+
+    async function handleLogout() {
+        await logoutParkWiseAccount().catch(() => undefined);
+        router.push("/login");
+    }
 
     // Submenu "Sơ đồ 2D / 3D" tự mở khi đang ở /owner/layout/*
     const isLayoutActive = pathname.startsWith("/owner/layout");
     const [layoutOpen, setLayoutOpen] = useState(isLayoutActive);
 
-    const shortName = useOwnerProfileStore((s) => s.getShortName());
-    const avatarUrl = useOwnerProfileStore((s) => s.savedProfile.avatarUrl);
+    // Nav items tự thích ứng: Ở Bản mẫu thì link luôn giữ trong Bản mẫu, không đẩy ra Bản chính
+    const navItems = [
+        {
+            href: isSampleMode ? "/owner/simulation" : "/owner/dashboard",
+            label: "Tổng quan",
+            icon: "grid",
+            match: (p: string) =>
+                isSampleMode
+                    ? p.startsWith("/owner/simulation")
+                    : p === "/owner/dashboard" || p === "/owner",
+        },
+        {
+            href: isSampleMode
+                ? "/owner/parking-lots?mode=sample"
+                : "/owner/parking-lots",
+            label: "Bãi của tôi",
+            icon: "lot",
+            match: (p: string) => p.startsWith("/owner/parking-lots"),
+        },
+        {
+            href: isSampleMode
+                ? "/owner/opening-hours?mode=sample"
+                : "/owner/opening-hours",
+            label: "Giờ hoạt động",
+            icon: "clock",
+            match: (p: string) => p.startsWith("/owner/opening-hours"),
+        },
+        {
+            href: isSampleMode ? "/owner/pricing?mode=sample" : "/owner/pricing",
+            label: "Bảng giá & Cọc",
+            icon: "tag",
+            match: (p: string) => p.startsWith("/owner/pricing"),
+        },
+        {
+            href: isSampleMode
+                ? "/owner/reservations?mode=sample"
+                : "/owner/reservations",
+            label: "Đặt chỗ",
+            icon: "cal",
+            match: (p: string) => p.startsWith("/owner/reservations"),
+        },
+        {
+            href: isSampleMode
+                ? "/owner/sessions?mode=sample"
+                : "/owner/sessions",
+            label: "Phiên đỗ xe",
+            icon: "car",
+            match: (p: string) => p.startsWith("/owner/sessions"),
+        },
+        {
+            href: isSampleMode ? "/owner/reports?mode=sample" : "/owner/reports",
+            label: "Báo cáo doanh thu",
+            icon: "chart",
+            match: (p: string) => p.startsWith("/owner/reports"),
+        },
+    ];
+
+    const layoutSubmenu = [
+        {
+            href: isSampleMode
+                ? "/owner/layout/3d?mode=sample"
+                : "/owner/layout/3d",
+            label: "Sơ đồ 3D",
+            icon: "cube",
+        },
+        {
+            href: isSampleMode
+                ? "/owner/layout/2d?mode=sample"
+                : "/owner/layout/2d",
+            label: "Sơ đồ 2D",
+            icon: "grid2d",
+        },
+        {
+            href: isSampleMode
+                ? "/owner/layout/editor?mode=sample"
+                : "/owner/layout/editor",
+            label: "Chỉnh sửa sơ đồ",
+            icon: "grid",
+        },
+    ];
 
     return (
         <aside className="side" id="side">
-            {/* Brand / Logo + Notification Bell */}
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    marginBottom: 16,
-                }}
-            >
+            {/* Brand / Logo đồng nhất trang chủ & Chuông thông báo */}
+            <div className="side-brand-header">
                 <Link
-                    href="/owner/dashboard"
-                    className="brand"
-                    style={{ marginBottom: 0, flex: 1 }}
+                    href={isSampleMode ? "/owner/simulation" : "/owner/dashboard"}
+                    className="brand-logo-link"
+                    aria-label="ParkWise Dashboard"
                 >
-                    <ParkWiseLogoBadge />
-                    <span>
-                        Park
-                        <span style={{ color: "var(--pw-lime)" }}>Wise</span>
-                    </span>
+                    <Image
+                        src="/images/parkwise/logo.png"
+                        alt="ParkWise"
+                        width={130}
+                        height={40}
+                        style={{
+                            height: 34,
+                            width: "auto",
+                            objectFit: "contain",
+                        }}
+                        priority
+                    />
                 </Link>
                 <NotificationBell variant="sidebar" />
             </div>
 
-            {/* Mục thẳng trước submenu */}
-            {NAV_FLAT.slice(0, 2).map((item) => {
+            {/* Mục thẳng trước submenu: Tổng quan và Bãi của tôi */}
+            {navItems.slice(0, 2).map((item) => {
                 const isActive = item.match(pathname);
                 return (
                     <Link
@@ -174,7 +210,7 @@ export function OwnerSidebar() {
 
             {layoutOpen && (
                 <div id="layout-submenu" className="nav-sub">
-                    {LAYOUT_SUBMENU.map((item) => {
+                    {layoutSubmenu.map((item) => {
                         const isActive =
                             pathname === item.href ||
                             pathname.startsWith(item.href + "/");
@@ -193,7 +229,7 @@ export function OwnerSidebar() {
             )}
 
             {/* Mục thẳng sau submenu */}
-            {NAV_FLAT.slice(2).map((item) => {
+            {navItems.slice(2).map((item) => {
                 const isActive = item.match(pathname);
                 return (
                     <Link
@@ -207,32 +243,136 @@ export function OwnerSidebar() {
                 );
             })}
 
-            {/* User profile card -> Link to /owner/profile */}
-            <Link
-                href="/owner/profile"
-                className={`user ${pathname === "/owner/profile" ? "ov2-user-active on" : ""}`}
-                aria-label="Mở hồ sơ chủ bãi"
-                style={{ textDecoration: "none", cursor: "pointer" }}
+            {/* Khu vực tiện ích: Chế độ mô phỏng Sandbox */}
+            <div
+                style={{
+                    marginTop: 12,
+                    marginBottom: 8,
+                    borderTop: "1px solid rgba(255,255,255,0.08)",
+                    paddingTop: 10,
+                }}
             >
-                <span className="av">
-                    {avatarUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                            src={avatarUrl}
-                            alt=""
+                {isSampleMode ? (
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            background: "rgba(234, 179, 8, 0.12)",
+                            border: "1px solid rgba(234, 179, 8, 0.35)",
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: 11.5,
+                                    fontWeight: 750,
+                                    color: "#facc15",
+                                }}
+                            >
+                                🟡 Đang Xem Mẫu
+                            </span>
+                            <span
+                                style={{
+                                    fontSize: 9,
+                                    padding: "2px 5px",
+                                    borderRadius: 4,
+                                    background: "#ca8a04",
+                                    color: "#fff",
+                                    textTransform: "uppercase",
+                                    fontWeight: 800,
+                                }}
+                            >
+                                Sandbox
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setViewMode("live");
+                                router.push("/owner/dashboard");
+                            }}
                             style={{
                                 width: "100%",
-                                height: "100%",
-                                borderRadius: "50%",
-                                objectFit: "cover",
+                                border: "1px solid rgba(255, 255, 255, 0.2)",
+                                background: "rgba(0, 0, 0, 0.45)",
+                                color: "#ffffff",
+                                padding: "6px 8px",
+                                borderRadius: 6,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                textAlign: "center",
+                                transition: "all 0.15s ease",
                             }}
-                        />
-                    ) : (
-                        shortName.charAt(0).toUpperCase()
-                    )}
-                </span>
-                <div>
-                    <div className="uname">{shortName}</div>
+                        >
+                            Về Dashboard chính →
+                        </button>
+                    </div>
+                ) : (
+                    <Link
+                        href="/owner/simulation"
+                        onClick={() => setViewMode("sample")}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            background: "rgba(255, 255, 255, 0.04)",
+                            border: "1px solid rgba(234, 179, 8, 0.3)",
+                            color: "var(--pw-dark-muted)",
+                            borderRadius: 10,
+                            padding: "8px 12px",
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            textDecoration: "none",
+                            transition: "all 0.15s ease",
+                        }}
+                    >
+                        <span style={{ flex: 1 }}>Bản mô phỏng</span>
+                        <span
+                            style={{
+                                fontSize: 9,
+                                padding: "2px 5px",
+                                borderRadius: 4,
+                                background: "rgba(255,255,255,0.12)",
+                                color: "#fff",
+                                textTransform: "uppercase",
+                                fontWeight: 800,
+                            }}
+                        >
+                            Sandbox
+                        </span>
+                    </Link>
+                )}
+            </div>
+
+            {/* User profile card - liên kết trực tiếp tới /owner/profile */}
+            <Link
+                href="/owner/profile"
+                className={`user ${pathname === "/owner/profile" ? "on" : ""}`}
+                style={{ textDecoration: "none", cursor: "pointer" }}
+                title="Xem hồ sơ chủ bãi"
+            >
+                <span className="av">{initial}</span>
+                <div style={{ minWidth: 0, overflow: "hidden" }}>
+                    <div
+                        className="uname"
+                        style={{
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        {displayName}
+                    </div>
                     <div className="urole">Chủ bãi</div>
                 </div>
             </Link>
@@ -241,9 +381,7 @@ export function OwnerSidebar() {
             <button
                 type="button"
                 className="logout-btn"
-                onClick={() => {
-                    router.push("/guest");
-                }}
+                onClick={handleLogout}
                 aria-label="Đăng xuất"
             >
                 <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
