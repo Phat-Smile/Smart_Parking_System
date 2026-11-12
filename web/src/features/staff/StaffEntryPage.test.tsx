@@ -5,6 +5,7 @@ import {
     translations,
     type SupportedLanguage,
 } from "@/shared/i18n/translations";
+import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 
 const { mockState, mockOpenParkingSession } = vi.hoisted(() => ({
     mockState: { language: "vi" as SupportedLanguage },
@@ -128,4 +129,37 @@ describe("StaffEntryPage", () => {
         );
         expect(screen.queryByText(/Nguyễn Văn An/i)).not.toBeInTheDocument();
     });
+
+    it("uses English for the check-in toast when English is selected", async () => {
+        mockState.language = "en";
+        mockOpenParkingSession.mockResolvedValue({
+            sessionId: "ses-1",
+            lotId: "lot-1",
+            plateNumber: "51F-782.91",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Active",
+            entryTime: "2026-11-11T09:00:00Z",
+            isAccountLinked: false,
+            reservationId: null,
+            qrToken: "QR-123",
+            availableMotorbikeSlots: 30,
+        });
+
+        render(<StaffEntryPage />);
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: "Create Session & Issue QR (Allow Entry)",
+            }),
+        );
+
+        await waitFor(() =>
+            expect(emitLiveToast).toHaveBeenCalledWith(
+                "Vehicle check-in successful!",
+                "License plate 51F-782.91 passed the gate. The parking ticket is ready.",
+                "success",
+            ),
+        );
+    });
+
 });
