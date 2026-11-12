@@ -19,15 +19,29 @@ const ParkingScene3DViewer = dynamic(
 );
 
 // ──────────────────────────────────────────────────────────
-// FloorStatsPanel – hiển thị thống kê tầng (mặc định).
-// Bấm một dòng → setActiveFloor.
+// FloorStatsPanel – hiển thị thống kê tầng dạng rút gọn (Accordion).
+// Bấm một tầng → Mở chi tiết thanh trạng thái & setActiveFloor.
 // ──────────────────────────────────────────────────────────
 function FloorStatsPanel() {
     const spots = useOwnerStore((s) => s.spots);
     const activeFloor = useOwnerStore((s) => s.activeFloor);
     const setActiveFloor = useOwnerStore((s) => s.setActiveFloor);
 
+    // Quản lý tầng đang mở rộng (Accordion). Mặc định mở tầng active hoặc 'all'.
+    const [expandedFloor, setExpandedFloor] = useState<string | null>(activeFloor || "all");
+
+    useEffect(() => {
+        if (activeFloor) {
+            setExpandedFloor(activeFloor);
+        }
+    }, [activeFloor]);
+
     const rows = ["all", ...FLOORS] as const;
+
+    const handleToggle = (f: Floor | "all") => {
+        setActiveFloor(f);
+        setExpandedFloor((prev) => (prev === f ? null : f));
+    };
 
     return (
         <div id="floor-stats">
@@ -37,55 +51,84 @@ function FloorStatsPanel() {
                 const counts = getSpotCounts(floorSpots);
                 const total = floorSpots.length || 1;
                 const isActive = activeFloor === f;
+                const isExpanded = expandedFloor === f;
 
                 return (
                     <div
                         key={f}
-                        className={`fs-row ${isActive ? "fs-active" : ""}`}
-                        onClick={() => setActiveFloor(f as Floor | "all")}
+                        className={`fs-row ${isActive ? "fs-active" : ""} ${isExpanded ? "fs-expanded" : "fs-collapsed"}`}
+                        onClick={() => handleToggle(f as Floor | "all")}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) =>
                             e.key === "Enter" &&
-                            setActiveFloor(f as Floor | "all")
+                            handleToggle(f as Floor | "all")
                         }
                         aria-pressed={isActive}
+                        aria-expanded={isExpanded}
                     >
                         <div className="fs-label">
-                            <span className="fs-name">
-                                {f === "all" ? "Tất cả tầng" : `Tầng ${f[1]}`}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    style={{
+                                        transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                                        transition: "transform 0.18s ease",
+                                        color: isActive ? "var(--ink, #0f1b3d)" : "#8a94a6",
+                                        flexShrink: 0,
+                                    }}
+                                    aria-hidden="true"
+                                >
+                                    <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                                <span className="fs-name">
+                                    {f === "all" ? "Tất cả tầng" : `Tầng ${f[1]}`}
+                                </span>
+                            </div>
                             <span className="fs-total mut">
                                 {floorSpots.length} ô
                             </span>
                         </div>
-                        {K_VISIBLE.map((k) => {
-                            const pct = Math.round((counts[k] / total) * 100);
-                            return (
-                                <div key={k} className="fs-stat">
-                                    <div className="fs-bar-row">
-                                        <span
-                                            className="fs-stat-label"
-                                            style={{ color: ST[k][1] }}
-                                        >
-                                            {ST[k][0]}
-                                        </span>
-                                        <span className="fs-stat-count">
-                                            {counts[k]}
-                                        </span>
-                                    </div>
-                                    <div className="fs-bar">
-                                        <div
-                                            className="fs-bar-fill"
-                                            style={{
-                                                width: `${pct}%`,
-                                                background: ST[k][1],
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })}
+
+                        {/* Chi tiết trạng thái (Trống, Đã đặt, Có xe, Bảo trì) - chỉ mở khi được chọn */}
+                        {isExpanded && (
+                            <div className="fs-content">
+                                {K_VISIBLE.map((k) => {
+                                    const pct = Math.round((counts[k] / total) * 100);
+                                    return (
+                                        <div key={k} className="fs-stat">
+                                            <div className="fs-bar-row">
+                                                <span
+                                                    className="fs-stat-label"
+                                                    style={{ color: ST[k][1] }}
+                                                >
+                                                    {ST[k][0]}
+                                                </span>
+                                                <span className="fs-stat-count">
+                                                    {counts[k]}
+                                                </span>
+                                            </div>
+                                            <div className="fs-bar">
+                                                <div
+                                                    className="fs-bar-fill"
+                                                    style={{
+                                                        width: `${pct}%`,
+                                                        background: ST[k][1],
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 );
             })}
@@ -265,40 +308,56 @@ export default function Layout3DPage() {
                 </div>
             </div>
 
-            {/* CSS scoped cho FloorStatsPanel */}
+            {/* CSS scoped cho FloorStatsPanel (Accordion) */}
             <style>{`
-        #floor-stats { display: flex; flex-direction: column; gap: 6px; }
+        #floor-stats { display: flex; flex-direction: column; gap: 8px; }
+
+        @keyframes fsFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
 
         .fs-row {
-          padding: 10px 12px;
+          padding: 10px 14px;
           border-radius: 12px;
           border: 1px solid var(--line);
           cursor: pointer;
-          transition: background 0.15s ease, border-color 0.15s ease;
+          transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+          user-select: none;
         }
         .fs-row:hover { background: var(--soft); }
         .fs-active {
           border-color: var(--pw-lime, #AAEC38);
           background: color-mix(in srgb, var(--pw-lime, #AAEC38) 8%, #fff);
         }
+        .fs-expanded {
+          box-shadow: 0 4px 14px rgba(15, 27, 61, 0.05);
+        }
 
         .fs-label {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 6px;
         }
-        .fs-name { font-weight: 600; font-size: 13px; }
-        .fs-total { font-size: 11px; }
+        .fs-name { font-weight: 700; font-size: 13.5px; }
+        .fs-total { font-size: 11.5px; }
 
-        .fs-stat { margin-bottom: 4px; }
+        .fs-content {
+          margin-top: 10px;
+          padding-top: 8px;
+          border-top: 1px dashed var(--line);
+          animation: fsFadeIn 0.18s ease-out;
+        }
+
+        .fs-stat { margin-bottom: 5px; }
+        .fs-stat:last-child { margin-bottom: 0; }
         .fs-bar-row {
           display: flex;
           justify-content: space-between;
           font-size: 11px;
           margin-bottom: 2px;
         }
-        .fs-stat-label { font-weight: 500; }
+        .fs-stat-label { font-weight: 600; }
         .fs-stat-count { color: var(--mut); }
 
         .fs-bar {
