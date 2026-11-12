@@ -102,9 +102,41 @@ def failed_cases(root: Path, limit: int = 30) -> list[FailedCase]:
     return cases
 
 
-def build_markdown(steps: list[FailedStep], cases: list[FailedCase]) -> str:
-    out = ["# ParkWise PR CI: báo cáo lỗi", ""]
+RETRY = re.compile(r"\(retry x(\d+)\)")
+PASS_MARK = re.compile(r"^\s*[✓✔√]\s*")
+TIMING = re.compile(r"\s+\d+(?:\.\d+)?\s*m?s(?:\s.*)?$")
+
+
+def flaky_tests(root: Path, limit: int = 20) -> list[str]:
+    """Tests that failed once and passed on retry, read from the verbose vitest log."""
+    log = root / "logs" / "frontend-vitest.log"
+    if not log.exists():
+        return []
+    found: list[str] = []
+    for raw in log.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = ANSI.sub("", raw)
+        if not RETRY.search(line):
+            continue
+        name = TIMING.sub("", PASS_MARK.sub("", line)).strip()
+        if name and name not in found:
+            found.append(name)
+        if len(found) >= limit:
+            break
+    return found
+
+
+def build_markdown(
+    steps: list[FailedStep], cases: list[FailedCase], flaky: list[str] | None = None
+) -> str:
+    flaky = flaky or []
+    out = ["# ParkWise PR CI: báo cáo", ""]
+    if flaky:
+        out += ["## Test chập chờn (đã tự thử lại và đạt)", ""]
+        out += [f"- `{name}`" for name in flaky]
+        out.append("")
     if not steps and not cases:
+        if flaky:
+            return "\n".join(out)
         out += [
             "Không tìm thấy log lỗi trong ci-results.",
             "Lỗi nhiều khả năng xảy ra trước các bước kiểm tra (Verify Pull Request, "
@@ -124,8 +156,15 @@ def build_markdown(steps: list[FailedStep], cases: list[FailedCase]) -> str:
     return "\n".join(out)
 
 
-def build_html(steps: list[FailedStep], cases: list[FailedCase]) -> str:
+def build_html(
+    steps: list[FailedStep], cases: list[FailedCase], flaky: list[str] | None = None
+) -> str:
+    flaky = flaky or []
     if not steps and not cases:
+        if flaky:
+            return "<b>Test chập chờn (đã thử lại và đạt)</b><br>" + "<br>".join(
+                html.escape(name) for name in flaky[:5]
+            )
         return "FAILED trước các bước kiểm tra. Xem Console Output."
     parts = ["<b>FAILED</b>"]
     if steps:
@@ -139,6 +178,8 @@ def build_html(steps: list[FailedStep], cases: list[FailedCase]) -> str:
         )
     if len(cases) > 5:
         parts.append(f"... và {len(cases) - 5} test lỗi khác (xem failure-report.md)")
+    if flaky:
+        parts.append("Test chập chờn: " + ", ".join(html.escape(n) for n in flaky[:3]))
     return "<br>".join(parts)
 
 
@@ -147,14 +188,22 @@ def main() -> int:
     parser.add_argument("root", type=Path, help="ci-results directory")
     parser.add_argument("--output", type=Path, required=True, help="Markdown report path")
     parser.add_argument("--html", type=Path, help="HTML summary path for the build description")
+    parser.add_argument(
+        "--only-if-findings",
+        action="store_true",
+        help="write nothing when there are no failed steps, failed tests or flaky tests",
+    )
     args = parser.parse_args()
 
     steps = failed_steps(args.root)
     cases = failed_cases(args.root)
+    flaky = flaky_tests(args.root)
+    if args.only_if_findings and not (steps or cases or flaky):
+        return 0
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(build_markdown(steps, cases), encoding="utf-8")
+    args.output.write_text(build_markdown(steps, cases, flaky), encoding="utf-8")
     if args.html:
-        args.html.write_text(build_html(steps, cases), encoding="utf-8")
+        args.html.write_text(build_html(steps, cases, flaky), encoding="utf-8")
     return 0
 
 
