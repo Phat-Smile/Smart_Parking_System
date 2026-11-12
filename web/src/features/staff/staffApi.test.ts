@@ -9,6 +9,7 @@ import {
     getAssignedLot,
     listLotInsideSessions,
     openParkingSession,
+    payParkingSessionCash,
 } from "./staffApi";
 
 describe("staffApi integration", () => {
@@ -444,9 +445,10 @@ describe("staffApi integration", () => {
             );
             vi.stubGlobal("fetch", fetchMock);
 
+            // The server requires the plate and the session QR (CompleteParkingSessionRequest).
             const result = await completeParkingSession(sessionId, {
-                paymentMethod: "Cash",
-                amountPaidVnd: 60000,
+                plateNumber: "51B-999.88",
+                qrToken: "qr-token-123",
             });
 
             expect(result).toEqual(mockRes);
@@ -458,9 +460,65 @@ describe("staffApi integration", () => {
             );
             expect(init?.method).toBe("POST");
             expect(JSON.parse(init?.body as string)).toEqual({
-                paymentMethod: "Cash",
-                amountPaidVnd: 60000,
+                plateNumber: "51B-999.88",
+                qrToken: "qr-token-123",
             });
+        });
+    });
+
+    describe("payParkingSessionCash", () => {
+        it("posts the expected amount with a GUID X-Idempotency-Key", async () => {
+            const sessionId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+            const mockRes = {
+                transactionId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+                sessionId,
+                amountPaid: 15000,
+                isReplayed: false,
+            };
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockRes), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await payParkingSessionCash(sessionId, 15000);
+
+            expect(result).toEqual(mockRes);
+            const [url, init] = fetchMock.mock.calls[0];
+            expect(String(url)).toBe(
+                `http://localhost:5000/api/payment/parking-sessions/${sessionId}/pay/cash`,
+            );
+            expect(init?.method).toBe("POST");
+            expect(JSON.parse(init?.body as string)).toEqual({
+                expectedAmountDue: 15000,
+            });
+            const headers = new Headers(init?.headers as HeadersInit);
+            expect(headers.get("X-Idempotency-Key")).toMatch(
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+            );
+            expect(headers.get("Idempotency-Key")).toBeNull();
+        });
+
+        it("uses a fresh key for every collection", async () => {
+            const fetchMock = vi.fn().mockImplementation(
+                async () =>
+                    new Response("{}", {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            await payParkingSessionCash("s1", 1000);
+            await payParkingSessionCash("s1", 1000);
+
+            const key = (n: number) =>
+                new Headers(
+                    fetchMock.mock.calls[n][1]?.headers as HeadersInit,
+                ).get("X-Idempotency-Key");
+            expect(key(0)).not.toEqual(key(1));
         });
     });
 

@@ -20,9 +20,10 @@ export interface OpenSessionPayload {
     vehicleType: VehicleType;
 }
 
+// CompleteParkingSessionRequest on the server: the exit needs the plate and the session QR (BR exit rule).
 export interface CompleteSessionPayload {
-    paymentMethod?: "Cash" | "VNPay" | "Wallet";
-    amountPaidVnd?: number;
+    plateNumber: string;
+    qrToken: string;
 }
 
 /** @deprecated Giữ lại để tương thích test cũ; không dùng làm mặc định chọn bãi. */
@@ -285,14 +286,48 @@ export async function findSessionByQr(
  */
 export async function completeParkingSession(
     sessionId: string,
-    payload?: CompleteSessionPayload,
+    payload: CompleteSessionPayload,
 ): Promise<CompletedSessionResponse> {
     return await gatewayFetch<CompletedSessionResponse>(
         `/api/parking/sessions/${encodeURIComponent(sessionId)}/complete`,
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload ?? {}),
+            body: JSON.stringify({
+                plateNumber: payload.plateNumber,
+                qrToken: payload.qrToken,
+            }),
+        },
+    );
+}
+
+export interface CashPaymentResponse {
+    transactionId: string;
+    sessionId: string;
+    amountPaid: number;
+    paymentTimeUtc?: string;
+    exitWindowExpiresUtc?: string;
+    isReplayed?: boolean;
+}
+
+/**
+ * Staff records cash taken at the exit gate for a session of the staff member's lot.
+ * Endpoint: POST /api/payment/parking-sessions/{id}/pay/cash. The route needs a GUID in
+ * X-Idempotency-Key; every collection gets its own key so a second click is never a silent replay.
+ */
+export async function payParkingSessionCash(
+    sessionId: string,
+    expectedAmountDue: number,
+): Promise<CashPaymentResponse> {
+    return await gatewayFetch<CashPaymentResponse>(
+        `/api/payment/parking-sessions/${encodeURIComponent(sessionId)}/pay/cash`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Idempotency-Key": crypto.randomUUID(),
+            },
+            body: JSON.stringify({ expectedAmountDue }),
         },
     );
 }
