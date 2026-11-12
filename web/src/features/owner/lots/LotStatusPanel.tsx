@@ -527,7 +527,7 @@ export function LotStatusPanel() {
                                     cursor: "pointer",
                                 }}
                             >
-                                🔔 Nhắc duyệt
+                                Nhắc duyệt
                             </button>
                         )}
 

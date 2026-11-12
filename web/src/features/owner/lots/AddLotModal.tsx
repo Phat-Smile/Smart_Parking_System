@@ -385,7 +385,7 @@ export function AddLotModal() {
                                         )
                                     }
                                 />
-                                <span>🚗 Xe điện (EV)</span>
+                                <span>Xe điện (EV)</span>
                             </label>
                             <label
                                 style={{
@@ -404,7 +404,7 @@ export function AddLotModal() {
                                         setHasEvCharging(e.target.checked)
                                     }
                                 />
-                                <span>⚡ Trạm sạc EV</span>
+                                <span>Trạm sạc EV</span>
                             </label>
                             <label
                                 style={{
@@ -423,7 +423,7 @@ export function AddLotModal() {
                                         setHasCctv(e.target.checked)
                                     }
                                 />
-                                <span>📹 Camera an ninh</span>
+                                <span>Camera an ninh</span>
                             </label>
                             <label
                                 style={{
@@ -442,7 +442,7 @@ export function AddLotModal() {
                                         setIsCovered(e.target.checked)
                                     }
                                 />
-                                <span>☂️ Có mái che</span>
+                                <span>Có mái che</span>
                             </label>
                             <label
                                 style={{
@@ -463,7 +463,7 @@ export function AddLotModal() {
                                         )
                                     }
                                 />
-                                <span>🚛 Xe cỡ lớn / SUV</span>
+                                <span>Xe cỡ lớn / SUV</span>
                             </label>
                         </div>
                     </div>

@@ -233,7 +233,7 @@ export default function NewParkingLotPage() {
                             href={`/owner/lots/${createdLotId}/pricing`}
                             className="btn p"
                         >
-                            ⚙️ Cấu hình bảng giá cho bãi này →
+                            Cấu hình bảng giá cho bãi này →
                         </Link>
                         <Link href="/owner/parking-lots" className="btn">
                             Về danh sách bãi của tôi
@@ -532,31 +532,26 @@ export default function NewParkingLotPage() {
                                 {[
                                     {
                                         key: "supportsElectricVehicles" as const,
-                                        icon: "🚗",
                                         title: "Hỗ trợ xe điện (EV)",
                                         desc: "Tiếp nhận và có vị trí đỗ dành cho xe điện",
                                     },
                                     {
                                         key: "hasEvCharging" as const,
-                                        icon: "⚡",
                                         title: "Trạm sạc xe điện (EV Charging)",
                                         desc: "Có sẵn trụ sạc tại chỗ cho xe điện",
                                     },
                                     {
                                         key: "hasCctv" as const,
-                                        icon: "📹",
                                         title: "Camera an ninh (CCTV)",
                                         desc: "Giám sát 24/7 toàn bộ khu vực bãi",
                                     },
                                     {
                                         key: "isCovered" as const,
-                                        icon: "☂️",
                                         title: "Có mái che / Trong nhà",
                                         desc: "Bảo vệ xe tránh mưa nắng",
                                     },
                                     {
                                         key: "supportsLargeVehicles" as const,
-                                        icon: "🚛",
                                         title: "Xe kích thước lớn / SUV",
                                         desc: "Có ô đỗ rộng cho xe bán tải, SUV cỡ lớn",
                                     },
@@ -606,7 +601,7 @@ export default function NewParkingLotPage() {
                                                         color: "var(--ink)",
                                                     }}
                                                 >
-                                                    {item.icon} {item.title}
+                                                    {item.title}
                                                 </div>
                                                 <div
                                                     style={{
@@ -791,27 +786,27 @@ export default function NewParkingLotPage() {
                                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                                     {data.features?.supportsElectricVehicles && (
                                                         <span className="pw-badge" style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
-                                                            🚗 Xe điện (EV)
+                                                            Xe điện (EV)
                                                         </span>
                                                     )}
                                                     {data.features?.hasEvCharging && (
                                                         <span className="pw-badge" style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
-                                                            ⚡ Trạm sạc EV
+                                                            Trạm sạc EV
                                                         </span>
                                                     )}
                                                     {data.features?.hasCctv && (
                                                         <span className="pw-badge" style={{ background: "#f3e8ff", color: "#6b21a8", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
-                                                            📹 Camera 24/7
+                                                            Camera 24/7
                                                         </span>
                                                     )}
                                                     {data.features?.isCovered && (
                                                         <span className="pw-badge" style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
-                                                            ☂️ Có mái che
+                                                            Có mái che
                                                         </span>
                                                     )}
                                                     {data.features?.supportsLargeVehicles && (
                                                         <span className="pw-badge" style={{ background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: 6, fontSize: 11 }}>
-                                                            🚛 Xe cỡ lớn
+                                                            Xe cỡ lớn
                                                         </span>
                                                     )}
                                                 </div>

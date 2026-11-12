@@ -152,7 +152,7 @@ export default function ParkingLotDetailPage() {
                             className="btn"
                             style={{ background: "#eef2ff", color: "#1e19d8", fontWeight: 700 }}
                         >
-                            ⚖️ Chính sách đặt chỗ & cọc
+                            Chính sách đặt chỗ & cọc
                         </Link>
                         <Link
                             href={`/owner/lots/${lot?.backendId || id}/pricing`}
@@ -165,7 +165,7 @@ export default function ParkingLotDetailPage() {
                             className="btn"
                             style={{ background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }}
                         >
-                            👥 Nhân viên
+                            Nhân viên
                         </Link>
                         {!isPending &&
                             (editing ? (
@@ -320,27 +320,22 @@ export default function ParkingLotDetailPage() {
                                 {[
                                     {
                                         key: "supportsElectricVehicles" as const,
-                                        icon: "🚗",
                                         label: "Xe điện (EV)",
                                     },
                                     {
                                         key: "hasEvCharging" as const,
-                                        icon: "⚡",
                                         label: "Trạm sạc EV",
                                     },
                                     {
                                         key: "hasCctv" as const,
-                                        icon: "📹",
                                         label: "Camera an ninh",
                                     },
                                     {
                                         key: "isCovered" as const,
-                                        icon: "☂️",
                                         label: "Có mái che",
                                     },
                                     {
                                         key: "supportsLargeVehicles" as const,
-                                        icon: "🚛",
                                         label: "Xe cỡ lớn / SUV",
                                     },
                                 ].map((item) => {
@@ -370,7 +365,6 @@ export default function ParkingLotDetailPage() {
                                                         : "1px solid #e2e8f0",
                                                 }}
                                             >
-                                                <span>{item.icon}</span>
                                                 <span>{item.label}</span>
                                                 <span>
                                                     {active ? "✓" : "—"}
@@ -415,7 +409,7 @@ export default function ParkingLotDetailPage() {
                                                 }
                                             />
                                             <span>
-                                                {item.icon} {item.label}
+                                                {item.label}
                                             </span>
                                         </label>
                                     );

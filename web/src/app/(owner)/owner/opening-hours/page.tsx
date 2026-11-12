@@ -376,7 +376,7 @@ export default function OwnerOpeningHoursPage() {
                         >
                             {isSubmitting
                                 ? "Đang lưu..."
-                                : "💾 Lưu giờ hoạt động"}
+                                : "Lưu giờ hoạt động"}
                         </button>
                     </div>
                 }
@@ -439,21 +439,6 @@ export default function OwnerOpeningHoursPage() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <div
-                        style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 12,
-                            background: "#111113",
-                            color: "#E6F85E",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 22,
-                        }}
-                    >
-                        🏬
-                    </div>
                     <div>
                         <div
                             style={{
@@ -541,13 +526,9 @@ export default function OwnerOpeningHoursPage() {
             >
                 <div
                     style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
                         marginBottom: 14,
                     }}
                 >
-                    <span style={{ fontSize: 18 }}>⚡</span>
                     <h4
                         style={{
                             margin: 0,
@@ -663,7 +644,7 @@ export default function OwnerOpeningHoursPage() {
                                 gap: 6,
                             }}
                         >
-                            <span>💼</span> Áp dụng Thứ 2 - Thứ 6 (T2 - T6)
+                            Áp dụng Thứ 2 - Thứ 6 (T2 - T6)
                         </button>
                         <button
                             type="button"
@@ -682,7 +663,7 @@ export default function OwnerOpeningHoursPage() {
                                 gap: 6,
                             }}
                         >
-                            <span>🌟</span> Áp dụng Cả tuần (7 ngày)
+                            Áp dụng Cả tuần (7 ngày)
                         </button>
                         <button
                             type="button"
@@ -698,7 +679,7 @@ export default function OwnerOpeningHoursPage() {
                                 cursor: "pointer",
                             }}
                         >
-                            🌙 Mở 24/7 cả tuần
+                            Mở 24/7 cả tuần
                         </button>
                         <button
                             type="button"
@@ -714,7 +695,7 @@ export default function OwnerOpeningHoursPage() {
                                 cursor: "pointer",
                             }}
                         >
-                            🚫 Nghỉ Cuối tuần
+                            Nghỉ Cuối tuần
                         </button>
                     </div>
                 </div>
@@ -783,15 +764,6 @@ export default function OwnerOpeningHoursPage() {
                             color: "#71717A",
                         }}
                     >
-                        <span
-                            style={{
-                                fontSize: 24,
-                                display: "block",
-                                marginBottom: 8,
-                            }}
-                        >
-                            ⏳
-                        </span>
                         Đang tải dữ liệu giờ hoạt động bãi xe...
                     </div>
                 ) : (
@@ -926,7 +898,7 @@ export default function OwnerOpeningHoursPage() {
                                                 gap: 5,
                                             }}
                                         >
-                                            <span>🕒</span> Theo khung giờ
+                                            Theo khung giờ
                                         </button>
 
                                         <button
@@ -1005,7 +977,7 @@ export default function OwnerOpeningHoursPage() {
                                                     fontWeight: 700,
                                                 }}
                                             >
-                                                <span>🚫</span> Bãi xe tạm ngừng
+                                                Bãi xe tạm ngừng
                                                 đón khách ngày này
                                             </div>
                                         ) : d.is24Hours ? (
@@ -1023,7 +995,7 @@ export default function OwnerOpeningHoursPage() {
                                                     fontWeight: 700,
                                                 }}
                                             >
-                                                <span>✨</span> Phục vụ liên tục
+                                                Phục vụ liên tục
                                                 cả ngày và đêm (24/24)
                                             </div>
                                         ) : (
@@ -1160,7 +1132,7 @@ export default function OwnerOpeningHoursPage() {
                                                                 borderRadius: 6,
                                                             }}
                                                         >
-                                                            ⏳ {duration}
+                                                            {duration}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1312,7 +1284,7 @@ export default function OwnerOpeningHoursPage() {
                     >
                         {isSubmitting
                             ? "Đang lưu..."
-                            : "💾 Lưu giờ hoạt động lên hệ thống"}
+                            : "Lưu giờ hoạt động lên hệ thống"}
                     </button>
                 </div>
             </div>
