@@ -64,7 +64,10 @@ function toSearchResults(
     }));
 }
 
-async function withLiveLotDetails(lots: SearchResult[], signal: AbortSignal): Promise<SearchResult[]> {
+async function withLiveLotDetails(
+    lots: SearchResult[],
+    signal: AbortSignal,
+): Promise<SearchResult[]> {
     const detailResults = await Promise.allSettled(
         lots.map((lot) => getApprovedParkingLot(lot.id, signal)),
     );
@@ -75,10 +78,15 @@ async function withLiveLotDetails(lots: SearchResult[], signal: AbortSignal): Pr
         const availability = detail.value.availability;
         return {
             ...lot,
-            startingPrice: lot.startingPrice ?? (prices.length ? Math.min(...prices) : null),
-            availableSpaces: lot.availableSpaces ?? (availability
-                ? availability.car.available + (availability.motorbike?.available ?? 0)
-                : null),
+            startingPrice:
+                lot.startingPrice ??
+                (prices.length ? Math.min(...prices) : null),
+            availableSpaces:
+                lot.availableSpaces ??
+                (availability
+                    ? availability.car.available +
+                      (availability.motorbike?.available ?? 0)
+                    : null),
         };
     });
 }
@@ -285,16 +293,12 @@ export function CustomerFindParkingPage({
                           selected.maxPrice < MAX_PRICE
                               ? selected.maxPrice
                               : undefined,
-                      amenities: selected.evChargingOnly
-                          ? ["ev-charging"]
-                          : [],
+                      amenities: selected.evChargingOnly ? ["ev-charging"] : [],
                       sort:
                           selected.sort === "distance"
                               ? "recommended"
                               : (selected.sort as
-                                    | "recommended"
-                                    | "name"
-                                    | "price"),
+                                    "recommended" | "name" | "price"),
                   },
                   controller.signal,
               )
@@ -303,7 +307,11 @@ export function CustomerFindParkingPage({
                   controller.signal,
               ).then(toSearchResults);
         void request
-            .then((lots) => needsSearchEndpoint ? lots : withLiveLotDetails(lots, controller.signal))
+            .then((lots) =>
+                needsSearchEndpoint
+                    ? lots
+                    : withLiveLotDetails(lots, controller.signal),
+            )
             .then((lots) => {
                 if (!controller.signal.aborted) {
                     setApprovedLots(lots);
@@ -359,9 +367,15 @@ export function CustomerFindParkingPage({
                               controller.signal,
                           ),
                       );
-                const enriched = needsSearchEndpoint ? lots : await withLiveLotDetails(lots, controller.signal);
+                const enriched = needsSearchEndpoint
+                    ? lots
+                    : await withLiveLotDetails(lots, controller.signal);
                 if (!controller.signal.aborted)
-                    setNearby({ key: requestKey, state: "ready", lots: enriched });
+                    setNearby({
+                        key: requestKey,
+                        state: "ready",
+                        lots: enriched,
+                    });
             } catch {
                 if (!controller.signal.aborted)
                     setNearby({ key: requestKey, state: "error", lots: [] });
@@ -636,7 +650,11 @@ export function CustomerFindParkingPage({
 
     function applyCustomDistance() {
         const distanceKm = Number(customDistanceInput);
-        if (!Number.isFinite(distanceKm) || distanceKm <= 0 || distanceKm > 50) {
+        if (
+            !Number.isFinite(distanceKm) ||
+            distanceKm <= 0 ||
+            distanceKm > 50
+        ) {
             setCustomDistanceError(
                 copy(
                     "Enter a distance greater than 0 and no more than 50 km.",
@@ -990,9 +1008,7 @@ export function CustomerFindParkingPage({
                                 <button
                                     type="button"
                                     className="customer-search-filter-chip"
-                                    onClick={() =>
-                                        clearDistanceFilter()
-                                    }
+                                    onClick={() => clearDistanceFilter()}
                                     aria-label={copy(
                                         "Remove distance filter",
                                         "Bỏ lọc khoảng cách",
@@ -1114,9 +1130,13 @@ export function CustomerFindParkingPage({
                                     if (value === "any") {
                                         clearDistanceFilter();
                                     } else if (value === "custom") {
-                                        if (filters.distance !== "any" &&
-                                            !distanceLabels[filters.distance]) {
-                                            setCustomDistanceInput(filters.distance);
+                                        if (
+                                            filters.distance !== "any" &&
+                                            !distanceLabels[filters.distance]
+                                        ) {
+                                            setCustomDistanceInput(
+                                                filters.distance,
+                                            );
                                         }
                                     } else if (!searchOrigin) {
                                         setDistanceChoice("any");
@@ -1138,20 +1158,28 @@ export function CustomerFindParkingPage({
                                     "Khoảng cách tối đa từ điểm đến",
                                 )}
                             >
-                                <option value="any">{copy("Any distance", "Mọi khoảng cách")}</option>
+                                <option value="any">
+                                    {copy("Any distance", "Mọi khoảng cách")}
+                                </option>
                                 {["1", "2", "5", "10", "20"].map((value) => (
                                     <option value={value} key={value}>
                                         {distanceLabels[value]}
                                     </option>
                                 ))}
                                 <option value="custom">
-                                    {copy("Other / custom distance", "Khác / tùy chỉnh")}
+                                    {copy(
+                                        "Other / custom distance",
+                                        "Khác / tùy chỉnh",
+                                    )}
                                 </option>
                             </select>
                             {distanceChoice === "custom" && (
                                 <div className="customer-search-custom-distance">
                                     <label htmlFor="custom-distance-km">
-                                        {copy("Distance in km", "Khoảng cách (km)")}
+                                        {copy(
+                                            "Distance in km",
+                                            "Khoảng cách (km)",
+                                        )}
                                     </label>
                                     <div className="customer-search-custom-distance-row">
                                         <input
@@ -1164,10 +1192,14 @@ export function CustomerFindParkingPage({
                                             required
                                             value={customDistanceInput}
                                             onChange={(event) => {
-                                                setCustomDistanceInput(event.target.value);
+                                                setCustomDistanceInput(
+                                                    event.target.value,
+                                                );
                                                 setCustomDistanceError("");
                                             }}
-                                            aria-invalid={Boolean(customDistanceError)}
+                                            aria-invalid={Boolean(
+                                                customDistanceError,
+                                            )}
                                             aria-describedby={
                                                 customDistanceError
                                                     ? "custom-distance-error"
@@ -1183,11 +1215,22 @@ export function CustomerFindParkingPage({
                                         </button>
                                     </div>
                                     <small
-                                        id={customDistanceError ? "custom-distance-error" : "custom-distance-hint"}
-                                        role={customDistanceError ? "alert" : undefined}
+                                        id={
+                                            customDistanceError
+                                                ? "custom-distance-error"
+                                                : "custom-distance-hint"
+                                        }
+                                        role={
+                                            customDistanceError
+                                                ? "alert"
+                                                : undefined
+                                        }
                                     >
                                         {customDistanceError ||
-                                            copy("Enter a value from 0.1 to 50 km.", "Nhập giá trị từ 0,1 đến 50 km.")}
+                                            copy(
+                                                "Enter a value from 0.1 to 50 km.",
+                                                "Nhập giá trị từ 0,1 đến 50 km.",
+                                            )}
                                     </small>
                                 </div>
                             )}
@@ -1354,7 +1397,10 @@ export function CustomerFindParkingPage({
                                                     sizes="(max-width: 700px) 100vw, 200px"
                                                 />
                                                 <span className="customer-search-result-photo-label">
-                                                    {copy("Illustration", "Ảnh minh họa")}
+                                                    {copy(
+                                                        "Illustration",
+                                                        "Ảnh minh họa",
+                                                    )}
                                                 </span>
                                             </div>
                                             <div className="customer-search-result-content">
@@ -1381,7 +1427,10 @@ export function CustomerFindParkingPage({
                                                         <b>
                                                             {parking.distanceKm ==
                                                             null
-                                                                ? copy("Search to see", "Tìm để xem")
+                                                                ? copy(
+                                                                      "Search to see",
+                                                                      "Tìm để xem",
+                                                                  )
                                                                 : `${parking.distanceKm} km`}
                                                         </b>
                                                     </span>
@@ -1395,7 +1444,10 @@ export function CustomerFindParkingPage({
                                                         <b>
                                                             {parking.startingPrice ==
                                                             null
-                                                                ? copy("Not set", "Chưa có giá")
+                                                                ? copy(
+                                                                      "Not set",
+                                                                      "Chưa có giá",
+                                                                  )
                                                                 : `${new Intl.NumberFormat("vi-VN").format(parking.startingPrice)} ₫`}
                                                         </b>
                                                     </span>
@@ -1407,7 +1459,11 @@ export function CustomerFindParkingPage({
                                                             )}
                                                         </small>
                                                         <b>
-                                                            {parking.availableSpaces ?? copy("Unavailable", "Chưa có dữ liệu")}
+                                                            {parking.availableSpaces ??
+                                                                copy(
+                                                                    "Unavailable",
+                                                                    "Chưa có dữ liệu",
+                                                                )}
                                                         </b>
                                                     </span>
                                                 </div>
