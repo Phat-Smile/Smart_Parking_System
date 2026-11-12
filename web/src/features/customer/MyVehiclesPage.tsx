@@ -13,7 +13,7 @@ import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
 import { CustomerLanguageSwitcher } from "./i18n/CustomerLanguageSwitcher";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
-import { CustomerAccountMenu } from "./CustomerShell";
+import { CustomerAccountMenu, CustomerNotifications } from "./CustomerShell";
 import { VehicleDropdown } from "./VehicleDropdown";
 import {
     getAuthSessionSnapshot,
@@ -29,7 +29,8 @@ import {
     type VehicleDetails,
 } from "./myVehiclesApi";
 import { uploadCustomerMedia } from "./customerProfileApi";
-import { validateVehiclePlate } from "./vehiclePlate";
+import { formatVehiclePlate, validateVehiclePlate } from "./vehiclePlate";
+import { vehicleAddErrorMessage } from "./vehicleAddError";
 import {
     BRAND_OPTIONS,
     COLOR_OPTIONS,
@@ -152,14 +153,16 @@ function isCarCategory(category: VehicleCategory) {
 function needsPlate(category: VehicleCategory) {
     return category !== "bicycle";
 }
+function plateGroup(category: VehicleCategory) {
+    return category === "bicycle" ? "Bicycle" as const :
+        isCarCategory(category) ? "Car" as const : "Motorbike" as const;
+}
 function defaultVehicleImage(category: VehicleCategory) {
-    if (category === "bicycle")
-        return "/images/parkwise/vehicle-bicycle-default.svg";
-    if (category === "electric-motorbike")
-        return "/images/parkwise/vehicle-electric-motorbike-default.svg";
+    if (category === "bicycle") return "/images/parkwise/vehicle-bicycle-cutout.png";
+    if (category === "electric-motorbike") return "/images/parkwise/vehicle-electric-motorbike-cutout.png";
     if (category === "motorbike")
         return "/images/parkwise/vehicle-motorbike-cutout.png";
-    if (category === "electric-car") return "/images/parkwise/vehicle-suv.png";
+    if (category === "electric-car") return "/images/parkwise/vehicle-electric-car-cutout.png";
     return "/images/parkwise/vehicle-sedan-cutout.png";
 }
 function VehiclePhoto({
@@ -193,17 +196,7 @@ type Modal = "add" | "edit" | "delete" | null;
 const MAX_VEHICLES = 10;
 
 function formatPlate(value: string, category: VehicleCategory) {
-    const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
-    const compact = normalized.replace(/[ .-]/g, "");
-    const parts = (
-        isMotorbikeCategory(category)
-            ? /^(\d{2}[A-Z]\d)(\d{0,5})$/
-            : /^(\d{2}[A-Z]{1,2})(\d{0,5})$/
-    ).exec(compact);
-    if (!parts) return normalized;
-    const [, prefix, number] = parts;
-    if (!number) return prefix;
-    return `${prefix}-${number.slice(0, 3)}${number.length > 3 ? `.${number.slice(3)}` : ""}`;
+    return formatVehiclePlate(value, plateGroup(category));
 }
 
 function getVehicleDetails(vehicle: Vehicle) {
@@ -828,7 +821,10 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                     ).normalized === plateCheck.normalized,
             )
         ) {
-            setError("This license plate is already in your list.");
+            setError(copy(
+                "This license plate is already in your list.",
+                "Biển số này đã có trong danh sách xe của bạn.",
+            ));
             return;
         }
         if (!nextBrand && !session && needsBrand) {
@@ -879,10 +875,8 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                         ),
                     );
                     closeModal();
-                } catch {
-                    setError(
-                        "Could not add this vehicle. Check its details and try again.",
-                    );
+                } catch (error) {
+                    setError(vehicleAddErrorMessage(error, language));
                 } finally {
                     setIsSaving(false);
                 }
@@ -1068,6 +1062,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                 accountControl={
                     <div className="dashboard-header-actions">
                         <CustomerLanguageSwitcher />
+                        <CustomerNotifications />
                         <CustomerAccountMenu activeHref="/customer/vehicles" />
                     </div>
                 }
@@ -1200,13 +1195,13 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             <VehiclePhoto
                                                 category={vehicle.category}
                                                 photo={vehicle.photo}
-                                                alt={`Vehicle ${vehicle.plate || vehicle.brand || categoryInfo(vehicle.category).label}`}
+                                                alt={`Vehicle ${formatPlate(vehicle.plate, vehicle.category) || vehicle.brand || categoryInfo(vehicle.category).label}`}
                                                 sizes="(max-width: 700px) 90vw, 360px"
                                             />
                                         </div>
                                         <div className="vehicles-card-info">
                                             <h2>
-                                                {vehicle.plate ||
+                                                {(vehicle.plate && formatPlate(vehicle.plate, vehicle.category)) ||
                                                     vehicle.brand ||
                                                     copy(
                                                         categoryInfo(
@@ -1280,7 +1275,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             padding: "6px 8px",
                                                         }}
                                                     >
-                                                        ✓ Xe chính
+                                                        {copy("Default vehicle", "Xe ch\u00ednh")}
                                                     </span>
                                                 ) : (
                                                     <button
@@ -1302,8 +1297,9 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                     >
                                                         {settingDefaultId ===
                                                         vehicle.id
-                                                            ? "Đang đặt..."
-                                                            : "☆ Đặt mặc định"}
+                                                            ? copy("Setting...", "\u0110ang \u0111\u1eb7t...")
+                                                            : copy("Set as default", "\u0110\u1eb7t m\u1eb7c \u0111\u1ecbnh")
+                                                        }
                                                     </button>
                                                 ))}
                                             {(!session || vehicle.draft) && (
@@ -1595,6 +1591,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         }
                                         onClick={() => fileRef.current?.click()}
                                     >
+                                        <span className={`vehicles-upload-content vehicles-upload-content--${category}`}>
                                         <span className="vehicles-upload-icon">
                                             <Icon
                                                 name={
@@ -1627,19 +1624,17 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         <span className="vehicles-upload-divider">
                                             <span>{copy("or", "hoặc")}</span>
                                         </span>
-                                        <span className="vehicles-upload-preview">
-                                            {
-                                                <VehiclePhoto
-                                                    category={category}
-                                                    photo={photo}
-                                                    alt={
-                                                        photo
-                                                            ? "Selected vehicle"
-                                                            : `${categoryInfo(category).label} illustration`
-                                                    }
-                                                    sizes="(max-width: 850px) 85vw, 320px"
-                                                />
-                                            }
+                                        <span className={`vehicles-upload-preview vehicles-upload-preview--${category}`}>
+                                            <VehiclePhoto
+                                                category={category}
+                                                photo={photo}
+                                                alt={
+                                                    photo
+                                                        ? "Selected vehicle"
+                                                        : `${categoryInfo(category).label} illustration`
+                                                }
+                                                sizes="(max-width: 850px) 85vw, 320px"
+                                            />
                                         </span>
                                         <span className="vehicles-upload-caption">
                                             {photo
@@ -1656,6 +1651,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                         "Add a photo to help you recognize your vehicle.",
                                                         "Thêm ảnh để dễ nhận ra xe của bạn.",
                                                     )}
+                                        </span>
                                         </span>
                                     </button>
                                     {photoError && (

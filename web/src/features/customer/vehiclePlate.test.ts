@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateVehiclePlate } from "./vehiclePlate";
+import { formatVehiclePlate, validateVehiclePlate } from "./vehiclePlate";
 
 describe("Vietnamese civilian plate format", () => {
     it.each([
@@ -21,5 +21,17 @@ describe("Vietnamese civilian plate format", () => {
         expect(
             validateVehiclePlate(" 59a1 - 123.45 ", "Motorbike").normalized,
         ).toBe("59A112345");
+    });
+});
+
+describe("Vietnamese civilian plate display format", () => {
+    it.each([
+        ["51K12345", "Car", "51K-123.45"],
+        ["51K-123.45", "Car", "51K-123.45"],
+        ["59A112345", "Motorbike", "59A1-123.45"],
+        ["59A1-123.45", "Motorbike", "59A1-123.45"],
+        ["", "Bicycle", ""],
+    ] as const)("formats %s as %s", (plate, group, expected) => {
+        expect(formatVehiclePlate(plate, group)).toBe(expected);
     });
 });
