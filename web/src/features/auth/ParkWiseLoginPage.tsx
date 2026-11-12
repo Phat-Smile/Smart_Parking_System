@@ -18,6 +18,7 @@ import {
 import { rememberPendingVerification } from "./pendingVerification";
 import { resolvePostLoginRedirect } from "./roleRedirect";
 import { ApiError } from "@/shared/errors/api-error";
+import { RegisterIcon } from "./register/RegisterIcons";
 
 const loginSchema = z.object({
     email: z
@@ -53,6 +54,7 @@ export function ParkWiseLoginPage({
     const [submitError, setSubmitError] = useState("");
     const [authenticatedEmail, setAuthenticatedEmail] = useState("");
     const [lockSeconds, setLockSeconds] = useState(0);
+    const [passwordVisible, setPasswordVisible] = useState(false);
     const [googlePending, setGooglePending] = useState(false);
     const [googleUnavailable, setGoogleUnavailable] = useState(false);
 
@@ -365,20 +367,34 @@ export function ParkWiseLoginPage({
                             <label htmlFor="parkwise-login-password">
                                 Password
                             </label>
-                            <input
-                                id="parkwise-login-password"
-                                type="password"
-                                autoComplete="current-password"
-                                placeholder="Enter your password"
-                                aria-invalid={Boolean(errors.password)}
-                                aria-describedby={
-                                    errors.password
-                                        ? "parkwise-login-password-error"
-                                        : undefined
-                                }
-                                {...register("password")}
-                                disabled={lockSeconds > 0}
-                            />
+                            <div className="parkwise-password-control">
+                                <input
+                                    id="parkwise-login-password"
+                                    type={passwordVisible ? "text" : "password"}
+                                    autoComplete="current-password"
+                                    placeholder="Enter your password"
+                                    aria-invalid={Boolean(errors.password)}
+                                    aria-describedby={
+                                        errors.password
+                                            ? "parkwise-login-password-error"
+                                            : undefined
+                                    }
+                                    {...register("password")}
+                                    disabled={lockSeconds > 0}
+                                />
+                                <button
+                                    type="button"
+                                    aria-label={passwordVisible ? "Hide password" : "Show password"}
+                                    aria-pressed={passwordVisible}
+                                    onClick={() => setPasswordVisible((visible) => !visible)}
+                                    disabled={lockSeconds > 0}
+                                >
+                                    <RegisterIcon
+                                        name={passwordVisible ? "eyeOff" : "eye"}
+                                        className="h-5 w-5"
+                                    />
+                                </button>
+                            </div>
                             {errors.password && (
                                 <p
                                     id="parkwise-login-password-error"
