@@ -52,7 +52,8 @@ export function ToastNotificationHub() {
     const { copy } = useCustomerLanguage();
     const [toasts, setToasts] = useState<LiveToast[]>([]);
     // Match the server's first render, then read browser-only Push capabilities.
-    const [permission, setPermission] = useState<NotificationPermission>("default");
+    const [permission, setPermission] =
+        useState<NotificationPermission>("default");
     const [isSupported, setIsSupported] = useState(false);
 
     useEffect(() => {
@@ -83,7 +84,10 @@ export function ToastNotificationHub() {
         if (result === "granted") {
             emitLiveToast(
                 copy("Push notifications enabled", "Đã bật thông báo đẩy"),
-                copy("You will receive live alerts about your parking session.", "Bạn sẽ nhận được cảnh báo theo thời gian thực về phiên đỗ xe."),
+                copy(
+                    "You will receive live alerts about your parking session.",
+                    "Bạn sẽ nhận được cảnh báo theo thời gian thực về phiên đỗ xe.",
+                ),
                 "success",
             );
         }
@@ -98,7 +102,12 @@ export function ToastNotificationHub() {
             {isSupported && permission !== "granted" && (
                 <div className="pointer-events-auto bg-neutral-900/90 backdrop-blur border border-neutral-700/80 text-white px-3.5 py-2 rounded-full shadow-lg flex items-center gap-2.5 text-xs">
                     <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                    <span>{copy("Get parking entry and exit alerts?", "Nhận thông báo khi xe vào/ra?")}</span>
+                    <span>
+                        {copy(
+                            "Get parking entry and exit alerts?",
+                            "Nhận thông báo khi xe vào/ra?",
+                        )}
+                    </span>
                     <button
                         type="button"
                         onClick={handleRequestPermission}

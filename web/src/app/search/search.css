@@ -1579,7 +1579,9 @@
     justify-content: center;
     gap: 3px;
 }
-.customer-search-result-metrics > span svg { display: none; }
+.customer-search-result-metrics > span svg {
+    display: none;
+}
 .customer-search-result-metrics small {
     color: #5a6b80;
     font-size: 11px;
@@ -1609,7 +1611,7 @@
 }
 .customer-search-result-actions .customer-shell-secondary:hover {
     border-color: #8ca64e;
-    background: #f7fbeF;
+    background: #f7fbef;
 }
 .customer-search-result-actions .customer-shell-primary {
     border: 1px solid #7c973c;
