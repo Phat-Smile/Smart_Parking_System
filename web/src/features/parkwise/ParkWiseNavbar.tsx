@@ -239,6 +239,22 @@ export function ParkWiseNavbar({
                                             : "For Lot Owners"}
                                     </span>
                                 </Link>
+                                <Link
+                                    href="/owner/register"
+                                    className="parkwise-button parkwise-auth-owner"
+                                    onClick={() => setMenuOpen(false)}
+                                    tabIndex={menuOpen ? 0 : -1}
+                                >
+                                    <span className="parkwise-auth-label">
+                                        For Lot Owners
+                                    </span>
+                                    <span
+                                        className="parkwise-auth-label-fill"
+                                        aria-hidden="true"
+                                    >
+                                        For Lot Owners
+                                    </span>
+                                </Link>
                             </div>
                         )}
                         {session && !isCustomer && (
