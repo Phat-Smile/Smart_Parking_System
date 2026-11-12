@@ -12,6 +12,9 @@ public class Wallet
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? ClosedAt { get; private set; }
 
+    // Số thứ tự bút toán lớn nhất của ví này (tăng tuần tự 1, 2, 3...)
+    public long LastSequence { get; private set; }
+
     // Không cho phép 2 giao dịch cùng sửa số dư trên cùng một phiên bản ví
     public long Version { get; private set; }
 
@@ -32,6 +35,7 @@ public class Wallet
             Balance = 0m,
             Status = WalletStatus.Active,
             CreatedAt = DateTimeOffset.UtcNow,
+            LastSequence = 0L,
             Version = 1 // Khởi tạo Version ban đầu bằng 1
         };
     }
@@ -98,6 +102,7 @@ public class Wallet
 
             case LedgerEntryType.FeePayment:            // Trừ phí đỗ xe
             case LedgerEntryType.Prepayment:            // Trừ tiền cọc đặt chỗ
+            case LedgerEntryType.ReservationDeposit:    // Đặt cọc giữ chỗ (Task N2)
             case LedgerEntryType.BalanceCancellation:   // Hủy số dư khi đóng ví
                 if (amount >= 0m)
                 {
@@ -130,9 +135,13 @@ public class Wallet
             throw new InvalidOperationException(DomainErrorMessages.Wallet.NotEnoughMoney);
         }
 
+        // Tăng số thứ tự bút toán cho riêng ví này
+        var sequence = ++LastSequence;
+
         // Tạo dòng sổ cái ghi nhận giao dịch
         var entry = new WalletLedgerEntry(
             walletId: Id,
+            sequence: sequence,
             entryType: entryType,
             amount: amount,
             balanceAfter: newBalance,

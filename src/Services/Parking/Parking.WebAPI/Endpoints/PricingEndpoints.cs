@@ -2,8 +2,12 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.Parking.Application.Common.Constants;
 using ParkingSystem.Parking.Application.Features.Pricing.Commands.ConfigurePricing;
+using ParkingSystem.Parking.Application.Features.Pricing.Queries.GetLotPricing;
+using ParkingSystem.Parking.Application.Features.Pricing.Queries.GetPricingPolicy;
 using ParkingSystem.Parking.WebAPI.DTOs;
 using ParkingSystem.Parking.WebAPI.Security;
 
@@ -13,6 +17,73 @@ public static class PricingEndpoints
 {
     public static IEndpointRouteBuilder MapPricingEndpoints(this IEndpointRouteBuilder app)
     {
+        // API-PK-05: every vehicle type's current price, as a plain DTO with ProblemDetails errors.
+        app.MapGet("/api/parking/lots/{lotId:guid}/pricing", async (
+            Guid lotId,
+            ICurrentUser currentUser,
+            HttpContext httpContext,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            // Anonymous callers are allowed; a signed-in owner also sees the prices of a lot that is not approved yet.
+            Guid? callerId = Guid.TryParse(currentUser.SubjectId, out var subject) ? subject : null;
+            var result = await sender.Send(new GetLotPricingQuery(lotId, callerId), cancellationToken);
+            if (result.IsSuccess)
+                return Results.Ok(result.Value);
+
+            var statusCode = result.Error == ParkingErrors.Pricing.LotNotFound
+                ? StatusCodes.Status404NotFound
+                : StatusCodes.Status400BadRequest;
+            return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+        })
+        .AllowAnonymous()
+        .WithName("GetLotPricing")
+        .WithSummary("Get the current price of every vehicle type of a parking lot")
+        .Produces<LotPricing>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // Tra cuu bang gia theo loai xe cho bai xe (D2-BE-3)
+        app.MapGet("/api/parking/lots/{lotId:guid}/pricing/{vehicleType}", async (
+            Guid lotId,
+            string vehicleType,
+            ICurrentUser currentUser,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            // Anonymous callers are allowed. A signed-in account is passed on so that an owner can read the price
+            // of a lot that is not approved yet.
+            Guid? callerId = Guid.TryParse(currentUser.SubjectId, out var subject) ? subject : null;
+            var query = new GetPricingPolicyQuery(lotId, vehicleType, callerId);
+            var result = await sender.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                var errorCode = result.Error!.Code;
+                var statusCode = errorCode.Contains("not_found", StringComparison.OrdinalIgnoreCase)
+                    ? StatusCodes.Status404NotFound
+                    : StatusCodes.Status400BadRequest;
+
+                return Results.Json(
+                    new { result = (object?)null, isSuccess = false, statusCode, message = result.Error.Message },
+                    statusCode: statusCode);
+            }
+
+            return Results.Ok(new
+            {
+                result = result.Value,
+                isSuccess = true,
+                statusCode = StatusCodes.Status200OK,
+                message = "Get pricing policy successfully"
+            });
+        })
+        .AllowAnonymous()
+        .WithName("GetPricingPolicy")
+        .WithSummary("Tra cuu bang gia cho bai do xe theo loai xe")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // Cau hinh bang gia theo loai xe cho bai xe
         app.MapPut("/api/parking/lots/{lotId:guid}/pricing/{vehicleType}", async (
             Guid lotId,

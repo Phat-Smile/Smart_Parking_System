@@ -4,6 +4,7 @@ public sealed class Reservation
 {
     public const int PlateNumberMaxLength = 20;
     public const int NoShowGracePeriodMinutes = 15;
+    public const int MaxActiveReservationsPerUser = 3;
     private Reservation()
     {
     }
@@ -18,6 +19,9 @@ public sealed class Reservation
     public ReservationStatus Status { get; private set; }
     public DateTimeOffset AppointmentTime { get; private set; }
     public int? DurationMinutes { get; private set; }
+    public DateTimeOffset WindowStartAt { get; private set; }
+    public DateTimeOffset WindowEndAt { get; private set; }
+    public DateTimeOffset HoldEndAt { get; private set; }
     public DateTimeOffset? TempHoldExpiresAt { get; private set; }
     public decimal PrepaidAmount { get; private set; }
     public string? PriceSnapshot { get; private set; }
@@ -44,7 +48,10 @@ public sealed class Reservation
         DateTimeOffset createdAt,
         int? durationMinutes = null,
         DateTimeOffset? tempHoldExpiresAt = null,
-        string? priceSnapshot = null)
+        string? priceSnapshot = null,
+        DateTimeOffset? windowStartAt = null,
+        DateTimeOffset? windowEndAt = null,
+        DateTimeOffset? holdEndAt = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Reservation ID must not be empty.", nameof(id));
@@ -72,6 +79,10 @@ public sealed class Reservation
         if (vehicleGroup != VehicleGroup.Car)
             throw new ReservationDomainException("Only cars are allowed to create reservations.");
 
+        var calculatedWindows = (windowStartAt.HasValue && windowEndAt.HasValue && holdEndAt.HasValue)
+            ? (WindowStartAt: windowStartAt.Value.ToUniversalTime(), WindowEndAt: windowEndAt.Value.ToUniversalTime(), HoldEndAt: holdEndAt.Value.ToUniversalTime())
+            : ReservationTimeWindow.CalculateWindows(reservationType, appointmentTime, durationMinutes);
+
         return new Reservation
         {
             Id = id,
@@ -84,6 +95,9 @@ public sealed class Reservation
             Status = ReservationStatus.TemporaryHold,
             AppointmentTime = appointmentTime.ToUniversalTime(),
             DurationMinutes = durationMinutes,
+            WindowStartAt = calculatedWindows.WindowStartAt,
+            WindowEndAt = calculatedWindows.WindowEndAt,
+            HoldEndAt = calculatedWindows.HoldEndAt,
             TempHoldExpiresAt = tempHoldExpiresAt?.ToUniversalTime(),
             PrepaidAmount = prepaidAmount,
             PriceSnapshot = priceSnapshot,
@@ -212,4 +226,47 @@ public sealed class Reservation
     {
         TransitionTo(ReservationStatus.Expired);
     }
+
+    public void RecordPrepaidRefunded()
+    {
+        if (ConfirmedAt != null)
+        {
+            throw new ReservationDomainException("Cannot record prepaid refund on a confirmed reservation.");
+        }
+
+        PrepaidOutcome = Reservations.PrepaidOutcome.Refunded;
+        RowVersion++;
+    }
+
+    /// <summary>
+    /// Determines whether the reservation is active at the specified point in time (BR-1, US-RES-010).
+    /// Active states: Confirmed, or TemporaryHold with TempHoldExpiresAt > now.
+    /// Non-active states: Used, Cancelled, Expired, or TemporaryHold with TempHoldExpiresAt <= now.
+    /// </summary>
+    public bool IsActive(DateTimeOffset now) =>
+        Status == ReservationStatus.Confirmed ||
+        (Status == ReservationStatus.TemporaryHold && TempHoldExpiresAt.HasValue && TempHoldExpiresAt.Value > now.ToUniversalTime());
+
+    /// <summary>
+    /// Evaluates whether this reservation's time window overlaps with the requested interval [start, end)
+    /// under half-open interval semantics (BR-2, US-RES-010).
+    /// </summary>
+    public bool OverlapsWith(DateTimeOffset start, DateTimeOffset end) =>
+        ReservationTimeWindow.IsOverlapping(WindowStartAt, WindowEndAt, start, end);
+
+    /// <summary>
+    /// Evaluates whether this reservation matches the given license plate under canonical normalization rules (BR-2, US-RES-010).
+    /// </summary>
+    public bool HasSamePlate(string? otherPlate) =>
+        LicensePlateNormalizer.AreEquivalent(PlateNumber, otherPlate);
+
+    /// <summary>
+    /// Checks whether this reservation conflicts with another reservation for the same vehicle
+    /// during the specified reservation window [start, end) at the reference time (BR-2, US-RES-010).
+    /// Conflict occurs when this reservation is active, has an equivalent license plate, and their reservation windows overlap.
+    /// </summary>
+    public bool ConflictsWithPlate(string? plate, DateTimeOffset windowStart, DateTimeOffset windowEnd, DateTimeOffset now) =>
+        IsActive(now) &&
+        HasSamePlate(plate) &&
+        OverlapsWith(windowStart, windowEnd);
 }

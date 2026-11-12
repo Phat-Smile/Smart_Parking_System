@@ -30,7 +30,7 @@ Send **exactly seven days**, `dayOfWeek` 0 (Sunday) through 6 (Saturday), each e
 
 ## Decisions and integration notes
 
-- Since `develop` does not yet contain owner-registration PR #73, ownership uses the existing TECH-12 assignment table. When PR #73 merges, reconcile owner ID/assignment creation with this authorization check.
+- Ownership uses the TECH-12 assignment table: the caller needs an `Owner` row for the lot. Registering a lot now creates that row for the registrant (MOD-PK-04), and a migration backfills it for lots registered earlier, so a freshly registered owner can configure opening hours without an admin assigning anything. See `Parking-Registration.md`, section "Who owns a lot".
 - Only configured lots are excluded by the arrival-time filter; **legacy lots with no hours remain visible** to preserve the existing catalog until owners set schedules. The product team should decide whether unconfigured lots may continue accepting customers.
 - `arrivalAt` must be supplied explicitly by a caller with an ETA. BE-v4 `Điểm mở #15` leaves the rule for **missing travel time** unresolved; do not silently assume ETA or modify search fallback.
 - Filtering currently materializes approved candidates before testing the seven-day schedule. This is acceptable for small S2 datasets, but search/AI integration should add a scalable query strategy and use the same schedule evaluator to avoid divergent results.

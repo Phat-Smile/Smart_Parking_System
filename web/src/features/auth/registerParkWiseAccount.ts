@@ -5,6 +5,7 @@ export interface RegisterAccountRequest {
     password: string;
     fullName?: string | null;
     phoneNumber?: string | null;
+    accountType?: string | null;
 }
 
 export interface ParkWiseRegisteredAccount {

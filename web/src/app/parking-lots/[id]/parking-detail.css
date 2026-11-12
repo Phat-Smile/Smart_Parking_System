@@ -1,0 +1,1313 @@
+.lot-detail-page {
+    background: #f6faff;
+    color: #09152f;
+}
+.lot-detail-page section {
+    padding: 0;
+}
+.lot-detail-page .lot-detail-info-card {
+    padding: 18px 18px 16px;
+}
+.lot-detail-main {
+    padding: 2px 0 44px;
+}
+.lot-detail-page :is(button, a, input, select):focus-visible {
+    outline: 3px solid #2469dc;
+    outline-offset: 3px;
+}
+.lot-detail-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-height: 22px;
+    color: #6b7f9c;
+    font-size: 13px;
+}
+.lot-detail-breadcrumb a:hover {
+    color: #1764ce;
+}
+.lot-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 360px);
+    align-items: start;
+    gap: 20px;
+}
+.lot-detail-left {
+    min-width: 0;
+}
+.lot-detail-header {
+    padding: 4px 6px 8px;
+}
+.lot-detail-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+}
+.lot-detail-title-row h1 {
+    color: #0a1430;
+    font-size: clamp(30px, 2.3vw, 34px);
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    line-height: 1.1;
+}
+.lot-detail-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid #bce9cc;
+    border-radius: 999px;
+    background: #e8f9ec;
+    color: #07823e;
+    font-size: 11px;
+    font-weight: 850;
+    white-space: nowrap;
+}
+.lot-detail-status > span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #0da348;
+}
+.lot-detail-address {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+    color: #5e7190;
+    font-size: 14px;
+}
+.lot-detail-address > svg {
+    flex: none;
+}
+.lot-detail-address a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 12px;
+    color: #1969df;
+    font-size: 12px;
+    font-weight: 800;
+}
+.lot-detail-vehicles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 13px 22px;
+    margin-top: 9px;
+    color: #627492;
+    font-size: 13px;
+}
+.lot-detail-vehicles span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+.lot-detail-vehicles svg {
+    color: #566c8d;
+}
+.lot-detail-vehicles .lot-detail-rating {
+    gap: 5px;
+    padding-right: 16px;
+    border-right: 1px solid #dce5ef;
+    color: #101d38;
+}
+.lot-detail-rating svg {
+    color: #ffaf00;
+}
+.lot-detail-rating strong {
+    font-size: 13px;
+}
+.lot-detail-rating small {
+    color: #697b97;
+    font-size: 11px;
+}
+.lot-detail-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    min-height: 64px;
+    margin: 0 0 8px;
+    border: 1px solid #e3eaf2;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 5px 15px #25446708;
+}
+.lot-detail-metrics > div {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 11px;
+    margin-block: 11px;
+    padding: 0 15px;
+    border-right: 1px solid #e4ebf3;
+}
+.lot-detail-metrics > div:last-child {
+    border-right: 0;
+}
+.lot-detail-metrics svg {
+    flex: none;
+    color: #125ed3;
+    box-sizing: content-box;
+    width: 21px;
+    height: 21px;
+    padding: 8px;
+    border-radius: 50%;
+    background: #f0f6ff;
+}
+.lot-detail-metrics > div:nth-child(2) svg {
+    color: #0a9e49;
+    background: #eaf9f0;
+}
+.lot-detail-metrics > div:nth-child(3) svg {
+    color: #172f5a;
+}
+.lot-detail-metrics > div:nth-child(4) svg {
+    color: #182e57;
+}
+.lot-detail-metrics > div > span {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+.lot-detail-metrics strong {
+    overflow: hidden;
+    color: #0b1732;
+    font-size: 13px;
+    font-weight: 900;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lot-detail-metrics small {
+    color: #657795;
+    font-size: 11px;
+    line-height: 1.25;
+}
+.lot-detail-feature-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.98fr);
+    align-items: stretch;
+    gap: 13px;
+}
+.lot-detail-media-column {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) 52px;
+    gap: 8px;
+    min-width: 0;
+}
+.lot-detail-gallery {
+    position: relative;
+    min-height: 286px;
+    overflow: hidden;
+    border-radius: 13px;
+    background: #dfebf4;
+}
+.lot-detail-gallery img {
+    object-fit: cover;
+}
+.lot-detail-gallery-count {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #172846e8;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+}
+.lot-detail-gallery button {
+    position: absolute;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    color: #0b1b36;
+    box-shadow: 0 3px 12px #152e5640;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+.lot-detail-gallery button:hover {
+    background: #dffc6b;
+}
+.lot-detail-gallery-prev {
+    left: 13px;
+}
+.lot-detail-gallery-next {
+    right: 13px;
+}
+.lot-detail-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #e5edf4;
+    border-radius: 999px;
+    background: #fff;
+}
+.lot-detail-tabs button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    height: 42px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #1b2b4a;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.lot-detail-tabs button.active {
+    background: #d9fc67;
+    color: #111e17;
+}
+.lot-detail-tabs button:disabled {
+    color: #9aa8ba;
+    cursor: not-allowed;
+}
+.lot-detail-info-card {
+    min-width: 0;
+    padding: 18px 18px 16px;
+    border: 1px solid #e3eaf2;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: 0 5px 15px #25446708;
+}
+.lot-detail-info-card h2 {
+    color: #0b1630;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: -0.035em;
+}
+.lot-detail-info-card > p {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 6px !important;
+    color: #61738f;
+    font-size: 12px;
+    line-height: 1.48;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+}
+.lot-detail-info-split {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 12px;
+    margin-top: 13px;
+    padding-top: 12px;
+    border-top: 1px solid #e6edf3;
+}
+.lot-detail-info-split > div + div {
+    padding-left: 12px;
+    border-left: 1px solid #e6edf3;
+}
+.lot-detail-info-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #14203a;
+    font-size: 12px;
+    font-weight: 850;
+}
+.lot-detail-info-card h3 svg {
+    flex: none;
+    color: #182e55;
+}
+.lot-detail-info-card ul {
+    display: grid;
+    gap: 4px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+}
+.lot-detail-info-card li {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #677b98;
+    font-size: 11px;
+    line-height: 1.3;
+}
+.lot-detail-info-card li svg {
+    flex: none;
+    color: #0aa348;
+}
+.lot-detail-info-card .lot-detail-amenities {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 7px;
+}
+.lot-detail-amenities li {
+    min-width: 0;
+    font-size: 10px;
+}
+.lot-detail-info-card .lot-detail-amenities svg {
+    color: #637898;
+}
+.lot-detail-payment-icons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+}
+.lot-detail-payment-icons > span {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 24px;
+    border: 1px solid #dbe4ef;
+    border-radius: 5px;
+    background: #f8fbff;
+    color: #2258b2;
+}
+.lot-detail-payment-icons > span:nth-child(2) {
+    color: #9d28ac;
+}
+.lot-detail-payment-icons > span:nth-child(3) {
+    color: #0b8c51;
+}
+.lot-detail-payment-icons small {
+    color: #71829b;
+    font-size: 9px;
+}
+.lot-detail-info-card .lot-detail-rules li svg {
+    color: #09a648;
+}
+.lot-detail-info-card .lot-detail-info-split p {
+    margin-top: 8px !important;
+    color: #687b97;
+    font-size: 11px;
+    line-height: 1.45;
+}
+.lot-detail-info-bottom {
+    margin-top: 10px;
+    padding-top: 11px;
+}
+.lot-detail-hours-details {
+    margin-top: 8px;
+    color: #687b97;
+    font-size: 11px;
+}
+.lot-detail-hours-details summary {
+    color: #1764ce;
+    font-weight: 800;
+    cursor: pointer;
+}
+.lot-detail-hours-details > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 5px;
+}
+.lot-detail-hours-details strong {
+    color: #263b5b;
+    text-align: right;
+}
+.lot-detail-hours-details small {
+    display: block;
+    margin-top: 6px;
+}
+.lot-detail-layout-section {
+    margin-top: 17px;
+}
+.lot-detail-section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 9px;
+}
+.lot-detail-section-heading h2 {
+    color: #0b1730;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+}
+.lot-detail-section-heading p {
+    margin-top: 2px !important;
+    color: #6e7f99;
+    font-size: 11px;
+}
+.lot-detail-legend {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #70809a;
+    font-size: 10px;
+}
+.lot-detail-legend i {
+    width: 10px;
+    height: 10px;
+    margin-left: 9px;
+    border-radius: 50%;
+    background: #0ca548;
+}
+.lot-detail-legend i:nth-of-type(2) {
+    background: #f14a4a;
+}
+.lot-detail-legend i:nth-of-type(3) {
+    background: #1677ec;
+}
+.lot-detail-layout-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.lot-detail-layout-card {
+    position: relative;
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 8px;
+    height: 160px;
+    overflow: hidden;
+    padding: 10px 10px 0;
+    border: 1px solid #e3eaf2;
+    border-radius: 12px;
+    background: #fff;
+    color: #10203c;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+.lot-detail-layout-card:hover {
+    border-color: #9cbbe5;
+    box-shadow: 0 5px 18px #25446717;
+}
+.lot-detail-layout-card > span {
+    position: relative;
+    z-index: 1;
+}
+.lot-detail-layout-card strong {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 900;
+}
+.lot-detail-layout-card small {
+    display: block;
+    margin: 2px 0 0 25px;
+    color: #70809a;
+    font-size: 10px;
+}
+.lot-detail-layout-card > img {
+    top: 45px !important;
+    height: calc(100% - 45px) !important;
+    object-fit: cover;
+}
+.lot-detail-layout-cta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    padding: 6px 8px;
+    border: 1px solid #dce5ef;
+    border-radius: 99px;
+    color: #263e63;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.lot-detail-layout-expanded {
+    position: relative;
+    height: clamp(240px, 29vw, 440px);
+    overflow: hidden;
+    border: 1px solid #e3eaf2;
+    border-radius: 12px;
+    background: #fff;
+}
+.lot-detail-layout-expanded img {
+    object-fit: cover;
+}
+.lot-detail-layout-expanded > span {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #fff;
+    color: #476485;
+    font-size: 11px;
+    font-weight: 800;
+}
+.lot-detail-layout-empty {
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 8px;
+    height: 120px;
+    border: 1px dashed #cbd9e8;
+    border-radius: 12px;
+    background: #fff;
+    color: #64809d;
+    font-size: 13px;
+}
+.lot-detail-booking-card {
+    position: sticky;
+    top: 76px;
+    min-width: 0;
+    margin-top: 14px;
+    padding: 21px 20px;
+    border: 1px solid #e3eaf2;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 7px 23px #2544670b;
+}
+.lot-detail-booking-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 19px;
+}
+.lot-detail-booking-heading h2 {
+    color: #0b1730;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: -0.045em;
+}
+.lot-detail-booking-heading > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #7284a0;
+    font-size: 10px;
+    white-space: nowrap;
+}
+.lot-detail-booking-heading svg {
+    color: #0ea64f;
+}
+.lot-detail-booking-fields {
+    display: grid;
+    gap: 12px;
+}
+.lot-detail-booking-fields label {
+    position: relative;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    grid-template-rows: 16px 23px;
+    align-items: center;
+    min-height: 52px;
+    padding: 6px 12px;
+    border: 1px solid #dce6f0;
+    border-radius: 11px;
+}
+.lot-detail-booking-fields label:focus-within {
+    border-color: #5d9fea;
+    box-shadow: 0 0 0 3px #dceeff;
+}
+.lot-detail-booking-fields label > span {
+    grid-row: span 2;
+    color: #182b4d;
+}
+.lot-detail-booking-fields small {
+    align-self: end;
+    color: #6b7e9a;
+    font-size: 10px;
+}
+.lot-detail-booking-fields select,
+.lot-detail-booking-fields input {
+    width: 100%;
+    min-width: 0;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    outline: 0 !important;
+    background: transparent;
+    color: #0b1935;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+}
+.lot-detail-booking-fields select:disabled {
+    color: #62738d;
+    opacity: 1;
+}
+.lot-detail-vehicle-helper {
+    margin-top: -8px;
+    text-align: right;
+}
+.lot-detail-vehicle-helper a {
+    color: #1764ce;
+    font-size: 10px;
+    font-weight: 800;
+}
+.lot-detail-booking-total {
+    display: grid;
+    gap: 11px;
+    margin-top: 14px;
+    padding: 15px;
+    border: 1px solid #e4ebf2;
+    border-radius: 10px;
+}
+.lot-detail-booking-total > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    color: #647692;
+    font-size: 12px;
+}
+.lot-detail-booking-total strong {
+    color: #1d2a46;
+    font-size: 12px;
+    text-align: right;
+}
+.lot-detail-booking-total > div:last-child {
+    padding-top: 10px;
+    border-top: 1px solid #e5ebf2;
+    color: #0a1631;
+    font-weight: 850;
+}
+.lot-detail-booking-total > div:last-child strong {
+    color: #09152f;
+    font-size: 19px;
+    font-weight: 900;
+}
+.lot-detail-booking-total small {
+    color: #6b7e9a;
+    font-weight: 600;
+}
+.lot-detail-booking-notice {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 50px;
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 10px;
+    background: #eaf9ee;
+    color: #178343;
+    font-size: 11px;
+    line-height: 1.35;
+}
+.lot-detail-booking-notice svg {
+    flex: none;
+    box-sizing: content-box;
+    padding: 7px;
+    border-radius: 50%;
+    background: #d6f3df;
+}
+.lot-detail-book-now,
+.lot-detail-hold {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 45px;
+    margin-top: 11px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 900;
+}
+.lot-detail-book-now {
+    border: 0;
+    background: #dcfc5c;
+    color: #0b1a15;
+    cursor: pointer;
+}
+.lot-detail-book-now:hover {
+    background: #d0f441;
+}
+.lot-detail-booking-error {
+    margin-top: 10px;
+    color: #b42f3b;
+    font-size: 11px;
+}
+.lot-detail-hold {
+    border: 1px solid #aabbd0;
+    background: #fff;
+    color: #0b1935;
+}
+.lot-detail-book-now:disabled,
+.lot-detail-hold:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+}
+.lot-detail-nearby {
+    margin-top: 16px;
+}
+.lot-detail-nearby .lot-detail-section-heading {
+    margin-bottom: 6px;
+}
+.lot-detail-nearby .lot-detail-section-heading > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #1764ce;
+    font-size: 11px;
+    font-weight: 800;
+}
+.lot-detail-nearby-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.lot-detail-nearby-list > a {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 6px;
+    border: 1px solid #e4ebf2;
+    border-radius: 10px;
+    background: #fff;
+}
+.lot-detail-nearby-list > a:hover {
+    border-color: #9cbbe5;
+}
+.lot-detail-nearby-list img {
+    width: 78px;
+    height: 54px;
+    flex: none;
+    border-radius: 6px;
+    object-fit: cover;
+}
+.lot-detail-nearby-list > a > span {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 2px;
+}
+.lot-detail-nearby-list strong {
+    overflow: hidden;
+    color: #15243f;
+    font-size: 11px;
+    font-weight: 850;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lot-detail-nearby-list small {
+    color: #6d7e98;
+    font-size: 10px;
+}
+.lot-detail-nearby-list b {
+    color: #213759;
+    font-size: 10px;
+}
+.lot-detail-nearby-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #697b97;
+    font-size: 10px;
+}
+.lot-detail-nearby-list .lot-detail-nearby-rating svg {
+    color: #ffad00;
+}
+.lot-detail-nearby-list svg {
+    flex: none;
+    color: #6a83a5;
+}
+.lot-detail-bottom-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 44px;
+    margin-top: 12px;
+    color: #4c6684 !important;
+    font-size: 12px;
+    font-weight: 800;
+}
+.lot-detail-state {
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 10px;
+    min-height: 340px;
+    margin-top: 15px;
+    padding: 25px;
+    border: 1px solid #e3eaf2;
+    border-radius: 14px;
+    background: #fff;
+}
+.lot-detail-state h1 {
+    font-size: 28px;
+}
+.lot-detail-state p {
+    color: #637793;
+}
+.lot-detail-state a {
+    color: #1764ce !important;
+    font-weight: 850;
+}
+@media (max-width: 1120px) {
+    .lot-detail-grid {
+        grid-template-columns: minmax(0, 1fr) 330px;
+    }
+    .lot-detail-feature-grid {
+        grid-template-columns: 1fr;
+    }
+    .lot-detail-media-column {
+        grid-template-rows: 280px 52px;
+    }
+    .lot-detail-info-card {
+        min-height: 270px;
+    }
+}
+@media (max-width: 850px) {
+    .lot-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    .lot-detail-booking-card {
+        position: static;
+        margin-top: 0;
+    }
+    .lot-detail-feature-grid {
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr);
+    }
+    .lot-detail-media-column {
+        grid-template-rows: minmax(260px, 1fr) 52px;
+    }
+}
+@media (max-width: 700px) {
+    .lot-detail-feature-grid {
+        grid-template-columns: 1fr;
+    }
+    .lot-detail-media-column {
+        grid-template-rows: 285px 52px;
+    }
+    .lot-detail-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .lot-detail-metrics > div:nth-child(2) {
+        border-right: 0;
+    }
+    .lot-detail-metrics > div:nth-child(-n + 2) {
+        border-bottom: 1px solid #e4ebf3;
+    }
+    .lot-detail-layout-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+.lot-detail-dialog-backdrop {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: #071528a8;
+}
+.lot-detail-dialog {
+    width: min(100%, 440px);
+    padding: 24px;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 20px 70px #08152955;
+}
+.lot-detail-dialog h2 {
+    color: #0b1732;
+    font-size: 21px;
+    font-weight: 900;
+}
+.lot-detail-dialog dl {
+    margin-top: 15px;
+}
+.lot-detail-dialog dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    padding-block: 8px;
+    border-bottom: 1px solid #e8edf2;
+    font-size: 12px;
+}
+.lot-detail-dialog dt {
+    color: #657892;
+}
+.lot-detail-dialog dd {
+    margin: 0;
+    color: #0c1d39;
+    font-weight: 800;
+    text-align: right;
+}
+.lot-detail-dialog p {
+    margin-top: 17px;
+    color: #4d617d;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.lot-detail-dialog > button {
+    width: 100%;
+    min-height: 42px;
+    margin-top: 18px;
+    border: 0;
+    border-radius: 9px;
+    background: #dcfc5c;
+    color: #091829;
+    font-weight: 850;
+    cursor: pointer;
+}
+@media (max-width: 500px) {
+    .lot-detail-title-row h1 {
+        font-size: 29px;
+    }
+    .lot-detail-address a {
+        margin-left: 0;
+    }
+    .lot-detail-metrics > div {
+        gap: 7px;
+        padding-inline: 9px;
+    }
+    .lot-detail-metrics svg {
+        width: 18px;
+        height: 18px;
+        padding: 5px;
+    }
+    .lot-detail-metrics strong {
+        font-size: 12px;
+    }
+    .lot-detail-feature-grid {
+        gap: 10px;
+    }
+    .lot-detail-media-column {
+        grid-template-rows: 286px 52px;
+    }
+    .lot-detail-tabs button {
+        gap: 4px;
+        font-size: 11px;
+    }
+    .lot-detail-tabs svg {
+        width: 16px;
+    }
+    .lot-detail-nearby-list {
+        grid-template-columns: 1fr;
+    }
+    .lot-detail-booking-card {
+        padding: 18px;
+    }
+}
+
+/* The parking map is shared by the 2D plan and the Three.js view. */
+.lot-detail-media-column {
+    display: block;
+    min-height: 315px;
+}
+.lot-detail-gallery {
+    height: 100%;
+    min-height: 315px;
+}
+.lot-detail-page .lot-detail-layout-section {
+    margin-top: 14px;
+    padding: 13px 13px 10px;
+    border: 1px solid #e2eaf1;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 5px 15px #25446708;
+}
+.lot-detail-layout-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin-bottom: 10px;
+}
+.lot-detail-layout-heading h2 {
+    color: #0b1732;
+    font-size: 21px;
+    font-weight: 900;
+    letter-spacing: -0.045em;
+}
+.lot-detail-layout-heading p {
+    margin-top: 2px;
+    color: #627693;
+    font-size: 11px;
+}
+.lot-detail-layout-switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.lot-detail-layout-switch button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 35px;
+    padding: 0 13px;
+    border: 1px solid #e0e8f0;
+    border-radius: 9px;
+    background: #fff;
+    color: #142743;
+    font-size: 11px;
+    font-weight: 850;
+    cursor: pointer;
+}
+.lot-detail-layout-switch button.active {
+    border-color: #d9fc67;
+    background: #d9fc67;
+}
+.lot-detail-map-panel {
+    position: relative;
+    overflow: hidden;
+    min-height: 230px;
+    border-radius: 10px;
+    background: #d5dfdb;
+}
+.lot-detail-map-scroll {
+    width: 100%;
+    overflow: auto hidden;
+    scrollbar-width: thin;
+}
+.lot-detail-map-2d {
+    position: relative;
+    width: 100%;
+    min-width: 730px;
+    height: 230px;
+    overflow: hidden;
+    background: repeating-linear-gradient(
+        90deg,
+        #aebeb1 0 3px,
+        #bdc9bc 3px 50px
+    );
+    transform-origin: center center;
+    transition: transform 180ms ease;
+}
+.lot-detail-map-2d::before,
+.lot-detail-map-2d::after {
+    position: absolute;
+    z-index: 0;
+    width: 100%;
+    height: 13px;
+    background: #829a81;
+    content: "";
+}
+.lot-detail-map-2d::before {
+    top: 0;
+}
+.lot-detail-map-2d::after {
+    bottom: 0;
+}
+.lot-detail-map-spots {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-rows: 76px 68px 76px;
+    height: 220px;
+    padding: 5px 50px;
+}
+.lot-detail-map-row {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 2px;
+}
+.lot-detail-map-spot {
+    position: relative;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 3px;
+    min-width: 0;
+    border: 2px solid #eef5f5;
+    border-radius: 3px;
+    background: #c7ecd5;
+    color: #136c38;
+    cursor: pointer;
+}
+.lot-detail-map-spot.is-occupied {
+    background: #f9b4ad;
+    color: #b53030;
+    cursor: default;
+}
+.lot-detail-map-spot.is-reserved {
+    background: #d1d6dd;
+    color: #697482;
+    cursor: default;
+}
+.lot-detail-map-spot.is-selected {
+    border-color: #e9f3ff;
+    background: #2978ed;
+    color: #fff;
+    box-shadow: inset 0 0 0 2px #0f57be;
+}
+.lot-detail-map-spot:not(:disabled):hover {
+    border-color: #0b62d4;
+}
+.lot-detail-map-spot-number {
+    font-size: 9px;
+    font-weight: 900;
+}
+.lot-detail-map-road {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-inline: -40px;
+    padding-inline: 9px;
+    background: #515d64;
+    color: #fff;
+}
+.lot-detail-map-road strong {
+    font-size: 11px;
+    white-space: nowrap;
+}
+.lot-detail-map-road span {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 11px;
+    white-space: nowrap;
+}
+.lot-detail-map-tree {
+    position: absolute;
+    z-index: 2;
+    width: 34px;
+    height: 34px;
+    border: 5px solid #6a9560;
+    border-radius: 50%;
+    background: #338344;
+    box-shadow: 0 4px 9px #314e4259;
+    pointer-events: none;
+}
+.lot-detail-map-tree.tree-a {
+    top: 4px;
+    left: 7px;
+}
+.lot-detail-map-tree.tree-b {
+    top: 4px;
+    right: 7px;
+}
+.lot-detail-map-tree.tree-c {
+    bottom: 4px;
+    left: 7px;
+}
+.lot-detail-map-tree.tree-d {
+    bottom: 4px;
+    right: 7px;
+}
+.lot-detail-map-3d,
+.lot-detail-map-loading {
+    width: 100%;
+    height: 300px;
+}
+.lot-detail-map-loading {
+    background: linear-gradient(110deg, #e4eaf0, #d4e0e7, #e4eaf0);
+}
+.lot-detail-map-hint {
+    position: absolute;
+    bottom: 8px;
+    left: 9px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: #ffffffde;
+    color: #3f5872;
+    font-size: 10px;
+    pointer-events: none;
+}
+.lot-detail-map-controls {
+    position: absolute;
+    z-index: 3;
+    top: 10px;
+    right: 10px;
+    display: grid;
+    gap: 2px;
+}
+.lot-detail-map-controls button {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 29px;
+    border: 1px solid #dce5ec;
+    border-radius: 4px;
+    background: #fff;
+    color: #162948;
+    font-size: 10px;
+    font-weight: 900;
+    cursor: pointer;
+}
+.lot-detail-map-overview {
+    position: absolute;
+    bottom: 9px;
+    left: 9px;
+    display: grid;
+    gap: 2px;
+    max-width: 230px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    background: #fffffff0;
+    color: #263b5b;
+    font-size: 10px;
+}
+.lot-detail-map-overview strong {
+    font-size: 11px;
+}
+.lot-detail-map-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 17px;
+    min-height: 34px;
+    padding-top: 8px;
+    color: #506786;
+    font-size: 10px;
+}
+.lot-detail-map-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+.lot-detail-map-legend i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.lot-detail-map-legend i.available {
+    background: #18a650;
+}
+.lot-detail-map-legend i.occupied {
+    background: #f3504e;
+}
+.lot-detail-map-legend i.selected {
+    background: #1876ef;
+}
+.lot-detail-map-legend i.reserved {
+    background: #a8b0bc;
+}
+.lot-detail-map-legend svg {
+    color: #0b9c53;
+}
+.lot-detail-map-legend strong {
+    margin-left: auto;
+    color: #168844;
+    font-size: 10px;
+}
+@media (max-width: 700px) {
+    .lot-detail-media-column,
+    .lot-detail-gallery {
+        min-height: 285px;
+    }
+    .lot-detail-layout-heading {
+        align-items: start;
+    }
+    .lot-detail-layout-switch {
+        width: 100%;
+    }
+    .lot-detail-layout-switch button {
+        flex: 1;
+        padding-inline: 5px;
+    }
+    .lot-detail-map-legend strong {
+        width: 100%;
+        margin-left: 0;
+    }
+}

@@ -64,7 +64,7 @@ public static class DependencyInjection
         services.AddSingleton<IOtpGenerator, SecureOtpGenerator>();
         services.AddOptions<OtpSecurityOptions>()
             .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Pepper), "Security:Otp:Pepper must be configured for secure HMAC OTP hashing.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Pepper), OtpSecurityOptions.MissingPepperMessage)
             .ValidateOnStart();
         services.AddSingleton<IOtpHasher, HmacSha256OtpHasher>();
         services.AddIntegrationEventRegistry();
@@ -99,6 +99,10 @@ public static class DependencyInjection
 
         services.AddVehicleLookupReader(configuration);
         services.AddCccdVerification(configuration);
+
+        services.Configure<OwnerDocuments.OwnerDocumentsOptions>(configuration.GetSection(OwnerDocuments.OwnerDocumentsOptions.SectionName));
+        services.AddSingleton<Application.Accounts.OwnerApplications.IOwnerDocumentRequirements, OwnerDocuments.ConfigurationOwnerDocumentRequirements>();
+        services.AddScoped<Application.Accounts.OwnerApplications.IOwnerDocumentStore, OwnerDocuments.FileSystemOwnerDocumentStore>();
 
         return services;
     }

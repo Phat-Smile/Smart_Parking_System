@@ -16,6 +16,5 @@ export interface CurrentAccountResponse {
 export function getCurrentAccount() {
     return gatewayFetch<CurrentAccountResponse>("/api/identity/accounts/me", {
         method: "GET",
-        credentials: "include",
     });
 }

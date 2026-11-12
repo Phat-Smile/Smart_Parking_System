@@ -338,7 +338,7 @@
     padding: 28px clamp(32px, 4vw, 56px);
 }
 .parkwise-login-redesign .parkwise-login-form-panel form {
-    max-width: 420px;
+    max-width: 448px;
     gap: 13px;
 }
 .parkwise-login-redesign .parkwise-login-form-panel h2 {
@@ -359,8 +359,8 @@
     font-weight: 600;
 }
 .parkwise-login-redesign .parkwise-login-submit {
-    min-height: 44px;
-    padding: 9px 24px;
+    min-height: 48px;
+    padding: 11px 24px;
 }
 .parkwise-login-divider {
     display: flex;
@@ -382,7 +382,7 @@
     justify-content: center;
     gap: 12px;
     width: 100%;
-    min-height: 50px;
+    min-height: 48px;
     border: 1px solid #d1d5db;
     border-radius: 12px;
     background: #fff;
@@ -401,9 +401,26 @@
 }
 .parkwise-google-gis {
     display: flex;
+    align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 44px;
+    min-height: 48px;
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    background: #fff;
+}
+.parkwise-google-gis > div {
+    width: min(100%, 400px) !important;
+    margin-inline: auto;
+    /* Hide the SDK's inner outline so the shared 48px control has one border. */
+    clip-path: inset(3px);
+}
+.parkwise-google-gis:has(> div:hover) {
+    background: #f0f5fe;
+}
+.parkwise-google-gis:has(> div:hover) > div {
+    mix-blend-mode: darken;
 }
 .parkwise-login-signup {
     margin-top: 0 !important;
@@ -519,4 +536,71 @@
     .parkwise-login-links {
         flex-wrap: wrap;
     }
+}
+
+/* Two-factor authentication (TOTP 6-digit OTP) within the login panel */
+.parkwise-login-form-panel .parkwise-login-description {
+    margin-top: 4px !important;
+    color: #4b5563;
+    font-size: 15px;
+    line-height: 1.5;
+}
+.parkwise-otp-digits {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+}
+.parkwise-otp-digits input {
+    width: 100%;
+    height: 52px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    color: #171717;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    outline: 0;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
+}
+.parkwise-otp-digits input[data-filled="true"] {
+    border-color: #171717;
+}
+.parkwise-otp-digits input:focus {
+    border-color: #171717;
+    box-shadow: 0 0 0 3px rgb(23 23 23 / 20%);
+}
+.parkwise-otp-digits input[aria-invalid="true"] {
+    border-color: #dc2626;
+    background: #fffafa;
+}
+.parkwise-otp-digits input:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+}
+.parkwise-otp-back-link {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 10px 16px;
+    background: transparent;
+    color: #4b5563;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition:
+        background-color 0.2s,
+        color 0.2s,
+        border-color 0.2s;
+}
+.parkwise-otp-back-link:hover {
+    background: #f9fafb;
+    color: #171717;
+    border-color: #d1d5db;
 }

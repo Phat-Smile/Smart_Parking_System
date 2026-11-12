@@ -9,7 +9,10 @@ using ParkingSystem.Parking.Application.Common.Messaging.Inbox;
 using ParkingSystem.Parking.Persistence.Outbox;
 using ParkingSystem.Parking.Persistence.Inbox;
 using ParkingSystem.Parking.Application.ParkingSessions;
+using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessionHistory;
 using ParkingSystem.Parking.Persistence.ParkingSessions;
+using ParkingSystem.Parking.Application.Incidents;
+using ParkingSystem.Parking.Persistence.Incidents;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Persistence.ParkingLots;
 using ParkingSystem.Parking.Application.Common.Auditing;
@@ -20,6 +23,9 @@ using ParkingSystem.Parking.Persistence.ParkingLayout;
 using ParkingSystem.Parking.Persistence.Repositories;
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
+using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
+using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
+using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -46,13 +52,18 @@ public static class PersistenceDependencyInjection
         services.TryAddSingleton<IClock, SystemClock>();
         services.AddScoped<IInboxExecutionCoordinator, ParkingInboxExecutionCoordinator>();
         services.AddScoped<IParkingSessionRepository, ParkingSessionRepository>();
+        services.AddScoped<IMyParkingSessionHistoryReader, MyParkingSessionHistoryReader>();
+        services.AddScoped<IIncidentRepository, IncidentRepository>();
         services.AddScoped<IAuditLog, AuditLog>();
         services.AddScoped<ParkingLotCatalogReader>();
         services.AddScoped<IParkingLotCatalogReader>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
         services.AddScoped<IParkingLotArrivalSearch>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
         services.AddScoped<IParkingLotOpeningHoursRepository, ParkingLotOpeningHoursRepository>();
         services.AddScoped<INearbyParkingLotReader, NearbyParkingLotReader>();
+        services.AddScoped<ICustomerLotFeaturesReader, CustomerLotFeaturesReader>();
+        services.AddScoped<ICustomerLotMetricsReader, CustomerLotMetricsReader>();
         services.AddScoped<IParkingLotDetailReader, ParkingLotDetailReader>();
+        services.AddScoped<ParkingSystem.Parking.Application.ParkingLots.Availability.IArrivalSnapshotReader, ArrivalSnapshotReader>();
         services.AddScoped<IRegisterParkingLotRepository, RegisterParkingLotRepository>();
 
         services.AddScoped<ParkingLotAssignmentRepository>();
@@ -61,11 +72,21 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IParkingLotAccess>(
             provider => provider.GetRequiredService<ParkingLotAssignmentRepository>());
         services.AddScoped<IPricingPolicyRepository, PricingPolicyRepository>();
+        services.AddScoped<IReservationDepositPolicyRepository, ReservationDepositPolicyRepository>();
+        services.AddScoped<IReservationRatioPolicyRepository, ReservationRatioPolicyRepository>();
+        services.AddScoped<IReservationAvailabilityPolicyRepository, ReservationAvailabilityPolicyRepository>();
         services.AddScoped<ILotOwnershipService, LotOwnershipService>();
         services.AddScoped<IParkingUnitOfWork, ParkingUnitOfWork>();
         services.AddParkingLayout(configuration);
         services.AddScoped<IParkingLotApprovalRepository, ParkingLotApprovalRepository>();
         services.AddScoped<IManageParkingLayoutRepository, ManageParkingLayoutRepository>();
+        services.AddScoped<IOwnerParkingLotReader, OwnerParkingLotReader>();
+        services.AddScoped<IAdminParkingLotReader, AdminParkingLotReader>();
+        services.AddScoped<IAdminParkingLotDetailReader, AdminParkingLotDetailReader>();
+        services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent.ISlotSensorRepository, SlotSensorRepository>();
+        services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.SlotConfirmation.ISlotConfirmationRepository, SlotConfirmationRepository>();
+        services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.SetSlotMaintenance.ISlotMaintenanceRepository, ParkingSystem.Parking.Persistence.ParkingLayout.SlotMaintenanceRepository>();
+        services.AddSingleton<ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent.ISlotSensorDeduplicationStore, SlotSensorDeduplicationStore>();
         return services;
     }
 }

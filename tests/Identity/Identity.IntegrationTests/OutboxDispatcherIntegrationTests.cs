@@ -62,6 +62,7 @@ public sealed class OutboxDispatcherIntegrationTests(
                 "accounts",
                 "auth_sessions",
                 "email_verifications",
+                "owner_application_documents",
                 "refresh_tokens",
                 "profiles",
                 "vehicles");

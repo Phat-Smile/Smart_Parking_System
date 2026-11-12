@@ -146,26 +146,6 @@ export function useParkWiseLandingMotion(
                                         ease: "power2.out",
                                         clearProps: "all",
                                     },
-                                )
-                                .from(
-                                    one(".parkwise-nearby-message > p"),
-                                    {
-                                        autoAlpha: 0,
-                                        y: 12,
-                                        duration: 0.55,
-                                        ease: "power2.out",
-                                        clearProps: "all",
-                                    },
-                                    "-=0.24",
-                                )
-                                .from(
-                                    one(".parkwise-nearby-login"),
-                                    {
-                                        autoAlpha: 0,
-                                        duration: 0.5,
-                                        clearProps: "opacity,visibility",
-                                    },
-                                    "-=0.2",
                                 );
 
                             const cameraProgress = { value: 0 };
@@ -265,19 +245,14 @@ export function useParkWiseLandingMotion(
                                     start: "top 82%",
                                     once: true,
                                 },
-                            }).from(
-                                all(
-                                    ".parkwise-newsletter > .parkwise-container > p, .parkwise-newsletter h2, .parkwise-newsletter-input",
-                                ),
-                                {
-                                    autoAlpha: 0,
-                                    y: 14,
-                                    duration: 0.7,
-                                    stagger: 0.14,
-                                    ease: "power2.out",
-                                    clearProps: "all",
-                                },
-                            );
+                            }).from(all(".parkwise-newsletter h2"), {
+                                autoAlpha: 0,
+                                y: 14,
+                                duration: 0.7,
+                                stagger: 0.14,
+                                ease: "power2.out",
+                                clearProps: "all",
+                            });
 
                             const pattern = one(".parkwise-newsletter-pattern");
                             if (pattern) {

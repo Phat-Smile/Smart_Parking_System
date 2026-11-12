@@ -19,8 +19,7 @@ public sealed class HmacSha256OtpHasher : IOtpHasher
         var pepper = options.Value.Pepper;
         if (string.IsNullOrWhiteSpace(pepper))
         {
-            throw new InvalidOperationException(
-                "Security:Otp:Pepper must be configured with a non-empty cryptographic secret pepper.");
+            throw new InvalidOperationException(OtpSecurityOptions.MissingPepperMessage);
         }
 
         _pepperBytes = Encoding.UTF8.GetBytes(pepper.Trim());

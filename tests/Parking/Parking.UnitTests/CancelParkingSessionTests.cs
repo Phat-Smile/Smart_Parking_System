@@ -177,8 +177,17 @@ public sealed class CancelParkingSessionTests
         public Task<ParkingSession?> FindOpenByQrTokenAsync(string qrToken, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<(IReadOnlyList<ParkingSession> Items, int TotalCount)> ListByLotAsync(
+            Guid lotId, ParkingSessionStatus? status, int skip, int take, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ParkingSession?> FindOpenByPlateAsync(Guid lotId, string normalizedPlate, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<ParkingSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(session?.Id == sessionId ? session : null);
+
+        public Task<ParkingSession?> FindByIdForUpdateAsync(Guid sessionId, CancellationToken cancellationToken) => FindByIdAsync(sessionId, cancellationToken);
 
         public void Add(ParkingSession added) => throw new NotSupportedException();
 
@@ -206,6 +215,12 @@ public sealed class CancelParkingSessionTests
         public List<Guid> ReleasedSessionIds { get; } = [];
 
         public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken)

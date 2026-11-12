@@ -40,16 +40,31 @@ export function GoogleSignInButton({
                 onCredentialRef.current(response.credential),
             ux_mode: "popup",
         });
-        google.accounts.id.renderButton(container, {
-            type: "standard",
-            theme: "outline",
-            size: "large",
-            shape: "rectangular",
-            text,
-            logo_alignment: "center",
-            // Google accepts 200-400 px.
-            width: Math.min(400, Math.max(200, container.offsetWidth)),
-        });
+        let renderedWidth = 0;
+        const renderAtContainerWidth = () => {
+            // GIS takes a pixel width. Re-render when the form changes width.
+            const width = Math.min(400, Math.max(200, container.clientWidth));
+            if (width === renderedWidth) return;
+            renderedWidth = width;
+            container.replaceChildren();
+            google.accounts.id.renderButton(container, {
+                type: "standard",
+                theme: "outline",
+                // Medium avoids the personalized account card between visits.
+                size: "medium",
+                shape: "rectangular",
+                text,
+                logo_alignment: "center",
+                locale: "en",
+                width,
+            });
+        };
+
+        renderAtContainerWidth();
+        if (typeof ResizeObserver === "undefined") return;
+        const observer = new ResizeObserver(renderAtContainerWidth);
+        observer.observe(container);
+        return () => observer.disconnect();
     }, [clientId, scriptReady, text]);
 
     if (!clientId) {

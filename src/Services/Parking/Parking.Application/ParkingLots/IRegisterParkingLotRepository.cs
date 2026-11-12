@@ -6,5 +6,6 @@ public interface IRegisterParkingLotRepository
 {
     Task<bool> ExistsForOwnerAsync(Guid ownerUserId, string name, CancellationToken cancellationToken);
 
-    Task AddAsync(ParkingLot parkingLot, CancellationToken cancellationToken);
+    // The lot and the registrant's Owner assignment are saved together or not at all.
+    Task AddAsync(ParkingLot parkingLot, ParkingLotAssignment ownerAssignment, CancellationToken cancellationToken);
 }

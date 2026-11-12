@@ -34,7 +34,14 @@ public sealed class GetMyProfileQueryHandler(
                 IdentityMaskingHelper.MaskDriverLicense(profile.DriverLicenseNumber),
                 profile.AvatarUrl,
                 profile.CreatedAtUtc,
-                profile.UpdatedAtUtc));
+                profile.UpdatedAtUtc,
+                account.PhoneNumber,
+                profile.Address,
+                profile.IdentityDocumentType,
+                profile.IdentityIssueDate,
+                profile.IdentityIssuedBy,
+                profile.IdentityFrontMediaId,
+                profile.IdentityBackMediaId));
         }
 
         // Nếu người dùng mới đăng ký chưa cập nhật hồ sơ, trả về DTO mặc định an toàn cho Frontend
@@ -46,6 +53,8 @@ public sealed class GetMyProfileQueryHandler(
             null,
             null,
             account.CreatedAtUtc,
+            null,
+            account.PhoneNumber,
             null));
     }
 }

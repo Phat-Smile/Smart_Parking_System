@@ -2,6 +2,7 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
+using ParkingSystem.Identity.Application.Profiles.CustomerMedia;
 
 namespace ParkingSystem.Identity.Application.Profiles.DeleteProfileIdentity;
 
@@ -18,6 +19,7 @@ public static class DeleteProfileIdentityErrors
 public sealed class DeleteProfileIdentityCommandHandler(
     IAccountRepository accounts,
     IProfileRepository profiles,
+    ICustomerMediaStore media,
     IClock clock) : IRequestHandler<DeleteProfileIdentityCommand, Result<DeletedProfileIdentityResult>>
 {
     public async Task<Result<DeletedProfileIdentityResult>> Handle(
@@ -29,6 +31,7 @@ public sealed class DeleteProfileIdentityCommandHandler(
             return Result<DeletedProfileIdentityResult>.Failure(DeleteProfileIdentityErrors.AccountNotFound);
 
         var profile = await profiles.FindByAccountIdAsync(request.AccountId, cancellationToken);
+        await media.DeleteIdentityMediaAsync(request.AccountId, cancellationToken);
         if (profile is not null)
         {
             profile.ClearIdentity(clock.UtcNow);

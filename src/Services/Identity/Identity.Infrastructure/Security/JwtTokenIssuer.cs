@@ -26,7 +26,10 @@ public sealed class JwtTokenIssuer : IJwtTokenIssuer, IDisposable
         rsa = LoadPrivateKey(settings.PrivateKeyPath);
     }
 
-    public string IssueAccessToken(Account account, DateTimeOffset nowUtc)
+    public string IssueAccessToken(Account account, DateTimeOffset nowUtc) =>
+        IssueAccessToken(account, Guid.Empty, string.Empty, nowUtc);
+
+    public string IssueAccessToken(Account account, Guid sessionId, string authenticationMethods, DateTimeOffset nowUtc)
     {
         var header = new { alg = "RS256", typ = "JWT" };
         var headerJson = JsonSerializer.Serialize(header);
@@ -48,6 +51,12 @@ public sealed class JwtTokenIssuer : IJwtTokenIssuer, IDisposable
             ["nbf"] = nbf,
             ["exp"] = exp
         };
+
+        if (sessionId != Guid.Empty)
+            payload["sid"] = sessionId.ToString();
+
+        if (!string.IsNullOrWhiteSpace(authenticationMethods))
+            payload["amr"] = authenticationMethods.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         if (account.OwnerApplicationStatus.HasValue)
         {

@@ -48,12 +48,16 @@ public sealed class OutboxPersistenceIntegrationTests(PostgreSqlContainerFixture
             cancellationToken,
             "audit_logs",
             "floors",
+            "incidents",
             "parking_layout_documents",
             "parking_lot_assignments",
             "parking_lots",
             "parking_sessions",
             "parking_slots",
             "pricing_policies",
+            "reservation_availability_policies",
+            "reservation_deposit_policies",
+            "reservation_ratio_policies",
             "zones");
 
         var probeMessageId = Guid.NewGuid();

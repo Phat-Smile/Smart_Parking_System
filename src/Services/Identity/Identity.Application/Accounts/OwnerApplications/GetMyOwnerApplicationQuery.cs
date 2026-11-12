@@ -14,7 +14,8 @@ public sealed record MyOwnerApplicationDto(
     string? TaxCode,
     string? BusinessName,
     string? RejectionReason,
-    DateTimeOffset? ReviewedAtUtc);
+    DateTimeOffset? ReviewedAtUtc,
+    string? OwnerType);
 
 public sealed class GetMyOwnerApplicationQueryHandler(
     IAccountRepository accounts) : IRequestHandler<GetMyOwnerApplicationQuery, Result<MyOwnerApplicationDto>>
@@ -32,6 +33,7 @@ public sealed class GetMyOwnerApplicationQueryHandler(
             account.OwnerTaxCode,
             account.OwnerBusinessName,
             account.OwnerRejectionReason,
-            account.OwnerReviewedAtUtc));
+            account.OwnerReviewedAtUtc,
+            account.OwnerType?.ToString()));
     }
 }

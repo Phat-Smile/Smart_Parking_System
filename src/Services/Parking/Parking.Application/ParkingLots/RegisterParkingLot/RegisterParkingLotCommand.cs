@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Domain.ParkingLots;
 
 namespace ParkingSystem.Parking.Application.ParkingLots.RegisterParkingLot;
@@ -10,7 +11,8 @@ public sealed record RegisterParkingLotCommand(
     string Address,
     decimal? Latitude,
     decimal? Longitude,
-    string Type) : IRequest<RegisteredParkingLot>;
+    string Type,
+    ParkingLotFeatures? Features = null) : IRequest<RegisteredParkingLot>;
 
 public sealed record RegisteredParkingLot(
     Guid Id,
@@ -48,7 +50,7 @@ public sealed class RegisterParkingLotCommandValidator : AbstractValidator<Regis
     }
 }
 
-public sealed class RegisterParkingLotCommandHandler(IRegisterParkingLotRepository parkingLots)
+public sealed class RegisterParkingLotCommandHandler(IRegisterParkingLotRepository parkingLots, IClock clock)
     : IRequestHandler<RegisterParkingLotCommand, RegisteredParkingLot>
 {
     public async Task<RegisteredParkingLot> Handle(
@@ -68,8 +70,18 @@ public sealed class RegisterParkingLotCommandHandler(IRegisterParkingLotReposito
             request.Latitude!.Value,
             request.Longitude!.Value,
             Enum.Parse<ParkingLotType>(request.Type, ignoreCase: true));
+        parkingLot.SetFeatures(request.Features ?? new ParkingLotFeatures());
 
-        await parkingLots.AddAsync(parkingLot, cancellationToken);
+        // MOD-PK-04: the owner of a lot is whoever holds its Owner assignment, so the registrant gets that row now.
+        // owner_user_id stays as the record of who registered the lot; it is not used for authorization.
+        var ownerAssignment = ParkingLotAssignment.Create(
+            parkingLot.Id,
+            request.OwnerUserId,
+            ParkingLotMemberRole.Owner,
+            request.OwnerUserId,
+            clock.UtcNow);
+
+        await parkingLots.AddAsync(parkingLot, ownerAssignment, cancellationToken);
 
         return new RegisteredParkingLot(
             parkingLot.Id,

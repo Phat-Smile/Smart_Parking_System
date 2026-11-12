@@ -125,8 +125,70 @@ public class CreateWalletTopupCommandHandler : IRequestHandler<CreateWalletTopup
             createdAt: createdAtUtc,
             expiresAt: expiresAtUtc);
 
-        await _transactionRepository.AddAsync(newTxn, cancellationToken);
-        await _transactionRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _transactionRepository.AddAsync(newTxn, cancellationToken);
+            await _transactionRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.GetType().Name == "DbUpdateException" || ex.GetType().Name == "DbUpdateConcurrencyException")
+        {
+            // Tranh chap dong thoi tren Unique Index (WalletId, ClientRequestKey):
+            // Mot request khac da chen thanh cong truoc mot tich tac.
+            // Truy van lai giao dich va tra ve ket qua replay an toan.
+            var concurrentTxn = await _transactionRepository.GetByWalletIdAndRequestKeyAsync(
+                wallet.Id, request.IdempotencyKey, cancellationToken);
+
+            if (concurrentTxn != null)
+            {
+                if (concurrentTxn.Amount != request.Amount)
+                {
+                    return Result<WalletTopupResultDto>.Failure(
+                        new Error("payment.idempotency_key_reused", "Idempotency-Key was already used with a different request."));
+                }
+
+                if (concurrentTxn.Status == VnpayTransactionStatus.Success)
+                {
+                    return Result<WalletTopupResultDto>.Success(new WalletTopupResultDto
+                    {
+                        TopupId = concurrentTxn.TxnRef,
+                        Amount = concurrentTxn.Amount,
+                        Status = concurrentTxn.Status.ToString(),
+                        PaymentUrl = null,
+                        CreatedAtUtc = concurrentTxn.CreatedAt,
+                        ExpiresAtUtc = concurrentTxn.ExpiresAt,
+                        IsReplay = true
+                    });
+                }
+
+                var isExpired = concurrentTxn.Status == VnpayTransactionStatus.Expired
+                    || (concurrentTxn.Status == VnpayTransactionStatus.Pending && concurrentTxn.ExpiresAt <= DateTimeOffset.UtcNow);
+
+                if (isExpired)
+                {
+                    return Result<WalletTopupResultDto>.Failure(
+                        new Error("payment.topup_expired", "The previous top-up request for this idempotency key has expired. Please initiate a new top-up request."));
+                }
+
+                var existingUrl = _paymentGateway.CreatePaymentUrl(
+                    concurrentTxn.TxnRef,
+                    concurrentTxn.Amount,
+                    concurrentTxn.ExpiresAt,
+                    request.ClientIp);
+
+                return Result<WalletTopupResultDto>.Success(new WalletTopupResultDto
+                {
+                    TopupId = concurrentTxn.TxnRef,
+                    Amount = concurrentTxn.Amount,
+                    Status = concurrentTxn.Status.ToString(),
+                    PaymentUrl = existingUrl,
+                    CreatedAtUtc = concurrentTxn.CreatedAt,
+                    ExpiresAtUtc = concurrentTxn.ExpiresAt,
+                    IsReplay = true
+                });
+            }
+
+            throw;
+        }
 
         // 6. Sinh URL thanh toán VNPay
         var paymentUrl = _paymentGateway.CreatePaymentUrl(

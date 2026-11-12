@@ -2,63 +2,101 @@
 
 import React, { useState } from "react";
 import { useOwnerMapStore } from "./useOwnerMapStore";
-import { useLotInfoStore } from "./lotInfo";
-import { ParkingLot } from "@/types/owner";
+import { loadOwnerLots, localLotId } from "./ownerLotsSync";
+import { registerParkingLotApi } from "@/features/owner/api/ownerApi";
+import { ApiError } from "@/shared/errors/api-error";
+
+type LotType = "MultiStorey" | "Underground" | "Outdoor";
+
+function describeRegisterError(err: unknown): string {
+    if (!(err instanceof ApiError))
+        return "Không kết nối được máy chủ. Bãi chưa được tạo, vui lòng thử lại.";
+    if (err.status === 409)
+        return "Tên bãi đỗ xe này đã được đăng ký trước đó. Vui lòng chọn tên khác.";
+    if (err.status === 400)
+        return (
+            err.problem?.detail || "Thông tin bãi đỗ xe chưa đúng định dạng."
+        );
+    if (err.status === 401 || err.status === 403)
+        return "Tài khoản hiện tại không có quyền đăng ký bãi. Vui lòng đăng nhập lại bằng tài khoản Chủ bãi đã được duyệt.";
+    return "Máy chủ chưa tạo được bãi. Vui lòng thử lại.";
+}
 
 export function AddLotModal() {
-    const { isAddModalOpen, setAddModalOpen, addOverlayLot } =
+    const { isAddModalOpen, setAddModalOpen, setSelectedLotId } =
         useOwnerMapStore();
 
     const [name, setName] = useState("");
     const [addr, setAddr] = useState("");
-    const [cc, setCc] = useState(200);
-    const [cm, setCm] = useState(100);
+    const [lat, setLat] = useState("");
+    const [lng, setLng] = useState("");
+    const [lotType, setLotType] = useState<LotType>("Outdoor");
+    const [supportsElectricVehicles, setSupportsElectricVehicles] =
+        useState(false);
+    const [supportsLargeVehicles, setSupportsLargeVehicles] = useState(false);
+    const [hasEvCharging, setHasEvCharging] = useState(false);
+    const [isCovered, setIsCovered] = useState(false);
+    const [hasCctv, setHasCctv] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
 
     if (!isAddModalOpen) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
 
-        const newLot: ParkingLot = {
-            id: Date.now(),
-            name: name.trim(),
-            addr: addr.trim() || "TP.HCM",
-            gps: "10.7745, 106.7035",
-            op: "06:00",
-            cl2: "23:00",
-            vc: true,
-            vm: cm > 0,
-            cc,
-            cm,
-            fls: 3,
-            pc: 30000,
-            pm: 5000,
-            dep: 20000,
-            res: "on",
-            hold: 20,
-            maxr: 8,
-            fc: 8,
-            ap: "pending",
-            zones: [{ n: "Khu A", t: "car", c: cc, s: "open" }],
-        };
+        const latitude = Number(lat);
+        const longitude = Number(lng);
+        if (
+            lat.trim() === "" ||
+            lng.trim() === "" ||
+            !Number.isFinite(latitude) ||
+            !Number.isFinite(longitude) ||
+            Math.abs(latitude) > 90 ||
+            Math.abs(longitude) > 180
+        ) {
+            setErrorMsg(
+                "Vui lòng nhập vĩ độ và kinh độ hợp lệ của bãi (VD: 10.7745 và 106.7035).",
+            );
+            return;
+        }
 
-        addOverlayLot(newLot);
-        // Initialize lotInfo with submittedAt = today, rest "Chưa cập nhật"
-        const today = new Date().toISOString().split("T")[0];
-        useLotInfoStore.getState().setLotInfo(newLot.id, {
-            submittedAt: today,
-            openingHours: `${newLot.op} – ${newLot.cl2}`,
-            phone: "Chưa cập nhật",
-            prices: {
-                carFirstHour: newLot.pc,
-                carNextHour: newLot.pc,
-                reservationDeposit: newLot.dep,
-            },
-        });
-        setAddModalOpen(false);
-        setName("");
-        setAddr("");
+        setIsSubmitting(true);
+        setErrorMsg("");
+        try {
+            // D02.1: Parking stores what the owner typed; the lot starts as Pending.
+            const res = await registerParkingLotApi({
+                name: name.trim(),
+                address: addr.trim(),
+                latitude,
+                longitude,
+                type: lotType,
+                features: {
+                    supportsElectricVehicles,
+                    supportsLargeVehicles,
+                    hasEvCharging,
+                    isCovered,
+                    hasCctv,
+                },
+            });
+            await loadOwnerLots();
+            if (res?.id) setSelectedLotId(localLotId(res.id));
+            setAddModalOpen(false);
+            setName("");
+            setAddr("");
+            setLat("");
+            setLng("");
+            setSupportsElectricVehicles(false);
+            setSupportsLargeVehicles(false);
+            setHasEvCharging(false);
+            setIsCovered(false);
+            setHasCctv(false);
+        } catch (err: unknown) {
+            setErrorMsg(describeRegisterError(err));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -121,6 +159,22 @@ export function AddLotModal() {
                         ✕
                     </button>
                 </div>
+
+                {errorMsg && (
+                    <div
+                        style={{
+                            background: "#fef2f2",
+                            border: "1px solid #fecaca",
+                            color: "#991b1b",
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            fontSize: 13,
+                            marginBottom: 14,
+                        }}
+                    >
+                        ⚠️ {errorMsg}
+                    </div>
+                )}
 
                 <form
                     onSubmit={handleSubmit}
@@ -191,12 +245,13 @@ export function AddLotModal() {
                     <div
                         style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "1fr 1fr 1fr",
                             gap: 12,
                         }}
                     >
                         <div>
                             <label
+                                htmlFor="add-lot-lat"
                                 style={{
                                     display: "block",
                                     fontSize: 13,
@@ -205,14 +260,16 @@ export function AddLotModal() {
                                     marginBottom: 4,
                                 }}
                             >
-                                Sức chứa ô tô
+                                Vĩ độ (GPS)
                             </label>
                             <input
-                                type="number"
-                                min={10}
-                                max={5000}
-                                value={cc}
-                                onChange={(e) => setCc(Number(e.target.value))}
+                                id="add-lot-lat"
+                                type="text"
+                                inputMode="decimal"
+                                required
+                                placeholder="10.7745"
+                                value={lat}
+                                onChange={(e) => setLat(e.target.value)}
                                 style={{
                                     width: "100%",
                                     border: "1px solid #e3e8f2",
@@ -225,6 +282,7 @@ export function AddLotModal() {
                         </div>
                         <div>
                             <label
+                                htmlFor="add-lot-lng"
                                 style={{
                                     display: "block",
                                     fontSize: 13,
@@ -233,14 +291,16 @@ export function AddLotModal() {
                                     marginBottom: 4,
                                 }}
                             >
-                                Sức chứa xe máy
+                                Kinh độ (GPS)
                             </label>
                             <input
-                                type="number"
-                                min={0}
-                                max={5000}
-                                value={cm}
-                                onChange={(e) => setCm(Number(e.target.value))}
+                                id="add-lot-lng"
+                                type="text"
+                                inputMode="decimal"
+                                required
+                                placeholder="106.7035"
+                                value={lng}
+                                onChange={(e) => setLng(e.target.value)}
                                 style={{
                                     width: "100%",
                                     border: "1px solid #e3e8f2",
@@ -250,6 +310,161 @@ export function AddLotModal() {
                                     outline: "none",
                                 }}
                             />
+                        </div>
+                        <div>
+                            <label
+                                htmlFor="add-lot-type"
+                                style={{
+                                    display: "block",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: "#0f1b3d",
+                                    marginBottom: 4,
+                                }}
+                            >
+                                Loại bãi
+                            </label>
+                            <select
+                                id="add-lot-type"
+                                value={lotType}
+                                onChange={(e) =>
+                                    setLotType(e.target.value as LotType)
+                                }
+                                style={{
+                                    width: "100%",
+                                    border: "1px solid #e3e8f2",
+                                    borderRadius: 10,
+                                    padding: "9px 12px",
+                                    fontSize: 13,
+                                    outline: "none",
+                                }}
+                            >
+                                <option value="Outdoor">Ngoài trời</option>
+                                <option value="MultiStorey">Nhiều tầng</option>
+                                <option value="Underground">Tầng hầm</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Tiện ích bãi xe */}
+                    <div style={{ marginTop: 6 }}>
+                        <label
+                            style={{
+                                display: "block",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "#0f1b3d",
+                                marginBottom: 6,
+                            }}
+                        >
+                            Tiện ích bãi đỗ (Features)
+                        </label>
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr",
+                                gap: 8,
+                            }}
+                        >
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={supportsElectricVehicles}
+                                    onChange={(e) =>
+                                        setSupportsElectricVehicles(
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                <span>Xe điện (EV)</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={hasEvCharging}
+                                    onChange={(e) =>
+                                        setHasEvCharging(e.target.checked)
+                                    }
+                                />
+                                <span>Trạm sạc EV</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={hasCctv}
+                                    onChange={(e) =>
+                                        setHasCctv(e.target.checked)
+                                    }
+                                />
+                                <span>Camera an ninh</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={isCovered}
+                                    onChange={(e) =>
+                                        setIsCovered(e.target.checked)
+                                    }
+                                />
+                                <span>Có mái che</span>
+                            </label>
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={supportsLargeVehicles}
+                                    onChange={(e) =>
+                                        setSupportsLargeVehicles(
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                <span>Xe cỡ lớn / SUV</span>
+                            </label>
                         </div>
                     </div>
 
@@ -279,18 +494,25 @@ export function AddLotModal() {
                         </button>
                         <button
                             type="submit"
+                            disabled={isSubmitting}
                             style={{
-                                background: "#2563eb",
+                                background: isSubmitting
+                                    ? "#93c5fd"
+                                    : "#2563eb",
                                 border: "none",
                                 borderRadius: 10,
                                 padding: "8px 18px",
                                 fontSize: 13,
                                 fontWeight: 700,
-                                cursor: "pointer",
+                                cursor: isSubmitting
+                                    ? "not-allowed"
+                                    : "pointer",
                                 color: "#fff",
                             }}
                         >
-                            Gửi phê duyệt
+                            {isSubmitting
+                                ? "Đang gửi duyệt..."
+                                : "Gửi phê duyệt"}
                         </button>
                     </div>
                 </form>

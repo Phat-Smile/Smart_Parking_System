@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
 import { CompleteProfilePage } from "@/features/customer/CompleteProfilePage";
+import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
+import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
 import "../../parkwise.css";
 import "../../login/login.css";
+import "@/features/customer/customer-shell.css";
 import "./complete-profile.css";
-
-const manrope = Manrope({ subsets: ["latin", "vietnamese"], display: "swap" });
 
 export const metadata: Metadata = {
     title: "Complete Your Profile | ParkWise",
@@ -15,5 +15,9 @@ export const metadata: Metadata = {
 };
 
 export default function CompleteProfileRoute() {
-    return <CompleteProfilePage fontClassName={manrope.className} />;
+    return (
+        <CustomerAccessGuard>
+            <CompleteProfilePage fontClassName={parkwiseFont.className} />
+        </CustomerAccessGuard>
+    );
 }

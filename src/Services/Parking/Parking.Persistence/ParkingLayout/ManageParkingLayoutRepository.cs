@@ -8,6 +8,7 @@ using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Persistence.ParkingLots;
 
 namespace ParkingSystem.Parking.Persistence.ParkingLayout;
 
@@ -17,11 +18,14 @@ internal sealed class ManageParkingLayoutRepository(ParkingDbContext db, IAuditL
     public Task<bool> LotExistsAsync(Guid lotId, CancellationToken cancellationToken) =>
         db.ParkingLots.AsNoTracking().AnyAsync(lot => lot.Id == lotId, cancellationToken);
 
+    public Task<bool> IsApprovedAsync(Guid lotId, CancellationToken cancellationToken) =>
+        db.ParkingLots.AsNoTracking().AnyAsync(
+            lot => lot.Id == lotId && lot.ApprovalStatus == ParkingLotApprovalStatus.Approved,
+            cancellationToken);
+
     // Do not use IParkingLotAccess: that contract also permits Staff.
     public Task<bool> IsOwnerAsync(Guid lotId, Guid actorId, CancellationToken cancellationToken) =>
-        db.ParkingLotAssignments.AsNoTracking().AnyAsync(
-            a => a.LotId == lotId && a.AccountId == actorId && a.Role == ParkingLotMemberRole.Owner,
-            cancellationToken);
+        db.IsOwnerAsync(lotId, actorId, cancellationToken);
 
     public async Task<ParkingLotLayout> ReadAsync(Guid lotId, CancellationToken cancellationToken)
     {

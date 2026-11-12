@@ -21,6 +21,8 @@ they depend on separate Parking/Booking/AI/OSRM/layout/pricing work and, for hel
 contract that the Context marks as not yet specified. Later feature branches can enrich the detail response once
 those authoritative sources and contracts are available.
 
+Current prices and free spaces were added for Demo 1: see [Prices and free spaces](#prices-and-free-spaces).
+
 ## API Specification
 
 | API | URL |
@@ -119,3 +121,66 @@ else not found / non-approved
 end
 @enduml
 ```
+
+## Prices and free spaces
+
+Added for Demo 1 (catalog `MOD-PK-01`, `API-PK-05`, `API-PK-06`). The detail keeps every field above and adds two
+fields, so existing callers keep working. Distance, driving time, predicted availability and held reservations
+are still not part of the response.
+
+| API | URL | Permission |
+| --- | --- | --- |
+| GET | `/api/parking/lots/{parkingLotId}` | public; approved lots only |
+| GET | `/api/parking/lots/{lotId}/pricing` | public for approved lots; owners of the lot also see a Pending or Rejected lot |
+| GET | `/api/parking/lots/{parkingLotId}/availability` | public; approved lots only |
+
+### Detail response with prices and free spaces
+
+```json
+{
+  "id": "10000000-0000-0000-0000-000000000001",
+  "name": "Bãi đỗ Trung tâm A",
+  "address": "01 Đường Mẫu, TP. Hồ Chí Minh",
+  "latitude": 10.776530,
+  "longitude": 106.700981,
+  "type": "MultiStorey",
+  "openingHours": null,
+  "pricing": [
+    { "lotId": "10000000-0000-0000-0000-000000000001", "vehicleType": "CAR", "version": 2, "billingMode": "Block",
+      "blockMinutes": 60, "price": 30000, "overnightFee": 0, "effectiveFromUtc": "2026-10-01T00:00:00Z" }
+  ],
+  "availability": {
+    "lotId": "10000000-0000-0000-0000-000000000001",
+    "asOfUtc": "2026-10-30T08:00:00+00:00",
+    "car": { "available": 7 },
+    "motorbike": {
+      "capacity": 40,
+      "available": 30,
+      "zones": [ { "zoneId": "…", "zoneCode": "M1", "floorName": "Tầng 1", "capacity": 40, "available": 30 } ]
+    }
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `pricing` | Latest price of each vehicle type (`CAR`, `MOTORBIKE`) that has one; empty list when the owner has not set a price. Same items as `/pricing`. |
+| `availability` | Same object as `/availability`. |
+| `availability.car.available` | Car slots whose effective status is Available (BR-02.a). It is not the valid capacity and not the walk-in count (BR-02.d). |
+| `availability.motorbike` | `null` when the lot has no motorbike zone. `available` per zone is capacity minus the zone count, never below 0. |
+| `asOfUtc` | Server time of the count; the page may refresh it. |
+
+### Price list
+
+`GET /api/parking/lots/{lotId}/pricing` returns `{ "lotId": "…", "items": [ …same items as pricing above… ] }`.
+The older route `GET /api/parking/lots/{lotId}/pricing/{vehicleType}` is unchanged.
+
+### Errors
+
+| Status | `errorCode` | When |
+| --- | --- | --- |
+| 404 | `parking.lot_not_found` | `/pricing`: the lot does not exist, or it is not approved and the caller is not its owner. `/availability`: the lot does not exist or is not approved. |
+| 400 | `parking.pricing_validation_lot_empty` | `/pricing` with an empty id. |
+| 400 | validation problem | `/availability` with an empty id. |
+
+`GET /api/parking/lots/{parkingLotId}` still answers a plain 404 for a lot that does not exist or is not approved.

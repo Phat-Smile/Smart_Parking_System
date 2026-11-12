@@ -51,6 +51,16 @@ On success: **201 Created** with no `Location` header (public GET intentionally 
 The API does not accept a client-provided `approvalStatus` or `ownerUserId`.
 No automatic `Approved` transition is allowed.
 
+## Who owns a lot (MOD-PK-04, MOD-PK-05)
+
+The owner of a lot is whoever holds an **Owner** row for it in `parking.parking_lot_assignments` (the TECH-12 table). Registering a lot creates that row for the registrant in the same database save as the lot itself, with `assigned_by` set to the registrant. If the save fails (for example a duplicate name), neither the lot nor the row exists.
+
+`parking_lots.owner_user_id` only records who registered the lot (it is also what the duplicate-name check uses). It is **not** used to authorize anything: pricing, opening hours and the layout all ask the same question through one predicate in the Parking persistence layer (`LotOwnership`). If an admin later removes or demotes the registrant's Owner row, the registrant is no longer the owner.
+
+Migration `20261023071115_BackfillLotOwnerAssignments` gives the same Owner row to every lot registered before this change: a registrant with no row gets one, a registrant who currently has a `Staff` row is promoted to `Owner`, and existing `Owner` rows are left untouched. Lots with a NULL `owner_user_id` (seed data) get no row. The migration is data-only; its `Down` does nothing.
+
+Open point: `RemoveLotMemberCommand` does not stop an admin from removing the last Owner of a lot, which leaves the lot without an owner. Block it or accept it deliberately.
+
 ## Persistence
 
 New migration `20261013140000_AddParkingLotOwnerRegistration`:

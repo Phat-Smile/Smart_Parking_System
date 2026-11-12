@@ -14,7 +14,8 @@ public sealed record ApplyForOwnerApplicationCommand(
     string? TaxCode = null,
     string? BusinessName = null,
     string? PhoneNumber = null,
-    string? FullName = null) : IRequest<Result<OwnerApplicationActionResult>>;
+    string? FullName = null,
+    OwnerType? OwnerType = null) : IRequest<Result<OwnerApplicationActionResult>>;
 
 public sealed class ApplyForOwnerApplicationCommandValidator : AbstractValidator<ApplyForOwnerApplicationCommand>
 {
@@ -53,6 +54,9 @@ public sealed class ApplyForOwnerApplicationCommandHandler(
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(ApplyForOwnerApplicationCommand request, CancellationToken cancellationToken)
     {
+        if (request.OwnerType is { } ownerType && !Enum.IsDefined(ownerType))
+            return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.OwnerTypeInvalid);
+
         return await accounts.ExecuteInTransactionAsync(async () =>
         {
             var account = await accounts.FindByIdForUpdateAsync(request.AccountId, cancellationToken);
@@ -65,9 +69,19 @@ public sealed class ApplyForOwnerApplicationCommandHandler(
             if (account.OwnerApplicationStatus == OwnerApplicationStatus.Pending)
                 return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.AlreadyPending);
 
+            if (account.Status != AccountStatus.EmailVerified)
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.AccountNotVerified);
+
+            if (!string.IsNullOrWhiteSpace(request.TaxCode))
+            {
+                var trimmedTaxCode = request.TaxCode.Trim();
+                if (await accounts.OwnerTaxCodeExistsAsync(trimmedTaxCode, account.Id, cancellationToken))
+                    return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.TaxCodeAlreadyRegistered);
+            }
+
             var now = clock.UtcNow;
 
-            account.ApplyForParkingLotOwner(now, request.TaxCode, request.BusinessName);
+            account.ApplyForParkingLotOwner(now, request.TaxCode, request.BusinessName, request.OwnerType);
 
             if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
             {
@@ -93,7 +107,9 @@ public sealed class ApplyForOwnerApplicationCommandHandler(
                 }
             }
 
-            await accounts.SaveChangesAsync(cancellationToken);
+            // Two applications racing for one tax code both pass the check above; the unique index stops the loser.
+            if (!await accounts.TrySaveOwnerApplicationAsync(cancellationToken))
+                return Result<OwnerApplicationActionResult>.Failure(OwnerApplicationErrors.TaxCodeAlreadyRegistered);
 
             return Result<OwnerApplicationActionResult>.Success(new OwnerApplicationActionResult(
                 account.Id,

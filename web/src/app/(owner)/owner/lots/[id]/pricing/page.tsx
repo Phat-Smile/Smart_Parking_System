@@ -1,19 +1,99 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useOwnerStore } from "@/store/useOwnerStore";
 import { vnd } from "@/types/owner";
-import { Calculator, Check, AlertCircle, ArrowLeft } from "lucide-react";
+
+const IconCalculator = () => (
+    <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+    >
+        <rect width="16" height="20" x="4" y="2" rx="2" />
+        <line x1="8" x2="16" y1="6" y2="6" />
+        <line x1="16" x2="16" y1="14" y2="14" />
+        <path d="M16 10h.01" />
+        <path d="M12 10h.01" />
+        <path d="M8 10h.01" />
+        <path d="M12 14h.01" />
+        <path d="M8 14h.01" />
+        <path d="M12 18h.01" />
+        <path d="M8 18h.01" />
+    </svg>
+);
+const IconArrowLeft = () => (
+    <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+    >
+        <path d="m12 19-7-7 7-7" />
+        <path d="M19 12H5" />
+    </svg>
+);
+const IconCheck = ({ style }: { style?: React.CSSProperties }) => (
+    <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={style}
+    >
+        <polyline points="20 6 9 17 4 12" />
+    </svg>
+);
+const IconAlertCircle = ({ style }: { style?: React.CSSProperties }) => (
+    <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={style}
+    >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+);
+
+import {
+    configurePricingApi,
+    configureDepositPolicyApi,
+    getDepositPolicyApi,
+} from "@/features/owner/api/ownerApi";
+import { ApiError } from "@/shared/errors/api-error";
+import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 
 export default function LotPricingConfigPage() {
     const params = useParams();
     const lotId = Number(params?.id) || 1;
 
     const lots = useOwnerStore((s) => s.lots);
-    const lot = lots.find((l) => l.id === lotId) || lots[0];
+    const lot = lots.find((l) => l.id === lotId);
+    // Parking keys lots by GUID; a design lot without one cannot be saved.
+    const lotKey = backendLotId(lot);
 
     // Pricing configuration state
     const [pricingType, setPricingType] = useState<"block" | "turn">("block");
@@ -28,7 +108,23 @@ export default function LotPricingConfigPage() {
     const [simDuration, setSimDuration] = useState(3); // hours
     const [simVehicle, setSimVehicle] = useState<"car" | "moto">("car");
     const [isOvernight, setIsOvernight] = useState(false);
-    const [savedToast, setSavedToast] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
+
+    // Load deposit policy from BE if available
+    useEffect(() => {
+        async function loadDeposit() {
+            if (!lotKey) return;
+            try {
+                const res = await getDepositPolicyApi(lotKey);
+                if (res.isConfigured) setDeposit(res.holdDepositVnd);
+            } catch {
+                setErrorMessage("Không tải được mức cọc hiện tại của bãi này.");
+            }
+        }
+        loadDeposit();
+    }, [lotKey]);
 
     // Calculate estimated price
     const calculatePreviewPrice = () => {
@@ -47,16 +143,92 @@ export default function LotPricingConfigPage() {
         return blocks * (rate * (blockDuration / 60));
     };
 
-    const handleSave = () => {
-        setSavedToast(true);
-        setTimeout(() => setSavedToast(false), 2500);
+    const handleSave = async () => {
+        setErrorMessage("");
+        setSuccessMessage("");
+        if (!lotKey) {
+            setErrorMessage(
+                "Bãi này chưa có trên hệ thống nên không lưu được. Hãy chọn một bãi bạn đã đăng ký.",
+            );
+            return;
+        }
+        setIsSubmitting(true);
+
+        const billingMode = pricingType === "block" ? "Block" : "PerEntry";
+        const blockMins = pricingType === "block" ? blockDuration : null;
+
+        try {
+            // 1. Configure pricing for Car (PUT /api/parking/lots/{lotId}/pricing/CAR)
+            await configurePricingApi(lotKey, "CAR", {
+                billingMode,
+                price: carHourly,
+                blockMinutes: blockMins,
+                overnightFee: overnightCar,
+                reason: "Chủ bãi cập nhật biểu giá ô tô",
+            });
+
+            // 2. Configure pricing for Motorbike (PUT /api/parking/lots/{lotId}/pricing/MOTORBIKE)
+            await configurePricingApi(lotKey, "MOTORBIKE", {
+                billingMode,
+                price: motoHourly,
+                blockMinutes: blockMins,
+                overnightFee: overnightMoto,
+                reason: "Chủ bãi cập nhật biểu giá xe máy",
+            });
+
+            // 3. Configure deposit policy (PUT /api/parking/lots/{lotId}/deposit-policy)
+            await configureDepositPolicyApi(lotKey, {
+                holdDepositVnd: deposit,
+            });
+
+            setSuccessMessage(
+                "Đã lưu và áp dụng biểu phí & tiền cọc lên hệ thống máy chủ bãi xe thành công!",
+            );
+        } catch (err: unknown) {
+            if (err instanceof ApiError) {
+                if (err.status === 400) {
+                    setErrorMessage(
+                        err.problem?.detail ||
+                            "Thông tin cấu hình giá vé chưa hợp lệ.",
+                    );
+                } else if (err.status === 403) {
+                    setErrorMessage(
+                        "Tài khoản của bạn không có quyền sửa đổi biểu phí của bãi xe này.",
+                    );
+                } else {
+                    setErrorMessage(
+                        err.message || "Không thể cập nhật biểu giá lúc này.",
+                    );
+                }
+            } else {
+                setErrorMessage(
+                    "Không kết nối được máy chủ. Bảng giá chưa được lưu.",
+                );
+            }
+        } finally {
+            setIsSubmitting(false);
+            // Synchronize with local store
+            useOwnerStore.setState((state) => ({
+                lots: state.lots.map((l) =>
+                    l.id === lotId
+                        ? { ...l, pc: carHourly, pm: motoHourly, dep: deposit }
+                        : l,
+                ),
+            }));
+        }
     };
 
     return (
         <>
-            {savedToast && (
-                <div className="toast">
-                    Đã lưu cấu hình bảng giá thành công!
+            {successMessage && (
+                <div className="ok" style={{ marginBottom: "16px" }}>
+                    <b>✓ Thành công:</b> {successMessage}
+                </div>
+            )}
+
+            {errorMessage && (
+                <div className="err" style={{ marginBottom: "16px" }}>
+                    <b>⚠️ Lỗi:</b> {errorMessage}
                 </div>
             )}
 
@@ -77,53 +249,19 @@ export default function LotPricingConfigPage() {
                                     gap: "4px",
                                 }}
                             >
-                                <ArrowLeft size={14} /> Về chi tiết bãi
+                                <IconArrowLeft /> Về chi tiết bãi
                             </span>
                         </Link>
-                        <button className="btn p" onClick={handleSave}>
-                            Lưu bảng giá
+                        <button
+                            className="btn p"
+                            onClick={handleSave}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? "Đang lưu..." : "Lưu bảng giá"}
                         </button>
                     </div>
                 }
             />
-
-            {/* Backend API status notice */}
-            <div
-                className="err"
-                style={{
-                    borderColor: "#b7791f",
-                    background: "#fff9db",
-                    color: "#744210",
-                    marginBottom: "18px",
-                }}
-            >
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "8px",
-                    }}
-                >
-                    <AlertCircle
-                        size={18}
-                        style={{ flexShrink: 0, marginTop: "2px" }}
-                    />
-                    <div>
-                        <b>
-                            Thông báo tích hợp Backend (BE-5 / Payment Service):
-                        </b>
-                        <p style={{ margin: "4px 0 0", fontSize: "13px" }}>
-                            Chức năng cấu hình bảng giá thuộc User Story{" "}
-                            <code>FE-OWNER-004-1</code> phụ thuộc vào
-                            microservice <b>Payment: bảng giá (BE-5)</b>. Hiện
-                            tại backend <code>Payment.WebAPI</code> chưa mở
-                            endpoint public cho bảng giá. Giao diện đang lưu
-                            trên state và sẵn sàng kết nối ngay khi BE-5 triển
-                            khai.
-                        </p>
-                    </div>
-                </div>
-            </div>
 
             <div className="grid">
                 {/* Form cấu hình */}
@@ -249,15 +387,20 @@ export default function LotPricingConfigPage() {
                             borderTop: "1px solid var(--line)",
                         }}
                     >
-                        <button className="btn p" onClick={handleSave}>
-                            <Check
-                                size={16}
+                        <button
+                            className="btn p"
+                            onClick={handleSave}
+                            disabled={isSubmitting}
+                        >
+                            <IconCheck
                                 style={{
                                     display: "inline-block",
                                     marginRight: "6px",
                                 }}
                             />
-                            Áp dụng bảng giá cho bãi
+                            {isSubmitting
+                                ? "Đang áp dụng..."
+                                : "Áp dụng bảng giá cho bãi"}
                         </button>
                     </div>
                 </div>
@@ -338,7 +481,7 @@ export default function LotPricingConfigPage() {
                                 fontSize: "13px",
                             }}
                         >
-                            <Calculator size={16} />
+                            <IconCalculator />
                             <span>Tổng tiền dự kiến</span>
                         </div>
                         <div

@@ -33,6 +33,8 @@ interface OwnerStoreState {
     // Actions
     selectSpot: (id: string | null) => void;
     updateSpotStatus: (id: string, s: SlotStatusKey) => void;
+    updateSpotSensorCode: (id: string, sensorCode: string) => void;
+    setRealLots: (lots: ParkingLot[]) => void;
     setActiveFloor: (f: Floor | "all") => void;
     setViewMode: (m: "both" | "3d" | "2d") => void;
     setCurrentLotId: (id: number) => void;
@@ -67,7 +69,7 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
     activeFloor: "all",
     viewMode: "both",
     lots: INITIAL_LOTS,
-    currentLotId: 1,
+    currentLotId: 0,
     reservations: INITIAL_RESERVATIONS,
     activities: INITIAL_ACTIVITIES,
     reportFilter: { mode: "day", date: "2025-10-20" },
@@ -84,6 +86,15 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
                 spot.id === id ? { ...spot, s } : spot,
             ),
         })),
+
+    updateSpotSensorCode: (id, sensorCode) =>
+        set((state) => ({
+            spots: state.spots.map((spot) =>
+                spot.id === id ? { ...spot, sensorCode } : spot,
+            ),
+        })),
+
+    setRealLots: (lots) => set({ lots }),
 
     setActiveFloor: (f) => set({ activeFloor: f }),
 

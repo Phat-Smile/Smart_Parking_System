@@ -8,9 +8,8 @@ internal sealed class ParkingLotOpeningHoursRepository(ParkingDbContext dbContex
 {
     public Task<ParkingLot?> FindForOwnerAsync(Guid lotId, Guid ownerAccountId, CancellationToken cancellationToken) =>
         dbContext.ParkingLots
-            .Where(lot => lot.Id == lotId && dbContext.ParkingLotAssignments.Any(assignment =>
-                assignment.LotId == lot.Id && assignment.AccountId == ownerAccountId &&
-                assignment.Role == ParkingLotMemberRole.Owner))
+            .Where(lot => lot.Id == lotId && dbContext.OwnerAssignments().Any(assignment =>
+                assignment.LotId == lot.Id && assignment.AccountId == ownerAccountId))
             .SingleOrDefaultAsync(cancellationToken);
 
     public Task<ParkingLot?> FindApprovedAsync(Guid lotId, CancellationToken cancellationToken) =>

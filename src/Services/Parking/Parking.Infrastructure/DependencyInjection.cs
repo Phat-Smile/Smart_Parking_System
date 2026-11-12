@@ -5,9 +5,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using ParkingSystem.Parking.Infrastructure.Messaging;
 using ParkingSystem.Parking.Infrastructure.Messaging.Outbox;
+using ParkingSystem.Parking.Infrastructure.ParkingLayout;
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.Parking.Application.Common.Identity;
-using ParkingSystem.Parking.Infrastructure.Identity;
 
 namespace ParkingSystem.Parking.Infrastructure;
 
@@ -41,10 +40,14 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IClock, SystemClock>();
         services.AddIntegrationEventRegistry();
+        services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.SlotStatusChangedIntegrationEvent>("parking.slot-status-changed.v1", 1);
+        services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.ParkingSessionClosedIntegrationEvent>("parking.session-closed.v1", 1);
+        services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.ParkingSlotNeedsVerificationIntegrationEvent>("parking.slot-needs-verification.v1", 1);
+        services.AddIntegrationEvent<ParkingSystem.Contracts.Events.Parking.ParkingSessionOpenedIntegrationEvent>("parking.session-opened.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddScoped<ParkingSystem.Parking.Application.Common.Interfaces.IAuditWriter, ParkingSystem.Parking.Infrastructure.Auditing.AuditWriter>();
-        services.AddScoped<IPlateOwnerLookup, StubPlateOwnerLookup>();
         services.AddHostedService<OutboxDispatcher>();
+        services.AddHostedService<ParkConfirmTimeoutWorker>();
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>

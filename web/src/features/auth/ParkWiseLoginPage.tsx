@@ -3,18 +3,20 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ParkWiseAuthLayout } from "./ParkWiseAuthLayout";
-import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import { completeMfaLogin, loginParkWiseAccount } from "./loginParkWiseAccount";
+import { SegmentedOtpInput } from "./SegmentedOtpInput";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import {
     describeGoogleSignInError,
     googleLoginParkWiseAccount,
 } from "./googleSignIn";
 import { rememberPendingVerification } from "./pendingVerification";
+import { resolvePostLoginRedirect } from "./roleRedirect";
 import { ApiError } from "@/shared/errors/api-error";
 
 const loginSchema = z.object({
@@ -41,12 +43,26 @@ export function ParkWiseLoginPage({
     fontClassName: string;
 }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const explicitRedirect =
+        searchParams?.get?.("redirect") ||
+        searchParams?.get?.("returnUrl") ||
+        null;
+
     const [notice, setNotice] = useState("");
     const [submitError, setSubmitError] = useState("");
     const [authenticatedEmail, setAuthenticatedEmail] = useState("");
     const [lockSeconds, setLockSeconds] = useState(0);
     const [googlePending, setGooglePending] = useState(false);
     const [googleUnavailable, setGoogleUnavailable] = useState(false);
+
+    // MFA Step 2 State
+    const [mfaToken, setMfaToken] = useState<string | null>(null);
+    const [mfaDigits, setMfaDigits] = useState<string[]>(() =>
+        Array(6).fill(""),
+    );
+    const [isMfaSubmitting, setIsMfaSubmitting] = useState(false);
+    const [mfaResetKey, setMfaResetKey] = useState(0);
 
     useEffect(() => {
         if (lockSeconds <= 0) return;
@@ -56,6 +72,7 @@ export function ParkWiseLoginPage({
         );
         return () => window.clearTimeout(timer);
     }, [lockSeconds]);
+
     const {
         register,
         handleSubmit,
@@ -71,12 +88,24 @@ export function ParkWiseLoginPage({
         setSubmitError("");
         setAuthenticatedEmail("");
         try {
-            const account = await loginParkWiseAccount(
+            const outcome = await loginParkWiseAccount(
                 values.email.trim(),
                 values.password,
             );
+            if (outcome.mfaRequired) {
+                setMfaToken(outcome.mfaToken);
+                setMfaDigits(Array(6).fill(""));
+                setMfaResetKey((k) => k + 1);
+                setSubmitError("");
+                return;
+            }
             resetField("password");
-            setAuthenticatedEmail(account.email);
+            setAuthenticatedEmail(outcome.email);
+            const destination = resolvePostLoginRedirect(
+                outcome,
+                explicitRedirect,
+            );
+            router.push(destination);
         } catch (error) {
             if (error instanceof ApiError) {
                 const code = error.problem?.errorCode;
@@ -120,6 +149,71 @@ export function ParkWiseLoginPage({
         }
     }
 
+    async function submitMfaCode(codeToVerify?: string) {
+        const code = codeToVerify ?? mfaDigits.join("");
+        if (!mfaToken || !/^[0-9]{6}$/.test(code) || isMfaSubmitting) return;
+
+        setSubmitError("");
+        setIsMfaSubmitting(true);
+        try {
+            const account = await completeMfaLogin(mfaToken, code);
+            setAuthenticatedEmail(account.email);
+            const destination = resolvePostLoginRedirect(
+                account,
+                explicitRedirect,
+            );
+            router.push(destination);
+        } catch (error) {
+            if (error instanceof ApiError) {
+                const codeErr = error.problem?.errorCode;
+                const message =
+                    codeErr === "identity.invalid_credentials" ||
+                    error.status === 401
+                        ? "Invalid verification code. Please check your app and try again."
+                        : codeErr === "identity.account_temporarily_locked" ||
+                            error.status === 423
+                          ? "Too many attempts. Please try again later."
+                          : codeErr === "identity.mfa_token_expired"
+                            ? "Your session has expired. Please return to login and try again."
+                            : error.status === 400
+                              ? "Check your 6-digit code and try again."
+                              : "We couldn't verify this code. Please try again later.";
+                if (
+                    codeErr === "identity.account_temporarily_locked" ||
+                    error.status === 423
+                ) {
+                    setLockSeconds(error.retryAfterSeconds ?? 900);
+                }
+                setSubmitError(
+                    error.correlationId
+                        ? `${message} Support ID: ${error.correlationId}`
+                        : message,
+                );
+            } else {
+                setSubmitError(
+                    "We couldn't connect. Check your connection and try again.",
+                );
+            }
+        } finally {
+            setIsMfaSubmitting(false);
+        }
+    }
+
+    function onMfaDigitsChange(next: string[]) {
+        setMfaDigits(next);
+        setSubmitError("");
+        const code = next.join("");
+        if (/^[0-9]{6}$/.test(code) && !isMfaSubmitting && mfaToken) {
+            void submitMfaCode(code);
+        }
+    }
+
+    function handleBackToLogin() {
+        setMfaToken(null);
+        setMfaDigits(Array(6).fill(""));
+        setSubmitError("");
+    }
+
     async function onGoogleCredential(idToken: string) {
         setGooglePending(true);
         setNotice("");
@@ -128,6 +222,11 @@ export function ParkWiseLoginPage({
         try {
             const account = await googleLoginParkWiseAccount(idToken);
             setAuthenticatedEmail(account.email);
+            const destination = resolvePostLoginRedirect(
+                account,
+                explicitRedirect,
+            );
+            router.push(destination);
         } catch (error) {
             if (
                 error instanceof ApiError &&
@@ -176,122 +275,192 @@ export function ParkWiseLoginPage({
             </aside>
 
             <div className="parkwise-login-form-panel">
-                <form noValidate onSubmit={handleSubmit(onSubmit)}>
-                    <h2>Log in to your account</h2>
-
-                    <div className="parkwise-login-field">
-                        <label htmlFor="parkwise-login-email">Email</label>
-                        <input
-                            id="parkwise-login-email"
-                            type="email"
-                            autoComplete="username"
-                            placeholder="Enter your email"
-                            aria-invalid={Boolean(errors.email)}
-                            aria-describedby={
-                                errors.email
-                                    ? "parkwise-login-email-error"
-                                    : undefined
-                            }
-                            {...register("email")}
-                            disabled={lockSeconds > 0}
-                        />
-                        {errors.email && (
-                            <p id="parkwise-login-email-error" role="alert">
-                                {errors.email.message}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="parkwise-login-field">
-                        <label htmlFor="parkwise-login-password">
-                            Password
-                        </label>
-                        <input
-                            id="parkwise-login-password"
-                            type="password"
-                            autoComplete="current-password"
-                            placeholder="Enter your password"
-                            aria-invalid={Boolean(errors.password)}
-                            aria-describedby={
-                                errors.password
-                                    ? "parkwise-login-password-error"
-                                    : undefined
-                            }
-                            {...register("password")}
-                            disabled={lockSeconds > 0}
-                        />
-                        {errors.password && (
-                            <p id="parkwise-login-password-error" role="alert">
-                                {errors.password.message}
-                            </p>
-                        )}
-                    </div>
-
-                    <Link
-                        href="/forgot-password"
-                        className="parkwise-login-forgot"
+                {mfaToken ? (
+                    <form
+                        noValidate
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            void submitMfaCode();
+                        }}
                     >
-                        Forgot password?
-                    </Link>
-                    <button
-                        className="parkwise-login-submit"
-                        type="submit"
-                        disabled={isSubmitting || lockSeconds > 0}
-                    >
-                        {isSubmitting ? "Verifying..." : "Log in"}
-                    </button>
-                    {submitError && (
-                        <p className="parkwise-login-error" role="alert">
-                            {submitError}
+                        <h2>Two-factor authentication</h2>
+                        <p className="parkwise-login-description">
+                            Enter the 6-digit code from your authenticator app.
                         </p>
-                    )}
-                    {lockSeconds > 0 && (
-                        <p className="parkwise-login-error" role="status">
-                            Account locked. Try again in{" "}
-                            {Math.floor(lockSeconds / 60)}:
-                            {String(lockSeconds % 60).padStart(2, "0")}, or
-                            reset your password.
-                        </p>
-                    )}
-                    {authenticatedEmail && (
-                        <div className="parkwise-login-notice" role="status">
-                            <p>Signed in as {authenticatedEmail}.</p>
-                            <Link href="/settings/security">
-                                Account security
-                            </Link>
+
+                        <div className="parkwise-login-field">
+                            <SegmentedOtpInput
+                                value={mfaDigits}
+                                onChange={onMfaDigitsChange}
+                                error={submitError}
+                                disabled={isMfaSubmitting || lockSeconds > 0}
+                                resetKey={mfaResetKey}
+                            />
                         </div>
-                    )}
 
-                    <div className="parkwise-login-divider" aria-hidden="true">
-                        <span>or</span>
-                    </div>
-                    {!googleUnavailable && (
-                        <GoogleSignInButton
-                            text="continue_with"
-                            onCredential={onGoogleCredential}
-                            onUnavailable={onGoogleUnavailable}
-                        />
-                    )}
-                    {googlePending && (
-                        <p className="parkwise-login-notice" role="status">
-                            Verifying your Google account...
-                        </p>
-                    )}
-                    {notice && (
-                        <p
-                            className="parkwise-login-notice"
-                            role="status"
-                            aria-live="polite"
+                        {submitError && (
+                            <p className="parkwise-login-error" role="alert">
+                                {submitError}
+                            </p>
+                        )}
+                        {lockSeconds > 0 && (
+                            <p className="parkwise-login-error" role="status">
+                                Account locked. Try again in{" "}
+                                {Math.floor(lockSeconds / 60)}:
+                                {String(lockSeconds % 60).padStart(2, "0")}, or
+                                reset your password.
+                            </p>
+                        )}
+
+                        <button
+                            className="parkwise-login-submit"
+                            type="submit"
+                            disabled={
+                                isMfaSubmitting ||
+                                !mfaDigits.every(Boolean) ||
+                                lockSeconds > 0
+                            }
                         >
-                            {notice}
-                        </p>
-                    )}
+                            {isMfaSubmitting
+                                ? "Verifying..."
+                                : "Verify and log in"}
+                        </button>
 
-                    <p className="parkwise-login-signup">
-                        Don&apos;t have an account?{" "}
-                        <Link href="/sign-up">Sign up</Link>
-                    </p>
-                </form>
+                        <button
+                            type="button"
+                            onClick={handleBackToLogin}
+                            className="parkwise-otp-back-link"
+                        >
+                            Back to login
+                        </button>
+                    </form>
+                ) : (
+                    <form noValidate onSubmit={handleSubmit(onSubmit)}>
+                        <h2>Log in to your account</h2>
+
+                        <div className="parkwise-login-field">
+                            <label htmlFor="parkwise-login-email">Email</label>
+                            <input
+                                id="parkwise-login-email"
+                                type="email"
+                                autoComplete="username"
+                                placeholder="Enter your email"
+                                aria-invalid={Boolean(errors.email)}
+                                aria-describedby={
+                                    errors.email
+                                        ? "parkwise-login-email-error"
+                                        : undefined
+                                }
+                                {...register("email")}
+                                disabled={lockSeconds > 0}
+                            />
+                            {errors.email && (
+                                <p id="parkwise-login-email-error" role="alert">
+                                    {errors.email.message}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="parkwise-login-field">
+                            <label htmlFor="parkwise-login-password">
+                                Password
+                            </label>
+                            <input
+                                id="parkwise-login-password"
+                                type="password"
+                                autoComplete="current-password"
+                                placeholder="Enter your password"
+                                aria-invalid={Boolean(errors.password)}
+                                aria-describedby={
+                                    errors.password
+                                        ? "parkwise-login-password-error"
+                                        : undefined
+                                }
+                                {...register("password")}
+                                disabled={lockSeconds > 0}
+                            />
+                            {errors.password && (
+                                <p
+                                    id="parkwise-login-password-error"
+                                    role="alert"
+                                >
+                                    {errors.password.message}
+                                </p>
+                            )}
+                        </div>
+
+                        <Link
+                            href="/forgot-password"
+                            className="parkwise-login-forgot"
+                        >
+                            Forgot password?
+                        </Link>
+                        <button
+                            className="parkwise-login-submit"
+                            type="submit"
+                            disabled={isSubmitting || lockSeconds > 0}
+                        >
+                            {isSubmitting ? "Verifying..." : "Log in"}
+                        </button>
+                        {submitError && (
+                            <p className="parkwise-login-error" role="alert">
+                                {submitError}
+                            </p>
+                        )}
+                        {lockSeconds > 0 && (
+                            <p className="parkwise-login-error" role="status">
+                                Account locked. Try again in{" "}
+                                {Math.floor(lockSeconds / 60)}:
+                                {String(lockSeconds % 60).padStart(2, "0")}, or
+                                reset your password.
+                            </p>
+                        )}
+                        {authenticatedEmail && (
+                            <div
+                                className="parkwise-login-notice"
+                                role="status"
+                            >
+                                <p>Signed in as {authenticatedEmail}.</p>
+                                <Link href="/settings/security">
+                                    Account security
+                                </Link>
+                            </div>
+                        )}
+
+                        <div
+                            className="parkwise-login-divider"
+                            aria-hidden="true"
+                        >
+                            <span>or</span>
+                        </div>
+                        {!googleUnavailable && (
+                            <GoogleSignInButton
+                                text="continue_with"
+                                onCredential={onGoogleCredential}
+                                onUnavailable={onGoogleUnavailable}
+                            />
+                        )}
+                        {googlePending && (
+                            <p className="parkwise-login-notice" role="status">
+                                Verifying your Google account...
+                            </p>
+                        )}
+                        {notice && (
+                            <p
+                                className="parkwise-login-notice"
+                                role="status"
+                                aria-live="polite"
+                            >
+                                {notice}
+                            </p>
+                        )}
+
+                        <p className="parkwise-login-signup">
+                            Don&apos;t have an account?{" "}
+                            <Link href="/sign-up">Sign up</Link>
+                        </p>
+                    </form>
+                )}
             </div>
         </ParkWiseAuthLayout>
     );

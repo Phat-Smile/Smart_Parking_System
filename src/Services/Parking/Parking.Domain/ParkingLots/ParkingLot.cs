@@ -18,6 +18,11 @@ public sealed class ParkingLot
     public decimal Longitude { get; private set; }
     public ParkingLotType Type { get; private set; }
     public ParkingLotApprovalStatus ApprovalStatus { get; private set; }
+    public bool SupportsElectricVehicles { get; private set; }
+    public bool SupportsLargeVehicles { get; private set; }
+    public bool HasEvCharging { get; private set; }
+    public bool IsCovered { get; private set; }
+    public bool HasCctv { get; private set; }
 
     public static ParkingLot Register(
         Guid id,
@@ -83,6 +88,18 @@ public sealed class ParkingLot
     }
 
     public string? OpeningHoursJson { get; private set; }
+
+    public void SetFeatures(ParkingLotFeatures features)
+    {
+        ArgumentNullException.ThrowIfNull(features);
+        if (ApprovalStatus != ParkingLotApprovalStatus.Pending)
+            throw new InvalidOperationException("Features can only change before lot approval.");
+        SupportsElectricVehicles = features.SupportsElectricVehicles;
+        SupportsLargeVehicles = features.SupportsLargeVehicles;
+        HasEvCharging = features.HasEvCharging;
+        IsCovered = features.IsCovered;
+        HasCctv = features.HasCctv;
+    }
 
     public void SetOpeningHours(string openingHoursJson)
     {

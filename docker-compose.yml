@@ -118,6 +118,7 @@ services:
     volumes:
       - ./.local/security/jwt/public.pem:/run/parking-system/security/jwt/public.pem:ro
       - ./.local/security/jwt/private.pem:/run/parking-system/security/jwt/private.pem:ro
+      - identity_owner_documents:/app/data/owner-documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,6 +149,11 @@ services:
       # VNeID CCCD verification; defaults to Stub when BaseUrl is empty.
       VneidApi__Provider: Http
       VneidApi__BaseUrl: http://vneid-simulator:8000
+      # Owner application documents live on a named volume so they survive container re-creation.
+      OwnerDocuments__RootPath: /app/data/owner-documents
+      # Parking links a new session to the owner of a registered vehicle through this lookup (contract 1).
+      # Stub answers only for a few fixed demo plates; Database needs the identity.vehicles table (apply the Identity migrations).
+      VehicleLookup__Provider: Database
 
   parking-api:
     build:
@@ -180,6 +186,10 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
+      DeviceAuth__SensorKey: ${SENSOR_DEVICE_KEY:-}
+      BookingService__BaseUrl: http://booking-api:8080
+      AiService__BaseUrl: http://ai-service:8000
+      ArrivalIntegration__Key: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
 
   booking-api:
     build:
@@ -207,6 +217,7 @@ services:
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
       OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION: "true"
       ConnectionStrings__DefaultConnection: *default-database-connection
+      ArrivalIntegration__Key: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
       RabbitMq__Host: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMq__Port: ${RABBITMQ_PORT:-5672}
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
@@ -250,6 +261,26 @@ services:
       Vnpay__BaseUrl: ${VNPAY_BASE_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
       Vnpay__ReturnUrl: ${VNPAY_RETURN_URL:-http://localhost:3000/payment/vnpay-return}
 
+  mailpit:
+    image: axllent/mailpit:v1.22.3
+    container_name: parkwise-mailpit
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_DATABASE: ""
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    expose:
+      - "1025"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8025/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - parking-network
+    restart: unless-stopped
+
   notification-api:
     build:
       context: .
@@ -264,6 +295,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       <<: *jwt-environment
       ASPNETCORE_ENVIRONMENT: Development
@@ -281,11 +314,11 @@ services:
       RabbitMq__Username: ${RABBITMQ_USER:-parking_dev}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       RabbitMq__VirtualHost: ${RABBITMQ_VHOST:-/}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-no-reply@parkwise.vn}
 
   ai-service:
     build:
@@ -298,6 +331,7 @@ services:
     environment:
       APP_ENVIRONMENT: Development
       AI_GRPC_PORT: 50051
+      ARRIVAL_API_KEY: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
       OTEL_SERVICE_NAME: ai-service
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
@@ -358,6 +392,12 @@ services:
       MQTT_USERNAME: ${RABBITMQ_USER:-parking_dev}
       MQTT_PASSWORD: ${RABBITMQ_PASSWORD:-parking_dev_local_only}
       DEVICE_SIMULATION_ENABLED: ${DEVICE_SIMULATION_ENABLED:-false}
+      SIM_LOT_ID: ${SIM_LOT_ID:-}
+      SIM_SLOT_CODES: ${SIM_SLOT_CODES:-}
+      SIM_INTERVAL_SECONDS: ${SIM_INTERVAL_SECONDS:-5}
+      SIM_MODE: ${SIM_MODE:-slot}
+      SIM_PLATE_NUMBER: ${SIM_PLATE_NUMBER:-}
+      SIM_CONFIDENCE: ${SIM_CONFIDENCE:-0.97}
     networks:
       - parking-network
     restart: unless-stopped
@@ -390,4 +430,6 @@ volumes:
     name: parking_postgres_data
   rabbitmq_data:
     name: parking_rabbitmq_data
+  identity_owner_documents:
+    name: parking_identity_owner_documents
 
