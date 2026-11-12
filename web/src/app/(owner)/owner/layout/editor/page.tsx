@@ -278,7 +278,7 @@ export default function OwnerLayoutEditorPage() {
                                 gap: 6,
                             }}
                         >
-                            👁️ Xem sơ đồ 2D
+                            Xem sơ đồ 2D
                         </Link>
                         <button
                             type="button"
@@ -300,7 +300,7 @@ export default function OwnerLayoutEditorPage() {
                                 boxShadow: "0 2px 6px rgba(37,99,235,0.25)",
                             }}
                         >
-                            {isSaving ? "Đang lưu…" : "💾 Lưu sơ đồ"}
+                            {isSaving ? "Đang lưu…" : "Lưu sơ đồ"}
                         </button>
                     </div>
                 }
@@ -648,8 +648,8 @@ export default function OwnerLayoutEditorPage() {
                                                     }}
                                                 >
                                                     {isCar
-                                                        ? "🚗 Ô TÔ"
-                                                        : "🛵 XE MÁY"}
+                                                        ? "Ô TÔ"
+                                                        : "XE MÁY"}
                                                 </span>
                                                 <strong
                                                     style={{
@@ -942,7 +942,7 @@ export default function OwnerLayoutEditorPage() {
                                                     border: "1px solid #bbf7d0",
                                                 }}
                                             >
-                                                💡 Khu xe máy quản lý theo dung
+                                                Khu xe máy quản lý theo dung
                                                 lượng chung ({zone.capacity}{" "}
                                                 xe), không phân chia từng ô
                                                 riêng biệt.
@@ -1033,7 +1033,7 @@ export default function OwnerLayoutEditorPage() {
                                                                 cursor: "pointer",
                                                             }}
                                                         >
-                                                            ⚡ Tự động tạo{" "}
+                                                            Tự động tạo{" "}
                                                             {zone.capacity} ô
                                                         </button>
                                                     </div>

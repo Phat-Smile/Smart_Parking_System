@@ -15,11 +15,7 @@ import {
 import { K_VISIBLE } from "../../../../../lib/mapStatus";
 import { SlotStatusChips } from "@/features/owner/layout/SlotStatusChips";
 import { SlotStatusListPanel } from "@/features/owner/layout/SlotStatusListPanel";
-import {
-    saveParkingLayoutApi,
-    setSlotMaintenanceApi,
-} from "@/features/owner/api/ownerApi";
-import { useParkingRealtime } from "@/features/parking/useParkingRealtime";
+import { saveParkingLayoutApi } from "@/features/owner/api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 
@@ -34,6 +30,8 @@ function SlotModal({
     onClose: () => void;
 }) {
     const updateSpotStatus = useOwnerStore((s) => s.updateSpotStatus);
+    const updateSpotSensorCode = useOwnerStore((s) => s.updateSpotSensorCode);
+    const [sensorInput, setSensorInput] = useState(spot.sensorCode || "");
     const statusInfo = ST[spot.s];
 
     return (
@@ -74,6 +72,43 @@ function SlotModal({
                         Biển số <b>{spot.p}</b>
                     </p>
                 )}
+
+                {/* Ô nhập mã cảm biến IoT (Sensor Code) */}
+                <div style={{ marginTop: 12, marginBottom: 12 }}>
+                    <label
+                        htmlFor={`sensor-input-${spot.id}`}
+                        style={{
+                            display: "block",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "var(--ink)",
+                            marginBottom: 4,
+                        }}
+                    >
+                        Mã Cảm Biến IoT (Sensor Code):
+                    </label>
+                    <input
+                        id={`sensor-input-${spot.id}`}
+                        type="text"
+                        value={sensorInput}
+                        placeholder="VD: SN-CAR-A01"
+                        onChange={(e) => {
+                            setSensorInput(e.target.value);
+                            updateSpotSensorCode(spot.id, e.target.value);
+                        }}
+                        style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            fontSize: 13,
+                            borderRadius: 8,
+                            border: "1px solid var(--line)",
+                            background: "var(--soft)",
+                            color: "var(--ink)",
+                            outline: "none",
+                            fontWeight: 600,
+                        }}
+                    />
+                </div>
 
                 <p className="mut" style={{ fontSize: 11, marginTop: 10 }}>
                     Đổi trạng thái:
@@ -129,31 +164,6 @@ export default function Layout2DPage() {
     const mainLot = lots.find((lot) => backendLotId(lot)) ?? lots[0];
     const lotKey = backendLotId(mainLot);
 
-    const updateSpotStatus = useOwnerStore((s) => s.updateSpotStatus);
-
-    useParkingRealtime({
-        lotId: lotKey,
-        operations: true,
-        onSlotStatusChanged: (event) => {
-            const lower = event.effectiveStatus.toLowerCase();
-            const mappedStatus: SlotStatusKey =
-                lower === "occupied"
-                    ? "occupied"
-                    : lower === "maintenance"
-                      ? "maintenance"
-                      : lower === "unavailable"
-                        ? "maintenance"
-                        : lower === "assigned"
-                          ? "reserved"
-                          : lower === "needsverification"
-                            ? "verify"
-                            : "available";
-
-            updateSpotStatus(event.slotCode, mappedStatus);
-            updateSpotStatus(event.slotId, mappedStatus);
-        },
-    });
-
     const handleSelect = (spot: ParkingSpot) => {
         selectSpot(spot.id);
         setModalSpot(spot);
@@ -193,6 +203,7 @@ export default function Layout2DPage() {
                             return {
                                 id: String(sp.id),
                                 slotCode: `C-${sp.r}${sp.n + 1}`,
+                                sensorCode: sp.sensorCode || undefined,
                                 overrideState:
                                     sp.s === "maintenance"
                                         ? ("Maintenance" as const)
@@ -259,7 +270,7 @@ export default function Layout2DPage() {
                                 gap: 6,
                             }}
                         >
-                            ✏️ Chỉnh sửa sơ đồ
+                            Chỉnh sửa sơ đồ
                         </Link>
                         <button
                             type="button"

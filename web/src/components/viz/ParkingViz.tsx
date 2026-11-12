@@ -3,11 +3,7 @@
 import React, { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useParkingStore } from "../../store/useParkingStore";
-import { useOwnerStore } from "../../store/useOwnerStore";
 import { useParkingSlots } from "../../lib/api/owner";
-import { useParkingRealtime } from "@/features/parking/useParkingRealtime";
-import type { SlotStatus } from "../../domain/types";
-import type { SlotStatusKey } from "../../types/owner";
 import { Plan2D } from "./Plan2D";
 
 const ParkingScene = dynamic(
@@ -24,48 +20,9 @@ const ParkingScene = dynamic(
 
 export function ParkingViz() {
     const { viewMode, setViewMode, setSlots } = useParkingStore();
-    const updateSlotStatus = useParkingStore((s) => s.updateSlotStatus);
-    const updateOwnerSpotStatus = useOwnerStore((s) => s.updateSpotStatus);
 
     // Hardcoded lotId for now based on seed data
     const { data: slots, isLoading } = useParkingSlots("lot-1");
-
-    useParkingRealtime({
-        lotId: "lot-1",
-        operations: true,
-        onSlotStatusChanged: (event) => {
-            const lower = event.effectiveStatus.toLowerCase();
-            const mapped: SlotStatus =
-                lower === "occupied"
-                    ? "occupied"
-                    : lower === "maintenance"
-                      ? "maintenance"
-                      : lower === "unavailable"
-                        ? "unavailable"
-                        : lower === "assigned"
-                          ? "assigned"
-                          : lower === "needsverification"
-                            ? "needs_verification"
-                            : "available";
-
-            updateSlotStatus(event.slotId, mapped);
-            if (event.slotCode) {
-                updateSlotStatus(event.slotCode, mapped);
-            }
-
-            const ownerStatusKey: SlotStatusKey =
-                mapped === "needs_verification"
-                    ? "verify"
-                    : mapped === "unavailable"
-                      ? "maintenance"
-                      : mapped === "assigned"
-                        ? "reserved"
-                        : mapped;
-
-            updateOwnerSpotStatus(event.slotCode, ownerStatusKey);
-            updateOwnerSpotStatus(event.slotId, ownerStatusKey);
-        },
-    });
 
     useEffect(() => {
         if (slots) {
