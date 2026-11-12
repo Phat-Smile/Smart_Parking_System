@@ -20,7 +20,7 @@ public sealed class SignalRParkingRealtimeNotifier(
     {
         try
         {
-            var groupName = ParkingHub.GetLotGroupName(lotId);
+            var groupName = ParkingHub.GetOperationsLotGroupName(lotId);
             var message = new SlotStatusChangedMessage(lotId, slotId, slotCode, effectiveStatus, previousStatus, timestamp);
             await hubContext.Clients.Group(groupName).SlotStatusChanged(message);
         }
@@ -40,7 +40,7 @@ public sealed class SignalRParkingRealtimeNotifier(
     {
         try
         {
-            var groupName = ParkingHub.GetLotGroupName(lotId);
+            var groupName = ParkingHub.GetOperationsLotGroupName(lotId);
             var message = new SlotNeedsVerificationMessage(lotId, slotId, slotCode, stage, timestamp);
             await hubContext.Clients.Group(groupName).SlotNeedsVerification(message);
         }
@@ -59,7 +59,7 @@ public sealed class SignalRParkingRealtimeNotifier(
     {
         try
         {
-            var groupName = ParkingHub.GetLotGroupName(lotId);
+            var groupName = ParkingHub.GetPublicLotGroupName(lotId);
             var message = new LotOccupancyChangedMessage(lotId, availableCarSlots, availableMotorbikeSlots, timestamp);
             await hubContext.Clients.Group(groupName).LotOccupancyChanged(message);
         }
