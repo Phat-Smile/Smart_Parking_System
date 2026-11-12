@@ -17,6 +17,7 @@ import {
 } from "./pendingVerification";
 import { resendParkWiseOtp, verifyParkWiseEmail } from "./emailVerificationApi";
 import { loginParkWiseAccount } from "./loginParkWiseAccount";
+import { setAuthSession } from "./authSession";
 import { ApiError } from "@/shared/errors/api-error";
 
 // The verification UI uses the six-digit code from the registration flow.
@@ -123,6 +124,14 @@ export function ParkWiseOtpPage({
 
     useEffect(() => {
         if (!verified) return;
+        if (isOwner) {
+            try {
+                window.localStorage.removeItem("parkwise_demo_owner_app");
+                window.localStorage.removeItem("parkwise_demo_owner_docs");
+            } catch {
+                // ignore
+            }
+        }
         const targetUrl = isOwner ? OWNER_ONBOARDING_TARGET : "/login";
         const timer = window.setTimeout(() => router.replace(targetUrl), 1500);
         return () => window.clearTimeout(timer);
@@ -155,6 +164,54 @@ export function ParkWiseOtpPage({
             }
             clearPendingCredentials();
             clearPendingVerification();
+            if (isOwner && email) {
+                let pwd = "";
+                try {
+                    pwd =
+                        window.sessionStorage.getItem(
+                            "parkwise:pending-login-pwd",
+                        ) || "";
+                    window.sessionStorage.removeItem(
+                        "parkwise:pending-login-pwd",
+                    );
+                } catch {
+                    // ignore
+                }
+
+                if (pwd) {
+                    try {
+                        await loginParkWiseAccount(email, pwd);
+                    } catch {
+                        setAuthSession({
+                            accessToken: `mock-token-owner-${Date.now()}`,
+                            tokenType: "Bearer",
+                            expiresIn: 86400,
+                            refreshToken: `mock-refresh-${Date.now()}`,
+                            account: {
+                                id: "00000000-0000-0000-0000-000000000002",
+                                email,
+                                phoneNumber: null,
+                                status: "Active",
+                                role: "ParkingLotOwner",
+                            },
+                        });
+                    }
+                } else {
+                    setAuthSession({
+                        accessToken: `mock-token-owner-${Date.now()}`,
+                        tokenType: "Bearer",
+                        expiresIn: 86400,
+                        refreshToken: `mock-refresh-${Date.now()}`,
+                        account: {
+                            id: "00000000-0000-0000-0000-000000000002",
+                            email,
+                            phoneNumber: null,
+                            status: "Active",
+                            role: "ParkingLotOwner",
+                        },
+                    });
+                }
+            }
             setVerified(true);
         } catch (failure) {
             const code =

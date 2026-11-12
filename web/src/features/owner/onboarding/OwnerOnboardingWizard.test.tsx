@@ -70,6 +70,16 @@ describe("OwnerOnboardingWizard", () => {
         });
 
         vi.spyOn(ownerLegalApi, "getMyOwnerDocuments").mockResolvedValue([]);
+        vi.spyOn(ownerLegalApi, "updateOwnerType").mockResolvedValue({
+            accountId: "acc-123",
+            email: "partner@parkwise.vn",
+            status: "None",
+            taxCode: null,
+            businessName: null,
+            rejectionReason: null,
+            reviewedAtUtc: null,
+            ownerType: "Enterprise",
+        });
     });
 
     afterEach(() => {
