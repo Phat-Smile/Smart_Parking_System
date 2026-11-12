@@ -286,10 +286,11 @@ export function NotificationBell({ variant }: NotificationBellProps) {
                             className="ov2-notif-panel"
                             style={{
                                 position: "fixed",
-                                top: "90px",
-                                left: "236px",
+                                top: variant === "sidebar" ? "18px" : "64px",
+                                left: variant === "sidebar" ? "240px" : "auto",
+                                right: variant === "sidebar" ? "auto" : "20px",
                                 width: 380,
-                                maxWidth: "calc(100vw - 240px)",
+                                maxWidth: "calc(100vw - 260px)",
                                 background: "#ffffff",
                                 borderRadius: 16,
                                 boxShadow:
