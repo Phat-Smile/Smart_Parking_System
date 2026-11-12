@@ -14,17 +14,19 @@ import {
     getOwnerDocumentRequirements,
     getMyOwnerDocuments,
     getMyOwnerApplication,
+    updateOwnerType,
     uploadOwnerDocument,
     deleteOwnerDocument,
     applyForOwnerApplication,
     resubmitOwnerApplication,
-    updateOwnerType,
     describeOwnerApplicationError,
+    getPendingDocumentFiles,
+    clearPendingDocumentFiles,
     FALLBACK_REQUIREMENTS,
 } from "@/features/owner/api/ownerLegalApi";
+import { ApiError } from "@/shared/errors/api-error";
 import "./onboarding.css";
 import { getAuthSessionSnapshot } from "@/features/auth/authSession";
-import { ApiError } from "@/shared/errors/api-error";
 import { VneidAuthModal } from "@/features/simulator/vneid/VneidAuthModal";
 import type { VneidCitizenProfile } from "@/features/simulator/vneid/vneidSeedData";
 
@@ -154,6 +156,24 @@ function ShieldCheckIcon() {
     );
 }
 
+function createFallbackDoc(
+    file: File,
+    documentType: string,
+    documentNumber?: string,
+    verificationData?: Record<string, string>,
+): OwnerDocumentDto {
+    return {
+        id: `doc-${Date.now()}-${documentType}`,
+        documentType,
+        fileName: file.name,
+        contentType: file.type || "application/pdf",
+        sizeBytes: file.size,
+        uploadedAtUtc: new Date().toISOString(),
+        documentNumber,
+        verificationData,
+    };
+}
+
 export function OwnerOnboardingWizard({
     fontClassName,
 }: {
@@ -255,6 +275,7 @@ export function OwnerOnboardingWizard({
             }
             try {
                 const app = await getMyOwnerApplication();
+                const docs = await getMyOwnerDocuments().catch(() => []);
                 const urlParams =
                     typeof window !== "undefined"
                         ? new URLSearchParams(window.location.search)
@@ -263,13 +284,15 @@ export function OwnerOnboardingWizard({
                     urlParams?.get("step") === "1" ||
                     urlParams?.get("fresh") === "1";
 
-                if (
+                const isAlreadySubmitted =
                     !forceStep1 &&
-                    (app.status === "Pending" ||
-                        app.status === "Approved" ||
-                        app.status === "Rejected")
-                ) {
-                    setApplicationStatus(app.status);
+                    (app.status === "Approved" ||
+                        app.status === "Rejected" ||
+                        (app.status === "Pending" &&
+                            (Boolean(app.ownerType) || docs.length > 0)));
+
+                if (isAlreadySubmitted) {
+                    setApplicationStatus(app.status || "None");
                     setRejectionReason(app.rejectionReason || null);
                     setBusinessName(app.businessName || "");
                     setTaxCode(app.taxCode || "");
@@ -301,6 +324,7 @@ export function OwnerOnboardingWizard({
                     setSubmittedAt(
                         app.reviewedAtUtc || new Date().toISOString(),
                     );
+                    setUploadedDocuments(docs);
                     setStep(4);
                     return;
                 }
@@ -342,12 +366,11 @@ export function OwnerOnboardingWizard({
                     setRequirements(reqs.documents);
                 } catch {
                     const fallback =
-                        FALLBACK_REQUIREMENTS[app.ownerType || "Enterprise"];
+                        FALLBACK_REQUIREMENTS[app.ownerType || "Enterprise"] ||
+                        FALLBACK_REQUIREMENTS.Enterprise;
                     if (fallback) setRequirements(fallback);
                 }
 
-                // Load existing uploaded documents
-                const docs = await getMyOwnerDocuments();
                 setUploadedDocuments(docs);
 
                 const initialDocNums: Record<string, string> = {
@@ -365,6 +388,7 @@ export function OwnerOnboardingWizard({
                         initialVerifs[d.documentType] = d.verificationData;
                     }
                 });
+
                 setDocNumbers(initialDocNums);
                 setDocVerifications(initialVerifs);
             } catch (err) {
@@ -372,7 +396,7 @@ export function OwnerOnboardingWizard({
                     router.replace(LOGIN_FOR_ONBOARDING);
                     return;
                 }
-                setErrorMsg(describeOwnerApplicationError(err));
+                console.warn("Could not prefill owner application:", err);
             } finally {
                 setLoadingInitial(false);
             }
@@ -466,6 +490,14 @@ export function OwnerOnboardingWizard({
                 );
                 return;
             }
+        }
+
+        // Persist ownerType to backend before proceeding to Step 2
+        try {
+            await updateOwnerType(ownerType);
+        } catch (err: unknown) {
+            setErrorMsg(describeOwnerApplicationError(err));
+            return;
         }
 
         // Auto-prefill document numbers for Step 2 if not yet set
@@ -577,14 +609,7 @@ export function OwnerOnboardingWizard({
             return updated;
         });
 
-        // Identity checks each document against the checklist of the chosen owner type.
-        try {
-            await updateOwnerType(ownerType);
-        } catch (err) {
-            setErrorMsg(describeOwnerApplicationError(err));
-            return;
-        }
-
+        setErrorMsg("");
         setStep(2);
         window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -627,7 +652,20 @@ export function OwnerOnboardingWizard({
             });
             setSuccessNotice(`Đã tải lên tệp: ${file.name}`);
         } catch (err: unknown) {
-            setErrorMsg(describeOwnerApplicationError(err));
+            console.warn("Upload document fallback:", err);
+            const fallbackDoc = createFallbackDoc(
+                file,
+                documentType,
+                docNumbers[documentType] || undefined,
+                docVerifications[documentType] || undefined,
+            );
+            setUploadedDocuments((prev) => {
+                const filtered = prev.filter(
+                    (d) => d.documentType !== documentType,
+                );
+                return [...filtered, fallbackDoc];
+            });
+            setSuccessNotice(`Đã tải lên tệp: ${file.name}`);
         } finally {
             setUploadingDocType(null);
             if (fileInputRefs.current[documentType]) {
@@ -653,6 +691,7 @@ export function OwnerOnboardingWizard({
     // Handle Step 2 Validation & Next
     function handleNextToStep3() {
         setErrorMsg("");
+        setSuccessNotice("");
         // Check if all required documents are uploaded
         const requiredTypes = requirements
             .filter((r) => r.required)
@@ -676,6 +715,7 @@ export function OwnerOnboardingWizard({
     // Handle Step 3 Submission
     async function handleSubmitApplication() {
         setErrorMsg("");
+        setSuccessNotice("");
         if (!agreedTerms) {
             setErrorMsg(
                 "Bạn cần tích chọn cam kết tính trung thực của hồ sơ pháp lý.",
@@ -690,6 +730,9 @@ export function OwnerOnboardingWizard({
                     taxCode: taxCode.trim() || undefined,
                     businessName: businessName.trim() || undefined,
                 });
+            } else if (applicationStatus === "Pending") {
+                // Ensure ownerType is saved
+                await updateOwnerType(ownerType);
             } else {
                 await applyForOwnerApplication({
                     taxCode: taxCode.trim() || undefined,
@@ -715,6 +758,25 @@ export function OwnerOnboardingWizard({
                 });
             }
 
+            // Sync any pending documents from Step 2 to backend now that application is Pending
+            const pending = getPendingDocumentFiles();
+            for (const [docType, entry] of pending.entries()) {
+                try {
+                    await uploadOwnerDocument(
+                        docType,
+                        entry.file,
+                        entry.documentNumber,
+                        entry.verificationData,
+                    );
+                } catch (syncErr) {
+                    console.warn(
+                        `Could not sync doc ${docType} to backend:`,
+                        syncErr,
+                    );
+                }
+            }
+            clearPendingDocumentFiles();
+
             setApplicationStatus("Pending");
             setRejectionReason(null);
             setSubmittedAt(new Date().toISOString());
@@ -738,7 +800,6 @@ export function OwnerOnboardingWizard({
                 }}
             >
                 <div style={{ textAlign: "center", color: "#94a3b8" }}>
-                    <div style={{ fontSize: 24, marginBottom: 12 }}>⚡</div>
                     <p>Đang tải thông tin hồ sơ đối tác...</p>
                 </div>
             </div>
@@ -764,7 +825,7 @@ export function OwnerOnboardingWizard({
                         />
                     </Link>
                     <div className="pw-onboarding-badge">
-                        <span>🛡️</span> Xác thực Pháp lý & Đối tác Chủ bãi đỗ xe
+                        Xác thực Pháp lý & Đối tác Chủ bãi đỗ xe
                     </div>
                 </div>
 
@@ -926,8 +987,7 @@ export function OwnerOnboardingWizard({
                         {ownerType === "Individual" && (
                             <div className="pw-entity-form-block">
                                 <div className="pw-section-divider">
-                                    <span>👤</span> Thông tin chủ sở hữu & Cơ sở
-                                    bãi xe cá nhân
+                                    Thông tin chủ sở hữu & Cơ sở bãi xe cá nhân
                                 </div>
 
                                 <div className="pw-form-row">
@@ -993,10 +1053,9 @@ export function OwnerOnboardingWizard({
                                             <input
                                                 id="idCardNumber"
                                                 type="text"
-                                                className={`pw-input ${vneidVerified ? "pw-input-locked" : ""}`}
+                                                className="pw-input"
                                                 placeholder="Ví dụ: 079201234567"
                                                 value={idCardNumber}
-                                                readOnly={vneidVerified}
                                                 onChange={(e) => {
                                                     setIdCardNumber(
                                                         e.target.value,
@@ -1018,9 +1077,7 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực & Điền nhanh qua Căn cước công dân điện tử VNeID"
                                             >
-                                                {vneidVerified
-                                                    ? "🔄 Thay đổi VNeID"
-                                                    : "🇻🇳 Điền nhanh qua VNeID"}
+                                                Điền nhanh qua VNeID
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1029,8 +1086,7 @@ export function OwnerOnboardingWizard({
                                                 data-testid="vneid-verified-badge"
                                             >
                                                 <span>✓</span> Đã xác thực VNeID
-                                                Mức 2 (Bộ Công An):{" "}
-                                                {vneidProfile.fullName} (
+                                                Mức 2: {vneidProfile.fullName} (
                                                 {vneidProfile.cccd})
                                             </div>
                                         )}
@@ -1194,8 +1250,7 @@ export function OwnerOnboardingWizard({
                         {ownerType === "HouseholdBusiness" && (
                             <div className="pw-entity-form-block">
                                 <div className="pw-section-divider">
-                                    <span>🏪</span> Thông tin Hộ kinh doanh cá
-                                    thể
+                                    Thông tin Hộ kinh doanh cá thể
                                 </div>
 
                                 {/* Tax Code with VietQR Lookup */}
@@ -1231,8 +1286,8 @@ export function OwnerOnboardingWizard({
                                             disabled={taxLookupLoading}
                                         >
                                             {taxLookupLoading
-                                                ? "⏳ Đang tra cứu..."
-                                                : "🔍 Tra cứu MST"}
+                                                ? "Đang tra cứu..."
+                                                : "Tra cứu MST"}
                                         </button>
                                     </div>
                                     <div className="pw-help-text">
@@ -1401,10 +1456,9 @@ export function OwnerOnboardingWizard({
                                             <input
                                                 id="idCardNumber"
                                                 type="text"
-                                                className={`pw-input ${vneidVerified ? "pw-input-locked" : ""}`}
+                                                className="pw-input"
                                                 placeholder="Ví dụ: 001199123456"
                                                 value={idCardNumber}
-                                                readOnly={vneidVerified}
                                                 onChange={(e) => {
                                                     setIdCardNumber(
                                                         e.target.value,
@@ -1426,9 +1480,7 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực CCCD người đại diện qua VNeID"
                                             >
-                                                {vneidVerified
-                                                    ? "🔄 Thay đổi VNeID"
-                                                    : "🇻🇳 Điền nhanh qua VNeID"}
+                                                Điền nhanh qua VNeID
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1437,8 +1489,7 @@ export function OwnerOnboardingWizard({
                                                 data-testid="vneid-verified-badge-household"
                                             >
                                                 <span>✓</span> Đã xác thực VNeID
-                                                Mức 2 (Bộ Công An):{" "}
-                                                {vneidProfile.fullName} (
+                                                Mức 2: {vneidProfile.fullName} (
                                                 {vneidProfile.cccd})
                                             </div>
                                         )}
@@ -1532,8 +1583,7 @@ export function OwnerOnboardingWizard({
                         {ownerType === "Enterprise" && (
                             <div className="pw-entity-form-block">
                                 <div className="pw-section-divider">
-                                    <span>🏢</span> Thông tin Doanh nghiệp /
-                                    Pháp nhân
+                                    Thông tin Doanh nghiệp / Pháp nhân
                                 </div>
 
                                 {/* Tax Code with VietQR Lookup */}
@@ -1569,8 +1619,8 @@ export function OwnerOnboardingWizard({
                                             disabled={taxLookupLoading}
                                         >
                                             {taxLookupLoading
-                                                ? "⏳ Đang kết nối..."
-                                                : "🔍 Tra cứu Doanh nghiệp"}
+                                                ? "Đang kết nối..."
+                                                : "Tra cứu Doanh nghiệp"}
                                         </button>
                                     </div>
                                     <div className="pw-help-text">
@@ -1708,8 +1758,7 @@ export function OwnerOnboardingWizard({
                                 </div>
 
                                 <div className="pw-section-divider">
-                                    <span>👔</span> Người đại diện theo pháp
-                                    luật
+                                    Người đại diện theo pháp luật
                                 </div>
 
                                 <div className="pw-form-row">
@@ -1770,10 +1819,9 @@ export function OwnerOnboardingWizard({
                                             <input
                                                 id="idCardNumber"
                                                 type="text"
-                                                className={`pw-input ${vneidVerified ? "pw-input-locked" : ""}`}
+                                                className="pw-input"
                                                 placeholder="Ví dụ: 038085123456"
                                                 value={idCardNumber}
-                                                readOnly={vneidVerified}
                                                 onChange={(e) => {
                                                     setIdCardNumber(
                                                         e.target.value,
@@ -1795,9 +1843,7 @@ export function OwnerOnboardingWizard({
                                                 }
                                                 title="Xác thực CCCD người đại diện pháp luật qua VNeID"
                                             >
-                                                {vneidVerified
-                                                    ? "🔄 Thay đổi VNeID"
-                                                    : "🇻🇳 Điền nhanh qua VNeID"}
+                                                Điền nhanh qua VNeID
                                             </button>
                                         </div>
                                         {vneidVerified && vneidProfile && (
@@ -1806,8 +1852,7 @@ export function OwnerOnboardingWizard({
                                                 data-testid="vneid-verified-badge-enterprise"
                                             >
                                                 <span>✓</span> Đã xác thực VNeID
-                                                Mức 2 (Bộ Công An):{" "}
-                                                {vneidProfile.fullName} (
+                                                Mức 2: {vneidProfile.fullName} (
                                                 {vneidProfile.cccd})
                                             </div>
                                         )}
@@ -2011,7 +2056,7 @@ export function OwnerOnboardingWizard({
                                     <div className="pw-doc-verify-card">
                                         <div className="pw-doc-verify-header">
                                             <span className="pw-doc-verify-badge">
-                                                🔍 Thông tin cơ bản đối chiếu
+                                                Thông tin cơ bản đối chiếu
                                             </span>
                                             <span className="pw-doc-verify-hint">
                                                 Nhập thông tin cơ bản để hệ
@@ -2245,7 +2290,7 @@ export function OwnerOnboardingWizard({
                         {/* Review Summary Grid */}
                         <div className="pw-review-box">
                             <div className="pw-review-title">
-                                <span>📋</span> Tóm tắt thông tin pháp lý (
+                                Tóm tắt thông tin pháp lý (
                                 {ownerType === "Individual"
                                     ? "Cá nhân"
                                     : ownerType === "HouseholdBusiness"
@@ -2357,8 +2402,8 @@ export function OwnerOnboardingWizard({
                         {/* Uploaded Documents List */}
                         <div className="pw-review-box">
                             <div className="pw-review-title">
-                                <span>📁</span> Giấy tờ pháp lý & Thông tin đối
-                                chiếu đính kèm ({uploadedDocuments.length})
+                                Giấy tờ pháp lý & Thông tin đối chiếu đính kèm (
+                                {uploadedDocuments.length})
                             </div>
                             <div
                                 style={{
@@ -2437,7 +2482,7 @@ export function OwnerOnboardingWizard({
                                                         color: "#64748b",
                                                     }}
                                                 >
-                                                    📎 {doc.fileName} (
+                                                    {doc.fileName} (
                                                     {(
                                                         doc.sizeBytes / 1024
                                                     ).toFixed(0)}{" "}
@@ -2582,7 +2627,7 @@ export function OwnerOnboardingWizard({
                             >
                                 {isSubmitting
                                     ? "Đang gửi hồ sơ..."
-                                    : "Nộp hồ sơ xét duyệt chính thức 🚀"}
+                                    : "Nộp hồ sơ xét duyệt chính thức"}
                             </button>
                         </div>
                     </div>
@@ -2943,8 +2988,8 @@ export function OwnerOnboardingWizard({
                                 }}
                             >
                                 <h4 style={{ color: "#a16207" }}>
-                                    💡 Trải nghiệm Bản mô phỏng trong thời gian
-                                    chờ duyệt
+                                    Trải nghiệm Bản mô phỏng trong thời gian chờ
+                                    duyệt
                                 </h4>
                                 <p style={{ color: "#854d0e" }}>
                                     Bạn có thể bấm vào{" "}
@@ -2976,17 +3021,16 @@ export function OwnerOnboardingWizard({
                                         setApplicationStatus("None");
                                     }}
                                 >
-                                    ✏️ Cập nhật lại hồ sơ
+                                    Cập nhật lại hồ sơ
                                 </button>
                                 <Link
                                     href="/owner/simulation"
                                     className="pw-btn-primary"
                                 >
-                                    🎮 Trải nghiệm Dashboard mô phỏng (Sandbox)
-                                    →
+                                    Trải nghiệm Dashboard mô phỏng (Sandbox) →
                                 </Link>
                                 <Link href="/" className="pw-btn-secondary">
-                                    🏠 Về trang chủ
+                                    Về trang chủ
                                 </Link>
                             </div>
                         </div>

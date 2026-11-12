@@ -66,7 +66,15 @@ export function NotificationBell({ variant }: NotificationBellProps) {
         markAsRead,
         markAllAsRead,
         categoryPreferences,
+        fetchNotifications,
+        isLoading,
     } = useNotificationStore();
+
+    useEffect(() => {
+        if (mounted) {
+            void fetchNotifications();
+        }
+    }, [mounted, fetchNotifications]);
 
     // Đóng bảng thông báo ngay khi chuyển trang theo chuẩn React
     const [prevPath, setPrevPath] = useState(pathname);
@@ -286,10 +294,11 @@ export function NotificationBell({ variant }: NotificationBellProps) {
                             className="ov2-notif-panel"
                             style={{
                                 position: "fixed",
-                                top: "90px",
-                                left: "236px",
+                                top: variant === "sidebar" ? "18px" : "64px",
+                                left: variant === "sidebar" ? "240px" : "auto",
+                                right: variant === "sidebar" ? "auto" : "20px",
                                 width: 380,
-                                maxWidth: "calc(100vw - 240px)",
+                                maxWidth: "calc(100vw - 260px)",
                                 background: "#ffffff",
                                 borderRadius: 16,
                                 boxShadow:
