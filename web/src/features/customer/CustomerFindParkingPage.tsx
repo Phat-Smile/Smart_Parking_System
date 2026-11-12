@@ -11,6 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CustomerMap } from "./CustomerMap";
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
+import { AiRecommendationPanel } from "./components/AiRecommendationPanel";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
@@ -1291,81 +1292,12 @@ export function CustomerFindParkingPage({
                         </div>
                         {currentRecommendations &&
                             currentRecommendations.length > 0 && (
-                                <section
-                                    className="ai-recommendation-banner"
-                                    aria-label="AI Top 3 Recommendations"
-                                >
-                                    <div className="ai-recommendation-header">
-                                        <div className="ai-recommendation-title">
-                                            <CustomerIcon
-                                                name="sparkles"
-                                                size={18}
-                                            />
-                                            <span>
-                                                {copy(
-                                                    "AI Smart Recommendations (Top 3 Matches)",
-                                                    "Gợi ý thông minh từ AI (Top 3 Bãi Xe Tối Ưu)",
-                                                )}
-                                            </span>
-                                        </div>
-                                        <span className="ai-recommendation-badge">
-                                            {copy(
-                                                "Multi-criteria Ranking",
-                                                "Đa tiêu chí tối ưu",
-                                            )}
-                                        </span>
-                                    </div>
-                                    <div className="ai-recommendation-cards">
-                                        {currentRecommendations.map((rec) => (
-                                            <div
-                                                key={rec.lotId}
-                                                className={`ai-recommendation-card ${activeSelectedId === rec.lotId ? "active" : ""}`}
-                                                onClick={() =>
-                                                    setSelectedId(rec.lotId)
-                                                }
-                                            >
-                                                <div className="ai-card-rank">
-                                                    <strong>#{rec.rank}</strong>
-                                                    <span>
-                                                        {copy(
-                                                            "Top Match",
-                                                            "Phù hợp",
-                                                        )}
-                                                    </span>
-                                                </div>
-                                                <div
-                                                    className="ai-card-name"
-                                                    title={rec.name}
-                                                >
-                                                    {rec.name}
-                                                </div>
-                                                <div className="ai-card-stats">
-                                                    <span>
-                                                        {rec.distanceKm} km
-                                                    </span>
-                                                    <span>·</span>
-                                                    <span>
-                                                        {rec.driveTimeMinutes
-                                                            ? `~${Math.round(rec.driveTimeMinutes)} ${copy("mins drive", "phút lái xe")}`
-                                                            : `${Math.round(rec.probabilityPercent)}% ${copy("available", "còn chỗ")}`}
-                                                    </span>
-                                                </div>
-                                                <div className="ai-card-reasons">
-                                                    {rec.reasons
-                                                        .slice(0, 2)
-                                                        .map((reason, idx) => (
-                                                            <span
-                                                                key={idx}
-                                                                className="ai-reason-pill"
-                                                            >
-                                                                {reason}
-                                                            </span>
-                                                        ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
+                                <AiRecommendationPanel
+                                    recommendations={currentRecommendations}
+                                    activeId={activeSelectedId}
+                                    onSelect={setSelectedId}
+                                    copy={copy}
+                                />
                             )}
                         <div className="customer-search-list">
                             {visibleParkings.map((parking) => {
@@ -1382,9 +1314,18 @@ export function CustomerFindParkingPage({
                                                 {parking.type.toUpperCase()}
                                             </span>
                                             {lotRec && (
-                                                <span className="customer-ai-highlight-badge">
-                                                    ✨ Top {lotRec.rank}:{" "}
-                                                    {lotRec.reasons.join(" · ")}
+                                                <span
+                                                    className="customer-ai-highlight-badge"
+                                                    title={lotRec.reasons.join(
+                                                        " · ",
+                                                    )}
+                                                >
+                                                    {copy("Top", "Hạng")}{" "}
+                                                    {lotRec.rank},{" "}
+                                                    {Math.round(
+                                                        lotRec.probabilityPercent,
+                                                    )}
+                                                    % {copy("free", "còn chỗ")}
                                                 </span>
                                             )}
                                             {activeSelectedId ===
