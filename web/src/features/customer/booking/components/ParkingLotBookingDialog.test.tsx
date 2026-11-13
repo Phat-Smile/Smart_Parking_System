@@ -24,6 +24,8 @@ const mockLot: ParkingLotDetailView = {
     image: "/images/lot-1.jpg",
     amenities: ["Camera giám sát", "Mái che"],
     compatible: ["car", "ev"],
+    prebookable: true,
+    bookableVehicleTypes: ["car"],
 };
 
 const mockVehicle: RegisteredVehicle = {

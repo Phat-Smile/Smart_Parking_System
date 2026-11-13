@@ -89,11 +89,29 @@ export type LotAvailability = {
     motorbike: { capacity: number; available: number } | null;
 };
 
+export type ParkingLotPublicInfo = {
+    description: string | null;
+    entryInstructions: string | null;
+    rules: string[];
+    photoUrls: string[];
+    photosAreIllustrative: boolean;
+    paymentMethods: string[];
+    evChargingPoints: number | null;
+};
+
 export type ParkingLotDetail = ParkingLotSummary & {
     openingHours: { days: DailyOpeningHours[] } | null;
     // Present once Parking returns prices and free spaces with the detail (MOD-PK-01).
     pricing?: LotPrice[];
     availability?: LotAvailability | null;
+    compatibility?: string[];
+    amenities?: string[];
+    prebookable?: boolean;
+    bookableVehicleTypes?: string[];
+    floorCount?: number | null;
+    carCapacity?: number | null;
+    motorbikeCapacity?: number | null;
+    publicInfo?: ParkingLotPublicInfo | null;
 };
 
 export class ParkingLotNotFoundError extends Error {}

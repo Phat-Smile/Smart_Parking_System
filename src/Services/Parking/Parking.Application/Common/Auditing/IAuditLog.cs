@@ -33,5 +33,6 @@ public static class AuditActions
     public const string SlotParkedConfirmed = "slot.parked_confirmed";
     public const string SlotEmptyConfirmed = "slot.empty_confirmed";
     public const string ParkingLotOpeningHoursUpdated = "parking_lot.opening_hours_updated";
+    public const string ParkingLotPublicInfoUpdated = "parking_lot.public_info_updated";
     public const string ParkingLayoutUpdated = "parking.layout.updated";
 }

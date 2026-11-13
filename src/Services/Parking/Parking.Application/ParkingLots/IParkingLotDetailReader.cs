@@ -1,4 +1,6 @@
 using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
+using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
+using ParkingSystem.Parking.Domain.ParkingLots;
 
 namespace ParkingSystem.Parking.Application.ParkingLots;
 
@@ -14,4 +16,9 @@ public sealed record ParkingLotDetail(
     decimal Latitude,
     decimal Longitude,
     string Type,
-    WeeklyOpeningHours? OpeningHours = null);
+    WeeklyOpeningHours? OpeningHours = null,
+    CustomerLotFeatures? Features = null,
+    int? FloorCount = null,
+    int? CarCapacity = null,
+    int? MotorbikeCapacity = null,
+    ParkingLotPublicInfo? PublicInfo = null);

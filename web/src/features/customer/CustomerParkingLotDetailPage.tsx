@@ -75,20 +75,44 @@ export function CustomerParkingLotDetailPage({
                             } as Record<string, string>
                         )[lot.type] ?? lot.type,
                     ),
-                    image: "/images/parkwise/dashboard-parking-structure.webp",
-                    photos: [],
+                    image:
+                        lot.publicInfo?.photoUrls?.[0] ??
+                        "/images/parkwise/dashboard-parking-structure.webp",
+                    // Do not count the illustrative fallback image as a published photo.
+                    photos: lot.publicInfo?.photoUrls ?? [],
+                    photoIsIllustrative:
+                        lot.publicInfo?.photosAreIllustrative ??
+                        !lot.publicInfo?.photoUrls?.length,
                     isPreview: false,
                     latitude: lot.latitude,
                     longitude: lot.longitude,
                     openingHours: lot.openingHours?.days,
                     pricing: lot.pricing,
+                    // Only CAR pricing may be used as the car booking fallback.
                     hourlyPrice: estimateLotBookingPricing(
-                        lot.pricing,
+                        lot.pricing?.filter(
+                            (price) =>
+                                price.vehicleType.toUpperCase() === "CAR",
+                        ),
                         1,
                         "CAR",
                     )?.rateValue,
                     priceText: describeLotPricing(lot.pricing),
                     spacesText: describeLotAvailability(lot.availability),
+                    compatibilityDeclared: Array.isArray(lot.compatibility),
+                    compatible: lot.compatibility,
+                    amenities: lot.amenities,
+                    prebookable: lot.prebookable ?? false,
+                    bookableVehicleTypes: lot.bookableVehicleTypes ?? [],
+                    description: lot.publicInfo?.description ?? undefined,
+                    entryInstructions:
+                        lot.publicInfo?.entryInstructions ?? undefined,
+                    rules: lot.publicInfo?.rules,
+                    paymentMethods: lot.publicInfo?.paymentMethods,
+                    evChargingPoints: lot.publicInfo?.evChargingPoints,
+                    floorCount: lot.floorCount ?? undefined,
+                    carCapacity: lot.carCapacity ?? undefined,
+                    motorbikeCapacity: lot.motorbikeCapacity ?? undefined,
                 }}
             />
         );

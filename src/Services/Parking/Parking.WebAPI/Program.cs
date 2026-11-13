@@ -104,6 +104,7 @@ app.MapArrivalAvailabilityEndpoints();
 app.MapAdminParkingLotReviewEndpoints();
 app.MapParkingLotAddressSearchEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
+app.MapParkingLotPublicInfoEndpoints();
 app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();
 app.MapStaffLotEndpoints();

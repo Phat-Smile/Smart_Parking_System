@@ -77,6 +77,24 @@ export function ParkingLotBookingDialog({
     if (!isOpen) return null;
 
     async function handleCreateHold() {
+        if (vehicle.vehicleType !== "Car") {
+            setErrorMessage(
+                copy(
+                    "Only car booking is supported.",
+                    "Chỉ hỗ trợ đặt chỗ ô tô.",
+                ),
+            );
+            return;
+        }
+        if (!lot.isPreview && !lot.bookableVehicleTypes?.includes("car")) {
+            setErrorMessage(
+                copy(
+                    "This lot does not accept car bookings.",
+                    "Bãi này chưa hỗ trợ đặt trước ô tô.",
+                ),
+            );
+            return;
+        }
         setIsHolding(true);
         setErrorMessage("");
         try {
@@ -134,10 +152,15 @@ export function ParkingLotBookingDialog({
             setBookingConfirmed(confirmed);
             emitLiveToast(
                 copy("Booking successful!", "Đặt chỗ thành công!"),
-                copy(
-                    `Your Booking Pass is ready${selectedSpot ? ` for space ${selectedSpot}` : ""}.`,
-                    `Vé Booking Pass đã được cấp${selectedSpot ? ` cho ô đỗ ${selectedSpot}` : ""}.`,
-                ),
+                selectedSpot
+                    ? copy(
+                          `Your Booking Pass is ready. Requested space: ${selectedSpot} (subject to assignment on arrival).`,
+                          `Booking Pass đã được cấp. Vị trí tham khảo: ${selectedSpot}.`,
+                      )
+                    : copy(
+                          "Your Booking Pass is ready. Staff will assign a space when you arrive.",
+                          "Booking Pass đã được cấp. Nhân viên bãi sẽ phân ô khi nhận xe.",
+                      ),
                 "success",
             );
             setIsPassModalOpen(true);

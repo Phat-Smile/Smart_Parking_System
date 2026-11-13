@@ -26,6 +26,7 @@ using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
 using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
 using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
+using ParkingSystem.Parking.Application.ParkingLots.PublicInfo;
 
 namespace ParkingSystem.Parking.Persistence;
 
@@ -59,6 +60,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IParkingLotCatalogReader>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
         services.AddScoped<IParkingLotArrivalSearch>(provider => provider.GetRequiredService<ParkingLotCatalogReader>());
         services.AddScoped<IParkingLotOpeningHoursRepository, ParkingLotOpeningHoursRepository>();
+        services.AddScoped<IParkingLotPublicInfoRepository, ParkingLotPublicInfoRepository>();
         services.AddScoped<INearbyParkingLotReader, NearbyParkingLotReader>();
         services.AddScoped<ICustomerLotFeaturesReader, CustomerLotFeaturesReader>();
         services.AddScoped<ICustomerLotMetricsReader, CustomerLotMetricsReader>();

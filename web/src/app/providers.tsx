@@ -2,8 +2,17 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { LanguageProvider } from "@/shared/i18n/LanguageContext";
-import { ToastNotificationHub } from "@/shared/ui/ToastNotificationHub";
+// The toast UI uses browser-only APIs and does not need SSR.
+// Avoid mismatches between the server HTML and the browser render.
+const ToastNotificationHub = dynamic(
+    () =>
+        import("@/shared/ui/ToastNotificationHub").then(
+            (module) => module.ToastNotificationHub,
+        ),
+    { ssr: false },
+);
 // Suppress React 19 false-positive warning regarding script tags in Next.js Turbopack dev mode
 if (typeof window !== "undefined") {
     const originalConsoleError = console.error;
