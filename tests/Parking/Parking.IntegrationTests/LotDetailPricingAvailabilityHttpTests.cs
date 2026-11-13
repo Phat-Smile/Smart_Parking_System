@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
@@ -22,6 +23,7 @@ using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 using ParkingSystem.Parking.Domain.Entities;
 using ParkingSystem.Parking.WebAPI.Endpoints;
+using ParkingSystem.Parking.WebAPI.OwnerLocation;
 using ParkingSystem.Parking.WebAPI.Security;
 using Xunit;
 
@@ -187,6 +189,11 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         builder.Services.AddSingleton<IAvailableSlotReader, InMemoryCarSlots>();
         builder.Services.AddSingleton<IMotorbikeZoneCounter, InMemoryMotorbikeZones>();
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
+
+        // Registration endpoint's handler needs this service even when a test only exercises GET routes.
+        // Isolate test tokens from real application Data Protection keys.
+        builder.Services.AddSingleton(new OwnerLotLocationConfirmationService(
+            new EphemeralDataProtectionProvider()));
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();

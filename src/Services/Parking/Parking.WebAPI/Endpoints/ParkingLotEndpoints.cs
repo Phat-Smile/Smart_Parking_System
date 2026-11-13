@@ -21,6 +21,7 @@ using ParkingSystem.Parking.Application.Features.Pricing.Queries.GetLotPricing;
 using ParkingSystem.Parking.Application.Features.Pricing.Queries.GetPricingPolicy;
 using ParkingSystem.Parking.Application.ParkingLots.Availability;
 using ParkingSystem.Parking.WebAPI.Routing;
+using ParkingSystem.Parking.WebAPI.OwnerLocation;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
 
@@ -32,7 +33,8 @@ internal static class ParkingLotEndpoints
         decimal? Latitude,
         decimal? Longitude,
         string? Type,
-        ParkingLotFeatures? Features = null);
+        ParkingLotFeatures? Features = null,
+        string? LocationConfirmationToken = null);
 
     private static IReadOnlyList<string> ParseFilterValues(string? value) =>
         string.IsNullOrWhiteSpace(value) ? [] : value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
@@ -64,10 +66,27 @@ internal static class ParkingLotEndpoints
                 RegisterParkingLotRequest request,
                 ICurrentUser currentUser,
                 ISender sender,
+                OwnerLotLocationConfirmationService locationConfirmations,
+                IConfiguration configuration,
                 CancellationToken cancellationToken) =>
             {
                 if (!Guid.TryParse(currentUser.SubjectId, out var ownerUserId) || ownerUserId == Guid.Empty)
                     return Results.Forbid();
+
+                // Default OFF until the Owner frontend can obtain and submit a confirmation token.
+                // If a token is supplied while OFF, it must still be genuine and match this request.
+                var requireLocationConfirmation = configuration.GetValue<bool>(
+                    "Parking:RequireOwnerLocationConfirmation");
+                if (!locationConfirmations.MatchesRegistration(
+                    ownerUserId, request.LocationConfirmationToken, request.Address,
+                    request.Latitude, request.Longitude, requireLocationConfirmation))
+                {
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        ["locationConfirmationToken"] =
+                        ["A valid, unexpired confirmation for this owner, address, and entrance pin is required."]
+                    });
+                }
 
                 RegisteredParkingLot registered;
                 try
@@ -102,7 +121,7 @@ internal static class ParkingLotEndpoints
             .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
             .WithName("RegisterParkingLot")
             .WithSummary("Register a parking lot for administrator review")
-            .WithDescription("ParkingLotOwner only. New parking lots start Pending and are not visible in public catalog/detail.")
+            .WithDescription("ParkingLotOwner only. New lots start Pending. When Parking:RequireOwnerLocationConfirmation=true, a 15-minute locationConfirmationToken from POST /api/parking/owner/locations/confirm is required. During FE migration the flag defaults false; supplied tokens are always validated.")
             .Produces<RegisteredParkingLot>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict)
