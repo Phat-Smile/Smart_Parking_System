@@ -13,6 +13,26 @@ JUNIT = """<testsuite name="s" tests="2">
 ESC = chr(27)
 TICK = chr(0x2713)
 
+ESLINT_LOG = """
+> web@0.1.0 lint
+> eslint
+
+/home/jenkins/agent/workspace/SmartParking-PR_PR-9/web/src/app/(owner)/owner/pricing/page.tsx
+  137:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders  react-hooks/set-state-in-effect
+  140:5   warning  'x' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/jenkins/agent/workspace/SmartParking-PR_PR-9/web/src/features/a/B.tsx
+  12:3  error  'y' is not defined  no-undef
+
+2 problems (2 errors, 1 warning)
+"""
+
+PRETTIER_LOG = """Checking formatting...
+[warn] src/features/customer/CustomerMap.tsx
+[warn] src/styles/owner-v4.css
+[warn] Code style issues found in 2 files. Run Prettier with --write to fix.
+"""
+
 
 def write_step(root: Path, name: str, status: int, text: str) -> None:
     logs = root / "logs"
@@ -46,6 +66,48 @@ class FailureReportTests(unittest.TestCase):
     def test_dotnet_log_names_become_readable_labels(self) -> None:
         self.assertEqual(fr.label_for("dotnet-unit-payment"), "Payment Unit Tests")
         self.assertEqual(fr.label_for("something-new"), "something-new")
+        self.assertEqual(fr.label_for("migration-drift"), "Migration Drift")
+
+    def test_lint_highlights_name_the_file_line_and_message(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_step(root, "frontend-lint", 1, ESLINT_LOG)
+            step = fr.failed_steps(root)[0]
+        self.assertEqual(len(step.highlights), 2)
+        self.assertTrue(
+            step.highlights[0].startswith("src/app/(owner)/owner/pricing/page.tsx:137:13 ")
+        )
+        self.assertIn("setState synchronously", step.highlights[0])
+        self.assertTrue(step.highlights[1].startswith("src/features/a/B.tsx:12:3 "))
+
+    def test_format_highlight_lists_the_files_prettier_would_change(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_step(root, "frontend-format", 1, PRETTIER_LOG)
+            step = fr.failed_steps(root)[0]
+        self.assertEqual(len(step.highlights), 1)
+        self.assertIn("2 file", step.highlights[0])
+        self.assertIn("src/features/customer/CustomerMap.tsx", step.highlights[0])
+        self.assertNotIn("Code style issues", step.highlights[0])
+
+    def test_typecheck_and_policy_highlights(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_step(
+                root,
+                "frontend-typecheck",
+                2,
+                "src/a.ts(3,5): error TS2339: Property 'x' does not exist\nnoise\n",
+            )
+            write_step(
+                root,
+                "git-policy",
+                1,
+                "Git Policy: invalid PR title: fix(web): fix things\nother\n",
+            )
+            steps = {s.name: s for s in fr.failed_steps(root)}
+        self.assertEqual(steps["frontend-typecheck"].highlights, ["src/a.ts(3,5): error TS2339: Property 'x' does not exist"])
+        self.assertEqual(steps["git-policy"].highlights, ["Git Policy: invalid PR title: fix(web): fix things"])
 
     def test_collects_failed_junit_cases(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -59,17 +121,28 @@ class FailureReportTests(unittest.TestCase):
         self.assertIn("Unable to find text", cases[0].message)
 
     def test_report_without_findings_points_to_console(self) -> None:
-        text = fr.build_markdown([], [])
-        self.assertIn("Console Output", text)
-        self.assertIn("Console Output", fr.build_html([], []))
+        self.assertIn("Console Output", fr.build_markdown([], []))
+        self.assertIn("Console Output", fr.build_text([], []))
 
-    def test_html_summary_escapes_markup(self) -> None:
-        summary = fr.build_html(
-            [fr.FailedStep("x", "Frontend <Lint>", 1, "t")],
-            [fr.FailedCase("a<b", "n&m", "<script>")],
+    def test_text_summary_is_plain_text_with_the_details(self) -> None:
+        step = fr.FailedStep(
+            "frontend-lint",
+            "Frontend Lint",
+            1,
+            "tail",
+            ["src/a.tsx:1:2 Error: bad", "src/b.tsx:3:4 Error: worse"],
         )
-        self.assertNotIn("<script>", summary)
-        self.assertIn("&lt;Lint&gt;", summary)
+        text = fr.build_text([step], [fr.FailedCase("S", "case", "boom")])
+        self.assertNotIn("<", text)
+        self.assertIn("Bước lỗi: Frontend Lint", text)
+        self.assertIn("  src/a.tsx:1:2 Error: bad", text)
+        self.assertIn("Test lỗi: S / case (boom)", text)
+        self.assertIn("\n", text)
+
+    def test_markdown_lists_the_highlights_before_the_log_tail(self) -> None:
+        step = fr.FailedStep("frontend-lint", "Frontend Lint", 1, "tail", ["src/a.tsx:1:2 bad"])
+        markdown = fr.build_markdown([step], [])
+        self.assertLess(markdown.index("src/a.tsx:1:2 bad"), markdown.index("tail"))
 
     def test_flaky_tests_are_read_from_the_vitest_log(self) -> None:
         log = (
@@ -82,7 +155,7 @@ class FailureReportTests(unittest.TestCase):
             flaky = fr.flaky_tests(root)
         self.assertEqual(flaky, ["src/a.test.ts > list > shows rows"])
         self.assertIn("shows rows", fr.build_markdown([], [], flaky))
-        self.assertIn("shows rows", fr.build_html([], [], flaky))
+        self.assertIn("shows rows", fr.build_text([], [], flaky))
 
     def test_only_if_findings_writes_nothing_for_a_clean_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

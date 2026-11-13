@@ -325,9 +325,9 @@ pipeline {
                     echo 'Trusted CI scripts are not available (the build stopped before Git Policy); skipping the failure report.'
                 }
                 if (trusted) {
-                    sh 'mkdir -p ci-results && python3 .ci-trusted-post/scripts/ci/failure_report.py ci-results --output ci-results/failure-report.md --html ci-results/failure-summary.html --only-if-findings || true'
-                    if (fileExists('ci-results/failure-summary.html')) {
-                        currentBuild.description = readFile('ci-results/failure-summary.html')
+                    sh 'mkdir -p ci-results && python3 .ci-trusted-post/scripts/ci/failure_report.py ci-results --output ci-results/failure-report.md --text ci-results/failure-summary.txt --only-if-findings || true'
+                    if (fileExists('ci-results/failure-summary.txt')) {
+                        currentBuild.description = readFile('ci-results/failure-summary.txt')
                     }
                     if (fileExists('ci-results/failure-report.md')) {
                         echo readFile('ci-results/failure-report.md')
