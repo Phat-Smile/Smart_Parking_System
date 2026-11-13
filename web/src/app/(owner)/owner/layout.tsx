@@ -1,10 +1,12 @@
 "use client";
 
 import React, { ReactNode, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Be_Vietnam_Pro } from "next/font/google";
 import { OwnerSidebar } from "../../../components/layout/OwnerSidebar";
 import { loadOwnerLots } from "@/features/owner/lots/ownerLotsSync";
+import { clearAuthSession } from "@/features/auth/authSession";
+import { ApiError } from "@/shared/errors/api-error";
 import "../../../styles/owner-v4.css";
 
 const beVietnamPro = Be_Vietnam_Pro({
@@ -16,6 +18,7 @@ const beVietnamPro = Be_Vietnam_Pro({
 
 export default function OwnerRootLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
     const isAuthPage =
         pathname === "/owner/register" ||
         pathname?.startsWith("/owner/register") ||
@@ -29,12 +32,19 @@ export default function OwnerRootLayout({ children }: { children: ReactNode }) {
         if (isAuthPage || isSimulation) return;
         loadOwnerLots()
             .then(() => setLotsError(""))
-            .catch(() =>
+            .catch((error: unknown) => {
+                // A 401 here means the token expired and the refresh failed too: the session is gone,
+                // so send the owner to sign in instead of showing a load error on an empty portal.
+                if (error instanceof ApiError && error.status === 401) {
+                    clearAuthSession();
+                    router.replace("/login");
+                    return;
+                }
                 setLotsError(
                     "Không tải được danh sách bãi của bạn từ máy chủ. Vui lòng đăng nhập lại hoặc thử lại sau.",
-                ),
-            );
-    }, [isAuthPage, isSimulation]);
+                );
+            });
+    }, [isAuthPage, isSimulation, router]);
 
     if (isAuthPage) {
         return (
