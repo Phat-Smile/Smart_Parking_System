@@ -76,6 +76,8 @@ services:
         NEXT_PUBLIC_API_BASE_URL: http://localhost:5000
         # US-AUTH-002: same OAuth client ID as identity-api; empty keeps the Google button off.
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        # Public token only (pk.*); empty leaves the interactive maps off. Rebuild web after changing it.
+        NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
     ports:
       - "127.0.0.1:3000:3000"
     networks:
