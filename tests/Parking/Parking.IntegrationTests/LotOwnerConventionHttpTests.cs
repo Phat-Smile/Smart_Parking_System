@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
@@ -21,6 +22,7 @@ using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 using ParkingSystem.Parking.Application.ParkingLots.RegisterParkingLot;
 using ParkingSystem.Parking.Persistence;
 using ParkingSystem.Parking.WebAPI.Endpoints;
+using ParkingSystem.Parking.WebAPI.OwnerLocation;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Testing;
 using Xunit;
@@ -190,6 +192,11 @@ public sealed class LotOwnerConventionHttpTests(PostgreSqlContainerFixture postg
         builder.Services.AddAuthentication(HeaderAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderAuthenticationHandler>(HeaderAuthenticationHandler.SchemeName, null);
         builder.Services.AddScoped<ICurrentUser, HeaderCurrentUser>();
+
+        // Registration endpoint's handler needs this service even when a test only exercises GET routes.
+        // Isolate test tokens from real application Data Protection keys.
+        builder.Services.AddSingleton(new OwnerLotLocationConfirmationService(
+            new EphemeralDataProtectionProvider()));
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();

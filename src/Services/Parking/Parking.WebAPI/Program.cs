@@ -22,6 +22,7 @@ using ParkingSystem.Parking.Application.ParkingLots.Recommendations;
 using ParkingSystem.Parking.WebAPI.Clients;
 using ParkingSystem.Parking.WebAPI.Geocoding;
 using ParkingSystem.Parking.WebAPI.Routing;
+using ParkingSystem.Parking.WebAPI.OwnerLocation;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
@@ -31,6 +32,8 @@ builder.AddParkingSystemTelemetry("parking-api");
 builder.Services.AddParkingAuthorization();
 builder.Services.AddApplicationServices();
 builder.Services.AddMemoryCache();
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<OwnerLotLocationConfirmationService>();
 // OSRM Table is added for S4 search only; existing Mapbox adapter remains untouched.
 builder.Services.AddSingleton<OsrmMatrixClient>(sp => new OsrmMatrixClient(
     new HttpClient { Timeout = TimeSpan.FromSeconds(2), MaxResponseContentBufferSize = 256 * 1024 },
@@ -103,6 +106,7 @@ app.MapParkingLotRecommendationEndpoints();
 app.MapArrivalAvailabilityEndpoints();
 app.MapAdminParkingLotReviewEndpoints();
 app.MapParkingLotAddressSearchEndpoints();
+app.MapOwnerLotLocationEndpoints();
 app.MapParkingLotOpeningHoursEndpoints();
 app.MapZoneCapacityEndpoints();
 app.MapParkingLotAssignmentEndpoints();
