@@ -38,22 +38,41 @@ const messages = {
 
 type MessageKey = keyof typeof messages;
 
-export function vehicleAddErrorMessage(error: unknown, language: CustomerLanguage) {
+export function vehicleAddErrorMessage(
+    error: unknown,
+    language: CustomerLanguage,
+) {
     let key: MessageKey = "generic";
     if (error instanceof ApiError) {
         switch (error.problem?.errorCode) {
-            case "identity.vehicle_plate_already_registered": key = "plateAlreadyRegistered"; break;
-            case "identity.invalid_license_plate": key = "invalidPlate"; break;
-            case "identity.bicycle_photo_required": key = "photoRequired"; break;
-            case "identity.bicycle_plate_not_allowed": key = "bicyclePlate"; break;
-            case "identity.invalid_vehicle_type": key = "vehicleType"; break;
-            case "identity.account_not_found": key = "account"; break;
+            case "identity.vehicle_plate_already_registered":
+                key = "plateAlreadyRegistered";
+                break;
+            case "identity.invalid_license_plate":
+                key = "invalidPlate";
+                break;
+            case "identity.bicycle_photo_required":
+                key = "photoRequired";
+                break;
+            case "identity.bicycle_plate_not_allowed":
+                key = "bicyclePlate";
+                break;
+            case "identity.invalid_vehicle_type":
+                key = "vehicleType";
+                break;
+            case "identity.account_not_found":
+                key = "account";
+                break;
             case "request.validation_failed": {
-                const fields = Object.keys(error.problem.validationErrors ?? {})
-                    .map((field) => field.replace(/[^a-z]/gi, "").toLowerCase());
-                if (fields.some((field) => field.endsWith("photourl"))) key = "photoRequired";
-                else if (fields.some((field) => field.endsWith("licenseplate"))) key = "invalidPlate";
-                else if (fields.some((field) => field.endsWith("vehicletype"))) key = "vehicleType";
+                const fields = Object.keys(
+                    error.problem.validationErrors ?? {},
+                ).map((field) => field.replace(/[^a-z]/gi, "").toLowerCase());
+                if (fields.some((field) => field.endsWith("photourl")))
+                    key = "photoRequired";
+                else if (fields.some((field) => field.endsWith("licenseplate")))
+                    key = "invalidPlate";
+                else if (fields.some((field) => field.endsWith("vehicletype")))
+                    key = "vehicleType";
                 else key = "invalidDetails";
                 break;
             }

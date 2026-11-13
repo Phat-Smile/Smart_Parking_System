@@ -384,13 +384,23 @@ export function ParkWiseLoginPage({
                                 />
                                 <button
                                     type="button"
-                                    aria-label={passwordVisible ? "Hide password" : "Show password"}
+                                    aria-label={
+                                        passwordVisible
+                                            ? "Hide password"
+                                            : "Show password"
+                                    }
                                     aria-pressed={passwordVisible}
-                                    onClick={() => setPasswordVisible((visible) => !visible)}
+                                    onClick={() =>
+                                        setPasswordVisible(
+                                            (visible) => !visible,
+                                        )
+                                    }
                                     disabled={lockSeconds > 0}
                                 >
                                     <RegisterIcon
-                                        name={passwordVisible ? "eyeOff" : "eye"}
+                                        name={
+                                            passwordVisible ? "eyeOff" : "eye"
+                                        }
                                         className="h-5 w-5"
                                     />
                                 </button>

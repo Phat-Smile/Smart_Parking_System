@@ -154,15 +154,21 @@ function needsPlate(category: VehicleCategory) {
     return category !== "bicycle";
 }
 function plateGroup(category: VehicleCategory) {
-    return category === "bicycle" ? "Bicycle" as const :
-        isCarCategory(category) ? "Car" as const : "Motorbike" as const;
+    return category === "bicycle"
+        ? ("Bicycle" as const)
+        : isCarCategory(category)
+          ? ("Car" as const)
+          : ("Motorbike" as const);
 }
 function defaultVehicleImage(category: VehicleCategory) {
-    if (category === "bicycle") return "/images/parkwise/vehicle-bicycle-cutout.png";
-    if (category === "electric-motorbike") return "/images/parkwise/vehicle-electric-motorbike-cutout.png";
+    if (category === "bicycle")
+        return "/images/parkwise/vehicle-bicycle-cutout.png";
+    if (category === "electric-motorbike")
+        return "/images/parkwise/vehicle-electric-motorbike-cutout.png";
     if (category === "motorbike")
         return "/images/parkwise/vehicle-motorbike-cutout.png";
-    if (category === "electric-car") return "/images/parkwise/vehicle-electric-car-cutout.png";
+    if (category === "electric-car")
+        return "/images/parkwise/vehicle-electric-car-cutout.png";
     return "/images/parkwise/vehicle-sedan-cutout.png";
 }
 function VehiclePhoto({
@@ -821,10 +827,12 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                     ).normalized === plateCheck.normalized,
             )
         ) {
-            setError(copy(
-                "This license plate is already in your list.",
-                "Biển số này đã có trong danh sách xe của bạn.",
-            ));
+            setError(
+                copy(
+                    "This license plate is already in your list.",
+                    "Biển số này đã có trong danh sách xe của bạn.",
+                ),
+            );
             return;
         }
         if (!nextBrand && !session && needsBrand) {
@@ -1201,7 +1209,11 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         </div>
                                         <div className="vehicles-card-info">
                                             <h2>
-                                                {(vehicle.plate && formatPlate(vehicle.plate, vehicle.category)) ||
+                                                {(vehicle.plate &&
+                                                    formatPlate(
+                                                        vehicle.plate,
+                                                        vehicle.category,
+                                                    )) ||
                                                     vehicle.brand ||
                                                     copy(
                                                         categoryInfo(
@@ -1275,7 +1287,10 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             padding: "6px 8px",
                                                         }}
                                                     >
-                                                        {copy("Default vehicle", "Xe ch\u00ednh")}
+                                                        {copy(
+                                                            "Default vehicle",
+                                                            "Xe ch\u00ednh",
+                                                        )}
                                                     </span>
                                                 ) : (
                                                     <button
@@ -1297,9 +1312,14 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                     >
                                                         {settingDefaultId ===
                                                         vehicle.id
-                                                            ? copy("Setting...", "\u0110ang \u0111\u1eb7t...")
-                                                            : copy("Set as default", "\u0110\u1eb7t m\u1eb7c \u0111\u1ecbnh")
-                                                        }
+                                                            ? copy(
+                                                                  "Setting...",
+                                                                  "\u0110ang \u0111\u1eb7t...",
+                                                              )
+                                                            : copy(
+                                                                  "Set as default",
+                                                                  "\u0110\u1eb7t m\u1eb7c \u0111\u1ecbnh",
+                                                              )}
                                                     </button>
                                                 ))}
                                             {(!session || vehicle.draft) && (
@@ -1591,67 +1611,74 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                         }
                                         onClick={() => fileRef.current?.click()}
                                     >
-                                        <span className={`vehicles-upload-content vehicles-upload-content--${category}`}>
-                                        <span className="vehicles-upload-icon">
-                                            <Icon
-                                                name={
-                                                    categoryInfo(category).icon
-                                                }
-                                                size={43}
-                                            />
-                                        </span>
-                                        <strong>
-                                            {copy(
-                                                "Upload Vehicle Photo",
-                                                "Tải ảnh xe lên",
-                                            )}{" "}
-                                        </strong>
-                                        <small>
-                                            JPG, PNG or WebP · Max 5 MB
-                                        </small>
-                                        <span className="vehicles-photo-button">
-                                            <Icon name="upload" size={19} />
-                                            {photo
-                                                ? copy(
-                                                      "Change Photo",
-                                                      "Đổi ảnh",
-                                                  )
-                                                : copy(
-                                                      "Choose Photo",
-                                                      "Chọn ảnh",
-                                                  )}
-                                        </span>
-                                        <span className="vehicles-upload-divider">
-                                            <span>{copy("or", "hoặc")}</span>
-                                        </span>
-                                        <span className={`vehicles-upload-preview vehicles-upload-preview--${category}`}>
-                                            <VehiclePhoto
-                                                category={category}
-                                                photo={photo}
-                                                alt={
-                                                    photo
-                                                        ? "Selected vehicle"
-                                                        : `${categoryInfo(category).label} illustration`
-                                                }
-                                                sizes="(max-width: 850px) 85vw, 320px"
-                                            />
-                                        </span>
-                                        <span className="vehicles-upload-caption">
-                                            {photo
-                                                ? copy(
-                                                      "Your vehicle photo is ready. Choose another photo to replace it.",
-                                                      "Ảnh xe đã sẵn sàng. Chọn ảnh khác để thay thế.",
-                                                  )
-                                                : category === "bicycle"
-                                                  ? copy(
-                                                        "A bicycle illustration will be used if you skip this step.",
-                                                        "Nếu bỏ qua, hệ thống sẽ dùng ảnh minh họa xe đạp.",
-                                                    )
-                                                  : copy(
-                                                        "Add a photo to help you recognize your vehicle.",
-                                                        "Thêm ảnh để dễ nhận ra xe của bạn.",
-                                                    )}
-                                        </span>
+                                        <span
+                                            className={`vehicles-upload-content vehicles-upload-content--${category}`}
+                                        >
+                                            <span className="vehicles-upload-icon">
+                                                <Icon
+                                                    name={
+                                                        categoryInfo(category)
+                                                            .icon
+                                                    }
+                                                    size={43}
+                                                />
+                                            </span>
+                                            <strong>
+                                                {copy(
+                                                    "Upload Vehicle Photo",
+                                                    "Tải ảnh xe lên",
+                                                )}{" "}
+                                            </strong>
+                                            <small>
+                                                JPG, PNG or WebP · Max 5 MB
+                                            </small>
+                                            <span className="vehicles-photo-button">
+                                                <Icon name="upload" size={19} />
+                                                {photo
+                                                    ? copy(
+                                                          "Change Photo",
+                                                          "Đổi ảnh",
+                                                      )
+                                                    : copy(
+                                                          "Choose Photo",
+                                                          "Chọn ảnh",
+                                                      )}
+                                            </span>
+                                            <span className="vehicles-upload-divider">
+                                                <span>
+                                                    {copy("or", "hoặc")}
+                                                </span>
+                                            </span>
+                                            <span
+                                                className={`vehicles-upload-preview vehicles-upload-preview--${category}`}
+                                            >
+                                                <VehiclePhoto
+                                                    category={category}
+                                                    photo={photo}
+                                                    alt={
+                                                        photo
+                                                            ? "Selected vehicle"
+                                                            : `${categoryInfo(category).label} illustration`
+                                                    }
+                                                    sizes="(max-width: 850px) 85vw, 320px"
+                                                />
+                                            </span>
+                                            <span className="vehicles-upload-caption">
+                                                {photo
+                                                    ? copy(
+                                                          "Your vehicle photo is ready. Choose another photo to replace it.",
+                                                          "Ảnh xe đã sẵn sàng. Chọn ảnh khác để thay thế.",
+                                                      )
+                                                    : category === "bicycle"
+                                                      ? copy(
+                                                            "A bicycle illustration will be used if you skip this step.",
+                                                            "Nếu bỏ qua, hệ thống sẽ dùng ảnh minh họa xe đạp.",
+                                                        )
+                                                      : copy(
+                                                            "Add a photo to help you recognize your vehicle.",
+                                                            "Thêm ảnh để dễ nhận ra xe của bạn.",
+                                                        )}
+                                            </span>
                                         </span>
                                     </button>
                                     {photoError && (

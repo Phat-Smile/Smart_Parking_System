@@ -5,9 +5,11 @@ export function formatVehiclePlate(input: string, group: PlateVehicleGroup) {
     const normalized = input.trim().replace(/\s+/g, " ").toUpperCase();
     if (group === "Bicycle") return normalized;
     const compact = normalized.replace(/[ .-]/g, "");
-    const parts = (group === "Motorbike"
-        ? /^(\d{2}[A-Z]\d)(\d{0,5})$/
-        : /^(\d{2}[A-Z]{1,2})(\d{0,5})$/).exec(compact);
+    const parts = (
+        group === "Motorbike"
+            ? /^(\d{2}[A-Z]\d)(\d{0,5})$/
+            : /^(\d{2}[A-Z]{1,2})(\d{0,5})$/
+    ).exec(compact);
     if (!parts) return normalized;
     const [, prefix, serial] = parts;
     if (!serial) return prefix;
