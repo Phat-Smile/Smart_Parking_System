@@ -32,7 +32,7 @@ describe("Customer navigation and access", () => {
     });
     afterEach(() => clearAuthSession());
 
-    it("shows Customer navigation and content to guests during UI preview", () => {
+    it("hides Customer navigation and redirects guests to login", () => {
         render(
             <>
                 <ParkWiseNavbar />
@@ -41,17 +41,16 @@ describe("Customer navigation and access", () => {
                 </CustomerAccessGuard>
             </>,
         );
-        expect(screen.getByRole("link", { name: "Customer" })).toHaveAttribute(
-            "href",
-            "/customer/dashboard",
-        );
+        expect(
+            screen.queryByRole("link", { name: "Customer" }),
+        ).not.toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Login" })).toBeInTheDocument();
-        expect(screen.getByText("Customer content")).toBeInTheDocument();
-        expect(replace).not.toHaveBeenCalled();
+        expect(screen.queryByText("Customer content")).not.toBeInTheDocument();
+        expect(replace).toHaveBeenCalledWith("/login");
     });
 
     it.each(["Staff", "ParkingLotOwner", "SystemAdmin"] as const)(
-        "shows Customer UI to %s during preview",
+        "blocks Customer UI for %s",
         (role) => {
             signIn(role);
             render(
@@ -63,10 +62,12 @@ describe("Customer navigation and access", () => {
                 </>,
             );
             expect(
-                screen.getByRole("link", { name: "Customer" }),
-            ).toHaveAttribute("href", "/customer/dashboard");
-            expect(screen.getByText("Customer content")).toBeInTheDocument();
-            expect(replace).not.toHaveBeenCalled();
+                screen.queryByRole("link", { name: "Customer" }),
+            ).not.toBeInTheDocument();
+            expect(
+                screen.queryByText("Customer content"),
+            ).not.toBeInTheDocument();
+            expect(replace).toHaveBeenCalledWith("/403");
         },
     );
 
