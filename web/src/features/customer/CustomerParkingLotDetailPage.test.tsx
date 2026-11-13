@@ -1,7 +1,17 @@
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setCustomerLanguage } from "./i18n/customerLanguage";
+
+// The page reads the arrival forecast through react-query.
+function renderPage(ui: React.ReactElement) {
+    return render(
+        <QueryClientProvider client={new QueryClient()}>
+            {ui}
+        </QueryClientProvider>,
+    );
+}
 
 const { mockGetApprovedParkingLot, mockGetMyVehicles, mockAuthSession } =
     vi.hoisted(() => ({
@@ -122,7 +132,7 @@ describe("CustomerParkingLotDetailPage", () => {
     });
 
     it("shows hourly rate and estimated total from GET /api/parking/lots/{id} pricing in Book this parking card instead of Unavailable", async () => {
-        render(
+        renderPage(
             <CustomerParkingLotDetailPage
                 id={LOT_ID}
                 fontClassName="test-font"
@@ -156,7 +166,7 @@ describe("CustomerParkingLotDetailPage", () => {
             ],
         });
 
-        render(
+        renderPage(
             <CustomerParkingLotDetailPage
                 id={LOT_ID}
                 fontClassName="test-font"
