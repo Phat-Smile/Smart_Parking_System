@@ -238,6 +238,20 @@ public sealed class Reservation
         RowVersion++;
     }
 
+    public void RecordCancellationRefunded()
+    {
+        if (Status != ReservationStatus.Cancelled ||
+            CancelReason != Reservations.CancelReason.CustomerCancelled ||
+            PrepaidOutcome != null)
+        {
+            throw new ReservationDomainException(
+                "Cannot record cancellation refund on a reservation that is not cancelled by customer with pending prepaid outcome.");
+        }
+
+        PrepaidOutcome = Reservations.PrepaidOutcome.Refunded;
+        RowVersion++;
+    }
+
     /// <summary>
     /// Determines whether the reservation is active at the specified point in time (BR-1, US-RES-010).
     /// Active states: Confirmed, or TemporaryHold with TempHoldExpiresAt > now.
