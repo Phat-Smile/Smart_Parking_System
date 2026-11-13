@@ -1,2 +1,2 @@
-// Temporary desktop UI preview. Set to false to restore Customer role checks.
-export const CUSTOMER_UI_PREVIEW = true;
+// Customer pages require an authenticated Customer session.
+export const CUSTOMER_UI_PREVIEW = false;
