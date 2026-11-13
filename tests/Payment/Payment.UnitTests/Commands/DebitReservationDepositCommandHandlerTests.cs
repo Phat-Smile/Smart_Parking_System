@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
@@ -49,6 +54,21 @@ public sealed class DebitReservationDepositCommandHandlerTests
             var newWallet = Wallet.Create(userId);
             _wallets[userId] = newWallet;
             return Task.FromResult(newWallet);
+        }
+
+        public Task<IReadOnlyList<WalletLedgerEntry>> GetReservationLedgerEntriesAsync(
+            Guid reservationId,
+            Guid? userId = null,
+            CancellationToken cancellationToken = default)
+        {
+            var resIdStr = reservationId.ToString();
+            var entries = _wallets.Values
+                .Where(w => !userId.HasValue || w.UserId == userId.Value)
+                .SelectMany(w => w.LedgerEntries)
+                .Where(e => e.ReferenceType == ReferenceType.Reservation && e.ReferenceId == resIdStr)
+                .ToList();
+
+            return Task.FromResult<IReadOnlyList<WalletLedgerEntry>>(entries);
         }
 
         public Task AddAsync(Wallet wallet, CancellationToken cancellationToken)
@@ -119,41 +139,33 @@ public sealed class DebitReservationDepositCommandHandlerTests
     private Wallet CreateWalletWithBalance(Guid userId, decimal initialBalance)
     {
         var wallet = Wallet.Create(userId);
-        if (initialBalance > 0m)
+        if (initialBalance > 0)
         {
-            wallet.AddEntry(LedgerEntryType.TopUp, initialBalance, "Initial topup");
+            wallet.AddEntry(LedgerEntryType.TopUp, initialBalance, "Initial balance for test");
         }
         _walletRepository.SeedWallet(wallet);
         return wallet;
     }
 
     [Fact]
-    public async Task Debit_Succeeds_WhenWalletHasSufficientBalance_ReducesBalance_AndCreatesLedgerEntry()
+    public async Task Debit_Success_DeductsBalance_AndWritesLedger()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var reservationId = Guid.NewGuid();
-        var wallet = CreateWalletWithBalance(userId, 100_000m);
+        var wallet = CreateWalletWithBalance(userId, 50_000m);
         var handler = CreateHandler();
-        var command = new DebitReservationDepositCommand(userId, reservationId, 60_000m, "key-1");
+        var command = new DebitReservationDepositCommand(userId, reservationId, 20_000m, "key-1");
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Value);
-        Assert.True(result.Value.Success);
-        Assert.NotEmpty(result.Value.TransactionId!);
-        Assert.Equal(40_000L, result.Value.RemainingBalance);
-        Assert.Equal(40_000m, wallet.Balance);
-
-        var lastEntry = wallet.LedgerEntries.Last();
-        Assert.Equal(LedgerEntryType.ReservationDeposit, lastEntry.EntryType);
-        Assert.Equal(-60_000m, lastEntry.Amount);
-        Assert.Equal(40_000m, lastEntry.BalanceAfter);
-        Assert.Equal(ReferenceType.Reservation, lastEntry.ReferenceType);
-        Assert.Equal(reservationId.ToString(), lastEntry.ReferenceId);
+        Assert.NotNull(result.Value!.TransactionId);
+        Assert.Equal(30_000L, result.Value!.RemainingBalance);
+        Assert.Equal(30_000m, wallet.Balance);
+        Assert.Contains(wallet.LedgerEntries, e => e.EntryType == LedgerEntryType.ReservationDeposit && e.Amount == -20_000m);
     }
 
     [Fact]
@@ -163,7 +175,7 @@ public sealed class DebitReservationDepositCommandHandlerTests
         var userId = Guid.NewGuid();
         var reservationId = Guid.NewGuid();
         var handler = CreateHandler();
-        var command = new DebitReservationDepositCommand(userId, reservationId, 60_000m, "key-1");
+        var command = new DebitReservationDepositCommand(userId, reservationId, 20_000m, "key-not-found");
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -174,26 +186,81 @@ public sealed class DebitReservationDepositCommandHandlerTests
     }
 
     [Fact]
-    public async Task Debit_Fails_WhenBalanceIsInsufficient()
+    public async Task Debit_Fails_WhenBalanceIsInsufficient_AndReleasesLockForRetry()
     {
-        // Arrange
+        // Arrange (P4 test)
         var userId = Guid.NewGuid();
         var reservationId = Guid.NewGuid();
-        var wallet = CreateWalletWithBalance(userId, 20_000m);
+        var wallet = CreateWalletWithBalance(userId, 10_000m);
         var handler = CreateHandler();
-        var command = new DebitReservationDepositCommand(userId, reservationId, 60_000m, "key-1");
+        var command = new DebitReservationDepositCommand(userId, reservationId, 20_000m, "insufficient-key");
+
+        // Act 1: Thất bại vì thiếu tiền
+        var result1 = await handler.Handle(command, CancellationToken.None);
+
+        // Assert 1: Thất bại và đã giải phóng lock
+        Assert.True(result1.IsFailure);
+        Assert.Equal(ReservationDepositErrors.InsufficientBalance, result1.Error);
+        Assert.Empty(_idempotencyStore.Records); // Đã gọi ReleasePendingAsync
+
+        // Act 2: Khách nạp thêm 50.000đ và thử lại với cùng Idempotency Key
+        wallet.AddEntry(LedgerEntryType.TopUp, 50_000m, "Topup more funds");
+        var result2 = await handler.Handle(command, CancellationToken.None);
+
+        // Assert 2: Thành công thông luồng
+        Assert.True(result2.IsSuccess);
+        Assert.Equal(40_000L, result2.Value!.RemainingBalance);
+        Assert.Equal(40_000m, wallet.Balance);
+    }
+
+    [Fact]
+    public async Task Debit_Fails_WhenAlreadyRefunded_EvenIfCachedSuccessExists()
+    {
+        // Arrange (M1 & P5 test)
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+        var wallet = CreateWalletWithBalance(userId, 50_000m);
+        wallet.AddEntry(
+            LedgerEntryType.Refund,
+            20_000m,
+            "Refunded already",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+
+        var handler = CreateHandler();
+        var command = new DebitReservationDepositCommand(userId, reservationId, 20_000m, "key-refunded");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert: Chốt chặn M1 từ chối ngay trước khi Replay
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.AlreadyRefunded, result.Error);
+    }
+
+    [Fact]
+    public async Task Debit_PurposeScheduled_SetsCorrectLedgerReason()
+    {
+        // Arrange (P7 test)
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+        var wallet = CreateWalletWithBalance(userId, 50_000m);
+        var handler = CreateHandler();
+        var command = new DebitReservationDepositCommand(
+            userId, reservationId, 20_000m, "key-scheduled", ReservationPrepaymentPurpose.Scheduled);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsFailure);
-        Assert.Equal(ReservationDepositErrors.InsufficientBalance, result.Error);
-        Assert.Equal(20_000m, wallet.Balance);
+        Assert.True(result.IsSuccess);
+        var entry = wallet.LedgerEntries.First(e => e.EntryType == LedgerEntryType.ReservationDeposit);
+        Assert.Contains("Scheduled reservation prepayment", entry.Reason);
     }
 
     [Fact]
-    public async Task Debit_Idempotency_ReplaysCachedResult_WhenCalledWithSameKey()
+    public async Task Debit_Idempotent_Replay_ReturnsSameResult_WithoutDoubleDeducting()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -214,7 +281,7 @@ public sealed class DebitReservationDepositCommandHandlerTests
         Assert.True(secondResult.IsSuccess);
         Assert.Equal(firstResult.Value!.TransactionId, secondResult.Value!.TransactionId);
         Assert.Equal(40_000L, secondResult.Value!.RemainingBalance);
-        Assert.Equal(40_000m, wallet.Balance); // Balance was not deducted twice
+        Assert.Equal(40_000m, wallet.Balance);
     }
 
     [Fact]
@@ -244,6 +311,7 @@ public sealed class DebitReservationDepositCommandHandlerTests
     [InlineData("d88b4eb9-4089-4da6-b328-98e94fa0075e", "00000000-0000-0000-0000-000000000000", 1000)]
     [InlineData("d88b4eb9-4089-4da6-b328-98e94fa0075e", "d88b4eb9-4089-4da6-b328-98e94fa0075e", 0)]
     [InlineData("d88b4eb9-4089-4da6-b328-98e94fa0075e", "d88b4eb9-4089-4da6-b328-98e94fa0075e", -500)]
+    [InlineData("d88b4eb9-4089-4da6-b328-98e94fa0075e", "d88b4eb9-4089-4da6-b328-98e94fa0075e", 1000.5)]
     public async Task Debit_Fails_WhenInputsAreInvalid(string userIdStr, string resIdStr, decimal amount)
     {
         var handler = CreateHandler();

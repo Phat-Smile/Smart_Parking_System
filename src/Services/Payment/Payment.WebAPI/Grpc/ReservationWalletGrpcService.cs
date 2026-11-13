@@ -1,19 +1,21 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Grpc.Core;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ParkingSystem.Payment.Application.Common.Constants;
+using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Application.Features.Wallets.Commands.DebitReservationDeposit;
 using ParkingSystem.Payment.Application.Features.Wallets.Commands.RefundReservationDeposit;
 using ParkingSystem.Payment.Domain.Enums;
-using ParkingSystem.Payment.Persistence;
 using SmartParking.Contracts.Payment.Reservation.V1;
 
 namespace ParkingSystem.Payment.WebAPI.Grpc;
 
 public sealed class ReservationWalletGrpcService(
     ISender sender,
-    PaymentDbContext dbContext,
+    IWalletRepository walletRepository,
     ILogger<ReservationWalletGrpcService> logger)
     : ReservationWalletContract.ReservationWalletContractBase
 {
@@ -35,11 +37,16 @@ public sealed class ReservationWalletGrpcService(
             };
         }
 
+        var purpose = request.Purpose == PrepaymentPurpose.Scheduled
+            ? ReservationPrepaymentPurpose.Scheduled
+            : ReservationPrepaymentPurpose.Deposit;
+
         var command = new DebitReservationDepositCommand(
             userId,
             reservationId,
             request.AmountVnd,
-            $"res-deposit-{reservationId}");
+            $"res-deposit-{reservationId}",
+            purpose);
 
         var result = await sender.Send(command, context.CancellationToken);
 
@@ -48,16 +55,21 @@ public sealed class ReservationWalletGrpcService(
             return new DebitReservationResponse
             {
                 Outcome = DebitOutcome.Succeeded,
-                LedgerEntryId = result.Value!.TransactionId.ToString(),
-                BalanceAfterVnd = (long)result.Value.RemainingBalance
+                LedgerEntryId = result.Value?.TransactionId ?? string.Empty,
+                BalanceAfterVnd = result.Value != null ? (long)result.Value.RemainingBalance : 0L
             };
         }
 
-        var outcome = result.Error?.Code == ReservationDepositErrors.InsufficientBalance.Code
-            ? DebitOutcome.InsufficientBalance
-            : result.Error?.Code == ReservationDepositErrors.WalletNotFound.Code
-                ? DebitOutcome.InsufficientBalance
-                : DebitOutcome.Unspecified;
+        // P6: Mapping chuẩn xác toàn bộ enum của Hợp đồng 5
+        var outcome = result.Error?.Code switch
+        {
+            _ when result.Error?.Code == ReservationDepositErrors.InsufficientBalance.Code => DebitOutcome.InsufficientBalance,
+            _ when result.Error?.Code == ReservationDepositErrors.WalletNotFound.Code => DebitOutcome.InsufficientBalance, // "no wallet counts as balance 0"
+            _ when result.Error?.Code == ReservationDepositErrors.WalletNotActive.Code => DebitOutcome.WalletNotActive,
+            _ when result.Error?.Code == ReservationDepositErrors.AlreadyRefunded.Code => DebitOutcome.AlreadyRefunded,
+            _ when result.Error?.Code == ReservationDepositErrors.IdempotencyKeyReused.Code => DebitOutcome.AmountMismatch,
+            _ => DebitOutcome.Unspecified
+        };
 
         return new DebitReservationResponse
         {
@@ -74,7 +86,9 @@ public sealed class ReservationWalletGrpcService(
         logger.LogInformation("Received GetReservationDebit for reservation {ReservationId}, account {AccountId}.",
             request.ReservationId, request.AccountId);
 
-        if (!Guid.TryParse(request.ReservationId, out var reservationId))
+        // S1 & P8: Bắt buộc AccountId phải là GUID hợp lệ, chống IDOR
+        if (!Guid.TryParse(request.AccountId, out var userId) ||
+            !Guid.TryParse(request.ReservationId, out var reservationId))
         {
             return new GetReservationDebitResponse
             {
@@ -83,15 +97,8 @@ public sealed class ReservationWalletGrpcService(
             };
         }
 
-        var idStr = reservationId.ToString();
-        var idGuidStr = reservationId.ToString("D");
-        var idCompactStr = reservationId.ToString("N");
-
-        var entries = await dbContext.WalletLedgerEntries
-            .AsNoTracking()
-            .Where(e => e.ReferenceType == ReferenceType.Reservation
-                     && (e.ReferenceId == idStr || e.ReferenceId == idGuidStr || e.ReferenceId == idCompactStr))
-            .ToListAsync(context.CancellationToken);
+        var entries = await walletRepository.GetReservationLedgerEntriesAsync(
+            reservationId, userId, context.CancellationToken);
 
         if (entries.Any(e => e.EntryType == LedgerEntryType.Refund))
         {
@@ -159,9 +166,17 @@ public sealed class ReservationWalletGrpcService(
         logger.LogWarning("RefundReservation failed for reservation {ReservationId}: {Error}",
             request.ReservationId, result.Error?.Message);
 
+        // S2: Mapping lỗi phía Refund hỗ trợ Booking Saga
+        var errorState = result.Error?.Code switch
+        {
+            _ when result.Error?.Code == ReservationDepositErrors.ReservationNotDebited.Code => DebitState.NotDebited,
+            _ when result.Error?.Code == ReservationDepositErrors.AlreadyRefunded.Code => DebitState.Refunded,
+            _ => DebitState.Unspecified
+        };
+
         return new RefundReservationResponse
         {
-            State = DebitState.Unspecified,
+            State = errorState,
             LedgerEntryId = string.Empty
         };
     }
