@@ -7,6 +7,13 @@ export function probabilityTone(percent: number): ProbabilityTone {
     return "risk";
 }
 
+// Set on the SVG itself so the ring also draws on pages that do not load the search stylesheet.
+const TONE_STROKE: Record<ProbabilityTone, string> = {
+    good: "var(--pw-color-success, #16a34a)",
+    warn: "var(--pw-color-warning, #f59e0b)",
+    risk: "var(--pw-color-error, #dc2626)",
+};
+
 type ProbabilityRingProps = {
     percent: number;
     size?: number;
@@ -40,6 +47,7 @@ export function ProbabilityRing({
                 cy={size / 2}
                 r={radius}
                 fill="none"
+                stroke="var(--pw-gray-200, #e5e5e5)"
                 strokeWidth={stroke}
             />
             <circle
@@ -48,6 +56,7 @@ export function ProbabilityRing({
                 cy={size / 2}
                 r={radius}
                 fill="none"
+                stroke={TONE_STROKE[probabilityTone(value)]}
                 strokeWidth={stroke}
                 strokeLinecap="round"
                 strokeDasharray={`${dash} ${circumference}`}
@@ -59,6 +68,9 @@ export function ProbabilityRing({
                 y="50%"
                 textAnchor="middle"
                 dominantBaseline="central"
+                fill="var(--pw-color-black, #171717)"
+                fontSize={size >= 56 ? 16 : 12}
+                fontWeight={800}
             >
                 {value}
             </text>

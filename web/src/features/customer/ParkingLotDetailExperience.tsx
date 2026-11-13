@@ -38,6 +38,8 @@ import { CustomerFooter, CustomerHeader } from "./CustomerShell";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { ParkingLayoutView } from "./ParkingLayoutView";
 import { CustomerLiveParkingLayout } from "./CustomerLiveParkingLayout";
+import { LotArrivalForecast } from "./components/LotArrivalForecast";
+import { initialArrivalHour } from "./arrivalForecast";
 import { ParkingLotBookingDialog } from "./booking/components/ParkingLotBookingDialog";
 import {
     getAuthSessionSnapshot,
@@ -475,6 +477,34 @@ export function ParkingLotDetailExperience({
                             </div>
                         </div>
 
+                        {!lot.isPreview &&
+                            lot.latitude !== undefined &&
+                            lot.longitude !== undefined && (
+                                <LotArrivalForecast
+                                    lotId={lot.id}
+                                    latitude={lot.latitude}
+                                    longitude={lot.longitude}
+                                    vehicleType={
+                                        selectedVehicle
+                                            ? selectedVehicle.vehicleType ===
+                                              "Motorbike"
+                                                ? "Motorbike"
+                                                : "Car"
+                                            : lot.compatible?.length &&
+                                                !lot.compatible.includes(
+                                                    "car",
+                                                ) &&
+                                                lot.compatible.includes(
+                                                    "motorbike",
+                                                )
+                                              ? "Motorbike"
+                                              : "Car"
+                                    }
+                                    date={date}
+                                    hour={initialArrivalHour(time)}
+                                    copy={copy}
+                                />
+                            )}
                         <div className="lot-detail-feature-grid">
                             <div className="lot-detail-media-column">
                                 <div className="lot-detail-gallery">
@@ -891,7 +921,7 @@ export function ParkingLotDetailExperience({
                                 </span>
                                 <strong>
                                     {bookingPricing === null
-                                        ? copy("Unavailable", "Chưa có")
+                                        ? copy("Not published", "Chưa niêm yết")
                                         : formatMoney(bookingPricing.rateValue)}
                                 </strong>
                             </div>
@@ -914,7 +944,7 @@ export function ParkingLotDetailExperience({
                                 </span>
                                 <strong>
                                     {bookingPricing === null
-                                        ? copy("Unavailable", "Chưa có")
+                                        ? "—"
                                         : formatMoney(
                                               bookingPricing.estimatedTotal,
                                           )}
@@ -935,6 +965,17 @@ export function ParkingLotDetailExperience({
                                 </span>
                             </div>
                         )}
+                        {bookingPricing === null && (
+                            <p
+                                className="lot-detail-booking-unpriced"
+                                role="status"
+                            >
+                                {copy(
+                                    "This lot has not published a price yet, so it cannot be booked in advance. You can still drive in and pay when you leave.",
+                                    "Bãi chưa niêm yết giá nên chưa đặt trước được. Bạn vẫn có thể tới thẳng bãi và trả khi ra.",
+                                )}
+                            </p>
+                        )}
                         {bookingMessage && (
                             <p
                                 className="lot-detail-booking-error"
@@ -947,8 +988,11 @@ export function ParkingLotDetailExperience({
                             type="button"
                             className="lot-detail-book-now"
                             onClick={startBooking}
+                            disabled={bookingPricing === null}
                         >
-                            {copy("Book Now", "Đặt ngay")}{" "}
+                            {bookingPricing === null
+                                ? copy("Cannot book yet", "Chưa thể đặt chỗ")
+                                : copy("Book Now", "Đặt ngay")}{" "}
                             <ArrowRight size={18} />
                         </button>
                     </aside>
