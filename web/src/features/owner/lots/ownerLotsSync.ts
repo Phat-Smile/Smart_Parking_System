@@ -66,7 +66,12 @@ export function toOwnerLot(item: OwnerParkingLotItem): ParkingLot {
 export async function loadOwnerLots(): Promise<ParkingLot[]> {
     try {
         const page = await getOwnerParkingLotsApi({ page: 1, pageSize: 100 });
-        const lots = page.items.map(toOwnerLot);
+        // Approved lots first, so the config screens that default to the first lot open on a lot
+        // that can actually be configured instead of one waiting for review. Sort is stable.
+        const rank = (lot: ParkingLot) => (lot.ap === "approved" ? 0 : 1);
+        const lots = page.items
+            .map(toOwnerLot)
+            .sort((a, b) => rank(a) - rank(b));
         useOwnerStore.setState({ lots });
         useOwnerMapStore.setState({
             overlayLots: [],

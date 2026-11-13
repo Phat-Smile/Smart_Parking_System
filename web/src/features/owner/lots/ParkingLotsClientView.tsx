@@ -5,7 +5,6 @@ import Link from "next/link";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { OwnerMapbox } from "@/features/owner/lots/OwnerMapbox";
 import { LotStatusPanel } from "@/features/owner/lots/LotStatusPanel";
-import { AddLotModal } from "@/features/owner/lots/AddLotModal";
 import {
     useAllLots,
     useOwnerMapStore,
@@ -232,7 +231,7 @@ export function ParkingLotsClientView({
                                         );
                                     }
                                 }}
-                                aria-label={`Bãi xe ${lot.name}, ${lot.addr}, ${lot.cc} ô đỗ`}
+                                aria-label={`Bãi xe ${lot.name}, ${lot.addr}, ${lot.cc > 0 ? `${lot.cc} ô đỗ` : "chưa có số chỗ"}`}
                                 style={{
                                     background: "#fff",
                                     borderRadius: 18,
@@ -296,7 +295,9 @@ export function ParkingLotsClientView({
                                         color: "#0f1b3d",
                                     }}
                                 >
-                                    {lot.cc} ô đỗ
+                                    {lot.cc > 0
+                                        ? `${lot.cc} ô đỗ`
+                                        : "Chưa có số chỗ"}
                                 </div>
                             </div>
                         );
@@ -305,7 +306,6 @@ export function ParkingLotsClientView({
             )}
 
             {/* Add Lot Modal */}
-            <AddLotModal />
         </div>
     );
 }

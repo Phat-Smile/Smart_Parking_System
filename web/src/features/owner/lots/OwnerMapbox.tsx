@@ -2,6 +2,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import { useAllLots, useOwnerMapStore } from "./useOwnerMapStore";
 import { GoogleStyleMap } from "./GoogleStyleMap";
@@ -22,8 +23,8 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
         setSelectedLotId,
         mapSearchQuery,
         setMapSearchQuery,
-        setAddModalOpen,
     } = useOwnerMapStore();
+    const router = useRouter();
 
     const filteredLots = lots.filter(
         (l) =>
@@ -68,7 +69,7 @@ export function OwnerMapbox({ token: propToken }: OwnerMapboxProps) {
 
                 <button
                     type="button"
-                    onClick={() => setAddModalOpen(true)}
+                    onClick={() => router.push("/owner/parking-lots/new")}
                     style={{
                         background: "#d9f99d",
                         color: "#143806",

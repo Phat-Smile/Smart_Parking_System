@@ -10,12 +10,10 @@ interface OwnerMapState {
     selectedLotId: number | null;
     filterStatus: "all" | "approved" | "pending" | "rejected";
     mapSearchQuery: string;
-    isAddModalOpen: boolean;
 
     setSelectedLotId: (id: number | null) => void;
     setFilterStatus: (s: "all" | "approved" | "pending" | "rejected") => void;
     setMapSearchQuery: (q: string) => void;
-    setAddModalOpen: (open: boolean) => void;
     addOverlayLot: (lot: ParkingLot) => void;
     updateLotStatus: (lotId: number, status: ApprovalStatus) => void;
 }
@@ -25,12 +23,10 @@ export const useOwnerMapStore = create<OwnerMapState>((set) => ({
     selectedLotId: null,
     filterStatus: "all",
     mapSearchQuery: "",
-    isAddModalOpen: false,
 
     setSelectedLotId: (id) => set({ selectedLotId: id }),
     setFilterStatus: (s) => set({ filterStatus: s }),
     setMapSearchQuery: (q) => set({ mapSearchQuery: q }),
-    setAddModalOpen: (open) => set({ isAddModalOpen: open }),
     addOverlayLot: (lot) =>
         set((state) => ({ overlayLots: [lot, ...state.overlayLots] })),
     updateLotStatus: (lotId, status) =>

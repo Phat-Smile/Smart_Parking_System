@@ -19,6 +19,7 @@ import {
 import { useLotInfoStore } from "@/features/owner/lots/lotInfo";
 import { ApiError } from "@/shared/errors/api-error";
 import { loadOwnerLots, localLotId } from "@/features/owner/lots/ownerLotsSync";
+import { saveInitialLotSetup } from "@/features/owner/lots/initialLotSetup";
 
 interface WizardData {
     name: string;
@@ -124,6 +125,7 @@ export default function NewParkingLotPage() {
     };
 
     const [createdLotId, setCreatedLotId] = useState<number>(1);
+    const [unsaved, setUnsaved] = useState<string[]>([]);
 
     const handleConfirmSend = async () => {
         setErrors([]);
@@ -148,8 +150,7 @@ export default function NewParkingLotPage() {
 
         setIsSubmitting(true);
         try {
-            // D02.1: Parking stores the lot as Pending. Hours, prices and layout are saved on their own
-            // screens, so they are not part of this request.
+            // D02.1: Parking stores the lot as Pending. The register request carries no hours or prices.
             const res = await registerParkingLotApi({
                 name: data.name,
                 address: data.addr,
@@ -158,6 +159,22 @@ export default function NewParkingLotPage() {
                 type: data.type,
                 features: data.features,
             });
+            // Hours, prices and deposit are separate calls; the lot already exists, so a failure here
+            // is reported on the result screen instead of undoing the registration.
+            setUnsaved(
+                await saveInitialLotSetup(res.id, {
+                    openAt: data.op,
+                    closeAt: data.cl2,
+                    acceptsCars: data.vc,
+                    acceptsMotorbikes: data.vm,
+                    carPricePerHour: data.pc,
+                    motorbikePricePerHour: data.pm,
+                    depositVnd: data.dep,
+                    capacity: data.cap,
+                    floors: data.type === "Outdoor" ? 1 : data.floors,
+                    rowsPerFloor: data.rowsPerFloor,
+                }),
+            );
             await loadOwnerLots();
             const registeredId = localLotId(res.id);
             setCreatedLotId(registeredId);
@@ -220,6 +237,17 @@ export default function NewParkingLotPage() {
                         </span>
                         . Ban quản trị hệ thống sẽ tiến hành kiểm duyệt vị trí
                         và thông số kỹ thuật.
+                    </p>
+                    {unsaved.length > 0 && (
+                        <div className="err">
+                            Bãi đã được tạo nhưng chưa lưu được:{" "}
+                            {unsaved.join(", ")}. Hãy cấu hình lại ở các trang
+                            Giờ hoạt động, Bảng giá và Sơ đồ.
+                        </div>
+                    )}
+                    <p>
+                        Sơ đồ ô đỗ được dựng sẵn từ số tầng, số dãy và sức chứa;
+                        bạn có thể chỉnh trong trình chỉnh sửa sơ đồ.
                     </p>
                     <div
                         style={{
