@@ -88,6 +88,14 @@ public sealed class ParkingLot
     }
 
     public string? OpeningHoursJson { get; private set; }
+    public string? PublicInfoJson { get; private set; }
+
+    public void SetPublicInfo(ParkingLotPublicInfo profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        PublicInfoJson = System.Text.Json.JsonSerializer.Serialize(profile,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+    }
 
     public void SetFeatures(ParkingLotFeatures features)
     {

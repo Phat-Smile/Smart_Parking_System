@@ -34,7 +34,7 @@ internal sealed class CustomerLotFeaturesReader(ParkingDbContext db) : ICustomer
             catch (System.Text.Json.JsonException) { }
             return new CustomerLotFeatures(car, motorbike, x.SupportsElectricVehicles,
                 x.SupportsLargeVehicles, x.HasEvCharging, x.IsCovered, x.HasCctv,
-                alwaysOpen, (car || motorbike) && (!policies.TryGetValue(x.Id, out var enabled) || enabled));
+                alwaysOpen, car && (!policies.TryGetValue(x.Id, out var enabled) || enabled));
         });
     }
 }

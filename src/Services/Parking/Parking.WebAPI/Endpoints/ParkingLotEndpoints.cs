@@ -278,7 +278,15 @@ internal static class ParkingLotEndpoints
                     parkingLot.Type,
                     parkingLot.OpeningHours,
                     pricing.IsSuccess ? pricing.Value!.Items : [],
-                    availability.IsSuccess ? availability.Value : null));
+                    availability.IsSuccess ? availability.Value : null,
+                    parkingLot.Features?.Compatibility ?? [],
+                    parkingLot.Features?.Amenities ?? [],
+                    parkingLot.Features?.Prebookable == true && parkingLot.Features.SupportsCar,
+                    parkingLot.Features?.Prebookable == true && parkingLot.Features.SupportsCar ? ["car"] : [],
+                    parkingLot.FloorCount,
+                    parkingLot.CarCapacity,
+                    parkingLot.MotorbikeCapacity,
+                    parkingLot.PublicInfo));
             })
             .AllowAnonymous()
             .WithName("GetParkingLotDetail")
@@ -422,7 +430,15 @@ internal static class ParkingLotEndpoints
         string Type,
         WeeklyOpeningHours? OpeningHours,
         IReadOnlyList<PricingPolicyDto> Pricing,
-        LotAvailability? Availability);
+        LotAvailability? Availability,
+        IReadOnlyList<string>? Compatibility = null,
+        IReadOnlyList<string>? Amenities = null,
+        bool Prebookable = false,
+        IReadOnlyList<string>? BookableVehicleTypes = null,
+        int? FloorCount = null,
+        int? CarCapacity = null,
+        int? MotorbikeCapacity = null,
+        ParkingLotPublicInfo? PublicInfo = null);
 
     private static IResult ToReviewResult(ParkingSystem.BuildingBlocks.Results.Result<ReviewedParkingLot> result)
     {

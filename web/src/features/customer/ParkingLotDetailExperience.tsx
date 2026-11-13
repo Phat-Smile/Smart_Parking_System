@@ -40,6 +40,7 @@ import { ParkingLayoutView } from "./ParkingLayoutView";
 import { CustomerLiveParkingLayout } from "./CustomerLiveParkingLayout";
 import { LotArrivalForecast } from "./components/LotArrivalForecast";
 import { initialArrivalHour } from "./arrivalForecast";
+import { PublicParkingLayoutSection } from "./PublicParkingLayoutSection";
 import { ParkingLotBookingDialog } from "./booking/components/ParkingLotBookingDialog";
 import {
     getAuthSessionSnapshot,
@@ -77,6 +78,18 @@ export type ParkingLotDetailView = {
     spacesText?: string | null;
     compatible?: string[];
     amenities?: string[];
+    compatibilityDeclared?: boolean;
+    prebookable?: boolean;
+    bookableVehicleTypes?: string[];
+    description?: string;
+    entryInstructions?: string;
+    rules?: string[];
+    paymentMethods?: string[];
+    photoIsIllustrative?: boolean;
+    evChargingPoints?: number | null;
+    floorCount?: number;
+    carCapacity?: number;
+    motorbikeCapacity?: number;
 };
 
 const vehicleLabels: Record<string, string> = {
@@ -229,19 +242,26 @@ export function ParkingLotDetailExperience({
         (item) => item.vehicleId === vehicleId,
     );
     const bookingPricing = estimateLotBookingPricing(
-        lot.pricing,
+        lot.isPreview
+            ? lot.pricing
+            : lot.pricing?.filter(
+                  (price) => price.vehicleType.toUpperCase() === "CAR",
+              ),
         duration,
-        selectedVehicle?.vehicleType,
+        selectedVehicle?.vehicleType ?? "Car",
         lot.hourlyPrice,
     );
     const compatibleVehicles = vehicles.filter(
         (item) =>
-            !lot.compatible?.length ||
-            lot.compatible.includes(item.vehicleType.toLowerCase()) ||
-            (item.vehicleType === "Car" &&
-                lot.compatible.some(
-                    (kind) => kind === "ev" || kind === "large",
-                )),
+            item.vehicleType === "Car" &&
+            (lot.isPreview ||
+                lot.bookableVehicleTypes?.includes("car") === true) &&
+            (!lot.compatible?.length ||
+                lot.compatible.includes(item.vehicleType.toLowerCase()) ||
+                (item.vehicleType === "Car" &&
+                    lot.compatible.some(
+                        (kind) => kind === "ev" || kind === "large",
+                    ))),
     );
 
     useEffect(() => {
@@ -251,12 +271,17 @@ export function ParkingLotDetailExperience({
             .then((result) => {
                 setVehicles(result.vehicles);
                 const isEligible = (item: RegisteredVehicle) =>
-                    !lot.compatible?.length ||
-                    lot.compatible.includes(item.vehicleType.toLowerCase()) ||
-                    (item.vehicleType === "Car" &&
-                        lot.compatible.some(
-                            (kind) => kind === "ev" || kind === "large",
-                        ));
+                    item.vehicleType === "Car" &&
+                    (lot.isPreview ||
+                        lot.bookableVehicleTypes?.includes("car") === true) &&
+                    (!lot.compatible?.length ||
+                        lot.compatible.includes(
+                            item.vehicleType.toLowerCase(),
+                        ) ||
+                        (item.vehicleType === "Car" &&
+                            lot.compatible.some(
+                                (kind) => kind === "ev" || kind === "large",
+                            )));
                 const defaultVehicle = result.vehicles.find(
                     (item) => item.isDefault && isEligible(item),
                 );
@@ -269,10 +294,37 @@ export function ParkingLotDetailExperience({
                 if (!controller.signal.aborted) setVehiclesState("error");
             });
         return () => controller.abort();
-    }, [session, lot.id, lot.compatible]);
+    }, [
+        session,
+        lot.id,
+        lot.compatible,
+        lot.isPreview,
+        lot.bookableVehicleTypes,
+    ]);
 
     function startBooking() {
         setBookingMessage("");
+        if (
+            !lot.isPreview &&
+            (!lot.prebookable || !lot.bookableVehicleTypes?.includes("car"))
+        ) {
+            setBookingMessage(
+                copy(
+                    "Car booking is not supported at this lot.",
+                    "Bãi này chưa hỗ trợ đặt trước ô tô.",
+                ),
+            );
+            return;
+        }
+        if (!lot.isPreview && bookingPricing === null) {
+            setBookingMessage(
+                copy(
+                    "A car price must be published before booking.",
+                    "Bãi chưa công bố giá ô tô để đặt trước.",
+                ),
+            );
+            return;
+        }
         if (!session) {
             router.push("/login");
             return;
@@ -296,6 +348,15 @@ export function ParkingLotDetailExperience({
             )
         ) {
             router.push("/customer/vehicles");
+            return;
+        }
+        if (selectedVehicle.vehicleType !== "Car") {
+            setBookingMessage(
+                copy(
+                    "Only car bookings are currently supported.",
+                    "Hiện chỉ hỗ trợ đặt trước chỗ ô tô.",
+                ),
+            );
             return;
         }
         if (!isFutureBookingStart(date, time)) {
@@ -520,6 +581,25 @@ export function ParkingLotDetailExperience({
                                         sizes="(max-width: 900px) 100vw, 600px"
                                         priority
                                     />
+                                    {lot.photoIsIllustrative && (
+                                        <span
+                                            style={{
+                                                position: "absolute",
+                                                top: 12,
+                                                left: 12,
+                                                background: "#ffffffeb",
+                                                padding: "4px 8px",
+                                                borderRadius: 8,
+                                                fontSize: 12,
+                                                zIndex: 2,
+                                            }}
+                                        >
+                                            {copy(
+                                                "Illustrative photo",
+                                                "Ảnh minh họa",
+                                            )}
+                                        </span>
+                                    )}
                                     <span className="lot-detail-gallery-count">
                                         <Images size={14} aria-hidden="true" />{" "}
                                         {lot.photos.length
@@ -585,11 +665,85 @@ export function ParkingLotDetailExperience({
                                               `${lot.name} is a modern parking facility in the heart of District 1, Ho Chi Minh City. Conveniently situated near Nguyen Hue Walking Street, shopping centers, and business districts.`,
                                               `${lot.name} là bãi đỗ hiện đại tại trung tâm Quận 1, TP. Hồ Chí Minh, gần phố đi bộ Nguyễn Huệ và các trung tâm mua sắm.`,
                                           )
-                                        : copy(
+                                        : (lot.description ??
+                                          copy(
                                               `Approved ${lot.type.toLowerCase()} parking at ${lot.address}. Opening hours, amenities and payment methods appear when the operator provides them.`,
                                               `Bãi đỗ đã được duyệt tại ${lot.address}. Giờ mở cửa, tiện ích và phương thức thanh toán sẽ hiển thị khi đơn vị vận hành cung cấp.`,
-                                          )}
+                                          ))}
                                 </p>
+                                {!lot.isPreview && (
+                                    <div
+                                        style={{
+                                            marginBottom: 14,
+                                            fontSize: 14,
+                                        }}
+                                    >
+                                        <p>
+                                            <strong>
+                                                {copy("Floors", "Số tầng")}:
+                                            </strong>{" "}
+                                            {lot.floorCount ??
+                                                copy(
+                                                    "Not published",
+                                                    "Chưa công bố",
+                                                )}
+                                        </p>
+                                        <p>
+                                            <strong>
+                                                {copy(
+                                                    "Car capacity",
+                                                    "Sức chứa ô tô",
+                                                )}
+                                                :
+                                            </strong>{" "}
+                                            {lot.carCapacity ??
+                                                copy(
+                                                    "Not published",
+                                                    "Chưa công bố",
+                                                )}
+                                        </p>
+                                        <p>
+                                            <strong>
+                                                {copy(
+                                                    "Motorbike capacity",
+                                                    "Sức chứa xe máy",
+                                                )}
+                                                :
+                                            </strong>{" "}
+                                            {lot.motorbikeCapacity ??
+                                                copy(
+                                                    "Not published",
+                                                    "Chưa công bố",
+                                                )}
+                                        </p>
+                                        <p>
+                                            <strong>
+                                                {copy(
+                                                    "EV charging points",
+                                                    "Số điểm sạc xe điện",
+                                                )}
+                                                :
+                                            </strong>{" "}
+                                            {lot.evChargingPoints ??
+                                                copy(
+                                                    "Not published",
+                                                    "Chưa công bố",
+                                                )}
+                                        </p>
+                                        {lot.entryInstructions && (
+                                            <p>
+                                                <strong>
+                                                    {copy(
+                                                        "Entrance",
+                                                        "Hướng dẫn vào bãi",
+                                                    )}
+                                                    :
+                                                </strong>{" "}
+                                                {lot.entryInstructions}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="lot-detail-info-split">
                                     <div>
                                         <h3>
@@ -715,6 +869,16 @@ export function ParkingLotDetailExperience({
                                                     <Landmark size={18} />
                                                 </span>
                                             </div>
+                                        ) : lot.paymentMethods?.length ? (
+                                            <ul className="lot-detail-amenities">
+                                                {lot.paymentMethods.map(
+                                                    (method) => (
+                                                        <li key={method}>
+                                                            {method}
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
                                         ) : (
                                             <p>
                                                 {copy(
@@ -756,11 +920,20 @@ export function ParkingLotDetailExperience({
                                                     )}
                                                 </li>
                                             </ul>
+                                        ) : lot.rules?.length ? (
+                                            <ul className="lot-detail-rules">
+                                                {lot.rules.map((rule) => (
+                                                    <li key={rule}>
+                                                        <Check size={14} />{" "}
+                                                        {rule}
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         ) : (
                                             <p>
                                                 {copy(
-                                                    "Ask the parking operator for current rules.",
-                                                    "Liên hệ đơn vị vận hành để biết quy định hiện tại.",
+                                                    "Rules not published",
+                                                    "Chưa công bố nội quy bãi",
                                                 )}
                                             </p>
                                         )}
@@ -776,7 +949,20 @@ export function ParkingLotDetailExperience({
                             />
                         )}
                         {!lot.isPreview && (
-                            <CustomerLiveParkingLayout lotId={lot.id} />
+                            <>
+                                <CustomerLiveParkingLayout lotId={lot.id} />
+                                <details style={{ marginTop: 16 }}>
+                                    <summary style={{ cursor: "pointer" }}>
+                                        {copy(
+                                            "Floor and zone details",
+                                            "Chi tiết tầng và khu vực",
+                                        )}
+                                    </summary>
+                                    <PublicParkingLayoutSection
+                                        lotId={lot.id}
+                                    />
+                                </details>
+                            </>
                         )}
                     </div>
 
@@ -988,11 +1174,42 @@ export function ParkingLotDetailExperience({
                             type="button"
                             className="lot-detail-book-now"
                             onClick={startBooking}
-                            disabled={bookingPricing === null}
+                            disabled={
+                                bookingPricing === null ||
+                                (!lot.isPreview &&
+                                    (!lot.prebookable ||
+                                        !lot.bookableVehicleTypes?.includes(
+                                            "car",
+                                        )))
+                            }
+                            title={
+                                bookingPricing === null
+                                    ? copy(
+                                          "Car price not configured",
+                                          "Chưa cấu hình giá ô tô",
+                                      )
+                                    : !lot.isPreview &&
+                                        (!lot.prebookable ||
+                                            !lot.bookableVehicleTypes?.includes(
+                                                "car",
+                                            ))
+                                      ? copy(
+                                            "Car booking unavailable",
+                                            "Chưa hỗ trợ đặt trước ô tô",
+                                        )
+                                      : undefined
+                            }
                         >
-                            {bookingPricing === null
-                                ? copy("Cannot book yet", "Chưa thể đặt chỗ")
-                                : copy("Book Now", "Đặt ngay")}{" "}
+                            {!lot.isPreview &&
+                            (!lot.prebookable ||
+                                !lot.bookableVehicleTypes?.includes("car"))
+                                ? copy(
+                                      "Booking unavailable",
+                                      "Chưa hỗ trợ đặt trước",
+                                  )
+                                : bookingPricing === null
+                                  ? copy("Cannot book yet", "Chưa thể đặt chỗ")
+                                  : copy("Book Now", "Đặt ngay")}{" "}
                             <ArrowRight size={18} />
                         </button>
                     </aside>
