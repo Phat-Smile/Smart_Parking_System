@@ -336,10 +336,11 @@ public sealed class ReservationCancellationRefundTests
     }
 
     [Fact]
-    public async Task C06_12_Regression_Scheduled_Cancel_BehavesAsBefore()
+    public async Task C06_12_Scheduled_Cancel_ReplacedBy_US_RES_007_Rules()
     {
         var userId = Guid.NewGuid();
         var resId1 = Guid.NewGuid();
+        // 2 hours before appointment (>= 30 mins): refund 100%
         var scheduledBeforeAppt = CreateHold(
             resId1, userId, ReservationStatus.Confirmed, prepaidAmount: 50000m,
             appointmentTime: Now.AddHours(2), reservationType: ReservationType.Scheduled, confirmedAt: Now.AddHours(-1));
@@ -347,23 +348,26 @@ public sealed class ReservationCancellationRefundTests
 
         var handler = CreateHandler();
 
-        // Before appointment: cancel allowed, refund 100%
         var result1 = await handler.Handle(new CancelReservationCommand(resId1, userId, "Cancel scheduled"), CancellationToken.None);
         Assert.True(result1.IsSuccess);
         Assert.Equal("Cancelled", result1.Value!.Status);
         Assert.Equal(50000m, result1.Value.RefundAmount);
+        Assert.Equal("Đặt chỗ đã được hủy. Tiền đã trả trước đã được hoàn về ví của bạn.", result1.Value.Message);
         Assert.Equal(PrepaidOutcome.Refunded, scheduledBeforeAppt.PrepaidOutcome);
 
-        // After appointment: cancel blocked
+        // Under US-RES-007: After appointment time, cancel is allowed and forfeited
         var resId2 = Guid.NewGuid();
         var scheduledAfterAppt = CreateHold(
             resId2, userId, ReservationStatus.Confirmed, prepaidAmount: 50000m,
             appointmentTime: Now.AddMinutes(-5), reservationType: ReservationType.Scheduled, confirmedAt: Now.AddHours(-1));
         _repo.Add(scheduledAfterAppt);
 
-        var result2 = await handler.Handle(new CancelReservationCommand(resId2, userId, "Cancel too late"), CancellationToken.None);
-        Assert.True(result2.IsFailure);
-        Assert.Equal(ReservationErrors.CannotCancel, result2.Error);
+        var result2 = await handler.Handle(new CancelReservationCommand(resId2, userId, "Cancel after appointment"), CancellationToken.None);
+        Assert.True(result2.IsSuccess);
+        Assert.Equal("Cancelled", result2.Value!.Status);
+        Assert.Equal(0m, result2.Value.RefundAmount);
+        Assert.Equal("Đặt chỗ đã được hủy. Bạn hủy muộn hơn 30 phút trước giờ vào nên không được hoàn tiền đã trả trước.", result2.Value.Message);
+        Assert.Equal(PrepaidOutcome.Forfeited, scheduledAfterAppt.PrepaidOutcome);
     }
 
     [Theory]
