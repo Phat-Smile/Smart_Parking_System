@@ -278,6 +278,17 @@ internal sealed class FakeVehicles : IVehicleRepository
 public sealed class CustomerVehicleDetailsTests
 {
     [Fact]
+    public void Electric_car_can_use_the_system_illustration_without_an_uploaded_photo()
+    {
+        var details = new VehicleDetails(null, null, null, null, "electric", null, null, "standard",
+            "/images/parkwise/vehicle-electric-car-cutout.png");
+
+        Assert.True(VehicleDetailsValidation.IsSystemVehicleImageUrl(details.PhotoUrl));
+        Assert.True(new AddVehicleCommandValidator().Validate(
+            new AddVehicleCommand(Guid.NewGuid(), "55A44555", "Car", null, details)).IsValid);
+    }
+
+    [Fact]
     public void Bicycle_requires_photo_and_no_plate()
     {
         var validator = new AddVehicleCommandValidator();

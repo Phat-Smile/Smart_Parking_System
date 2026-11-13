@@ -341,18 +341,20 @@ export default function BookingsPage() {
             {/* Trạng thái Lỗi */}
             {!loading && error && (
                 <div
-                    className="p-6 pb-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3"
+                    className="p-6 pb-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3"
                     role="alert"
                 >
                     <AlertCircle size={32} className="mx-auto text-red-400" />
-                    <p className="text-red-300 text-sm font-medium">{error}</p>
-                    <button
-                        type="button"
-                        onClick={loadReservations}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-semibold transition-colors"
-                    >
-                        {copy("Try again", "Thử lại")}
-                    </button>
+                    <div className="flex flex-col items-center gap-6">
+                        <p className="text-red-300 text-sm font-medium">{error}</p>
+                        <button
+                            type="button"
+                            onClick={loadReservations}
+                            className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-semibold transition-colors"
+                        >
+                            {copy("Try again", "Thử lại")}
+                        </button>
+                    </div>
                 </div>
             )}
 

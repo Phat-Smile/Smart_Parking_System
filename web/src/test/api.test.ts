@@ -76,6 +76,17 @@ describe("Gateway config and API client", () => {
         expect(parseProblemDetails("raw server exception")).toBeUndefined();
     });
 
+    it("preserves validation field names without exposing them as error text", () => {
+        expect(parseProblemDetails({
+            status: 400,
+            errorCode: "request.validation_failed",
+            errors: { PhotoUrl: ["invalid photo"], LicensePlate: ["invalid plate", 42] },
+        })?.validationErrors).toEqual({
+            PhotoUrl: ["invalid photo"],
+            LicensePlate: ["invalid plate"],
+        });
+    });
+
     it("attaches X-Correlation-ID header to outbound requests", async () => {
         const fetchMock = vi.fn().mockResolvedValue(
             new Response(JSON.stringify({ ok: true }), {
