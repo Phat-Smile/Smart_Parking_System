@@ -49,6 +49,13 @@ APIs started directly on the host (IDE or `dotnet run`) in the `Development` env
 
 A value that is already set wins over `.env`, for example a process or user environment variable `ConnectionStrings__DefaultConnection`. Remove such a variable if it holds old values. Containers never read `.env` (it is excluded by `.dockerignore`); Compose passes the same values as environment variables.
 
+### Email (OTP) and third-party keys in `.env`
+
+- **OTP and other emails.** Leave `SMTP_HOST`, `SMTP_USERNAME` and `SMTP_PASSWORD` blank (the example uses `SMTP_HOST=mailpit`, port `1025`). Notification then sends to the Mailpit container and every message, to any address including `*.local`, shows up at `http://localhost:8025`. Fill the three `SMTP_*` values with a real provider only when you need mail to leave your machine; a real provider usually rejects reserved addresses such as `demo.local`, and the OTP email is then lost. Recreate Notification after changing them: `docker compose up -d --no-deps --force-recreate notification-api`.
+- **VNPay sandbox.** Wallet top-up needs `VNPAY_TMN_CODE` and `VNPAY_HASH_SECRET` from a VNPay sandbox merchant. With wrong or example values VNPay rejects the signature and the top-up page does not open. Get the shared values from the team, never commit them, and recreate Payment after changing them: `docker compose up -d --no-deps --force-recreate payment-api`. Open the web at `http://localhost:3000` so the return URL (`VNPAY_RETURN_URL`) comes back to the same origin.
+- **Mapbox.** `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` must be a public `pk.*` token. It is compiled into the web image, so rebuild after changing it: `docker compose up -d --build web`. `MAPBOX_ACCESS_TOKEN` is the server-side token read by the APIs at run time.
+- **CORS.** `GATEWAY_CORS_ALLOWED_ORIGINS` lists the browser origins the Gateway accepts (default `http://localhost:3000`).
+
 ## Start infrastructure
 
 Start just PostgreSQL and RabbitMQ:
