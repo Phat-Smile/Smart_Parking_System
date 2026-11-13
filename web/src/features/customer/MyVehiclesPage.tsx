@@ -23,7 +23,6 @@ import {
     addMyVehicle,
     deleteMyVehicle,
     getMyVehicles,
-    setDefaultVehicle,
     updateMyVehicle,
     type RegisteredVehicle,
     type VehicleDetails,
@@ -591,37 +590,6 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
     const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
     const [modal, setModal] = useState<Modal>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [settingDefaultId, setSettingDefaultId] = useState<string | null>(
-        null,
-    );
-
-    async function handleSetDefault(vehicleId: string) {
-        setSettingDefaultId(vehicleId);
-        try {
-            await setDefaultVehicle(vehicleId);
-            setVehicles((current) =>
-                current.map((v) => ({
-                    ...v,
-                    isDefault: v.id === vehicleId,
-                })),
-            );
-            setNotice(
-                copy(
-                    "Default vehicle updated.",
-                    "Đã đặt phương tiện làm xe mặc định.",
-                ),
-            );
-        } catch {
-            setNotice(
-                copy(
-                    "Could not set the default vehicle. Please try again.",
-                    "Không thể đặt làm xe mặc định. Vui lòng thử lại.",
-                ),
-            );
-        } finally {
-            setSettingDefaultId(null);
-        }
-    }
     const [plate, setPlate] = useState("");
     const [category, setCategory] = useState<Vehicle["category"]>("car");
     const [brand, setBrand] = useState("");
@@ -1176,19 +1144,6 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                             )}
                                                         </span>
                                                     )}
-                                                {vehicle.isDefault && (
-                                                    <span
-                                                        className="vehicles-badge default"
-                                                        style={{
-                                                            background:
-                                                                "#059669",
-                                                            color: "#ffffff",
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        ★ Mặc định
-                                                    </span>
-                                                )}
                                                 {vehicle.draft && (
                                                     <span className="vehicles-badge draft">
                                                         {copy(
@@ -1271,71 +1226,15 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                             )}
                                         </div>
                                         <div className="vehicles-card-actions">
-                                            {session &&
-                                                !vehicle.draft &&
-                                                (vehicle.isDefault ? (
-                                                    <span
-                                                        style={{
-                                                            fontSize: "0.85rem",
-                                                            color: "#059669",
-                                                            fontWeight: 600,
-                                                            display:
-                                                                "inline-flex",
-                                                            alignItems:
-                                                                "center",
-                                                            gap: "4px",
-                                                            padding: "6px 8px",
-                                                        }}
-                                                    >
-                                                        {copy(
-                                                            "Default vehicle",
-                                                            "Xe ch\u00ednh",
-                                                        )}
-                                                    </span>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        className="secondary"
-                                                        onClick={() =>
-                                                            handleSetDefault(
-                                                                vehicle.id,
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            settingDefaultId ===
-                                                            vehicle.id
-                                                        }
-                                                        style={{
-                                                            fontSize: "0.85rem",
-                                                            cursor: "pointer",
-                                                        }}
-                                                    >
-                                                        {settingDefaultId ===
-                                                        vehicle.id
-                                                            ? copy(
-                                                                  "Setting...",
-                                                                  "\u0110ang \u0111\u1eb7t...",
-                                                              )
-                                                            : copy(
-                                                                  "Set as default",
-                                                                  "\u0110\u1eb7t m\u1eb7c \u0111\u1ecbnh",
-                                                              )}
-                                                    </button>
-                                                ))}
-                                            {(!session || vehicle.draft) && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        openEdit(vehicle)
-                                                    }
-                                                >
-                                                    <Icon
-                                                        name="edit"
-                                                        size={16}
-                                                    />{" "}
-                                                    {copy("Edit", "Sửa")}
-                                                </button>
-                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    openEdit(vehicle)
+                                                }
+                                            >
+                                                <Icon name="edit" size={16} />{" "}
+                                                {copy("Edit", "S\u1eeda")}
+                                            </button>
                                             <button
                                                 type="button"
                                                 className="danger"
@@ -1463,21 +1362,6 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                className="vehicles-support-link"
-                                onClick={() =>
-                                    setNotice(
-                                        copy(
-                                            "Support contact is not available yet.",
-                                            "Hiện chưa có kênh liên hệ hỗ trợ.",
-                                        ),
-                                    )
-                                }
-                            >
-                                {copy("Contact Support", "Liên hệ hỗ trợ")}{" "}
-                                <Icon name="arrow" size={16} />
-                            </button>
                         </section>
                     </aside>
                 </div>
