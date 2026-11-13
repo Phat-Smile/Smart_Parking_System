@@ -77,11 +77,16 @@ describe("Gateway config and API client", () => {
     });
 
     it("preserves validation field names without exposing them as error text", () => {
-        expect(parseProblemDetails({
-            status: 400,
-            errorCode: "request.validation_failed",
-            errors: { PhotoUrl: ["invalid photo"], LicensePlate: ["invalid plate", 42] },
-        })?.validationErrors).toEqual({
+        expect(
+            parseProblemDetails({
+                status: 400,
+                errorCode: "request.validation_failed",
+                errors: {
+                    PhotoUrl: ["invalid photo"],
+                    LicensePlate: ["invalid plate", 42],
+                },
+            })?.validationErrors,
+        ).toEqual({
             PhotoUrl: ["invalid photo"],
             LicensePlate: ["invalid plate"],
         });

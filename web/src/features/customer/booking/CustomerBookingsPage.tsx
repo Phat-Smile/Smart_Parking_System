@@ -346,7 +346,9 @@ export default function BookingsPage() {
                 >
                     <AlertCircle size={32} className="mx-auto text-red-400" />
                     <div className="flex flex-col items-center gap-6">
-                        <p className="text-red-300 text-sm font-medium">{error}</p>
+                        <p className="text-red-300 text-sm font-medium">
+                            {error}
+                        </p>
                         <button
                             type="button"
                             onClick={loadReservations}

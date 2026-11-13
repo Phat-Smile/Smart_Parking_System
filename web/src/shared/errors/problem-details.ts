@@ -30,15 +30,24 @@ export function parseProblemDetails(
     }
     if (typeof record.status === "number" && Number.isInteger(record.status))
         result.status = record.status;
-    if (typeof record.errors === "object" && record.errors !== null && !Array.isArray(record.errors)) {
+    if (
+        typeof record.errors === "object" &&
+        record.errors !== null &&
+        !Array.isArray(record.errors)
+    ) {
         const validationErrors: Record<string, string[]> = {};
-        for (const [field, messages] of Object.entries(record.errors as Record<string, unknown>)) {
+        for (const [field, messages] of Object.entries(
+            record.errors as Record<string, unknown>,
+        )) {
             if (Array.isArray(messages)) {
-                const safeMessages = messages.filter((message): message is string => typeof message === "string");
+                const safeMessages = messages.filter(
+                    (message): message is string => typeof message === "string",
+                );
                 if (safeMessages.length) validationErrors[field] = safeMessages;
             }
         }
-        if (Object.keys(validationErrors).length) result.validationErrors = validationErrors;
+        if (Object.keys(validationErrors).length)
+            result.validationErrors = validationErrors;
     }
     return Object.keys(result).length ? result : undefined;
 }
