@@ -103,6 +103,8 @@ describe("CustomerParkingLotDetailPage", () => {
             latitude: 10.77,
             longitude: 106.7,
             type: "MultiStorey",
+            prebookable: true,
+            bookableVehicleTypes: ["car"],
             openingHours: null,
             pricing: [
                 {

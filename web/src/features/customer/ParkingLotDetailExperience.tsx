@@ -251,17 +251,16 @@ export function ParkingLotDetailExperience({
         selectedVehicle?.vehicleType ?? "Car",
         lot.hourlyPrice,
     );
+    // List registered vehicles by physical compatibility, not booking permission.
+    // Prebooking restrictions are enforced separately in startBooking and the CTA.
     const compatibleVehicles = vehicles.filter(
         (item) =>
-            item.vehicleType === "Car" &&
-            (lot.isPreview ||
-                lot.bookableVehicleTypes?.includes("car") === true) &&
-            (!lot.compatible?.length ||
-                lot.compatible.includes(item.vehicleType.toLowerCase()) ||
-                (item.vehicleType === "Car" &&
-                    lot.compatible.some(
-                        (kind) => kind === "ev" || kind === "large",
-                    ))),
+            !lot.compatible?.length ||
+            lot.compatible.includes(item.vehicleType.toLowerCase()) ||
+            (item.vehicleType === "Car" &&
+                lot.compatible.some(
+                    (kind) => kind === "ev" || kind === "large",
+                )),
     );
 
     useEffect(() => {
@@ -271,17 +270,12 @@ export function ParkingLotDetailExperience({
             .then((result) => {
                 setVehicles(result.vehicles);
                 const isEligible = (item: RegisteredVehicle) =>
-                    item.vehicleType === "Car" &&
-                    (lot.isPreview ||
-                        lot.bookableVehicleTypes?.includes("car") === true) &&
-                    (!lot.compatible?.length ||
-                        lot.compatible.includes(
-                            item.vehicleType.toLowerCase(),
-                        ) ||
-                        (item.vehicleType === "Car" &&
-                            lot.compatible.some(
-                                (kind) => kind === "ev" || kind === "large",
-                            )));
+                    !lot.compatible?.length ||
+                    lot.compatible.includes(item.vehicleType.toLowerCase()) ||
+                    (item.vehicleType === "Car" &&
+                        lot.compatible.some(
+                            (kind) => kind === "ev" || kind === "large",
+                        ));
                 const defaultVehicle = result.vehicles.find(
                     (item) => item.isDefault && isEligible(item),
                 );
@@ -294,13 +288,7 @@ export function ParkingLotDetailExperience({
                 if (!controller.signal.aborted) setVehiclesState("error");
             });
         return () => controller.abort();
-    }, [
-        session,
-        lot.id,
-        lot.compatible,
-        lot.isPreview,
-        lot.bookableVehicleTypes,
-    ]);
+    }, [session, lot.id, lot.compatible]);
 
     function startBooking() {
         setBookingMessage("");
