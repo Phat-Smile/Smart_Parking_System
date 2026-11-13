@@ -6,6 +6,11 @@ const api = vi.hoisted(() => ({
     configurePricingApi: vi.fn(),
 }));
 vi.mock("@/features/owner/api/ownerApi", () => api);
+const layoutApi = vi.hoisted(() => ({ saveOwnerParkingLayout: vi.fn() }));
+vi.mock("@/features/owner/layout/ownerLayoutApi", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    ...layoutApi,
+}));
 
 import { saveInitialLotSetup, weeklyHours } from "./initialLotSetup";
 
@@ -17,10 +22,15 @@ const setup = {
     carPricePerHour: 30000,
     motorbikePricePerHour: 5000,
     depositVnd: 20000,
+    capacity: 100,
+    floors: 2,
+    rowsPerFloor: 4,
 };
 
 beforeEach(() => {
-    Object.values(api).forEach((fn) => fn.mockReset().mockResolvedValue({}));
+    Object.values({ ...api, ...layoutApi }).forEach((fn) =>
+        fn.mockReset().mockResolvedValue({}),
+    );
 });
 
 describe("weeklyHours", () => {
@@ -44,6 +54,10 @@ describe("saveInitialLotSetup", () => {
     it("saves hours, both prices and the deposit", async () => {
         expect(await saveInitialLotSetup("lot-1", setup)).toEqual([]);
         expect(api.configureOpeningHoursApi).toHaveBeenCalledOnce();
+        expect(layoutApi.saveOwnerParkingLayout).toHaveBeenCalledWith(
+            "lot-1",
+            expect.objectContaining({ expectedVersion: 0 }),
+        );
         expect(api.configurePricingApi).toHaveBeenCalledWith(
             "lot-1",
             "CAR",

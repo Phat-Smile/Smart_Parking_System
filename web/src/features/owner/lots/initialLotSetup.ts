@@ -4,10 +4,12 @@ import {
     configurePricingApi,
     type OpeningHoursDayItem,
 } from "@/features/owner/api/ownerApi";
+import { saveOwnerParkingLayout } from "@/features/owner/layout/ownerLayoutApi";
+import { buildInitialLayout } from "./initialLayout";
 
 /*
  * Parking's register endpoint only takes the name, address, position, type and features. What the
- * owner also typed in the wizard (hours, prices, deposit) is saved right after, through the same
+ * owner also typed in the wizard (hours, prices, deposit, layout) is saved right after, through the same
  * calls the config screens use, so a new lot does not arrive empty.
  */
 
@@ -19,6 +21,9 @@ export type InitialLotSetup = {
     carPricePerHour: number;
     motorbikePricePerHour: number;
     depositVnd: number;
+    capacity: number;
+    floors: number;
+    rowsPerFloor: number;
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -47,6 +52,20 @@ export async function saveInitialLotSetup(
     setup: InitialLotSetup,
 ): Promise<string[]> {
     const steps: { label: string; run: () => Promise<unknown> }[] = [
+        {
+            label: "sơ đồ ô đỗ",
+            run: () =>
+                saveOwnerParkingLayout(lotId, {
+                    expectedVersion: 0,
+                    floors: buildInitialLayout({
+                        capacity: setup.capacity,
+                        floors: setup.floors,
+                        rowsPerFloor: setup.rowsPerFloor,
+                        acceptsCars: setup.acceptsCars,
+                        acceptsMotorbikes: setup.acceptsMotorbikes,
+                    }),
+                }),
+        },
         {
             label: "giờ hoạt động",
             run: () =>

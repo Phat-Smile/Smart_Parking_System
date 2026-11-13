@@ -170,6 +170,9 @@ export default function NewParkingLotPage() {
                     carPricePerHour: data.pc,
                     motorbikePricePerHour: data.pm,
                     depositVnd: data.dep,
+                    capacity: data.cap,
+                    floors: data.type === "Outdoor" ? 1 : data.floors,
+                    rowsPerFloor: data.rowsPerFloor,
                 }),
             );
             await loadOwnerLots();
@@ -239,13 +242,12 @@ export default function NewParkingLotPage() {
                         <div className="err">
                             Bãi đã được tạo nhưng chưa lưu được:{" "}
                             {unsaved.join(", ")}. Hãy cấu hình lại ở các trang
-                            Giờ hoạt động và Bảng giá.
+                            Giờ hoạt động, Bảng giá và Sơ đồ.
                         </div>
                     )}
                     <p>
-                        Sơ đồ ô đỗ ({data.floors} tầng, {data.rowsPerFloor} dãy
-                        mỗi tầng) chưa được lưu: hãy dựng trong trình chỉnh sửa
-                        sơ đồ trước khi admin duyệt.
+                        Sơ đồ ô đỗ được dựng sẵn từ số tầng, số dãy và sức chứa;
+                        bạn có thể chỉnh trong trình chỉnh sửa sơ đồ.
                     </p>
                     <div
                         style={{
