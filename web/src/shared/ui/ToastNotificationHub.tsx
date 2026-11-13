@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useSyncExternalStore } from "react";
 import { Bell, CheckCircle, AlertTriangle, Info, X } from "lucide-react";
 import {
     isPushSupported,
@@ -20,7 +20,6 @@ export interface LiveToast {
 
 type ToastListener = (toast: LiveToast) => void;
 const listeners = new Set<ToastListener>();
-
 
 export function emitLiveToast(
     title: string,
@@ -55,14 +54,19 @@ export function ToastNotificationHub() {
     const [userPermission, setUserPermission] =
         useState<NotificationPermission | null>(null);
     const [promptDismissed, setPromptDismissed] = useState(false);
-    const [isMounted, setIsMounted] = useState(false);
+    // false on the server and during hydration, true afterwards, without setting state in an effect.
+    const isMounted = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
 
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    const isSupported = isMounted && typeof window !== "undefined" ? isPushSupported() : false;
-    const detectedPermission = isMounted && typeof window !== "undefined" ? getPushPermission() : "default";
+    const isSupported =
+        isMounted && typeof window !== "undefined" ? isPushSupported() : false;
+    const detectedPermission =
+        isMounted && typeof window !== "undefined"
+            ? getPushPermission()
+            : "default";
     const permission = userPermission ?? detectedPermission;
 
     useEffect(() => {
@@ -111,34 +115,32 @@ export function ToastNotificationHub() {
             aria-live="polite"
         >
             {/* Quick Web Push Enabler Badge if not granted */}
-            {isSupported &&
-                permission !== "granted" &&
-                !promptDismissed && (
-                    <div className="pointer-events-auto bg-neutral-900/92 backdrop-blur border border-neutral-700/80 text-white px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-xs">
-                        <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
-                        <span className="truncate">
-                            {copy(
-                                "Get parking entry and exit alerts?",
-                                "Nhận thông báo khi xe vào/ra?",
-                            )}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={handleRequestPermission}
-                            className="bg-brand-500 hover:bg-brand-400 text-white font-semibold px-2.5 py-0.5 rounded-full text-[11px] transition cursor-pointer shrink-0"
-                        >
-                            {copy("Enable", "Bật ngay")}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setPromptDismissed(true)}
-                            className="text-neutral-400 hover:text-white p-0.5 rounded-full transition cursor-pointer shrink-0"
-                            aria-label="Đóng gợi ý thông báo"
-                        >
-                            <X className="w-3 h-3" />
-                        </button>
-                    </div>
-                )}
+            {isSupported && permission !== "granted" && !promptDismissed && (
+                <div className="pointer-events-auto bg-neutral-900/92 backdrop-blur border border-neutral-700/80 text-white px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-xs">
+                    <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                    <span className="truncate">
+                        {copy(
+                            "Get parking entry and exit alerts?",
+                            "Nhận thông báo khi xe vào/ra?",
+                        )}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={handleRequestPermission}
+                        className="bg-brand-500 hover:bg-brand-400 text-white font-semibold px-2.5 py-0.5 rounded-full text-[11px] transition cursor-pointer shrink-0"
+                    >
+                        {copy("Enable", "Bật ngay")}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setPromptDismissed(true)}
+                        className="text-neutral-400 hover:text-white p-0.5 rounded-full transition cursor-pointer shrink-0"
+                        aria-label="Đóng gợi ý thông báo"
+                    >
+                        <X className="w-3 h-3" />
+                    </button>
+                </div>
+            )}
 
             {/* Render active floating toasts */}
             {toasts.map((toast) => {

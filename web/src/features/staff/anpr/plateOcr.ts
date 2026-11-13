@@ -32,7 +32,10 @@ export function parseVietnamesePlate(
     text = text.replace(/\b73J\b/g, "59-V1");
 
     // Khi viền điện thoại hoặc crop cắt mất số 5: '| 9-\1 |' hoặc '9-\1' hoặc '9-V1' hoặc '9-1' -> '59-V1'
-    text = text.replace(/[|/]?\s*(?:5|S)?9\s*[-.\\]+\s*(?:V|\\|\||I|L)?\s*1\b/g, "59-V1");
+    text = text.replace(
+        /[|/]?\s*(?:5|S)?9\s*[-.\\]+\s*(?:V|\\|\||I|L)?\s*1\b/g,
+        "59-V1",
+    );
     text = text.replace(/\b9\s*[-.]\s*V1\b/g, "59-V1");
     text = text.replace(/\b9\s*[-.]\s*1\s+([0-9\/\.J]{4,8})\b/g, "59-V1 $1");
 
@@ -64,12 +67,16 @@ export function parseVietnamesePlate(
     text = text.replace(/222[.\s]*[R6][A8B]\b/g, "222.68");
 
     // Xóa các ký tự viền/khung rác
-    text = text.replace(/[|\\_~`!@#$%^&*()+=<>{}[\]?]/g, " ").replace(/\s+/g, " ").trim();
+    text = text
+        .replace(/[|\\_~`!@#$%^&*()+=<>{}[\]?]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 
     // 2. Thử nhận diện Xe máy:
     // Dòng 1: 2 số tỉnh + '-' hoặc khoảng trắng + 1 chữ cái + 1 số sê-ri (VD: 59-V1, 29-B1, 59X1)
     // Dòng 2: 4 hoặc 5 số xe (VD: 793.79, 79379, 234.56)
-    const motoRegex = /\b([0-9]{2})\s*[-.]?\s*([A-Z][0-9])\s*[-.\s]+([0-9]{3,5}(?:\.[0-9]{2})?)\b/;
+    const motoRegex =
+        /\b([0-9]{2})\s*[-.]?\s*([A-Z][0-9])\s*[-.\s]+([0-9]{3,5}(?:\.[0-9]{2})?)\b/;
     const motoMatch = text.match(motoRegex);
     if (motoMatch) {
         const prov = motoMatch[1];
@@ -88,7 +95,8 @@ export function parseVietnamesePlate(
     }
 
     // 3. Thử nhận diện Ô tô (Biển số ô tô hiện hành Việt Nam 5 chữ số: VD: 51F-782.91, 51A-123.45):
-    const carRegex = /\b([0-9]{2})\s*[-.]?\s*([A-Z])\s*[-.\s]+([0-9]{3,5}(?:\.[0-9]{2})?)\b/;
+    const carRegex =
+        /\b([0-9]{2})\s*[-.]?\s*([A-Z])\s*[-.\s]+([0-9]{3,5}(?:\.[0-9]{2})?)\b/;
     const carMatch = text.match(carRegex);
     if (carMatch) {
         const prov = carMatch[1];
@@ -171,7 +179,10 @@ export function preprocessCanvasForOcr(
     // Chuẩn hóa kích thước xử lý tối ưu cho OCR: 440px chiều rộng
     // Giúp WebAssembly OCR chạy siêu tốc (dưới 200ms) thay vì mất vài giây
     const OCR_WIDTH = 440;
-    const OCR_HEIGHT = Math.max(10, Math.round(OCR_WIDTH * (box.height / box.width)));
+    const OCR_HEIGHT = Math.max(
+        10,
+        Math.round(OCR_WIDTH * (box.height / box.width)),
+    );
 
     const target = document.createElement("canvas");
     target.width = OCR_WIDTH;
@@ -206,14 +217,16 @@ export function preprocessCanvasForOcr(
         let minLum = 255;
         let maxLum = 0;
         for (let i = 0; i < data.length; i += 4) {
-            const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            const lum =
+                0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
             if (lum < minLum) minLum = lum;
             if (lum > maxLum) maxLum = lum;
         }
 
         const range = Math.max(1, maxLum - minLum);
         for (let i = 0; i < data.length; i += 4) {
-            const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            const lum =
+                0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
             // Kéo giãn dải màu đồng thời áp dụng gamma 1.45 để làm đậm nét chữ màu đen, chống bị chói sáng màn hình điện thoại
             const normalized = Math.min(1, Math.max(0, (lum - minLum) / range));
             const darkened = Math.pow(normalized, 1.45) * 255;
@@ -230,7 +243,13 @@ export function preprocessCanvasForOcr(
 }
 
 // Singleton OCR worker để tái sử dụng xuyên suốt, tránh tạo mới worker gây lag trình duyệt
-let cachedWorker: any = null;
+// Only the part of the Tesseract worker this module uses.
+type OcrWorker = {
+    recognize(
+        image: HTMLCanvasElement,
+    ): Promise<{ data?: { text?: string; confidence?: number } }>;
+};
+let cachedWorker: OcrWorker | null = null;
 let isInitializing = false;
 let isWorkerBusy = false;
 
@@ -249,7 +268,8 @@ async function getCachedOcrWorker() {
         const worker = await createWorker("eng");
         // PSM.SINGLE_BLOCK: Single uniform block of text (tăng tốc độ quét gấp 4 lần cho biển số xe)
         await worker.setParameters({
-            tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. /|\\",
+            tessedit_char_whitelist:
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. /|\\",
             tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
         });
         cachedWorker = worker;
@@ -280,7 +300,7 @@ export async function recognizePlateFromCanvas(
         // Tiền xử lý tối ưu (440px)
         const processed = preprocessCanvasForOcr(canvas);
 
-        const result: any = await worker.recognize(processed);
+        const result = await worker.recognize(processed);
         if (!result || !result.data) return null;
 
         const rawText = result.data.text || "";
@@ -291,7 +311,10 @@ export async function recognizePlateFromCanvas(
         }
 
         // Đạt chuẩn nhận diện biển số xe Việt Nam: độ tin cậy đạt mức cao (95% - 99%)
-        const confidence = Math.min(0.99, Math.max(0.96, (result.data.confidence || 95) / 100));
+        const confidence = Math.min(
+            0.99,
+            Math.max(0.96, (result.data.confidence || 95) / 100),
+        );
 
         return {
             rawText,

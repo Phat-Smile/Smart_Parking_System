@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseVietnamesePlate, formatVietnamesePlate, preprocessCanvasForOcr } from "./plateOcr";
+import {
+    parseVietnamesePlate,
+    formatVietnamesePlate,
+    preprocessCanvasForOcr,
+} from "./plateOcr";
 
 describe("plateOcr ANPR Engine (Method 1)", () => {
     describe("parseVietnamesePlate", () => {

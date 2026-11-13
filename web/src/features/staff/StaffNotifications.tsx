@@ -39,17 +39,20 @@ export function StaffNotifications() {
     const pendingIssuesCount = issues.length;
 
     const activeSessionsRef = useRef(activeSessions);
-    activeSessionsRef.current = activeSessions;
+    useEffect(() => {
+        activeSessionsRef.current = activeSessions;
+    }, [activeSessions]);
 
+    const lotId = assignedLot?.lotId;
     const loadRealNotifications = useCallback(async () => {
+        // Always yield first so the state update below never runs synchronously inside an effect.
+        await Promise.resolve();
         const notifs: NotificationItem[] = [];
 
         // 1. Kiểm tra sự cố OCR thực tế từ CSDL backend
-        if (assignedLot?.lotId) {
+        if (lotId) {
             try {
-                const pendingReadings = await listPendingGateReadings(
-                    assignedLot.lotId,
-                );
+                const pendingReadings = await listPendingGateReadings(lotId);
                 if (Array.isArray(pendingReadings)) {
                     pendingReadings.forEach((reading) => {
                         const plateStr = reading.observedPlate || "Chưa rõ";
@@ -77,7 +80,10 @@ export function StaffNotifications() {
         const currentSessions = activeSessionsRef.current;
         currentSessions.forEach((s) => {
             const entryTime = new Date(s.entryTime).getTime();
-            if (!Number.isNaN(entryTime) && now - entryTime > 24 * 3600 * 1000) {
+            if (
+                !Number.isNaN(entryTime) &&
+                now - entryTime > 24 * 3600 * 1000
+            ) {
                 const hoursParked = Math.floor(
                     (now - entryTime) / (3600 * 1000),
                 );
@@ -105,10 +111,17 @@ export function StaffNotifications() {
             }
             return notifs;
         });
-    }, [assignedLot?.lotId]);
+    }, [lotId]);
 
     useEffect(() => {
-        void loadRealNotifications();
+        let active = true;
+        // Run in a microtask: the loader updates state, which must not happen synchronously in the effect.
+        void Promise.resolve().then(() => {
+            if (active) void loadRealNotifications();
+        });
+        return () => {
+            active = false;
+        };
     }, [loadRealNotifications, activeSessions.length]);
 
     const unreadCount = items.filter((n) => !n.read).length;
