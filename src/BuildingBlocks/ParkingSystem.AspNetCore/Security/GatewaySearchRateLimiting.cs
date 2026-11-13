@@ -36,7 +36,17 @@ public static class GatewaySearchRateLimiting
         return builder;
     }
 
-    private static async ValueTask WriteRejectionAsync(OnRejectedContext context, CancellationToken cancellationToken)
+    // The Gateway registers the auth and the search limiter, and the one registered last owns OnRejected.
+    // It therefore answers for both: only the search route gets the search wording.
+    private static ValueTask WriteRejectionAsync(OnRejectedContext context, CancellationToken cancellationToken)
+    {
+        var policy = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
+        return policy == PolicyName
+            ? WriteSearchRejectionAsync(context, cancellationToken)
+            : GatewayAuthRateLimiting.WriteRejectionAsync(context, cancellationToken);
+    }
+
+    private static async ValueTask WriteSearchRejectionAsync(OnRejectedContext context, CancellationToken cancellationToken)
     {
         var http = context.HttpContext;
         http.Response.StatusCode = StatusCodes.Status429TooManyRequests;

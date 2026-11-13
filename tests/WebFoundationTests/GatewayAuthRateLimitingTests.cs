@@ -50,6 +50,8 @@ public sealed class GatewayAuthRateLimitingTests : IAsyncLifetime
         builder.AddParkingSystemWebFoundation();
         builder.AddParkingSystemGatewaySecurity();
         builder.AddParkingSystemAuthRateLimiting();
+        // The real Gateway registers both limiters and they share one rejection handler.
+        builder.AddParkingSystemSearchRateLimiting();
         builder.Services.AddReverseProxy().LoadFromMemory(
             [
                 Route("auth-login", "/api/identity/accounts/login", "auth-login"),
@@ -86,6 +88,7 @@ public sealed class GatewayAuthRateLimitingTests : IAsyncLifetime
         Assert.InRange(rejected.Headers.RetryAfter!.Delta!.Value.TotalSeconds, 1, 60);
         var problem = await rejected.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal(GatewayAuthRateLimiting.RejectedErrorCode, problem.GetProperty("errorCode").GetString());
+        Assert.DoesNotContain("tìm kiếm", problem.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(LoginPermitsInTest, DestinationHits("/api/identity/accounts/login"));
     }
 

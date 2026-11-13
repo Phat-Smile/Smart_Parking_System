@@ -52,7 +52,7 @@ public static class GatewayAuthRateLimiting
     }
 
     // 429 cùng dạng problem+json với các lỗi khác, kèm Retry-After để FE biết chờ bao lâu.
-    private static async ValueTask WriteRejectionAsync(OnRejectedContext context, CancellationToken cancellationToken)
+    internal static async ValueTask WriteRejectionAsync(OnRejectedContext context, CancellationToken cancellationToken)
     {
         var http = context.HttpContext;
         http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
