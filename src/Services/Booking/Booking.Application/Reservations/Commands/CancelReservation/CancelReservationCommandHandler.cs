@@ -48,18 +48,7 @@ public sealed class CancelReservationCommandHandler(
 
         var now = clock.UtcNow;
 
-        // 2.b. For Scheduled only: cannot cancel after appointment time (US-RES-007 will replace it).
-        // For HoldWhileDriving: allow cancel after appointment time if not yet Used.
-        if (reservation.ReservationType == ReservationType.Scheduled &&
-            reservation.Status == ReservationStatus.Confirmed &&
-            now > reservation.AppointmentTime)
-        {
-            logger.LogWarning("Scheduled reservation {ReservationId} cannot be cancelled after appointment time {AppointmentTime}.",
-                request.ReservationId, reservation.AppointmentTime);
-            return Result<CancelledReservationDto>.Failure(ReservationErrors.CannotCancel);
-        }
-
-        // 2.c. Decide with the policy
+        // 2.c. Decide with the policy (BR-03.a for Scheduled, BR-03.b for HoldWhileDriving)
         var decision = CancellationRefundPolicy.Decide(reservation, now);
 
         PrepaidOutcome? initialOutcome = decision switch
@@ -149,13 +138,24 @@ public sealed class CancelReservationCommandHandler(
                 logger.LogError(ex, "Exception calling refund for reservation {ReservationId}. Background reconciliation worker will process it.", reservation.Id);
             }
 
-            message = refundSucceeded
-                ? "Đặt chỗ đã được hủy. Tiền cọc đã được hoàn về ví của bạn."
-                : "Đặt chỗ đã được hủy. Tiền cọc đang được hoàn về ví.";
+            if (reservation.ReservationType == ReservationType.Scheduled)
+            {
+                message = refundSucceeded
+                    ? "Đặt chỗ đã được hủy. Tiền đã trả trước đã được hoàn về ví của bạn."
+                    : "Đặt chỗ đã được hủy. Tiền đã trả trước đang được hoàn về ví.";
+            }
+            else
+            {
+                message = refundSucceeded
+                    ? "Đặt chỗ đã được hủy. Tiền cọc đã được hoàn về ví của bạn."
+                    : "Đặt chỗ đã được hủy. Tiền cọc đang được hoàn về ví.";
+            }
         }
         else if (decision is CancellationRefundDecision.Forfeit)
         {
-            message = "Đặt chỗ đã được hủy. Bạn hủy sau 5 phút kể từ lúc xác nhận nên không được hoàn cọc.";
+            message = reservation.ReservationType == ReservationType.Scheduled
+                ? "Đặt chỗ đã được hủy. Bạn hủy muộn hơn 30 phút trước giờ vào nên không được hoàn tiền đã trả trước."
+                : "Đặt chỗ đã được hủy. Bạn hủy sau 5 phút kể từ lúc xác nhận nên không được hoàn cọc.";
         }
         else
         {
