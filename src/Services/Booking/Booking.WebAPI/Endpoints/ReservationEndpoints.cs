@@ -184,7 +184,9 @@ public static class ReservationEndpoints
                     ? StatusCodes.Status404NotFound
                     : result.Error == ReservationErrors.AccessDenied
                         ? StatusCodes.Status403Forbidden
-                        : StatusCodes.Status400BadRequest;
+                        : result.Error == ReservationErrors.CannotCancel
+                            ? StatusCodes.Status409Conflict
+                            : StatusCodes.Status400BadRequest;
 
                 return BusinessProblem.Create(httpContext, statusCode, result.Error!);
             }
@@ -197,7 +199,8 @@ public static class ReservationEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
-        .ProducesProblem(StatusCodes.Status404NotFound);
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         // 5. Check-in đặt chỗ khi xe vào cổng (US-PARK-004 / MF-08 / P0 Security fix)
         // Dời ra khỏi /api/booking sang /internal/booking/reservations/check-in

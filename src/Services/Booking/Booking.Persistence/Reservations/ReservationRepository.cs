@@ -69,15 +69,21 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
         var twentyFourHoursAgo = now.AddHours(-24);
 
         return await dbContext.Reservations
-            .Where(r => r.PrepaidAmount > 0m &&
-                        r.ConfirmedAt == null &&
-                        r.PrepaidOutcome == null &&
-                        r.TempHoldExpiresAt != null &&
-                        r.TempHoldExpiresAt <= oneMinuteAgo &&
-                        r.TempHoldExpiresAt > twentyFourHoursAgo &&
-                        (r.Status == ReservationStatus.TemporaryHold ||
-                         r.Status == ReservationStatus.Expired ||
-                         r.Status == ReservationStatus.Cancelled))
+            .Where(r => (r.PrepaidAmount > 0m &&
+                         r.ConfirmedAt == null &&
+                         r.PrepaidOutcome == null &&
+                         r.TempHoldExpiresAt != null &&
+                         r.TempHoldExpiresAt <= oneMinuteAgo &&
+                         r.TempHoldExpiresAt > twentyFourHoursAgo &&
+                         (r.Status == ReservationStatus.TemporaryHold ||
+                          r.Status == ReservationStatus.Expired ||
+                          r.Status == ReservationStatus.Cancelled))
+                        ||
+                        (r.Status == ReservationStatus.Cancelled &&
+                         r.CancelReason == CancelReason.CustomerCancelled &&
+                         r.ConfirmedAt != null &&
+                         r.PrepaidAmount > 0m &&
+                         r.PrepaidOutcome == null))
             .OrderBy(r => r.TempHoldExpiresAt)
             .Take(batchSize)
             .ToListAsync(cancellationToken);

@@ -10,7 +10,7 @@ using ParkingSystem.BuildingBlocks.Time;
 namespace ParkingSystem.Booking.Infrastructure.Payments;
 
 /// <summary>
-/// Background worker that periodically reconciles and refunds orphaned or expired reservation payments (US-RES-003, Section 11 Saga).
+/// Background worker that periodically reconciles and refunds orphaned or expired reservation payments (US-RES-003, Section 11 Saga, US-RES-006).
 /// </summary>
 public sealed class ReservationPaymentReconciliationWorker(
     IServiceScopeFactory scopeFactory,
@@ -80,7 +80,30 @@ public sealed class ReservationPaymentReconciliationWorker(
                     continue;
                 }
 
-                // Expire a stale TemporaryHold
+                // Candidate set 2: Cancelled confirmed reservation with pending refund (US-RES-006)
+                if (candidate.Status == ReservationStatus.Cancelled &&
+                    candidate.CancelReason == CancelReason.CustomerCancelled &&
+                    candidate.ConfirmedAt != null &&
+                    candidate.PrepaidAmount > 0m &&
+                    candidate.PrepaidOutcome == null)
+                {
+                    var refundResult = await paymentClient.RefundAsync(
+                        candidate.Id,
+                        candidate.UserId,
+                        (long)candidate.PrepaidAmount,
+                        "CustomerCancelled",
+                        cancellationToken);
+
+                    if (refundResult.IsSuccess && refundResult.Value == ReservationDebitState.Refunded)
+                    {
+                        candidate.RecordCancellationRefunded();
+                        await repository.SaveChangesAsync(cancellationToken);
+                        processedCount++;
+                    }
+                    continue;
+                }
+
+                // Candidate set 1: Expire a stale TemporaryHold
                 if (candidate.Status == ReservationStatus.TemporaryHold)
                 {
                     candidate.Expire();

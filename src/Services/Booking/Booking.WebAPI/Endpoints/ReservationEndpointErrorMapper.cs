@@ -94,7 +94,8 @@ public static class ReservationEndpointErrorMapper
             return BusinessProblem.Create(context, StatusCodes.Status403Forbidden, error);
         }
 
-        if (error.Code == ReservationErrors.InsufficientWalletBalance.Code ||
+        if (error.Code == ReservationErrors.CannotCancel.Code ||
+            error.Code == ReservationErrors.InsufficientWalletBalance.Code ||
             error.Code == ReservationErrors.PaymentFailed.Code ||
             error.Code == ReservationCapacityErrors.CapacityExceeded.Code ||
             error.Code == ReservationCapacityErrors.NoAvailableSlots.Code ||
