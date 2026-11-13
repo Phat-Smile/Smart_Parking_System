@@ -5,7 +5,6 @@ import Link from "next/link";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { OwnerMapbox } from "@/features/owner/lots/OwnerMapbox";
 import { LotStatusPanel } from "@/features/owner/lots/LotStatusPanel";
-import { AddLotModal } from "@/features/owner/lots/AddLotModal";
 import {
     useAllLots,
     useOwnerMapStore,
@@ -307,7 +306,6 @@ export function ParkingLotsClientView({
             )}
 
             {/* Add Lot Modal */}
-            <AddLotModal />
         </div>
     );
 }
