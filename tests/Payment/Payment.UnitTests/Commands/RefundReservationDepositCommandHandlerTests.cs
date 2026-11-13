@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
@@ -50,6 +55,21 @@ public sealed class RefundReservationDepositCommandHandlerTests
             return Task.FromResult(newWallet);
         }
 
+        public Task<IReadOnlyList<WalletLedgerEntry>> GetReservationLedgerEntriesAsync(
+            Guid reservationId,
+            Guid? userId = null,
+            CancellationToken cancellationToken = default)
+        {
+            var resIdStr = reservationId.ToString();
+            var entries = _wallets.Values
+                .Where(w => !userId.HasValue || w.UserId == userId.Value)
+                .SelectMany(w => w.LedgerEntries)
+                .Where(e => e.ReferenceType == ReferenceType.Reservation && e.ReferenceId == resIdStr)
+                .ToList();
+
+            return Task.FromResult<IReadOnlyList<WalletLedgerEntry>>(entries);
+        }
+
         public Task AddAsync(Wallet wallet, CancellationToken cancellationToken)
         {
             _wallets[wallet.UserId] = wallet;
@@ -64,39 +84,41 @@ public sealed class RefundReservationDepositCommandHandlerTests
 
     private class FakeIdempotencyStore : IIdempotencyStore
     {
-        private readonly Dictionary<string, PaymentIdempotencyRecord> _records = new();
-        public bool ReleaseCalled { get; private set; }
+        private readonly List<PaymentIdempotencyRecord> _records = new();
 
-        public Task<PaymentIdempotencyRecord?> FindAsync(Guid userId, string operation, string key, CancellationToken ct)
+        public Task<PaymentIdempotencyRecord?> FindAsync(Guid accountId, string operation, string key, CancellationToken cancellationToken)
         {
-            var compoundKey = $"{userId}:{operation}:{key}";
-            _records.TryGetValue(compoundKey, out var record);
+            var record = _records.FirstOrDefault(r => r.AccountId == accountId && r.Operation == operation && r.IdempotencyKey == key);
             return Task.FromResult(record);
         }
 
-        public Task<bool> TryCreatePendingAsync(PaymentIdempotencyRecord record, CancellationToken ct)
+        public Task<bool> TryCreatePendingAsync(PaymentIdempotencyRecord record, CancellationToken cancellationToken)
         {
-            var compoundKey = $"{record.AccountId}:{record.Operation}:{record.IdempotencyKey}";
-            if (_records.ContainsKey(compoundKey))
+            var exists = _records.Any(r => r.AccountId == record.AccountId && r.Operation == record.Operation && r.IdempotencyKey == record.IdempotencyKey);
+            if (exists)
             {
                 return Task.FromResult(false);
             }
 
-            _records[compoundKey] = record;
+            _records.Add(record);
             return Task.FromResult(true);
         }
 
-        public Task UpdateAsync(PaymentIdempotencyRecord record, CancellationToken ct)
+        public Task UpdateAsync(PaymentIdempotencyRecord record, CancellationToken cancellationToken)
         {
-            var compoundKey = $"{record.AccountId}:{record.Operation}:{record.IdempotencyKey}";
-            _records[compoundKey] = record;
+            var existing = _records.FirstOrDefault(r => r.Id == record.Id);
+            if (existing != null)
+            {
+                _records.Remove(existing);
+                _records.Add(record);
+            }
+
             return Task.CompletedTask;
         }
 
-        public Task ReleasePendingAsync(Guid recordId, CancellationToken ct)
+        public Task ReleasePendingAsync(Guid id, CancellationToken cancellationToken)
         {
-            ReleaseCalled = true;
-            var toRemove = _records.FirstOrDefault(r => r.Value.Id == recordId).Key;
+            var toRemove = _records.FirstOrDefault(r => r.Id == id);
             if (toRemove != null)
             {
                 _records.Remove(toRemove);
@@ -123,6 +145,14 @@ public sealed class RefundReservationDepositCommandHandlerTests
 
         var wallet = Wallet.Create(userId);
         wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Initial topup");
+        // Đã từng bị trừ cọc 50.000đ cho reservationId này
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -50_000m,
+            "Deposit",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
         _walletRepository.SeedWallet(wallet);
 
         var command = new RefundReservationDepositCommand(userId, reservationId, 50_000m, "refund-key-1", "Test cancellation refund");
@@ -130,8 +160,171 @@ public sealed class RefundReservationDepositCommandHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value!.TransactionId);
-        Assert.Equal(150_000, result.Value.RemainingBalance);
-        Assert.Equal(150_000m, wallet.Balance);
+        Assert.Equal(100_000, result.Value.RemainingBalance);
+        Assert.Equal(100_000m, wallet.Balance);
+    }
+
+    [Fact]
+    public async Task Handle_Fails_WhenReservationNeverDebited()
+    {
+        // Arrange (P3 test)
+        var handler = CreateHandler();
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(userId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Initial topup");
+        _walletRepository.SeedWallet(wallet);
+
+        // Gọi hoàn 50.000đ khi chưa từng bị trừ cọc
+        var command = new RefundReservationDepositCommand(userId, reservationId, 50_000m, "refund-never-debited");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.ReservationNotDebited, result.Error);
+    }
+
+    [Fact]
+    public async Task Handle_Fails_WhenRefundAmountExceedsDebitedAmount()
+    {
+        // Arrange (P3 test)
+        var handler = CreateHandler();
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(userId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Topup");
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -20_000m,
+            "Deposit 20k",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+        _walletRepository.SeedWallet(wallet);
+
+        // Đã cọc 20k nhưng đòi hoàn 50k
+        var command = new RefundReservationDepositCommand(userId, reservationId, 50_000m, "refund-exceeds");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.RefundAmountExceedsDeposit, result.Error);
+    }
+
+    [Fact]
+    public async Task Handle_Fails_WhenAlreadyFullyRefunded()
+    {
+        // Arrange
+        var handler = CreateHandler();
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(userId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Topup");
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -20_000m,
+            "Deposit 20k",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+        wallet.AddEntry(
+            LedgerEntryType.Refund,
+            20_000m,
+            "Refund 20k",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+        _walletRepository.SeedWallet(wallet);
+
+        var command = new RefundReservationDepositCommand(userId, reservationId, 20_000m, "refund-already-done");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.AlreadyRefunded, result.Error);
+    }
+
+    [Fact]
+    public async Task Handle_Fails_WhenWalletNotFound_DoesNotCreatePhantomWallet()
+    {
+        // Arrange (P3 test: Cấm tự tạo ví mới)
+        var handler = CreateHandler();
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        var command = new RefundReservationDepositCommand(userId, reservationId, 50_000m, "refund-no-wallet");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.WalletNotFound, result.Error);
+    }
+
+    [Fact]
+    public async Task Handle_Fails_WhenReservationDebitedByAnotherUser()
+    {
+        // Arrange (Lỗ hổng 3 Anti-IDOR test)
+        var handler = CreateHandler();
+        var userA = Guid.NewGuid();
+        var userB = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        // User A cọc tiền
+        var walletA = Wallet.Create(userA);
+        walletA.AddEntry(LedgerEntryType.TopUp, 100_000m, "Topup A");
+        walletA.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -20_000m,
+            "Deposit by A",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userA);
+        _walletRepository.SeedWallet(walletA);
+
+        // User B có ví riêng
+        var walletB = Wallet.Create(userB);
+        walletB.AddEntry(LedgerEntryType.TopUp, 10_000m, "Topup B");
+        _walletRepository.SeedWallet(walletB);
+
+        // User B yêu cầu hoàn tiền cho đặt chỗ của User A
+        var command = new RefundReservationDepositCommand(userB, reservationId, 20_000m, "refund-b-steals-a");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.ReservationNotDebited, result.Error);
+    }
+
+    [Fact]
+    public async Task Handle_IdempotentReplay_ReturnsCachedResult()
+    {
+        // Arrange (M2 test)
+        var handler = CreateHandler();
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(userId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Initial");
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -50_000m,
+            "Deposit",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+        _walletRepository.SeedWallet(wallet);
+
+        var command = new RefundReservationDepositCommand(userId, reservationId, 50_000m, "same-refund-key");
+
+        var result1 = await handler.Handle(command, CancellationToken.None);
+        Assert.True(result1.IsSuccess);
+        Assert.Equal(100_000, result1.Value!.RemainingBalance);
+
+        // Replay with identical key & payload (M2: check Replay success đầu tiên, không bị lỗi vượt hạn mức)
+        var result2 = await handler.Handle(command, CancellationToken.None);
+        Assert.True(result2.IsSuccess);
+        Assert.Equal(result1.Value.TransactionId, result2.Value!.TransactionId);
+        Assert.Equal(100_000m, wallet.Balance); // Số dư không bị cộng lần 2
     }
 
     [Fact]
@@ -165,29 +358,5 @@ public sealed class RefundReservationDepositCommandHandlerTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ReservationDepositErrors.AmountInvalid.Code, result.Error?.Code);
-    }
-
-    [Fact]
-    public async Task Handle_IdempotentReplay_ReturnsCachedResult()
-    {
-        var handler = CreateHandler();
-        var userId = Guid.NewGuid();
-        var reservationId = Guid.NewGuid();
-
-        var wallet = Wallet.Create(userId);
-        wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Initial");
-        _walletRepository.SeedWallet(wallet);
-
-        var command = new RefundReservationDepositCommand(userId, reservationId, 50_000m, "same-refund-key");
-
-        var result1 = await handler.Handle(command, CancellationToken.None);
-        Assert.True(result1.IsSuccess);
-        Assert.Equal(150_000, result1.Value!.RemainingBalance);
-
-        // Replay with identical key & payload
-        var result2 = await handler.Handle(command, CancellationToken.None);
-        Assert.True(result2.IsSuccess);
-        Assert.Equal(result1.Value.TransactionId, result2.Value!.TransactionId);
-        Assert.Equal(150_000m, wallet.Balance); // Wallet not credited twice!
     }
 }

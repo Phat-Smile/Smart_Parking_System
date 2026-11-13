@@ -1,6 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Domain.Entities;
+using ParkingSystem.Payment.Domain.Enums;
 
 namespace ParkingSystem.Payment.Persistence.Repositories;
 
@@ -48,6 +54,37 @@ public class WalletRepository : IWalletRepository
             _dbContext.Entry(newWallet).State = EntityState.Detached;
             return (await _dbContext.Wallets.FirstOrDefaultAsync(w => w.UserId == userId, cancellationToken))!;
         }
+    }
+
+    // Tra cứu bút toán theo mã đặt chỗ, lọc tài khoản chống IDOR
+    public async Task<IReadOnlyList<WalletLedgerEntry>> GetReservationLedgerEntriesAsync(
+        Guid reservationId,
+        Guid? userId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var idStr = reservationId.ToString();
+        var idGuidStr = reservationId.ToString("D");
+        var idCompactStr = reservationId.ToString("N");
+
+        var query = _dbContext.WalletLedgerEntries
+            .AsNoTracking()
+            .Where(e => e.ReferenceType == ReferenceType.Reservation
+                     && (e.ReferenceId == idStr || e.ReferenceId == idGuidStr || e.ReferenceId == idCompactStr));
+
+        if (userId.HasValue)
+        {
+            var targetUserId = userId.Value;
+            var userWalletIds = _dbContext.Wallets
+                .AsNoTracking()
+                .Where(w => w.UserId == targetUserId)
+                .Select(w => w.Id);
+
+            query = query.Where(e => e.CreatedBy == targetUserId || userWalletIds.Contains(e.WalletId));
+        }
+
+        return await query
+            .OrderBy(e => e.CreatedAt)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task AddAsync(Wallet wallet, CancellationToken cancellationToken)

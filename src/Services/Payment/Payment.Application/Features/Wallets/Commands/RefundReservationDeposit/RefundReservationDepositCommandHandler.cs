@@ -1,4 +1,8 @@
+using System;
+using System.Linq;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using ParkingSystem.BuildingBlocks.Results;
@@ -23,20 +27,15 @@ public sealed class RefundReservationDepositCommandHandler(
         RefundReservationDepositCommand request,
         CancellationToken cancellationToken)
     {
+        // 1. Kiểm tra tham số và số tiền nguyên
         if (request.UserId == Guid.Empty)
-        {
             return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.UserIdInvalid);
-        }
 
         if (request.ReservationId == Guid.Empty)
-        {
             return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.ReservationIdInvalid);
-        }
 
-        if (request.Amount <= 0m)
-        {
+        if (request.Amount <= 0m || request.Amount % 1m != 0m)
             return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.AmountInvalid);
-        }
 
         var effectiveKey = string.IsNullOrWhiteSpace(request.IdempotencyKey)
             ? $"res-refund-{request.ReservationId}"
@@ -45,7 +44,7 @@ public sealed class RefundReservationDepositCommandHandler(
         var requestHash = $"{request.ReservationId}:{request.Amount}";
         var nowUtc = clock.UtcNow;
 
-        // 1. Kiểm tra Idempotency
+        // BƯỚC M2: Replay Success ĐẦU TIÊN (bảo vệ Booking worker khi retry)
         var existingRecord = await idempotencyStore.FindAsync(
             request.UserId, OperationName, effectiveKey, cancellationToken);
 
@@ -71,6 +70,9 @@ public sealed class RefundReservationDepositCommandHandler(
             {
                 return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.RequestInProgress);
             }
+
+            // Bản ghi cũ đã thất bại hoặc quá hạn khóa: giải phóng để thử lại
+            await idempotencyStore.ReleasePendingAsync(existingRecord.Id, CancellationToken.None);
         }
 
         // 2. Tạo bản ghi Pending Idempotency
@@ -85,10 +87,57 @@ public sealed class RefundReservationDepositCommandHandler(
 
         try
         {
-            // 3. Tìm hoặc tạo ví
-            var wallet = await walletRepository.GetOrCreateByUserIdAsync(request.UserId, cancellationToken);
+            // 3. Tìm ví (CẤM GetOrCreate theo BR-12.b)
+            var wallet = await walletRepository.GetByUserIdAsync(request.UserId, cancellationToken);
+            if (wallet is null)
+            {
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.WalletNotFound);
+            }
 
-            // 4. Hoàn tiền và ghi nhận ledger
+            if (wallet.Status != WalletStatus.Active)
+            {
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.WalletNotActive);
+            }
+
+            // 4. VÁ LỖ HỔNG 3: Kiểm tra lịch sử trừ cọc & chống IDOR
+            var entries = await walletRepository.GetReservationLedgerEntriesAsync(
+                request.ReservationId, userId: null, cancellationToken: cancellationToken);
+
+            var depositEntries = entries.Where(e => e.EntryType == LedgerEntryType.ReservationDeposit).ToList();
+            if (!depositEntries.Any())
+            {
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.ReservationNotDebited);
+            }
+
+            // Chống hoàn tiền chéo: mã cọc phải thuộc đúng tài khoản yêu cầu
+            if (depositEntries.Any(e => e.CreatedBy.HasValue && e.CreatedBy.Value != request.UserId))
+            {
+                logger.LogWarning("User {UserId} tried to refund reservation {ReservationId} owned by another user.",
+                    request.UserId, request.ReservationId);
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.ReservationNotDebited);
+            }
+
+            var totalDebited = depositEntries.Sum(e => Math.Abs(e.Amount));
+            var totalRefunded = entries.Where(e => e.EntryType == LedgerEntryType.Refund).Sum(e => e.Amount);
+            var remainingRefundable = totalDebited - totalRefunded;
+
+            if (remainingRefundable <= 0)
+            {
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.AlreadyRefunded);
+            }
+
+            if (request.Amount > remainingRefundable)
+            {
+                await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.RefundAmountExceedsDeposit);
+            }
+
+            // 5. Hoàn tiền và ghi nhận sổ cái
             try
             {
                 wallet.AddEntry(
@@ -126,8 +175,9 @@ public sealed class RefundReservationDepositCommandHandler(
                 return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.WalletBusy);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Unexpected error refunding deposit for reservation {ReservationId}.", request.ReservationId);
             await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, cancellationToken);
             throw;
         }
