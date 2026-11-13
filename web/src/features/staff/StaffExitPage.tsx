@@ -492,8 +492,10 @@ export function StaffExitPage() {
             // Chế độ mở rào chắn cứu cánh khi nhân viên đã thu tiền mặt tại quầy
             if (
                 err instanceof ApiError &&
-                (err.problem?.errorCode === "parking.session.payment_required" ||
-                    err.problem?.errorCode === "parking.session.exit_not_verified") &&
+                (err.problem?.errorCode ===
+                    "parking.session.payment_required" ||
+                    err.problem?.errorCode ===
+                        "parking.session.exit_not_verified") &&
                 (scannedSession.paymentStatus === "Paid" ||
                     scannedSession.status === "Paid" ||
                     scannedSession.amountDueVnd === 0)
@@ -1990,7 +1992,9 @@ export function StaffExitPage() {
                                                 <button
                                                     type="button"
                                                     className="staff-btn staff-btn-secondary"
-                                                    onClick={handleOpenVnPayModal}
+                                                    onClick={
+                                                        handleOpenVnPayModal
+                                                    }
                                                 >
                                                     Thử tạo lại mã VNPay
                                                 </button>
@@ -2002,7 +2006,8 @@ export function StaffExitPage() {
                                                         setErrorMsg("");
                                                     }}
                                                 >
-                                                    Chuyển sang thu tiền mặt tại quầy
+                                                    Chuyển sang thu tiền mặt tại
+                                                    quầy
                                                 </button>
                                             </div>
                                         </div>

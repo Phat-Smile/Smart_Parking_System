@@ -31,6 +31,11 @@ export interface RealCameraFeedProps {
     onCaptureSnapshot?: (dataUrl: string) => void;
 }
 
+function sizeCanvasToVideo(canvas: HTMLCanvasElement, video: HTMLVideoElement) {
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+}
+
 export function RealCameraFeed({
     title = "Gate ANPR Camera 01",
     mode = "entry",
@@ -58,28 +63,40 @@ export function RealCameraFeed({
     // ANPR State
     const [isOcrProcessing, setIsOcrProcessing] = useState<boolean>(false);
     const [internalPlate, setInternalPlate] = useState<string>("");
-    const [internalConf, setInternalConf] = useState<number | undefined>(undefined);
+    const [internalConf, setInternalConf] = useState<number | undefined>(
+        undefined,
+    );
     const [autoScanEnabled, setAutoScanEnabled] = useState<boolean>(true);
     const [isLocked, setIsLocked] = useState<boolean>(false);
     const lastDetectedPlateRef = useRef<string>("");
     const isScanningRef = useRef<boolean>(false);
     const isLockedRef = useRef<boolean>(false);
 
-    // Đồng bộ reset khi detectedPlate từ bên ngoài bị xóa (Xóa / Tiếp nhận xe tiếp theo) hoặc thay đổi
-    useEffect(() => {
-        if (!detectedPlate) {
+    // Đồng bộ reset khi detectedPlate từ bên ngoài bị xóa (Xóa / Tiếp nhận xe tiếp theo) hoặc thay đổi.
+    // State được cập nhật ngay trong lúc render (null = chưa đồng bộ lần nào), ref được cập nhật trong effect.
+    const plateKey = detectedPlate || "";
+    const [syncedPlateKey, setSyncedPlateKey] = useState<string | null>(null);
+    if (syncedPlateKey !== plateKey) {
+        setSyncedPlateKey(plateKey);
+        if (!plateKey) {
             setInternalPlate("");
             setInternalConf(undefined);
-            lastDetectedPlateRef.current = "";
             setIsLocked(false);
-            isLockedRef.current = false;
         } else {
             setIsLocked(true);
+        }
+    }
+    useEffect(() => {
+        if (!detectedPlate) {
+            lastDetectedPlateRef.current = "";
+            isLockedRef.current = false;
+        } else {
             isLockedRef.current = true;
         }
     }, [detectedPlate]);
 
-    const effectivePlate = (detectedPlate && detectedPlate.trim()) || internalPlate;
+    const effectivePlate =
+        (detectedPlate && detectedPlate.trim()) || internalPlate;
 
     // Enumerate video devices
     useEffect(() => {
@@ -93,7 +110,7 @@ export function RealCameraFeed({
                     setSelectedDeviceId(videoDevs[0].deviceId);
                 }
             })
-            .catch(() => { });
+            .catch(() => {});
     }, [selectedDeviceId]);
 
     // Start / stop camera stream
@@ -112,10 +129,10 @@ export function RealCameraFeed({
             video: selectedDeviceId
                 ? { deviceId: { exact: selectedDeviceId } }
                 : {
-                    facingMode: { ideal: "environment" },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                },
+                      facingMode: { ideal: "environment" },
+                      width: { ideal: 1280 },
+                      height: { ideal: 720 },
+                  },
             audio: false,
         };
 
@@ -129,7 +146,7 @@ export function RealCameraFeed({
                 setStream(newStream);
                 if (videoRef.current) {
                     videoRef.current.srcObject = newStream;
-                    videoRef.current.play().catch(() => { });
+                    videoRef.current.play().catch(() => {});
                 }
 
                 const track = newStream.getVideoTracks()[0];
@@ -144,12 +161,12 @@ export function RealCameraFeed({
                 if (isCancelled) return;
                 const errText =
                     err.name === "NotAllowedError" ||
-                        err.name === "PermissionDeniedError"
+                    err.name === "PermissionDeniedError"
                         ? "Quyền truy cập Camera bị từ chối. Vui lòng cho phép quyền Camera trên trình duyệt."
                         : err.name === "NotFoundError" ||
                             err.name === "DevicesNotFoundError"
-                            ? "Không tìm thấy thiết bị Camera trên máy này."
-                            : `Không thể mở Camera: ${err.message || err.name}`;
+                          ? "Không tìm thấy thiết bị Camera trên máy này."
+                          : `Không thể mở Camera: ${err.message || err.name}`;
                 setErrorMsg(errText);
             });
 
@@ -225,7 +242,8 @@ export function RealCameraFeed({
 
     // Auto-scan ANPR loop: Tự động quét và nhận diện biển số xe khi đưa vào khung hình camera
     useEffect(() => {
-        if (!isActive || !stream || !autoScanEnabled || !onPlateDetected) return;
+        if (!isActive || !stream || !autoScanEnabled || !onPlateDetected)
+            return;
 
         let active = true;
         let timerId: NodeJS.Timeout | null = null;
@@ -237,17 +255,20 @@ export function RealCameraFeed({
                 videoRef.current.readyState < 2 ||
                 isScanningRef.current
             ) {
-                if (active && !isLockedRef.current) timerId = setTimeout(runScanLoop, 300);
+                if (active && !isLockedRef.current)
+                    timerId = setTimeout(runScanLoop, 300);
                 return;
             }
 
             const video = videoRef.current;
-            const canvas = canvasRef.current || document.createElement("canvas");
+            const canvas =
+                canvasRef.current || document.createElement("canvas");
             canvas.width = video.videoWidth || 1280;
             canvas.height = video.videoHeight || 720;
             const ctx = canvas.getContext("2d");
             if (!ctx) {
-                if (active && !isLockedRef.current) timerId = setTimeout(runScanLoop, 300);
+                if (active && !isLockedRef.current)
+                    timerId = setTimeout(runScanLoop, 300);
                 return;
             }
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -269,7 +290,9 @@ export function RealCameraFeed({
                     setFlash(true);
                     setTimeout(() => setFlash(false), 200);
 
-                    setScanFeedback(`Đã nhận diện: ${res.plateNumber} (Đã khóa)`);
+                    setScanFeedback(
+                        `Đã nhận diện: ${res.plateNumber} (Đã khóa)`,
+                    );
                     setTimeout(() => setScanFeedback(""), 4500);
 
                     onPlateDetected(
@@ -304,8 +327,7 @@ export function RealCameraFeed({
         if (!videoRef.current) return;
         const video = videoRef.current;
         const canvas = canvasRef.current || document.createElement("canvas");
-        canvas.width = video.videoWidth || 1280;
-        canvas.height = video.videoHeight || 720;
+        sizeCanvasToVideo(canvas, video);
 
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
@@ -331,7 +353,9 @@ export function RealCameraFeed({
                     setInternalConf(ocrRes.confidence);
                     setIsLocked(true);
                     isLockedRef.current = true;
-                    setScanFeedback(`Đã nhận diện: ${ocrRes.plateNumber} (Đã khóa)`);
+                    setScanFeedback(
+                        `Đã nhận diện: ${ocrRes.plateNumber} (Đã khóa)`,
+                    );
                     setTimeout(() => setScanFeedback(""), 4500);
 
                     onPlateDetected(
@@ -341,7 +365,9 @@ export function RealCameraFeed({
                         dataUrl,
                     );
                 } else {
-                    setScanFeedback("Chưa đọc được biển số rõ — Hãy giơ điện thoại lại gần hơn và bấm chụp lại");
+                    setScanFeedback(
+                        "Chưa đọc được biển số rõ — Hãy giơ điện thoại lại gần hơn và bấm chụp lại",
+                    );
                     setTimeout(() => setScanFeedback(""), 4500);
                 }
             } catch (err) {
@@ -381,7 +407,7 @@ export function RealCameraFeed({
                             }
                         }
                     })
-                    .catch(() => { });
+                    .catch(() => {});
             } catch {
                 // Ignore
             }
@@ -404,8 +430,8 @@ export function RealCameraFeed({
         typeof confidence === "number"
             ? confidence
             : typeof internalConf === "number"
-                ? internalConf
-                : 0;
+              ? internalConf
+              : 0;
     const isHighConf = confValue >= 0.8;
     const isScanningBusy = isScanning || isOcrProcessing;
 
@@ -417,25 +443,27 @@ export function RealCameraFeed({
             <div className="staff-camera-header">
                 <div className="staff-camera-header-left">
                     <span
-                        className={`staff-rec-indicator ${isCameraConnected ? "is-live" : "is-offline"
-                            }`}
+                        className={`staff-rec-indicator ${
+                            isCameraConnected ? "is-live" : "is-offline"
+                        }`}
                         title={
                             isCameraConnected
                                 ? "Luồng video từ Camera đang hoạt động trực tiếp"
                                 : errorMsg
-                                    ? "Camera mất kết nối hoặc chưa cấp quyền"
-                                    : "Camera đang tạm tắt"
+                                  ? "Camera mất kết nối hoặc chưa cấp quyền"
+                                  : "Camera đang tạm tắt"
                         }
                     >
                         <span
-                            className={`staff-rec-dot ${!isCameraConnected ? "dot-offline" : ""
-                                }`}
+                            className={`staff-rec-dot ${
+                                !isCameraConnected ? "dot-offline" : ""
+                            }`}
                         />
                         {isCameraConnected
                             ? "REC LIVE"
                             : errorMsg
-                                ? "MẤT KẾT NỐI"
-                                : "OFFLINE"}
+                              ? "MẤT KẾT NỐI"
+                              : "OFFLINE"}
                     </span>
                     <span className="staff-camera-title">{title}</span>
                 </div>
@@ -446,13 +474,15 @@ export function RealCameraFeed({
                         <button
                             type="button"
                             onClick={() => setAutoScanEnabled(!autoScanEnabled)}
-                            className={`staff-cam-ctrl-btn ${autoScanEnabled ? "btn-active" : "btn-warning"
-                                }`}
+                            className={`staff-cam-ctrl-btn ${
+                                autoScanEnabled ? "btn-active" : "btn-warning"
+                            }`}
                             title="Bật/Tắt chế độ tự động nhận diện biển số ANPR khi đưa biển số vào camera"
                         >
                             <Sparkles size={11} strokeWidth={2.2} />
                             <span>
-                                Auto OCR: {autoScanEnabled ? "BẬT" : "TẮT (Bấm để Bật)"}
+                                Auto OCR:{" "}
+                                {autoScanEnabled ? "BẬT" : "TẮT (Bấm để Bật)"}
                             </span>
                         </button>
                     )}
@@ -511,8 +541,9 @@ export function RealCameraFeed({
                     <button
                         type="button"
                         onClick={() => setIsActive(!isActive)}
-                        className={`staff-cam-ctrl-btn ${isActive ? "btn-active" : "btn-turn-on"
-                            }`}
+                        className={`staff-cam-ctrl-btn ${
+                            isActive ? "btn-active" : "btn-turn-on"
+                        }`}
                         title={
                             isActive
                                 ? "Tạm dừng kết nối luồng video từ Camera"
@@ -627,12 +658,13 @@ export function RealCameraFeed({
 
                     {/* Target box */}
                     <div
-                        className={`staff-camera-target ${hasPlate
+                        className={`staff-camera-target ${
+                            hasPlate
                                 ? isHighConf
                                     ? "target-locked"
                                     : "target-warning"
                                 : ""
-                            }`}
+                        }`}
                         style={{ pointerEvents: "none" }}
                     >
                         <div className="staff-target-corner top-left" />
@@ -654,10 +686,16 @@ export function RealCameraFeed({
                         ) : !autoScanEnabled ? (
                             <div
                                 className="staff-camera-qr-toast"
-                                style={{ background: "rgba(217, 119, 6, 0.95)", color: "#fff" }}
+                                style={{
+                                    background: "rgba(217, 119, 6, 0.95)",
+                                    color: "#fff",
+                                }}
                             >
                                 <AlertTriangle size={13} strokeWidth={2.3} />
-                                <span>Chế độ tự động quét đang TẮT — Bấm nút &quot;Auto OCR: TẮT&quot; ở trên để Bật lại</span>
+                                <span>
+                                    Chế độ tự động quét đang TẮT — Bấm nút
+                                    &quot;Auto OCR: TẮT&quot; ở trên để Bật lại
+                                </span>
                             </div>
                         ) : null}
                     </div>
@@ -689,8 +727,9 @@ export function RealCameraFeed({
                             </span>
                             {confValue > 0 ? (
                                 <span
-                                    className={`staff-anpr-stat-val ${isHighConf ? "val-high" : "val-low"
-                                        }`}
+                                    className={`staff-anpr-stat-val ${
+                                        isHighConf ? "val-high" : "val-low"
+                                    }`}
                                 >
                                     {isHighConf ? (
                                         <Sparkles size={11} strokeWidth={2.3} />
@@ -700,9 +739,7 @@ export function RealCameraFeed({
                                             strokeWidth={2.3}
                                         />
                                     )}
-                                    <span>
-                                        {(confValue * 100).toFixed(0)}%
-                                    </span>
+                                    <span>{(confValue * 100).toFixed(0)}%</span>
                                 </span>
                             ) : (
                                 <span className="staff-anpr-stat-val val-muted">
@@ -716,22 +753,23 @@ export function RealCameraFeed({
                                 Trạng thái
                             </span>
                             <span
-                                className={`staff-anpr-badge ${isScanning
+                                className={`staff-anpr-badge ${
+                                    isScanning
                                         ? "badge-scanning"
                                         : hasPlate
-                                            ? isHighConf
-                                                ? "badge-success"
-                                                : "badge-warning"
-                                            : "badge-idle"
-                                    }`}
+                                          ? isHighConf
+                                              ? "badge-success"
+                                              : "badge-warning"
+                                          : "badge-idle"
+                                }`}
                             >
                                 {isScanning
                                     ? "Đang quét..."
                                     : hasPlate
-                                        ? isHighConf
-                                            ? "Thành công"
-                                            : "Cần kiểm tra"
-                                        : "Chờ quét"}
+                                      ? isHighConf
+                                          ? "Thành công"
+                                          : "Cần kiểm tra"
+                                      : "Chờ quét"}
                             </span>
                         </div>
 
@@ -740,10 +778,11 @@ export function RealCameraFeed({
                                 Tự động khớp
                             </span>
                             <span
-                                className={`staff-anpr-badge ${hasPlate && isHighConf
+                                className={`staff-anpr-badge ${
+                                    hasPlate && isHighConf
                                         ? "badge-success"
                                         : "badge-neutral"
-                                    }`}
+                                }`}
                             >
                                 {hasPlate && isHighConf
                                     ? "Đã khớp"
@@ -785,8 +824,8 @@ export function RealCameraFeed({
                         >
                             <CheckCircle2 size={13} strokeWidth={2.3} />
                             <span>
-                                {isLocked ? "Đã khóa 1 lần · " : ""}Đã lưu frame (
-                                {new Date().toLocaleTimeString("vi-VN")})
+                                {isLocked ? "Đã khóa 1 lần · " : ""}Đã lưu frame
+                                ({new Date().toLocaleTimeString("vi-VN")})
                             </span>
                         </span>
                     ) : (
@@ -807,10 +846,11 @@ export function RealCameraFeed({
                         <span>
                             {mode === "entry"
                                 ? typeof confidence === "number"
-                                    ? `OCR ${(confidence * 100).toFixed(0)}% · ${confidence >= 0.8
-                                        ? "Tự động khớp"
-                                        : "Cần kiểm tra"
-                                    }`
+                                    ? `OCR ${(confidence * 100).toFixed(0)}% · ${
+                                          confidence >= 0.8
+                                              ? "Tự động khớp"
+                                              : "Cần kiểm tra"
+                                      }`
                                     : "Nhận diện biển số xe vào"
                                 : "Hướng camera vào mã QR để tự quét"}
                         </span>

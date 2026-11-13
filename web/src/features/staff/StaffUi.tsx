@@ -74,7 +74,9 @@ export function PlateBadge({
                 style={{ opacity: 0.6, borderStyle: "dashed" }}
                 title="Chưa nhận diện được biển số"
             >
-                <span className="staff-plate-text font-mono">Chờ quét biển số...</span>
+                <span className="staff-plate-text font-mono">
+                    Chờ quét biển số...
+                </span>
             </span>
         );
     }

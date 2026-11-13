@@ -52,7 +52,7 @@ export function StaffEntryPage() {
     React.useEffect(() => {
         let active = true;
         fetchAssignedLot()
-            .catch(() => { })
+            .catch(() => {})
             .finally(() => {
                 if (active) {
                     setIsCheckingLot(false);
@@ -379,10 +379,11 @@ export function StaffEntryPage() {
                                     </span>
                                 )}
                                 <span
-                                    className={`staff-pill ${ocrConfidence >= 0.8
+                                    className={`staff-pill ${
+                                        ocrConfidence >= 0.8
                                             ? "staff-pill-success"
                                             : "staff-pill-warning"
-                                        }`}
+                                    }`}
                                 >
                                     {t("entryConfidence")} {ocrPercent}%
                                 </span>
@@ -397,29 +398,31 @@ export function StaffEntryPage() {
                                     OCR)
                                 </span>
                                 <strong
-                                    className={`staff-ocr-meter-val ${ocrConfidence >= 0.9
+                                    className={`staff-ocr-meter-val ${
+                                        ocrConfidence >= 0.9
                                             ? "text-emerald"
                                             : ocrConfidence >= 0.8
-                                                ? "text-sky"
-                                                : "text-amber"
-                                        }`}
+                                              ? "text-sky"
+                                              : "text-amber"
+                                    }`}
                                 >
                                     {ocrPercent}% ·{" "}
                                     {ocrConfidence >= 0.9
                                         ? "Độ chính xác cao (≥90%)"
                                         : ocrConfidence >= 0.8
-                                            ? "Hợp lệ"
-                                            : "Cần xác nhận thủ công"}
+                                          ? "Hợp lệ"
+                                          : "Cần xác nhận thủ công"}
                                 </strong>
                             </div>
                             <div className="staff-ocr-progress-track">
                                 <div
-                                    className={`staff-ocr-progress-fill ${ocrConfidence >= 0.9
+                                    className={`staff-ocr-progress-fill ${
+                                        ocrConfidence >= 0.9
                                             ? "fill-high"
                                             : ocrConfidence >= 0.8
-                                                ? "fill-med"
-                                                : "fill-low"
-                                        }`}
+                                              ? "fill-med"
+                                              : "fill-low"
+                                    }`}
                                     style={{
                                         width: `${Math.min(100, Math.max(8, ocrPercent))}%`,
                                     }}
@@ -457,8 +460,9 @@ export function StaffEntryPage() {
                                 <input
                                     id="staff-edit-plate"
                                     type="text"
-                                    className={`staff-input staff-plate-input ${isEditingPlate ? "is-editing" : ""
-                                        }`}
+                                    className={`staff-input staff-plate-input ${
+                                        isEditingPlate ? "is-editing" : ""
+                                    }`}
                                     value={editedPlate}
                                     placeholder="VD: 51F-782.91"
                                     onChange={(e) => {
@@ -553,18 +557,19 @@ export function StaffEntryPage() {
                                 </span>
                             </div>
                             <span
-                                className={`staff-pill ${entryType === "Registered"
+                                className={`staff-pill ${
+                                    entryType === "Registered"
                                         ? "staff-pill-success"
                                         : entryType === "Booking"
-                                            ? "staff-pill-active"
-                                            : "staff-pill-warning"
-                                    }`}
+                                          ? "staff-pill-active"
+                                          : "staff-pill-warning"
+                                }`}
                             >
                                 {entryType === "Registered"
                                     ? t("sessionsRegistered")
                                     : entryType === "Booking"
-                                        ? "Đặt trước"
-                                        : t("sessionsGuest")}
+                                      ? "Đặt trước"
+                                      : t("sessionsGuest")}
                             </span>
                         </div>
 
@@ -585,8 +590,9 @@ export function StaffEntryPage() {
 
                             {/* Step 2 */}
                             <div
-                                className={`staff-step ${step !== "camera" ? "done" : "active"
-                                    }`}
+                                className={`staff-step ${
+                                    step !== "camera" ? "done" : "active"
+                                }`}
                             >
                                 <span className="step-num">
                                     {step !== "camera" ? (
@@ -599,10 +605,11 @@ export function StaffEntryPage() {
                                     {t("entryStep2")}
                                 </span>
                                 <span
-                                    className={`step-state-tag ${step !== "camera"
+                                    className={`step-state-tag ${
+                                        step !== "camera"
                                             ? "tag-done"
                                             : "tag-active"
-                                        }`}
+                                    }`}
                                 >
                                     {step !== "camera"
                                         ? "Hoàn tất"
@@ -612,17 +619,18 @@ export function StaffEntryPage() {
 
                             {/* Step 3 */}
                             <div
-                                className={`staff-step ${step === "session_created" ||
-                                        step === "barrier_open"
+                                className={`staff-step ${
+                                    step === "session_created" ||
+                                    step === "barrier_open"
                                         ? "done"
                                         : step === "checking"
-                                            ? "active"
-                                            : "pending"
-                                    }`}
+                                          ? "active"
+                                          : "pending"
+                                }`}
                             >
                                 <span className="step-num">
                                     {step === "session_created" ||
-                                        step === "barrier_open" ? (
+                                    step === "barrier_open" ? (
                                         <Check size={13} strokeWidth={2.8} />
                                     ) : (
                                         "3"
@@ -634,31 +642,33 @@ export function StaffEntryPage() {
                                         : t("entryStep3Guest")}
                                 </span>
                                 <span
-                                    className={`step-state-tag ${step === "session_created" ||
-                                            step === "barrier_open"
+                                    className={`step-state-tag ${
+                                        step === "session_created" ||
+                                        step === "barrier_open"
                                             ? "tag-done"
                                             : step === "checking"
-                                                ? "tag-active"
-                                                : "tag-pending"
-                                        }`}
+                                              ? "tag-active"
+                                              : "tag-pending"
+                                    }`}
                                 >
                                     {step === "session_created" ||
-                                        step === "barrier_open"
+                                    step === "barrier_open"
                                         ? "Hoàn tất"
                                         : step === "checking"
-                                            ? "Đang kiểm tra"
-                                            : "Chờ"}
+                                          ? "Đang kiểm tra"
+                                          : "Chờ"}
                                 </span>
                             </div>
 
                             {/* Step 4 */}
                             <div
-                                className={`staff-step ${step === "barrier_open"
+                                className={`staff-step ${
+                                    step === "barrier_open"
                                         ? "done"
                                         : step === "session_created"
-                                            ? "active"
-                                            : "pending"
-                                    }`}
+                                          ? "active"
+                                          : "pending"
+                                }`}
                             >
                                 <span className="step-num">
                                     {step === "barrier_open" ? (
@@ -671,27 +681,29 @@ export function StaffEntryPage() {
                                     {t("entryStep4")}
                                 </span>
                                 <span
-                                    className={`step-state-tag ${step === "barrier_open"
+                                    className={`step-state-tag ${
+                                        step === "barrier_open"
                                             ? "tag-done"
                                             : step === "session_created"
-                                                ? "tag-active"
-                                                : "tag-pending"
-                                        }`}
+                                              ? "tag-active"
+                                              : "tag-pending"
+                                    }`}
                                 >
                                     {step === "barrier_open"
                                         ? "Hoàn tất"
                                         : step === "session_created"
-                                            ? "Đang tạo"
-                                            : "Chờ"}
+                                          ? "Đang tạo"
+                                          : "Chờ"}
                                 </span>
                             </div>
 
                             {/* Step 5 */}
                             <div
-                                className={`staff-step ${step === "barrier_open"
+                                className={`staff-step ${
+                                    step === "barrier_open"
                                         ? "done done-gate"
                                         : "pending"
-                                    }`}
+                                }`}
                             >
                                 <span className="step-num">
                                     {step === "barrier_open" ? (
@@ -704,10 +716,11 @@ export function StaffEntryPage() {
                                     {t("entryStep5")}
                                 </span>
                                 <span
-                                    className={`step-state-tag ${step === "barrier_open"
+                                    className={`step-state-tag ${
+                                        step === "barrier_open"
                                             ? "tag-done"
                                             : "tag-pending"
-                                        }`}
+                                    }`}
                                 >
                                     {step === "barrier_open"
                                         ? "Đã mở cổng"
@@ -759,8 +772,8 @@ export function StaffEntryPage() {
                                         {t("entrySummaryCap")}
                                     </span>
                                     {isCheckingLot &&
-                                        !assignedLot &&
-                                        !loadError ? (
+                                    !assignedLot &&
+                                    !loadError ? (
                                         <span className="staff-cap-badge cap-loading">
                                             <Loader2
                                                 size={13}
@@ -828,7 +841,9 @@ export function StaffEntryPage() {
                                                             : "";
                                                     return matchedOwner
                                                         ? `✓ ${matchedOwner} (${language === "en" ? "Wallet active" : "Ví khả dụng"})`
-                                                        : t("entryAccountLinked");
+                                                        : t(
+                                                              "entryAccountLinked",
+                                                          );
                                                 })()}
                                             </span>
                                         </span>
@@ -909,7 +924,7 @@ export function StaffEntryPage() {
                                                 vehicleType === "Car"
                                                     ? occupancy.carAvailable
                                                     : (lastOpened.availableMotorbikeSlots ??
-                                                        occupancy.motorbikeAvailable);
+                                                      occupancy.motorbikeAvailable);
                                             if (
                                                 val === null ||
                                                 val === undefined

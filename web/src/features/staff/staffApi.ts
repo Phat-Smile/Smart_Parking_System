@@ -289,7 +289,8 @@ async function paymentGatewayFetch<T>(
         try {
             const token = getAccessToken();
             const headers = new Headers(init?.headers);
-            if (!headers.has("Accept")) headers.set("Accept", "application/json");
+            if (!headers.has("Accept"))
+                headers.set("Accept", "application/json");
             if (token && !headers.has("Authorization")) {
                 headers.set("Authorization", `Bearer ${token}`);
             }
