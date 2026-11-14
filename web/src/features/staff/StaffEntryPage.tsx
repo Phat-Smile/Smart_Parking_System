@@ -29,6 +29,7 @@ import {
     IoTBarrierGateSimulator,
 } from "./StaffUi";
 import { describeStaffError, openParkingSession } from "./staffApi";
+import { GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD } from "./anpr/plateOcr";
 import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
@@ -91,7 +92,7 @@ export function StaffEntryPage() {
     // When snapshot is taken from real camera
     function handleCameraSnapshot(dataUrl: string) {
         setCameraSnapshot(dataUrl);
-        setOcrConfidence(0.97);
+        setOcrConfidence(0);
     }
 
     // Tự động xử lý khi Camera ANPR nhận diện biển số (Method 1)
@@ -112,7 +113,9 @@ export function StaffEntryPage() {
             }
             if (typeof confidence === "number") {
                 setOcrConfidence(confidence);
-                setIsEditingPlate(confidence < 0.8);
+                setIsEditingPlate(
+                    confidence < GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD,
+                );
             }
             if (snapshotUrl) {
                 setCameraSnapshot(snapshotUrl);
@@ -200,14 +203,11 @@ export function StaffEntryPage() {
                 entryTime: res.entryTime,
                 status: "Active",
                 qrToken: res.qrToken,
-                slotCode:
-                    res.slotCode ??
-                    res.zoneCode ??
-                    (vehicleType === "Car" ? "CAR-A" : "MOTO-B"),
+                slotCode: res.slotCode ?? res.zoneCode ?? null,
                 paymentStatus: "Pending",
-                totalFeeVnd: vehicleType === "Car" ? 30000 : 6000,
+                totalFeeVnd: undefined,
                 prepaidVnd: 0,
-                amountDueVnd: vehicleType === "Car" ? 30000 : 6000,
+                amountDueVnd: undefined,
             });
 
             // If Guest or UnregisteredWalkIn, auto prompt QR ticket modal
@@ -380,7 +380,8 @@ export function StaffEntryPage() {
                                 )}
                                 <span
                                     className={`staff-pill ${
-                                        ocrConfidence >= 0.8
+                                        ocrConfidence >=
+                                        GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD
                                             ? "staff-pill-success"
                                             : "staff-pill-warning"
                                     }`}
@@ -399,29 +400,26 @@ export function StaffEntryPage() {
                                 </span>
                                 <strong
                                     className={`staff-ocr-meter-val ${
-                                        ocrConfidence >= 0.9
+                                        ocrConfidence >=
+                                        GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD
                                             ? "text-emerald"
-                                            : ocrConfidence >= 0.8
-                                              ? "text-sky"
-                                              : "text-amber"
+                                            : "text-amber"
                                     }`}
                                 >
                                     {ocrPercent}% ·{" "}
-                                    {ocrConfidence >= 0.9
+                                    {ocrConfidence >=
+                                    GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD
                                         ? "Độ chính xác cao (≥90%)"
-                                        : ocrConfidence >= 0.8
-                                          ? "Hợp lệ"
-                                          : "Cần xác nhận thủ công"}
+                                        : "Cần xác nhận thủ công (<90%)"}
                                 </strong>
                             </div>
                             <div className="staff-ocr-progress-track">
                                 <div
                                     className={`staff-ocr-progress-fill ${
-                                        ocrConfidence >= 0.9
+                                        ocrConfidence >=
+                                        GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD
                                             ? "fill-high"
-                                            : ocrConfidence >= 0.8
-                                              ? "fill-med"
-                                              : "fill-low"
+                                            : "fill-low"
                                     }`}
                                     style={{
                                         width: `${Math.min(100, Math.max(8, ocrPercent))}%`,
@@ -430,7 +428,8 @@ export function StaffEntryPage() {
                             </div>
                         </div>
 
-                        {ocrConfidence < 0.8 ? (
+                        {ocrConfidence <
+                        GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD ? (
                             <p className="staff-warning-box">
                                 <AlertTriangle size={15} strokeWidth={2.2} />
                                 <span>{t("entryLowConfWarning")}</span>
