@@ -82,7 +82,7 @@ def withTrustedCi(String dirName, Closure body) {
 def dockerBuildCheck(String dockerfiles, String logName) {
     runStrict(
         'Docker Build Check',
-        "set -e; for f in ${dockerfiles}; do n=\$(echo \"\$f\" | tr '/.' '--'); echo \"== docker build \$f\"; docker build -q -f \"\$f\" -t \"parkwise-ci/\$n:${env.BUILD_NUMBER}\" .; docker rmi -f \"parkwise-ci/\$n:${env.BUILD_NUMBER}\" > /dev/null; done",
+        "set -e; for f in ${dockerfiles}; do n=\$(echo \"\$f\" | tr '/.' '--' | tr '[:upper:]' '[:lower:]'); echo \"== docker build \$f\"; docker build -q -f \"\$f\" -t \"parkwise-ci/\$n:${env.BUILD_NUMBER}\" .; docker rmi -f \"parkwise-ci/\$n:${env.BUILD_NUMBER}\" > /dev/null; done",
         logName
     )
 }
