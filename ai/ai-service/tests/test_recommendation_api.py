@@ -121,6 +121,36 @@ class RecommendationApiTests(unittest.TestCase):
             self.assertIn("probabilityPercent", first)
             self.assertIn("reasons", first)
             self.assertIsInstance(first["reasons"], list)
+            self.assertIn("sampleCount", first)
+            self.assertIn("insufficientData", first)
+            self.assertIn("baselineSource", first)
+
+    def test_unknown_held_quota_flags_insufficient_data(self):
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key}):
+            lot_id = str(uuid4())
+            payload = {
+                "customerLatitude": 10.7725,
+                "customerLongitude": 106.6980,
+                "vehicleType": "Car",
+                "arrivalAt": "2026-11-07T10:00:00Z",
+                "durationMinutes": 120,
+                "candidateLots": [
+                    {
+                        "lotId": lot_id,
+                        "name": "Bãi đỗ Test",
+                        "latitude": 10.7740,
+                        "longitude": 106.7020,
+                        "priceForDuration": 25000.0,
+                        "heldQuota": 0,
+                        "heldQuotaKnown": False,
+                        "snapshots": [],
+                    }
+                ],
+            }
+            status, data = self._call_post(payload, service_key=self.api_key)
+            self.assertEqual(200, status)
+            first = data["recommendedLots"][0]
+            self.assertTrue(first["insufficientData"])
 
 
 if __name__ == "__main__":

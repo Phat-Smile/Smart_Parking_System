@@ -37,6 +37,7 @@ class CandidateLotDto:
     price_for_duration: float
     held_quota: int
     snapshots: list[AvailabilitySnapshot]
+    held_quota_known: bool = True
 
 
 @dataclass(frozen=True)
@@ -78,13 +79,15 @@ def recommend_parking_lots(
             cache.set(customer_latitude, customer_longitude, c.latitude, c.longitude, drive_time)
 
         # 2. Arrival availability estimation (BR-08.e)
+        held_to_use = c.held_quota if c.held_quota_known else 0
         arrival_estimate = estimate_arrival_availability(
             lot_id=c.lot_id,
             vehicle_type=vehicle_type,
             arrival_at=arrival_at,
-            held_quota_at_arrival=c.held_quota,
+            held_quota_at_arrival=held_to_use,
             snapshots=c.snapshots,
         )
+        is_insufficient = arrival_estimate.insufficient_data or (not c.held_quota_known)
 
         score_inputs.append(CandidateScoreInput(
             lot_id=c.lot_id,
@@ -92,6 +95,9 @@ def recommend_parking_lots(
             drive_time_minutes=drive_time,
             probability_percent=arrival_estimate.probability_percent,
             price=c.price_for_duration,
+            sample_count=arrival_estimate.sample_count,
+            insufficient_data=is_insufficient,
+            baseline_source=arrival_estimate.baseline_source,
         ))
 
     # 3. Score and rank candidates
