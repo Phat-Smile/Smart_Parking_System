@@ -35,6 +35,7 @@ namespace ParkingSystem.Tests.Payment.IntegrationTests;
 public sealed class PaymentProblemDetailsHttpTests
 {
     private const string RoleHeader = "X-Test-Role";
+    private const string AmrHeader = "X-Test-Amr";
     private const string UserId = "d0000000-0000-0000-0000-000000000001";
 
     [Fact]
@@ -160,6 +161,28 @@ public sealed class PaymentProblemDetailsHttpTests
     }
 
     [Fact]
+    public async Task Audit_log_without_mfa_is_403_forbidden()
+    {
+        await using var app = await CreateAppAsync(new FakeSender());
+
+        using var response = await SendAsync(app, HttpMethod.Get, "/api/payment/admin/audit-logs", "SystemAdmin", amr: "none");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Audit_log_with_mfa_allows_system_admin()
+    {
+        var sender = new FakeSender().Returns<GetAuditLogsQuery, AuditLogsPagedDto>(
+            Result<AuditLogsPagedDto>.Success(new AuditLogsPagedDto([], 1, 20, 0, 0)));
+        await using var app = await CreateAppAsync(sender);
+
+        using var response = await SendAsync(app, HttpMethod.Get, "/api/payment/admin/audit-logs", "SystemAdmin", amr: "mfa");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task No_token_is_401_without_the_old_envelope()
     {
         await using var app = await CreateAppAsync(new FakeSender());
@@ -232,7 +255,7 @@ public sealed class PaymentProblemDetailsHttpTests
             HttpMethod.Post,
             $"/api/payment/parking-sessions/{sessionId}/pay/cash",
             role: "Staff",
-            body: new { expectedAmountDue = 0L },
+            body: new { expectedAmountDue = -1000L },
             header: ("X-Idempotency-Key", Guid.NewGuid().ToString()));
 
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, PayParkingFeeErrors.ExpectedAmountInvalid.Code);
@@ -306,7 +329,7 @@ public sealed class PaymentProblemDetailsHttpTests
     }
 
     private static async Task<HttpResponseMessage> SendAsync(
-        WebApplication app, HttpMethod method, string route, string? role, object? body = null, (string Name, string Value)? header = null)
+        WebApplication app, HttpMethod method, string route, string? role, object? body = null, (string Name, string Value)? header = null, string? amr = null)
     {
         using var request = new HttpRequestMessage(method, route);
         if (body is not null)
@@ -315,6 +338,8 @@ public sealed class PaymentProblemDetailsHttpTests
             request.Headers.Add(RoleHeader, role);
         if (header is { } extra)
             request.Headers.Add(extra.Name, extra.Value);
+        if (amr is not null)
+            request.Headers.Add(AmrHeader, amr);
         return await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
     }
 
@@ -354,9 +379,25 @@ public sealed class PaymentProblemDetailsHttpTests
             if (!Request.Headers.TryGetValue(RoleHeader, out var role))
                 return Task.FromResult(AuthenticateResult.NoResult());
 
-            var identity = new ClaimsIdentity(
-                [new Claim("sub", UserId), new Claim(PaymentAuthorization.RoleClaimType, role.ToString())],
-                SchemeName);
+            var claims = new List<Claim>
+            {
+                new("sub", UserId),
+                new(PaymentAuthorization.RoleClaimType, role.ToString())
+            };
+
+            if (Request.Headers.TryGetValue(AmrHeader, out var amr))
+            {
+                if (!string.IsNullOrWhiteSpace(amr) && amr.ToString() != "none")
+                {
+                    claims.Add(new Claim(PaymentAuthorization.AuthenticationMethodsClaimType, amr.ToString()));
+                }
+            }
+            else if (role.ToString() == "SystemAdmin")
+            {
+                claims.Add(new Claim(PaymentAuthorization.AuthenticationMethodsClaimType, PaymentAuthorization.MfaMethod));
+            }
+
+            var identity = new ClaimsIdentity(claims, SchemeName);
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
         }
     }

@@ -225,9 +225,18 @@ public sealed class LotOwnerConventionHttpTests(PostgreSqlContainerFixture postg
             if (!Request.Headers.TryGetValue(AccountHeader, out var account) || !Request.Headers.TryGetValue(RoleHeader, out var role))
                 return Task.FromResult(AuthenticateResult.NoResult());
 
-            var identity = new ClaimsIdentity(
-                [new Claim("sub", account.ToString()), new Claim(ParkingAuthorization.RoleClaimType, role.ToString())],
-                SchemeName);
+            var claims = new List<Claim>
+            {
+                new("sub", account.ToString()),
+                new(ParkingAuthorization.RoleClaimType, role.ToString())
+            };
+
+            if (role.ToString() == ParkingAuthorization.SystemAdminRole)
+            {
+                claims.Add(new Claim(ParkingAuthorization.AuthenticationMethodsClaimType, ParkingAuthorization.MfaMethod));
+            }
+
+            var identity = new ClaimsIdentity(claims, SchemeName);
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
         }
     }

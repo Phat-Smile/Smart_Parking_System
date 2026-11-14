@@ -15,6 +15,8 @@ internal static class ParkingAuthorization
     public const string ParkingLotOwnerRole = OwnerRole;
     public const string AdminRole = "SystemAdmin";
     public const string SystemAdminRole = AdminRole;
+    public const string AuthenticationMethodsClaimType = "amr";
+    public const string MfaMethod = "mfa";
 
     public static IServiceCollection AddParkingAuthorization(
         this IServiceCollection services)
@@ -28,10 +30,12 @@ internal static class ParkingAuthorization
                 .RequireClaim(RoleClaimType, OwnerRole))
             .AddPolicy(AdminPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireClaim(RoleClaimType, AdminRole))
+                .RequireClaim(RoleClaimType, AdminRole)
+                .RequireClaim(AuthenticationMethodsClaimType, MfaMethod))
             .AddPolicy(SystemAdminPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireClaim(RoleClaimType, SystemAdminRole));
+                .RequireClaim(RoleClaimType, SystemAdminRole)
+                .RequireClaim(AuthenticationMethodsClaimType, MfaMethod));
         return services;
     }
 }
