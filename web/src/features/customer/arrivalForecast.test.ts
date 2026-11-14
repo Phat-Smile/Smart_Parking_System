@@ -52,4 +52,13 @@ describe("percentByLot", () => {
             ] as never),
         ).toEqual({ a: 82, b: 30 });
     });
+
+    it("omits lots with null probability", () => {
+        expect(
+            percentByLot([
+                { lotId: "a", probabilityPercent: 81.6 },
+                { lotId: "b", probabilityPercent: null },
+            ] as never),
+        ).toEqual({ a: 82 });
+    });
 });

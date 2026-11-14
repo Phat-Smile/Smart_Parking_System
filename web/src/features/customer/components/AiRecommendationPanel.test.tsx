@@ -96,6 +96,34 @@ describe("AiRecommendationPanel", () => {
         expect(screen.getByText("May be full")).toBeInTheDocument();
     });
 
+    it("handles null probability when fallback is used", () => {
+        render(
+            <AiRecommendationPanel
+                recommendations={[
+                    rec({ probabilityPercent: null }),
+                    rec({
+                        lotId: "lot-2",
+                        name: "Bãi đỗ Tầng hầm C",
+                        rank: 2,
+                        probabilityPercent: null,
+                    }),
+                ]}
+                activeId=""
+                onSelect={() => {}}
+                copy={copy}
+            />,
+        );
+        expect(screen.queryByText(/NaN%/)).not.toBeInTheDocument();
+        expect(screen.getByText("By distance")).toBeInTheDocument();
+        expect(screen.getByText("No AI forecast")).toBeInTheDocument();
+        expect(screen.getByText("Distance")).toBeInTheDocument();
+        expect(
+            screen.getByLabelText(
+                "Estimated by distance (AI forecast unavailable)",
+            ),
+        ).toBeInTheDocument();
+    });
+
     it("renders nothing without recommendations", () => {
         const { container } = render(
             <AiRecommendationPanel

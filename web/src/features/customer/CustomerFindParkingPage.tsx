@@ -1356,11 +1356,29 @@ export function CustomerFindParkingPage({
                                                     )}
                                                 >
                                                     {copy("Top", "Hạng")}{" "}
-                                                    {lotRec.rank},{" "}
-                                                    {Math.round(
-                                                        lotRec.probabilityPercent,
+                                                    {lotRec.rank}
+                                                    {lotRec.probabilityPercent !==
+                                                    null ? (
+                                                        <>
+                                                            ,{" "}
+                                                            {Math.round(
+                                                                lotRec.probabilityPercent,
+                                                            )}
+                                                            %{" "}
+                                                            {copy(
+                                                                "free",
+                                                                "còn chỗ",
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            ,{" "}
+                                                            {copy(
+                                                                "distance rank",
+                                                                "sắp theo khoảng cách",
+                                                            )}
+                                                        </>
                                                     )}
-                                                    % {copy("free", "còn chỗ")}
                                                 </span>
                                             )}
                                             {activeSelectedId ===

@@ -27,7 +27,7 @@ function renderForecast(fetchImpl: () => Promise<unknown>) {
     );
 }
 
-const recommendation = (lotId: string, probabilityPercent: number) => ({
+const recommendation = (lotId: string, probabilityPercent: number | null) => ({
     lotId,
     name: lotId,
     address: "",
