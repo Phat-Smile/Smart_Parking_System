@@ -1,0 +1,4 @@
+# Ignore generated SQL seed file and python cache
+Seed-ArrivalHistory.sql
+__pycache__/
+*.pyc
