@@ -3,6 +3,7 @@ import {
     parseVietnamesePlate,
     formatVietnamesePlate,
     preprocessCanvasForOcr,
+    GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD,
 } from "./plateOcr";
 
 describe("plateOcr ANPR Engine (Method 1)", () => {
@@ -130,6 +131,38 @@ describe("plateOcr ANPR Engine (Method 1)", () => {
             expect(processed).toBeDefined();
             expect(processed.width).toBeGreaterThan(0);
             expect(processed.height).toBeGreaterThan(0);
+        });
+    });
+
+    describe("GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD (BR-05.a)", () => {
+        it("ngưỡng chấp nhận tự động phải đồng bộ chuẩn xác ở mức 0.9 (90%)", () => {
+            expect(GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD).toBe(0.9);
+        });
+
+        it("độ tin cậy 0.85 (85%) nằm dưới ngưỡng, bắt buộc nhân viên phải xác nhận thủ công", () => {
+            const confidence = 0.85;
+            const requiresManualConfirm =
+                confidence < GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD;
+            expect(requiresManualConfirm).toBe(true);
+        });
+
+        it("độ tin cậy 0.92 (92%) đạt ngưỡng, hệ thống tự động chấp nhận không cần chỉnh sửa", () => {
+            const confidence = 0.92;
+            const requiresManualConfirm =
+                confidence < GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD;
+            expect(requiresManualConfirm).toBe(false);
+        });
+
+        it("độ tin cậy thô từ OCR không bị ép sàn giả tạo (VD: 45% -> 0.45, không bị ép lên 0.96)", () => {
+            const rawConfidence = 45;
+            const scaledConfidence = Math.min(
+                1.0,
+                Math.max(0.0, rawConfidence / 100),
+            );
+            expect(scaledConfidence).toBe(0.45);
+            expect(scaledConfidence).toBeLessThan(
+                GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD,
+            );
         });
     });
 });

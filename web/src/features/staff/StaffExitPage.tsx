@@ -44,7 +44,6 @@ import { useStaffData } from "./staffData";
 import type { SessionByQrResponse, StaffSession } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 import { useGateVoice } from "./audio";
-import { ApiError } from "@/shared/errors/api-error";
 
 export function StaffExitPage() {
     const { assignedLot, completeExit, activeSessions, fetchAssignedLot } =
@@ -98,15 +97,18 @@ export function StaffExitPage() {
     type CheckStatus =
         "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED" | "WARNING";
 
-    // 1. QR Status
+    // 1. QR Status - Bắt buộc mã QR từ khách hàng (quét hoặc nhập) phải khớp với phiên
     const qrCheckStatus: CheckStatus = loading
         ? "PROCESSING"
-        : !scannedSession && !qrInput.trim()
-          ? "PENDING"
-          : scannedSession && (scannedSession.qrToken || exitAllowed)
-            ? "SUCCESS"
-            : scannedSession && !scannedSession.qrToken
+        : !qrInput.trim()
+          ? scannedSession
               ? "WARNING"
+              : "PENDING"
+          : !scannedSession
+            ? "PENDING"
+            : scannedSession.qrToken &&
+                scannedSession.qrToken === qrInput.trim()
+              ? "SUCCESS"
               : "FAILED";
 
     // 2. Plate Match Status
@@ -181,8 +183,6 @@ export function StaffExitPage() {
             // Call real endpoint GET /api/parking/sessions/by-qr/{qrToken}
             const queryToken = (token || qrInput || "").trim();
             const res: SessionByQrResponse = await findSessionByQr(queryToken);
-            const fee = res.amountDueVnd ?? 30000;
-            const isReg = res.customerType === "Registered";
             const isPaid = res.status === "Paid" || res.amountDueVnd === 0;
             const scanned: StaffSession = {
                 id: res.sessionId,
@@ -193,15 +193,15 @@ export function StaffExitPage() {
                 entryTime: res.entryTime,
                 status: res.status,
                 qrToken: res.qrToken,
-                slotCode: res.vehicleType === "Car" ? "CAR-A" : "MOTO-B",
+                slotCode: null,
                 paymentStatus: isPaid ? "Paid" : "Pending",
-                totalFeeVnd: res.totalFeeVnd ?? fee,
-                prepaidVnd: isPaid ? fee : 0,
-                amountDueVnd: isPaid ? 0 : fee,
+                totalFeeVnd: res.totalFeeVnd,
+                prepaidVnd: isPaid ? res.totalFeeVnd : 0,
+                amountDueVnd: isPaid ? 0 : res.amountDueVnd,
             };
 
             setScannedSession(scanned);
-            setDetectedExitPlate(res.plateNumber);
+            // Bất biến: Không tự ghi đè biển số đọc ở cổng bằng biển số của phiên
             setQrInput(res.qrToken);
             if (scanned.amountDueVnd === 0 || isPaid) {
                 setPaymentSuccess(true);
@@ -230,13 +230,12 @@ export function StaffExitPage() {
         try {
             const lotId = assignedLot?.lotId || "";
             const res = await findOpenSessionByPlate(lotId, plate);
-            setQrInput(res.qrToken || "");
+            // Bất biến: Tra cứu theo biển số KHÔNG tự điền ô QR; khách bắt buộc phải xuất trình vé QR
             const paymentFee = await getParkingSessionFee(res.sessionId).catch(
                 () => null,
             );
-            const fallbackFee = res.vehicleType === "Car" ? 30000 : 6000;
-            const totalFee = paymentFee?.totalFee ?? fallbackFee;
-            const amountDue = paymentFee?.amountDue ?? fallbackFee;
+            const totalFee = paymentFee?.totalFee;
+            const amountDue = paymentFee?.amountDue;
             const isPaid = res.status === "Paid" || amountDue === 0;
             const scanned: StaffSession = {
                 id: res.sessionId,
@@ -247,7 +246,7 @@ export function StaffExitPage() {
                 entryTime: res.entryTime,
                 status: res.status,
                 qrToken: res.qrToken || "",
-                slotCode: res.vehicleType === "Car" ? "CAR-A" : "MOTO-B",
+                slotCode: null,
                 paymentStatus: isPaid ? "Paid" : "Pending",
                 totalFeeVnd: totalFee,
                 prepaidVnd: isPaid
@@ -289,31 +288,54 @@ export function StaffExitPage() {
     // Xác minh đối soát thủ công tại cổng ra
     async function handleManualVerify() {
         if (!scannedSession) return;
+        const gatePlate = detectedExitPlate.trim();
+        const qrToSend = qrInput.trim();
+        if (!qrToSend) {
+            setErrorMsg(
+                "Chưa có QR phiên đỗ từ khách. Vui lòng quét hoặc nhập mã QR từ vé của khách.",
+            );
+            announceWarning("Chưa có QR phiên đỗ từ khách.");
+            return;
+        }
+
         setLoading(true);
         setErrorMsg("");
         try {
-            const res = await manualVerifyExit(
+            // Bước 1: Ghi nhận kiểm toán sự cố / xác minh thủ công
+            await manualVerifyExit(
                 scannedSession.id,
                 "Nhân viên đối soát giấy tờ xe thủ công tại quầy",
             );
-            if (res.canExit) {
-                setExitAllowed(true);
-            }
+
+            // Bước 2: Bắt buộc hoàn tất đóng phiên hợp lệ qua /complete
+            await completeParkingSession(scannedSession.id, {
+                plateNumber: gatePlate,
+                qrToken: qrToSend,
+            });
+            completeExit(
+                scannedSession.id,
+                scannedSession.paymentMethod || "Cash",
+            );
+            setExitAllowed(true);
+            announceCheckOut({
+                plateNumber: gatePlate || scannedSession.plateNumber,
+                lotName: assignedLot?.lotName,
+                amountPaid: scannedSession.totalFeeVnd,
+            });
+            fetchAssignedLot().catch(() => {});
         } catch (err) {
             setErrorMsg(describeStaffError(err));
+            announceWarning(describeStaffError(err));
         } finally {
             setLoading(false);
         }
     }
 
-    // VNPay at the gate is not wired to Payment yet: nothing is recorded and the gate stays closed.
-    const EXIT_PAYMENT_NOT_READY =
-        "Thanh toán VNPay ở cổng ra chưa nối với Payment. Chưa ghi nhận tiền, chưa mở cổng.";
-
     // The amount sent is the amount Payment quoted for this session; Payment rejects the call when the fee
     // changed in the meantime, so the screen never marks a session paid on its own.
     async function handleCompleteCashPayment() {
-        if (!scannedSession) return;
+        if (!scannedSession || isPayingCash || loading) return;
+        setIsPayingCash(true);
         setLoading(true);
         setErrorMsg("");
         try {
@@ -334,6 +356,7 @@ export function StaffExitPage() {
             setErrorMsg(describeStaffError(err));
         } finally {
             setLoading(false);
+            setIsPayingCash(false);
         }
     }
 
@@ -465,17 +488,38 @@ export function StaffExitPage() {
         if (!scannedSession || !canAllowExit) {
             if (scannedSession && !canAllowExit) {
                 announceWarning(
-                    "Xe chưa thanh toán phí đỗ. Không thể mở barrier.",
+                    "Xe chưa thanh toán phí đỗ hoặc chưa đủ điều kiện an toàn. Không thể mở barrier.",
                 );
             }
             return;
         }
+
+        // Bất biến: /complete nhận biển số đọc ở cổng (OCR hoặc nhân viên nhập), không lấy từ phiên
+        const gatePlate = detectedExitPlate.trim();
+        if (!gatePlate) {
+            setErrorMsg(
+                "Chưa có biển số đọc ở cổng ra. Vui lòng quét hoặc nhập biển số.",
+            );
+            announceWarning("Chưa có biển số đọc ở cổng ra.");
+            return;
+        }
+
+        // Bất biến: QR gửi đi là QR khách đưa ra (quét hoặc nhập), không lấy từ phiên
+        const qrToSend = qrInput.trim();
+        if (!qrToSend) {
+            setErrorMsg(
+                "Chưa có QR phiên đỗ từ khách. Vui lòng quét hoặc nhập mã QR từ vé của khách.",
+            );
+            announceWarning("Chưa có QR phiên đỗ từ khách.");
+            return;
+        }
+
         setLoading(true);
         setErrorMsg("");
         try {
             await completeParkingSession(scannedSession.id, {
-                plateNumber: scannedSession.plateNumber,
-                qrToken: (scannedSession.qrToken || qrInput).trim(),
+                plateNumber: gatePlate,
+                qrToken: qrToSend,
             });
             completeExit(
                 scannedSession.id,
@@ -483,41 +527,15 @@ export function StaffExitPage() {
             );
             setExitAllowed(true);
             announceCheckOut({
-                plateNumber: scannedSession.plateNumber,
+                plateNumber: gatePlate,
                 lotName: assignedLot?.lotName,
                 amountPaid: scannedSession.totalFeeVnd,
             });
             fetchAssignedLot().catch(() => {});
         } catch (err) {
-            // Chế độ mở rào chắn cứu cánh khi nhân viên đã thu tiền mặt tại quầy
-            if (
-                err instanceof ApiError &&
-                (err.problem?.errorCode ===
-                    "parking.session.payment_required" ||
-                    err.problem?.errorCode ===
-                        "parking.session.exit_not_verified") &&
-                (scannedSession.paymentStatus === "Paid" ||
-                    scannedSession.status === "Paid" ||
-                    scannedSession.amountDueVnd === 0)
-            ) {
-                await manualVerifyExit(
-                    scannedSession.id,
-                    "Nhân viên đã xác nhận thu tiền mặt và cho xe xuất bãi",
-                ).catch(() => {});
-                completeExit(
-                    scannedSession.id,
-                    scannedSession.paymentMethod || "Cash",
-                );
-                setExitAllowed(true);
-                announceCheckOut({
-                    plateNumber: scannedSession.plateNumber,
-                    lotName: assignedLot?.lotName,
-                    amountPaid: scannedSession.totalFeeVnd,
-                });
-                fetchAssignedLot().catch(() => {});
-                return;
-            }
+            // Loại bỏ hoàn toàn đường mở rào chắn cứu cánh: Nếu backend từ chối thì hiện đúng lý do và giữ rào đóng
             setErrorMsg(describeStaffError(err));
+            announceWarning(describeStaffError(err));
         } finally {
             setLoading(false);
         }
@@ -664,10 +682,7 @@ export function StaffExitPage() {
                     </span>
                     <div className="staff-presets-list">
                         {activeSessions.slice(0, 6).map((s) => {
-                            const isSelected =
-                                scannedSession?.id === s.id ||
-                                (s.plateNumber &&
-                                    detectedExitPlate === s.plateNumber);
+                            const isSelected = scannedSession?.id === s.id;
                             return (
                                 <button
                                     key={s.id}
@@ -678,11 +693,12 @@ export function StaffExitPage() {
                                             : ""
                                     }`}
                                     onClick={() => {
-                                        setQrInput(s.qrToken || "");
-                                        setDetectedExitPlate(s.plateNumber);
-                                        handleVerifyQr(s.qrToken);
+                                        // Bất biến: Chip chỉ để xem và chọn phiên đối chiếu thông tin
+                                        // Tuyệt đối không tự điền biển số cổng ra và không tự điền mã QR của khách (BR-11)
+                                        setScannedSession(s);
+                                        setErrorMsg("");
                                     }}
-                                    title={`Chọn nhanh phiên xe ${s.plateNumber} để đối chiếu`}
+                                    title={`Xem thông tin phiên xe ${s.plateNumber} để đối chiếu`}
                                 >
                                     {s.vehicleType === "Car" ? (
                                         <Car size={13} strokeWidth={2.2} />
@@ -718,20 +734,8 @@ export function StaffExitPage() {
                             const clean = plate.trim().toUpperCase();
                             if (!clean) return;
                             setDetectedExitPlate(clean);
-
-                            // Tự động đối chiếu với danh sách xe đang trong bãi
-                            const matched = activeSessions.find(
-                                (s) => s.plateNumber?.toUpperCase() === clean,
-                            );
-                            if (
-                                matched &&
-                                matched.qrToken &&
-                                (!scannedSession ||
-                                    scannedSession.plateNumber !== clean)
-                            ) {
-                                setQrInput(matched.qrToken);
-                                handleVerifyQr(matched.qrToken);
-                            }
+                            // Bất biến: Biển số đọc được ở cổng chỉ lưu làm biển số đối soát,
+                            // tuyệt đối không tự động lấy QR trong bãi điền vào thay khách
                         }}
                         onQrCodeScanned={(code) => {
                             setQrInput(code);
@@ -1409,9 +1413,10 @@ export function StaffExitPage() {
                                         </strong>
                                     </div>
                                     <div className="staff-fee-row">
-                                        <span>Vị trí bãi đỗ</span>
+                                        <span>Mã chỗ</span>
                                         <span className="staff-slot-code">
-                                            {scannedSession.slotCode ?? "CAR-A"}
+                                            {scannedSession.slotCode ??
+                                                "Chưa phân ô"}
                                         </span>
                                     </div>
                                     <div className="staff-fee-row">

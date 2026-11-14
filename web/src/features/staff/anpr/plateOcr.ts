@@ -3,6 +3,12 @@
  * Quét nhận diện và bóc tách biển số xe Việt Nam trực tiếp trên trình duyệt Client (Method 1)
  */
 
+/**
+ * Ngưỡng độ tin cậy tối thiểu để tự động chấp nhận kết quả đọc biển số ở cổng.
+ * Đồng bộ chính xác với GateReadingRules.AutoAcceptConfidence = 0.9m ở Backend (BR-05.a).
+ */
+export const GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD = 0.9;
+
 export interface PlateOcrResult {
     rawText: string;
     plateNumber: string;
@@ -310,11 +316,12 @@ export async function recognizePlateFromCanvas(
             return null;
         }
 
-        // Đạt chuẩn nhận diện biển số xe Việt Nam: độ tin cậy đạt mức cao (95% - 99%)
-        const confidence = Math.min(
-            0.99,
-            Math.max(0.96, (result.data.confidence || 95) / 100),
-        );
+        // Trả về độ tin cậy thực tế từ kết quả OCR (0.0 đến 1.0), không áp đặt sàn 0.96 giả tạo
+        const rawConfidence =
+            typeof result.data.confidence === "number"
+                ? result.data.confidence
+                : 0;
+        const confidence = Math.min(1.0, Math.max(0.0, rawConfidence / 100));
 
         return {
             rawText,
