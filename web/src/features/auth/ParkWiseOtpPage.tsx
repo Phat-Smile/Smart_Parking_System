@@ -56,42 +56,7 @@ export function ParkWiseOtpPage({
     const [locked, setLocked] = useState(false);
     const [resetKey, setResetKey] = useState(0);
     const [shaking, setShaking] = useState(false);
-    const [detectedOtp, setDetectedOtp] = useState<string | null>(null);
-    const [showPrompt, setShowPrompt] = useState(false);
     const complete = digits.every(Boolean);
-
-    // Auto-detect OTP in local environment (Google-style smart prompt)
-    useEffect(() => {
-        if (!email || verified) return;
-        let cancelled = false;
-
-        async function detectOtp() {
-            try {
-                const res = await fetch(
-                    `/api/dev-otp?email=${encodeURIComponent(email)}`,
-                );
-                if (!res.ok) return;
-                const data = await res.json();
-                if (
-                    !cancelled &&
-                    data?.found &&
-                    data?.otpCode &&
-                    /^[0-9]{6}$/.test(data.otpCode)
-                ) {
-                    setDetectedOtp(data.otpCode);
-                    setShowPrompt(true);
-                }
-            } catch {
-                // Ignore dev helper errors
-            }
-        }
-
-        const timer = window.setTimeout(detectOtp, 400);
-        return () => {
-            cancelled = true;
-            window.clearTimeout(timer);
-        };
-    }, [email, verified]);
 
     useEffect(() => {
         const timer = window.setTimeout(
@@ -136,14 +101,6 @@ export function ParkWiseOtpPage({
         const timer = window.setTimeout(() => router.replace(targetUrl), 1500);
         return () => window.clearTimeout(timer);
     }, [verified, router, isOwner]);
-
-    function handleApplyDetectedOtp() {
-        if (!detectedOtp) return;
-        setShowPrompt(false);
-        const chars = detectedOtp.split("");
-        setDigits(chars);
-        void verify(detectedOtp);
-    }
 
     async function verify(code: string) {
         setError("");
@@ -292,26 +249,6 @@ export function ParkWiseOtpPage({
             setCooldown(seconds);
             rememberPendingVerificationCooldown(seconds);
             setNotice("A new code has been sent to your email.");
-            // Re-detect new OTP code after resend
-            window.setTimeout(async () => {
-                try {
-                    const res = await fetch(
-                        `/api/dev-otp?email=${encodeURIComponent(email)}`,
-                    );
-                    if (!res.ok) return;
-                    const data = await res.json();
-                    if (
-                        data?.found &&
-                        data?.otpCode &&
-                        /^[0-9]{6}$/.test(data.otpCode)
-                    ) {
-                        setDetectedOtp(data.otpCode);
-                        setShowPrompt(true);
-                    }
-                } catch {
-                    // Ignore dev helper errors
-                }
-            }, 1200);
         } catch (failure) {
             const code =
                 failure instanceof ApiError
@@ -436,139 +373,24 @@ export function ParkWiseOtpPage({
                                 </>
                             )}
                         </div>
-                        {showPrompt && detectedOtp && (
+                        {process.env.NODE_ENV === "development" && (
                             <div
                                 style={{
                                     background: "#111113",
                                     border: "1px solid #27272A",
-                                    borderRadius: "14px",
-                                    padding: "14px 16px",
-                                    marginBottom: "18px",
-                                    boxShadow:
-                                        "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: "10px",
-                                    animation: "fadeIn 0.25s ease-out",
+                                    borderRadius: "10px",
+                                    padding: "10px 14px",
+                                    marginBottom: "16px",
+                                    fontSize: "12.5px",
+                                    color: "#A1A1AA",
+                                    lineHeight: 1.4,
                                 }}
                             >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        gap: "8px",
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                        }}
-                                    >
-                                        <span style={{ fontSize: "16px" }}>
-                                            ⚡
-                                        </span>
-                                        <span
-                                            style={{
-                                                fontWeight: 700,
-                                                fontSize: "13px",
-                                                color: "#E6F85E",
-                                            }}
-                                        >
-                                            {isOwner
-                                                ? "Mã xác thực từ Backend (Chế độ phát triển)"
-                                                : "Dev OTP Detected from Backend"}
-                                        </span>
-                                    </div>
-                                    <span
-                                        style={{
-                                            background: "#1C1C1F",
-                                            border: "1px solid #27272A",
-                                            color: "#E6F85E",
-                                            padding: "2px 8px",
-                                            borderRadius: "6px",
-                                            fontSize: "13px",
-                                            fontWeight: 800,
-                                            letterSpacing: "1.5px",
-                                        }}
-                                    >
-                                        {detectedOtp}
-                                    </span>
-                                </div>
-                                <p
-                                    style={{
-                                        margin: 0,
-                                        fontSize: "12.5px",
-                                        color: "#A1A1AA",
-                                        lineHeight: 1.45,
-                                    }}
-                                >
-                                    {isOwner ? (
-                                        <>
-                                            Hệ thống Backend (Notification
-                                            Service) đã khởi tạo mã{" "}
-                                            <strong>{detectedOtp}</strong> cho{" "}
-                                            <strong>{email}</strong>. Bạn có thể
-                                            bấm để tự động dán hoặc nhập mã nhận
-                                            được qua email thật.
-                                        </>
-                                    ) : (
-                                        <>
-                                            Backend Notification Service
-                                            recorded code{" "}
-                                            <strong>{detectedOtp}</strong> for{" "}
-                                            <strong>{email}</strong>. Click
-                                            below to autofill or enter code from
-                                            real email.
-                                        </>
-                                    )}
-                                </p>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        gap: "10px",
-                                        marginTop: "2px",
-                                    }}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={handleApplyDetectedOtp}
-                                        style={{
-                                            flex: 1,
-                                            background: "#E6F85E",
-                                            border: "1px solid #E6F85E",
-                                            color: "#09090B",
-                                            padding: "8px 14px",
-                                            borderRadius: "8px",
-                                            fontWeight: 700,
-                                            fontSize: "13px",
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        ✓{" "}
-                                        {isOwner
-                                            ? "Tự động dán mã"
-                                            : "Autofill Code"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPrompt(false)}
-                                        style={{
-                                            background: "#1C1C1F",
-                                            border: "1px solid #27272A",
-                                            color: "#A1A1AA",
-                                            padding: "8px 14px",
-                                            borderRadius: "8px",
-                                            fontWeight: 600,
-                                            fontSize: "13px",
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        {isOwner ? "Tự nhập" : "Enter manually"}
-                                    </button>
-                                </div>
+                                <span>
+                                    {isOwner
+                                        ? "Môi trường phát triển cục bộ: Kiểm tra mã xác thực tại Mailpit (http://localhost:8025)."
+                                        : "Local Development: View your verification code at Mailpit (http://localhost:8025)."}
+                                </span>
                             </div>
                         )}
                         <label
