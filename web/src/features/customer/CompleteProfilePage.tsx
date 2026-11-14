@@ -622,7 +622,8 @@ export function CompleteProfilePage({
             (vneidDemoApplied || (documentPhotos.front && documentPhotos.back)),
         );
     const personalComplete =
-        fullName.trim().length >= 2 && isValidVietnamesePhone(phone);
+        fullName.trim().length >= 2 &&
+        (!phone.trim() || isValidVietnamesePhone(phone));
     const completion = (emailVerified ? 25 : 0) + (personalComplete ? 75 : 0);
     const progressStyle = {
         "--profile-progress": `${completion}%`,
@@ -748,12 +749,13 @@ export function CompleteProfilePage({
                           "Nhập họ tên đầy đủ (ít nhất 2 ký tự).",
                       )
                     : "",
-            phone: isValidVietnamesePhone(phone)
-                ? ""
-                : copy(
-                      "Enter a valid Vietnamese phone number.",
-                      "Nhập số điện thoại Việt Nam hợp lệ.",
-                  ),
+            phone:
+                phone.trim() && !isValidVietnamesePhone(phone)
+                    ? copy(
+                          "Enter a valid Vietnamese phone number.",
+                          "Nhập số điện thoại Việt Nam hợp lệ.",
+                      )
+                    : "",
             birthDate:
                 birthDate &&
                 (!isValidDateDisplay(birthDate) ||
@@ -826,7 +828,7 @@ export function CompleteProfilePage({
             ]);
             const saved = await saveMyProfile({
                 fullName: fullName.trim(),
-                phoneNumber: phone.trim(),
+                phoneNumber: phone.trim() || null,
                 dateOfBirth: birthDate ? dateDisplayToIso(birthDate) : null,
                 address: address.trim() || null,
                 avatarUrl: avatar?.url ?? savedMedia.avatarUrl,
@@ -981,8 +983,8 @@ export function CompleteProfilePage({
                                               "Đã thêm thông tin bắt buộc",
                                           )
                                         : copy(
-                                              "Add your name and phone number",
-                                              "Thêm tên và số điện thoại",
+                                              "Add your full name",
+                                              "Thêm họ và tên",
                                           )}
                                 </span>
                             </div>
@@ -1184,8 +1186,7 @@ export function CompleteProfilePage({
                             <div className="parkwise-profile-contact-grid">
                                 <div className="parkwise-profile-field">
                                     <label htmlFor="profile-phone">
-                                        {copy("Phone Number", "Số điện thoại")}{" "}
-                                        <span>*</span>
+                                        {copy("Phone Number", "Số điện thoại")}
                                     </label>
                                     <div className="parkwise-profile-input-with-icon">
                                         <PhoneIcon />
@@ -2010,8 +2011,8 @@ export function CompleteProfilePage({
                                         </strong>
                                         <small>
                                             {copy(
-                                                "Full name and phone number",
-                                                "Họ tên và số điện thoại",
+                                                "Full name (phone optional)",
+                                                "Họ tên (số điện thoại tùy chọn)",
                                             )}
                                         </small>
                                     </p>
