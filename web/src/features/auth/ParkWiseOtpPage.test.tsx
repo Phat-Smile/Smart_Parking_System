@@ -141,22 +141,33 @@ describe("ParkWiseOtpPage", () => {
         ).toHaveAttribute("href", "/owner/onboarding");
     });
 
-    it("displays dev OTP prompt when detected from backend dev helper", async () => {
-        global.fetch = vi.fn().mockImplementation((url: string) => {
-            if (url.includes("/api/dev-otp")) {
-                return Promise.resolve({
-                    ok: true,
-                    json: () =>
-                        Promise.resolve({
-                            email: "owner@example.com",
-                            otpCode: "654321",
-                            found: true,
-                        }),
-                });
-            }
-            return Promise.resolve({ ok: false });
-        });
+    it("does not call /api/dev-otp and displays local mailpit hint in development", async () => {
+        vi.stubEnv("NODE_ENV", "development");
+        const fetchSpy = vi.fn();
+        global.fetch = fetchSpy;
 
+        try {
+            render(
+                <ParkWiseOtpPage
+                    fontClassName="test-font"
+                    initialEmail="owner@example.com"
+                    role="owner"
+                />,
+            );
+
+            // Verify /api/dev-otp is never requested
+            expect(fetchSpy).not.toHaveBeenCalled();
+
+            // Verify Mailpit notice presence
+            expect(
+                screen.getByText(/Kiểm tra mã xác thực tại Mailpit/i),
+            ).toBeInTheDocument();
+        } finally {
+            vi.unstubAllEnvs();
+        }
+    });
+
+    it("allows user to manually enter 6-digit OTP code", async () => {
         verifyMock.mockResolvedValueOnce({
             accountId: "acc-123",
             email: "owner@example.com",
@@ -173,23 +184,45 @@ describe("ParkWiseOtpPage", () => {
             />,
         );
 
-        // Wait for dev OTP prompt to appear
-        const otpBadges = await screen.findAllByText("654321");
-        expect(otpBadges.length).toBeGreaterThanOrEqual(1);
-        expect(
-            screen.getByText(/Mã xác thực từ Backend \(Chế độ phát triển\)/),
-        ).toBeInTheDocument();
+        const inputs = screen.getAllByRole("textbox");
+        expect(inputs).toHaveLength(6);
 
-        // Click autofill button
-        fireEvent.click(
-            screen.getByRole("button", { name: "✓ Tự động dán mã" }),
-        );
+        // Type "654321" into the 6 inputs
+        const codeDigits = ["6", "5", "4", "3", "2", "1"];
+        codeDigits.forEach((digit, idx) => {
+            fireEvent.change(inputs[idx], { target: { value: digit } });
+        });
 
         await waitFor(() => {
             expect(verifyMock).toHaveBeenCalledWith(
                 "owner@example.com",
                 "654321",
             );
+        });
+    });
+
+    it("handles resend OTP action correctly", async () => {
+        resendMock.mockResolvedValueOnce({
+            email: "owner@example.com",
+            expiresInSeconds: 300,
+            cooldownSeconds: 60,
+            message: "OTP sent",
+            otpSent: true,
+        });
+
+        render(
+            <ParkWiseOtpPage
+                fontClassName="test-font"
+                initialEmail="owner@example.com"
+                role="owner"
+            />,
+        );
+
+        const resendBtn = screen.getByRole("button", { name: /Gửi lại mã/i });
+        fireEvent.click(resendBtn);
+
+        await waitFor(() => {
+            expect(resendMock).toHaveBeenCalledWith("owner@example.com");
         });
     });
 });
