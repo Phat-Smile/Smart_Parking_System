@@ -11,13 +11,16 @@ internal static class PaymentAuthorization
     public const string ConfirmCashPaymentPolicy = "payment-confirm-cash";
     public const string RoleClaimType = "role";
     public const string AdminRole = "SystemAdmin";
+    public const string AuthenticationMethodsClaimType = "amr";
+    public const string MfaMethod = "mfa";
 
     public static IServiceCollection AddPaymentAuthorization(this IServiceCollection services)
     {
         services.AddAuthorizationBuilder()
             .AddPolicy(AdminPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireClaim(RoleClaimType, AdminRole))
+                .RequireClaim(RoleClaimType, AdminRole)
+                .RequireClaim(AuthenticationMethodsClaimType, MfaMethod))
             .AddPolicy(ViewSessionFeePolicy, policy => policy
                 .RequireAuthenticatedUser()
                 .RequireClaim(RoleClaimType, "Customer", "Staff", "ParkingLotOwner", "LotOwner"))

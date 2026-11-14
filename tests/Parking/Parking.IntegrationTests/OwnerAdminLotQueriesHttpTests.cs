@@ -37,6 +37,7 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
 {
     private const string AccountHeader = "X-Test-Account";
     private const string RoleHeader = "X-Test-Role";
+    private const string AmrHeader = "X-Test-Amr";
     private const string OwnerRole = "ParkingLotOwner";
     private const string AdminRole = "SystemAdmin";
 
@@ -478,6 +479,42 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
         return await response.Content.ReadFromJsonAsync<JsonElement>(ct);
     }
 
+    [Fact]
+    public async Task AdminPolicy_endpoint_rejects_admin_without_mfa_and_accepts_admin_with_mfa()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var admin = Guid.NewGuid();
+        var owner = Guid.NewGuid();
+        var lotId = await RegisterLotAsync(client, owner, NewName("MfaAdminTest"), ct);
+
+        using var noMfaResponse = await SendAsync(
+            client, HttpMethod.Get, $"/api/parking/admin/lots/{lotId}/assignments", AdminRole, admin, null, ct, amr: "none");
+        Assert.Equal(HttpStatusCode.Forbidden, noMfaResponse.StatusCode);
+
+        using var mfaResponse = await SendAsync(
+            client, HttpMethod.Get, $"/api/parking/admin/lots/{lotId}/assignments", AdminRole, admin, null, ct, amr: "mfa");
+        Assert.Equal(HttpStatusCode.OK, mfaResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task SystemAdminPolicy_endpoint_rejects_admin_without_mfa_and_accepts_admin_with_mfa()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = await CreateAppAsync(ct);
+        var client = app.GetTestClient();
+        var admin = Guid.NewGuid();
+
+        using var noMfaResponse = await SendAsync(
+            client, HttpMethod.Get, "/api/parking/admin/lots?page=1&pageSize=10", AdminRole, admin, null, ct, amr: "none");
+        Assert.Equal(HttpStatusCode.Forbidden, noMfaResponse.StatusCode);
+
+        using var mfaResponse = await SendAsync(
+            client, HttpMethod.Get, "/api/parking/admin/lots?page=1&pageSize=10", AdminRole, admin, null, ct, amr: "mfa");
+        Assert.Equal(HttpStatusCode.OK, mfaResponse.StatusCode);
+    }
+
     private static async Task<JsonElement> ListAdminLotsAsync(HttpClient client, Guid admin, string query, CancellationToken ct)
     {
         using var response = await SendAsync(client, HttpMethod.Get, "/api/parking/admin/lots" + query, AdminRole, admin, null, ct);
@@ -555,7 +592,7 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
 
     // role and account null means no sign-in at all (an anonymous caller).
     private static async Task<HttpResponseMessage> SendAsync(
-        HttpClient client, HttpMethod method, string route, string? role, Guid? account, object? body, CancellationToken ct)
+        HttpClient client, HttpMethod method, string route, string? role, Guid? account, object? body, CancellationToken ct, string? amr = null)
     {
         using var request = new HttpRequestMessage(method, route);
         if (body is not null)
@@ -564,6 +601,10 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
         {
             request.Headers.Add(RoleHeader, role);
             request.Headers.Add(AccountHeader, account.Value.ToString());
+        }
+        if (amr is not null)
+        {
+            request.Headers.Add(AmrHeader, amr);
         }
 
         return await client.SendAsync(request, ct);
@@ -624,9 +665,25 @@ public sealed class OwnerAdminLotQueriesHttpTests(PostgreSqlContainerFixture pos
             if (!Request.Headers.TryGetValue(AccountHeader, out var account) || !Request.Headers.TryGetValue(RoleHeader, out var role))
                 return Task.FromResult(AuthenticateResult.NoResult());
 
-            var identity = new ClaimsIdentity(
-                [new Claim("sub", account.ToString()), new Claim(ParkingAuthorization.RoleClaimType, role.ToString())],
-                SchemeName);
+            var claims = new List<Claim>
+            {
+                new("sub", account.ToString()),
+                new(ParkingAuthorization.RoleClaimType, role.ToString())
+            };
+
+            if (Request.Headers.TryGetValue(AmrHeader, out var amr))
+            {
+                if (!string.IsNullOrWhiteSpace(amr) && amr.ToString() != "none")
+                {
+                    claims.Add(new Claim(ParkingAuthorization.AuthenticationMethodsClaimType, amr.ToString()));
+                }
+            }
+            else if (role.ToString() == AdminRole)
+            {
+                claims.Add(new Claim(ParkingAuthorization.AuthenticationMethodsClaimType, ParkingAuthorization.MfaMethod));
+            }
+
+            var identity = new ClaimsIdentity(claims, SchemeName);
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
         }
     }
