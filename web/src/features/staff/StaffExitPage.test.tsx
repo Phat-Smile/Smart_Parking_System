@@ -16,6 +16,7 @@ const { mockState, apiMocks } = vi.hoisted(() => ({
         payParkingSessionCash: vi.fn(),
         completeParkingSession: vi.fn(),
         manualVerifyExit: vi.fn(),
+        reissueParkingSessionQr: vi.fn(),
     },
 }));
 
@@ -78,6 +79,7 @@ vi.mock("./staffApi", async (importOriginal) => {
         payParkingSessionCash: apiMocks.payParkingSessionCash,
         completeParkingSession: apiMocks.completeParkingSession,
         manualVerifyExit: apiMocks.manualVerifyExit,
+        reissueParkingSessionQr: apiMocks.reissueParkingSessionQr,
     };
 });
 
@@ -415,6 +417,72 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         expect(plateInput.value).toBe("");
 
         // Nút cho ra phải bị vô hiệu hóa
+        const exitBtn = screen
+            .getByText(translations.vi.exitAuthorizeBtn)
+            .closest("button");
+        expect(exitBtn).toBeDisabled();
+
+        // /complete tuyệt đối không được gọi
+        expect(apiMocks.completeParkingSession).not.toHaveBeenCalled();
+    });
+
+    it("Bấm nút cấp lại vé QR: gọi API reissue nhưng KHÔNG tự điền mã QR vào ô nhập cổng ra", async () => {
+        apiMocks.findOpenSessionByPlate.mockResolvedValue({
+            sessionId: "ses-plate-reissue",
+            lotId: "lot-1",
+            plateNumber: "51B-999.88",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Paid",
+            entryTime: "2026-11-12T01:00:00Z",
+            qrToken: "qr-old-lost",
+        });
+        apiMocks.getParkingSessionFee.mockResolvedValue({
+            sessionId: "ses-plate-reissue",
+            totalFee: 30000,
+            amountDue: 0,
+        });
+        apiMocks.reissueParkingSessionQr.mockResolvedValue({
+            sessionId: "ses-plate-reissue",
+            qrToken: "qr-newly-reissued-secret",
+            issuedAt: "2026-11-14T10:00:00Z",
+        });
+
+        render(<StaffExitPage />);
+        enterGatePlate("51B-999.88");
+
+        const lookupBtn = screen.getByRole("button", {
+            name: /Tra cứu mất vé/i,
+        });
+        fireEvent.click(lookupBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.findOpenSessionByPlate).toHaveBeenCalledWith(
+                "lot-1",
+                "51B-999.88",
+            ),
+        );
+
+        // Bấm nút "Cấp lại vé QR"
+        const reissueBtn = await screen.findByRole("button", {
+            name: /Cấp lại vé QR/i,
+        });
+        fireEvent.click(reissueBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.reissueParkingSessionQr).toHaveBeenCalledWith(
+                "ses-plate-reissue",
+                "Khách làm mất vé QR tại cổng ra",
+            ),
+        );
+
+        // Bất biến (BR-11 / Anti-Bypass): Ô quét QR cổng ra KHÔNG được tự động điền
+        const qrInput = document.getElementById(
+            "staff-qr-input",
+        ) as HTMLInputElement;
+        expect(qrInput.value).toBe("");
+
+        // Nút cho ra phải bị vô hiệu hóa vì khách chưa quét vé mới tại cổng
         const exitBtn = screen
             .getByText(translations.vi.exitAuthorizeBtn)
             .closest("button");

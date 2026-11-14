@@ -273,7 +273,8 @@ export function StaffExitPage() {
                 scannedSession.id,
                 "Khách làm mất vé QR tại cổng ra",
             );
-            setQrInput(res.qrToken || "");
+            // Bất biến (Anti-Bypass): Cấp lại QR KHÔNG tự điền ô quét QR cổng ra; khách bắt buộc phải xuất trình vé mới để quét
+            setQrInput("");
             setScannedSession({
                 ...scannedSession,
                 qrToken: res.qrToken || "",
