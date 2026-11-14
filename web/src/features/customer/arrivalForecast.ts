@@ -53,7 +53,17 @@ export function percentByLot(
     lots: RecommendedParkingLot[],
 ): Record<string, number> {
     return Object.fromEntries(
-        lots.map((lot) => [lot.lotId, Math.round(lot.probabilityPercent)]),
+        lots
+            .filter(
+                (
+                    lot,
+                ): lot is RecommendedParkingLot & {
+                    probabilityPercent: number;
+                } =>
+                    lot.probabilityPercent !== null &&
+                    !isNaN(lot.probabilityPercent),
+            )
+            .map((lot) => [lot.lotId, Math.round(lot.probabilityPercent)]),
     );
 }
 

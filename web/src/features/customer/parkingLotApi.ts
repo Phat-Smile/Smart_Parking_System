@@ -281,11 +281,14 @@ export type RecommendedParkingLot = {
     longitude: number;
     rank: number;
     driveTimeMinutes: number | null;
-    probabilityPercent: number;
+    probabilityPercent: number | null;
     price: number;
     warningHighFullRisk: boolean;
     reasons: string[];
     distanceKm: number;
+    sampleCount?: number;
+    insufficientData?: boolean;
+    baselineSource?: string | null;
 };
 
 export type ParkingLotRecommendationResult = {

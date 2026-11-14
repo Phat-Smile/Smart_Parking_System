@@ -86,10 +86,29 @@ export function AiRecommendationPanel({
                         <dt>{copy("To the lot", "Tới bãi")}</dt>
                     </div>
                     <div>
-                        <dd>{Math.round(top.probabilityPercent)}%</dd>
-                        <dt>
-                            {copy("Free space on arrival", "Còn chỗ lúc tới")}
-                        </dt>
+                        {top.probabilityPercent !== null ? (
+                            <>
+                                <dd>{Math.round(top.probabilityPercent)}%</dd>
+                                <dt>
+                                    {copy(
+                                        "Free space on arrival",
+                                        "Còn chỗ lúc tới",
+                                    )}
+                                </dt>
+                            </>
+                        ) : (
+                            <>
+                                <dd className="ai-fallback-stat">
+                                    {copy("By distance", "Theo khoảng cách")}
+                                </dd>
+                                <dt>
+                                    {copy(
+                                        "No AI forecast",
+                                        "Chưa có dự báo AI",
+                                    )}
+                                </dt>
+                            </>
+                        )}
                     </div>
                 </dl>
                 <button
@@ -114,10 +133,26 @@ export function AiRecommendationPanel({
                                     className={`ai-alt-row ${activeId === rec.lotId ? "active" : ""}`}
                                     onClick={() => onSelect(rec.lotId)}
                                 >
-                                    <ProbabilityRing
-                                        percent={rec.probabilityPercent}
-                                        label={`${Math.round(rec.probabilityPercent)}% ${copy("chance of a free space", "khả năng còn chỗ")}`}
-                                    />
+                                    {rec.probabilityPercent !== null ? (
+                                        <ProbabilityRing
+                                            percent={rec.probabilityPercent}
+                                            label={`${Math.round(rec.probabilityPercent)}% ${copy("chance of a free space", "khả năng còn chỗ")}`}
+                                        />
+                                    ) : (
+                                        <span
+                                            className="ai-fallback-badge"
+                                            title={copy(
+                                                "Estimated by distance (AI forecast unavailable)",
+                                                "Ước tính theo khoảng cách (AI không khả dụng)",
+                                            )}
+                                            aria-label={copy(
+                                                "Estimated by distance (AI forecast unavailable)",
+                                                "Ước tính theo khoảng cách (AI không khả dụng)",
+                                            )}
+                                        >
+                                            {copy("Distance", "Khoảng cách")}
+                                        </span>
+                                    )}
                                     <span className="ai-alt-main">
                                         <strong>{rec.name}</strong>
                                         <small>
