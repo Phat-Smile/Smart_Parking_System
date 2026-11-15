@@ -114,7 +114,9 @@ it("allows saving profile when phone number is empty (optional)", async () => {
             phoneNumber: null,
         }),
     );
-    expect(screen.queryByText(/Enter a valid Vietnamese phone number/i)).toBeNull();
+    expect(
+        screen.queryByText(/Enter a valid Vietnamese phone number/i),
+    ).toBeNull();
 });
 
 it("shows validation error when phone number has invalid format", async () => {
