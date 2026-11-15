@@ -24,8 +24,6 @@ import { ApiError } from "@/shared/errors/api-error";
 
 const signUpSchema = z
     .object({
-        firstName: z.string().trim(),
-        lastName: z.string().trim(),
         email: z
             .string()
             .trim()
@@ -34,27 +32,7 @@ const signUpSchema = z
             .max(254, "Email is too long"),
         password: passwordSchema,
         confirmPassword: z.string().min(1, "Confirm your password"),
-        phone: z
-            .string()
-            .trim()
-            .refine(
-                (phone) =>
-                    !phone || /^\s*(0|\+84)[35789][0-9]{8}\s*$/.test(phone),
-                "Enter a valid Vietnamese mobile number",
-            ),
     })
-    .refine(
-        (values) => {
-            const name = `${values.firstName} ${values.lastName}`.trim();
-            return (
-                !name ||
-                (name.length >= 2 &&
-                    name.length <= 100 &&
-                    /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u.test(name))
-            );
-        },
-        { message: "Enter a valid name (2–100 letters)", path: ["firstName"] },
-    )
     .refine((values) => values.password === values.confirmPassword, {
         message: "The passwords do not match",
         path: ["confirmPassword"],
@@ -114,12 +92,9 @@ export function ParkWiseSignUpPage({
     } = useForm<SignUpValues>({
         resolver: zodResolver(signUpSchema),
         defaultValues: {
-            firstName: "",
-            lastName: "",
             email: "",
             password: "",
             confirmPassword: "",
-            phone: "",
         },
     });
     const password = useWatch({ control, name: "password" }) || "";
@@ -153,15 +128,17 @@ export function ParkWiseSignUpPage({
         setSubmitError("");
         setEmailConflict(false);
         try {
+            const emailPrefix = values.email.trim().split("@")[0] || "";
             const account = await registerParkWiseAccount({
-                fullName:
-                    `${values.firstName.trim()} ${values.lastName.trim()}`.trim() ||
-                    null,
+                fullName: emailPrefix || null,
                 email: values.email.trim(),
                 password: values.password,
-                phoneNumber: values.phone.trim() || null,
+                phoneNumber: null,
             });
-            rememberRegisteredProfileName(account.email, account.fullName);
+            rememberRegisteredProfileName(
+                account.email,
+                account.fullName || emailPrefix,
+            );
             if (
                 !rememberPendingVerification(
                     account.email,
@@ -181,19 +158,12 @@ export function ParkWiseSignUpPage({
                     ? error.problem?.errorCode
                     : undefined;
             setEmailConflict(code === "identity.email_already_registered");
-            if (code === "identity.phone_already_registered") {
-                setError("phone", {
-                    message: "This phone number is already registered.",
-                });
-            }
             const message =
                 code === "identity.email_already_registered"
                     ? "This email address is already registered. Log in or reset your password."
-                    : code === "identity.phone_already_registered"
-                      ? "Check the phone number below."
-                      : error instanceof ApiError && error.status === 400
-                        ? "Check your details and try again."
-                        : "We couldn't create your account. Check your connection and try again.";
+                    : error instanceof ApiError && error.status === 400
+                      ? "Check your details and try again."
+                      : "We couldn't create your account. Check your connection and try again.";
             setSubmitError(
                 error instanceof ApiError && error.correlationId
                     ? `${message} Support ID: ${error.correlationId}`
@@ -296,61 +266,6 @@ export function ParkWiseSignUpPage({
                         </Link>
                     </div>
 
-                    <div className="parkwise-signup-two-columns">
-                        <div className="parkwise-login-field">
-                            <label htmlFor="parkwise-signup-first-name">
-                                First Name (optional)
-                            </label>
-                            <input
-                                id="parkwise-signup-first-name"
-                                type="text"
-                                autoComplete="given-name"
-                                placeholder="First name"
-                                aria-invalid={Boolean(errors.firstName)}
-                                aria-describedby={
-                                    errors.firstName
-                                        ? "parkwise-signup-first-name-error"
-                                        : undefined
-                                }
-                                {...register("firstName")}
-                            />
-                            {errors.firstName && (
-                                <p
-                                    id="parkwise-signup-first-name-error"
-                                    role="alert"
-                                >
-                                    {errors.firstName.message}
-                                </p>
-                            )}
-                        </div>
-                        <div className="parkwise-login-field">
-                            <label htmlFor="parkwise-signup-last-name">
-                                Last Name (optional)
-                            </label>
-                            <input
-                                id="parkwise-signup-last-name"
-                                type="text"
-                                autoComplete="family-name"
-                                placeholder="Last name"
-                                aria-invalid={Boolean(errors.lastName)}
-                                aria-describedby={
-                                    errors.lastName
-                                        ? "parkwise-signup-last-name-error"
-                                        : undefined
-                                }
-                                {...register("lastName")}
-                            />
-                            {errors.lastName && (
-                                <p
-                                    id="parkwise-signup-last-name-error"
-                                    role="alert"
-                                >
-                                    {errors.lastName.message}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
                     <div className="parkwise-login-field">
                         <label htmlFor="parkwise-signup-email">
                             Email <span aria-hidden="true">*</span>
@@ -371,30 +286,6 @@ export function ParkWiseSignUpPage({
                         {errors.email && (
                             <p id="parkwise-signup-email-error" role="alert">
                                 {errors.email.message}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="parkwise-login-field">
-                        <label htmlFor="parkwise-signup-phone">
-                            Phone Number (optional)
-                        </label>
-                        <input
-                            id="parkwise-signup-phone"
-                            type="tel"
-                            autoComplete="tel"
-                            placeholder="Enter your phone number"
-                            aria-invalid={Boolean(errors.phone)}
-                            aria-describedby={
-                                errors.phone
-                                    ? "parkwise-signup-phone-error"
-                                    : undefined
-                            }
-                            {...register("phone")}
-                        />
-                        {errors.phone && (
-                            <p id="parkwise-signup-phone-error" role="alert">
-                                {errors.phone.message}
                             </p>
                         )}
                     </div>
