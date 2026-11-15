@@ -180,6 +180,23 @@ public sealed class GateReadingTests
         Assert.False(validator.Validate(new RecordGateReadingCommand(LotId, new string('1', ParkingSession.PlateNumberMaxLength + 1), "Car", 0.95m, StaffId)).IsValid);
     }
 
+    [Fact]
+    public async Task Web_reading_always_requires_staff_confirmation_regardless_of_high_confidence()
+    {
+        var incidents = new FakeIncidents();
+        var handler = NewHandler(incidents);
+
+        var result = await handler.Handle(
+            new RecordGateReadingCommand(LotId, "51A-123.45", "Car", 0.99m, StaffId, Source: "web"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("PendingStaff", result.Value!.Decision);
+        Assert.NotNull(result.Value.IncidentId);
+        Assert.Single(incidents.Saved);
+        Assert.Equal("StaffConfirmationRequired", incidents.Saved[0].DeviceId);
+    }
+
     private static RecordGateReadingCommandHandler NewHandler(FakeIncidents incidents, FakeAuditLog? audit = null) =>
         new(incidents, new FakeLots(approved: true), new FakeLotAccess(allowed: true), audit ?? new FakeAuditLog(), new FixedClock());
 

@@ -62,7 +62,7 @@ public sealed class Incident
     /// Confidence is stored with 2 decimals as in the ERD, rounded down so a value below 0.9 never becomes 0.90.
     /// </summary>
     public static Incident OpenLowConfidencePlate(
-        Guid id, Guid lotId, string? observedPlate, decimal confidence, VehicleType observedVehicleType, DateTimeOffset occurredAt)
+        Guid id, Guid lotId, string? observedPlate, decimal confidence, VehicleType observedVehicleType, DateTimeOffset occurredAt, string? deviceId = null)
     {
         if (confidence is < 0m or > 1m)
             throw new ArgumentOutOfRangeException(nameof(confidence), "Confidence must be between 0 and 1.");
@@ -73,6 +73,7 @@ public sealed class Incident
             LotId = lotId,
             IncidentType = IncidentType.LowConfidencePlate,
             Status = IncidentStatus.Open,
+            DeviceId = deviceId,
             ObservedPlate = string.IsNullOrWhiteSpace(observedPlate) ? null : ParkingSession.NormalizePlate(observedPlate),
             PlateConfidence = Math.Floor(confidence * 100m) / 100m,
             ObservedVehicleType = observedVehicleType,

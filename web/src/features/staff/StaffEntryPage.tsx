@@ -113,9 +113,8 @@ export function StaffEntryPage() {
             }
             if (typeof confidence === "number") {
                 setOcrConfidence(confidence);
-                setIsEditingPlate(
-                    confidence < GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD,
-                );
+                // GATE-A4 / Q-A4: All web readings require staff confirmation
+                setIsEditingPlate(true);
             }
             if (snapshotUrl) {
                 setCameraSnapshot(snapshotUrl);
@@ -125,9 +124,9 @@ export function StaffEntryPage() {
             setErrorMsg("");
 
             emitLiveToast(
-                "Đã nhận diện biển số thành công!",
-                `Biển số ${formatted} (${detectedVehicleType === "Motorbike" ? "Xe máy" : "Ô tô"}) đã tự động điền vào thông tin phiên.`,
-                "success",
+                "Đã nhận diện biển số — Chờ xác nhận",
+                `Biển số ${formatted} (${detectedVehicleType === "Motorbike" ? "Xe máy" : "Ô tô"}). Vui lòng kiểm tra và bấm Xác nhận trước khi tạo phiên vào.`,
+                "info",
             );
         },
         [emitLiveToast],
