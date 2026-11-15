@@ -11,6 +11,7 @@ import {
     OpeningHoursDayItem,
 } from "@/features/owner/api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
+import "./opening-hours.css";
 
 const DAY_NAMES = [
     "Chủ Nhật",
@@ -791,19 +792,11 @@ export default function OwnerOpeningHoursPage() {
                             return (
                                 <div
                                     key={d.dayOfWeek}
+                                    className="owner-opening-hours-row"
                                     style={{
-                                        display: "grid",
-                                        gridTemplateColumns:
-                                            "minmax(130px, 1.2fr) minmax(260px, 2fr) minmax(420px, 3.8fr)",
-                                        alignItems: "center",
-                                        gap: 16,
-                                        padding: "16px 20px",
-                                        borderRadius: 12,
                                         background: isWeekend
                                             ? "#FAFAFA"
                                             : "#FFFFFF",
-                                        border: "1.5px solid #E4E4E7",
-                                        transition: "all 0.2s ease",
                                     }}
                                 >
                                     {/* Cột 1: Tên ngày */}
