@@ -25,6 +25,7 @@ using ParkingSystem.Parking.Application.ParkingLots.OpeningHours;
 using ParkingSystem.Parking.Application.ParkingLayout.ManageLayout;
 using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
 using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
+using ParkingSystem.Parking.Application.ParkingLots.GetAuditLogs;
 using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
 using ParkingSystem.Parking.Application.ParkingLots.PublicInfo;
 
@@ -89,6 +90,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.SlotConfirmation.ISlotConfirmationRepository, SlotConfirmationRepository>();
         services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.SetSlotMaintenance.ISlotMaintenanceRepository, ParkingSystem.Parking.Persistence.ParkingLayout.SlotMaintenanceRepository>();
         services.AddSingleton<ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent.ISlotSensorDeduplicationStore, SlotSensorDeduplicationStore>();
+        services.AddScoped<IParkingAuditLogQueryRepository, ParkingAuditLogQueryRepository>();
         return services;
     }
 }
