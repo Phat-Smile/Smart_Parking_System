@@ -40,6 +40,14 @@ public sealed class ParkingSession
     // BR-11.e: set when the session is Completed.
     public DateTimeOffset? ExitTime { get; private set; }
 
+    // Q-EXIT-WINDOW (BR-09.d): recorded when the vehicle first reaches the exit gate (camera reading or QR scan).
+    public DateTimeOffset? ExitArrivedAt { get; private set; }
+
+    // Q-EXIT-WINDOW: one-time 15-minute grace period extension granted by staff when the lot has an incident or exit delay.
+    public bool HasExitWindowExtension { get; private set; }
+    public DateTimeOffset? ExitWindowExtendedAt { get; private set; }
+    public string? ExitWindowExtensionReason { get; private set; }
+
     public DateTimeOffset? CancelledAt { get; private set; }
     public Guid? CancelledBy { get; private set; }
     public string? CancelReason { get; private set; }
@@ -118,8 +126,40 @@ public sealed class ParkingSession
         return true;
     }
 
-    /// <summary>US-PAY-006: the last moment the vehicle may leave without paying again; null until the first payment.</summary>
-    public DateTimeOffset? ExitWindowEndsAt => LastPaidAt + ExitWindow;
+    /// <summary>US-PAY-006 & Q-EXIT-WINDOW: the last moment the vehicle may leave without paying again; null until the first payment.</summary>
+    public DateTimeOffset? ExitWindowEndsAt =>
+        LastPaidAt is { } paidAt
+            ? paidAt + ExitWindow + (HasExitWindowExtension ? ExitWindow : TimeSpan.Zero)
+            : null;
+
+    /// <summary>
+    /// Q-EXIT-WINDOW: records the moment the vehicle reaches the exit gate (camera reading or QR scan).
+    /// </summary>
+    public bool RecordExitArrival(DateTimeOffset arrivedAt)
+    {
+        if (ExitArrivedAt is not null)
+            return false;
+
+        ExitArrivedAt = arrivedAt;
+        return true;
+    }
+
+    /// <summary>
+    /// Q-EXIT-WINDOW: one-time 15-minute grace period extension granted by staff for a Paid session with mandatory reason.
+    /// </summary>
+    public bool ExtendExitWindow(DateTimeOffset extendedAt, string reason)
+    {
+        if (Status != ParkingSessionStatus.Paid || HasExitWindowExtension)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length > StaffActionReasonMaxLength)
+            return false;
+
+        HasExitWindowExtension = true;
+        ExitWindowExtendedAt = extendedAt;
+        ExitWindowExtensionReason = reason.Trim();
+        return true;
+    }
 
     /// <summary>
     /// US-PAY-006 (MF-12 step 83): Payment reported the amount due as paid, so the 15-minute exit window starts at
@@ -137,10 +177,18 @@ public sealed class ParkingSession
     }
 
     /// <summary>
-    /// BR-09.d, lead decision 2026-11-04: exactly T + 15:00 is still in time, T + 15:01 is late. Compared in whole seconds.
+    /// BR-09.d & Q-EXIT-WINDOW: arrival within T + 15:00 (or extended window) is in time.
+    /// Uses ExitArrivedAt if recorded; otherwise the provided arrival timestamp.
     /// </summary>
-    public bool IsExitWindowOver(DateTimeOffset arrivedAt) =>
-        LastPaidAt is { } paidAt && arrivedAt - paidAt >= ExitWindow + TimeSpan.FromSeconds(1);
+    public bool IsExitWindowOver(DateTimeOffset arrivedAt)
+    {
+        var effectiveArrival = ExitArrivedAt ?? arrivedAt;
+        if (LastPaidAt is not { } paidAt)
+            return false;
+
+        var allowedWindow = ExitWindow + (HasExitWindowExtension ? ExitWindow : TimeSpan.Zero);
+        return effectiveArrival - paidAt >= allowedWindow + TimeSpan.FromSeconds(1);
+    }
 
     /// <summary>
     /// BR-09.d: the vehicle reached the gate after the exit window, so the session goes back to Active until the extra

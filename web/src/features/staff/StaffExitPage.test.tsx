@@ -17,6 +17,7 @@ const { mockState, apiMocks } = vi.hoisted(() => ({
         completeParkingSession: vi.fn(),
         manualVerifyExit: vi.fn(),
         reissueParkingSessionQr: vi.fn(),
+        extendExitWindow: vi.fn(),
     },
 }));
 
@@ -80,6 +81,7 @@ vi.mock("./staffApi", async (importOriginal) => {
         completeParkingSession: apiMocks.completeParkingSession,
         manualVerifyExit: apiMocks.manualVerifyExit,
         reissueParkingSessionQr: apiMocks.reissueParkingSessionQr,
+        extendExitWindow: apiMocks.extendExitWindow,
     };
 });
 
@@ -556,6 +558,80 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
                 "ses-plate-reissue-custom",
                 "Mã QR của khách bị ướt mưa không quét được",
             ),
+        );
+    });
+
+    it("Q-EXIT-WINDOW: Paid session shows 'Gia hạn 15 phút' and modal sends mandatory reason", async () => {
+        apiMocks.findOpenSessionByPlate.mockResolvedValue({
+            sessionId: "ses-extend-test",
+            lotId: "lot-1",
+            plateNumber: "51B-999.88",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Paid",
+            entryTime: "2026-11-14T08:00:00Z",
+            qrToken: "qr-paid-token",
+        });
+        apiMocks.getParkingSessionFee.mockResolvedValue({
+            sessionId: "ses-extend-test",
+            totalFee: 30000,
+            amountDue: 0,
+        });
+        apiMocks.extendExitWindow.mockResolvedValue({
+            sessionId: "ses-extend-test",
+            newExitWindowEndsAt: "2026-11-14T08:45:00Z",
+        });
+
+        render(<StaffExitPage />);
+        enterGatePlate("51B-999.88");
+
+        const lookupBtn = screen.getByRole("button", {
+            name: /Tra cứu mất vé/i,
+        });
+        fireEvent.click(lookupBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.findOpenSessionByPlate).toHaveBeenCalledWith(
+                "lot-1",
+                "51B-999.88",
+            ),
+        );
+
+        // Nút 'Gia hạn 15 phút' hiển thị khi phiên Paid
+        const extendBtn = await screen.findByRole("button", {
+            name: /Gia hạn 15 phút/i,
+        });
+        expect(extendBtn).toBeInTheDocument();
+        fireEvent.click(extendBtn);
+
+        // Modal mở ra
+        const reasonInput = screen.getByLabelText(/Lý do gia hạn/i) as HTMLTextAreaElement;
+        expect(reasonInput).toBeInTheDocument();
+
+        // Xóa lý do -> nút Xác nhận gia hạn bị vô hiệu hóa
+        fireEvent.change(reasonInput, { target: { value: "   " } });
+        const confirmBtn = screen.getByRole("button", { name: /Xác nhận gia hạn/i });
+        expect(confirmBtn).toBeDisabled();
+
+        // Nhập lý do hợp lệ
+        fireEvent.change(reasonInput, {
+            target: { value: "Xe tải chắn lối ra, ùn ứ kéo dài" },
+        });
+        expect(confirmBtn).not.toBeDisabled();
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.extendExitWindow).toHaveBeenCalledWith(
+                "ses-extend-test",
+                "Xe tải chắn lối ra, ùn ứ kéo dài",
+            ),
+        );
+
+        // Thông báo thành công hiển thị
+        await waitFor(() =>
+            expect(
+                screen.getByText(/Đã gia hạn thêm 15 phút xuất bãi thành công/i),
+            ).toBeInTheDocument(),
         );
     });
 });

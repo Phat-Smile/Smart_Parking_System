@@ -91,6 +91,7 @@ public sealed class CompleteParkingSessionCommandHandler(
             return Result<CompletedParkingSession>.Failure(CompleteParkingSessionErrors.PaymentRequired);
 
         var now = clock.UtcNow;
+        session.RecordExitArrival(now);
         if (!ExitEligibility.CanExit(session, plateMatches, qrMatches, now))
         {
             // BR-09.d: Paid goes back to Active until the extra fee is paid.

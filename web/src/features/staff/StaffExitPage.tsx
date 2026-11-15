@@ -33,6 +33,7 @@ import {
     completeParkingSession,
     createVnPayParkingFee,
     describeStaffError,
+    extendExitWindow,
     findOpenSessionByPlate,
     findSessionByQr,
     getParkingFeePaymentStatus,
@@ -107,6 +108,14 @@ export function StaffExitPage() {
         entryTime: string;
         lotName?: string;
     } | null>(null);
+
+    // Q-EXIT-WINDOW: Modal states for 15-minute exit window extension
+    const [extendModalOpen, setExtendModalOpen] = useState(false);
+    const [extendReason, setExtendReason] = useState(
+        "Sự cố ùn tắc tại cổng xuất bãi",
+    );
+    const [extendLoading, setExtendLoading] = useState(false);
+    const [extendSuccessMsg, setExtendSuccessMsg] = useState("");
 
     // Precise 5-state calculation for Checklist items
     type CheckStatus =
@@ -300,7 +309,7 @@ export function StaffExitPage() {
                 qrToken: res.qrToken || "",
                 plateNumber: scannedSession.plateNumber,
                 entryTime: scannedSession.entryTime,
-                lotName: assignedLot?.name || "ParkWise",
+                lotName: assignedLot?.lotName || "ParkWise",
             });
             // Bất biến (Anti-Bypass): Cấp lại QR KHÔNG tự điền ô quét QR cổng ra; khách bắt buộc phải xuất trình vé mới để quét
             setQrInput("");
@@ -312,6 +321,47 @@ export function StaffExitPage() {
             setErrorMsg(describeStaffError(err));
         } finally {
             setReissueLoading(false);
+        }
+    }
+
+    // Q-EXIT-WINDOW: Gia hạn 15 phút thời gian xuất bãi
+    function handleOpenExtendModal() {
+        if (!scannedSession) return;
+        setExtendReason("Sự cố ùn tắc tại cổng xuất bãi");
+        setExtendModalOpen(true);
+    }
+
+    async function handleConfirmExtendExitWindow() {
+        if (!scannedSession || !extendReason.trim()) return;
+        setExtendLoading(true);
+        setErrorMsg("");
+        try {
+            await extendExitWindow(
+                scannedSession.id,
+                extendReason.trim(),
+            );
+            setExtendModalOpen(false);
+            setExtendSuccessMsg("Đã gia hạn thêm 15 phút xuất bãi thành công.");
+            setTimeout(() => setExtendSuccessMsg(""), 6000);
+            try {
+                const detail = await getParkingSession(scannedSession.id);
+                if (detail) {
+                    setScannedSession((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  status: detail.status,
+                              }
+                            : null,
+                    );
+                }
+            } catch {
+                // ignore
+            }
+        } catch (err) {
+            setErrorMsg(describeStaffError(err));
+        } finally {
+            setExtendLoading(false);
         }
     }
 
@@ -583,6 +633,8 @@ export function StaffExitPage() {
         setVnPayTxId(null);
         setVnPayStatus(null);
         setPaymentAlertMsg("");
+        setExtendSuccessMsg("");
+        setExtendModalOpen(false);
     }
 
     // Tự động chuyển tiếp sang xe tiếp theo sau khi mở barrier thành công 3.5 giây
@@ -697,6 +749,30 @@ export function StaffExitPage() {
                     <button
                         type="button"
                         onClick={() => setPaymentAlertMsg("")}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
+            {extendSuccessMsg && (
+                <div
+                    className="staff-alert staff-alert-success"
+                    style={{ margin: "12px 0" }}
+                >
+                    <span
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                        }}
+                    >
+                        <CheckCircle2 size={15} strokeWidth={2.2} />
+                        <span>{extendSuccessMsg}</span>
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setExtendSuccessMsg("")}
                     >
                         ✕
                     </button>
@@ -992,6 +1068,19 @@ export function StaffExitPage() {
                                             : "Xác minh thủ công"}
                                     </span>
                                 </button>
+                                {(scannedSession.status === "Paid" ||
+                                    paymentCompleted) && (
+                                    <button
+                                        type="button"
+                                        className="staff-btn staff-btn-secondary staff-btn-sm"
+                                        disabled={loading || extendLoading}
+                                        onClick={handleOpenExtendModal}
+                                        title="Gia hạn 15 phút thời gian rời bãi cho phiên xe đã thanh toán khi bãi có sự cố"
+                                    >
+                                        <Clock size={13} strokeWidth={2.2} />
+                                        <span>Gia hạn 15 phút</span>
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -2168,6 +2257,140 @@ export function StaffExitPage() {
                                 onClick={handleConfirmReissueQr}
                             >
                                 {reissueLoading ? "Đang xử lý..." : "Xác nhận & Cấp vé"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Q-EXIT-WINDOW: Modal nhập lý do gia hạn 15 phút xuất bãi */}
+            {extendModalOpen && (
+                <div
+                    className="staff-modal-backdrop"
+                    onClick={() => !extendLoading && setExtendModalOpen(false)}
+                >
+                    <div
+                        className="staff-modal-card staff-reissue-modal"
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="extend-modal-title"
+                        style={{ maxWidth: 440 }}
+                    >
+                        <div
+                            className="staff-modal-head"
+                            style={{ padding: "16px 20px" }}
+                        >
+                            <div className="staff-ticket-head-titles">
+                                <h3
+                                    id="extend-modal-title"
+                                    style={{ fontSize: 16, fontWeight: 700 }}
+                                >
+                                    Gia hạn 15 phút xuất bãi
+                                </h3>
+                                <span
+                                    className="staff-ticket-head-sub"
+                                    style={{
+                                        fontSize: 12,
+                                        color: "var(--pw-admin-muted)",
+                                    }}
+                                >
+                                    Gia hạn một lần duy nhất cho phiên đỗ xe đã thanh toán
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                className="staff-modal-close"
+                                disabled={extendLoading}
+                                onClick={() => setExtendModalOpen(false)}
+                                aria-label="Đóng hộp thoại"
+                            >
+                                <X size={16} strokeWidth={2.2} />
+                            </button>
+                        </div>
+                        <div
+                            className="staff-modal-body"
+                            style={{ padding: "16px 20px" }}
+                        >
+                            <p
+                                style={{
+                                    fontSize: 13,
+                                    color: "var(--pw-admin-muted)",
+                                    marginBottom: 14,
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Lưu ý: Thời gian xuất bãi sẽ được cộng thêm 15 phút. Bắt buộc ghi nhận lý do kiểm toán hệ thống khi bãi có sự cố hoặc ùn ứ.
+                            </p>
+                            <div className="staff-form-group">
+                                <label
+                                    htmlFor="extend-reason-input"
+                                    style={{
+                                        fontWeight: 600,
+                                        fontSize: 13,
+                                        display: "block",
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    Lý do gia hạn (tối đa 500 ký tự) *
+                                </label>
+                                <textarea
+                                    id="extend-reason-input"
+                                    className="staff-input font-sans"
+                                    rows={3}
+                                    maxLength={500}
+                                    style={{
+                                        width: "100%",
+                                        resize: "vertical",
+                                    }}
+                                    value={extendReason}
+                                    onChange={(e) =>
+                                        setExtendReason(e.target.value)
+                                    }
+                                    placeholder="Nhập lý do gia hạn..."
+                                />
+                                <div
+                                    style={{
+                                        fontSize: 11,
+                                        color: "var(--pw-admin-muted)",
+                                        textAlign: "right",
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    {extendReason.length}/500 ký tự
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            className="staff-modal-actions"
+                            style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: 10,
+                                padding: "12px 20px 16px",
+                            }}
+                        >
+                            <button
+                                type="button"
+                                className="staff-btn staff-btn-secondary"
+                                disabled={extendLoading}
+                                onClick={() => setExtendModalOpen(false)}
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                type="button"
+                                className="staff-btn staff-btn-primary"
+                                disabled={
+                                    extendLoading ||
+                                    !extendReason.trim() ||
+                                    extendReason.length > 500
+                                }
+                                onClick={handleConfirmExtendExitWindow}
+                            >
+                                {extendLoading
+                                    ? "Đang xử lý..."
+                                    : "Xác nhận gia hạn"}
                             </button>
                         </div>
                     </div>

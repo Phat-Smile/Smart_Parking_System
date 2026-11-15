@@ -7,6 +7,7 @@ using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.CompleteParkingSession;
+using ParkingSystem.Parking.Application.ParkingSessions.ExtendExitWindow;
 using ParkingSystem.Parking.Application.ParkingSessions.FindOpenParkingSessionByPlate;
 using ParkingSystem.Parking.Application.ParkingSessions.FindParkingSessionByQr;
 using ParkingSystem.Parking.Application.ParkingSessions.GetParkingSession;
@@ -363,6 +364,43 @@ internal static class ParkingSessionEndpoints
             .WithName("VerifyParkingSessionExit")
             .WithSummary("Record a manual exit check and tell whether the vehicle may leave")
             .Produces<VerifiedParkingSessionExit>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        // Q-EXIT-WINDOW (BR-09.d): Staff grant a one-time 15-minute extension to the exit window of a Paid session with mandatory reason.
+        app.MapPost($"{Route}/{{sessionId:guid}}/extend-exit-window", async (
+                Guid sessionId,
+                StaffActionReasonRequest request,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(
+                    new ExtendExitWindowCommand(sessionId, request.Reason ?? string.Empty, actorUserId),
+                    cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == ExtendExitWindowErrors.SessionNotFound
+                    ? StatusCodes.Status404NotFound
+                    : result.Error == ParkingLotAccessErrors.AccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : StatusCodes.Status409Conflict;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("ExtendExitWindow")
+            .WithSummary("Extend the 15-minute exit window of a Paid session once with a mandatory reason")
+            .Produces<ExtendedExitWindow>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
