@@ -74,6 +74,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapAccountEndpoints();
 app.MapOwnerDocumentEndpoints();
 app.MapCustomerMediaEndpoints();
+app.MapAuditLogEndpoints();
 app.MapGrpcService<IdentityVehicleGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
