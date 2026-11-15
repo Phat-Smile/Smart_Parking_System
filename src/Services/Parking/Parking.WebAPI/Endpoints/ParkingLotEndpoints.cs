@@ -75,8 +75,9 @@ internal static class ParkingLotEndpoints
 
                 // Default OFF until the Owner frontend can obtain and submit a confirmation token.
                 // If a token is supplied while OFF, it must still be genuine and match this request.
-                var requireLocationConfirmation = configuration.GetValue<bool>(
-                    "Parking:RequireOwnerLocationConfirmation");
+                var requireLocationConfirmation =
+                    configuration.GetValue<bool>("Parking:RequireOwnerLocationConfirmation")
+                    || configuration.GetValue<bool>("RequireOwnerLocationConfirmation");
                 if (!locationConfirmations.MatchesRegistration(
                     ownerUserId, request.LocationConfirmationToken, request.Address,
                     request.Latitude, request.Longitude, requireLocationConfirmation))
