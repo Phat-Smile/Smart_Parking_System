@@ -10,5 +10,9 @@ public interface IVnpayPaymentGateway
         string orderInfo, // Nội dung hiển thị khi thanh toán
         DateTimeOffset createdAtUtc, // Thời gian tạo giao dịch
         DateTimeOffset expiresAtUtc, // Thời gian hết hạn quét mã
-        string clientIp); // Địa chỉ IP người dùng
+        string clientIp, // Địa chỉ IP người dùng
+        string? returnUrl = null); // Cho phép chỉ định URL quay về tùy chỉnh
+
+    // Xác thực chữ ký số HMAC-SHA512 từ Webhook hoặc Return URL của VNPay
+    bool VerifyIpnSignature(IReadOnlyDictionary<string, string> queryParameters);
 }

@@ -212,13 +212,18 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
             var expiresAtUtc = nowUtc.AddMinutes(expiryMinutes);
             var orderInfo = $"Thanh toan phi do xe {request.SessionId.ToString()[..8]}";
 
+            var parkingReturnUrl = !string.IsNullOrWhiteSpace(vnpayOptions.Value.ParkingReturnUrl)
+                ? vnpayOptions.Value.ParkingReturnUrl
+                : vnpayOptions.Value.ReturnUrl;
+
             var paymentUrl = vnpayGateway.BuildPaymentUrl(
                 txnRef,
                 actualAmountDue,
                 orderInfo,
                 nowUtc,
                 expiresAtUtc,
-                request.ClientIp ?? "127.0.0.1");
+                request.ClientIp ?? "127.0.0.1",
+                parkingReturnUrl);
 
             var newPayment = ParkingFeePayment.CreateVnPayPayment(
                 sessionId: request.SessionId,
