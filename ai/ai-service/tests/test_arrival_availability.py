@@ -31,7 +31,7 @@ class ArrivalAvailabilityTests(unittest.TestCase):
         result = estimate_arrival_availability(self.lot, "Car", self.arrival, 1, samples)
         self.assertEqual("lot_weekday_15m", result.baseline_source)
         self.assertEqual(5, result.sample_count)
-        self.assertEqual(52.94, result.probability_percent)  # 3-window smoothing: w_center=0.5, w_prev=0.25
+        self.assertEqual(53.85, result.probability_percent)  # Jeffreys prior 3-window smoothing: (1.25 + 0.5) / (2.25 + 1.0) = 53.85%
         self.assertFalse(result.insufficient_data)
 
     def test_reservations_at_arrival_reduce_predicted_available_probability(self):
@@ -41,7 +41,7 @@ class ArrivalAvailabilityTests(unittest.TestCase):
         self.assertGreater(
             without_held.probability_percent, with_held.probability_percent
         )
-        self.assertEqual(16.67, with_held.probability_percent)
+        self.assertEqual(10.0, with_held.probability_percent)
         self.assertIsNotNone(with_held.warning)
 
     def test_fallback_to_same_lot_time_then_peer_same_vehicle_then_default(self):
@@ -72,7 +72,7 @@ class ArrivalAvailabilityTests(unittest.TestCase):
              self.sample(available=3, vehicle="Motorbike")],
         )
         self.assertEqual(1, result.sample_count)
-        self.assertEqual(60.0, result.probability_percent)
+        self.assertEqual(66.67, result.probability_percent)  # Jeffreys prior: (0.5 + 0.5) / (0.5 + 1.0) = 66.67%
 
     def test_midnight_crossing_includes_previous_day_quarter_hour(self):
         # Monday 00:05 Vietnam time (Sunday 17:05 UTC)

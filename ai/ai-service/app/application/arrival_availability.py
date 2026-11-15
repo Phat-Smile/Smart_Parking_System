@@ -62,7 +62,7 @@ def estimate_arrival_availability(
     - Center window (w0 = 0.50)
     - Adjacent windows (-15m, +15m) (w_prev = 0.25, w_next = 0.25)
     Midnight crossing shifts timestamps into the center frame for weekday matching.
-    Weighted Laplace smoothing prevents jumpy rankings without inventing artificial certainties.
+    Weighted Jeffreys prior smoothing (Beta(0.5, 0.5)) prevents jumpy rankings without inventing artificial certainties.
     """
     if arrival_at.utcoffset() is None:
         raise ValueError("arrival_at must contain a timezone offset")
@@ -107,7 +107,9 @@ def estimate_arrival_availability(
     if matched:
         k_weighted = sum(w for s, w in matched if s.available_slots > held_quota_at_arrival)
         n_weighted = sum(w for _, w in matched)
-        probability = (k_weighted + 1.0) / (n_weighted + 2.0)
+        # Jeffreys prior Beta(0.5, 0.5): (k + 0.5) / (n + 1.0)
+        # Deepens minimum floor to 10% and elevates ceiling to 90%, improving calibration.
+        probability = (k_weighted + 0.5) / (n_weighted + 1.0)
     else:
         probability = 0.5
         source = "default_50_percent"
