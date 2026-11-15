@@ -69,9 +69,9 @@ describe("ToastNotificationHub responsive positioning and session persistence", 
         fireEvent.click(laterButton);
 
         // Saved in sessionStorage
-        expect(
-            window.sessionStorage.getItem(PUSH_PROMPT_SESSION_KEY),
-        ).toBe("true");
+        expect(window.sessionStorage.getItem(PUSH_PROMPT_SESSION_KEY)).toBe(
+            "true",
+        );
 
         // Removed from UI
         expect(
@@ -87,9 +87,9 @@ describe("ToastNotificationHub responsive positioning and session persistence", 
         });
         fireEvent.click(closeButton);
 
-        expect(
-            window.sessionStorage.getItem(PUSH_PROMPT_SESSION_KEY),
-        ).toBe("true");
+        expect(window.sessionStorage.getItem(PUSH_PROMPT_SESSION_KEY)).toBe(
+            "true",
+        );
         expect(
             screen.queryByTestId("push-notification-prompt"),
         ).not.toBeInTheDocument();

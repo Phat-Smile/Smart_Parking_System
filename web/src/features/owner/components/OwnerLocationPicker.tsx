@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import dynamic from "next/dynamic";
 import {
     MapPin,
@@ -14,10 +14,7 @@ import {
     Info,
 } from "lucide-react";
 import { getPublicMapboxToken } from "@/shared/config/env";
-import {
-    resolveOwnerLotAddress,
-    type GeocodedDestination,
-} from "../api/ownerApi";
+import { resolveOwnerLotAddress } from "../api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -73,8 +70,13 @@ export function OwnerLocationPicker({
         zoom: latitude && longitude ? 16 : 13,
     });
 
-    // Update internal viewState when external lat/lng change
-    useEffect(() => {
+    // Adjust internal viewState during render when external lat/lng change (React pattern for prop-sync)
+    const [prevCoords, setPrevCoords] = useState({ latitude, longitude });
+    if (
+        prevCoords.latitude !== latitude ||
+        prevCoords.longitude !== longitude
+    ) {
+        setPrevCoords({ latitude, longitude });
         if (latitude !== null && longitude !== null) {
             setViewState((prev) => ({
                 ...prev,
@@ -83,7 +85,7 @@ export function OwnerLocationPicker({
                 zoom: Math.max(prev.zoom, 15),
             }));
         }
-    }, [latitude, longitude]);
+    }
 
     const handleSearchAddress = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();

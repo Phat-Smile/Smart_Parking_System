@@ -23,11 +23,11 @@ vi.mock("@/shared/config/env", () => ({
 }));
 
 vi.mock("react-map-gl/mapbox", () => ({
-    default: (props: any) => (
-        <div data-testid="mock-react-map">{props.children}</div>
+    default: ({ children }: { children?: React.ReactNode }) => (
+        <div data-testid="mock-react-map">{children}</div>
     ),
-    Marker: (props: any) => (
-        <div data-testid="mock-marker">{props.children}</div>
+    Marker: ({ children }: { children?: React.ReactNode }) => (
+        <div data-testid="mock-marker">{children}</div>
     ),
     NavigationControl: () => <div data-testid="mock-nav-control" />,
 }));
@@ -38,7 +38,7 @@ describe("OwnerLocationPicker component (WP-OW-1)", () => {
     });
 
     it("Bấm Tìm gọi resolve một lần; bấm liên tục khi đang gọi không gọi thêm", async () => {
-        let resolvePromise: (val: any) => void;
+        let resolvePromise: ((val: unknown) => void) | undefined;
         apiMocks.resolveOwnerLotAddress.mockImplementation(
             () =>
                 new Promise((resolve) => {

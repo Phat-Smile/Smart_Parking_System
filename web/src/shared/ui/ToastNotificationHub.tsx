@@ -10,8 +10,7 @@ import {
 } from "../notifications/webPushService";
 import { useCustomerLanguage } from "../../features/customer/i18n/customerLanguage";
 
-export const PUSH_PROMPT_SESSION_KEY =
-    "parkwise_push_prompt_dismissed_session";
+export const PUSH_PROMPT_SESSION_KEY = "parkwise_push_prompt_dismissed_session";
 
 export function isPushPromptDismissedInSession(): boolean {
     if (typeof window === "undefined") return false;
@@ -94,13 +93,13 @@ export function ToastNotificationHub() {
             : "default";
     const permission = userPermission ?? detectedPermission;
 
-    useEffect(() => {
-        if (isPushPromptDismissedInSession()) {
-            setSessionDismissed(true);
-        }
-    }, []);
+    const isSessionDismissed =
+        sessionDismissed ||
+        (isMounted && typeof window !== "undefined"
+            ? isPushPromptDismissedInSession()
+            : false);
 
-    const isDismissed = promptDismissed || sessionDismissed;
+    const isDismissed = promptDismissed || isSessionDismissed;
 
     useEffect(() => {
         const handleNewToast: ToastListener = (toast) => {
@@ -148,8 +147,7 @@ export function ToastNotificationHub() {
 
     if (!isMounted) return null;
 
-    const showPrompt =
-        isSupported && permission !== "granted" && !isDismissed;
+    const showPrompt = isSupported && permission !== "granted" && !isDismissed;
 
     return (
         <>

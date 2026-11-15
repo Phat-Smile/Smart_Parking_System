@@ -33,7 +33,19 @@ vi.mock("@/features/owner/lots/ownerLotsSync", () => ({
 }));
 
 vi.mock("@/features/owner/components/OwnerLocationPicker", () => ({
-    OwnerLocationPicker: (props: any) => (
+    OwnerLocationPicker: (props: {
+        address?: string;
+        latitude?: number | null;
+        longitude?: number | null;
+        confirmedOnMap?: boolean;
+        onChange: (coords: {
+            address: string;
+            latitude: number | null;
+            longitude: number | null;
+            confirmedOnMap?: boolean;
+        }) => void;
+        onEntranceConfirmed?: (token: string, prompt: string) => void;
+    }) => (
         <div data-testid="mock-location-picker">
             <input
                 data-testid="picker-address"
@@ -41,8 +53,8 @@ vi.mock("@/features/owner/components/OwnerLocationPicker", () => ({
                 onChange={(e) =>
                     props.onChange({
                         address: e.target.value,
-                        latitude: props.latitude,
-                        longitude: props.longitude,
+                        latitude: props.latitude ?? null,
+                        longitude: props.longitude ?? null,
                         confirmedOnMap: props.confirmedOnMap,
                     })
                 }
@@ -53,7 +65,7 @@ vi.mock("@/features/owner/components/OwnerLocationPicker", () => ({
                 data-testid="simulate-place-pin"
                 onClick={() =>
                     props.onChange({
-                        address: props.address,
+                        address: props.address ?? "",
                         latitude: 10.7769,
                         longitude: 106.7009,
                         confirmedOnMap: false,
@@ -68,7 +80,7 @@ vi.mock("@/features/owner/components/OwnerLocationPicker", () => ({
                 data-testid="simulate-zero-coords"
                 onClick={() =>
                     props.onChange({
-                        address: props.address,
+                        address: props.address ?? "",
                         latitude: 0,
                         longitude: 0,
                         confirmedOnMap: false,
@@ -83,7 +95,7 @@ vi.mock("@/features/owner/components/OwnerLocationPicker", () => ({
                 data-testid="simulate-move-pin"
                 onClick={() =>
                     props.onChange({
-                        address: props.address,
+                        address: props.address ?? "",
                         latitude: 10.78,
                         longitude: 106.71,
                         confirmedOnMap: false,
@@ -253,7 +265,7 @@ describe("NewParkingLotPage with LocationConfirmationToken (WP-OW-1 / BE2 Spec S
                         "A valid, unexpired confirmation is required.",
                     ],
                 },
-            } as any),
+            } as unknown as Record<string, unknown>),
         );
 
         render(<NewParkingLotPage />);
@@ -297,7 +309,7 @@ describe("NewParkingLotPage with LocationConfirmationToken (WP-OW-1 / BE2 Spec S
     });
 
     it("Tình huống 14: Double-submit prevention -> chống gửi nhiều lần khi đang xử lý", async () => {
-        let resolveRegister!: (val: any) => void;
+        let resolveRegister!: (val: unknown) => void;
         apiMocks.registerParkingLotApi.mockImplementation(
             () =>
                 new Promise((resolve) => {
