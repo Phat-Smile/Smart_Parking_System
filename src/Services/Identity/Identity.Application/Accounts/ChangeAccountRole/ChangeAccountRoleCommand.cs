@@ -3,11 +3,12 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
+using ParkingSystem.Identity.Application.Common.Auditing;
 using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 
-public sealed record ChangeAccountRoleCommand(Guid AdminId, Guid AccountId, string Role) : IRequest<Result<ChangedAccountRole>>;
+public sealed record ChangeAccountRoleCommand(Guid AdminId, Guid AccountId, string Role, string? IpAddress = null) : IRequest<Result<ChangedAccountRole>>;
 
 public sealed record ChangedAccountRole(Guid AccountId, string Role, string Message);
 
@@ -36,7 +37,8 @@ public sealed class ChangeAccountRoleCommandHandler(
     IAccountRepository accounts,
     IAuthSessionRepository authSessions,
     IRefreshTokenRepository refreshTokens,
-    IClock clock) : IRequestHandler<ChangeAccountRoleCommand, Result<ChangedAccountRole>>
+    IClock clock,
+    IIdentityAuditLog? auditLog = null) : IRequestHandler<ChangeAccountRoleCommand, Result<ChangedAccountRole>>
 {
     public const string RevokedReason = "RoleChanged";
 
@@ -63,9 +65,22 @@ public sealed class ChangeAccountRoleCommandHandler(
                 return Result<ChangedAccountRole>.Failure(ChangeAccountRoleErrors.OwnerRoleRequiresApplication);
 
             var now = clock.UtcNow;
+            var previousRole = account.Role;
             account.AssignRole(role);
             await authSessions.RevokeAllForAccountAsync(account.Id, now, RevokedReason, cancellationToken);
             await refreshTokens.RevokeAllForAccountAsync(account.Id, now, RevokedReason, cancellationToken);
+
+            auditLog?.Record(
+                actionType: "account.role_changed",
+                actorId: request.AdminId,
+                actorEmail: null,
+                actorRole: "SystemAdmin",
+                targetType: "account",
+                targetId: account.Id.ToString(),
+                reason: $"Đổi vai trò tài khoản từ {previousRole} thành {role}",
+                ipAddress: request.IpAddress,
+                details: System.Text.Json.JsonSerializer.Serialize(new { previousRole = previousRole.ToString(), newRole = role.ToString() }));
+
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<ChangedAccountRole>.Success(new ChangedAccountRole(account.Id, role.ToString(),

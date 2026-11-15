@@ -2,6 +2,7 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Identity;
+using ParkingSystem.Identity.Application.Common.Auditing;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Domain.Accounts;
 
@@ -9,7 +10,8 @@ namespace ParkingSystem.Identity.Application.Accounts.OwnerApplications;
 
 public sealed record ApproveOwnerApplicationCommand(
     Guid AdminId,
-    Guid AccountId) : IRequest<Result<OwnerApplicationActionResult>>;
+    Guid AccountId,
+    string? IpAddress = null) : IRequest<Result<OwnerApplicationActionResult>>;
 
 public sealed class ApproveOwnerApplicationCommandHandler(
     IAccountRepository accounts,
@@ -18,7 +20,8 @@ public sealed class ApproveOwnerApplicationCommandHandler(
     IOwnerDocumentRepository documents,
     IOwnerDocumentRequirements requirements,
     IOutboxWriter outboxWriter,
-    IClock clock) : IRequestHandler<ApproveOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
+    IClock clock,
+    IIdentityAuditLog? auditLog = null) : IRequestHandler<ApproveOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(ApproveOwnerApplicationCommand request, CancellationToken cancellationToken)
     {
@@ -54,6 +57,16 @@ public sealed class ApproveOwnerApplicationCommandHandler(
             // Revoke all sessions and refresh tokens so user is forced to re-login to obtain new JWT with ParkingLotOwner role
             await authSessions.RevokeAllForAccountAsync(account.Id, now, "OwnerApplicationApproved", cancellationToken);
             await refreshTokens.RevokeAllForAccountAsync(account.Id, now, "OwnerApplicationApproved", cancellationToken);
+
+            auditLog?.Record(
+                actionType: "account.owner_approved",
+                actorId: request.AdminId,
+                actorEmail: null,
+                actorRole: "SystemAdmin",
+                targetType: "account",
+                targetId: account.Id.ToString(),
+                reason: "Phê duyệt hồ sơ đăng ký Chủ bãi",
+                ipAddress: request.IpAddress);
 
             outboxWriter.Enqueue(
                 new OwnerApplicationApprovedIntegrationEvent(account.Id, account.Email, now),

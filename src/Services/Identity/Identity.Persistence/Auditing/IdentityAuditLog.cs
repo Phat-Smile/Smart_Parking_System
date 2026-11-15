@@ -16,6 +16,9 @@ public sealed class IdentityAuditLog(IdentityDbContext dbContext) : IIdentityAud
         string? ipAddress = null,
         string? details = null)
     {
+        var safeIp = ipAddress is { Length: > 45 } ? ipAddress[..45] : ipAddress;
+        var safeReason = reason is { Length: > 500 } ? reason[..500] : reason;
+
         var log = AuditLog.Create(
             Guid.NewGuid(),
             DateTime.UtcNow,
@@ -26,8 +29,8 @@ public sealed class IdentityAuditLog(IdentityDbContext dbContext) : IIdentityAud
             null,
             targetType,
             targetId,
-            reason,
-            ipAddress,
+            safeReason,
+            safeIp,
             details);
 
         dbContext.AuditLogs.Add(log);
