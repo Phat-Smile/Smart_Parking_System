@@ -150,7 +150,7 @@ public sealed class ChangeAccountRoleCommandHandlerTests
         refreshRepo = new FakeRefreshTokenRepository();
         var accountRepo = new FakeAccountRepository(account);
         var clock = new FixedClock(Now);
-        return new ChangeAccountRoleCommandHandler(accountRepo, sessionRepo, refreshRepo, clock);
+        return new ChangeAccountRoleCommandHandler(accountRepo, sessionRepo, refreshRepo, clock, new FakeIdentityAuditLog());
     }
 
     private sealed class FakeSessionRepository : IAuthSessionRepository

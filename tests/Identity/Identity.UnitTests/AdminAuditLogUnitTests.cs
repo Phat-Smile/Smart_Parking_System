@@ -67,7 +67,7 @@ public sealed class AdminAuditLogUnitTests
         Assert.Equal("SystemAdmin", entry.ActorRole);
         Assert.Equal("account", entry.TargetType);
         Assert.Equal(TargetAccountId.ToString(), entry.TargetId);
-        Assert.Equal(ClientIp, entry.IpAddress);
+        Assert.Null(entry.IpAddress); // NFR-15 & NFR-16: IP omitted to protect privacy
         Assert.False(string.IsNullOrWhiteSpace(entry.Reason));
         Assert.True(entry.Reason.Length <= 500);
 
@@ -139,7 +139,7 @@ public sealed class AdminAuditLogUnitTests
         Assert.Equal("account", entry.TargetType);
         Assert.Equal(TargetAccountId.ToString(), entry.TargetId);
         Assert.Equal(rejectionReason, entry.Reason);
-        Assert.Equal(ClientIp, entry.IpAddress);
+        Assert.Null(entry.IpAddress); // NFR-15 & NFR-16: IP omitted to protect privacy
         Assert.Null(entry.Details);
     }
 
@@ -205,7 +205,7 @@ public sealed class AdminAuditLogUnitTests
         Assert.Equal("SystemAdmin", entry.ActorRole);
         Assert.Equal("account", entry.TargetType);
         Assert.Equal(TargetAccountId.ToString(), entry.TargetId);
-        Assert.Equal(ClientIp, entry.IpAddress);
+        Assert.Null(entry.IpAddress); // NFR-15 & NFR-16: IP omitted to protect privacy
         Assert.NotNull(entry.Details);
         Assert.Contains("Customer", entry.Details);
         Assert.Contains("Staff", entry.Details);
@@ -277,7 +277,7 @@ public sealed class AdminAuditLogUnitTests
         Assert.Equal("SystemAdmin", entry.ActorRole);
         Assert.Equal("account", entry.TargetType);
         Assert.Equal(TargetAccountId.ToString(), entry.TargetId);
-        Assert.Equal(ClientIp, entry.IpAddress);
+        Assert.Null(entry.IpAddress); // NFR-15 & NFR-16: IP omitted to protect privacy
     }
 
     [Fact]
@@ -307,7 +307,7 @@ public sealed class AdminAuditLogUnitTests
         Assert.Null(entry.ActorEmail);
         Assert.Equal("account", entry.TargetType);
         Assert.Equal(TargetAccountId.ToString(), entry.TargetId);
-        Assert.Equal(ClientIp, entry.IpAddress);
+        Assert.Null(entry.IpAddress); // NFR-15 & NFR-16: IP omitted to protect privacy
     }
 
     [Fact]
@@ -339,7 +339,7 @@ public sealed class AdminAuditLogUnitTests
         Assert.Null(entry.ActorEmail);
         Assert.Equal("account", entry.TargetType);
         Assert.Equal(TargetAccountId.ToString(), entry.TargetId);
-        Assert.Equal(ClientIp, entry.IpAddress);
+        Assert.Null(entry.IpAddress); // NFR-15 & NFR-16: IP omitted to protect privacy
     }
 
     #endregion
@@ -418,35 +418,6 @@ public sealed class AdminAuditLogUnitTests
             Guid.NewGuid(), accountId, docType, $"{docType}.pdf", "application/pdf", 1024,
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Guid.NewGuid().ToString("N"), Now);
 
-    public sealed record AuditLogTestEntry(
-        string ActionType,
-        Guid? ActorId,
-        string? ActorEmail,
-        string ActorRole,
-        string TargetType,
-        string TargetId,
-        string Reason,
-        string? IpAddress,
-        string? Details);
-
-    private sealed class FakeIdentityAuditLog : IIdentityAuditLog
-    {
-        public List<AuditLogTestEntry> Entries { get; } = [];
-
-        public void Record(
-            string actionType,
-            Guid? actorId,
-            string? actorEmail,
-            string actorRole,
-            string targetType,
-            string targetId,
-            string reason,
-            string? ipAddress = null,
-            string? details = null)
-        {
-            Entries.Add(new(actionType, actorId, actorEmail, actorRole, targetType, targetId, reason, ipAddress, details));
-        }
-    }
 
     private sealed class FakeAccountRepository(Account? account) : IAccountRepository
     {

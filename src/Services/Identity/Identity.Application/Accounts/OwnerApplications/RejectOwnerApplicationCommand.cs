@@ -29,7 +29,7 @@ public sealed class RejectOwnerApplicationCommandHandler(
     IAccountRepository accounts,
     IOutboxWriter outboxWriter,
     IClock clock,
-    IIdentityAuditLog? auditLog = null) : IRequestHandler<RejectOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
+    IIdentityAuditLog auditLog) : IRequestHandler<RejectOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(RejectOwnerApplicationCommand request, CancellationToken cancellationToken)
     {
@@ -48,7 +48,7 @@ public sealed class RejectOwnerApplicationCommandHandler(
             var now = clock.UtcNow;
             account.RejectOwnerApplication(request.AdminId, request.Reason, now);
 
-            auditLog?.Record(
+            auditLog.Record(
                 actionType: "account.owner_rejected",
                 actorId: request.AdminId,
                 actorEmail: null,
@@ -56,7 +56,7 @@ public sealed class RejectOwnerApplicationCommandHandler(
                 targetType: "account",
                 targetId: account.Id.ToString(),
                 reason: request.Reason,
-                ipAddress: request.IpAddress);
+                ipAddress: null);
 
             outboxWriter.Enqueue(
                 new OwnerApplicationRejectedIntegrationEvent(account.Id, account.Email, request.Reason, now),

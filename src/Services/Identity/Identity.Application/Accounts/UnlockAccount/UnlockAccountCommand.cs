@@ -20,7 +20,7 @@ public static class UnlockAccountErrors
 public sealed class UnlockAccountCommandHandler(
     IAccountRepository accounts,
     IClock clock,
-    IIdentityAuditLog? auditLog = null) : IRequestHandler<UnlockAccountCommand, Result<UnlockedAccount>>
+    IIdentityAuditLog auditLog) : IRequestHandler<UnlockAccountCommand, Result<UnlockedAccount>>
 {
     public async Task<Result<UnlockedAccount>> Handle(UnlockAccountCommand request, CancellationToken cancellationToken)
     {
@@ -34,7 +34,7 @@ public sealed class UnlockAccountCommandHandler(
             var wasLocked = account.LockoutEndUtc.HasValue && account.LockoutEndUtc.Value > clock.UtcNow;
             account.RecordCorrectCredential(); // clears the failed-attempt streak and the lockout end
 
-            auditLog?.Record(
+            auditLog.Record(
                 actionType: "account.unlocked",
                 actorId: request.AdminId,
                 actorEmail: null,
@@ -42,7 +42,7 @@ public sealed class UnlockAccountCommandHandler(
                 targetType: "account",
                 targetId: account.Id.ToString(),
                 reason: wasLocked ? "Mở khóa đăng nhập tài khoản (đã bị khóa do nhập sai)" : "Mở khóa và đặt lại số lần nhập sai",
-                ipAddress: request.IpAddress);
+                ipAddress: null);
 
             await accounts.SaveChangesAsync(cancellationToken);
 

@@ -38,7 +38,7 @@ public sealed class ChangeAccountRoleCommandHandler(
     IAuthSessionRepository authSessions,
     IRefreshTokenRepository refreshTokens,
     IClock clock,
-    IIdentityAuditLog? auditLog = null) : IRequestHandler<ChangeAccountRoleCommand, Result<ChangedAccountRole>>
+    IIdentityAuditLog auditLog) : IRequestHandler<ChangeAccountRoleCommand, Result<ChangedAccountRole>>
 {
     public const string RevokedReason = "RoleChanged";
 
@@ -70,7 +70,7 @@ public sealed class ChangeAccountRoleCommandHandler(
             await authSessions.RevokeAllForAccountAsync(account.Id, now, RevokedReason, cancellationToken);
             await refreshTokens.RevokeAllForAccountAsync(account.Id, now, RevokedReason, cancellationToken);
 
-            auditLog?.Record(
+            auditLog.Record(
                 actionType: "account.role_changed",
                 actorId: request.AdminId,
                 actorEmail: null,
@@ -78,7 +78,7 @@ public sealed class ChangeAccountRoleCommandHandler(
                 targetType: "account",
                 targetId: account.Id.ToString(),
                 reason: $"Đổi vai trò tài khoản từ {previousRole} thành {role}",
-                ipAddress: request.IpAddress,
+                ipAddress: null,
                 details: System.Text.Json.JsonSerializer.Serialize(new { previousRole = previousRole.ToString(), newRole = role.ToString() }));
 
             await accounts.SaveChangesAsync(cancellationToken);

@@ -21,7 +21,7 @@ public static class ActivateAccountErrors
 
 public sealed class ActivateAccountCommandHandler(
     IAccountRepository accounts,
-    IIdentityAuditLog? auditLog = null)
+    IIdentityAuditLog auditLog)
     : IRequestHandler<ActivateAccountCommand, Result<ActivatedAccount>>
 {
     public async Task<Result<ActivatedAccount>> Handle(ActivateAccountCommand request, CancellationToken cancellationToken)
@@ -37,7 +37,7 @@ public sealed class ActivateAccountCommandHandler(
 
             account.Activate();
 
-            auditLog?.Record(
+            auditLog.Record(
                 actionType: "account.unlocked",
                 actorId: request.AdminId,
                 actorEmail: null,
@@ -45,7 +45,7 @@ public sealed class ActivateAccountCommandHandler(
                 targetType: "account",
                 targetId: account.Id.ToString(),
                 reason: "Kích hoạt lại tài khoản người dùng",
-                ipAddress: request.IpAddress);
+                ipAddress: null);
 
             await accounts.SaveChangesAsync(cancellationToken);
 

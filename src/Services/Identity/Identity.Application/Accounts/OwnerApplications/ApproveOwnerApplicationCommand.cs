@@ -21,7 +21,7 @@ public sealed class ApproveOwnerApplicationCommandHandler(
     IOwnerDocumentRequirements requirements,
     IOutboxWriter outboxWriter,
     IClock clock,
-    IIdentityAuditLog? auditLog = null) : IRequestHandler<ApproveOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
+    IIdentityAuditLog auditLog) : IRequestHandler<ApproveOwnerApplicationCommand, Result<OwnerApplicationActionResult>>
 {
     public async Task<Result<OwnerApplicationActionResult>> Handle(ApproveOwnerApplicationCommand request, CancellationToken cancellationToken)
     {
@@ -58,7 +58,7 @@ public sealed class ApproveOwnerApplicationCommandHandler(
             await authSessions.RevokeAllForAccountAsync(account.Id, now, "OwnerApplicationApproved", cancellationToken);
             await refreshTokens.RevokeAllForAccountAsync(account.Id, now, "OwnerApplicationApproved", cancellationToken);
 
-            auditLog?.Record(
+            auditLog.Record(
                 actionType: "account.owner_approved",
                 actorId: request.AdminId,
                 actorEmail: null,
@@ -66,7 +66,7 @@ public sealed class ApproveOwnerApplicationCommandHandler(
                 targetType: "account",
                 targetId: account.Id.ToString(),
                 reason: "Phê duyệt hồ sơ đăng ký Chủ bãi",
-                ipAddress: request.IpAddress);
+                ipAddress: null);
 
             outboxWriter.Enqueue(
                 new OwnerApplicationApprovedIntegrationEvent(account.Id, account.Email, now),

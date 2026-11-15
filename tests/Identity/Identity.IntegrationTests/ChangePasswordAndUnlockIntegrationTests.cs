@@ -6,6 +6,7 @@ using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.Login;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
+using ParkingSystem.Identity.Application.Common.Auditing;
 using ParkingSystem.Identity.Application.Common.Security;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Persistence;
@@ -168,7 +169,10 @@ public sealed class ChangePasswordAndUnlockIntegrationTests(PostgreSqlContainerF
     private static async Task<Result<UnlockedAccount>> UnlockAsync(ServiceProvider provider, Guid accountId, CancellationToken cancellationToken)
     {
         await using var scope = provider.CreateAsyncScope();
-        return await new UnlockAccountCommandHandler(scope.ServiceProvider.GetRequiredService<IAccountRepository>(), new FixedClock())
+        return await new UnlockAccountCommandHandler(
+            scope.ServiceProvider.GetRequiredService<IAccountRepository>(),
+            new FixedClock(),
+            scope.ServiceProvider.GetRequiredService<IIdentityAuditLog>())
             .Handle(new UnlockAccountCommand(accountId), cancellationToken);
     }
 
