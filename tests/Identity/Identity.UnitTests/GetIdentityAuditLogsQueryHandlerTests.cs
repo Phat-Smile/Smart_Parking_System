@@ -46,6 +46,7 @@ public sealed class GetIdentityAuditLogsQueryHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(repo.LastFilter);
+        Assert.NotNull(result.Value);
         Assert.Equal(1, result.Value.TotalItems);
         Assert.Equal(1, result.Value.Page);
         Assert.Equal(20, result.Value.PageSize);
