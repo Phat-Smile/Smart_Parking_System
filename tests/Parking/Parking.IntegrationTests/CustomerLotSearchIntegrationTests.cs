@@ -39,10 +39,33 @@ public sealed class CustomerLotSearchIntegrationTests(PostgreSqlContainerFixture
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO parking.floors (id, lot_id, name) VALUES ({floor}, {lot}, 'F1')
             """, ct);
+        var carZone = Guid.NewGuid();
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO parking.zones (id, floor_id, code, vehicle_group, capacity, current_vehicle_count, has_slot_sensor)
+            VALUES ({carZone}, {floor}, 'C1', 'Car', 10, 0, false)
+            """, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO parking.zones (id, floor_id, code, vehicle_group, capacity, current_vehicle_count, has_slot_sensor)
             VALUES ({zone}, {floor}, 'M1', 'Motorbike', 10, 2, false)
             """, ct);
+
+        var motorbikeOnlyLot = Guid.NewGuid();
+        var mbFloor = Guid.NewGuid();
+        var mbZone = Guid.NewGuid();
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO parking.parking_lots (id, name, address, latitude, longitude, type, approval_status,
+                supports_electric_vehicles, supports_large_vehicles, has_ev_charging, is_covered, has_cctv)
+            VALUES ({motorbikeOnlyLot}, 'Motorbike only', 'Demo', 10.77, 106.70, 'Outdoor', 'Approved',
+                true, true, true, true, true)
+            """, ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO parking.floors (id, lot_id, name) VALUES ({mbFloor}, {motorbikeOnlyLot}, 'F1')
+            """, ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO parking.zones (id, floor_id, code, vehicle_group, capacity, current_vehicle_count, has_slot_sensor)
+            VALUES ({mbZone}, {mbFloor}, 'M1', 'Motorbike', 10, 0, false)
+            """, ct);
+        db.PricingPolicies.Add(PricingPolicy.Create(motorbikeOnlyLot, "MOTORBIKE", 1, "PerHour", null, 25000, 0));
         db.PricingPolicies.Add(PricingPolicy.Create(lot, "MOTORBIKE", 1, "PerHour", null, 15000, 0));
         var savedLot = await db.ParkingLots.SingleAsync(x => x.Id == lot, ct);
         savedLot.SetOpeningHours(OpeningHoursSchedule.Serialize(new WeeklyOpeningHours(
@@ -64,7 +87,8 @@ public sealed class CustomerLotSearchIntegrationTests(PostgreSqlContainerFixture
         Assert.Equal(15000, result.StartingPrice);
         Assert.Equal(8, result.AvailableSpaces);
         Assert.DoesNotContain(tooCheap, x => x.Id == lot);
-        Assert.DoesNotContain(wrongType, x => x.Id == lot);
+        Assert.DoesNotContain(wrongType, x => x.Id == motorbikeOnlyLot);
+        Assert.Contains(wrongType, x => x.Id == lot);
         Assert.Contains(withFeatures, x => x.Id == lot && x.Compatibility.Contains("ev")
             && x.Amenities.Contains("always-open") && x.Prebookable);
 
