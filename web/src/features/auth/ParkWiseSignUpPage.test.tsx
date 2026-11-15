@@ -30,15 +30,15 @@ describe("ParkWiseSignUpPage - FORM-1 simplified registration", () => {
 
         expect(screen.queryByLabelText(/First Name/i)).not.toBeInTheDocument();
         expect(screen.queryByLabelText(/Last Name/i)).not.toBeInTheDocument();
-        expect(screen.queryByLabelText(/Phone Number/i)).not.toBeInTheDocument();
+        expect(
+            screen.queryByLabelText(/Phone Number/i),
+        ).not.toBeInTheDocument();
 
         // Only Email, Password, Confirm Password
         expect(
             screen.getByPlaceholderText(/Enter your email/i),
         ).toBeInTheDocument();
-        expect(
-            screen.getByPlaceholderText(/^Mật khẩu$/i),
-        ).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(/^Mật khẩu$/i)).toBeInTheDocument();
         expect(
             screen.getByPlaceholderText(/Nhập lại mật khẩu/i),
         ).toBeInTheDocument();

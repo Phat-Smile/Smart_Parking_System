@@ -102,8 +102,7 @@ export function ParkWiseSignUpPage({
         useWatch({ control, name: "confirmPassword" }) || "";
     const isMismatch =
         confirmPassword.length > 0 && password !== confirmPassword;
-    const isMatch =
-        confirmPassword.length > 0 && password === confirmPassword;
+    const isMatch = confirmPassword.length > 0 && password === confirmPassword;
     const passwordMeetsRequirements =
         passwordSchema.safeParse(password).success;
     const passwordCharacterGroups = [

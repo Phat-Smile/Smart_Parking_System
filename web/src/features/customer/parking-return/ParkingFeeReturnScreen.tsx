@@ -6,12 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 
 export type PaymentPublicStatus =
-    | "Verifying"
-    | "Pending"
-    | "Succeeded"
-    | "Failed"
-    | "Invalid"
-    | "Timeout";
+    "Verifying" | "Pending" | "Succeeded" | "Failed" | "Invalid" | "Timeout";
 
 export function ParkingFeeReturnScreen({
     searchParamsOverride,
@@ -35,7 +30,10 @@ export function ParkingFeeReturnScreen({
             : searchParamsOverride;
     } else if (searchParamsOverride instanceof URLSearchParams) {
         queryString = searchParamsOverride.toString();
-    } else if (searchParamsOverride && typeof searchParamsOverride === "object") {
+    } else if (
+        searchParamsOverride &&
+        typeof searchParamsOverride === "object"
+    ) {
         const sp = new URLSearchParams();
         for (const [key, val] of Object.entries(searchParamsOverride)) {
             if (Array.isArray(val)) {
@@ -152,7 +150,10 @@ export function ParkingFeeReturnScreen({
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 py-8 max-w-md mx-auto text-center font-sans">
             {state === "Verifying" && (
-                <div role="status" className="flex flex-col items-center justify-center space-y-4">
+                <div
+                    role="status"
+                    className="flex flex-col items-center justify-center space-y-4"
+                >
                     <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
                     <p className="text-slate-600 font-medium">
                         Đang xác thực thông tin giao dịch VNPay...
@@ -173,7 +174,8 @@ export function ParkingFeeReturnScreen({
                         Dữ liệu phản hồi thanh toán không hợp lệ
                     </p>
                     <p className="text-xs text-rose-600 mt-2">
-                        Chữ ký xác thực giao dịch từ cổng thanh toán không khớp hoặc đã bị can thiệp.
+                        Chữ ký xác thực giao dịch từ cổng thanh toán không khớp
+                        hoặc đã bị can thiệp.
                     </p>
                     <div className="mt-6">
                         <Link
@@ -194,12 +196,15 @@ export function ParkingFeeReturnScreen({
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 animate-pulse">
                         <Clock className="w-6 h-6" />
                     </div>
-                    <h2 className="text-lg font-bold mb-2">Đang xử lý giao dịch</h2>
+                    <h2 className="text-lg font-bold mb-2">
+                        Đang xử lý giao dịch
+                    </h2>
                     <p className="text-base font-semibold text-amber-800">
                         Đang xác nhận thanh toán với ngân hàng...
                     </p>
                     <p className="text-xs text-amber-700 mt-2">
-                        Hệ thống đang chờ đối soát IPN từ VNPay (Lần kiểm tra {pollCount}/10).
+                        Hệ thống đang chờ đối soát IPN từ VNPay (Lần kiểm tra{" "}
+                        {pollCount}/10).
                     </p>
                 </div>
             )}
@@ -212,13 +217,19 @@ export function ParkingFeeReturnScreen({
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
                         <CheckCircle2 className="w-6 h-6" />
                     </div>
-                    <h2 className="text-lg font-bold mb-2">Thanh toán hoàn tất</h2>
+                    <h2 className="text-lg font-bold mb-2">
+                        Thanh toán hoàn tất
+                    </h2>
                     <p className="text-base font-semibold text-emerald-800">
-                        Thanh toán thành công! Cổng kiểm soát sẽ mở cho xe của bạn rời bãi.
+                        Thanh toán thành công! Cổng kiểm soát sẽ mở cho xe của
+                        bạn rời bãi.
                     </p>
                     {txnRef && (
                         <p className="text-xs text-emerald-700 mt-2">
-                            Mã giao dịch: <span className="font-mono font-medium">{txnRef}</span>
+                            Mã giao dịch:{" "}
+                            <span className="font-mono font-medium">
+                                {txnRef}
+                            </span>
                         </p>
                     )}
                     <div className="mt-6">
@@ -240,13 +251,19 @@ export function ParkingFeeReturnScreen({
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
                         <AlertCircle className="w-6 h-6" />
                     </div>
-                    <h2 className="text-lg font-bold mb-2">Đang chờ đối soát</h2>
+                    <h2 className="text-lg font-bold mb-2">
+                        Đang chờ đối soát
+                    </h2>
                     <p className="text-base font-semibold text-amber-800">
-                        Giao dịch đang được ngân hàng đối soát. Nếu tài khoản đã bị trừ tiền, vui lòng báo nhân viên trực cổng.
+                        Giao dịch đang được ngân hàng đối soát. Nếu tài khoản đã
+                        bị trừ tiền, vui lòng báo nhân viên trực cổng.
                     </p>
                     {txnRef && (
                         <p className="text-xs text-amber-700 mt-2">
-                            Mã giao dịch: <span className="font-mono font-medium">{txnRef}</span>
+                            Mã giao dịch:{" "}
+                            <span className="font-mono font-medium">
+                                {txnRef}
+                            </span>
                         </p>
                     )}
                     <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
@@ -277,7 +294,9 @@ export function ParkingFeeReturnScreen({
                     <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
                         <AlertCircle className="w-6 h-6" />
                     </div>
-                    <h2 className="text-lg font-bold mb-2">Thanh toán không thành công</h2>
+                    <h2 className="text-lg font-bold mb-2">
+                        Thanh toán không thành công
+                    </h2>
                     <p className="text-base font-semibold text-rose-800">
                         Giao dịch đã bị từ chối hoặc quá hạn thanh toán.
                     </p>

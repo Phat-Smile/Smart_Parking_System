@@ -235,10 +235,7 @@ export function CustomerDashboardPage({
                         <p>{greeting}</p>
                         <h1 id="dashboard-title">
                             {displayName ||
-                                copy(
-                                    "Find your space",
-                                    "Tìm chỗ đỗ của bạn",
-                                )}
+                                copy("Find your space", "Tìm chỗ đỗ của bạn")}
                         </h1>
                         <h2>
                             {copy(

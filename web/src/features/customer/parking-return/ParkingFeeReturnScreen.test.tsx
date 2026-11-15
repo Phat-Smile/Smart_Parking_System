@@ -38,7 +38,9 @@ describe("ParkingFeeReturnScreen", () => {
         ).toBeInTheDocument();
         expect(screen.getByRole("alert")).toBeInTheDocument();
         expect(fetchMock).toHaveBeenCalledWith(
-            expect.stringContaining("/api/payment/parking-sessions/vnpay-return-verify?"),
+            expect.stringContaining(
+                "/api/payment/parking-sessions/vnpay-return-verify?",
+            ),
         );
     });
 
@@ -86,28 +88,26 @@ describe("ParkingFeeReturnScreen", () => {
     it("shows amber pending status while polling and timeout fallback after 10 polls", async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
-        const fetchMock = vi
-            .fn()
-            .mockImplementation((url: string) => {
-                if (url.includes("vnpay-return-verify")) {
-                    return Promise.resolve({
-                        ok: true,
-                        json: async () => ({
-                            isValid: true,
-                            txnRef: "PARK_20261115_TX02",
-                        }),
-                    });
-                }
-                if (url.includes("public-status")) {
-                    return Promise.resolve({
-                        ok: true,
-                        json: async () => ({
-                            status: "Pending",
-                        }),
-                    });
-                }
-                return Promise.reject(new Error("Unknown URL"));
-            });
+        const fetchMock = vi.fn().mockImplementation((url: string) => {
+            if (url.includes("vnpay-return-verify")) {
+                return Promise.resolve({
+                    ok: true,
+                    json: async () => ({
+                        isValid: true,
+                        txnRef: "PARK_20261115_TX02",
+                    }),
+                });
+            }
+            if (url.includes("public-status")) {
+                return Promise.resolve({
+                    ok: true,
+                    json: async () => ({
+                        status: "Pending",
+                    }),
+                });
+            }
+            return Promise.reject(new Error("Unknown URL"));
+        });
         vi.stubGlobal("fetch", fetchMock);
 
         render(
@@ -116,7 +116,9 @@ describe("ParkingFeeReturnScreen", () => {
 
         // First verification should show amber status
         expect(
-            await screen.findByText("Đang xác nhận thanh toán với ngân hàng..."),
+            await screen.findByText(
+                "Đang xác nhận thanh toán với ngân hàng...",
+            ),
         ).toBeInTheDocument();
 
         // Advance timers for 10 polling intervals of 2500ms

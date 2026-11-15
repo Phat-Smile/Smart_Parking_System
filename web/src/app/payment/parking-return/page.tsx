@@ -10,7 +10,8 @@ import "@/features/customer/customer-shell.css";
 
 export const metadata: Metadata = {
     title: "Kết quả thanh toán phí đỗ xe | ParkWise",
-    description: "Xác nhận và kiểm tra trạng thái thanh toán phí đỗ xe qua cổng VNPay.",
+    description:
+        "Xác nhận và kiểm tra trạng thái thanh toán phí đỗ xe qua cổng VNPay.",
 };
 
 export default function ParkingReturnPage() {
