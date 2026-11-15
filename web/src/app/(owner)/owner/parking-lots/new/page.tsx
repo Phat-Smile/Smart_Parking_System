@@ -14,17 +14,22 @@ const ParkingScene3DViewer = dynamic(
 
 import {
     registerParkingLotApi,
+    confirmOwnerLotEntrance,
     ParkingLotTypeEnum,
 } from "@/features/owner/api/ownerApi";
+import { OwnerLocationPicker } from "@/features/owner/components/OwnerLocationPicker";
 import { useLotInfoStore } from "@/features/owner/lots/lotInfo";
 import { ApiError } from "@/shared/errors/api-error";
 import { loadOwnerLots, localLotId } from "@/features/owner/lots/ownerLotsSync";
 import { saveInitialLotSetup } from "@/features/owner/lots/initialLotSetup";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 interface WizardData {
     name: string;
     addr: string;
-    gps: string;
+    latitude: number | null;
+    longitude: number | null;
+    confirmedOnMap: boolean;
     op: string;
     cl2: string;
     vc: boolean;
@@ -49,7 +54,9 @@ interface WizardData {
 const INITIAL_DATA: WizardData = {
     name: "",
     addr: "",
-    gps: "",
+    latitude: null,
+    longitude: null,
+    confirmedOnMap: false,
     op: "06:00",
     cl2: "22:00",
     vc: true,
@@ -80,13 +87,93 @@ export default function NewParkingLotPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [done, setDone] = useState(false);
 
+    // State quản lý token xác nhận cổng vào (WP-OW-1 / PR #278 / BE2 Spec)
+    const [locationConfirmationToken, setLocationConfirmationToken] = useState<
+        string | null
+    >(null);
+    const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null);
+    const [isConfirmingLocation, setIsConfirmingLocation] = useState(false);
+    const [locationConfirmError, setLocationConfirmError] = useState<
+        string | null
+    >(null);
+
+    const handleConfirmEntrance = async () => {
+        setLocationConfirmError(null);
+        const trimmedAddr = data.addr.trim();
+        if (!trimmedAddr || trimmedAddr.length < 3) {
+            setLocationConfirmError(
+                "Địa chỉ cần ít nhất 3 ký tự trước khi xác nhận cổng vào.",
+            );
+            return;
+        }
+        if (trimmedAddr.length > 500) {
+            setLocationConfirmError("Địa chỉ không được vượt quá 500 ký tự.");
+            return;
+        }
+        if (data.latitude === null || data.longitude === null) {
+            setLocationConfirmError(
+                "Vui lòng chạm bản đồ hoặc kéo ghim để chọn cổng vào trước khi xác nhận.",
+            );
+            return;
+        }
+        if (data.latitude === 0 && data.longitude === 0) {
+            setLocationConfirmError(
+                "Tọa độ (0, 0) không hợp lệ. Vui lòng chọn vị trí cổng vào thực tế.",
+            );
+            return;
+        }
+
+        setIsConfirmingLocation(true);
+        try {
+            const res = await confirmOwnerLotEntrance({
+                address: trimmedAddr,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                confirmedOnMap: true,
+            });
+            setLocationConfirmationToken(res.locationConfirmationToken);
+            setTokenExpiresAt(res.expiresAtUtc);
+            setData((prev) => ({ ...prev, confirmedOnMap: true }));
+        } catch (err: unknown) {
+            if (err instanceof ApiError) {
+                if (err.status === 400) {
+                    setLocationConfirmError(
+                        "Dữ liệu vị trí không hợp lệ. Vui lòng kiểm tra lại địa chỉ và ghim cổng vào.",
+                    );
+                    return;
+                }
+                if (err.status === 401 || err.status === 403) {
+                    setLocationConfirmError(
+                        "Phiên làm việc đã hết hạn hoặc tài khoản không có quyền Chủ bãi.",
+                    );
+                    return;
+                }
+            }
+            setLocationConfirmError(
+                "Không thể kết nối đến máy chủ để xác nhận cổng vào. Vui lòng kiểm tra mạng và thử lại.",
+            );
+        } finally {
+            setIsConfirmingLocation(false);
+        }
+    };
+
     const validate = () => {
         const errs: string[] = [];
         if (!data.name.trim()) errs.push("Nhập tên bãi");
         if (!data.addr.trim()) errs.push("Nhập địa chỉ");
-        if (!/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(data.gps.trim())) {
+        if (
+            data.latitude === null ||
+            data.longitude === null ||
+            (data.latitude === 0 && data.longitude === 0)
+        ) {
+            errs.push("Vui lòng chọn vị trí cổng vào trên bản đồ");
+        } else if (!locationConfirmationToken) {
             errs.push(
-                'Tọa độ GPS theo dạng "vĩ độ, kinh độ", ví dụ 10.7769, 106.7009',
+                "Vui lòng nhấn 'Xác nhận vị trí cổng vào' trên bản đồ trước khi tiếp tục.",
+            );
+        } else if (tokenExpiresAt && new Date(tokenExpiresAt) <= new Date()) {
+            errs.push(
+                "Xác nhận vị trí cổng vào đã hết hạn. Vui lòng xác nhận lại.",
             );
         }
         if (!(data.cap > 0)) errs.push("Sức chứa phải lớn hơn 0");
@@ -128,20 +215,19 @@ export default function NewParkingLotPage() {
     const [unsaved, setUnsaved] = useState<string[]>([]);
 
     const handleConfirmSend = async () => {
+        if (isSubmitting) return;
         setErrors([]);
-        const [latStr, lngStr] = data.gps.split(",").map((s) => s.trim());
-        const latitude = Number(latStr);
-        const longitude = Number(lngStr);
-        if (
-            !latStr ||
-            !lngStr ||
-            !Number.isFinite(latitude) ||
-            !Number.isFinite(longitude) ||
-            Math.abs(latitude) > 90 ||
-            Math.abs(longitude) > 180
-        ) {
+        if (!locationConfirmationToken) {
             setErrors([
-                "Tọa độ GPS chưa hợp lệ. Nhập theo dạng 'vĩ độ, kinh độ', ví dụ 10.7769, 106.7009.",
+                "Vui lòng nhấn 'Xác nhận vị trí cổng vào' trên bản đồ trước khi gửi duyệt.",
+            ]);
+            setConfirming(false);
+            setStep(0);
+            return;
+        }
+        if (tokenExpiresAt && new Date(tokenExpiresAt) <= new Date()) {
+            setErrors([
+                "Xác nhận vị trí cổng vào đã hết hạn. Vui lòng xác nhận lại vị trí trước khi gửi duyệt.",
             ]);
             setConfirming(false);
             setStep(0);
@@ -150,15 +236,16 @@ export default function NewParkingLotPage() {
 
         setIsSubmitting(true);
         try {
-            // D02.1: Parking stores the lot as Pending. The register request carries no hours or prices.
             const res = await registerParkingLotApi({
                 name: data.name,
-                address: data.addr,
-                latitude,
-                longitude,
+                address: data.addr.trim(),
+                latitude: data.latitude!,
+                longitude: data.longitude!,
                 type: data.type,
                 features: data.features,
+                locationConfirmationToken: locationConfirmationToken,
             });
+
             // Hours, prices and deposit are separate calls; the lot already exists, so a failure here
             // is reported on the result screen instead of undoing the registration.
             setUnsaved(
@@ -190,6 +277,23 @@ export default function NewParkingLotPage() {
                 ]);
                 setStep(0);
             } else if (err instanceof ApiError && err.status === 400) {
+                const isTokenError = Boolean(
+                    err.problem?.errors?.locationConfirmationToken ||
+                    err.problem?.validationErrors?.locationConfirmationToken ||
+                    JSON.stringify(err.problem || "").includes(
+                        "locationConfirmationToken",
+                    ),
+                );
+                if (isTokenError) {
+                    setLocationConfirmationToken(null);
+                    setTokenExpiresAt(null);
+                    setData((prev) => ({ ...prev, confirmedOnMap: false }));
+                    setErrors([
+                        "Xác nhận vị trí không khớp hoặc đã hết hạn. Vui lòng quay lại Bước 1 và nhấn 'Xác nhận vị trí cổng vào'.",
+                    ]);
+                    setStep(0);
+                    return;
+                }
                 setErrors([
                     err.problem?.detail ||
                         "Thông tin đăng ký bãi đỗ xe chưa đúng định dạng.",
@@ -202,9 +306,10 @@ export default function NewParkingLotPage() {
                 setErrors([
                     "Tài khoản của bạn chưa có quyền Chủ bãi (ParkingLotOwner) để thực hiện thao tác này.",
                 ]);
+                setStep(0);
             } else {
                 setErrors([
-                    "Không kết nối được máy chủ. Bãi chưa được tạo, vui lòng thử lại.",
+                    "Đã xảy ra lỗi khi tạo bãi đỗ xe. Vui lòng thử lại sau.",
                 ]);
             }
         } finally {
@@ -317,34 +422,116 @@ export default function NewParkingLotPage() {
                                 />
                             </label>
 
-                            <label className="f">
-                                <span>Địa chỉ</span>
-                                <input
-                                    type="text"
-                                    value={data.addr}
-                                    onChange={(e) =>
+                            <div className="f">
+                                <span className="block mb-1 font-medium text-sm text-gray-700">
+                                    Địa chỉ & Vị trí cổng vào trên bản đồ
+                                </span>
+                                <OwnerLocationPicker
+                                    address={data.addr}
+                                    latitude={data.latitude}
+                                    longitude={data.longitude}
+                                    confirmedOnMap={data.confirmedOnMap}
+                                    onChange={(loc) => {
+                                        // Nếu địa chỉ hoặc tọa độ thay đổi, hủy token xác nhận cũ
+                                        if (
+                                            loc.address !== data.addr ||
+                                            loc.latitude !== data.latitude ||
+                                            loc.longitude !== data.longitude
+                                        ) {
+                                            setLocationConfirmationToken(null);
+                                            setTokenExpiresAt(null);
+                                            setLocationConfirmError(null);
+                                        }
                                         setData({
                                             ...data,
-                                            addr: e.target.value,
-                                        })
-                                    }
+                                            addr: loc.address,
+                                            latitude: loc.latitude,
+                                            longitude: loc.longitude,
+                                            confirmedOnMap: loc.confirmedOnMap,
+                                        });
+                                    }}
                                 />
-                            </label>
 
-                            <label className="f">
-                                <span>Tọa độ GPS</span>
-                                <input
-                                    type="text"
-                                    value={data.gps}
-                                    placeholder="10.7769, 106.7009"
-                                    onChange={(e) =>
-                                        setData({
-                                            ...data,
-                                            gps: e.target.value,
-                                        })
-                                    }
-                                />
-                            </label>
+                                {/* Nút và trạng thái xác nhận cổng vào (BE2 Spec Mục 3.1 & 3.2) */}
+                                <div className="mt-3 p-3 bg-gray-50 border rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <div>
+                                        <div className="text-xs font-semibold text-gray-700">
+                                            Xác nhận vị trí cổng vào bãi xe:
+                                        </div>
+                                        {locationConfirmationToken &&
+                                        tokenExpiresAt ? (
+                                            <div
+                                                className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium mt-0.5"
+                                                data-testid="confirmed-token-badge"
+                                            >
+                                                <CheckCircle2
+                                                    size={14}
+                                                    className="text-emerald-600"
+                                                />
+                                                <span>
+                                                    Đã xác nhận cổng vào (hiệu
+                                                    lực 15 phút)
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                                Hãy chọn đúng vị trí xe đi vào
+                                                bãi và bấm nút xác nhận bên
+                                                cạnh.
+                                            </div>
+                                        )}
+                                        {locationConfirmError && (
+                                            <div
+                                                className="text-xs text-red-600 mt-1 flex items-center gap-1"
+                                                role="alert"
+                                                data-testid="location-confirm-error"
+                                            >
+                                                <AlertCircle size={13} />
+                                                <span>
+                                                    {locationConfirmError}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        data-testid="btn-confirm-entrance"
+                                        disabled={
+                                            isConfirmingLocation ||
+                                            !data.addr.trim() ||
+                                            data.addr.trim().length < 3 ||
+                                            data.latitude === null ||
+                                            data.longitude === null ||
+                                            (data.latitude === 0 &&
+                                                data.longitude === 0)
+                                        }
+                                        onClick={handleConfirmEntrance}
+                                        className="shrink-0 px-3.5 py-2 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                                    >
+                                        {isConfirmingLocation ? (
+                                            <>
+                                                <Loader2
+                                                    size={14}
+                                                    className="animate-spin"
+                                                />
+                                                <span>Đang xác nhận...</span>
+                                            </>
+                                        ) : locationConfirmationToken ? (
+                                            <>
+                                                <CheckCircle2 size={14} />
+                                                <span>Xác nhận lại vị trí</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle2 size={14} />
+                                                <span>
+                                                    Xác nhận vị trí cổng vào
+                                                </span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
 
                             <label className="f">
                                 <span>Giờ mở cửa</span>
@@ -747,8 +934,13 @@ export default function NewParkingLotPage() {
                                         <td>{data.addr}</td>
                                     </tr>
                                     <tr>
-                                        <td>GPS</td>
-                                        <td>{data.gps}</td>
+                                        <td>Tọa độ cổng vào</td>
+                                        <td>
+                                            {data.latitude !== null &&
+                                            data.longitude !== null
+                                                ? `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)} (Đã xác nhận)`
+                                                : "Chưa xác nhận"}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td>Giờ hoạt động</td>
