@@ -33,9 +33,15 @@ describe("ParkWiseSignUpPage - FORM-1 simplified registration", () => {
         expect(screen.queryByLabelText(/Phone Number/i)).not.toBeInTheDocument();
 
         // Only Email, Password, Confirm Password
-        expect(screen.getByPlaceholderText(/Enter your email/i)).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/^Password$/i)).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/Confirm password/i)).toBeInTheDocument();
+        expect(
+            screen.getByPlaceholderText(/Enter your email/i),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByPlaceholderText(/^Mật khẩu$/i),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByPlaceholderText(/Nhập lại mật khẩu/i),
+        ).toBeInTheDocument();
     });
 
     it("extracts email prefix as fallback display name when registering", async () => {
@@ -61,10 +67,16 @@ describe("ParkWiseSignUpPage - FORM-1 simplified registration", () => {
 
         render(<ParkWiseSignUpPage fontClassName="font-sans" />);
 
-        await user.type(screen.getByPlaceholderText(/Enter your email/i), "hung.le@gmail.com");
-        await user.type(screen.getByPlaceholderText(/^Password$/i), "Passw0rd!Secure");
         await user.type(
-            screen.getByPlaceholderText(/Confirm password/i),
+            screen.getByPlaceholderText(/Enter your email/i),
+            "hung.le@gmail.com",
+        );
+        await user.type(
+            screen.getByPlaceholderText(/^Mật khẩu$/i),
+            "Passw0rd!Secure",
+        );
+        await user.type(
+            screen.getByPlaceholderText(/Nhập lại mật khẩu/i),
             "Passw0rd!Secure",
         );
 
@@ -85,5 +97,86 @@ describe("ParkWiseSignUpPage - FORM-1 simplified registration", () => {
             );
             expect(mockPush).toHaveBeenCalledWith("/verify-otp");
         });
+    });
+});
+
+describe("ParkWiseSignUpPage - Q-FORM text password toggle and real-time mismatch feedback", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("renders text toggle buttons 'Hiện mật khẩu' with touch target >= 44px", () => {
+        render(<ParkWiseSignUpPage fontClassName="font-sans" />);
+
+        const toggleButtons = screen.getAllByRole("button", {
+            name: /Hiện mật khẩu/i,
+        });
+        expect(toggleButtons).toHaveLength(2);
+
+        toggleButtons.forEach((btn) => {
+            expect(btn).toHaveAttribute("type", "button");
+            expect(btn).toHaveTextContent("Hiện mật khẩu");
+            // Check style touch target
+            expect(btn).toHaveStyle({ minHeight: "44px" });
+        });
+    });
+
+    it("toggles password visibility and updates button text to 'Ẩn mật khẩu'", async () => {
+        const user = userEvent.setup();
+        render(<ParkWiseSignUpPage fontClassName="font-sans" />);
+
+        const passwordInput = screen.getByPlaceholderText(/^Mật khẩu$/i);
+        const [passwordToggle] = screen.getAllByRole("button", {
+            name: /Hiện mật khẩu/i,
+        });
+
+        expect(passwordInput).toHaveAttribute("type", "password");
+        expect(passwordToggle).toHaveTextContent("Hiện mật khẩu");
+
+        // Click to show password
+        await user.click(passwordToggle);
+        expect(passwordInput).toHaveAttribute("type", "text");
+        expect(passwordToggle).toHaveTextContent("Ẩn mật khẩu");
+
+        // Click to hide password
+        await user.click(passwordToggle);
+        expect(passwordInput).toHaveAttribute("type", "password");
+        expect(passwordToggle).toHaveTextContent("Hiện mật khẩu");
+    });
+
+    it("shows real-time 'không khớp' feedback immediately as user types in confirm password", async () => {
+        const user = userEvent.setup();
+        render(<ParkWiseSignUpPage fontClassName="font-sans" />);
+
+        const passwordInput = screen.getByPlaceholderText(/^Mật khẩu$/i);
+        const confirmPasswordInput =
+            screen.getByPlaceholderText(/Nhập lại mật khẩu/i);
+
+        // Before typing confirm password, no mismatch feedback is shown
+        expect(screen.queryByText(/không khớp/i)).not.toBeInTheDocument();
+
+        // Type password
+        await user.type(passwordInput, "Secret123!");
+
+        // Type mismatch into confirm password
+        await user.type(confirmPasswordInput, "SecretMismatch");
+
+        // Real-time mismatch feedback should appear without submitting form
+        expect(await screen.findByText(/không khớp/i)).toBeInTheDocument();
+        expect(screen.getByText("Mật khẩu không khớp")).toBeInTheDocument();
+
+        // Clear and type exact match
+        await user.clear(confirmPasswordInput);
+        await user.type(confirmPasswordInput, "Secret123!");
+
+        // Real-time mismatch feedback should disappear
+        await waitFor(() => {
+            expect(screen.queryByText(/không khớp/i)).not.toBeInTheDocument();
+        });
+        expect(screen.getByText("Mật khẩu đã khớp")).toBeInTheDocument();
     });
 });

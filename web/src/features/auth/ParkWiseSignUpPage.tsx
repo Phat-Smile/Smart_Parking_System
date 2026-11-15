@@ -98,6 +98,12 @@ export function ParkWiseSignUpPage({
         },
     });
     const password = useWatch({ control, name: "password" }) || "";
+    const confirmPassword =
+        useWatch({ control, name: "confirmPassword" }) || "";
+    const isMismatch =
+        confirmPassword.length > 0 && password !== confirmPassword;
+    const isMatch =
+        confirmPassword.length > 0 && password === confirmPassword;
     const passwordMeetsRequirements =
         passwordSchema.safeParse(password).success;
     const passwordCharacterGroups = [
@@ -293,14 +299,15 @@ export function ParkWiseSignUpPage({
                     <div className="parkwise-signup-two-columns">
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-signup-password">
-                                Password <span aria-hidden="true">*</span>
+                                Mật khẩu (Password){" "}
+                                <span aria-hidden="true">*</span>
                             </label>
-                            <div className="parkwise-password-control">
+                            <div className="parkwise-password-control has-text-toggle">
                                 <input
                                     id="parkwise-signup-password"
                                     type={passwordVisible ? "text" : "password"}
                                     autoComplete="new-password"
-                                    placeholder="Password"
+                                    placeholder="Mật khẩu"
                                     aria-invalid={Boolean(errors.password)}
                                     aria-describedby={
                                         errors.password
@@ -311,16 +318,23 @@ export function ParkWiseSignUpPage({
                                 />
                                 <button
                                     type="button"
+                                    className="parkwise-password-text-toggle"
+                                    style={{ minHeight: "44px" }}
                                     aria-label={
                                         passwordVisible
-                                            ? "Hide password"
-                                            : "Show password"
+                                            ? "Ẩn mật khẩu"
+                                            : "Hiện mật khẩu"
                                     }
                                     onClick={() =>
                                         setPasswordVisible((value) => !value)
                                     }
                                 >
                                     <EyeIcon visible={passwordVisible} />
+                                    <span>
+                                        {passwordVisible
+                                            ? "Ẩn mật khẩu"
+                                            : "Hiện mật khẩu"}
+                                    </span>
                                 </button>
                             </div>
                             {errors.password && (
@@ -334,10 +348,10 @@ export function ParkWiseSignUpPage({
                         </div>
                         <div className="parkwise-login-field">
                             <label htmlFor="parkwise-signup-confirm-password">
-                                Confirm Password{" "}
+                                Nhập lại mật khẩu (Confirm Password){" "}
                                 <span aria-hidden="true">*</span>
                             </label>
-                            <div className="parkwise-password-control">
+                            <div className="parkwise-password-control has-text-toggle">
                                 <input
                                     id="parkwise-signup-confirm-password"
                                     type={
@@ -346,23 +360,27 @@ export function ParkWiseSignUpPage({
                                             : "password"
                                     }
                                     autoComplete="new-password"
-                                    placeholder="Confirm password"
+                                    placeholder="Nhập lại mật khẩu"
                                     aria-invalid={Boolean(
-                                        errors.confirmPassword,
+                                        errors.confirmPassword || isMismatch,
                                     )}
                                     aria-describedby={
-                                        errors.confirmPassword
-                                            ? "parkwise-signup-confirm-password-error"
-                                            : undefined
+                                        isMismatch
+                                            ? "parkwise-signup-confirm-password-mismatch"
+                                            : errors.confirmPassword
+                                              ? "parkwise-signup-confirm-password-error"
+                                              : undefined
                                     }
                                     {...register("confirmPassword")}
                                 />
                                 <button
                                     type="button"
+                                    className="parkwise-password-text-toggle"
+                                    style={{ minHeight: "44px" }}
                                     aria-label={
                                         confirmPasswordVisible
-                                            ? "Hide confirm password"
-                                            : "Show confirm password"
+                                            ? "Ẩn mật khẩu"
+                                            : "Hiện mật khẩu"
                                     }
                                     onClick={() =>
                                         setConfirmPasswordVisible(
@@ -371,9 +389,41 @@ export function ParkWiseSignUpPage({
                                     }
                                 >
                                     <EyeIcon visible={confirmPasswordVisible} />
+                                    <span>
+                                        {confirmPasswordVisible
+                                            ? "Ẩn mật khẩu"
+                                            : "Hiện mật khẩu"}
+                                    </span>
                                 </button>
                             </div>
-                            {errors.confirmPassword && (
+                            {isMismatch && (
+                                <p
+                                    id="parkwise-signup-confirm-password-mismatch"
+                                    role="alert"
+                                    className="parkwise-login-error"
+                                    style={{
+                                        color: "#dc2626",
+                                        fontSize: "13px",
+                                        marginTop: "4px",
+                                    }}
+                                >
+                                    Mật khẩu không khớp
+                                </p>
+                            )}
+                            {isMatch && (
+                                <p
+                                    id="parkwise-signup-confirm-password-match"
+                                    role="status"
+                                    style={{
+                                        color: "#16a34a",
+                                        fontSize: "13px",
+                                        marginTop: "4px",
+                                    }}
+                                >
+                                    Mật khẩu đã khớp
+                                </p>
+                            )}
+                            {errors.confirmPassword && !isMismatch && (
                                 <p
                                     id="parkwise-signup-confirm-password-error"
                                     role="alert"

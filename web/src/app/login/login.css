@@ -210,6 +210,9 @@
 .parkwise-password-control input {
     padding-right: 46px !important;
 }
+.parkwise-password-control.has-text-toggle input {
+    padding-right: 135px !important;
+}
 .parkwise-password-control button {
     position: absolute;
     top: 0;
@@ -221,6 +224,20 @@
     border: 0;
     background: transparent;
     color: #4b5563;
+}
+.parkwise-password-control .parkwise-password-text-toggle {
+    width: auto !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 0 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
 }
 .parkwise-password-control button:hover {
     color: #171717;
