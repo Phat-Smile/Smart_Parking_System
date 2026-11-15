@@ -195,6 +195,7 @@ services:
       BookingService__BaseUrl: http://booking-api:8080
       AiService__BaseUrl: http://ai-service:8000
       ArrivalIntegration__Key: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
+      RequireOwnerLocationConfirmation: "true"
 
   booking-api:
     build:
