@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots.Availability;
 using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -29,11 +30,14 @@ public sealed record RecommendedParkingLotDto(
     decimal Longitude,
     int Rank,
     double? DriveTimeMinutes,
-    double ProbabilityPercent,
+    double? ProbabilityPercent,
     decimal Price,
     bool WarningHighFullRisk,
     IReadOnlyList<string> Reasons,
-    double DistanceKm);
+    double DistanceKm,
+    int SampleCount = 0,
+    bool InsufficientData = false,
+    string? BaselineSource = null);
 
 public sealed class GetParkingLotRecommendationsQueryValidator : AbstractValidator<GetParkingLotRecommendationsQuery>
 {
@@ -55,6 +59,7 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
     INearbyParkingLotReader nearbyReader,
     ICustomerLotMetricsReader metricsReader,
     IArrivalSnapshotReader snapshotReader,
+    IHeldQuotaProvider heldQuotaProvider,
     IParkingRecommendationClient recommendationClient,
     ILogger<GetParkingLotRecommendationsQueryHandler> logger)
     : IRequestHandler<GetParkingLotRecommendationsQuery, ParkingLotRecommendationResult>
@@ -87,7 +92,16 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         var candidateIds = nearbyLots.Select(x => x.Id).Distinct().ToList();
         var metrics = await metricsReader.ReadAsync(candidateIds, cancellationToken);
 
-        // 2. Build candidate payload with duration price & session snapshots
+        // 2. Fetch held quotas in parallel via IHeldQuotaProvider (does not use ParkingDbContext, avoids sequential timeout)
+        var durationHours = Math.Max(1.0, request.DurationMinutes / 60.0);
+        var heldQuotaTasks = nearbyLots.Select(async lot =>
+        {
+            var held = await heldQuotaProvider.GetHeldReservationsAsync(lot.Id, cancellationToken);
+            return (LotId: lot.Id, Held: held);
+        });
+        var heldQuotaMap = (await Task.WhenAll(heldQuotaTasks)).ToDictionary(x => x.LotId, x => x.Held);
+
+        // 3. Fetch snapshots SEQUENTIALLY on ParkingDbContext to prevent concurrent EF Core queries on same DbContext instance
         var candidateMap = nearbyLots.ToDictionary(x => x.Id);
         var candidateInputs = new List<CandidateLotInputDto>();
 
@@ -95,7 +109,6 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         {
             metrics.TryGetValue(lot.Id, out var metric);
             var baseHourlyRate = GetBaseHourlyRate(metric, vehicleTypeStr);
-            var durationHours = Math.Max(1.0, request.DurationMinutes / 60.0);
             var priceForDuration = (double)Math.Round(baseHourlyRate * (decimal)durationHours);
 
             var snapshots = await snapshotReader.GetSessionProxyAsync(
@@ -110,17 +123,20 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                 s.CapturedAt,
                 s.AvailableSlots)).ToList();
 
+            var held = heldQuotaMap.TryGetValue(lot.Id, out var h) ? h : null;
+
             candidateInputs.Add(new CandidateLotInputDto(
                 lot.Id,
                 lot.Name,
                 (double)lot.Latitude,
                 (double)lot.Longitude,
                 priceForDuration,
-                HeldQuota: 0,
-                snapshotDtos));
+                HeldQuota: held ?? 0,
+                HeldQuotaKnown: held.HasValue,
+                Snapshots: snapshotDtos));
         }
 
-        // 3. Call AI recommendation client with strict timeout
+        // 4. Call AI recommendation client with strict timeout
         var aiRequest = new RecommendationClientRequest(
             (double)request.Latitude,
             (double)request.Longitude,
@@ -131,7 +147,7 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
 
         var aiResponse = await recommendationClient.GetRecommendationsAsync(aiRequest, cancellationToken);
 
-        // 4. If AI service responded successfully, map and return results
+        // 5. If AI service responded successfully, map and return results
         if (aiResponse is not null && aiResponse.RecommendedLots.Count > 0)
         {
             var recommendedLots = new List<RecommendedParkingLotDto>();
@@ -152,7 +168,10 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                     (decimal)item.Price,
                     item.WarningHighFullRisk,
                     item.Reasons,
-                    candidate.DistanceKm));
+                    candidate.DistanceKm,
+                    item.SampleCount,
+                    item.InsufficientData,
+                    item.BaselineSource));
             }
 
             if (recommendedLots.Count > 0)
@@ -210,21 +229,12 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                 var price = Math.Round(baseRate * (decimal)durationHours);
                 var driveTimeMinutes = Math.Max(2.0, Math.Round(lot.DistanceKm / 30.0 * 60.0, 1));
 
-                var probabilityPercent = availableSpaces switch
-                {
-                    >= 10 => 95.0,
-                    >= 5 => 85.0,
-                    > 0 => 70.0,
-                    _ => 25.0
-                };
-
                 return new
                 {
                     Lot = lot,
                     AvailableSpaces = availableSpaces,
                     Price = price,
                     DriveTimeMinutes = driveTimeMinutes,
-                    ProbabilityPercent = probabilityPercent,
                     WarningHighFullRisk = availableSpaces <= 1
                 };
             })
@@ -249,11 +259,14 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                 item.Lot.Longitude,
                 rank,
                 item.DriveTimeMinutes,
-                item.ProbabilityPercent,
+                ProbabilityPercent: null,
                 item.Price,
                 item.WarningHighFullRisk,
                 reasons,
-                item.Lot.DistanceKm));
+                item.Lot.DistanceKm,
+                SampleCount: 0,
+                InsufficientData: true,
+                BaselineSource: "fallback"));
         }
 
         return result;

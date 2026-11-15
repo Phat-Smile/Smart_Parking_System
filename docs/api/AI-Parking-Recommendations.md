@@ -90,11 +90,15 @@ service ParkingRecommendationContract {
       "longitude": 106.7000,
       "priceForDuration": 20000.0,
       "heldQuota": 2,
+      "heldQuotaKnown": true,
       "snapshots": []
     }
   ]
 }
 ```
+
+> [!NOTE] **Giới hạn số suất giữ (Held Quota Limitation):**  
+> Trường `heldQuota` được đọc song song qua `IHeldQuotaProvider` từ Booking Service (với cache 60s, timeout 2s). Hiện số suất giữ lấy từ bộ đọc tạm (`StubHeldQuotaReader`), luôn bằng 0, cho tới khi có hợp đồng #4 với Booking. Đây là **số suất giữ hiện tại** tại thời điểm gọi API, chưa phải số suất giữ thực tế tại thời điểm xe tới trong tương lai. Đây là giới hạn kỹ thuật đã biết và được thừa nhận. Khi Booking không phản hồi hoặc timeout, hệ thống gửi `heldQuota = 0` kèm `heldQuotaKnown = false` để AI gắn cờ `insufficientData = true` thay vì âm thầm ngộ nhận bãi không có suất giữ.
 
 #### Response Body (HTTP 200 OK)
 ```json
@@ -112,10 +116,20 @@ service ParkingRecommendationContract {
         "Lựa chọn tối ưu tổng thể",
         "Gần bạn nhất (khoảng 5 phút lái xe)",
         "Tỷ lệ còn chỗ rất cao"
-      ]
+      ],
+      "sampleCount": 16,
+      "insufficientData": false,
+      "baselineSource": "lot_weekday_15m"
     }
   ],
   "fallbackUsed": false,
   "fallbackReason": null
 }
 ```
+
+> [!IMPORTANT] **Quy tắc Trả Xác suất Khi Dự phòng (Fail-Closed Fallback):**  
+> Khi AI service gặp sự cố, timeout (>700ms) hoặc không có dữ liệu, hệ thống kích hoạt chế độ Fallback sắp xếp theo khoảng cách Haversine và sức chứa thực tế. Khi đó:
+> - `fallbackUsed = true`
+> - `probabilityPercent = null` (Tuyệt đối không bịa đặt số xác suất giả 95/85/70/25%)
+> - `insufficientData = true`
+> - `baselineSource = "fallback"`

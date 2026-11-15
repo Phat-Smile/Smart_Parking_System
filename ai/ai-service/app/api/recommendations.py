@@ -43,6 +43,7 @@ class CandidateLotRequest(BaseModel):
     longitude: float = Field(ge=-180.0, le=180.0)
     priceForDuration: float = Field(ge=0.0)
     heldQuota: int = Field(default=0, ge=0)
+    heldQuotaKnown: bool = Field(default=True)
     snapshots: list[CandidateSnapshotInput] = Field(default_factory=list, max_length=5000)
 
 
@@ -67,10 +68,13 @@ class RecommendedLotItem(BaseModel):
     name: str
     rank: int
     driveTimeMinutes: float | None
-    probabilityPercent: float
+    probabilityPercent: float | None = None
     price: float
     warningHighFullRisk: bool
     reasons: list[str]
+    sampleCount: int = Field(default=0)
+    insufficientData: bool = Field(default=False)
+    baselineSource: str | None = None
 
 
 class RecommendationResponse(BaseModel):
@@ -90,6 +94,7 @@ def get_recommendations(request: RecommendationRequest) -> RecommendationRespons
             longitude=c.longitude,
             price_for_duration=c.priceForDuration,
             held_quota=c.heldQuota,
+            held_quota_known=c.heldQuotaKnown,
             snapshots=[
                 AvailabilitySnapshot(
                     lot_id=s.lotId,
@@ -124,6 +129,9 @@ def get_recommendations(request: RecommendationRequest) -> RecommendationRespons
                 price=item.price,
                 warningHighFullRisk=item.warning_high_full_risk,
                 reasons=item.reasons,
+                sampleCount=item.sample_count,
+                insufficientData=item.insufficient_data,
+                baselineSource=item.baseline_source,
             )
             for item in result.recommended_lots
         ],

@@ -15,6 +15,7 @@ public sealed record CandidateLotInputDto(
     [property: JsonPropertyName("longitude")] double Longitude,
     [property: JsonPropertyName("priceForDuration")] double PriceForDuration,
     [property: JsonPropertyName("heldQuota")] int HeldQuota,
+    [property: JsonPropertyName("heldQuotaKnown")] bool HeldQuotaKnown,
     [property: JsonPropertyName("snapshots")] IReadOnlyList<CandidateSnapshotInputDto> Snapshots);
 
 public sealed record RecommendationClientRequest(
@@ -30,10 +31,13 @@ public sealed record RecommendedLotItemDto(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("rank")] int Rank,
     [property: JsonPropertyName("driveTimeMinutes")] double? DriveTimeMinutes,
-    [property: JsonPropertyName("probabilityPercent")] double ProbabilityPercent,
+    [property: JsonPropertyName("probabilityPercent")] double? ProbabilityPercent,
     [property: JsonPropertyName("price")] double Price,
     [property: JsonPropertyName("warningHighFullRisk")] bool WarningHighFullRisk,
-    [property: JsonPropertyName("reasons")] IReadOnlyList<string> Reasons);
+    [property: JsonPropertyName("reasons")] IReadOnlyList<string> Reasons,
+    [property: JsonPropertyName("sampleCount")] int SampleCount = 0,
+    [property: JsonPropertyName("insufficientData")] bool InsufficientData = false,
+    [property: JsonPropertyName("baselineSource")] string? BaselineSource = null);
 
 public sealed record RecommendationClientResponse(
     [property: JsonPropertyName("recommendedLots")] IReadOnlyList<RecommendedLotItemDto> RecommendedLots,

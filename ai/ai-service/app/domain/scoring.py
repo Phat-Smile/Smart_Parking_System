@@ -30,6 +30,9 @@ class CandidateScoreInput:
     drive_time_minutes: float | None
     probability_percent: float
     price: float
+    sample_count: int = 0
+    insufficient_data: bool = False
+    baseline_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,9 @@ class ScoredLot:
     score: float
     warning_high_full_risk: bool
     reasons: list[str] = field(default_factory=list)
+    sample_count: int = 0
+    insufficient_data: bool = False
+    baseline_source: str | None = None
 
 
 def _min_max_scale_higher_is_better(value: float, min_val: float, max_val: float) -> float:
@@ -171,6 +177,9 @@ def rank_candidate_lots(
             score=item["final_score"],
             warning_high_full_risk=item["is_risky"],
             reasons=reasons,
+            sample_count=c.sample_count,
+            insufficient_data=c.insufficient_data,
+            baseline_source=c.baseline_source,
         ))
 
     return result
