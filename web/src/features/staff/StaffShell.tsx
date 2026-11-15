@@ -328,19 +328,32 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                             </div>
                         )}
 
-                        <div className="staff-barrier-status">
+                        <div
+                            className="staff-barrier-status"
+                            role="group"
+                            aria-label="Cổng barrier"
+                        >
                             <span
                                 className="staff-barrier-badge green"
+                                aria-label="Cổng vào IN 01"
                                 title="Barrier In 01 Ready"
                             >
-                                <span className="staff-pulse-dot green" /> IN 01
+                                <span
+                                    className="staff-pulse-dot green"
+                                    aria-hidden="true"
+                                />{" "}
+                                IN 01
                             </span>
                             <span
                                 className="staff-barrier-badge green"
+                                aria-label="Cổng ra OUT 02"
                                 title="Barrier Out 02 Ready"
                             >
-                                <span className="staff-pulse-dot green" /> OUT
-                                02
+                                <span
+                                    className="staff-pulse-dot green"
+                                    aria-hidden="true"
+                                />{" "}
+                                OUT 02
                             </span>
                         </div>
 
