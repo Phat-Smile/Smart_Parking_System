@@ -17,6 +17,8 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Payment.Application.Common.Constants;
+using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Domain.Entities;
 using ParkingSystem.Payment.Application.Features.AuditLogs.Queries.GetAuditLogs;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.ConfirmCashParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingSessionFee;
@@ -350,16 +352,20 @@ public sealed class PaymentProblemDetailsHttpTests
         builder.WebHost.UseTestServer();
         builder.AddParkingSystemWebFoundation();
         builder.Services.AddPaymentAuthorization();
+        builder.Services.AddPaymentRateLimiting();
         builder.Services.AddAuthentication(HeaderAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderAuthenticationHandler>(HeaderAuthenticationHandler.SchemeName, null);
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
         builder.Services.AddSingleton<ISender>(sender);
+        builder.Services.AddSingleton<IVnpayPaymentGateway>(new FakeVnpayGateway());
+        builder.Services.AddSingleton<IParkingFeePaymentRepository>(new FakePaymentRepository());
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseRateLimiter();
         app.MapWalletEndpoints();
         app.MapParkingFeeEndpoints();
         app.MapAuditLogEndpoints();
@@ -434,5 +440,33 @@ public sealed class PaymentProblemDetailsHttpTests
 
         public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class FakeVnpayGateway : IVnpayPaymentGateway
+    {
+        public string BuildPaymentUrl(
+            string txnRef,
+            long amountVnd,
+            string orderInfo,
+            DateTimeOffset createdAtUtc,
+            DateTimeOffset expiresAtUtc,
+            string clientIp,
+            string? returnUrl = null) => "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?mock=true";
+
+        public bool VerifyIpnSignature(IReadOnlyDictionary<string, string> queryParameters) => true;
+    }
+
+    private sealed class FakePaymentRepository : IParkingFeePaymentRepository
+    {
+        public Task<bool> HasSucceededPaymentAsync(Guid sessionId, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> ExistsForSessionAsync(Guid sessionId, CancellationToken ct) => Task.FromResult(false);
+        public Task<ParkingFeePayment?> GetPendingBySessionIdAsync(Guid sessionId, CancellationToken ct) => Task.FromResult<ParkingFeePayment?>(null);
+        public Task CreateOrReplacePendingAsync(ParkingFeePayment newPayment, CancellationToken ct) => Task.CompletedTask;
+        public Task<ParkingFeePayment?> GetByTxnRefAsync(string txnRef, CancellationToken ct) => Task.FromResult<ParkingFeePayment?>(null);
+        public Task ReloadAsync(ParkingFeePayment payment, CancellationToken ct) => Task.CompletedTask;
+        public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
+        public Task AddAsync(ParkingFeePayment payment, CancellationToken ct) => Task.CompletedTask;
+        public Task<ParkingFeePayment?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult<ParkingFeePayment?>(null);
+        public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct) => Task.FromResult<ParkingFeePayment?>(null);
     }
 }

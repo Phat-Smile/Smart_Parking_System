@@ -459,7 +459,7 @@ internal static class ParkingFeeEndpoints
         // Xác thực chữ ký phản hồi VNPay cho thanh toán phí đỗ xe
         app.MapGet("/api/payment/parking-sessions/vnpay-return-verify", (
                 HttpRequest request,
-                IVnpayPaymentGateway vnpayGateway) =>
+                [FromServices] IVnpayPaymentGateway vnpayGateway) =>
             {
                 var queryParams = request.Query.ToDictionary(k => k.Key, v => v.Value.ToString());
                 var isValid = vnpayGateway.VerifyIpnSignature(queryParams);
@@ -483,17 +483,19 @@ internal static class ParkingFeeEndpoints
                 });
             })
             .AllowAnonymous()
+            .RequireRateLimiting(PaymentRateLimiting.PolicyName)
             .WithTags("Thanh toán phí đỗ (Parking Fee)")
             .WithName("VerifyParkingFeeVnPayReturn")
             .WithSummary("Xác thực chữ ký phản hồi VNPay cho thanh toán phí đỗ xe")
             .WithDescription("Xác thực chữ ký số HMAC-SHA512 từ phản hồi của VNPay.")
             .Produces(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         // Tra cứu công khai trạng thái giao dịch thanh toán phí đỗ xe theo mã VNPay
         app.MapGet("/api/payment/parking-sessions/public-status", async (
                 [FromQuery] string? txnRef,
-                IParkingFeePaymentRepository paymentRepository,
+                [FromServices] IParkingFeePaymentRepository paymentRepository,
                 CancellationToken cancellationToken) =>
             {
                 if (string.IsNullOrWhiteSpace(txnRef))
@@ -520,11 +522,13 @@ internal static class ParkingFeeEndpoints
                 return Results.Ok(new { status = "Pending" });
             })
             .AllowAnonymous()
+            .RequireRateLimiting(PaymentRateLimiting.PolicyName)
             .WithTags("Thanh toán phí đỗ (Parking Fee)")
             .WithName("GetPublicParkingFeePaymentStatus")
             .WithSummary("Tra cứu công khai trạng thái giao dịch VNPay phí đỗ xe")
             .WithDescription("Tra cứu trạng thái hoá đơn thanh toán mà không tiết lộ thông tin cá nhân hay biển số xe.")
-            .Produces(StatusCodes.Status200OK);
+            .Produces(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         return app;
     }
