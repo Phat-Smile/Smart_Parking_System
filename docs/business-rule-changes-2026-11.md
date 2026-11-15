@@ -48,6 +48,13 @@ Tài liệu này ghi lại các điều chỉnh luật nghiệp vụ cho hệ th
    - Bấm nút sẽ mở modal chuyên biệt yêu cầu nhập lý do bắt buộc (tối đa 500 ký tự, đếm ký tự thực tế, vô hiệu hóa nút xác nhận khi lý do để trống).
    - Xác nhận gia hạn thành công sẽ hiển thị thông báo phản hồi trực quan và cập nhật trạng thái phiên tức thì.
 
+3. **Gia cố Bảo Mật & Phòng Chống Lỗ Hổng Xuất Bãi Miễn Phí (ExitArrivedAt Security Hardening - Tin 121)**:
+   - **Chỉ ghi nhận khi đủ điều kiện**: `RecordExitArrival(arrivedAt)` chỉ cho phép ghi nhận khi phiên ở trạng thái `Paid` và thời điểm tới cổng vẫn nằm trong hạn xuất bãi (`!IsExitWindowOver(arrivedAt)`). Nghiêm cấm ghi nhận khi phiên chưa thanh toán (`Active`) hoặc đã quá hạn.
+   - **Xóa sạch mốc tới cổng và gia hạn khi đổi chu kỳ thanh toán**: Khi phiên bị thu hồi về `Active` (`ReopenAfterExitWindow()`) do quá hạn, hoặc khi khách thanh toán phụ thu mới (`MarkPaid(paidAt)`), toàn bộ các trường `ExitArrivedAt`, `HasExitWindowExtension`, `ExitWindowExtendedAt`, `ExitWindowExtensionReason` bắt buộc được xóa sạch về `null`/`false`. Điều này triệt tiêu hoàn toàn **Exploit 2 (Lỗ hổng hiệu số âm / Đỗ xe miễn phí vĩnh viễn)**.
+   - **Giới hạn thời gian nán lại cổng (Gate Lingering Threshold - 15 phút)**: Mốc `ExitArrivedAt` chỉ có hiệu lực bảo vệ quyền ưu tiên xuất bãi nếu thời điểm hoàn tất xuất bãi thực tế diễn ra trong vòng $\le 15$ phút kể từ lúc tới cổng (`exitTime - ExitArrivedAt <= 15 phút`). Nếu xe nán lại cổng hoặc quay đầu xe vào lại bãi đỗ $> 15$ phút, mốc tới cổng bị coi là hết hạn/stale và phiên bị tính quá hạn/bắt buộc thu hồi về `Active` để thu phụ thu. Điều này triệt tiêu hoàn toàn **Exploit 1 (Lingering / Turnaround Exploit)**.
+   - **Cung cấp endpoint chuyên biệt cho thiết bị cổng**: Bổ sung endpoint `POST /api/parking/sessions/{sessionId}/exit-arrival` hỗ trợ camera ANPR hoặc máy quét vé QR tại cổng tự động chốt mốc tới cổng ngay khi xe dừng trước barie.
+
 ### 2.3. Lý do thay đổi
 - Khắc phục bất cập thực tế: Khách hàng đã thanh toán và đã di chuyển tới cổng ra đúng hạn, nhưng vì bãi xe đông đúc, xếp hàng dài hoặc barrier gặp sự cố mà bị phạt tính thêm tiền oan uổng.
 - Trao quyền xử lý linh hoạt cho nhân viên trực bãi khi có sự cố bất khả kháng, đồng thời duy trì kỷ luật kiểm toán nghiêm ngặt thông qua ghi nhận lý do bắt buộc và nhật ký `IAuditLog`.
+- Triệt tiêu hoàn toàn các lỗ hổng gian lận tài chính, đảm bảo tính bất biến BR-11.c: không bao giờ mở rào chắn cho xe còn nợ phí đỗ hoặc cố tình nán lại bãi xe.

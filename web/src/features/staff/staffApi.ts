@@ -684,6 +684,26 @@ export interface ExtendExitWindowResponse {
     newExitWindowEndsAt: string;
 }
 
+export interface RecordedExitArrivalResponse {
+    sessionId: string;
+    exitArrivedAt: string;
+}
+
+/**
+ * 100% Real API: Ghi nhận thời điểm xe tới cổng xuất bãi
+ * Endpoint: POST /api/parking/sessions/{id}/exit-arrival
+ */
+export async function recordExitArrival(
+    sessionId: string,
+): Promise<RecordedExitArrivalResponse> {
+    return await gatewayFetch<RecordedExitArrivalResponse>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}/exit-arrival`,
+        {
+            method: "POST",
+        },
+    );
+}
+
 /**
  * 100% Real API: Gia hạn 15 phút thời gian rời bãi cho phiên đỗ xe đã thanh toán
  * Endpoint: POST /api/parking/sessions/{id}/extend-exit-window

@@ -17,6 +17,10 @@ public sealed class ParkingSession
     // BR-09.d: after paying, the vehicle has 15 minutes to reach the exit gate.
     public static readonly TimeSpan ExitWindow = TimeSpan.FromMinutes(15);
 
+    // Q-EXIT-WINDOW: Maximum time allowed between arriving at the gate and completing the barrier exit (15 minutes).
+    // Lingering at the exit or turning around back into the lot voids the recorded arrival.
+    public static readonly TimeSpan MaxGateDepartureWindow = TimeSpan.FromMinutes(15);
+
     // Statuses that still hold the plate in the lot (BR-11.a).
     public static readonly IReadOnlyList<ParkingSessionStatus> OpenStatuses =
         [ParkingSessionStatus.Active, ParkingSessionStatus.Paid];
@@ -134,10 +138,18 @@ public sealed class ParkingSession
 
     /// <summary>
     /// Q-EXIT-WINDOW: records the moment the vehicle reaches the exit gate (camera reading or QR scan).
+    /// Only allowed if the session is Paid and the exit window has not expired.
+    /// Returns false if already recorded or not eligible.
     /// </summary>
     public bool RecordExitArrival(DateTimeOffset arrivedAt)
     {
+        if (Status != ParkingSessionStatus.Paid)
+            return false;
+
         if (ExitArrivedAt is not null)
+            return false;
+
+        if (IsExitWindowOver(arrivedAt))
             return false;
 
         ExitArrivedAt = arrivedAt;
@@ -164,6 +176,7 @@ public sealed class ParkingSession
     /// <summary>
     /// US-PAY-006 (MF-12 step 83): Payment reported the amount due as paid, so the 15-minute exit window starts at
     /// <paramref name="paidAt"/>. Only an Active session can be paid.
+    /// Resets any previously recorded exit arrival and extension to start a fresh cycle.
     /// </summary>
     /// <returns>False when the session is not Active.</returns>
     public bool MarkPaid(DateTimeOffset paidAt)
@@ -173,26 +186,47 @@ public sealed class ParkingSession
 
         Status = ParkingSessionStatus.Paid;
         LastPaidAt = paidAt;
+        ExitArrivedAt = null;
+        HasExitWindowExtension = false;
+        ExitWindowExtendedAt = null;
+        ExitWindowExtensionReason = null;
         return true;
     }
 
     /// <summary>
     /// BR-09.d & Q-EXIT-WINDOW: arrival within T + 15:00 (or extended window) is in time.
     /// Uses ExitArrivedAt if recorded; otherwise the provided arrival timestamp.
+    /// If ExitArrivedAt is recorded, elapsed time between arrivedAt and ExitArrivedAt cannot exceed 15 minutes
+    /// (lingering at the gate or returning to the lot invalidates the arrival and is treated as overstay).
     /// </summary>
     public bool IsExitWindowOver(DateTimeOffset arrivedAt)
     {
-        var effectiveArrival = ExitArrivedAt ?? arrivedAt;
         if (LastPaidAt is not { } paidAt)
             return false;
 
         var allowedWindow = ExitWindow + (HasExitWindowExtension ? ExitWindow : TimeSpan.Zero);
-        return effectiveArrival - paidAt >= allowedWindow + TimeSpan.FromSeconds(1);
+
+        if (ExitArrivedAt is { } exitArrival)
+        {
+            // Defense-in-depth: If exitArrival predates the last payment, it belongs to an old payment cycle
+            if (exitArrival < paidAt)
+                return true;
+
+            // If the vehicle lingered at the exit or returned to the lot (> 15 minutes after arrival),
+            // the recorded arrival is stale/expired and the vehicle must pay overstay.
+            if (arrivedAt - exitArrival > MaxGateDepartureWindow)
+                return true;
+
+            return exitArrival - paidAt >= allowedWindow + TimeSpan.FromSeconds(1);
+        }
+
+        return arrivedAt - paidAt >= allowedWindow + TimeSpan.FromSeconds(1);
     }
 
     /// <summary>
     /// BR-09.d: the vehicle reached the gate after the exit window, so the session goes back to Active until the extra
     /// fee is paid. <see cref="LastPaidAt"/> stays: the extra fee is counted from it.
+    /// Resets exit arrival and extension so old timestamps cannot be exploited.
     /// </summary>
     /// <returns>False when the session is not Paid.</returns>
     public bool ReopenAfterExitWindow()
@@ -201,17 +235,25 @@ public sealed class ParkingSession
             return false;
 
         Status = ParkingSessionStatus.Active;
+        ExitArrivedAt = null;
+        HasExitWindowExtension = false;
+        ExitWindowExtendedAt = null;
+        ExitWindowExtensionReason = null;
         return true;
     }
 
     /// <summary>
     /// BR-11.e: the vehicle left. The QR is invalid for good because only open sessions match a QR. Only a Paid session
     /// can complete: the system has no debt (BR-11.c).
+    /// If ExitArrivedAt is recorded, verifies departure timed within 15 minutes of arrival at gate.
     /// </summary>
-    /// <returns>False when the session is not Paid.</returns>
+    /// <returns>False when the session is not Paid or departure timed out.</returns>
     public bool Complete(DateTimeOffset exitTime)
     {
         if (Status != ParkingSessionStatus.Paid)
+            return false;
+
+        if (ExitArrivedAt is { } exitArrival && exitTime - exitArrival > MaxGateDepartureWindow)
             return false;
 
         Status = ParkingSessionStatus.Completed;

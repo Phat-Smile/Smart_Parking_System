@@ -15,6 +15,7 @@ using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.ListMyParkingSessionHistory;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.ReissueParkingSessionQr;
+using ParkingSystem.Parking.Application.ParkingSessions.RecordExitArrival;
 using ParkingSystem.Parking.Application.ParkingSessions.VerifyParkingSessionExit;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.WebAPI.Security;
@@ -407,6 +408,39 @@ internal static class ParkingSessionEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        // Q-EXIT-WINDOW (BR-09.d): Gate camera or QR scanner records vehicle arrival at exit gate.
+        app.MapPost($"{Route}/{{sessionId:guid}}/exit-arrival", async (
+                Guid sessionId,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                var result = await sender.Send(new RecordExitArrivalCommand(sessionId, actorUserId), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == RecordExitArrivalErrors.SessionNotFound
+                    ? StatusCodes.Status404NotFound
+                    : result.Error == ParkingLotAccessErrors.AccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : StatusCodes.Status409Conflict;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("RecordExitArrival")
+            .WithSummary("Record the vehicle arrival at the exit gate for a Paid session")
+            .Produces<RecordedExitArrival>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         return app;
     }

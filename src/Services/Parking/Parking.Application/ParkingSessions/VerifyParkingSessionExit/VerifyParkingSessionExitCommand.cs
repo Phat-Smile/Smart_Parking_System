@@ -61,6 +61,10 @@ public sealed class VerifyParkingSessionExitCommandHandler(
         var now = clock.UtcNow;
         session.RecordExitArrival(now);
         var canExit = ExitEligibility.CanExit(session, plateMatches: true, qrMatches: true, now);
+        if (!canExit && session.Status == ParkingSessionStatus.Paid && session.IsExitWindowOver(now))
+        {
+            session.ReopenAfterExitWindow();
+        }
 
         auditLog.Record(new AuditEntry(
             AuditActions.SessionExitManuallyVerified,
