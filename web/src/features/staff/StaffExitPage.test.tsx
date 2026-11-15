@@ -18,6 +18,7 @@ const { mockState, apiMocks } = vi.hoisted(() => ({
         manualVerifyExit: vi.fn(),
         reissueParkingSessionQr: vi.fn(),
         extendExitWindow: vi.fn(),
+        recordExitArrival: vi.fn(),
     },
 }));
 
@@ -82,6 +83,7 @@ vi.mock("./staffApi", async (importOriginal) => {
         manualVerifyExit: apiMocks.manualVerifyExit,
         reissueParkingSessionQr: apiMocks.reissueParkingSessionQr,
         extendExitWindow: apiMocks.extendExitWindow,
+        recordExitArrival: apiMocks.recordExitArrival,
     };
 });
 
@@ -125,6 +127,10 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         vi.clearAllMocks();
         mockState.language = "vi";
         apiMocks.findSessionByQr.mockResolvedValue(unpaidSession());
+        apiMocks.recordExitArrival.mockResolvedValue({
+            sessionId: SESSION_ID,
+            exitArrivedAt: "2026-11-12T02:00:00Z",
+        });
     });
 
     it("the exit button stays disabled while the session is unpaid", async () => {
@@ -633,5 +639,31 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
                 screen.getByText(/Đã gia hạn thêm 15 phút xuất bãi thành công/i),
             ).toBeInTheDocument(),
         );
+    });
+
+    it("calls recordExitArrival with sessionId upon successful QR verification", async () => {
+        render(<StaffExitPage />);
+        await scanQr();
+
+        await waitFor(() => {
+            expect(apiMocks.recordExitArrival).toHaveBeenCalledWith(SESSION_ID);
+        });
+    });
+
+    it("does not block QR verification flow when recordExitArrival fails", async () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        apiMocks.recordExitArrival.mockRejectedValueOnce(new Error("Network timeout"));
+
+        render(<StaffExitPage />);
+        await scanQr();
+
+        await waitFor(() => {
+            expect(apiMocks.recordExitArrival).toHaveBeenCalledWith(SESSION_ID);
+        });
+
+        // Phiên vẫn được hiển thị thành công và không bị gián đoạn
+        expect(screen.getAllByText("51B-999.88").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText(translations.vi.exitAuthorizeBtn)).toBeInTheDocument();
+        warnSpy.mockRestore();
     });
 });

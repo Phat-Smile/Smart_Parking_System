@@ -41,6 +41,7 @@ import {
     getParkingSessionFee,
     manualVerifyExit,
     payParkingSessionCash,
+    recordExitArrival,
     reissueParkingSessionQr,
 } from "./staffApi";
 import { useStaffData } from "./staffData";
@@ -208,6 +209,9 @@ export function StaffExitPage() {
             // Call real endpoint GET /api/parking/sessions/by-qr/{qrToken}
             const queryToken = (token || qrInput || "").trim();
             const res: SessionByQrResponse = await findSessionByQr(queryToken);
+            recordExitArrival(res.sessionId).catch((err) => {
+                console.warn("Failed to record exit arrival:", err);
+            });
             const isPaid = res.status === "Paid" || res.amountDueVnd === 0;
             const scanned: StaffSession = {
                 id: res.sessionId,
