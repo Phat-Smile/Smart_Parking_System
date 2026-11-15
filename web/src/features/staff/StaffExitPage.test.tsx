@@ -463,11 +463,17 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
             ),
         );
 
-        // Bấm nút "Cấp lại vé QR"
+        // Bấm nút "Cấp lại vé QR" mở modal
         const reissueBtn = await screen.findByRole("button", {
             name: /Cấp lại vé QR/i,
         });
         fireEvent.click(reissueBtn);
+
+        // Xác nhận trong modal V6-UI
+        const confirmReissueBtn = await screen.findByRole("button", {
+            name: /Xác nhận & Cấp vé/i,
+        });
+        fireEvent.click(confirmReissueBtn);
 
         await waitFor(() =>
             expect(apiMocks.reissueParkingSessionQr).toHaveBeenCalledWith(
@@ -490,5 +496,66 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
 
         // /complete tuyệt đối không được gọi
         expect(apiMocks.completeParkingSession).not.toHaveBeenCalled();
+    });
+
+    it("V6-UI: reissue modal allows custom mandatory reason and enforces character limit", async () => {
+        apiMocks.findOpenSessionByPlate.mockResolvedValue({
+            sessionId: "ses-plate-reissue-custom",
+            lotId: "lot-1",
+            plateNumber: "51F-999.88",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Paid",
+            entryTime: "2026-11-14T08:00:00Z",
+            qrToken: "qr-old-lost",
+        });
+        apiMocks.getParkingSessionFee.mockResolvedValue({
+            sessionId: "ses-plate-reissue-custom",
+            totalFee: 30000,
+            amountDue: 0,
+        });
+        apiMocks.reissueParkingSessionQr.mockResolvedValue({
+            sessionId: "ses-plate-reissue-custom",
+            qrToken: "qr-custom-reissued-token",
+            issuedAt: "2026-11-14T10:00:00Z",
+        });
+
+        render(<StaffExitPage />);
+        enterGatePlate("51F-999.88");
+
+        const lookupBtn = screen.getByRole("button", {
+            name: /Tra cứu mất vé/i,
+        });
+        fireEvent.click(lookupBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.findOpenSessionByPlate).toHaveBeenCalledWith(
+                "lot-1",
+                "51F-999.88",
+            ),
+        );
+
+        const reissueBtn = await screen.findByRole("button", { name: /Cấp lại vé QR/i });
+        fireEvent.click(reissueBtn);
+
+        const reasonInput = screen.getByLabelText(/Lý do cấp lại vé/i) as HTMLTextAreaElement;
+        expect(reasonInput).toBeInTheDocument();
+
+        // Clear reason -> button should be disabled
+        fireEvent.change(reasonInput, { target: { value: "   " } });
+        const confirmBtn = screen.getByRole("button", { name: /Xác nhận & Cấp vé/i });
+        expect(confirmBtn).toBeDisabled();
+
+        // Enter valid reason
+        fireEvent.change(reasonInput, { target: { value: "Mã QR của khách bị ướt mưa không quét được" } });
+        expect(confirmBtn).not.toBeDisabled();
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.reissueParkingSessionQr).toHaveBeenCalledWith(
+                "ses-plate-reissue-custom",
+                "Mã QR của khách bị ướt mưa không quét được",
+            ),
+        );
     });
 });
