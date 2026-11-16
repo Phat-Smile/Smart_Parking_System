@@ -114,6 +114,24 @@ public class GetParkingFeeReceiptQueryHandlerTests
             exitWindowExpiresUtc: _paymentTime.AddMinutes(15));
     }
 
+    private ParkingFeePayment CreateWalkInPayment(
+        long totalFee = 30000,
+        long prepaidAmount = 0,
+        long amountPaid = 30000)
+    {
+        return ParkingFeePayment.CreateCashPayment(
+            sessionId: _sessionId,
+            parkingLotId: _lotId,
+            accountId: null,
+            plateNumber: "51A-999.88",
+            vehicleType: "Car",
+            totalFee: totalFee,
+            prepaidAmount: prepaidAmount,
+            amountPaid: amountPaid,
+            paymentTimeUtc: _paymentTime,
+            exitWindowExpiresUtc: _paymentTime.AddMinutes(15));
+    }
+
     [Fact]
     public async Task Handle_EmptyIdentifier_ReturnsTransactionIdInvalidError()
     {
@@ -203,7 +221,7 @@ public class GetParkingFeeReceiptQueryHandlerTests
     [Fact]
     public async Task Handle_CallerWithoutAccountId_IsDenied()
     {
-        // Before: a missing caller id skipped the ownership check.
+        // When payment is linked to an account, a missing caller id is denied access.
         var payment = CreateTestPayment();
         _paymentRepo.Seed(payment);
 
@@ -214,6 +232,37 @@ public class GetParkingFeeReceiptQueryHandlerTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PayParkingFeeErrors.SessionAccessDenied.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Handle_AnonymousWalkInPayment_AllowsAccessWithoutAccountId()
+    {
+        var payment = CreateWalkInPayment();
+        _paymentRepo.Seed(payment);
+
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
+        var query = new GetParkingFeeReceiptQuery(_sessionId, null, string.Empty);
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(payment.Id, result.Value!.PaymentId);
+        Assert.Null(result.Value!.AccountId);
+    }
+
+    [Fact]
+    public async Task Handle_AnonymousWalkInPayment_AllowsAccessWithAnyCallerAccountId()
+    {
+        var payment = CreateWalkInPayment();
+        _paymentRepo.Seed(payment);
+
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
+        var query = new GetParkingFeeReceiptQuery(_sessionId, _otherAccountId, "Customer");
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(payment.Id, result.Value!.PaymentId);
     }
 
     [Fact]
