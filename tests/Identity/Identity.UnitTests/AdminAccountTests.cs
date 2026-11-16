@@ -21,7 +21,7 @@ public sealed class SuspendAccountTests
         var sessionRepo = new FakeSessionRepo(userId);
         var accountRepo = new FakeAccountRepo(account);
 
-        var handler = new SuspendAccountCommandHandler(accountRepo, sessionRepo, new FixedClock(Now));
+        var handler = new SuspendAccountCommandHandler(accountRepo, sessionRepo, new FixedClock(Now), new FakeIdentityAuditLog());
         var result = await handler.Handle(new SuspendAccountCommand(adminId, userId), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -36,7 +36,8 @@ public sealed class SuspendAccountTests
         var handler = new SuspendAccountCommandHandler(
             new FakeAccountRepo(null),
             new FakeSessionRepo(adminId),
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new FakeIdentityAuditLog());
 
         var result = await handler.Handle(new SuspendAccountCommand(adminId, adminId), CancellationToken.None);
 
@@ -56,7 +57,8 @@ public sealed class SuspendAccountTests
         var handler = new SuspendAccountCommandHandler(
             new FakeAccountRepo(targetAdmin),
             new FakeSessionRepo(targetId),
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new FakeIdentityAuditLog());
 
         var result = await handler.Handle(new SuspendAccountCommand(adminId, targetId), CancellationToken.None);
 
@@ -70,7 +72,8 @@ public sealed class SuspendAccountTests
         var handler = new SuspendAccountCommandHandler(
             new FakeAccountRepo(null),
             new FakeSessionRepo(Guid.NewGuid()),
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new FakeIdentityAuditLog());
 
         var result = await handler.Handle(new SuspendAccountCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
@@ -126,7 +129,7 @@ public sealed class ActivateAccountTests
         account.VerifyEmail();
         account.Suspend();
 
-        var handler = new ActivateAccountCommandHandler(new FakeAccountRepo(account));
+        var handler = new ActivateAccountCommandHandler(new FakeAccountRepo(account), new FakeIdentityAuditLog());
         var result = await handler.Handle(new ActivateAccountCommand(userId), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -136,7 +139,7 @@ public sealed class ActivateAccountTests
     [Fact]
     public async Task Returns_not_found_when_account_does_not_exist()
     {
-        var handler = new ActivateAccountCommandHandler(new FakeAccountRepo(null));
+        var handler = new ActivateAccountCommandHandler(new FakeAccountRepo(null), new FakeIdentityAuditLog());
         var result = await handler.Handle(new ActivateAccountCommand(Guid.NewGuid()), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -150,7 +153,7 @@ public sealed class ActivateAccountTests
         var account = Account.Register(userId, "user@test.com", "hash", null, Now);
         account.VerifyEmail();
 
-        var handler = new ActivateAccountCommandHandler(new FakeAccountRepo(account));
+        var handler = new ActivateAccountCommandHandler(new FakeAccountRepo(account), new FakeIdentityAuditLog());
         var result = await handler.Handle(new ActivateAccountCommand(userId), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -179,7 +182,7 @@ public sealed class UnlockAccountCommandHandlerTests
     [Fact]
     public async Task Returns_not_found_when_account_does_not_exist()
     {
-        var handler = new UnlockAccountCommandHandler(new FakeAccountRepo(null), new FixedClock(Now));
+        var handler = new UnlockAccountCommandHandler(new FakeAccountRepo(null), new FixedClock(Now), new FakeIdentityAuditLog());
         var result = await handler.Handle(new UnlockAccountCommand(Guid.NewGuid()), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -198,7 +201,7 @@ public sealed class UnlockAccountCommandHandlerTests
         account.RecordFailedLogin(Now.AddMinutes(-1));
         Assert.True(account.IsLockedOut(Now));
 
-        var handler = new UnlockAccountCommandHandler(new FakeAccountRepo(account), new FixedClock(Now));
+        var handler = new UnlockAccountCommandHandler(new FakeAccountRepo(account), new FixedClock(Now), new FakeIdentityAuditLog());
         var result = await handler.Handle(new UnlockAccountCommand(userId), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -214,7 +217,7 @@ public sealed class UnlockAccountCommandHandlerTests
         var account = Account.Register(userId, "user@test.com", "hash", null, Now);
         account.VerifyEmail();
 
-        var handler = new UnlockAccountCommandHandler(new FakeAccountRepo(account), new FixedClock(Now));
+        var handler = new UnlockAccountCommandHandler(new FakeAccountRepo(account), new FixedClock(Now), new FakeIdentityAuditLog());
         var result = await handler.Handle(new UnlockAccountCommand(userId), CancellationToken.None);
 
         Assert.True(result.IsSuccess);

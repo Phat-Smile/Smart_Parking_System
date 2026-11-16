@@ -2,11 +2,12 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
+using ParkingSystem.Identity.Application.Common.Auditing;
 using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.Admin.SuspendAccount;
 
-public sealed record SuspendAccountCommand(Guid AdminId, Guid AccountId) : IRequest<Result<SuspendedAccount>>;
+public sealed record SuspendAccountCommand(Guid AdminId, Guid AccountId, string? IpAddress = null) : IRequest<Result<SuspendedAccount>>;
 
 public sealed record SuspendedAccount(Guid AccountId, string Status, string Message);
 
@@ -28,7 +29,8 @@ public static class SuspendAccountErrors
 public sealed class SuspendAccountCommandHandler(
     IAccountRepository accounts,
     IAuthSessionRepository authSessions,
-    IClock clock) : IRequestHandler<SuspendAccountCommand, Result<SuspendedAccount>>
+    IClock clock,
+    IIdentityAuditLog auditLog) : IRequestHandler<SuspendAccountCommand, Result<SuspendedAccount>>
 {
     public async Task<Result<SuspendedAccount>> Handle(SuspendAccountCommand request, CancellationToken cancellationToken)
     {
@@ -51,6 +53,17 @@ public sealed class SuspendAccountCommandHandler(
 
             account.Suspend();
             await authSessions.RevokeAllForAccountAsync(request.AccountId, now, "AccountSuspended", cancellationToken);
+
+            auditLog.Record(
+                actionType: "account.locked",
+                actorId: request.AdminId,
+                actorEmail: null,
+                actorRole: "SystemAdmin",
+                targetType: "account",
+                targetId: account.Id.ToString(),
+                reason: "Tạm đình chỉ tài khoản người dùng",
+                ipAddress: null);
+
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<SuspendedAccount>.Success(

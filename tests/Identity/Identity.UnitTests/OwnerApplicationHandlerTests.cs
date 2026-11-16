@@ -258,7 +258,7 @@ public sealed class OwnerApplicationHandlerTests
         var account = Account.Register(OwnerId, "owner@example.com", "hash", null, Now, applyAsParkingLotOwner: true);
         var accounts = new FakeAccountRepository(account);
         var outbox = new FakeOutboxWriter();
-        var handler = new RejectOwnerApplicationCommandHandler(accounts, outbox, new FixedClock(Now));
+        var handler = new RejectOwnerApplicationCommandHandler(accounts, outbox, new FixedClock(Now), new FakeIdentityAuditLog());
         var reason = "Hồ sơ chưa có giấy phép hợp lệ.";
 
         var result = await handler.Handle(new RejectOwnerApplicationCommand(AdminId, OwnerId, reason), TestContext.Current.CancellationToken);
@@ -423,7 +423,7 @@ public sealed class OwnerApplicationHandlerTests
         FakeRefreshTokenRepository refreshTokens,
         FakeOwnerDocumentRepository documents,
         FakeOutboxWriter outbox) =>
-        new(accounts, sessions, refreshTokens, documents, RealRequirements(), outbox, new FixedClock(Now));
+        new(accounts, sessions, refreshTokens, documents, RealRequirements(), outbox, new FixedClock(Now), new FakeIdentityAuditLog());
 
     private static List<string> RequiredDocumentTypes(OwnerType ownerType) =>
         RealRequirements().GetRequirements(ownerType).Where(item => item.Required).Select(item => item.DocumentType).ToList();

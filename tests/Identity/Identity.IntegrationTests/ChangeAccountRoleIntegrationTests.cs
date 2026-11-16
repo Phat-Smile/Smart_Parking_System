@@ -5,6 +5,7 @@ using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.UnlockAccount;
+using ParkingSystem.Identity.Application.Common.Auditing;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Infrastructure.Security;
 using ParkingSystem.Identity.Persistence;
@@ -126,7 +127,8 @@ public sealed class ChangeAccountRoleIntegrationTests(PostgreSqlContainerFixture
             services.GetRequiredService<IAccountRepository>(),
             services.GetRequiredService<IAuthSessionRepository>(),
             services.GetRequiredService<IRefreshTokenRepository>(),
-            new FixedClock());
+            new FixedClock(),
+            services.GetRequiredService<IIdentityAuditLog>());
         return await handler.Handle(new ChangeAccountRoleCommand(adminId, accountId, role), cancellationToken);
     }
 

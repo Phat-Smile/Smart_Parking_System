@@ -1,11 +1,12 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Identity.Application.Accounts;
+using ParkingSystem.Identity.Application.Common.Auditing;
 using ParkingSystem.Identity.Domain.Accounts;
 
 namespace ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
 
-public sealed record ActivateAccountCommand(Guid AccountId) : IRequest<Result<ActivatedAccount>>;
+public sealed record ActivateAccountCommand(Guid AccountId, Guid? AdminId = null, string? IpAddress = null) : IRequest<Result<ActivatedAccount>>;
 
 public sealed record ActivatedAccount(Guid AccountId, string Status, string Message);
 
@@ -18,7 +19,9 @@ public static class ActivateAccountErrors
         new("identity.account_not_suspended", "Tài khoản không đang bị đình chỉ.");
 }
 
-public sealed class ActivateAccountCommandHandler(IAccountRepository accounts)
+public sealed class ActivateAccountCommandHandler(
+    IAccountRepository accounts,
+    IIdentityAuditLog auditLog)
     : IRequestHandler<ActivateAccountCommand, Result<ActivatedAccount>>
 {
     public async Task<Result<ActivatedAccount>> Handle(ActivateAccountCommand request, CancellationToken cancellationToken)
@@ -33,6 +36,17 @@ public sealed class ActivateAccountCommandHandler(IAccountRepository accounts)
                 return Result<ActivatedAccount>.Failure(ActivateAccountErrors.AccountNotSuspended);
 
             account.Activate();
+
+            auditLog.Record(
+                actionType: "account.unlocked",
+                actorId: request.AdminId,
+                actorEmail: null,
+                actorRole: "SystemAdmin",
+                targetType: "account",
+                targetId: account.Id.ToString(),
+                reason: "Kích hoạt lại tài khoản người dùng",
+                ipAddress: null);
+
             await accounts.SaveChangesAsync(cancellationToken);
 
             return Result<ActivatedAccount>.Success(

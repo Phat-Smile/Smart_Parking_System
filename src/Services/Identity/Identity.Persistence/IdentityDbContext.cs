@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Identity.Domain.Accounts;
+using ParkingSystem.Identity.Domain.AuditLogs;
 using ParkingSystem.Identity.Domain.EmailVerifications;
 using ParkingSystem.Identity.Domain.Mfa;
 using ParkingSystem.Identity.Domain.Profiles;
@@ -31,6 +32,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<AccountMfa> AccountMfas => Set<AccountMfa>();
     public DbSet<MfaRecoveryCode> MfaRecoveryCodes => Set<MfaRecoveryCode>();
     public DbSet<MfaChallenge> MfaChallenges => Set<MfaChallenge>();
+
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

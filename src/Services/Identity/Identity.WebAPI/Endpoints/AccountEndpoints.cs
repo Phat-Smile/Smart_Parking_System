@@ -810,10 +810,13 @@ internal static class AccountEndpoints
         app.MapPost("/api/identity/admin/accounts/{accountId:guid}/unlock", async (
                 Guid accountId,
                 HttpContext httpContext,
+                ICurrentUser currentUser,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var result = await sender.Send(new UnlockAccountCommand(accountId), cancellationToken);
+                Guid.TryParse(currentUser.SubjectId, out var adminId);
+                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await sender.Send(new UnlockAccountCommand(accountId, adminId == Guid.Empty ? null : adminId, ipAddress), cancellationToken);
                 return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
             })
             .RequireAuthorization(IdentityAuthorization.AdminPolicy)
@@ -838,7 +841,8 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
                     return Results.Unauthorized();
 
-                var result = await sender.Send(new ChangeAccountRoleCommand(adminId, accountId, request.Role ?? string.Empty), cancellationToken);
+                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await sender.Send(new ChangeAccountRoleCommand(adminId, accountId, request.Role ?? string.Empty, ipAddress), cancellationToken);
                 return result.IsSuccess ? Results.Ok(result.Value) : AccountProblem(httpContext, result.Error!);
             })
             .RequireAuthorization(IdentityAuthorization.AdminPolicy)
@@ -976,7 +980,8 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
                     return Results.Unauthorized();
 
-                var result = await sender.Send(new SuspendAccountCommand(adminId, accountId), cancellationToken);
+                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await sender.Send(new SuspendAccountCommand(adminId, accountId, ipAddress), cancellationToken);
 
                 if (result.IsSuccess)
                     return Results.Ok(result.Value);
@@ -1007,10 +1012,14 @@ internal static class AccountEndpoints
         // US-ADMIN-003: Kích hoạt lại tài khoản đang bị đình chỉ.
         app.MapPost("/api/identity/admin/accounts/{accountId:guid}/activate", async (
                 Guid accountId,
+                HttpContext httpContext,
+                ICurrentUser currentUser,
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                var result = await sender.Send(new ActivateAccountCommand(accountId), cancellationToken);
+                Guid.TryParse(currentUser.SubjectId, out var adminId);
+                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await sender.Send(new ActivateAccountCommand(accountId, adminId == Guid.Empty ? null : adminId, ipAddress), cancellationToken);
 
                 if (result.IsSuccess)
                     return Results.Ok(result.Value);
@@ -1466,6 +1475,7 @@ internal static class AccountEndpoints
         // US-ADMIN-001: Phê duyệt hồ sơ đăng ký Chủ bãi (Dành cho Quản trị viên).
         app.MapPost("/api/identity/admin/owner-applications/{id:guid}/approve", async (
                 Guid id,
+                HttpContext httpContext,
                 ICurrentUser currentUser,
                 ISender sender,
                 CancellationToken cancellationToken) =>
@@ -1473,7 +1483,8 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
                     return Results.Unauthorized();
 
-                var result = await sender.Send(new ApproveOwnerApplicationCommand(adminId, id), cancellationToken);
+                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await sender.Send(new ApproveOwnerApplicationCommand(adminId, id, ipAddress), cancellationToken);
                 if (!result.IsSuccess)
                 {
                     var statusCode = result.Error!.Code switch
@@ -1505,6 +1516,7 @@ internal static class AccountEndpoints
         app.MapPost("/api/identity/admin/owner-applications/{id:guid}/reject", async (
                 Guid id,
                 RejectOwnerApplicationRequest request,
+                HttpContext httpContext,
                 ICurrentUser currentUser,
                 ISender sender,
                 CancellationToken cancellationToken) =>
@@ -1512,7 +1524,8 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var adminId))
                     return Results.Unauthorized();
 
-                var result = await sender.Send(new RejectOwnerApplicationCommand(adminId, id, request.Reason), cancellationToken);
+                var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await sender.Send(new RejectOwnerApplicationCommand(adminId, id, request.Reason, ipAddress), cancellationToken);
                 if (!result.IsSuccess)
                 {
                     var statusCode = result.Error!.Code switch

@@ -5,6 +5,7 @@ using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
+using ParkingSystem.Identity.Application.Common.Auditing;
 using ParkingSystem.Identity.Application.Common.Messaging.Outbox;
 using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Infrastructure;
@@ -285,7 +286,8 @@ public sealed class OwnerApplicationReviewIntegrationTests(PostgreSqlContainerFi
             services.GetRequiredService<IOwnerDocumentRepository>(),
             services.GetRequiredService<IOwnerDocumentRequirements>(),
             services.GetRequiredService<IOutboxWriter>(),
-            services.GetRequiredService<IClock>());
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<IIdentityAuditLog>());
         return await handler.Handle(new ApproveOwnerApplicationCommand(harness.AdminId, accountId), ct);
     }
 
