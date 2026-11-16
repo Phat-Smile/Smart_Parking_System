@@ -82,18 +82,31 @@ import {
     configurePricingApi,
     configureDepositPolicyApi,
     getDepositPolicyApi,
+    getLotPricingApi,
 } from "@/features/owner/api/ownerApi";
 import { ApiError } from "@/shared/errors/api-error";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 
 export default function LotPricingConfigPage() {
     const params = useParams();
-    const lotId = Number(params?.id) || 1;
+    const rawId = Array.isArray(params?.id)
+        ? params?.id[0]
+        : (params?.id ?? "");
+    const numId = Number(rawId);
 
     const lots = useOwnerStore((s) => s.lots);
-    const lot = lots.find((l) => l.id === lotId);
-    // Parking keys lots by GUID; a design lot without one cannot be saved.
-    const lotKey = backendLotId(lot);
+    const lot = lots.find(
+        (l) =>
+            (!Number.isNaN(numId) && l.id === numId) ||
+            l.backendId === rawId ||
+            String(l.id) === rawId,
+    );
+    // Parking keys lots by GUID; if rawId is already a valid UUID/GUID string, use it directly.
+    const isGuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            rawId,
+        );
+    const lotKey = lot?.backendId || (isGuid ? rawId : backendLotId(lot));
 
     // Pricing configuration state
     const [pricingType, setPricingType] = useState<"block" | "turn">("block");
@@ -112,18 +125,67 @@ export default function LotPricingConfigPage() {
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
 
-    // Load deposit policy from BE if available
+    // Load deposit policy and current pricing from BE if available
     useEffect(() => {
-        async function loadDeposit() {
+        let isMounted = true;
+        async function loadPricingAndDeposit() {
             if (!lotKey) return;
             try {
-                const res = await getDepositPolicyApi(lotKey);
-                if (res.isConfigured) setDeposit(res.holdDepositVnd);
+                const [depositRes, pricingRes] = await Promise.allSettled([
+                    getDepositPolicyApi(lotKey),
+                    getLotPricingApi(lotKey),
+                ]);
+
+                if (!isMounted) return;
+
+                if (
+                    depositRes.status === "fulfilled" &&
+                    depositRes.value.isConfigured
+                ) {
+                    setDeposit(depositRes.value.holdDepositVnd);
+                }
+
+                if (
+                    pricingRes.status === "fulfilled" &&
+                    pricingRes.value?.items
+                ) {
+                    const carPolicy = pricingRes.value.items.find(
+                        (i) => i.vehicleType.toUpperCase() === "CAR",
+                    );
+                    const motoPolicy = pricingRes.value.items.find(
+                        (i) => i.vehicleType.toUpperCase() === "MOTORBIKE",
+                    );
+
+                    if (carPolicy) {
+                        setCarHourly(carPolicy.price);
+                        setOvernightCar(carPolicy.overnightFee);
+                        if (carPolicy.billingMode === "PerEntry") {
+                            setPricingType("turn");
+                        } else {
+                            setPricingType("block");
+                            if (carPolicy.blockMinutes) {
+                                setBlockDuration(carPolicy.blockMinutes);
+                            }
+                        }
+                    }
+
+                    if (motoPolicy) {
+                        setMotoHourly(motoPolicy.price);
+                        setOvernightMoto(motoPolicy.overnightFee);
+                    }
+                }
             } catch {
-                setErrorMessage("Không tải được mức cọc hiện tại của bãi này.");
+                if (isMounted) {
+                    setErrorMessage(
+                        "Không tải được mức phí hiện tại của bãi này.",
+                    );
+                }
             }
         }
-        loadDeposit();
+        void loadPricingAndDeposit();
+        return () => {
+            isMounted = false;
+        };
     }, [lotKey]);
 
     // Calculate estimated price
@@ -210,13 +272,17 @@ export default function LotPricingConfigPage() {
             // Synchronize with local store
             useOwnerStore.setState((state) => ({
                 lots: state.lots.map((l) =>
-                    l.id === lotId
+                    (l.backendId && l.backendId === lotKey) ||
+                    (!Number.isNaN(numId) && l.id === numId) ||
+                    String(l.id) === rawId
                         ? { ...l, pc: carHourly, pm: motoHourly, dep: deposit }
                         : l,
                 ),
             }));
         }
     };
+
+    const displayId = rawId || lotKey || "1";
 
     return (
         <>
@@ -233,13 +299,13 @@ export default function LotPricingConfigPage() {
             )}
 
             <PageHeader
-                breadcrumb={`/owner/lots/${lotId}/pricing`}
+                breadcrumb={`/owner/lots/${displayId}/pricing`}
                 title={`Cấu hình bảng giá · ${lot?.name || "Bãi xe"}`}
                 subtitle="Thiết lập biểu phí theo lượt, theo block, qua đêm và kiểm tra xem trước giá tính toán"
                 actions={
                     <div style={{ display: "flex", gap: "8px" }}>
                         <Link
-                            href={`/owner/parking-lots/${lotId}`}
+                            href={`/owner/parking-lots/${lot?.id ?? rawId}`}
                             className="btn"
                         >
                             <span

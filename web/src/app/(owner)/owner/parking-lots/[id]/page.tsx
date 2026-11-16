@@ -13,7 +13,10 @@ import { AP } from "../../../../../types/owner";
 export default function ParkingLotDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const id = Number(params?.id) || 1;
+    const rawId = Array.isArray(params?.id)
+        ? params?.id[0]
+        : (params?.id ?? "");
+    const numId = Number(rawId);
 
     const lots = useOwnerStore((s) => s.lots);
     const spots = useOwnerStore((s) => s.spots);
@@ -22,7 +25,16 @@ export default function ParkingLotDetailPage() {
     const addZone = useOwnerStore((s) => s.addZone);
     const updateZoneStatus = useOwnerStore((s) => s.updateZoneStatus);
 
-    const lot = lots.find((l) => l.id === id) || lots[0];
+    const lot =
+        lots.find(
+            (l) =>
+                (!Number.isNaN(numId) && l.id === numId) ||
+                l.backendId === rawId ||
+                String(l.id) === rawId,
+        ) || lots[0];
+
+    const targetLotId =
+        lot?.backendId || rawId || (lot?.id ? String(lot.id) : "1");
 
     const [tab, setTab] = useState<
         "info" | "zones" | "types" | "price" | "policy" | "appr"
@@ -133,7 +145,7 @@ export default function ParkingLotDetailPage() {
             {toastMsg && <div className="toast">{toastMsg}</div>}
 
             <PageHeader
-                breadcrumb={`/owner/parking-lots/${id}${editing ? "/edit" : ""}`}
+                breadcrumb={`/owner/parking-lots/${targetLotId}${editing ? "/edit" : ""}`}
                 title={lot?.name || "Chi tiết bãi"}
                 subtitle={lot?.addr || ""}
                 actions={
@@ -148,7 +160,7 @@ export default function ParkingLotDetailPage() {
                             ← Danh sách
                         </Link>
                         <Link
-                            href={`/owner/lots/${lot?.backendId || id}/policies`}
+                            href={`/owner/lots/${targetLotId}/policies`}
                             className="btn"
                             style={{
                                 background: "#eef2ff",
@@ -159,13 +171,13 @@ export default function ParkingLotDetailPage() {
                             Chính sách đặt chỗ & cọc
                         </Link>
                         <Link
-                            href={`/owner/lots/${lot?.backendId || id}/pricing`}
+                            href={`/owner/lots/${targetLotId}/pricing`}
                             className="btn"
                         >
                             Biểu giá
                         </Link>
                         <Link
-                            href={`/owner/lots/${lot?.backendId || id}/staff`}
+                            href={`/owner/lots/${targetLotId}/staff`}
                             className="btn"
                             style={{
                                 background: "#f0fdfa",
@@ -708,7 +720,7 @@ export default function ParkingLotDetailPage() {
                                 </div>
                             </div>
                             <Link
-                                href={`/owner/lots/${id}/policies`}
+                                href={`/owner/lots/${targetLotId}/policies`}
                                 className="btn p"
                                 style={{
                                     whiteSpace: "nowrap",

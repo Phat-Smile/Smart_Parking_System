@@ -2,44 +2,26 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useOwnerStore } from "@/store/useOwnerStore";
-import { FLOORS, Floor } from "@/types/owner";
+import { useOwnerOccupancy } from "@/features/owner/dashboard/ownerOccupancy";
 
 export function FloorCardsV2() {
     const router = useRouter();
-    const spots = useOwnerStore((s) => s.spots);
-    const setActiveFloor = useOwnerStore((s) => s.setActiveFloor);
+    const { data } = useOwnerOccupancy();
 
-    // Compute floor occupancies from actual spots if available
-    const floorData = FLOORS.map((f, idx) => {
-        const floorSpots = spots.filter((s) => s.f === f);
-        const total = floorSpots.length || 100;
-        const occupiedOrReserved = floorSpots.filter(
-            (s) => s.s === "occupied" || s.s === "reserved",
-        ).length;
-        const available = floorSpots.filter((s) => s.s === "available").length;
+    // One card per real floor of the owner's approved lots.
+    const floorData = (data?.floors ?? []).map((floor, idx) => ({
+        key: `${idx}-${floor.name}`,
+        name: floor.name || `Tầng ${idx + 1}`,
+        pct:
+            floor.total > 0
+                ? Math.round(
+                      ((floor.occupied + floor.reserved) / floor.total) * 100,
+                  )
+                : 0,
+        emptyCount: floor.available,
+    }));
 
-        // Use actual or standard defaults from the mockup: [57%, 52%, 60%, 59%, 62%]
-        const defaultPcts = [57, 52, 60, 59, 62];
-        const defaultAvail = [27, 30, 22, 26, 22];
-
-        const pct =
-            total > 0 && floorSpots.length > 0
-                ? Math.round((occupiedOrReserved / total) * 100)
-                : defaultPcts[idx];
-        const emptyCount =
-            total > 0 && floorSpots.length > 0 ? available : defaultAvail[idx];
-
-        return {
-            floor: f,
-            name: `Tầng ${idx + 1}`,
-            pct,
-            emptyCount,
-        };
-    });
-
-    const handleFloorClick = (f: Floor) => {
-        setActiveFloor(f);
+    const handleFloorClick = () => {
         router.push("/owner/layout/2d");
     };
 
@@ -66,12 +48,12 @@ export function FloorCardsV2() {
             >
                 {floorData.map((fd) => (
                     <div
-                        key={fd.floor}
-                        onClick={() => handleFloorClick(fd.floor)}
+                        key={fd.key}
+                        onClick={handleFloorClick}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) =>
-                            e.key === "Enter" && handleFloorClick(fd.floor)
+                            e.key === "Enter" && handleFloorClick()
                         }
                         aria-label={`${fd.name}: ${fd.pct}% lấp đầy, ${fd.emptyCount} ô trống`}
                         style={{
