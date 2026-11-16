@@ -23,6 +23,13 @@ public static class ParkingFeePaymentReadAccess
             return true;
         }
 
+        // Walk-in / anonymous session payment (payment has no linked account):
+        // Allow anyone with the valid session or payment identifier to view the receipt.
+        if (payment.AccountId is null)
+        {
+            return true;
+        }
+
         if (callerAccountId is not { } accountId || accountId == Guid.Empty)
         {
             return false;
