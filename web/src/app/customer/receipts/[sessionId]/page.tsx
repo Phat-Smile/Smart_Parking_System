@@ -22,6 +22,7 @@ export default async function ReceiptRoute({ params }: ReceiptRouteProps) {
         <CustomerDataShell
             active="history"
             fontClassName={parkwiseFont.className}
+            requireAuth={false}
         >
             <CustomerReceiptPage sessionId={sessionId} />
         </CustomerDataShell>

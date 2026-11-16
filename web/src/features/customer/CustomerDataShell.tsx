@@ -9,24 +9,30 @@ export function CustomerDataShell({
     children,
     fontClassName,
     active,
+    requireAuth = true,
 }: {
     children: ReactNode;
     fontClassName: string;
     active: "bookings" | "history";
+    requireAuth?: boolean;
 }) {
     const { language } = useCustomerLanguage();
-    return (
-        <CustomerAccessGuard>
-            <div
-                lang={language}
-                className={`parkwise-page customer-shell-page customer-data-page ${fontClassName}`}
-            >
-                <CustomerHeader active={active} />
-                <main className="customer-data-main">
-                    <div className="customer-data-panel">{children}</div>
-                </main>
-                <CustomerFooter />
-            </div>
-        </CustomerAccessGuard>
+    const content = (
+        <div
+            lang={language}
+            className={`parkwise-page customer-shell-page customer-data-page ${fontClassName}`}
+        >
+            <CustomerHeader active={active} />
+            <main className="customer-data-main">
+                <div className="customer-data-panel">{children}</div>
+            </main>
+            <CustomerFooter />
+        </div>
     );
+
+    if (!requireAuth) {
+        return content;
+    }
+
+    return <CustomerAccessGuard>{content}</CustomerAccessGuard>;
 }
