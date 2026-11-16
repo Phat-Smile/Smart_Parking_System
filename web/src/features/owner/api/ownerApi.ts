@@ -20,6 +20,7 @@ export interface RegisterParkingLotRequest {
     longitude: number;
     type: ParkingLotTypeEnum;
     features?: ParkingLotFeaturesRequest;
+    locationConfirmationToken?: string;
 }
 
 export interface RegisteredParkingLotResponse {
@@ -101,6 +102,7 @@ export async function registerParkingLotApi(
             longitude: req.longitude,
             type: req.type,
             features: req.features,
+            locationConfirmationToken: req.locationConfirmationToken,
         }),
     });
 }
@@ -462,3 +464,52 @@ export async function saveParkingLayoutApi(
 // ==========================================
 // 8. POLICIES: RESERVATION RATIO (30/70)
 // ==========================================
+
+// ==========================================
+// 9. OWNER LOCATION CONFIRMATION (PR #278 / WP-OW-1)
+// ==========================================
+export interface GeocodedDestination {
+    displayName: string;
+    latitude: number;
+    longitude: number;
+}
+
+export interface OwnerLotAddressLookupResult {
+    address: string;
+    candidates: GeocodedDestination[];
+    manualPinAllowed: boolean;
+}
+
+export interface ConfirmOwnerLotEntranceRequest {
+    address: string;
+    latitude: number;
+    longitude: number;
+    confirmedOnMap: boolean;
+}
+
+export interface OwnerLotLocationConfirmationResponse {
+    locationConfirmationToken: string;
+    expiresAtUtc: string;
+}
+
+export async function resolveOwnerLotAddress(
+    address: string,
+): Promise<OwnerLotAddressLookupResult> {
+    return await gatewayFetch<OwnerLotAddressLookupResult>(
+        `/api/parking/owner/locations/resolve?address=${encodeURIComponent(address)}`,
+        { method: "GET" },
+    );
+}
+
+export async function confirmOwnerLotEntrance(
+    req: ConfirmOwnerLotEntranceRequest,
+): Promise<OwnerLotLocationConfirmationResponse> {
+    return await gatewayFetch<OwnerLotLocationConfirmationResponse>(
+        "/api/parking/owner/locations/confirm",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(req),
+        },
+    );
+}

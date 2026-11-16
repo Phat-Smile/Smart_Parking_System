@@ -7,6 +7,7 @@ export interface ProblemDetails {
     traceId?: string;
     correlationId?: string;
     errorCode?: string;
+    errors?: Record<string, string[]>;
     validationErrors?: Record<string, string[]>;
 }
 
@@ -46,8 +47,10 @@ export function parseProblemDetails(
                 if (safeMessages.length) validationErrors[field] = safeMessages;
             }
         }
-        if (Object.keys(validationErrors).length)
+        if (Object.keys(validationErrors).length) {
             result.validationErrors = validationErrors;
+            result.errors = validationErrors;
+        }
     }
     return Object.keys(result).length ? result : undefined;
 }

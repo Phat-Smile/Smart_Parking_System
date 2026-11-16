@@ -166,6 +166,8 @@ services:
     expose:
       - "8081"
     <<: *dotnet-service
+    volumes:
+      - parking_dataprotection_keys:/var/parking-system/dataprotection-keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -174,6 +176,7 @@ services:
     environment:
       <<: *jwt-environment
       ASPNETCORE_ENVIRONMENT: Development
+      Security__DataProtection__KeysPath: /var/parking-system/dataprotection-keys
       Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
       OTEL_SERVICE_NAME: parking-api
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
@@ -192,6 +195,7 @@ services:
       BookingService__BaseUrl: http://booking-api:8080
       AiService__BaseUrl: http://ai-service:8000
       ArrivalIntegration__Key: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
+      Parking__RequireOwnerLocationConfirmation: "true"
 
   booking-api:
     build:
@@ -434,4 +438,6 @@ volumes:
     name: parking_rabbitmq_data
   identity_owner_documents:
     name: parking_identity_owner_documents
+  parking_dataprotection_keys:
+    name: parking_dataprotection_keys
 

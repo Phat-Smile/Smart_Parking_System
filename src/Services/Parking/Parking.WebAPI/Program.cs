@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
@@ -32,7 +33,13 @@ builder.AddParkingSystemTelemetry("parking-api");
 builder.Services.AddParkingAuthorization();
 builder.Services.AddApplicationServices();
 builder.Services.AddMemoryCache();
-builder.Services.AddDataProtection();
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("ParkingSystem.Parking");
+var keysPath = builder.Configuration["Security:DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(keysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+}
 builder.Services.AddSingleton<OwnerLotLocationConfirmationService>();
 // OSRM Table is added for S4 search only; existing Mapbox adapter remains untouched.
 builder.Services.AddSingleton<OsrmMatrixClient>(sp => new OsrmMatrixClient(

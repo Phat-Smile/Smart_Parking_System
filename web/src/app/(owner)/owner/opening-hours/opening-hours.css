@@ -1,0 +1,21 @@
+.owner-opening-hours-row {
+    display: grid;
+    grid-template-columns: minmax(130px, 1.2fr) minmax(260px, 2fr) minmax(
+            0,
+            3.8fr
+        );
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 1.5px solid #e4e4e7;
+    transition: all 0.2s ease;
+}
+
+@media (max-width: 1024px) {
+    .owner-opening-hours-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 14px 16px;
+    }
+}
