@@ -189,6 +189,15 @@ class GateVoiceService {
         return this.isSpeakingState;
     }
 
+    public getQueueLength(): number {
+        return this.queue.length;
+    }
+
+    public clearQueue() {
+        this.queue = [];
+        this.notify();
+    }
+
     public isEnabled(): boolean {
         return this.settings.enabled;
     }
@@ -311,6 +320,10 @@ class GateVoiceService {
                 playChime,
             });
         } else {
+            // Giữ hàng đợi gọn gàng, tránh dồn ứ lời thoại cũ khi sự kiện cổng dồn dập
+            while (this.queue.length >= 5) {
+                this.queue.shift();
+            }
             this.queue.push({
                 text: options.text,
                 type,

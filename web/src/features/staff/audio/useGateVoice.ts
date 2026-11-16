@@ -63,6 +63,8 @@ export function useGateVoice() {
         setVoiceURI: (uri: string) => gateVoiceService.setVoiceURI(uri),
         setPlayChime: (play: boolean) => gateVoiceService.setPlayChime(play),
         stop: () => gateVoiceService.stop(),
+        clearQueue: () => gateVoiceService.clearQueue(),
+        getQueueLength: () => gateVoiceService.getQueueLength(),
 
         // Triggers
         announceCheckIn: (params: {

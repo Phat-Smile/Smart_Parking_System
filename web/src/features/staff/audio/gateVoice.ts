@@ -94,3 +94,24 @@ export function announceGateWarning(reason?: string) {
 export function announceGateUnpaidExit() {
     return gateVoiceService.announceUnpaidExit();
 }
+
+/**
+ * Dừng toàn bộ âm thanh và giải phóng hàng đợi phát âm
+ */
+export function stopGateVoice() {
+    return gateVoiceService.stop();
+}
+
+/**
+ * Xóa các câu thoại đang chờ trong hàng đợi
+ */
+export function clearGateVoiceQueue() {
+    return gateVoiceService.clearQueue();
+}
+
+/**
+ * Lấy số lượng câu thoại đang chờ phát
+ */
+export function getGateVoiceQueueLength(): number {
+    return gateVoiceService.getQueueLength();
+}
