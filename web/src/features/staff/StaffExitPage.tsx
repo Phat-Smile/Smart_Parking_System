@@ -13,6 +13,7 @@ import {
     AlertTriangle,
     Clock,
     DollarSign,
+    Banknote,
     Check,
     Smartphone,
     FileText,
@@ -687,8 +688,9 @@ export function StaffExitPage() {
                                 type="button"
                                 className="staff-btn staff-btn-secondary staff-btn-sm"
                                 onClick={() => setConfirmResetOpen(false)}
+                                aria-label="Đóng"
                             >
-                                ✕
+                                <X size={13} strokeWidth={2.4} />
                             </button>
                         </div>
                     ) : (
@@ -729,8 +731,8 @@ export function StaffExitPage() {
                         <AlertTriangle size={15} strokeWidth={2.2} />
                         <span>{errorMsg}</span>
                     </span>
-                    <button type="button" onClick={() => setErrorMsg("")}>
-                        ✕
+                    <button type="button" onClick={() => setErrorMsg("")} aria-label="Đóng">
+                        <X size={14} strokeWidth={2.4} />
                     </button>
                 </div>
             )}
@@ -753,8 +755,9 @@ export function StaffExitPage() {
                     <button
                         type="button"
                         onClick={() => setPaymentAlertMsg("")}
+                        aria-label="Đóng"
                     >
-                        ✕
+                        <X size={14} strokeWidth={2.4} />
                     </button>
                 </div>
             )}
@@ -777,8 +780,9 @@ export function StaffExitPage() {
                     <button
                         type="button"
                         onClick={() => setExtendSuccessMsg("")}
+                        aria-label="Đóng"
                     >
-                        ✕
+                        <X size={14} strokeWidth={2.4} />
                     </button>
                 </div>
             )}
@@ -1265,8 +1269,12 @@ export function StaffExitPage() {
                                                 <code className="staff-code-pill font-mono">
                                                     {detectedExitPlate}
                                                 </code>
-                                                <span className="check-desc-sep">
-                                                    ✓ Khớp với vé:
+                                                <span className="check-desc-sep inline-flex items-center gap-1 text-emerald-500">
+                                                    <CheckCircle2
+                                                        size={13}
+                                                        strokeWidth={2.4}
+                                                    />
+                                                    <span>Khớp với vé:</span>
                                                 </span>
                                                 <code className="staff-code-pill font-mono">
                                                     {
@@ -1441,9 +1449,15 @@ export function StaffExitPage() {
                                     <div className="check-desc">
                                         {scannedSession ? (
                                             paymentCompleted ? (
-                                                <span className="text-emerald font-medium">
-                                                    ✓ Đã hoàn tất thanh toán
-                                                    cước phí gửi xe
+                                                <span className="text-emerald font-medium inline-flex items-center gap-1">
+                                                    <CheckCircle2
+                                                        size={13}
+                                                        strokeWidth={2.4}
+                                                    />
+                                                    <span>
+                                                        Đã hoàn tất thanh toán
+                                                        cước phí gửi xe
+                                                    </span>
                                                 </span>
                                             ) : (
                                                 <span className="text-danger font-semibold">
@@ -1614,7 +1628,7 @@ export function StaffExitPage() {
                                                 );
                                             }}
                                         >
-                                            <DollarSign
+                                            <Banknote
                                                 size={15}
                                                 strokeWidth={2.2}
                                             />
@@ -1787,8 +1801,9 @@ export function StaffExitPage() {
                                 type="button"
                                 className="staff-modal-close"
                                 onClick={() => setPaymentModal(null)}
+                                aria-label="Đóng"
                             >
-                                ✕
+                                <X size={18} strokeWidth={2.2} />
                             </button>
                         </div>
 

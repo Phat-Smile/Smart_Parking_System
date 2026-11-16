@@ -879,11 +879,25 @@ export function StaffEntryPage() {
                                                               lastOpened?.customerName?.trim() ||
                                                               lastOpened?.accountOwnerName?.trim()
                                                             : "";
-                                                    return matchedOwner
-                                                        ? `✓ ${matchedOwner} (${language === "en" ? "Wallet active" : "Ví khả dụng"})`
-                                                        : t(
-                                                              "entryAccountLinked",
-                                                          );
+                                                    return matchedOwner ? (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <CheckCircle2
+                                                                size={12}
+                                                                strokeWidth={2.4}
+                                                                className="text-emerald-500"
+                                                            />
+                                                            <span>
+                                                                {matchedOwner} (
+                                                                {language ===
+                                                                "en"
+                                                                    ? "Wallet active"
+                                                                    : "Ví khả dụng"}
+                                                                )
+                                                            </span>
+                                                        </span>
+                                                    ) : (
+                                                        t("entryAccountLinked")
+                                                    );
                                                 })()}
                                             </span>
                                         </span>
