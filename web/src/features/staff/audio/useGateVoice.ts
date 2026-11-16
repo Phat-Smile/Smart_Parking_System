@@ -71,14 +71,16 @@ export function useGateVoice() {
             lotName?: string;
         }) => gateVoiceService.announceCheckIn(params),
 
-        announceCheckOut: (params: {
-            plateNumber: string;
+        announceCheckOut: (params?: {
+            plateNumber?: string;
             lotName?: string;
             amountPaid?: number;
         }) => gateVoiceService.announceCheckOut(params),
 
         announceWarning: (reason?: string) =>
             gateVoiceService.announceWarning(reason),
+
+        announceUnpaidExit: () => gateVoiceService.announceUnpaidExit(),
 
         testVoice: (
             sampleType: "checkin" | "checkout" | "warning" = "checkin",

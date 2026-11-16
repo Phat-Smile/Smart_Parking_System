@@ -42,10 +42,10 @@ describe("phoneticHelper - Chuẩn hóa giọng đọc tiếng Việt", () => {
             lotName: "Bãi A",
         });
 
-        expect(speech).toContain("Kính chào quý khách!");
-        expect(speech).toContain("5 1 Ép");
-        expect(speech).toContain("ô A không một");
-        expect(speech).toContain("Chúc quý khách một ngày tốt lành!");
+        expect(speech).toBe(
+            "Xe 5 1 Ép, một hai ba, bốn năm đã xác thực, mời xe vào ô đỗ A không một.",
+        );
+        expect(speech).toContain("đã xác thực, mời xe vào ô đỗ");
     });
 
     it("tạo câu thoại Check-out chuẩn format nghiệp vụ", () => {
@@ -54,20 +54,20 @@ describe("phoneticHelper - Chuẩn hóa giọng đọc tiếng Việt", () => {
             lotName: "Bãi A",
         });
 
-        expect(speech).toContain("Cảm ơn quý khách!");
-        expect(speech).toContain("5 1 Ép");
-        expect(speech).toContain("thanh toán thành công");
-        expect(speech).toContain("Barrier đang mở");
-        expect(speech).toContain("thượng lộ bình an");
+        expect(speech).toBe(
+            "Thanh toán thành công, mời xe xuất bến. ParkWise chúc quý khách thượng lộ bình an!",
+        );
     });
 
     it("tạo câu thoại Cảnh báo lỗi cổng bãi", () => {
         const customWarning = buildWarningSpeech("Thẻ chưa được kích hoạt");
-        expect(customWarning).toContain("Cảnh báo! Thẻ chưa được kích hoạt.");
+        expect(customWarning).toBe(
+            "Cảnh báo! Thẻ chưa được kích hoạt. Vui lòng liên hệ nhân viên trực bãi để được hỗ trợ!",
+        );
 
         const defaultWarning = buildWarningSpeech();
-        expect(defaultWarning).toContain(
-            "Vé không hợp lệ hoặc xe chưa thanh toán phí đỗ",
+        expect(defaultWarning).toBe(
+            "Phiên đỗ chưa thanh toán, vui lòng thanh toán trước khi mở rào chắn!",
         );
     });
 });

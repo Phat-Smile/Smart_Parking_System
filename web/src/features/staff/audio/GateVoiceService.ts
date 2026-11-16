@@ -9,6 +9,8 @@ import {
     buildCheckInSpeech,
     buildCheckOutSpeech,
     buildWarningSpeech,
+    buildUnpaidExitSpeech,
+    UNPAID_EXIT_WARNING_MESSAGE,
 } from "./phoneticHelper";
 import { pickVoice } from "./voiceSelection";
 
@@ -417,8 +419,8 @@ class GateVoiceService {
     /**
      * Thông báo xe Check-out thành công
      */
-    public announceCheckOut(params: {
-        plateNumber: string;
+    public announceCheckOut(params?: {
+        plateNumber?: string;
         lotName?: string;
         amountPaid?: number;
     }) {
@@ -435,6 +437,19 @@ class GateVoiceService {
      */
     public announceWarning(reason?: string) {
         const text = buildWarningSpeech(reason);
+        return this.speak({
+            text,
+            type: "warning",
+            urgent: true,
+            playChime: true,
+        });
+    }
+
+    /**
+     * Cảnh báo phiên đỗ chưa thanh toán ở cổng ra
+     */
+    public announceUnpaidExit() {
+        const text = buildUnpaidExitSpeech();
         return this.speak({
             text,
             type: "warning",

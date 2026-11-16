@@ -573,7 +573,7 @@ export function StaffExitPage() {
         if (!scannedSession || !canAllowExit) {
             if (scannedSession && !canAllowExit) {
                 announceWarning(
-                    "Xe chưa thanh toán phí đỗ hoặc chưa đủ điều kiện an toàn. Không thể mở barrier.",
+                    "Phiên đỗ chưa thanh toán, vui lòng thanh toán trước khi mở rào chắn!",
                 );
             }
             return;

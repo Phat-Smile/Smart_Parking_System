@@ -146,31 +146,50 @@ export function formatSlotForSpeech(slotCode?: string): string {
 }
 
 /**
- * Sinh câu chào khi xe vào bãi (Check-in)
+ * Sinh câu thông báo khi xe vào bãi (Check-in)
+ * Chuẩn: "Xe [Biển số] đã xác thực, mời xe vào ô đỗ [Mã ô]."
  */
 export function buildCheckInSpeech(params: {
     plateNumber: string;
     slotCode?: string;
     lotName?: string;
 }): string {
-    const platePhonetic = formatPlateForSpeech(params.plateNumber);
-    const slotPhonetic = formatSlotForSpeech(params.slotCode);
-    const lotPart = params.lotName ? ` ${params.lotName}` : "";
+    const platePhonetic =
+        formatPlateForSpeech(params.plateNumber) || params.plateNumber;
+    const rawSlot = params.slotCode?.trim();
 
-    return `Kính chào quý khách! Xe ${platePhonetic} đã vào bãi${lotPart}. Vị trí đỗ của quý khách là ${slotPhonetic}. Chúc quý khách một ngày tốt lành!`;
+    if (!rawSlot) {
+        return `Xe ${platePhonetic} đã xác thực, mời xe vào ô đỗ khu vực đã được hướng dẫn.`;
+    }
+
+    const slotPhonetic = formatSlotForSpeech(rawSlot);
+    const slotTarget = slotPhonetic.startsWith("ô ")
+        ? slotPhonetic.slice(2)
+        : slotPhonetic;
+
+    return `Xe ${platePhonetic} đã xác thực, mời xe vào ô đỗ ${slotTarget}.`;
 }
 
 /**
- * Sinh lời cảm ơn khi xe xuất bãi (Check-out)
+ * Sinh lời thông báo khi xe xuất bãi thanh toán thành công (Check-out)
+ * Chuẩn: "Thanh toán thành công, mời xe xuất bến. ParkWise chúc quý khách thượng lộ bình an!"
  */
-export function buildCheckOutSpeech(params: {
-    plateNumber: string;
+export function buildCheckOutSpeech(params?: {
+    plateNumber?: string;
     lotName?: string;
     amountPaid?: number;
 }): string {
-    const platePhonetic = formatPlateForSpeech(params.plateNumber);
+    return "Thanh toán thành công, mời xe xuất bến. ParkWise chúc quý khách thượng lộ bình an!";
+}
 
-    return `Cảm ơn quý khách! Xe ${platePhonetic} đã thanh toán thành công. Barrier đang mở, chúc quý khách thượng lộ bình an!`;
+export const UNPAID_EXIT_WARNING_MESSAGE =
+    "Phiên đỗ chưa thanh toán, vui lòng thanh toán trước khi mở rào chắn!";
+
+/**
+ * Sinh câu cảnh báo khi cổng ra chưa thanh toán
+ */
+export function buildUnpaidExitSpeech(): string {
+    return UNPAID_EXIT_WARNING_MESSAGE;
 }
 
 /**
@@ -178,7 +197,14 @@ export function buildCheckOutSpeech(params: {
  */
 export function buildWarningSpeech(reason?: string): string {
     if (reason && reason.trim()) {
-        return `Cảnh báo! ${reason.trim()}. Vui lòng liên hệ nhân viên trực bãi để được hỗ trợ!`;
+        const trimmed = reason.trim();
+        if (
+            trimmed === UNPAID_EXIT_WARNING_MESSAGE ||
+            /chưa thanh toán/i.test(trimmed)
+        ) {
+            return UNPAID_EXIT_WARNING_MESSAGE;
+        }
+        return `Cảnh báo! ${trimmed}. Vui lòng liên hệ nhân viên trực bãi để được hỗ trợ!`;
     }
-    return `Cảnh báo! Vé không hợp lệ hoặc xe chưa thanh toán phí đỗ. Vui lòng liên hệ nhân viên trực bãi để được hỗ trợ!`;
+    return UNPAID_EXIT_WARNING_MESSAGE;
 }
