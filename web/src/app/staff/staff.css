@@ -3743,8 +3743,23 @@
 
 .staff-done-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 10px;
+}
+
+.staff-btn.confirm-parked {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 700;
+}
+
+.staff-btn.confirm-parked.is-confirmed {
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+    color: #065f46;
+    cursor: default;
 }
 
 @media (max-width: 540px) {

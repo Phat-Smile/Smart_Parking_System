@@ -37,6 +37,7 @@ export interface OpenedSessionResponse {
     zoneId?: string | null;
     zoneCode?: string | null;
     floorName?: string | null;
+    slotId?: string | null;
     slotCode?: string | null;
     availableMotorbikeSlots: number | null;
     driverName?: string | null;

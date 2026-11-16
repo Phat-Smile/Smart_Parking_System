@@ -7,9 +7,10 @@ import {
 } from "@/shared/i18n/translations";
 import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 
-const { mockState, mockOpenParkingSession } = vi.hoisted(() => ({
+const { mockState, mockOpenParkingSession, mockConfirmSlotParked } = vi.hoisted(() => ({
     mockState: { language: "vi" as SupportedLanguage },
     mockOpenParkingSession: vi.fn(),
+    mockConfirmSlotParked: vi.fn(),
 }));
 
 vi.mock("@/shared/i18n/LanguageContext", () => ({
@@ -62,6 +63,7 @@ vi.mock("./staffApi", async (importOriginal) => {
     return {
         ...actual,
         openParkingSession: mockOpenParkingSession,
+        confirmSlotParked: mockConfirmSlotParked,
     };
 });
 
@@ -159,6 +161,98 @@ describe("StaffEntryPage", () => {
                 "License plate 51F-782.91 passed the gate. The parking ticket is ready.",
                 "success",
             ),
+        );
+    });
+
+    it("renders confirm-parked button when vehicle passes gate and handles manual confirmation", async () => {
+        mockOpenParkingSession.mockResolvedValue({
+            sessionId: "ses-1",
+            lotId: "lot-1",
+            plateNumber: "51F-782.91",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Active",
+            entryTime: "2026-11-11T09:00:00Z",
+            isAccountLinked: false,
+            reservationId: null,
+            qrToken: "QR-123",
+            availableMotorbikeSlots: 30,
+            slotCode: "A-01",
+        });
+
+        render(<StaffEntryPage />);
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: /Tạo phiên & Cấp vé QR/i,
+            }),
+        );
+
+        const confirmBtn = await screen.findByTestId(
+            "confirm-parked-btn",
+            {},
+            { timeout: 3000 },
+        );
+        expect(confirmBtn).toBeInTheDocument();
+        expect(confirmBtn).toHaveTextContent("Xác nhận đã vào chỗ");
+        expect(confirmBtn).not.toBeDisabled();
+
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => {
+            expect(confirmBtn).toBeDisabled();
+            expect(confirmBtn).toHaveTextContent("Đã vào chỗ đỗ");
+        });
+
+        expect(emitLiveToast).toHaveBeenCalledWith(
+            "Xác nhận đã vào chỗ thành công!",
+            expect.stringContaining("51F-782.91"),
+            "success",
+        );
+    });
+
+    it("renders confirm-parked button in English when language is set to English", async () => {
+        mockState.language = "en";
+        mockOpenParkingSession.mockResolvedValue({
+            sessionId: "ses-1",
+            lotId: "lot-1",
+            plateNumber: "51F-782.91",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Active",
+            entryTime: "2026-11-11T09:00:00Z",
+            isAccountLinked: false,
+            reservationId: null,
+            qrToken: "QR-123",
+            availableMotorbikeSlots: 30,
+            slotCode: "A-01",
+        });
+
+        render(<StaffEntryPage />);
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: "Create Session & Issue QR (Allow Entry)",
+            }),
+        );
+
+        const confirmBtn = await screen.findByTestId(
+            "confirm-parked-btn",
+            {},
+            { timeout: 3000 },
+        );
+        expect(confirmBtn).toBeInTheDocument();
+        expect(confirmBtn).toHaveTextContent("Confirm Parked");
+
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => {
+            expect(confirmBtn).toBeDisabled();
+            expect(confirmBtn).toHaveTextContent("Parked Confirmed");
+        });
+
+        expect(emitLiveToast).toHaveBeenCalledWith(
+            "Parked confirmed!",
+            expect.stringContaining("51F-782.91"),
+            "success",
         );
     });
 });

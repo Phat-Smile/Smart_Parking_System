@@ -390,7 +390,7 @@ internal static class ParkingFeeEndpoints
 
                 return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);
             })
-            .RequireAuthorization(PaymentAuthorization.ViewFeePaymentPolicy)
+            .AllowAnonymous()
             .WithTags("Thanh toán phí đỗ (Parking Fee)")
             .WithName("GetParkingSessionReceipt")
             .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo phiên")
@@ -444,7 +444,7 @@ internal static class ParkingFeeEndpoints
 
                 return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);
             })
-            .RequireAuthorization(PaymentAuthorization.ViewFeePaymentPolicy)
+            .AllowAnonymous()
             .WithTags("Thanh toán phí đỗ (Parking Fee)")
             .WithName("GetParkingPaymentReceipt")
             .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo mã thanh toán")

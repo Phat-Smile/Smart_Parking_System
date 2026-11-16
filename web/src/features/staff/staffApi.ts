@@ -489,6 +489,31 @@ export async function confirmGateReading(
     );
 }
 
+export interface ConfirmedSlotParkedResponse {
+    slotId: string;
+    slotCode: string;
+    effectiveStatus: string;
+    confirmedAt: string;
+}
+
+/**
+ * 100% Real API: Xác nhận xe đã đỗ thủ công vào ô đỗ (US-STAFF-001/002 / US-PARK-005)
+ * Endpoint: POST /api/parking/slots/{slotId}/confirm-parked
+ */
+export async function confirmSlotParked(
+    slotId: string,
+    reason?: string,
+): Promise<ConfirmedSlotParkedResponse> {
+    return await gatewayFetch<ConfirmedSlotParkedResponse>(
+        `/api/parking/slots/${encodeURIComponent(slotId)}/confirm-parked`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason ?? "Staff manual park confirmation" }),
+        },
+    );
+}
+
 /**
  * 100% Real API: Tra cứu phiên đỗ xe thực tế bằng mã QR token
  * Endpoint: GET /api/parking/sessions/by-qr/{qrToken}

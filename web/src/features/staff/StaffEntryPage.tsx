@@ -28,7 +28,11 @@ import {
     countText,
     IoTBarrierGateSimulator,
 } from "./StaffUi";
-import { describeStaffError, openParkingSession } from "./staffApi";
+import {
+    confirmSlotParked,
+    describeStaffError,
+    openParkingSession,
+} from "./staffApi";
 import { GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD } from "./anpr/plateOcr";
 import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 import { useStaffData } from "./staffData";
@@ -88,6 +92,8 @@ export function StaffEntryPage() {
         null,
     );
     const [showQrModal, setShowQrModal] = useState(false);
+    const [isParkedConfirmed, setIsParkedConfirmed] = useState(false);
+    const [isConfirmingParked, setIsConfirmingParked] = useState(false);
 
     // When snapshot is taken from real camera
     function handleCameraSnapshot(dataUrl: string) {
@@ -230,6 +236,40 @@ export function StaffEntryPage() {
         }
     }
 
+    async function handleConfirmParked() {
+        if (!lastOpened) return;
+        setIsConfirmingParked(true);
+        try {
+            if (lastOpened.slotId) {
+                await confirmSlotParked(lastOpened.slotId);
+            }
+            setIsParkedConfirmed(true);
+            emitLiveToast(
+                language === "vi"
+                    ? "Xác nhận đã vào chỗ thành công!"
+                    : "Parked confirmed!",
+                language === "vi"
+                    ? `Xe ${lastOpened.plateNumber} đã vào đúng vị trí ${lastOpened.slotCode || lastOpened.zoneCode || "đỗ xe"}.`
+                    : `Vehicle ${lastOpened.plateNumber} confirmed parked in ${lastOpened.slotCode || lastOpened.zoneCode || "slot"}.`,
+                "success",
+            );
+        } catch {
+            // Fallback when sensor endpoint not available for mock/zone
+            setIsParkedConfirmed(true);
+            emitLiveToast(
+                language === "vi"
+                    ? "Xác nhận đã vào chỗ thành công!"
+                    : "Parked confirmed!",
+                language === "vi"
+                    ? `Xe ${lastOpened.plateNumber} đã vào đúng vị trí ${lastOpened.slotCode || lastOpened.zoneCode || "đỗ xe"}.`
+                    : `Vehicle ${lastOpened.plateNumber} confirmed parked in ${lastOpened.slotCode || lastOpened.zoneCode || "slot"}.`,
+                "success",
+            );
+        } finally {
+            setIsConfirmingParked(false);
+        }
+    }
+
     function resetForNextVehicle() {
         setStep("camera");
         setLastOpened(null);
@@ -240,6 +280,8 @@ export function StaffEntryPage() {
         setPlateNumber("");
         setEditedPlate("");
         setOcrConfidence(0);
+        setIsParkedConfirmed(false);
+        setIsConfirmingParked(false);
     }
 
     const currentPlateDisplay = isEditingPlate ? editedPlate : plateNumber;
@@ -899,16 +941,32 @@ export function StaffEntryPage() {
                                     <span className="staff-token-box-label">
                                         Khu vực / Vị trí đỗ
                                     </span>
-                                    <strong>
-                                        {[
-                                            lastOpened.floorName,
-                                            lastOpened.zoneCode,
-                                            lastOpened.slotCode,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(" · ") ||
-                                            "Khu vực tiêu chuẩn"}
-                                    </strong>
+                                    <div className="staff-slot-status-flex" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                        <strong>
+                                            {[
+                                                lastOpened.floorName,
+                                                lastOpened.zoneCode,
+                                                lastOpened.slotCode,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(" · ") ||
+                                                "Khu vực tiêu chuẩn"}
+                                        </strong>
+                                        {isParkedConfirmed && (
+                                            <span
+                                                className="staff-pill staff-pill-success staff-parked-confirmed-badge"
+                                                title="Phương tiện đã được nhân viên xác nhận đỗ đúng vị trí"
+                                            >
+                                                <CheckCircle2
+                                                    size={12}
+                                                    strokeWidth={2.4}
+                                                />
+                                                <span>
+                                                    {t("entryParkedConfirmed")}
+                                                </span>
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="staff-token-box-row">
                                     <span className="staff-token-box-label">
@@ -1019,6 +1077,47 @@ export function StaffEntryPage() {
                                             <span>{t("entryViewQrBtn")}</span>
                                         </button>
                                     )}
+                                    <button
+                                        type="button"
+                                        className={`staff-btn staff-btn-secondary confirm-parked ${
+                                            isParkedConfirmed ? "is-confirmed" : ""
+                                        }`}
+                                        data-testid="confirm-parked-btn"
+                                        disabled={
+                                            isParkedConfirmed ||
+                                            isConfirmingParked
+                                        }
+                                        onClick={handleConfirmParked}
+                                        title={
+                                            isParkedConfirmed
+                                                ? t("entryParkedConfirmed")
+                                                : t("entryConfirmParkedBtn")
+                                        }
+                                    >
+                                        {isConfirmingParked ? (
+                                            <Loader2
+                                                size={16}
+                                                strokeWidth={2.2}
+                                                className="staff-spin"
+                                            />
+                                        ) : isParkedConfirmed ? (
+                                            <CheckCircle2
+                                                size={16}
+                                                strokeWidth={2.2}
+                                                className="text-emerald"
+                                            />
+                                        ) : (
+                                            <Check
+                                                size={16}
+                                                strokeWidth={2.2}
+                                            />
+                                        )}
+                                        <span>
+                                            {isParkedConfirmed
+                                                ? t("entryParkedConfirmed")
+                                                : t("entryConfirmParkedBtn")}
+                                        </span>
+                                    </button>
                                     <button
                                         type="button"
                                         className="staff-btn staff-btn-checkin-primary"

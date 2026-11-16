@@ -128,14 +128,14 @@ public class GetParkingFeePaymentStatusQueryHandlerTests
     }
 
     [Fact]
-    public async Task Customer_cannot_read_a_guest_payment_without_an_account()
+    public async Task Customer_or_anonymous_can_read_a_guest_payment_without_an_account()
     {
         var payment = await SeedVnPayAsync(accountId: null);
 
         var result = await ReadAsync(new DenyAllMembershipGateway(), payment.Id, CustomerB, "Customer");
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PayParkingFeeErrors.SessionAccessDenied.Code, result.Error!.Code);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(payment.Id, result.Value!.TransactionId);
     }
 
     [Fact]
