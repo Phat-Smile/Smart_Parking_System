@@ -834,7 +834,7 @@ export function StaffExitPage() {
                     <RealCameraFeed
                         title={
                             t("exitCameraTitle") ||
-                            "Camera Cổng Ra 02 (Gate Out 02)"
+                            "Camera Cổng Ra 02"
                         }
                         mode="exit"
                         detectedPlate={detectedExitPlate}
@@ -1368,8 +1368,8 @@ export function StaffExitPage() {
                                                     <strong className="text-emerald font-semibold">
                                                         {scannedSession.status ===
                                                         "Paid"
-                                                            ? "Đã trả phí (Paid)"
-                                                            : "Đang gửi (Active)"}
+                                                            ? "Đã thanh toán"
+                                                            : "Đang gửi xe"}
                                                     </strong>
                                                 </span>
                                             ) : (
@@ -1647,7 +1647,7 @@ export function StaffExitPage() {
                             <div style={{ marginTop: "1rem" }}>
                                 <IoTBarrierGateSimulator
                                     gateId="GATE-OUT-02"
-                                    gateName="Cổng Ra Xe (Gate Out 02)"
+                                    gateName="Cổng Ra Xe 02"
                                     gateType="EXIT"
                                     isOpen={true}
                                     physicalState="OPEN"
