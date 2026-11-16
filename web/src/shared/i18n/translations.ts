@@ -316,6 +316,8 @@ export interface TranslationDictionary {
     entryBtnGuest: string;
     entryBtnReg: string;
     entryViewQrBtn: string;
+    entryConfirmParkedBtn: string;
+    entryParkedConfirmed: string;
     entryNextVehicleBtn: string;
 
     // Staff Check-out (Exit)
@@ -729,6 +731,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entryBtnGuest: "Tạo phiên & Cấp vé QR (Cho xe vào)",
         entryBtnReg: "Xác thực & Mở rào chắn",
         entryViewQrBtn: "Xem vé QR của khách",
+        entryConfirmParkedBtn: "Xác nhận đã vào chỗ",
+        entryParkedConfirmed: "Đã vào chỗ đỗ",
         entryNextVehicleBtn: "Tiếp nhận xe tiếp theo",
 
         // Staff Check-out (Exit)
@@ -1147,6 +1151,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entryBtnGuest: "Create Session & Issue QR (Allow Entry)",
         entryBtnReg: "Verify & Allow Entry",
         entryViewQrBtn: "View Guest QR Ticket",
+        entryConfirmParkedBtn: "Confirm Parked",
+        entryParkedConfirmed: "Parked Confirmed",
         entryNextVehicleBtn: "Process Next Vehicle",
 
         // Staff Check-out (Exit)
