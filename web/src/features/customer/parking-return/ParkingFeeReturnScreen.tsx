@@ -17,10 +17,6 @@ export function ParkingFeeReturnScreen({
         | string;
 }) {
     const nextSearchParams = useSearchParams();
-    const [state, setState] = useState<PaymentPublicStatus>("Verifying");
-    const [txnRef, setTxnRef] = useState<string | null>(null);
-    const [pollCount, setPollCount] = useState(0);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Resolve search params string
     let queryString = "";
@@ -47,13 +43,19 @@ export function ParkingFeeReturnScreen({
         queryString = nextSearchParams.toString();
     }
 
-    useEffect(() => {
-        let isMounted = true;
+    const [state, setState] = useState<PaymentPublicStatus>(() =>
+        !queryString ? "Invalid" : "Verifying",
+    );
+    const [txnRef, setTxnRef] = useState<string | null>(null);
+    const [pollCount, setPollCount] = useState(0);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+    useEffect(() => {
         if (!queryString) {
-            setState("Invalid");
             return;
         }
+
+        let isMounted = true;
 
         async function verifyReturn() {
             try {
