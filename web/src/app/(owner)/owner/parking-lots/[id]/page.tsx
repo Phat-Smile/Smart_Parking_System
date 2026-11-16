@@ -13,7 +13,9 @@ import { AP } from "../../../../../types/owner";
 export default function ParkingLotDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const rawId = Array.isArray(params?.id) ? params?.id[0] : (params?.id ?? "");
+    const rawId = Array.isArray(params?.id)
+        ? params?.id[0]
+        : (params?.id ?? "");
     const numId = Number(rawId);
 
     const lots = useOwnerStore((s) => s.lots);
@@ -31,7 +33,8 @@ export default function ParkingLotDetailPage() {
                 String(l.id) === rawId,
         ) || lots[0];
 
-    const targetLotId = lot?.backendId || rawId || (lot?.id ? String(lot.id) : "1");
+    const targetLotId =
+        lot?.backendId || rawId || (lot?.id ? String(lot.id) : "1");
 
     const [tab, setTab] = useState<
         "info" | "zones" | "types" | "price" | "policy" | "appr"

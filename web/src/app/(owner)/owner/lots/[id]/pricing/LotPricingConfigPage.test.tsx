@@ -101,11 +101,15 @@ describe("LotPricingConfigPage Component with GUID Lot Identifier", () => {
         render(<LotPricingConfigPage />);
 
         expect(
-            screen.getByText(/Cấu hình bảng giá · Bãi xe ParkWise Landmark Hub/i),
+            screen.getByText(
+                /Cấu hình bảng giá · Bãi xe ParkWise Landmark Hub/i,
+            ),
         ).toBeInTheDocument();
 
         await waitFor(() => {
-            expect(ownerApi.getDepositPolicyApi).toHaveBeenCalledWith(guidLotId);
+            expect(ownerApi.getDepositPolicyApi).toHaveBeenCalledWith(
+                guidLotId,
+            );
             expect(ownerApi.getLotPricingApi).toHaveBeenCalledWith(guidLotId);
         });
 
@@ -166,7 +170,9 @@ describe("LotPricingConfigPage Component with GUID Lot Identifier", () => {
         });
 
         expect(
-            await screen.findByText(/Đã lưu và áp dụng biểu phí & tiền cọc lên hệ thống máy chủ/i),
+            await screen.findByText(
+                /Đã lưu và áp dụng biểu phí & tiền cọc lên hệ thống máy chủ/i,
+            ),
         ).toBeInTheDocument();
     });
 
@@ -178,7 +184,9 @@ describe("LotPricingConfigPage Component with GUID Lot Identifier", () => {
 
         await waitFor(() => {
             // isGuid detects the route GUID and uses it directly as lotKey
-            expect(ownerApi.getDepositPolicyApi).toHaveBeenCalledWith(guidLotId);
+            expect(ownerApi.getDepositPolicyApi).toHaveBeenCalledWith(
+                guidLotId,
+            );
             expect(ownerApi.getLotPricingApi).toHaveBeenCalledWith(guidLotId);
         });
 
@@ -204,7 +212,9 @@ describe("LotPricingConfigPage Component with GUID Lot Identifier", () => {
         fireEvent.click(saveBtn);
 
         expect(
-            await screen.findByText(/Bãi này chưa có trên hệ thống nên không lưu được/i),
+            await screen.findByText(
+                /Bãi này chưa có trên hệ thống nên không lưu được/i,
+            ),
         ).toBeInTheDocument();
     });
 });

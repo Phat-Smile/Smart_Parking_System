@@ -90,8 +90,12 @@ export async function loadAggregatedOwnerStats(
     let netRevenue = 0;
     let todaySessionsCount = 0;
     let activeReservationsCount = 0;
-    const allRecentSessions: AggregatedOwnerDashboardStats["recentSessions"] = [];
-    const hourlyTrafficMap = new Map<string, { inCount: number; outCount: number }>();
+    const allRecentSessions: AggregatedOwnerDashboardStats["recentSessions"] =
+        [];
+    const hourlyTrafficMap = new Map<
+        string,
+        { inCount: number; outCount: number }
+    >();
 
     await Promise.all(
         lotIds.map(async (id) => {
@@ -99,7 +103,11 @@ export async function loadAggregatedOwnerStats(
             try {
                 const [layout, usage] = await Promise.all([
                     readPublic<PublicLayout>(id, "layout", signal),
-                    readPublic<PublicUtilization>(id, "zone-utilization", signal),
+                    readPublic<PublicUtilization>(
+                        id,
+                        "zone-utilization",
+                        signal,
+                    ),
                 ]);
                 const floors = countLot(layout, usage);
                 for (const fl of floors) {
@@ -145,14 +153,17 @@ export async function loadAggregatedOwnerStats(
         activeReservationsCount = combinedOccupancy.reserved;
     }
 
-    const occupiedOrReserved = combinedOccupancy.occupied + combinedOccupancy.reserved;
+    const occupiedOrReserved =
+        combinedOccupancy.occupied + combinedOccupancy.reserved;
     const occupancyRatePercent =
         combinedOccupancy.total > 0
             ? Math.round((occupiedOrReserved / combinedOccupancy.total) * 100)
             : 0;
 
     const hasRealActivity =
-        totalRevenue > 0 || todaySessionsCount > 0 || allRecentSessions.length > 0;
+        totalRevenue > 0 ||
+        todaySessionsCount > 0 ||
+        allRecentSessions.length > 0;
 
     const hourlyTraffic = Array.from(hourlyTrafficMap.entries()).map(
         ([time, counts]) => ({

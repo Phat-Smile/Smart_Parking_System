@@ -115,10 +115,14 @@ describe("Owner Dashboard Space Occupancy & Statistics", () => {
                 return Promise.resolve(new Response(null, { status: 404 }));
             }
             if (url.includes("/layout")) {
-                return Promise.resolve(new Response(JSON.stringify(layout), { status: 200 }));
+                return Promise.resolve(
+                    new Response(JSON.stringify(layout), { status: 200 }),
+                );
             }
             if (url.includes("/zone-utilization")) {
-                return Promise.resolve(new Response(JSON.stringify(usage), { status: 200 }));
+                return Promise.resolve(
+                    new Response(JSON.stringify(usage), { status: 200 }),
+                );
             }
             return Promise.reject(new Error("Unknown route"));
         });
@@ -165,13 +169,19 @@ describe("Owner Dashboard Space Occupancy & Statistics", () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = vi.fn().mockImplementation((url: string) => {
             if (url.includes("/statistics")) {
-                return Promise.resolve(new Response(JSON.stringify(mockStats), { status: 200 }));
+                return Promise.resolve(
+                    new Response(JSON.stringify(mockStats), { status: 200 }),
+                );
             }
             if (url.includes("/layout")) {
-                return Promise.resolve(new Response(JSON.stringify(layout), { status: 200 }));
+                return Promise.resolve(
+                    new Response(JSON.stringify(layout), { status: 200 }),
+                );
             }
             if (url.includes("/zone-utilization")) {
-                return Promise.resolve(new Response(JSON.stringify(usage), { status: 200 }));
+                return Promise.resolve(
+                    new Response(JSON.stringify(usage), { status: 200 }),
+                );
             }
             return Promise.reject(new Error("Unknown route"));
         });

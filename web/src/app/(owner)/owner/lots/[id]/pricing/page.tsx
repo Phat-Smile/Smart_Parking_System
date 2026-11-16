@@ -89,7 +89,9 @@ import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 
 export default function LotPricingConfigPage() {
     const params = useParams();
-    const rawId = Array.isArray(params?.id) ? params?.id[0] : (params?.id ?? "");
+    const rawId = Array.isArray(params?.id)
+        ? params?.id[0]
+        : (params?.id ?? "");
     const numId = Number(rawId);
 
     const lots = useOwnerStore((s) => s.lots);
@@ -174,7 +176,9 @@ export default function LotPricingConfigPage() {
                 }
             } catch {
                 if (isMounted) {
-                    setErrorMessage("Không tải được mức phí hiện tại của bãi này.");
+                    setErrorMessage(
+                        "Không tải được mức phí hiện tại của bãi này.",
+                    );
                 }
             }
         }

@@ -68,7 +68,10 @@ export function countLot(
 ): FloorOccupancy[] {
     const byZone = new Map(usage.zones.map((zone) => [zone.zoneId, zone]));
     return layout.floors.map((floor) => {
-        const counts: FloorOccupancy = { ...emptyOccupancy(), name: floor.name };
+        const counts: FloorOccupancy = {
+            ...emptyOccupancy(),
+            name: floor.name,
+        };
         for (const zone of floor.zones) {
             const use = byZone.get(zone.id);
             const usable = use?.usableCapacity ?? zone.capacity;

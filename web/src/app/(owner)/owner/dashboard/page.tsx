@@ -130,7 +130,8 @@ export default function DashboardPage() {
                     setRealLots(items);
                     const approvedIds = items
                         .filter(
-                            (l) => l.approvalStatus?.toLowerCase() === "approved",
+                            (l) =>
+                                l.approvalStatus?.toLowerCase() === "approved",
                         )
                         .map((l) => l.id);
                     if (approvedIds.length > 0) {
@@ -439,19 +440,30 @@ export default function DashboardPage() {
 
                         {/* Số tiền doanh thu chính */}
                         <div className="bento-rev-number">
-                            {stats && stats.hasRealActivity && stats.totalRevenue > 0 ? (
+                            {stats &&
+                            stats.hasRealActivity &&
+                            stats.totalRevenue > 0 ? (
                                 <>
-                                    {new Intl.NumberFormat("vi-VN").format(stats.totalRevenue)}{" "}
+                                    {new Intl.NumberFormat("vi-VN").format(
+                                        stats.totalRevenue,
+                                    )}{" "}
                                     <span className="bento-rev-unit">đ</span>
                                 </>
                             ) : (
-                                <span style={{ color: "#718071", fontWeight: 700 }}>
+                                <span
+                                    style={{
+                                        color: "#718071",
+                                        fontWeight: 700,
+                                    }}
+                                >
                                     — <span className="bento-rev-unit">đ</span>
                                 </span>
                             )}
                         </div>
                         <div className="bento-rev-sub">
-                            {stats && stats.hasRealActivity && stats.totalRevenue > 0
+                            {stats &&
+                            stats.hasRealActivity &&
+                            stats.totalRevenue > 0
                                 ? `Phí thực thu đã trừ cọc: ${new Intl.NumberFormat("vi-VN").format(stats.netRevenue || stats.totalRevenue)} đ`
                                 : "Chưa phát sinh doanh thu hôm nay"}
                         </div>
@@ -595,8 +607,7 @@ export default function DashboardPage() {
                                     Đặt giữ chỗ
                                 </div>
                                 <div className="bento-mini-kpi-val">
-                                    {stats &&
-                                    stats.activeReservationsCount > 0
+                                    {stats && stats.activeReservationsCount > 0
                                         ? stats.activeReservationsCount
                                         : "—"}
                                 </div>
@@ -610,8 +621,7 @@ export default function DashboardPage() {
                                                 : "#718071",
                                     }}
                                 >
-                                    {stats &&
-                                    stats.activeReservationsCount > 0
+                                    {stats && stats.activeReservationsCount > 0
                                         ? `${stats.activeReservationsCount} ô đặt trước`
                                         : "Chưa có lượt đặt"}
                                 </div>
@@ -1591,7 +1601,8 @@ export default function DashboardPage() {
                                         </td>
                                         <td>{session.vehicleType}</td>
                                         <td>
-                                            {session.slotCode || "Khu vực chung"}
+                                            {session.slotCode ||
+                                                "Khu vực chung"}
                                         </td>
                                         <td>{session.entryTime}</td>
                                         <td>{session.durationMinutes} phút</td>
