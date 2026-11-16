@@ -3,6 +3,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using ParkingSystem.AspNetCore;
+using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.Availability;
 
@@ -15,13 +17,14 @@ public static class ArrivalAvailabilityEndpoints
         app.MapGet("/api/parking/lots/{lotId:guid}/arrival-availability", async Task<IResult> (
             Guid lotId, DateTimeOffset? arrivalAt, string? vehicleType,
             IParkingLotDetailReader lotReader, IArrivalSnapshotReader snapshotReader,
-            ArrivalAvailabilityClient aiClient, CancellationToken cancellationToken) =>
+            ArrivalAvailabilityClient aiClient, HttpContext httpContext, CancellationToken cancellationToken) =>
         {
             if (lotId == Guid.Empty || arrivalAt is null ||
                 (vehicleType != "Car" && vehicleType != "Motorbike") ||
                 arrivalAt <= DateTimeOffset.UtcNow ||
                 arrivalAt > DateTimeOffset.UtcNow.AddDays(30))
-                return Results.BadRequest(new { error = "Invalid lotId, arrivalAt or vehicleType." });
+                return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest,
+                    new Error("parking.arrival_availability.invalid_parameters", "Invalid lotId, arrivalAt or vehicleType."));
 
             if (await lotReader.GetApprovedByIdAsync(lotId, cancellationToken) is null)
                 return Results.NotFound();
