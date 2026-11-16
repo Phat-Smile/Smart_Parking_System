@@ -18,6 +18,11 @@ import {
 } from "@/features/owner/api/ownerLegalApi";
 import { loadOwnerLots } from "@/features/owner/lots/ownerLotsSync";
 import { setOwnerViewMode } from "@/features/owner/mode/useOwnerViewMode";
+import {
+    loadAggregatedOwnerStats,
+    type AggregatedOwnerDashboardStats,
+} from "@/features/owner/dashboard/ownerStatisticsApi";
+import { DashboardEmptyState } from "@/features/owner/dashboard/DashboardEmptyState";
 
 // ── TRAFFIC DATA POINTS (DEFAULT ALL 0 ON PRODUCTION DASHBOARD) ──
 
@@ -72,6 +77,9 @@ export default function DashboardPage() {
 
     // Real API Data states
     const [realLots, setRealLots] = useState<OwnerParkingLotItem[]>([]);
+    const [stats, setStats] = useState<AggregatedOwnerDashboardStats | null>(
+        null,
+    );
     const [application, setApplication] =
         useState<MyOwnerApplicationDto | null>(null);
     const [loading, setLoading] = useState(true);
@@ -120,6 +128,17 @@ export default function DashboardPage() {
                     setApplication(appRes);
                     const items = lotsRes?.items || [];
                     setRealLots(items);
+                    const approvedIds = items
+                        .filter(
+                            (l) => l.approvalStatus?.toLowerCase() === "approved",
+                        )
+                        .map((l) => l.id);
+                    if (approvedIds.length > 0) {
+                        const statsData = await loadAggregatedOwnerStats(
+                            approvedIds,
+                        ).catch(() => null);
+                        if (active) setStats(statsData);
+                    }
                     setLoading(false);
                 }
             } catch {
@@ -402,20 +421,39 @@ export default function DashboardPage() {
                             <span
                                 className="bento-badge-success"
                                 style={{
-                                    background: "#F1F5F9",
-                                    color: "#64748B",
+                                    background:
+                                        stats && stats.totalRevenue > 0
+                                            ? "#EAF7EE"
+                                            : "#F1F5F9",
+                                    color:
+                                        stats && stats.totalRevenue > 0
+                                            ? "#269B62"
+                                            : "#64748B",
                                 }}
                             >
-                                0% so với hôm qua
+                                {stats && stats.totalRevenue > 0
+                                    ? "Ghi nhận hôm nay"
+                                    : "Chưa có lượt đỗ"}
                             </span>
                         </div>
 
-                        {/* Số tiền doanh thu chính = 0 đ */}
+                        {/* Số tiền doanh thu chính */}
                         <div className="bento-rev-number">
-                            0 <span className="bento-rev-unit">đ</span>
+                            {stats && stats.hasRealActivity && stats.totalRevenue > 0 ? (
+                                <>
+                                    {new Intl.NumberFormat("vi-VN").format(stats.totalRevenue)}{" "}
+                                    <span className="bento-rev-unit">đ</span>
+                                </>
+                            ) : (
+                                <span style={{ color: "#718071", fontWeight: 700 }}>
+                                    — <span className="bento-rev-unit">đ</span>
+                                </span>
+                            )}
                         </div>
                         <div className="bento-rev-sub">
-                            Phí thực thu đã trừ cọc: 0 đ
+                            {stats && stats.hasRealActivity && stats.totalRevenue > 0
+                                ? `Phí thực thu đã trừ cọc: ${new Intl.NumberFormat("vi-VN").format(stats.netRevenue || stats.totalRevenue)} đ`
+                                : "Chưa phát sinh doanh thu hôm nay"}
                         </div>
 
                         {/* Biểu đồ sóng nước phẳng (mức 0) */}
@@ -513,12 +551,24 @@ export default function DashboardPage() {
                                     </svg>
                                     Lượt gửi xe
                                 </div>
-                                <div className="bento-mini-kpi-val">0</div>
+                                <div className="bento-mini-kpi-val">
+                                    {stats && stats.todaySessionsCount > 0
+                                        ? stats.todaySessionsCount
+                                        : "—"}
+                                </div>
                                 <div
                                     className="bento-mini-kpi-desc"
-                                    style={{ color: "#718071" }}
+                                    style={{
+                                        color:
+                                            stats &&
+                                            stats.todaySessionsCount > 0
+                                                ? "#269B62"
+                                                : "#718071",
+                                    }}
                                 >
-                                    0% hôm nay
+                                    {stats && stats.todaySessionsCount > 0
+                                        ? "Lượt đỗ hôm nay"
+                                        : "Chưa có lượt đỗ"}
                                 </div>
                             </div>
 
@@ -544,12 +594,26 @@ export default function DashboardPage() {
                                     </svg>
                                     Đặt giữ chỗ
                                 </div>
-                                <div className="bento-mini-kpi-val">0</div>
+                                <div className="bento-mini-kpi-val">
+                                    {stats &&
+                                    stats.activeReservationsCount > 0
+                                        ? stats.activeReservationsCount
+                                        : "—"}
+                                </div>
                                 <div
                                     className="bento-mini-kpi-desc"
-                                    style={{ color: "#718071" }}
+                                    style={{
+                                        color:
+                                            stats &&
+                                            stats.activeReservationsCount > 0
+                                                ? "#269B62"
+                                                : "#718071",
+                                    }}
                                 >
-                                    0 lượt
+                                    {stats &&
+                                    stats.activeReservationsCount > 0
+                                        ? `${stats.activeReservationsCount} ô đặt trước`
+                                        : "Chưa có lượt đặt"}
                                 </div>
                             </div>
                         </div>
@@ -772,41 +836,12 @@ export default function DashboardPage() {
                                 );
                             })
                         ) : (
-                            <div
-                                style={{
-                                    textAlign: "center",
-                                    padding: "24px 12px",
-                                    background: "#F6F8F4",
-                                    borderRadius: 12,
-                                    border: "1px dashed #E1E7DE",
-                                }}
-                            >
-                                <p
-                                    style={{
-                                        fontSize: 13,
-                                        color: "#718071",
-                                        margin: "0 0 10px",
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    Chưa có cơ sở bãi xe nào trong hệ thống
-                                </p>
-                                <Link
-                                    href="/owner/parking-lots/new"
-                                    style={{
-                                        display: "inline-block",
-                                        background: "#19301D",
-                                        color: "#B8F34A",
-                                        padding: "6px 14px",
-                                        borderRadius: 8,
-                                        fontSize: 12,
-                                        fontWeight: 800,
-                                        textDecoration: "none",
-                                    }}
-                                >
-                                    + Đăng ký bãi xe đầu tiên →
-                                </Link>
-                            </div>
+                            <DashboardEmptyState
+                                title="Chưa có cơ sở bãi xe nào trong hệ thống"
+                                description="Bạn cần đăng ký thông tin bãi xe và chờ Quản trị viên duyệt để kích hoạt vận hành."
+                                actionHref="/owner/parking-lots/new"
+                                actionLabel="+ Đăng ký bãi xe đầu tiên →"
+                            />
                         )}
                     </div>
                 </div>
@@ -1526,65 +1561,89 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bento-table-wrap">
-                    <table className="bento-table">
-                        <thead>
-                            <tr>
-                                <th>MÃ PHIÊN</th>
-                                <th>BIỂN SỐ XE</th>
-                                <th>LOẠI XE</th>
-                                <th>VỊ TRÍ Ô</th>
-                                <th>GIỜ VÀO</th>
-                                <th>THỜI LƯỢNG</th>
-                                <th>PHÍ TẠM TÍNH</th>
-                                <th>TRẠNG THÁI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td
-                                    colSpan={8}
-                                    style={{
-                                        textAlign: "center",
-                                        padding: "36px 16px",
-                                        color: "#718071",
-                                        fontSize: 13,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: "inline-flex",
-                                            flexDirection: "column",
-                                            alignItems: "center",
-                                            gap: 8,
-                                        }}
-                                    >
-                                        <svg
-                                            width="28"
-                                            height="28"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="#CBD5C8"
-                                            strokeWidth="2"
+                    {stats && stats.recentSessions.length > 0 ? (
+                        <table className="bento-table">
+                            <thead>
+                                <tr>
+                                    <th>MÃ PHIÊN</th>
+                                    <th>BIỂN SỐ XE</th>
+                                    <th>LOẠI XE</th>
+                                    <th>VỊ TRÍ Ô</th>
+                                    <th>GIỜ VÀO</th>
+                                    <th>THỜI LƯỢNG</th>
+                                    <th>PHÍ TẠM TÍNH</th>
+                                    <th>TRẠNG THÁI</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stats.recentSessions.map((session) => (
+                                    <tr key={session.sessionId}>
+                                        <td
+                                            style={{
+                                                fontFamily: "monospace",
+                                                fontSize: 12,
+                                            }}
                                         >
-                                            <rect
-                                                x="2"
-                                                y="5"
-                                                width="20"
-                                                height="14"
-                                                rx="2"
-                                            />
-                                            <circle cx="7" cy="15" r="2" />
-                                            <circle cx="17" cy="15" r="2" />
-                                        </svg>
-                                        <span>
-                                            Chưa phát sinh phiên xe nào trong
-                                            ngày hôm nay
-                                        </span>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                            {session.sessionId.slice(0, 8)}...
+                                        </td>
+                                        <td style={{ fontWeight: 700 }}>
+                                            {session.plateNumber}
+                                        </td>
+                                        <td>{session.vehicleType}</td>
+                                        <td>
+                                            {session.slotCode || "Khu vực chung"}
+                                        </td>
+                                        <td>{session.entryTime}</td>
+                                        <td>{session.durationMinutes} phút</td>
+                                        <td
+                                            style={{
+                                                fontWeight: 700,
+                                                color: "#19301D",
+                                            }}
+                                        >
+                                            {new Intl.NumberFormat(
+                                                "vi-VN",
+                                            ).format(session.interimFee)}{" "}
+                                            đ
+                                        </td>
+                                        <td>
+                                            <span
+                                                style={{
+                                                    padding: "2px 8px",
+                                                    borderRadius: 4,
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    background:
+                                                        session.status ===
+                                                        "Active"
+                                                            ? "#EAF7EE"
+                                                            : "#F1F5F9",
+                                                    color:
+                                                        session.status ===
+                                                        "Active"
+                                                            ? "#269B62"
+                                                            : "#64748B",
+                                                }}
+                                            >
+                                                {session.status === "Active"
+                                                    ? "Đang đỗ"
+                                                    : session.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div style={{ padding: "16px" }}>
+                            <DashboardEmptyState
+                                title="Chưa phát sinh phiên xe nào trong ngày hôm nay"
+                                description="Hệ thống Camera AI OCR và bốt kiểm soát sẽ tự động ghi nhận và hiển thị các phiên gửi xe thời gian thực ngay khi có phương tiện check-in qua cổng."
+                                actionHref="/owner/sessions"
+                                actionLabel="Xem lịch sử phiên đỗ xe →"
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

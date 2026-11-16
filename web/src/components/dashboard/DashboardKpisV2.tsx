@@ -2,19 +2,20 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useOwnerStore, getSpotCounts } from "@/store/useOwnerStore";
+import { useOwnerOccupancy } from "@/features/owner/dashboard/ownerOccupancy";
+
+// Revenue and reservation totals have no owner API yet, so they show a dash instead of design numbers.
+const NO_DATA = "Chưa có dữ liệu";
 
 export function DashboardKpisV2() {
     const router = useRouter();
-    const spots = useOwnerStore((s) => s.spots);
-    const reservations = useOwnerStore((s) => s.reservations);
-    const counts = getSpotCounts(spots);
+    const { data } = useOwnerOccupancy();
 
-    // Values aligned with approved mock and dynamic store state
-    const occupiedCount = counts.occupied || 190;
-    const availableCount = counts.available || 127;
-    const totalSpots = spots.length || 500;
-    const reservedCount = reservations.length || 100;
+    const occupiedCount = data ? data.occupied + data.reserved : 0;
+    const availableCount = data?.available ?? 0;
+    const totalSpots = data?.total ?? 0;
+    const availablePct =
+        totalSpots > 0 ? Math.round((availableCount / totalSpots) * 100) : 0;
 
     return (
         <div
@@ -35,7 +36,7 @@ export function DashboardKpisV2() {
                 onKeyDown={(e) =>
                     e.key === "Enter" && router.push("/owner/reports")
                 }
-                aria-label="Tổng doanh thu hôm nay 37,6 tr, tăng 12,4%"
+                aria-label={`Tổng doanh thu hôm nay: ${NO_DATA}`}
                 style={{
                     background: "#fff",
                     borderRadius: 18,
@@ -89,7 +90,7 @@ export function DashboardKpisV2() {
                             lineHeight: 1.1,
                         }}
                     >
-                        37,6 tr
+                        —
                     </div>
                     <div
                         style={{
@@ -106,10 +107,10 @@ export function DashboardKpisV2() {
                             style={{
                                 fontSize: 13,
                                 fontWeight: 700,
-                                color: "#16a36a",
+                                color: "#6a7491",
                             }}
                         >
-                            12,4% ↑
+                            {NO_DATA}
                         </span>
                     </div>
                 </div>
@@ -124,7 +125,7 @@ export function DashboardKpisV2() {
                 onKeyDown={(e) =>
                     e.key === "Enter" && router.push("/owner/sessions")
                 }
-                aria-label={`Tổng số xe trong bãi ${occupiedCount}, tăng 8,3%`}
+                aria-label={`Tổng số xe trong bãi ${occupiedCount}`}
                 style={{
                     background: "#fff",
                     borderRadius: 18,
@@ -191,15 +192,6 @@ export function DashboardKpisV2() {
                     >
                         <span style={{ fontSize: 13, color: "#6a7491" }}>
                             Tổng số xe trong bãi
-                        </span>
-                        <span
-                            style={{
-                                fontSize: 13,
-                                fontWeight: 700,
-                                color: "#16a36a",
-                            }}
-                        >
-                            8,3% ↑
                         </span>
                     </div>
                 </div>
@@ -287,7 +279,7 @@ export function DashboardKpisV2() {
                                 color: "#2563eb",
                             }}
                         >
-                            {Math.round((availableCount / totalSpots) * 100)}%
+                            {availablePct}%
                         </span>
                     </div>
                 </div>
@@ -302,7 +294,7 @@ export function DashboardKpisV2() {
                 onKeyDown={(e) =>
                     e.key === "Enter" && router.push("/owner/reservations")
                 }
-                aria-label={`Đặt chỗ hiện có ${reservedCount}, tăng 5,0%`}
+                aria-label={`Đặt chỗ hiện có: ${NO_DATA}`}
                 style={{
                     background: "#fff",
                     borderRadius: 18,
@@ -364,7 +356,7 @@ export function DashboardKpisV2() {
                             lineHeight: 1.1,
                         }}
                     >
-                        {reservedCount}
+                        —
                     </div>
                     <div
                         style={{
@@ -381,10 +373,10 @@ export function DashboardKpisV2() {
                             style={{
                                 fontSize: 13,
                                 fontWeight: 700,
-                                color: "#16a36a",
+                                color: "#6a7491",
                             }}
                         >
-                            5,0% ↑
+                            {NO_DATA}
                         </span>
                     </div>
                 </div>

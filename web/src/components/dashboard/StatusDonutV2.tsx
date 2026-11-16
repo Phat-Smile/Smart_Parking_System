@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useOwnerStore, getSpotCounts } from "@/store/useOwnerStore";
+import { useOwnerOccupancy } from "@/features/owner/dashboard/ownerOccupancy";
 import { K_VISIBLE } from "@/lib/mapStatus";
 import { ST } from "@/types/owner";
 
@@ -14,23 +14,21 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function StatusDonutV2() {
-    const spots = useOwnerStore((s) => s.spots);
-    const rawCounts = getSpotCounts(spots);
+    const { data } = useOwnerOccupancy();
 
-    // If spots exist use them, or fallback to exact numbers from design
     const counts: Record<string, number> = {
-        available: rawCounts.available || 127,
-        reserved: rawCounts.reserved || 100,
-        occupied: rawCounts.occupied || 190,
-        maintenance:
-            (rawCounts.maintenance || 0) + (rawCounts.verify || 0) || 83,
+        available: data?.available ?? 0,
+        reserved: data?.reserved ?? 0,
+        occupied: data?.occupied ?? 0,
+        maintenance: data?.maintenance ?? 0,
     };
 
+    // Avoid dividing by zero while nothing has loaded or the lots have no spaces yet.
     const total =
         counts.available +
             counts.reserved +
             counts.occupied +
-            counts.maintenance || 500;
+            counts.maintenance || 1;
     const occupiedOrReserved = counts.occupied + counts.reserved;
     const fillPct = Math.round((occupiedOrReserved / total) * 100);
 
