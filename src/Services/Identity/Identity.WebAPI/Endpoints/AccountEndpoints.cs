@@ -1,5 +1,6 @@
 using System.Globalization;
 using MediatR;
+using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
@@ -1229,20 +1230,20 @@ internal static class AccountEndpoints
 
         app.MapPut("/api/identity/accounts/me/vehicles/{vehicleId:guid}", async (
                 Guid vehicleId, UpdateVehicleRequest request, ICurrentUser currentUser, ISender sender,
-                CancellationToken cancellationToken) =>
+                HttpContext httpContext, CancellationToken cancellationToken) =>
             {
                 if (!Guid.TryParse(currentUser.SubjectId, out var accountId)) return Results.Unauthorized();
                 var result = await sender.Send(new UpdateVehicleCommand(accountId, vehicleId, request.NickName, request.Details), cancellationToken);
                 if (result.IsSuccess) return Results.Ok(result.Value);
                 return result.Error == UpdateVehicleErrors.NotFound
                     ? Results.NotFound()
-                    : Results.BadRequest(new { errorCode = result.Error!.Code, detail = result.Error.Message });
+                    : BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error!);
             })
             .RequireAuthorization()
             .WithTags("6. Phương tiện (Vehicles)")
             .WithName("UpdateVehicle")
             .Produces<UpdatedVehicleResult>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
