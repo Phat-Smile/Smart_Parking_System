@@ -10,26 +10,50 @@ export interface VoiceLike {
     localService?: boolean;
 }
 
-function normalizeLang(lang: string): string {
-    return lang.trim().toLowerCase().replace("_", "-");
+function normalizeLang(lang?: string | null): string {
+    if (!lang) return "";
+    return lang.trim().toLowerCase().replace(/_/g, "-");
 }
 
-export function isVietnameseVoice(voice: VoiceLike): boolean {
+export function isVietnameseVoice(voice?: VoiceLike | null): boolean {
+    if (!voice) return false;
     const lang = normalizeLang(voice.lang);
     if (lang === "vi" || lang.startsWith("vi-")) return true;
-    return /vietnam|tiếng việt|tieng viet/i.test(voice.name);
+    const name = voice.name || "";
+    return /vietnam|tiếng việt|tieng viet/i.test(name);
 }
 
 /** Điểm càng cao càng nên chọn: giọng thần kinh/trực tuyến đọc tự nhiên hơn giọng cài sẵn. */
-export function scoreVietnameseVoice(voice: VoiceLike): number {
+export function scoreVietnameseVoice(voice?: VoiceLike | null): number {
+    if (!voice) return 0;
     let score = 0;
-    if (normalizeLang(voice.lang) === "vi-vn") score += 10;
-    if (/natural|neural|online/i.test(voice.name)) score += 8;
-    if (/hoaimy|hoài my|namminh|nam minh/i.test(voice.name)) score += 6;
-    if (/google/i.test(voice.name)) score += 4;
-    if (/linh/i.test(voice.name)) score += 3;
+    const lang = normalizeLang(voice.lang);
+    if (lang === "vi-vn") score += 10;
+    const name = voice.name || "";
+    if (/natural|neural|online/i.test(name)) score += 8;
+    if (/hoaimy|hoài my|namminh|nam minh/i.test(name)) score += 6;
+    if (/google/i.test(name)) score += 4;
+    if (/linh/i.test(name)) score += 3;
     if (voice.localService) score += 1;
     return score;
+}
+
+/** Kiểm tra nhanh danh sách có giọng tiếng Việt hay không */
+export function hasVietnameseVoice(voices?: readonly VoiceLike[] | null): boolean {
+    if (!voices || !Array.isArray(voices)) return false;
+    return voices.some(isVietnameseVoice);
+}
+
+/** Lấy giọng tiếng Việt tối ưu nhất từ danh sách */
+export function getBestVietnameseVoice<T extends VoiceLike>(
+    voices?: readonly T[] | null,
+): T | null {
+    if (!voices || !Array.isArray(voices) || voices.length === 0) return null;
+    const vietnamese = voices.filter(isVietnameseVoice);
+    if (vietnamese.length === 0) return null;
+    return [...vietnamese].sort(
+        (a, b) => scoreVietnameseVoice(b) - scoreVietnameseVoice(a),
+    )[0] ?? null;
 }
 
 export interface VoicePick<T extends VoiceLike> {
@@ -44,26 +68,28 @@ export function pickVoice<T extends VoiceLike>(
     voices: readonly T[],
     storedVoiceURI: string | null,
 ): VoicePick<T> {
+    if (!voices || !Array.isArray(voices) || voices.length === 0) {
+        return { voice: null, options: [], hasVietnamese: false };
+    }
+
     const vietnamese = voices.filter(isVietnameseVoice);
 
     if (vietnamese.length === 0) {
         // Không ép một giọng tiếng Anh làm mặc định: để trình duyệt tự chọn theo lang vi-VN,
         // chỉ giữ giọng mà người dùng đã chọn tay trước đó.
         const stored = storedVoiceURI
-            ? (voices.find((v) => v.voiceURI === storedVoiceURI) ?? null)
+            ? (voices.find((v) => v && v.voiceURI === storedVoiceURI) ?? null)
             : null;
         return { voice: stored, options: [...voices], hasVietnamese: false };
     }
 
     const stored = storedVoiceURI
-        ? vietnamese.find((v) => v.voiceURI === storedVoiceURI)
+        ? vietnamese.find((v) => v && v.voiceURI === storedVoiceURI)
         : undefined;
     if (stored) {
         return { voice: stored, options: vietnamese, hasVietnamese: true };
     }
 
-    const best = [...vietnamese].sort(
-        (a, b) => scoreVietnameseVoice(b) - scoreVietnameseVoice(a),
-    )[0];
+    const best = getBestVietnameseVoice(vietnamese);
     return { voice: best, options: vietnamese, hasVietnamese: true };
 }
