@@ -100,6 +100,36 @@ public sealed class WebFoundationTests
         }
     }
 
+    [Theory]
+    [InlineData("/api/identity/accounts/me/media", "identity.media_file_required", "Media file is required.")]
+    [InlineData("/api/identity/accounts/me/media", "identity.invalid_customer_media", "Invalid customer media.")]
+    [InlineData("/api/notification/me", "notification.invalid_paging", "Invalid paging parameters.")]
+    [InlineData("/api/parking/lots/arrival-availability", "parking.arrival_availability.invalid_parameters", "Invalid lotId, arrivalAt or vehicleType.")]
+    [InlineData("/api/identity/accounts/me/vehicles/11111111-1111-1111-1111-111111111111", "identity.bicycle_photo_required", "Bicycle photo is required.")]
+    public async Task Standardized_bad_request_endpoints_conform_to_rfc7807_problem_details(string path, string errorCode, string message)
+    {
+        var app = await CreateApp(app => app.MapGet(path, (HttpContext context) =>
+            BusinessProblem.Create(context, StatusCodes.Status400BadRequest, new Error(errorCode, message))));
+        await using (app)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            request.Headers.Add("X-Correlation-ID", "6F1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D");
+
+            using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("about:blank", problem.GetProperty("type").GetString());
+            Assert.Equal(400, problem.GetProperty("status").GetInt32());
+            Assert.Equal(message, problem.GetProperty("title").GetString());
+            Assert.Equal(path, problem.GetProperty("instance").GetString());
+            Assert.Equal(errorCode, problem.GetProperty("errorCode").GetString());
+            Assert.Equal("6F1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D", problem.GetProperty("correlationId").GetString(), ignoreCase: true);
+            Assert.False(string.IsNullOrEmpty(problem.GetProperty("traceId").GetString()));
+        }
+    }
+
     [Fact]
     public async Task Missing_malformed_oversized_and_multi_value_ids_are_replaced_with_valid_guids()
     {
