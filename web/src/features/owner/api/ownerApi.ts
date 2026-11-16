@@ -117,12 +117,41 @@ export async function configurePricingApi(
     req: ConfigurePricingRequest,
 ): Promise<ConfigurePricingResponse> {
     return gatewayFetch<ConfigurePricingResponse>(
-        `/api/parking/lots/${lotId}/pricing/${vehicleType}`,
+        `/api/parking/lots/${encodeURIComponent(String(lotId))}/pricing/${vehicleType}`,
         {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(req),
         },
+    );
+}
+
+export interface PricingPolicyItem {
+    lotId: string;
+    vehicleType: string;
+    version: number;
+    billingMode: "Block" | "PerEntry";
+    blockMinutes: number | null;
+    price: number;
+    overnightFee: number;
+    effectiveFromUtc: string;
+}
+
+export interface LotPricingResponse {
+    lotId: string;
+    items: PricingPolicyItem[];
+}
+
+/**
+ * Tra cứu bảng giá của tất cả các loại xe cho một bãi đỗ xe (API-PK-05).
+ * Endpoint: GET /api/parking/lots/{lotId}/pricing
+ */
+export async function getLotPricingApi(
+    lotId: string | number,
+): Promise<LotPricingResponse> {
+    return gatewayFetch<LotPricingResponse>(
+        `/api/parking/lots/${encodeURIComponent(String(lotId))}/pricing`,
+        { method: "GET" },
     );
 }
 
