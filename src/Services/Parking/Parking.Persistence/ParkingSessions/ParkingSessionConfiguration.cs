@@ -55,6 +55,12 @@ internal sealed class ParkingSessionConfiguration : IEntityTypeConfiguration<Par
             .IsRequired();
         builder.Property(session => session.LastPaidAt).HasColumnName("last_paid_at");
         builder.Property(session => session.ExitTime).HasColumnName("exit_time");
+        builder.Property(session => session.ExitArrivedAt).HasColumnName("exit_arrived_at");
+        builder.Property(session => session.HasExitWindowExtension).HasColumnName("has_exit_window_extension");
+        builder.Property(session => session.ExitWindowExtendedAt).HasColumnName("exit_window_extended_at");
+        builder.Property(session => session.ExitWindowExtensionReason)
+            .HasColumnName("exit_window_extension_reason")
+            .HasMaxLength(ParkingSession.StaffActionReasonMaxLength);
         builder.Property(session => session.UserId).HasColumnName("user_id");
         builder.Property(session => session.VehicleId).HasColumnName("vehicle_id");
         builder.Property(session => session.ReservationId).HasColumnName("reservation_id");

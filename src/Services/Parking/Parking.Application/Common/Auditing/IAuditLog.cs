@@ -23,6 +23,7 @@ public static class AuditActions
 {
     public const string SessionCancelled = "session.cancelled";
     public const string SessionQrReissued = "session.qr_reissued";
+    public const string SessionExitWindowExtended = "session.exit_window_extended";
     public const string SessionExitManuallyVerified = "session.exit_manually_verified";
     public const string LotMemberAssigned = "lot.member_assigned";
     public const string LotMemberRemoved = "lot.member_removed";

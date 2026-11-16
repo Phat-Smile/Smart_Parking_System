@@ -195,4 +195,32 @@ describe("StaffShell", () => {
             "lot-moto",
         );
     });
+
+    it("renders barrier status badges with accessible aria-label attributes", async () => {
+        mockGetStaffLots.mockResolvedValue([
+            { id: "lot-1", name: "Bãi Nguyễn Huệ" },
+        ]);
+        mockGetAssignedLot.mockResolvedValue({
+            lotId: "lot-1",
+            lotName: "Bãi Nguyễn Huệ",
+            address: "1 Nguyễn Huệ",
+            availableMotorbikeSlots: 10,
+            motorbikeCapacity: 20,
+            availableCarSlots: 5,
+        });
+
+        render(
+            <StaffShell>
+                <div>Staff content</div>
+            </StaffShell>,
+        );
+
+        expect(
+            await screen.findByRole("group", {
+                name: "Cổng barrier",
+            }),
+        ).toBeInTheDocument();
+        expect(screen.getByLabelText("Cổng vào IN 01")).toBeInTheDocument();
+        expect(screen.getByLabelText("Cổng ra OUT 02")).toBeInTheDocument();
+    });
 });

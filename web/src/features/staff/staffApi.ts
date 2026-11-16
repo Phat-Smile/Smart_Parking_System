@@ -601,6 +601,9 @@ export function describeStaffError(error: unknown): string {
     if (code === "parking.session.exit_window_expired") {
         return "Đã quá thời gian xuất bãi 15 phút sau khi thanh toán. Cần thanh toán phụ thu trước khi ra cổng.";
     }
+    if (code === "parking.session.cannot_extend_exit_window") {
+        return "Chỉ có thể gia hạn thời gian xuất bãi cho phiên đã thanh toán và chưa từng gia hạn.";
+    }
     if (code === "parking.session.exit_not_verified") {
         return "Biển số xe hoặc mã vé QR không khớp với phiên đỗ xe này.";
     }
@@ -668,6 +671,49 @@ export async function reissueParkingSessionQr(
 ): Promise<ReissuedQrResponse> {
     return await gatewayFetch<ReissuedQrResponse>(
         `/api/parking/sessions/${encodeURIComponent(sessionId)}/reissue-qr`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.trim() }),
+        },
+    );
+}
+
+export interface ExtendExitWindowResponse {
+    sessionId: string;
+    newExitWindowEndsAt: string;
+}
+
+export interface RecordedExitArrivalResponse {
+    sessionId: string;
+    exitArrivedAt: string;
+}
+
+/**
+ * 100% Real API: Ghi nhận thời điểm xe tới cổng xuất bãi
+ * Endpoint: POST /api/parking/sessions/{id}/exit-arrival
+ */
+export async function recordExitArrival(
+    sessionId: string,
+): Promise<RecordedExitArrivalResponse> {
+    return await gatewayFetch<RecordedExitArrivalResponse>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}/exit-arrival`,
+        {
+            method: "POST",
+        },
+    );
+}
+
+/**
+ * 100% Real API: Gia hạn 15 phút thời gian rời bãi cho phiên đỗ xe đã thanh toán
+ * Endpoint: POST /api/parking/sessions/{id}/extend-exit-window
+ */
+export async function extendExitWindow(
+    sessionId: string,
+    reason: string,
+): Promise<{ sessionId: string; newExitWindowEndsAt: string }> {
+    return await gatewayFetch<{ sessionId: string; newExitWindowEndsAt: string }>(
+        `/api/parking/sessions/${encodeURIComponent(sessionId)}/extend-exit-window`,
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },

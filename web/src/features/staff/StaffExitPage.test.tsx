@@ -17,6 +17,8 @@ const { mockState, apiMocks } = vi.hoisted(() => ({
         completeParkingSession: vi.fn(),
         manualVerifyExit: vi.fn(),
         reissueParkingSessionQr: vi.fn(),
+        extendExitWindow: vi.fn(),
+        recordExitArrival: vi.fn(),
     },
 }));
 
@@ -80,6 +82,8 @@ vi.mock("./staffApi", async (importOriginal) => {
         completeParkingSession: apiMocks.completeParkingSession,
         manualVerifyExit: apiMocks.manualVerifyExit,
         reissueParkingSessionQr: apiMocks.reissueParkingSessionQr,
+        extendExitWindow: apiMocks.extendExitWindow,
+        recordExitArrival: apiMocks.recordExitArrival,
     };
 });
 
@@ -123,6 +127,10 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         vi.clearAllMocks();
         mockState.language = "vi";
         apiMocks.findSessionByQr.mockResolvedValue(unpaidSession());
+        apiMocks.recordExitArrival.mockResolvedValue({
+            sessionId: SESSION_ID,
+            exitArrivedAt: "2026-11-12T02:00:00Z",
+        });
     });
 
     it("the exit button stays disabled while the session is unpaid", async () => {
@@ -463,11 +471,17 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
             ),
         );
 
-        // Bấm nút "Cấp lại vé QR"
+        // Bấm nút "Cấp lại vé QR" mở modal
         const reissueBtn = await screen.findByRole("button", {
             name: /Cấp lại vé QR/i,
         });
         fireEvent.click(reissueBtn);
+
+        // Xác nhận trong modal V6-UI
+        const confirmReissueBtn = await screen.findByRole("button", {
+            name: /Xác nhận & Cấp vé/i,
+        });
+        fireEvent.click(confirmReissueBtn);
 
         await waitFor(() =>
             expect(apiMocks.reissueParkingSessionQr).toHaveBeenCalledWith(
@@ -490,5 +504,166 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
 
         // /complete tuyệt đối không được gọi
         expect(apiMocks.completeParkingSession).not.toHaveBeenCalled();
+    });
+
+    it("V6-UI: reissue modal allows custom mandatory reason and enforces character limit", async () => {
+        apiMocks.findOpenSessionByPlate.mockResolvedValue({
+            sessionId: "ses-plate-reissue-custom",
+            lotId: "lot-1",
+            plateNumber: "51F-999.88",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Paid",
+            entryTime: "2026-11-14T08:00:00Z",
+            qrToken: "qr-old-lost",
+        });
+        apiMocks.getParkingSessionFee.mockResolvedValue({
+            sessionId: "ses-plate-reissue-custom",
+            totalFee: 30000,
+            amountDue: 0,
+        });
+        apiMocks.reissueParkingSessionQr.mockResolvedValue({
+            sessionId: "ses-plate-reissue-custom",
+            qrToken: "qr-custom-reissued-token",
+            issuedAt: "2026-11-14T10:00:00Z",
+        });
+
+        render(<StaffExitPage />);
+        enterGatePlate("51F-999.88");
+
+        const lookupBtn = screen.getByRole("button", {
+            name: /Tra cứu mất vé/i,
+        });
+        fireEvent.click(lookupBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.findOpenSessionByPlate).toHaveBeenCalledWith(
+                "lot-1",
+                "51F-999.88",
+            ),
+        );
+
+        const reissueBtn = await screen.findByRole("button", { name: /Cấp lại vé QR/i });
+        fireEvent.click(reissueBtn);
+
+        const reasonInput = screen.getByLabelText(/Lý do cấp lại vé/i) as HTMLTextAreaElement;
+        expect(reasonInput).toBeInTheDocument();
+
+        // Clear reason -> button should be disabled
+        fireEvent.change(reasonInput, { target: { value: "   " } });
+        const confirmBtn = screen.getByRole("button", { name: /Xác nhận & Cấp vé/i });
+        expect(confirmBtn).toBeDisabled();
+
+        // Enter valid reason
+        fireEvent.change(reasonInput, { target: { value: "Mã QR của khách bị ướt mưa không quét được" } });
+        expect(confirmBtn).not.toBeDisabled();
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.reissueParkingSessionQr).toHaveBeenCalledWith(
+                "ses-plate-reissue-custom",
+                "Mã QR của khách bị ướt mưa không quét được",
+            ),
+        );
+    });
+
+    it("Q-EXIT-WINDOW: Paid session shows 'Gia hạn 15 phút' and modal sends mandatory reason", async () => {
+        apiMocks.findOpenSessionByPlate.mockResolvedValue({
+            sessionId: "ses-extend-test",
+            lotId: "lot-1",
+            plateNumber: "51B-999.88",
+            vehicleType: "Car",
+            customerType: "Guest",
+            status: "Paid",
+            entryTime: "2026-11-14T08:00:00Z",
+            qrToken: "qr-paid-token",
+        });
+        apiMocks.getParkingSessionFee.mockResolvedValue({
+            sessionId: "ses-extend-test",
+            totalFee: 30000,
+            amountDue: 0,
+        });
+        apiMocks.extendExitWindow.mockResolvedValue({
+            sessionId: "ses-extend-test",
+            newExitWindowEndsAt: "2026-11-14T08:45:00Z",
+        });
+
+        render(<StaffExitPage />);
+        enterGatePlate("51B-999.88");
+
+        const lookupBtn = screen.getByRole("button", {
+            name: /Tra cứu mất vé/i,
+        });
+        fireEvent.click(lookupBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.findOpenSessionByPlate).toHaveBeenCalledWith(
+                "lot-1",
+                "51B-999.88",
+            ),
+        );
+
+        // Nút 'Gia hạn 15 phút' hiển thị khi phiên Paid
+        const extendBtn = await screen.findByRole("button", {
+            name: /Gia hạn 15 phút/i,
+        });
+        expect(extendBtn).toBeInTheDocument();
+        fireEvent.click(extendBtn);
+
+        // Modal mở ra
+        const reasonInput = screen.getByLabelText(/Lý do gia hạn/i) as HTMLTextAreaElement;
+        expect(reasonInput).toBeInTheDocument();
+
+        // Xóa lý do -> nút Xác nhận gia hạn bị vô hiệu hóa
+        fireEvent.change(reasonInput, { target: { value: "   " } });
+        const confirmBtn = screen.getByRole("button", { name: /Xác nhận gia hạn/i });
+        expect(confirmBtn).toBeDisabled();
+
+        // Nhập lý do hợp lệ
+        fireEvent.change(reasonInput, {
+            target: { value: "Xe tải chắn lối ra, ùn ứ kéo dài" },
+        });
+        expect(confirmBtn).not.toBeDisabled();
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() =>
+            expect(apiMocks.extendExitWindow).toHaveBeenCalledWith(
+                "ses-extend-test",
+                "Xe tải chắn lối ra, ùn ứ kéo dài",
+            ),
+        );
+
+        // Thông báo thành công hiển thị
+        await waitFor(() =>
+            expect(
+                screen.getByText(/Đã gia hạn thêm 15 phút xuất bãi thành công/i),
+            ).toBeInTheDocument(),
+        );
+    });
+
+    it("calls recordExitArrival with sessionId upon successful QR verification", async () => {
+        render(<StaffExitPage />);
+        await scanQr();
+
+        await waitFor(() => {
+            expect(apiMocks.recordExitArrival).toHaveBeenCalledWith(SESSION_ID);
+        });
+    });
+
+    it("does not block QR verification flow when recordExitArrival fails", async () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        apiMocks.recordExitArrival.mockRejectedValueOnce(new Error("Network timeout"));
+
+        render(<StaffExitPage />);
+        await scanQr();
+
+        await waitFor(() => {
+            expect(apiMocks.recordExitArrival).toHaveBeenCalledWith(SESSION_ID);
+        });
+
+        // Phiên vẫn được hiển thị thành công và không bị gián đoạn
+        expect(screen.getAllByText("51B-999.88").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText(translations.vi.exitAuthorizeBtn)).toBeInTheDocument();
+        warnSpy.mockRestore();
     });
 });

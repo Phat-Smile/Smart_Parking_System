@@ -91,7 +91,8 @@ public sealed class CompleteParkingSessionCommandHandler(
             return Result<CompletedParkingSession>.Failure(CompleteParkingSessionErrors.PaymentRequired);
 
         var now = clock.UtcNow;
-        if (!ExitEligibility.CanExit(session, plateMatches, qrMatches, now))
+        session.RecordExitArrival(now);
+        if (!ExitEligibility.CanExit(session, plateMatches, qrMatches, now) || !session.Complete(now))
         {
             // BR-09.d: Paid goes back to Active until the extra fee is paid.
             session.ReopenAfterExitWindow();
@@ -99,8 +100,6 @@ public sealed class CompleteParkingSessionCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<CompletedParkingSession>.Failure(CompleteParkingSessionErrors.ExitWindowExpired);
         }
-
-        session.Complete(now);
 
         // BR-11.e: a car gives its slot back, a motorbike one space of its zone (BR-07).
         if (session.VehicleType == VehicleType.Motorbike)

@@ -114,7 +114,13 @@ internal static class GateReadingEndpoints
                     return Results.Forbid();
 
                 var result = await sender.Send(
-                    new RecordGateReadingCommand(request.LotId, request.PlateNumber, request.VehicleType ?? string.Empty, request.Confidence, actorUserId),
+                    new RecordGateReadingCommand(
+                        request.LotId,
+                        request.PlateNumber,
+                        request.VehicleType ?? string.Empty,
+                        request.Confidence,
+                        actorUserId,
+                        Source: "web"),
                     cancellationToken);
 
                 if (result.IsSuccess)

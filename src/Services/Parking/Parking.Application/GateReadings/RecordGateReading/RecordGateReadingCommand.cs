@@ -12,10 +12,9 @@ using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Application.GateReadings.RecordGateReading;
 
-// US-PARK-001 (BR-05.a, MF-08/09A/09B): the gate device sends a plate, a vehicle type and a confidence; the system decides
-// whether the vehicle is recognised automatically or staff must confirm it (US-PARK-002).
-// The command does not know where the reading comes from: typed in by staff in Sprint 2, the MQTT gate event later.
-public sealed record RecordGateReadingCommand(Guid LotId, string? PlateNumber, string VehicleType, decimal? Confidence, Guid ActorUserId)
+// US-PARK-001 (BR-05.a updated, Q-A4): the gate device or web client sends a plate, a vehicle type and a confidence;
+// for web clients (Source == "web"), 100% of readings require staff confirmation (PendingStaff) with reason StaffConfirmationRequired.
+public sealed record RecordGateReadingCommand(Guid LotId, string? PlateNumber, string VehicleType, decimal? Confidence, Guid ActorUserId, string? Source = "device")
     : IRequest<Result<RecordedGateReading>>;
 
 /// <param name="IncidentId">The LowConfidencePlate incident opened for staff; null when the reading was accepted automatically.</param>
@@ -74,14 +73,23 @@ public sealed class RecordGateReadingCommandHandler(
         var plate = string.IsNullOrWhiteSpace(request.PlateNumber) ? string.Empty : ParkingSession.NormalizePlate(request.PlateNumber);
         var vehicleType = Enum.Parse<VehicleType>(request.VehicleType, ignoreCase: true);
         var confidence = request.Confidence!.Value;
-        var decision = GateReadingRules.Decide(plate, confidence);
+        // Q-A4 (BR-05.a): 100% of readings from web clients require staff confirmation.
+        var isWebReading = string.Equals(request.Source, "web", StringComparison.OrdinalIgnoreCase);
+        var decision = isWebReading ? GateReadingDecision.PendingStaff : GateReadingRules.Decide(plate, confidence);
         var now = clock.UtcNow;
 
         // A reading staff must confirm becomes an open incident in the staff queue (MF-14).
         Guid? incidentId = null;
         if (decision == GateReadingDecision.PendingStaff)
         {
-            var incident = Incident.OpenLowConfidencePlate(Guid.NewGuid(), request.LotId, plate, confidence, vehicleType, now);
+            var incident = Incident.OpenLowConfidencePlate(
+                Guid.NewGuid(),
+                request.LotId,
+                plate,
+                confidence,
+                vehicleType,
+                now,
+                isWebReading ? "StaffConfirmationRequired" : null);
             incidents.Add(incident);
             incidentId = incident.Id;
         }
