@@ -13,7 +13,6 @@ import {
     subscribeAuthSession,
 } from "@/features/auth/authSession";
 import { CUSTOMER_UI_PREVIEW } from "@/features/customer/customerUiPreview";
-import { CustomerLanguageSwitcher } from "@/features/customer/i18n/CustomerLanguageSwitcher";
 import { useCustomerLanguage } from "@/features/customer/i18n/customerLanguage";
 
 const landingNavigation = [
@@ -134,137 +133,105 @@ export function ParkWiseNavbar({
 
     return (
         <>
-            <div
-                className={`parkwise-mobile-menu ${variant === "customer" ? "parkwise-mobile-menu-customer" : ""} ${menuOpen ? "active" : ""}`}
-                aria-hidden={!menuOpen}
-            >
-                <div className="parkwise-container">
-                    <nav aria-label="Mobile navigation">
-                        {navigation.map(({ label, href }) =>
-                            href ? (
-                                <Link
-                                    key={label}
-                                    href={href}
-                                    onClick={() => setMenuOpen(false)}
-                                    tabIndex={menuOpen ? 0 : -1}
-                                    aria-current={
-                                        activeHref === href ? "page" : undefined
-                                    }
-                                >
-                                    {customerLabel(label)}
-                                </Link>
-                            ) : (
-                                <span key={label} aria-disabled="true">
-                                    {customerLabel(label)}
+            {variant !== "customer" && (
+                <div
+                    className={`parkwise-mobile-menu ${menuOpen ? "active" : ""}`}
+                    aria-hidden={!menuOpen}
+                >
+                    <div className="parkwise-container">
+                        <nav aria-label="Mobile navigation">
+                            {navigation.map(({ label, href }) =>
+                                href ? (
+                                    <Link
+                                        key={label}
+                                        href={href}
+                                        onClick={() => setMenuOpen(false)}
+                                        tabIndex={menuOpen ? 0 : -1}
+                                        aria-current={
+                                            activeHref === href
+                                                ? "page"
+                                                : undefined
+                                        }
+                                    >
+                                        {customerLabel(label)}
+                                    </Link>
+                                ) : (
+                                    <span key={label} aria-disabled="true">
+                                        {customerLabel(label)}
+                                    </span>
+                                ),
+                            )}
+                            {canViewCustomer &&
+                                navigationMode === "customer" && (
+                                    <Link
+                                        href="/customer/complete-profile"
+                                        onClick={() => setMenuOpen(false)}
+                                        tabIndex={menuOpen ? 0 : -1}
+                                    >
+                                        {copy("My Profile", "Hồ sơ của tôi")}
+                                    </Link>
+                                )}
+                            {!session && (
+                                <div className="parkwise-mobile-auth">
+                                    <Link
+                                        href="/login"
+                                        className="parkwise-button parkwise-auth-login"
+                                        onClick={() => setMenuOpen(false)}
+                                        tabIndex={menuOpen ? 0 : -1}
+                                    >
+                                        <span className="parkwise-auth-label">
+                                            Login
+                                        </span>
+                                        <span
+                                            className="parkwise-auth-label-fill"
+                                            aria-hidden="true"
+                                        >
+                                            Login
+                                        </span>
+                                    </Link>
+                                    <Link
+                                        href="/sign-up"
+                                        className="parkwise-button parkwise-auth-signup"
+                                        onClick={() => setMenuOpen(false)}
+                                        tabIndex={menuOpen ? 0 : -1}
+                                    >
+                                        <span className="parkwise-auth-label">
+                                            Sign Up
+                                        </span>
+                                        <span
+                                            className="parkwise-auth-label-fill"
+                                            aria-hidden="true"
+                                        >
+                                            Sign Up
+                                        </span>
+                                    </Link>
+                                    <Link
+                                        href="/owner/register"
+                                        className="parkwise-button parkwise-auth-owner"
+                                        onClick={() => setMenuOpen(false)}
+                                        tabIndex={menuOpen ? 0 : -1}
+                                    >
+                                        <span className="parkwise-auth-label">
+                                            For Lot Owners
+                                        </span>
+                                        <span
+                                            className="parkwise-auth-label-fill"
+                                            aria-hidden="true"
+                                        >
+                                            For Lot Owners
+                                        </span>
+                                    </Link>
+                                </div>
+                            )}
+                            {session && !isCustomer && (
+                                <span className="parkwise-mobile-signed-in">
+                                    {session.account.email}
                                 </span>
-                            ),
-                        )}
-                        {canViewCustomer && navigationMode === "customer" && (
-                            <Link
-                                href="/customer/complete-profile"
-                                onClick={() => setMenuOpen(false)}
-                                tabIndex={menuOpen ? 0 : -1}
-                            >
-                                {copy("My Profile", "Hồ sơ của tôi")}
-                            </Link>
-                        )}
-                        {menuOpen && variant === "customer" && (
-                            <CustomerLanguageSwitcher mobile />
-                        )}
-                        {!session && (
-                            <div className="parkwise-mobile-auth">
-                                <Link
-                                    href="/login"
-                                    className="parkwise-button parkwise-auth-login"
-                                    onClick={() => setMenuOpen(false)}
-                                    tabIndex={menuOpen ? 0 : -1}
-                                >
-                                    <span className="parkwise-auth-label">
-                                        {variant === "customer"
-                                            ? copy("Login", "Đăng nhập")
-                                            : "Login"}
-                                    </span>
-                                    <span
-                                        className="parkwise-auth-label-fill"
-                                        aria-hidden="true"
-                                    >
-                                        {variant === "customer"
-                                            ? copy("Login", "Đăng nhập")
-                                            : "Login"}
-                                    </span>
-                                </Link>
-                                <Link
-                                    href="/sign-up"
-                                    className="parkwise-button parkwise-auth-signup"
-                                    onClick={() => setMenuOpen(false)}
-                                    tabIndex={menuOpen ? 0 : -1}
-                                >
-                                    <span className="parkwise-auth-label">
-                                        {variant === "customer"
-                                            ? copy("Sign Up", "Đăng ký")
-                                            : "Sign Up"}
-                                    </span>
-                                    <span
-                                        className="parkwise-auth-label-fill"
-                                        aria-hidden="true"
-                                    >
-                                        {variant === "customer"
-                                            ? copy("Sign Up", "Đăng ký")
-                                            : "Sign Up"}
-                                    </span>
-                                </Link>
-                                <Link
-                                    href="/owner/register"
-                                    className="parkwise-button parkwise-auth-owner"
-                                    onClick={() => setMenuOpen(false)}
-                                    tabIndex={menuOpen ? 0 : -1}
-                                >
-                                    <span className="parkwise-auth-label">
-                                        {variant === "customer"
-                                            ? copy(
-                                                  "For Lot Owners",
-                                                  "Dành cho chủ bãi",
-                                              )
-                                            : "For Lot Owners"}
-                                    </span>
-                                    <span
-                                        className="parkwise-auth-label-fill"
-                                        aria-hidden="true"
-                                    >
-                                        {variant === "customer"
-                                            ? copy(
-                                                  "For Lot Owners",
-                                                  "Dành cho chủ bãi",
-                                              )
-                                            : "For Lot Owners"}
-                                    </span>
-                                </Link>
-                                <Link
-                                    href="/owner/register"
-                                    className="parkwise-button parkwise-auth-owner"
-                                    onClick={() => setMenuOpen(false)}
-                                    tabIndex={menuOpen ? 0 : -1}
-                                >
-                                    <span className="parkwise-auth-label">
-                                        For Lot Owners
-                                    </span>
-                                    <span
-                                        className="parkwise-auth-label-fill"
-                                        aria-hidden="true"
-                                    >
-                                        For Lot Owners
-                                    </span>
-                                </Link>
-                            </div>
-                        )}
-                        {session && !isCustomer && (
-                            <span className="parkwise-mobile-signed-in">
-                                {session.account.email}
-                            </span>
-                        )}
-                    </nav>
+                            )}
+                        </nav>
+                    </div>
                 </div>
-            </div>
+            )}
             <header
                 className={`parkwise-navbar ${variant === "customer" ? "parkwise-navbar-customer" : ""} ${dark ? "parkwise-navbar-dark" : "parkwise-navbar-light"}`}
             >
@@ -356,17 +323,19 @@ export function ParkWiseNavbar({
                             </Link>
                         </div>
                     )}
-                    <button
-                        className={`parkwise-menu-button ${menuOpen ? "active" : ""}`}
-                        type="button"
-                        aria-expanded={menuOpen}
-                        aria-label={menuOpen ? "Close menu" : "Open menu"}
-                        onClick={() => setMenuOpen((value) => !value)}
-                    >
-                        <span />
-                        <span />
-                        <span />
-                    </button>
+                    {variant !== "customer" && (
+                        <button
+                            className={`parkwise-menu-button ${menuOpen ? "active" : ""}`}
+                            type="button"
+                            aria-expanded={menuOpen}
+                            aria-label={menuOpen ? "Close menu" : "Open menu"}
+                            onClick={() => setMenuOpen((value) => !value)}
+                        >
+                            <span />
+                            <span />
+                            <span />
+                        </button>
+                    )}
                 </div>
             </header>
         </>
