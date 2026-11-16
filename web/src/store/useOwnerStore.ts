@@ -72,7 +72,10 @@ export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
     currentLotId: 0,
     reservations: INITIAL_RESERVATIONS,
     activities: INITIAL_ACTIVITIES,
-    reportFilter: { mode: "day", date: "2025-10-20" },
+    reportFilter: {
+        mode: "day",
+        date: new Date().toISOString().slice(0, 10),
+    },
     revenuePeriod: "week",
     reservationSearch: { q: "", s: "" },
     editingLot: false,

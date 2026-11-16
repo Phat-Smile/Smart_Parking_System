@@ -31,74 +31,90 @@ export function PeakTimeList({ items }: PeakTimeListProps) {
                 Khung giờ cao điểm
             </h2>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {items.map((pt, idx) => (
-                    <div
-                        key={idx}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "10px 14px",
-                            background: "#f8faff",
-                            borderRadius: 12,
-                            border: "1px solid #eef2fa",
-                        }}
-                    >
+            {items.length === 0 ? (
+                <div
+                    style={{
+                        padding: "28px 12px",
+                        textAlign: "center",
+                        color: "#6a7491",
+                        fontSize: 13,
+                        background: "#f8faff",
+                        borderRadius: 12,
+                        border: "1px dashed #e2e8f0",
+                    }}
+                >
+                    Chưa ghi nhận khung giờ cao điểm
+                </div>
+            ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {items.map((pt, idx) => (
                         <div
+                            key={idx}
                             style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 10,
+                                justifyContent: "space-between",
+                                padding: "10px 14px",
+                                background: "#f8faff",
+                                borderRadius: 12,
+                                border: "1px solid #eef2fa",
                             }}
                         >
-                            <span
+                            <div
                                 style={{
-                                    width: 24,
-                                    height: 24,
-                                    borderRadius: "50%",
-                                    backgroundColor:
-                                        idx === 0 ? "#2563eb" : "#e3e8f2",
-                                    color: idx === 0 ? "#fff" : "#6a7491",
-                                    fontSize: 12,
-                                    fontWeight: 700,
                                     display: "flex",
                                     alignItems: "center",
-                                    justifyContent: "center",
+                                    gap: 10,
                                 }}
                             >
-                                {idx + 1}
-                            </span>
-                            <div>
-                                <div
+                                <span
                                     style={{
-                                        fontSize: 13.5,
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: "50%",
+                                        backgroundColor:
+                                            idx === 0 ? "#2563eb" : "#e3e8f2",
+                                        color: idx === 0 ? "#fff" : "#6a7491",
+                                        fontSize: 12,
                                         fontWeight: 700,
-                                        color: "#0f1b3d",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
                                     }}
                                 >
-                                    {pt.timeRange}
-                                </div>
-                                <div
-                                    style={{ fontSize: 11.5, color: "#6a7491" }}
-                                >
-                                    {pt.sessions} lượt xe vào
+                                    {idx + 1}
+                                </span>
+                                <div>
+                                    <div
+                                        style={{
+                                            fontSize: 13.5,
+                                            fontWeight: 700,
+                                            color: "#0f1b3d",
+                                        }}
+                                    >
+                                        {pt.timeRange}
+                                    </div>
+                                    <div
+                                        style={{ fontSize: 11.5, color: "#6a7491" }}
+                                    >
+                                        {pt.sessions} lượt xe vào
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div
-                            style={{
-                                fontSize: 14,
-                                fontWeight: 800,
-                                color: "#16a36a",
-                            }}
-                        >
-                            {pt.revenueText}
+                            <div
+                                style={{
+                                    fontSize: 14,
+                                    fontWeight: 800,
+                                    color: "#16a36a",
+                                }}
+                            >
+                                {pt.revenueText}
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
