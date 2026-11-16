@@ -55,6 +55,67 @@ public class VnpayPaymentGatewayTests
     }
 
     [Fact]
+    public void BuildPaymentUrl_WithParkingReturnUrl_UsesParkingReturnUrl()
+    {
+        // Arrange
+        const string secret = "TEST_HASH_SECRET_1234567890";
+        var options = Options.Create(new VnpayOptions
+        {
+            BaseUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+            TmnCode = "TESTTMN01",
+            HashSecret = secret,
+            ReturnUrl = "http://localhost:3000/payment/vnpay-return",
+            ParkingReturnUrl = "http://localhost:3000/payment/parking-return",
+            PaymentExpiryMinutes = 15
+        });
+
+        var gateway = new VnpayPaymentGateway(options);
+        var txnRef = "PARK_20261115_test01";
+        var amountVnd = 25_000L;
+        var now = DateTimeOffset.UtcNow;
+        var expires = now.AddMinutes(15);
+
+        // Act - without explicit override, should pick ParkingReturnUrl
+        var url = gateway.BuildPaymentUrl(txnRef, amountVnd, "Thanh toan phi do xe", now, expires, "127.0.0.1");
+
+        // Assert
+        var uri = new Uri(url);
+        var queryParams = HttpUtility.ParseQueryString(uri.Query);
+        Assert.Equal("http://localhost:3000/payment/parking-return", queryParams["vnp_ReturnUrl"]);
+    }
+
+    [Fact]
+    public void BuildPaymentUrl_WithExplicitReturnUrl_UsesExplicitReturnUrl()
+    {
+        // Arrange
+        const string secret = "TEST_HASH_SECRET_1234567890";
+        var options = Options.Create(new VnpayOptions
+        {
+            BaseUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+            TmnCode = "TESTTMN01",
+            HashSecret = secret,
+            ReturnUrl = "http://localhost:3000/payment/vnpay-return",
+            ParkingReturnUrl = "http://localhost:3000/payment/parking-return",
+            PaymentExpiryMinutes = 15
+        });
+
+        var gateway = new VnpayPaymentGateway(options);
+        var txnRef = "PARK_20261115_test02";
+        var amountVnd = 50_000L;
+        var now = DateTimeOffset.UtcNow;
+        var expires = now.AddMinutes(15);
+        var customReturnUrl = "http://localhost:3000/custom/return";
+
+        // Act
+        var url = gateway.BuildPaymentUrl(txnRef, amountVnd, "Thanh toan phi do xe", now, expires, "127.0.0.1", customReturnUrl);
+
+        // Assert
+        var uri = new Uri(url);
+        var queryParams = HttpUtility.ParseQueryString(uri.Query);
+        Assert.Equal(customReturnUrl, queryParams["vnp_ReturnUrl"]);
+    }
+
+    [Fact]
     public void VerifyIpnSignature_ValidSignature_ReturnsTrue()
     {
         // Arrange

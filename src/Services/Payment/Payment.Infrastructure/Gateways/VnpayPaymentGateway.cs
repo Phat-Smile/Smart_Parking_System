@@ -24,8 +24,13 @@ public class VnpayPaymentGateway : IPaymentGateway, IVnpayPaymentGateway
         string orderInfo, // Nội dung hiển thị khi thanh toán
         DateTimeOffset createdAtUtc, // Thời gian tạo giao dịch
         DateTimeOffset expiresAtUtc, // Thời gian hết hạn quét mã
-        string clientIp) // Địa chỉ IP người dùng
+        string clientIp, // Địa chỉ IP người dùng
+        string? returnUrl = null) // Cho phép chỉ định URL quay về tùy chỉnh
     {
+        var effectiveReturnUrl = !string.IsNullOrWhiteSpace(returnUrl)
+            ? returnUrl
+            : (!string.IsNullOrWhiteSpace(_options.ParkingReturnUrl) ? _options.ParkingReturnUrl : _options.ReturnUrl);
+
         var vnpayParams = new SortedList<string, string>(
             Comparer<string>.Create((x, y) => string.Compare(x, y, CultureInfo.InvariantCulture, CompareOptions.Ordinal)))
         {
@@ -39,7 +44,7 @@ public class VnpayPaymentGateway : IPaymentGateway, IVnpayPaymentGateway
             ["vnp_Locale"] = "vn",
             ["vnp_OrderInfo"] = orderInfo,
             ["vnp_OrderType"] = "other",
-            ["vnp_ReturnUrl"] = _options.ReturnUrl,
+            ["vnp_ReturnUrl"] = effectiveReturnUrl,
             ["vnp_TxnRef"] = txnRef,
             ["vnp_ExpireDate"] = expiresAtUtc.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)
         };

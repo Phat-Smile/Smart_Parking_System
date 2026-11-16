@@ -35,5 +35,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Payment.IntegrationTests" />
+    <InternalsVisibleTo Include="Payment.UnitTests" />
   </ItemGroup>
 </Project>

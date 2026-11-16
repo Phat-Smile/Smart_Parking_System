@@ -81,12 +81,12 @@ export function CustomerDashboardPage({
     const hour = localNow?.getHours();
     const greeting =
         hour === undefined
-            ? copy("Welcome,", "Chào mừng,")
+            ? copy("Welcome,", "Xin chào,")
             : hour < 12
-              ? copy("Good morning,", "Chào buổi sáng,")
+              ? copy("Good morning,", "Xin chào,")
               : hour < 17
-                ? copy("Good afternoon,", "Chào buổi chiều,")
-                : copy("Good evening,", "Chào buổi tối,");
+                ? copy("Good afternoon,", "Xin chào,")
+                : copy("Good evening,", "Xin chào,");
     const localTime = localNow?.toLocaleTimeString(
         language === "vi" ? "vi-VN" : "en-US",
         {
@@ -235,11 +235,7 @@ export function CustomerDashboardPage({
                         <p>{greeting}</p>
                         <h1 id="dashboard-title">
                             {displayName ||
-                                copy(
-                                    "Find your space",
-                                    "Tìm chỗ đỗ của bạn",
-                                )}{" "}
-                            <span aria-hidden="true">👋</span>
+                                copy("Find your space", "Tìm chỗ đỗ của bạn")}
                         </h1>
                         <h2>
                             {copy(
