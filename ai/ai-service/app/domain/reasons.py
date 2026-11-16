@@ -5,6 +5,9 @@ Invariants:
 - Never displays raw utility scores (BR-08.c).
 - Displays clear warning when arrival probability < 30% (BR-08.a).
 - Informs user when driving time is unavailable (BR-08.d).
+- Phrasing is strictly probabilistic and cautious (e.g. 'Tỷ lệ', 'Khả năng', 'Ước tính').
+- Never promises slot certainty or uses deterministic terms like 'chắc chắn' or 'đảm bảo'.
+- Matches the protobuf contract field 'repeated string reasons = 8' without contract modification.
 """
 
 from typing import Sequence
@@ -20,11 +23,11 @@ def generate_recommendation_reasons(
 ) -> list[str]:
     reasons: list[str] = []
 
-    # 1. Rank 1 badge
+    # 1. Rank 1 badge (safe lots only)
     if rank == 1 and not is_risky:
         reasons.append("Lựa chọn tối ưu tổng thể")
 
-    # 2. Risk warning (BR-08.a)
+    # 2. Risk warning (BR-08.a: high risk of full capacity if probability < 30%)
     if is_risky:
         reasons.append(f"Cảnh báo: Nguy cơ hết chỗ sớm (xác suất ước tính {candidate.probability_percent:.0f}%)")
 
@@ -51,7 +54,7 @@ def generate_recommendation_reasons(
     elif candidate.price <= (sum(all_prices) / len(all_prices)):
         reasons.append("Mức giá hợp lý")
 
-    # 5. Availability probability explanation
+    # 5. Availability probability explanation (cautious probabilistic wording)
     if not is_risky:
         if candidate.probability_percent >= 80.0:
             reasons.append("Tỷ lệ còn chỗ rất cao")

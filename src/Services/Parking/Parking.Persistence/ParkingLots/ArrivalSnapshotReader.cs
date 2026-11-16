@@ -59,15 +59,22 @@ internal sealed class ArrivalSnapshotReader(ParkingDbContext db) : IArrivalSnaps
             .OrderBy(day => day);
         var localQuarterMinute = (localArrival.Minute / 15) * 15;
         var snapshots = new List<ArrivalAvailabilitySnapshot>();
+        int[] minuteOffsets = [-15, 0, 15];
         foreach (var day in observedDays)
         {
-            var captured = new DateTimeOffset(
+            var center = new DateTimeOffset(
                 day.Year, day.Month, day.Day, localArrival.Hour, localQuarterMinute, 0, VietnamOffset);
-            var at = captured.ToUniversalTime();
-            var occupied = sessions.Count(s => s.EntryTime <= at &&
-                (!s.ExitTime.HasValue || s.ExitTime > at));
-            snapshots.Add(new ArrivalAvailabilitySnapshot(lotId, vehicleType, captured,
-                Math.Max(0, capacity - occupied)));
+            foreach (var offset in minuteOffsets)
+            {
+                var captured = center.AddMinutes(offset);
+                var at = captured.ToUniversalTime();
+                if (at > now) continue;
+
+                var occupied = sessions.Count(s => s.EntryTime <= at &&
+                    (!s.ExitTime.HasValue || s.ExitTime > at));
+                snapshots.Add(new ArrivalAvailabilitySnapshot(lotId, vehicleType, captured,
+                    Math.Max(0, capacity - occupied)));
+            }
         }
         return snapshots;
     }

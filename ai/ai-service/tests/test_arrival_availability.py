@@ -30,8 +30,8 @@ class ArrivalAvailabilityTests(unittest.TestCase):
         samples += [self.sample(minutes_ago=15, available=100)]
         result = estimate_arrival_availability(self.lot, "Car", self.arrival, 1, samples)
         self.assertEqual("lot_weekday_15m", result.baseline_source)
-        self.assertEqual(4, result.sample_count)
-        self.assertEqual(50, result.probability_percent)  # 2 successes; 2 failures; smoothing
+        self.assertEqual(5, result.sample_count)
+        self.assertEqual(53.85, result.probability_percent)  # Jeffreys prior 3-window smoothing: (1.25 + 0.5) / (2.25 + 1.0) = 53.85%
         self.assertFalse(result.insufficient_data)
 
     def test_reservations_at_arrival_reduce_predicted_available_probability(self):
@@ -41,7 +41,7 @@ class ArrivalAvailabilityTests(unittest.TestCase):
         self.assertGreater(
             without_held.probability_percent, with_held.probability_percent
         )
-        self.assertEqual(10, with_held.probability_percent)
+        self.assertEqual(10.0, with_held.probability_percent)
         self.assertIsNotNone(with_held.warning)
 
     def test_fallback_to_same_lot_time_then_peer_same_vehicle_then_default(self):
@@ -72,7 +72,23 @@ class ArrivalAvailabilityTests(unittest.TestCase):
              self.sample(available=3, vehicle="Motorbike")],
         )
         self.assertEqual(1, result.sample_count)
-        self.assertEqual(66.67, result.probability_percent)
+        self.assertEqual(66.67, result.probability_percent)  # Jeffreys prior: (0.5 + 0.5) / (0.5 + 1.0) = 66.67%
+
+    def test_midnight_crossing_includes_previous_day_quarter_hour(self):
+        # Monday 00:05 Vietnam time (Sunday 17:05 UTC)
+        monday_arrival = datetime(2026, 11, 2, 17, 5, tzinfo=timezone.utc)
+        # Sunday 23:45 Vietnam time (-20 mins from monday_arrival -> bucket 95 of Sunday)
+        sunday_snapshot = AvailabilitySnapshot(
+            self.lot, "Car", monday_arrival - timedelta(days=7, minutes=20), 5
+        )
+        # Monday 00:00 Vietnam time (center bucket 0)
+        monday_snapshot = AvailabilitySnapshot(
+            self.lot, "Car", monday_arrival - timedelta(days=7, minutes=5), 4
+        )
+        result = estimate_arrival_availability(self.lot, "Car", monday_arrival, 0, [sunday_snapshot, monday_snapshot])
+        self.assertEqual("lot_weekday_15m", result.baseline_source)
+        self.assertEqual(2, result.sample_count)
+        self.assertGreater(result.probability_percent, 50.0)
 
     def test_timezone_aware_validation_and_no_negative_quota(self):
         with self.assertRaises(ValidationError):
