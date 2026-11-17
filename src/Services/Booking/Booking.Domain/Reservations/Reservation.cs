@@ -4,6 +4,7 @@ public sealed class Reservation
 {
     public const int PlateNumberMaxLength = 20;
     public const int NoShowGracePeriodMinutes = 15;
+    public const int TechnicalToleranceMinutes = 3;
     public const int MaxActiveReservationsPerUser = 3;
     private Reservation()
     {

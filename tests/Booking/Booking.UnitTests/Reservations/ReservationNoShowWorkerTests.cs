@@ -64,7 +64,7 @@ public sealed class ReservationNoShowWorkerTests
     [Fact]
     public async Task ProcessNoShowsAsync_WhenGracePeriodElapsed_CancelsReservationAndForfeitsDeposit()
     {
-        // Appointment was at 09:30. Grace period is 15 minutes (09:45). Current time is 10:00.
+        // Appointment was at 09:30. Grace period + technical tolerance is 18 minutes (09:48). Current time is 10:00.
         var resId = Guid.NewGuid();
         var res = CreateConfirmedReservation(resId, Now.AddMinutes(-30), prepaidAmount: 50000m);
         _repository.Add(res);
@@ -95,6 +95,24 @@ public sealed class ReservationNoShowWorkerTests
         // Appointment was at 09:50. Grace period ends at 10:05. Current time is 10:00 -> not eligible yet.
         var resId = Guid.NewGuid();
         var res = CreateConfirmedReservation(resId, Now.AddMinutes(-10), prepaidAmount: 50000m);
+        _repository.Add(res);
+
+        var worker = CreateWorker();
+        var processedCount = await worker.ProcessNoShowsAsync(CancellationToken.None);
+
+        Assert.Equal(0, processedCount);
+        Assert.Equal(ReservationStatus.Confirmed, res.Status);
+        Assert.Null(res.CancelReason);
+        Assert.False(res.IsNoShow);
+        Assert.Empty(_outbox.Events);
+    }
+
+    [Fact]
+    public async Task ProcessNoShowsAsync_WhenWithinTechnicalToleranceBuffer_DoesNotCancel()
+    {
+        // Appointment was at 09:44 (16 minutes ago). 15m grace has passed, but 3m technical tolerance (total 18m) has not!
+        var resId = Guid.NewGuid();
+        var res = CreateConfirmedReservation(resId, Now.AddMinutes(-16), prepaidAmount: 50000m);
         _repository.Add(res);
 
         var worker = CreateWorker();
@@ -165,7 +183,7 @@ public sealed class ReservationNoShowWorkerTests
 
         public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default)
         {
-            var graceThreshold = now.AddMinutes(-Reservation.NoShowGracePeriodMinutes);
+            var graceThreshold = now.AddMinutes(-(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes));
             return Task.FromResult<IReadOnlyList<Reservation>>(
                 _list.Where(r => r.Status == ReservationStatus.Confirmed && r.AppointmentTime <= graceThreshold)
                      .Take(batchSize)

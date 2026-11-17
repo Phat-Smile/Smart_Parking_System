@@ -84,7 +84,7 @@ public sealed class ReservationNoShowWorker(
                 }
 
                 var now = clock.UtcNow;
-                var graceThreshold = candidate.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes);
+                var graceThreshold = candidate.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes);
                 if (now < graceThreshold)
                 {
                     continue;
