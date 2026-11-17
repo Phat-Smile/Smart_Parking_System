@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
     QrCode,
     Car,
@@ -18,10 +18,12 @@ import {
     Smartphone,
     FileText,
     Camera,
+    Sparkles,
     X,
 } from "lucide-react";
 import { RealCameraFeed } from "./RealCameraFeed";
 import QRCode from "react-qr-code";
+import { comparePlates, PlateComparisonResult } from "./anpr/plateMatcher";
 import {
     PlateBadge,
     feeText,
@@ -184,6 +186,16 @@ export function StaffExitPage() {
 
     const qrValid = qrCheckStatus === "SUCCESS";
     const plateMatch = plateCheckStatus === "SUCCESS";
+
+    // So khớp quang học thông minh với ma trận Weighted Levenshtein (OCR Confusion Matrix)
+    const plateComparison: PlateComparisonResult | null = useMemo(() => {
+        if (!scannedSession?.plateNumber || !detectedExitPlate.trim()) {
+            return null;
+        }
+        return comparePlates(scannedSession.plateNumber, detectedExitPlate);
+    }, [scannedSession?.plateNumber, detectedExitPlate]);
+
+    const isOpticalPlateMatch = !plateMatch && (plateComparison?.isHighConfidence ?? false);
 
     const canAllowExit =
         plateMatch &&
@@ -393,8 +405,11 @@ export function StaffExitPage() {
             );
 
             // Bước 2: Bắt buộc hoàn tất đóng phiên hợp lệ qua /complete
+            // Fix BUG-BE2-03: Biển số gửi lên phải là scannedSession.plateNumber (biển số gốc đã được xác minh)
+            // thay vì gatePlate (chuỗi OCR đọc sai từ camera) để tránh Backend ném lỗi 409 ExitNotVerified.
+            const verifiedPlate = scannedSession.plateNumber || gatePlate;
             await completeParkingSession(scannedSession.id, {
-                plateNumber: gatePlate,
+                plateNumber: verifiedPlate,
                 qrToken: qrToSend,
             });
             completeExit(
@@ -403,7 +418,7 @@ export function StaffExitPage() {
             );
             setExitAllowed(true);
             announceCheckOut({
-                plateNumber: gatePlate || scannedSession.plateNumber,
+                plateNumber: verifiedPlate,
                 lotName: assignedLot?.lotName,
                 amountPaid: scannedSession.totalFeeVnd,
             });
@@ -981,7 +996,9 @@ export function StaffExitPage() {
                                             className={`staff-match-pill ${
                                                 plateMatch
                                                     ? "match-success"
-                                                    : "match-failed"
+                                                    : isOpticalPlateMatch
+                                                      ? "match-warning"
+                                                      : "match-failed"
                                             }`}
                                         >
                                             {plateMatch ? (
@@ -991,6 +1008,21 @@ export function StaffExitPage() {
                                                         strokeWidth={2.4}
                                                     />
                                                     Khớp biển số
+                                                </>
+                                            ) : isOpticalPlateMatch ? (
+                                                <>
+                                                    <AlertTriangle
+                                                        size={12}
+                                                        strokeWidth={2.4}
+                                                    />
+                                                    Khớp quang học (OCR{" "}
+                                                    {plateComparison?.score
+                                                        ? Math.round(
+                                                              plateComparison.score *
+                                                                  100,
+                                                          )
+                                                        : 95}
+                                                    %)
                                                 </>
                                             ) : (
                                                 <>
@@ -1043,6 +1075,60 @@ export function StaffExitPage() {
                                     <span>Tra cứu mất vé</span>
                                 </button>
                             </div>
+
+                            {/* Gợi ý thông minh ANPR khi OCR đọc lệch ký tự quang học so với vé vào */}
+                            {isOpticalPlateMatch && scannedSession?.plateNumber && (
+                                <div
+                                    className="staff-plate-ocr-hint"
+                                    style={{
+                                        marginTop: "8px",
+                                        padding: "8px 12px",
+                                        borderRadius: "6px",
+                                        background: "#fef9c3",
+                                        border: "1px solid #fde047",
+                                        color: "#854d0e",
+                                        fontSize: "12px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: "8px",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                        }}
+                                    >
+                                        <Sparkles
+                                            size={14}
+                                            style={{ color: "#d97706", flexShrink: 0 }}
+                                        />
+                                        <span>
+                                            Gợi ý ANPR: Camera có thể đọc lệch ký tự quang học so với vé vào (
+                                            <strong>{scannedSession.plateNumber}</strong>).
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="staff-btn staff-btn-secondary"
+                                        style={{
+                                            fontSize: "11px",
+                                            padding: "2px 8px",
+                                            height: "auto",
+                                            whiteSpace: "nowrap",
+                                            cursor: "pointer",
+                                        }}
+                                        onClick={() =>
+                                            setDetectedExitPlate(scannedSession.plateNumber)
+                                        }
+                                        title="Đồng bộ biển số theo vé vào đã xác nhận"
+                                    >
+                                        Đồng bộ theo vé vào
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Actions when QR is lost or manual check is needed */}
