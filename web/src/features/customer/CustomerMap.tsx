@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { getPublicMapboxToken } from "@/shared/config/env";
@@ -47,6 +47,7 @@ export const CustomerMap = memo(function CustomerMap({
     destinationLocation,
     lots,
     percentByLot,
+    loadEnabled = true,
 }: {
     selectedId: string;
     onSelect: (id: string) => void;
@@ -55,14 +56,39 @@ export const CustomerMap = memo(function CustomerMap({
     lots: MapParkingLot[];
     /** Free-space probability per lot id at the arrival hour chosen on the scrubber. */
     percentByLot?: Record<string, number> | null;
+    loadEnabled?: boolean;
 }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [mapVisible, setMapVisible] = useState(false);
+    useEffect(() => {
+        if (!loadEnabled || !containerRef.current) return;
+        if (typeof IntersectionObserver === "undefined") {
+            setMapVisible(true);
+            return;
+        }
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setMapVisible(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: "200px" },
+        );
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, [loadEnabled]);
     const token = getPublicMapboxToken();
     const pins = toPins(lots, percentByLot);
     const selected = pins.find((pin) => pin.id === selectedId);
 
     return (
-        <div className="customer-map" aria-label="Parking map">
-            {token ? (
+        <div
+            ref={containerRef}
+            className="customer-map"
+            aria-label="Parking map"
+        >
+            {token && !mapVisible ? null : token ? (
                 <MapboxScene
                     token={token}
                     pins={pins}

@@ -20,7 +20,6 @@ import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { getPublicMapboxToken } from "@/shared/config/env";
 import {
     getApprovedParkingLots,
-    getApprovedParkingLot,
     searchNearbyParkingLots,
     searchCustomerParkingLots,
     type CustomerLotSearchItem,
@@ -29,7 +28,9 @@ import {
 } from "./parkingLotApi";
 
 // Catalog/nearby responses don't include price or live availability.
-type SearchResult = CustomerLotSearchItem;
+type SearchResult = CustomerLotSearchItem & {
+    metricsState?: "loading" | "ready" | "error";
+};
 import {
     geocodeDestination,
     retrieveDestination,
@@ -37,6 +38,8 @@ import {
     type DestinationSuggestion,
     type MapCoordinates,
 } from "./geocodeDestination";
+
+const EMPTY_RESULTS: SearchResult[] = [];
 
 const MAX_PRICE = 50000;
 
@@ -62,33 +65,30 @@ function toSearchResults(
         prebookable: false,
         compatibility: [],
         amenities: [],
+        metricsState: "loading" as const,
     }));
 }
 
-async function withLiveLotDetails(
+function withSearchMetrics(
     lots: SearchResult[],
-    signal: AbortSignal,
-): Promise<SearchResult[]> {
-    const detailResults = await Promise.allSettled(
-        lots.map((lot) => getApprovedParkingLot(lot.id, signal)),
-    );
-    return lots.map((lot, index) => {
-        const detail = detailResults[index];
-        if (detail.status !== "fulfilled") return lot;
-        const prices = detail.value.pricing?.map((item) => item.price) ?? [];
-        const availability = detail.value.availability;
-        return {
-            ...lot,
-            startingPrice:
-                lot.startingPrice ??
-                (prices.length ? Math.min(...prices) : null),
-            availableSpaces:
-                lot.availableSpaces ??
-                (availability
-                    ? availability.car.available +
-                      (availability.motorbike?.available ?? 0)
-                    : null),
-        };
+    metrics: CustomerLotSearchItem[],
+): SearchResult[] {
+    const byId = new Map(metrics.map((lot) => [lot.id, lot]));
+    return lots.map((lot) => {
+        const detail = byId.get(lot.id);
+        return detail
+            ? {
+                  ...lot,
+                  startingPrice: detail.startingPrice,
+                  availableSpaces: detail.availableSpaces,
+                  billingMode: detail.billingMode,
+                  prebookable: detail.prebookable,
+                  compatibility: detail.compatibility,
+                  amenities: detail.amenities,
+                  drivingTimeMinutes: detail.drivingTimeMinutes,
+                  metricsState: "ready",
+              }
+            : { ...lot, metricsState: "error" };
     });
 }
 
@@ -319,15 +319,30 @@ export function CustomerFindParkingPage({
                   controller.signal,
               ).then(toSearchResults);
         void request
-            .then((lots) =>
-                needsSearchEndpoint
-                    ? lots
-                    : withLiveLotDetails(lots, controller.signal),
-            )
             .then((lots) => {
-                if (!controller.signal.aborted) {
-                    setApprovedLots(lots);
-                    setCatalogState("ready");
+                if (controller.signal.aborted) return;
+                setApprovedLots(lots);
+                setCatalogState("ready");
+                if (!needsSearchEndpoint && lots.length) {
+                    void searchCustomerParkingLots(
+                        { vehicleType: vehicle },
+                        controller.signal,
+                    )
+                        .then((metrics) => {
+                            if (!controller.signal.aborted)
+                                setApprovedLots(
+                                    withSearchMetrics(lots, metrics),
+                                );
+                        })
+                        .catch(() => {
+                            if (!controller.signal.aborted)
+                                setApprovedLots(
+                                    lots.map((lot) => ({
+                                        ...lot,
+                                        metricsState: "error",
+                                    })),
+                                );
+                        });
                 }
             })
             .catch(() => {
@@ -379,15 +394,33 @@ export function CustomerFindParkingPage({
                               controller.signal,
                           ),
                       );
-                const enriched = needsSearchEndpoint
-                    ? lots
-                    : await withLiveLotDetails(lots, controller.signal);
-                if (!controller.signal.aborted)
-                    setNearby({
-                        key: requestKey,
-                        state: "ready",
-                        lots: enriched,
-                    });
+                if (controller.signal.aborted) return;
+                setNearby({ key: requestKey, state: "ready", lots });
+                if (!needsSearchEndpoint && lots.length) {
+                    void searchCustomerParkingLots(
+                        { latitude, longitude, radiusKm: radius },
+                        controller.signal,
+                    )
+                        .then((metrics) => {
+                            if (!controller.signal.aborted)
+                                setNearby({
+                                    key: requestKey,
+                                    state: "ready",
+                                    lots: withSearchMetrics(lots, metrics),
+                                });
+                        })
+                        .catch(() => {
+                            if (!controller.signal.aborted)
+                                setNearby({
+                                    key: requestKey,
+                                    state: "ready",
+                                    lots: lots.map((lot) => ({
+                                        ...lot,
+                                        metricsState: "error",
+                                    })),
+                                });
+                        });
+                }
             } catch {
                 if (!controller.signal.aborted)
                     setNearby({ key: requestKey, state: "error", lots: [] });
@@ -416,7 +449,7 @@ export function CustomerFindParkingPage({
         ? (nearbyCurrent?.state ?? "loading")
         : catalogState;
     const results: SearchResult[] = originKey
-        ? (nearbyCurrent?.lots ?? [])
+        ? (nearbyCurrent?.lots ?? EMPTY_RESULTS)
         : approvedLots;
 
     const sortedParkings = useMemo(() => {
@@ -460,7 +493,7 @@ export function CustomerFindParkingPage({
         return slotAtArrival.lots.filter((rec) =>
             visibleParkings.some((lot) => lot.id === rec.lotId),
         );
-    }, [slotAtArrival?.lots, visibleParkings]);
+    }, [slotAtArrival, visibleParkings]);
 
     const currentRecommendations = useMemo(() => {
         return allRecommendations?.slice(0, 3) ?? null;
@@ -1504,13 +1537,25 @@ export function CustomerFindParkingPage({
                                                             )}
                                                         </small>
                                                         <b>
-                                                            {parking.startingPrice ==
-                                                            null
+                                                            {parking.metricsState ===
+                                                            "loading"
                                                                 ? copy(
-                                                                      "Not set",
-                                                                      "Chưa có giá",
+                                                                      "Loading...",
+                                                                      "Đang tải...",
                                                                   )
-                                                                : `${new Intl.NumberFormat("vi-VN").format(parking.startingPrice)} ₫`}
+                                                                : parking.metricsState ===
+                                                                    "error"
+                                                                  ? copy(
+                                                                        "Unavailable",
+                                                                        "Chưa có dữ liệu",
+                                                                    )
+                                                                  : parking.startingPrice ==
+                                                                      null
+                                                                    ? copy(
+                                                                          "Not set",
+                                                                          "Chưa có giá",
+                                                                      )
+                                                                    : `${new Intl.NumberFormat("vi-VN").format(parking.startingPrice)} ₫`}
                                                         </b>
                                                     </span>
                                                     <span>
@@ -1521,11 +1566,17 @@ export function CustomerFindParkingPage({
                                                             )}
                                                         </small>
                                                         <b>
-                                                            {parking.availableSpaces ??
-                                                                copy(
-                                                                    "Unavailable",
-                                                                    "Chưa có dữ liệu",
-                                                                )}
+                                                            {parking.metricsState ===
+                                                            "loading"
+                                                                ? copy(
+                                                                      "Loading...",
+                                                                      "Đang tải...",
+                                                                  )
+                                                                : (parking.availableSpaces ??
+                                                                  copy(
+                                                                      "Unavailable",
+                                                                      "Chưa có dữ liệu",
+                                                                  ))}
                                                         </b>
                                                     </span>
                                                 </div>
@@ -1622,6 +1673,7 @@ export function CustomerFindParkingPage({
                             </span>
                         </div>
                         <CustomerMap
+                            loadEnabled={resultsState !== "loading"}
                             selectedId={activeSelectedId}
                             onSelect={setSelectedId}
                             currentLocation={currentLocation}
