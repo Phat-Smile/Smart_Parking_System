@@ -231,6 +231,21 @@ public sealed class AddVehicleHandlerTests
         Assert.Equal(AddVehicleErrors.AccountNotFound.Code, result.Error!.Code);
     }
 
+    [Fact]
+    public async Task Bicycle_registration_is_rejected()
+    {
+        var vehicles = new FakeVehicles();
+        var result = await Handler(vehicles).Handle(
+            new AddVehicleCommand(OwnerId, null, "Bicycle", null),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(AddVehicleErrors.InvalidVehicleType.Code, result.Error!.Code);
+        Assert.Empty(vehicles.Items);
+        Assert.Throws<ArgumentException>(() =>
+            Vehicle.Add(Guid.NewGuid(), OwnerId, null, VehicleDomainType.Bicycle, Now));
+    }
+
     private static AddVehicleCommandHandler Handler(FakeVehicles vehicles) =>
         new(new FakeAccounts(Account.Register(OwnerId, "owner@example.com", "hash", null, Now)), vehicles, new FixedClock(Now), new LicensePlateNormalizer());
 }
@@ -287,21 +302,6 @@ public sealed class CustomerVehicleDetailsTests
         Assert.True(VehicleDetailsValidation.IsSystemVehicleImageUrl(details.PhotoUrl));
         Assert.True(new AddVehicleCommandValidator().Validate(
             new AddVehicleCommand(Guid.NewGuid(), "55A44555", "Car", null, details)).IsValid);
-    }
-
-    [Fact]
-    public async Task Bicycle_registration_is_rejected()
-    {
-        var vehicles = new FakeVehicles();
-        var result = await Handler(vehicles).Handle(
-            new AddVehicleCommand(OwnerId, null, "Bicycle", null),
-            TestContext.Current.CancellationToken);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(AddVehicleErrors.InvalidVehicleType.Code, result.Error!.Code);
-        Assert.Empty(vehicles.Items);
-        Assert.Throws<ArgumentException>(() =>
-            Vehicle.Add(Guid.NewGuid(), OwnerId, null, VehicleDomainType.Bicycle, Now));
     }
 
     [Fact]
