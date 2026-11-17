@@ -93,8 +93,12 @@ public sealed class ParkingFeeIpnHandler : IParkingFeeIpnHandler
         }
 
         // Kiểm tra xe đã được thanh toán trước đó chưa
-        bool alreadyPaid = await _paymentRepository.HasSucceededPaymentAsync(payment.SessionId, cancellationToken);
-        if (alreadyPaid)
+        var existingSucceeded = await _paymentRepository.GetSucceededBySessionIdAsync(payment.SessionId, cancellationToken);
+        var isOverstayPayment = existingSucceeded != null
+            && existingSucceeded.ExitWindowExpiresUtc.HasValue
+            && (nowUtc > existingSucceeded.ExitWindowExpiresUtc.Value || payment.PaymentTimeUtc > existingSucceeded.ExitWindowExpiresUtc.Value);
+
+        if (existingSucceeded != null && !isOverstayPayment)
         {
             if (payment.AccountId.HasValue)
             {
@@ -116,6 +120,29 @@ public sealed class ParkingFeeIpnHandler : IParkingFeeIpnHandler
                 // Khách vãng lai cần nhân viên đối soát thủ công
                 payment.MarkAsSurplus(vnpayTxnNo, "NeedsManualRefund", nowUtc);
             }
+        }
+        else if (isOverstayPayment && existingSucceeded != null)
+        {
+            // Cập nhật hóa đơn và gia hạn 15 phút mở barie
+            var exitWindowExpiresUtc = nowUtc.AddMinutes(15);
+            existingSucceeded.RecordOverstayPayment(payment.AmountPaid, nowUtc, exitWindowExpiresUtc);
+
+            // Đánh dấu mã tạm thời thành Superseded để tránh đụng unique index
+            payment.MarkAsSuperseded();
+
+            // Gửi tin nhắn mở cổng bãi xe qua hòm thư
+            var paidEvent = new ParkingSessionPaidIntegrationEvent(
+                SessionId: payment.SessionId,
+                PaymentId: existingSucceeded.Id,
+                AmountPaid: payment.AmountPaid,
+                PaidAtUtc: nowUtc,
+                ExitWindowExpiresUtc: exitWindowExpiresUtc);
+
+            _outboxWriter.Enqueue(
+                integrationEvent: paidEvent,
+                eventType: "payment.session-paid.v1",
+                eventVersion: 1,
+                correlationId: existingSucceeded.Id);
         }
         else
         {
