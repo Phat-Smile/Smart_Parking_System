@@ -125,9 +125,9 @@ public sealed class ReservationNoShowWorkerTests
     [Fact]
     public async Task ProcessNoShowsAsync_WhenWithinTechnicalToleranceBuffer_DoesNotCancel()
     {
-        // Appointment was at 09:44 (16 minutes ago). 15m grace has passed, but 3m technical tolerance (total 18m) has not!
+        // Appointment was at 09:44:30 (15 minutes 30 seconds ago). 15m grace has passed, but 1m technical tolerance (total 16m) has not!
         var resId = Guid.NewGuid();
-        var res = CreateConfirmedReservation(resId, Now.AddMinutes(-16), prepaidAmount: 50000m);
+        var res = CreateConfirmedReservation(resId, Now.AddMinutes(-15).AddSeconds(-30), prepaidAmount: 50000m);
         _repository.Add(res);
 
         var worker = CreateWorker();
@@ -173,10 +173,10 @@ public sealed class ReservationNoShowWorkerTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task N_01_HWD_Confirmed_Now_Is_AppointmentPlus14M59S_NotCancelled()
+    public async Task N_01_HWD_Confirmed_Now_Is_AppointmentPlus15M59S_NotCancelled()
     {
-        // Appointment at A, now = A + 14:59 (1 second before 15:00 grace threshold)
-        var appointmentTime = Now.AddMinutes(-14).AddSeconds(-59);
+        // Appointment at A, now = A + 15:59 (1 second before 16:00 cutoff)
+        var appointmentTime = Now.AddMinutes(-15).AddSeconds(-59);
         var res = CreateConfirmedReservation(
             Guid.NewGuid(),
             appointmentTime,
@@ -194,10 +194,10 @@ public sealed class ReservationNoShowWorkerTests
     }
 
     [Fact]
-    public async Task N_02_HWD_Confirmed_Now_Is_AppointmentPlus15M00S_CancelledNoShow_Forfeited()
+    public async Task N_02_HWD_Confirmed_Now_Is_AppointmentPlus16M00S_CancelledNoShow_Forfeited()
     {
-        // Appointment at A, now = A + 15:00 exact boundary
-        var appointmentTime = Now.AddMinutes(-15);
+        // Appointment at A, now = A + 16:00 exact cutoff
+        var appointmentTime = Now.AddMinutes(-16);
         var res = CreateConfirmedReservation(
             Guid.NewGuid(),
             appointmentTime,
@@ -223,10 +223,10 @@ public sealed class ReservationNoShowWorkerTests
     }
 
     [Fact]
-    public async Task N_03_Scheduled_Confirmed_Prepaid60k_Now_Is_AppointmentPlus15M00S_CancelledNoShow_Forfeited()
+    public async Task N_03_Scheduled_Confirmed_Prepaid60k_Now_Is_AppointmentPlus16M00S_CancelledNoShow_Forfeited()
     {
-        // Scheduled Confirmed with PrepaidAmount 60,000, now = A + 15:00
-        var appointmentTime = Now.AddMinutes(-15);
+        // Scheduled Confirmed with PrepaidAmount 60,000, now = A + 16:00
+        var appointmentTime = Now.AddMinutes(-16);
         var res = CreateConfirmedReservation(
             Guid.NewGuid(),
             appointmentTime,
@@ -462,8 +462,8 @@ public sealed class ReservationNoShowWorkerTests
 
         var handler = new CheckInReservationCommandHandler(_repository);
 
-        // Case 1: Arrival at A + 14:59 -> Eligible, HasReservation: true, Status: Used
-        var arrivalBeforeCutoff = apptTime.AddMinutes(14).AddSeconds(59);
+        // Case 1: Arrival at A + 15:59 -> Eligible, HasReservation: true, Status: Used
+        var arrivalBeforeCutoff = apptTime.AddMinutes(15).AddSeconds(59);
         var result1 = await handler.Handle(
             new CheckInReservationCommand(lotId, plate1, arrivalBeforeCutoff, Guid.NewGuid()),
             CancellationToken.None);
@@ -472,8 +472,8 @@ public sealed class ReservationNoShowWorkerTests
         Assert.True(result1.Value!.HasReservation);
         Assert.Equal(ReservationStatus.Used, res1.Status);
 
-        // Case 2: Arrival at A + 15:00 -> Ineligible, HasReservation: false, Status remains Confirmed
-        var arrivalAtCutoff = apptTime.AddMinutes(15);
+        // Case 2: Arrival at A + 16:00 -> Ineligible, HasReservation: false, Status remains Confirmed
+        var arrivalAtCutoff = apptTime.AddMinutes(16);
         var result2 = await handler.Handle(
             new CheckInReservationCommand(lotId, plate2, arrivalAtCutoff, Guid.NewGuid()),
             CancellationToken.None);
@@ -604,7 +604,7 @@ public sealed class ReservationNoShowWorkerTests
                 LicensePlateNormalizer.Normalize(r.PlateNumber) == normalizedPlate &&
                 r.Status == ReservationStatus.Confirmed &&
                 utcArrival >= r.WindowStartAt.AddMinutes(-15) &&
-                utcArrival < r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes)));
+                utcArrival < Reservation.GetNoShowCutoff(r.AppointmentTime)));
         }
 
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -627,7 +627,7 @@ public sealed class ReservationNoShowWorkerTests
 
         public Task<IReadOnlyList<Reservation>> ListNoShowCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default)
         {
-            var graceThreshold = now.AddMinutes(-(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes));
+            var graceThreshold = Reservation.GetNoShowCandidateThreshold(now);
             return Task.FromResult<IReadOnlyList<Reservation>>(
                 _list.Where(r => r.Status == ReservationStatus.Confirmed && r.AppointmentTime <= graceThreshold)
                      .OrderBy(r => r.AppointmentTime)

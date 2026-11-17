@@ -71,7 +71,7 @@ public sealed class CheckInReservationCommandHandlerTests
     [Fact]
     public async Task Handle_WhenArrivalIsTooLate_ReturnsHasReservationFalse()
     {
-        // NoShowGracePeriodMinutes = 15 min. Arrival 16 min after apptTime is too late.
+        // TotalNoShowGracePeriodMinutes = 16 min (15 min grace + 1 min tolerance). Arrival at or after 16 min is too late.
         var apptTime = DateTimeOffset.UtcNow;
         var reservation = CreateConfirmedReservation(apptTime);
         _repository.Add(reservation);
@@ -175,7 +175,7 @@ public sealed class CheckInReservationCommandHandlerTests
                 LicensePlateNormalizer.Normalize(r.PlateNumber) == normalized &&
                 r.Status == ReservationStatus.Confirmed &&
                 arrivalTime >= r.WindowStartAt.AddMinutes(-15) &&
-                arrivalTime < r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes));
+                arrivalTime < Reservation.GetNoShowCutoff(r.AppointmentTime));
             return Task.FromResult(res);
         }
 

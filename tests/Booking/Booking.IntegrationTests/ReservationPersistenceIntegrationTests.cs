@@ -61,7 +61,7 @@ public sealed class ReservationPersistenceIntegrationTests(PostgreSqlContainerFi
                 priceSnapshot: """{"rate": 25000}""");
 
             reservation.Confirm(Now.AddMinutes(2));
-            reservation.Cancel(Now.AddMinutes(45), CancelReason.NoShow, PrepaidOutcome.Forfeited);
+            reservation.Cancel(Now.AddMinutes(46), CancelReason.NoShow, PrepaidOutcome.Forfeited);
 
             dbContext.Reservations.Add(reservation);
             await dbContext.SaveChangesAsync(cancellationToken);

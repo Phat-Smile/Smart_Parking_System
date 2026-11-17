@@ -84,8 +84,8 @@ public sealed class ReservationNoShowWorker(
                 }
 
                 var now = clock.UtcNow;
-                var graceThreshold = candidate.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes);
-                if (now < graceThreshold)
+                var cutoff = Reservation.GetNoShowCutoff(candidate.AppointmentTime);
+                if (now < cutoff)
                 {
                     continue;
                 }
@@ -112,7 +112,7 @@ public sealed class ReservationNoShowWorker(
 
                 logger.LogInformation(
                     "Reservation {ReservationId} (User {UserId}, Lot {LotId}) marked as NoShow after grace period expired at {GraceExpiry}.",
-                    candidate.Id, candidate.UserId, candidate.LotId, graceThreshold);
+                    candidate.Id, candidate.UserId, candidate.LotId, cutoff);
             }
             catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.InnerException?.GetType().Name == "DbUpdateConcurrencyException")
             {

@@ -95,10 +95,10 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
     public async Task N_13_Worker_Vs_CheckIn_Race_Concluded_Atomically()
     {
         var ct = TestContext.Current.CancellationToken;
-        // Check-in arrives at A + 14:59 (eligible for check-in)
-        var arrivalAt = AppointmentTime.AddMinutes(14).AddSeconds(59);
-        // Worker clock at A + 15:00 (eligible for NoShow)
-        var workerClock = new FakeClock(AppointmentTime.AddMinutes(15));
+        // Check-in arrives at A + 15:59 (eligible for check-in)
+        var arrivalAt = AppointmentTime.AddMinutes(15).AddSeconds(59);
+        // Worker clock at A + 16:00 (eligible for NoShow)
+        var workerClock = new FakeClock(AppointmentTime.AddMinutes(16));
 
         await using var provider = CreateProvider(workerClock);
         await EnsureMigratedAsync(provider, ct);
@@ -199,7 +199,7 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
     public async Task N_14_Worker_Vs_CustomerCancel_Race_Concluded_Atomically()
     {
         var ct = TestContext.Current.CancellationToken;
-        var clock = new FakeClock(AppointmentTime.AddMinutes(15));
+        var clock = new FakeClock(AppointmentTime.AddMinutes(16));
 
         await using var provider = CreateProvider(clock);
         await EnsureMigratedAsync(provider, ct);
@@ -295,7 +295,7 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
     public async Task N_15_After_NoShow_HeldQuota_Drops_By_One()
     {
         var ct = TestContext.Current.CancellationToken;
-        var clock = new FakeClock(AppointmentTime.AddMinutes(15));
+        var clock = new FakeClock(AppointmentTime.AddMinutes(16));
 
         await using var provider = CreateProvider(clock);
         await EnsureMigratedAsync(provider, ct);
@@ -361,7 +361,7 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
     public async Task N_16_Outbox_Atomicity_SaveFails_NoOutboxRow_And_Reservation_Still_Confirmed()
     {
         var ct = TestContext.Current.CancellationToken;
-        var clock = new FakeClock(AppointmentTime.AddMinutes(15));
+        var clock = new FakeClock(AppointmentTime.AddMinutes(16));
 
         // Create provider with failing repository to simulate save failure
         var configuration = new ConfigurationBuilder()
@@ -485,7 +485,7 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
     public async Task N_17_Worker_RunTwice_Produces_Exactly_One_Cancelled_Row_And_One_Outbox_Row()
     {
         var ct = TestContext.Current.CancellationToken;
-        var clock = new FakeClock(AppointmentTime.AddMinutes(15));
+        var clock = new FakeClock(AppointmentTime.AddMinutes(16));
 
         await using var provider = CreateProvider(clock);
         await EnsureMigratedAsync(provider, ct);
@@ -559,7 +559,7 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
     // cannot be matched by worker runs in other test cases sharing the DB container.
     // =========================================================================
     [Fact]
-    public async Task N_18_Real_Repository_CheckIn_Boundary_14M59S_Accepted_15M00S_Rejected()
+    public async Task N_18_Real_Repository_CheckIn_Boundary_15M59S_Accepted_16M00S_Rejected()
     {
         var ct = TestContext.Current.CancellationToken;
         var appointmentTimeA = AppointmentTime.AddDays(30);
@@ -614,13 +614,13 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
             await db.SaveChangesAsync(ct);
         }
 
-        // Check in plate 1 at A + 14:59 -> HasReservation true
-        var arrival14M59S = appointmentTimeA.AddMinutes(14).AddSeconds(59);
+        // Check in plate 1 at A + 15:59 -> HasReservation true
+        var arrival15M59S = appointmentTimeA.AddMinutes(15).AddSeconds(59);
         await using (var scope1 = provider.CreateAsyncScope())
         {
             var handler = scope1.ServiceProvider.GetRequiredService<CheckInReservationCommandHandler>();
             var result1 = await handler.Handle(
-                new CheckInReservationCommand(lotId, plateAccepted, arrival14M59S, Guid.NewGuid()),
+                new CheckInReservationCommand(lotId, plateAccepted, arrival15M59S, Guid.NewGuid()),
                 ct);
 
             Assert.True(result1.IsSuccess);
@@ -628,13 +628,13 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
             Assert.Equal(resAcceptedId, result1.Value.ReservationId);
         }
 
-        // Check in plate 2 at A + 15:00 -> HasReservation false
-        var arrival15M00S = appointmentTimeA.AddMinutes(15);
+        // Check in plate 2 at A + 16:00 -> HasReservation false
+        var arrival16M00S = appointmentTimeA.AddMinutes(16);
         await using (var scope2 = provider.CreateAsyncScope())
         {
             var handler = scope2.ServiceProvider.GetRequiredService<CheckInReservationCommandHandler>();
             var result2 = await handler.Handle(
-                new CheckInReservationCommand(lotId, plateRejected, arrival15M00S, Guid.NewGuid()),
+                new CheckInReservationCommand(lotId, plateRejected, arrival16M00S, Guid.NewGuid()),
                 ct);
 
             Assert.True(result2.IsSuccess);
