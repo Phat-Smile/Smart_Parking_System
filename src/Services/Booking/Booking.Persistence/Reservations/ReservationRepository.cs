@@ -48,7 +48,7 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
         // Cho phép xe đến muộn tối đa 15 phút (NoShowGracePeriodMinutes) + 3 phút dung sai kỹ thuật (TechnicalToleranceMinutes)
         return candidates.FirstOrDefault(r =>
             utcArrival >= r.WindowStartAt.AddMinutes(-15) &&
-            utcArrival <= r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes));
+            utcArrival < r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes));
     }
 
     public void Add(Reservation reservation) =>

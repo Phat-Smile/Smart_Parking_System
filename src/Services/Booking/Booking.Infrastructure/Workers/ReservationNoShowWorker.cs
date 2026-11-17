@@ -92,6 +92,8 @@ public sealed class ReservationNoShowWorker(
 
                 candidate.Cancel(now, CancelReason.NoShow, candidate.PrepaidAmount > 0 ? PrepaidOutcome.Forfeited : null);
 
+                var forfeitedAmount = candidate.PrepaidAmount > 0 ? candidate.PrepaidAmount : 0m;
+
                 outbox.Enqueue(
                     new ReservationCancelledIntegrationEvent(
                         candidate.Id,
@@ -99,7 +101,8 @@ public sealed class ReservationNoShowWorker(
                         candidate.LotId,
                         CancelReason.NoShow.ToString(),
                         refundAmount: 0m,
-                        now),
+                        now,
+                        forfeitedAmount: forfeitedAmount),
                     "booking.reservation-cancelled.v1",
                     1,
                     correlationId: candidate.Id);
@@ -110,6 +113,11 @@ public sealed class ReservationNoShowWorker(
                 logger.LogInformation(
                     "Reservation {ReservationId} (User {UserId}, Lot {LotId}) marked as NoShow after grace period expired at {GraceExpiry}.",
                     candidate.Id, candidate.UserId, candidate.LotId, graceThreshold);
+            }
+            catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.InnerException?.GetType().Name == "DbUpdateConcurrencyException")
+            {
+                logger.LogWarning(ex, "Concurrency conflict processing NoShow for reservation candidate {ReservationId}. Another operation modified the reservation.", candidateStub.Id);
+                repository.DiscardPendingChanges();
             }
             catch (Exception ex)
             {
