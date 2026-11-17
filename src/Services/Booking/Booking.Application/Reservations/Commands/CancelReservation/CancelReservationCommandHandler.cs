@@ -64,6 +64,10 @@ public sealed class CancelReservationCommandHandler(
             _ => 0m
         };
 
+        decimal forfeitedAmount = decision is CancellationRefundDecision.Forfeit
+            ? reservation.PrepaidAmount
+            : 0m;
+
         try
         {
             reservation.Cancel(now, CancelReason.CustomerCancelled, initialOutcome);
@@ -76,7 +80,8 @@ public sealed class CancelReservationCommandHandler(
                     reservation.LotId,
                     CancelReason.CustomerCancelled.ToString(),
                     refundAmount,
-                    now),
+                    now,
+                    forfeitedAmount: forfeitedAmount),
                 "booking.reservation-cancelled.v1",
                 1,
                 correlationId: reservation.Id);

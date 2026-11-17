@@ -11,7 +11,8 @@ public sealed record ReservationCancelledIntegrationEvent
         Guid lotId,
         string cancelReason,
         decimal refundAmount,
-        DateTimeOffset cancelledAtUtc)
+        DateTimeOffset cancelledAtUtc,
+        decimal forfeitedAmount = 0m)
     {
         ReservationId = reservationId;
         UserId = userId;
@@ -19,6 +20,7 @@ public sealed record ReservationCancelledIntegrationEvent
         CancelReason = cancelReason;
         RefundAmount = refundAmount;
         CancelledAtUtc = cancelledAtUtc;
+        ForfeitedAmount = forfeitedAmount;
     }
 
     public Guid ReservationId { get; init; }
@@ -27,4 +29,5 @@ public sealed record ReservationCancelledIntegrationEvent
     public string CancelReason { get; init; }
     public decimal RefundAmount { get; init; }
     public DateTimeOffset CancelledAtUtc { get; init; }
+    public decimal ForfeitedAmount { get; init; }
 }

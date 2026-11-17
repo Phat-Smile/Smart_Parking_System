@@ -97,7 +97,7 @@ public sealed class CheckInEndpointSecurityIntegrationTests
                 LicensePlateNormalizer.Normalize(r.PlateNumber) == normalized &&
                 r.Status == ReservationStatus.Confirmed &&
                 arrivalTime >= r.WindowStartAt.AddMinutes(-15) &&
-                arrivalTime <= r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes));
+                arrivalTime < Reservation.GetNoShowCutoff(r.AppointmentTime));
             return Task.FromResult(res);
         }
 
