@@ -39,8 +39,6 @@ import {
     type MapCoordinates,
 } from "./geocodeDestination";
 
-const EMPTY_RESULTS: SearchResult[] = [];
-
 const MAX_PRICE = 50000;
 
 const initialFilters = {
@@ -109,6 +107,8 @@ const filterOptions = {
         { value: "motorbike", label: "Motorbike", icon: "motorbike" as const },
     ],
 };
+
+const EMPTY_RESULTS: SearchResult[] = [];
 
 export function CustomerFindParkingPage({
     fontClassName,
