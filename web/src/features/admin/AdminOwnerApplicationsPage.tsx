@@ -338,13 +338,6 @@ export function AdminOwnerApplicationsPage() {
                 </div>
                 <div className="admin-heading-actions">
                     <Link
-                        href="/admin/parking-lots/assignments"
-                        className="admin-btn admin-btn-ghost admin-owner-nav-btn"
-                    >
-                        <AdminIcon name="briefcase" size={15} />
-                        <span>{t("assignmentsTitle")}</span>
-                    </Link>
-                    <Link
                         href="/admin/parking-lots/pending"
                         className="admin-btn admin-btn-ghost admin-owner-nav-btn"
                     >

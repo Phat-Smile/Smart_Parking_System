@@ -481,12 +481,6 @@ export function ParkingLotsListPage({
                     >
                         <span>{t("parkingLotsOwnersTab")}</span>
                     </Link>
-                    <Link
-                        href="/admin/parking-lots/assignments"
-                        className="admin-workflow-pill"
-                    >
-                        <span>{t("parkingLotsAssignmentsTab")}</span>
-                    </Link>
                 </div>
             </nav>
 
@@ -1118,29 +1112,6 @@ export function ParkingLotsListPage({
                                                                     </span>
                                                                 </button>
                                                             </>
-                                                        )}
-
-                                                        {lot.status ===
-                                                            "Approved" && (
-                                                            <Link
-                                                                href="/admin/parking-lots/assignments"
-                                                                className="admin-btn admin-btn-sm admin-btn-lime admin-btn-assign-primary"
-                                                                title={
-                                                                    isVi
-                                                                        ? "Thao tác chính: Phân công nhân viên vận hành bãi đỗ xe"
-                                                                        : "Primary action: Assign staff to operate this parking lot"
-                                                                }
-                                                            >
-                                                                <AdminIcon
-                                                                    name="users"
-                                                                    size={14}
-                                                                />
-                                                                <span>
-                                                                    {t(
-                                                                        "assignLot",
-                                                                    )}
-                                                                </span>
-                                                            </Link>
                                                         )}
 
                                                         <Link

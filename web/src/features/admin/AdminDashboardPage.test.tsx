@@ -94,7 +94,6 @@ describe("AdminDashboardPage & AdminShell UI/UX", () => {
         expect(screen.getAllByText("Tổng quan").length).toBeGreaterThan(0);
         expect(screen.getByText("Quản lý bãi xe")).toBeInTheDocument();
         expect(screen.getByText("Quản lý đối tác")).toBeInTheDocument();
-        expect(screen.getByText("Vận hành")).toBeInTheDocument();
         expect(screen.getByText("Hệ thống")).toBeInTheDocument();
 
         // Verify 4 KPI Cards

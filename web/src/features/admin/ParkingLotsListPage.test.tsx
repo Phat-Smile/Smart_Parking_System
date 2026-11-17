@@ -255,9 +255,10 @@ describe("ParkingLotsListPage — UI/UX & 4 Distinct States", () => {
         const notUpdatedCells = screen.getAllByText("Chưa cập nhật");
         expect(notUpdatedCells.length).toBeGreaterThanOrEqual(6);
 
-        // Primary action "Phân công" and secondary action "Xem" are both rendered for Approved lots
-        const assignLinks = screen.getAllByRole("link", { name: /Phân công/i });
-        expect(assignLinks.length).toBeGreaterThanOrEqual(2);
+        // Action "Xem" is rendered for Approved lots (staff assignment belongs to Owner portal)
+        expect(
+            screen.queryByRole("link", { name: /Phân công/i }),
+        ).not.toBeInTheDocument();
         const viewLinks = screen.getAllByRole("link", { name: /^Xem$/i });
         expect(viewLinks).toHaveLength(2);
     });

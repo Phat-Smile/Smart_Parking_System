@@ -292,13 +292,6 @@ export function AdminUsersPage() {
                         <AdminIcon name="fileCheck" size={15} />
                         <span>{t("adminOwnerApplications")}</span>
                     </Link>
-                    <Link
-                        href="/admin/parking-lots/assignments"
-                        className="admin-btn admin-btn-ghost"
-                    >
-                        <AdminIcon name="users" size={15} />
-                        <span>{t("adminLotAssignments")}</span>
-                    </Link>
                     <button
                         type="button"
                         className="admin-btn admin-btn-ghost"
