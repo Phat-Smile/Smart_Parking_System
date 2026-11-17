@@ -14,10 +14,6 @@ const messages = {
         "Upload a clear vehicle photo, then try again.",
         "Vui lòng tải ảnh xe lên rồi thử lại.",
     ],
-    bicyclePlate: [
-        "A bicycle must not have a license plate.",
-        "Xe đạp không sử dụng biển số.",
-    ],
     vehicleType: [
         "Select a valid vehicle type.",
         "Vui lòng chọn loại xe hợp lệ.",
@@ -50,12 +46,6 @@ export function vehicleAddErrorMessage(
                 break;
             case "identity.invalid_license_plate":
                 key = "invalidPlate";
-                break;
-            case "identity.bicycle_photo_required":
-                key = "photoRequired";
-                break;
-            case "identity.bicycle_plate_not_allowed":
-                key = "bicyclePlate";
                 break;
             case "identity.invalid_vehicle_type":
                 key = "vehicleType";

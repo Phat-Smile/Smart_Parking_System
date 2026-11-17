@@ -41,11 +41,9 @@ public sealed class Vehicle
             throw new ArgumentException("AccountId must not be empty.", nameof(accountId));
         if (!Enum.IsDefined(vehicleType))
             throw new ArgumentException("Unknown VehicleType.", nameof(vehicleType));
-
-        if (vehicleType == VehicleDomainType.Bicycle && !string.IsNullOrWhiteSpace(licensePlate))
-            throw new ArgumentException("A bicycle does not use a license plate.", nameof(licensePlate));
-        if (vehicleType != VehicleDomainType.Bicycle)
-            ArgumentException.ThrowIfNullOrWhiteSpace(licensePlate);
+        if (vehicleType == VehicleDomainType.Bicycle)
+            throw new ArgumentException("Bicycles can no longer be registered.", nameof(vehicleType));
+        ArgumentException.ThrowIfNullOrWhiteSpace(licensePlate);
         var plate = string.IsNullOrWhiteSpace(licensePlate) ? null : licensePlate.Trim().ToUpperInvariant();
         if (plate?.Length > MaxLicensePlateLength)
             throw new ArgumentException($"LicensePlate must not exceed {MaxLicensePlateLength} characters.", nameof(licensePlate));
