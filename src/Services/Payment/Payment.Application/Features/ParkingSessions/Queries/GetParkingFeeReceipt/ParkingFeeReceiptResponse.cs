@@ -16,4 +16,8 @@ public sealed record ParkingFeeReceiptResponse(
     string Status,
     DateTimeOffset? EntryTimeUtc,
     int? DurationMinutes,
-    string? TransactionReference);
+    string? TransactionReference,
+    long? UnitPrice = null,
+    string? PricingCalculationMethod = null,
+    int? BlockMinutes = null,
+    DateTimeOffset? ExitTimeUtc = null);

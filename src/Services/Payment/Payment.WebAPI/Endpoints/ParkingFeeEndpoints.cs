@@ -348,8 +348,8 @@ internal static class ParkingFeeEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
-        // Lấy hóa đơn điện tử quyết toán theo mã phiên đỗ xe (US-PAY-003)
-        app.MapGet("/api/payment/parking-sessions/{sessionId}/receipt", async (
+        // Xử lý truy vấn hóa đơn điện tử theo phiên
+        var handleSessionReceipt = async (
                 string sessionId,
                 HttpContext httpContext,
                 ISender sender,
@@ -389,12 +389,29 @@ internal static class ParkingFeeEndpoints
                 }
 
                 return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);
-            })
+            };
+
+        // Lấy hóa đơn điện tử quyết toán theo mã phiên đỗ xe (US-PAY-003)
+        app.MapGet("/api/payment/parking-sessions/{sessionId}/receipt", handleSessionReceipt)
             .AllowAnonymous()
             .WithTags("Thanh toán phí đỗ (Parking Fee)")
             .WithName("GetParkingSessionReceipt")
             .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo phiên")
             .WithDescription("Lấy chi tiết bảng kê hóa đơn điện tử quyết toán sau khi thanh toán thành công (US-PAY-003).")
+            .Produces<ParkingFeeReceiptResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Alias đường dẫn ngắn theo spec của Lộc
+        app.MapGet("/api/payment/receipts/{sessionId}", handleSessionReceipt)
+            .AllowAnonymous()
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("GetParkingSessionReceiptAlias")
+            .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo phiên (Alias)")
+            .WithDescription("Alias đường dẫn ngắn phục vụ tích hợp FE.")
             .Produces<ParkingFeeReceiptResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
