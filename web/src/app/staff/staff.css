@@ -790,6 +790,10 @@
     white-space: nowrap;
 }
 
+.staff-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
 .staff-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
@@ -2885,6 +2889,11 @@
     transform: translateY(-1px);
 }
 
+.staff-payment-buttons .staff-btn:active:not(:disabled),
+.staff-pay-buttons .staff-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
 /* Payment Method Selection */
 .staff-pay-segment {
     display: flex;
@@ -3730,7 +3739,7 @@
 }
 
 .staff-btn-checkin-primary:active:not(:disabled) {
-    transform: translateY(0);
+    transform: scale(0.98);
 }
 
 .staff-btn-checkin-primary:disabled {
@@ -4258,6 +4267,10 @@
 
 .staff-quick-cash-btn:hover {
     background: #e2e8f0;
+}
+
+.staff-quick-cash-btn:active {
+    transform: scale(0.98);
 }
 
 .staff-quick-cash-btn.active {

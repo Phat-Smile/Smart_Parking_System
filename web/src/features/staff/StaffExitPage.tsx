@@ -1619,7 +1619,7 @@ export function StaffExitPage() {
                                     <div className="staff-pay-buttons">
                                         <button
                                             type="button"
-                                            className="staff-btn staff-btn-primary staff-btn-flex"
+                                            className="staff-btn staff-btn-primary staff-btn-flex transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                             onClick={() => {
                                                 setPaymentModal("Cash");
                                                 setCashGiven(
@@ -1639,7 +1639,7 @@ export function StaffExitPage() {
                                         </button>
                                         <button
                                             type="button"
-                                            className="staff-btn staff-btn-secondary staff-btn-flex"
+                                            className="staff-btn staff-btn-secondary staff-btn-flex transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                             onClick={handleOpenVnPayModal}
                                         >
                                             <Smartphone
@@ -1710,7 +1710,7 @@ export function StaffExitPage() {
                                 <>
                                     <button
                                         type="button"
-                                        className={`staff-btn staff-btn-lg staff-btn-checkin-primary ${
+                                        className={`staff-btn staff-btn-lg staff-btn-checkin-primary transition-all duration-150 active:scale-[0.98] cursor-pointer ${
                                             canAllowExit ? "btn-exit-ready" : ""
                                         }`}
                                         disabled={!canAllowExit || loading}
@@ -1876,7 +1876,7 @@ export function StaffExitPage() {
                                         <div className="staff-quick-cash-row">
                                             <button
                                                 type="button"
-                                                className="staff-quick-cash-btn"
+                                                className="staff-quick-cash-btn transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                                 onClick={() =>
                                                     setCashGiven(
                                                         scannedSession.amountDueVnd ??
@@ -1896,7 +1896,7 @@ export function StaffExitPage() {
                                                     <button
                                                         key={preset}
                                                         type="button"
-                                                        className={`staff-quick-cash-btn ${
+                                                        className={`staff-quick-cash-btn transition-all duration-150 active:scale-[0.98] cursor-pointer ${
                                                             cashGiven === preset
                                                                 ? "active"
                                                                 : ""
@@ -1957,7 +1957,7 @@ export function StaffExitPage() {
                                         </button>
                                         <button
                                             type="button"
-                                            className="staff-btn staff-btn-primary staff-btn-flex"
+                                            className="staff-btn staff-btn-primary staff-btn-flex transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                             disabled={
                                                 isPayingCash ||
                                                 cashGiven <
@@ -2168,7 +2168,7 @@ export function StaffExitPage() {
                                         </button>
                                         <button
                                             type="button"
-                                            className="staff-btn staff-btn-primary staff-btn-flex"
+                                            className="staff-btn staff-btn-primary staff-btn-flex transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                             disabled={
                                                 isCheckingVnPay || !vnPayTxId
                                             }

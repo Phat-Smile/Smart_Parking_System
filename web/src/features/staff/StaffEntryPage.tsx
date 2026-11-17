@@ -1045,7 +1045,7 @@ export function StaffEntryPage() {
                             {step !== "barrier_open" ? (
                                 <button
                                     type="button"
-                                    className="staff-btn staff-btn-checkin-primary"
+                                    className="staff-btn staff-btn-checkin-primary transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                     disabled={loading || !plateNumber.trim()}
                                     onClick={handleConfirmEntry}
                                 >
