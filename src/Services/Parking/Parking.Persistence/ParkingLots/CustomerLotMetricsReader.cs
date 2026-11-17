@@ -28,7 +28,7 @@ internal sealed class CustomerLotMetricsReader(ParkingDbContext db) : ICustomerL
         var policies = await db.PricingPolicies.AsNoTracking()
             .Where(x => lotIds.Contains(x.LotId) &&
                 (x.VehicleType == "CAR" || x.VehicleType == "MOTORBIKE"))
-            .Select(x => new { x.LotId, x.VehicleType, x.Version, x.Price, x.BillingMode })
+            .Select(x => new { x.LotId, x.VehicleType, x.Version, x.Price, x.BillingMode, x.BlockMinutes })
             .ToListAsync(ct);
 
         var carsByLot = carCounts.ToDictionary(x => x.LotId, x => x.Count);
@@ -37,7 +37,8 @@ internal sealed class CustomerLotMetricsReader(ParkingDbContext db) : ICustomerL
         var pricesByLot = policies.GroupBy(x => x.LotId).ToDictionary(x => x.Key,
             x => (IReadOnlyList<CustomerLotPrice>)x.GroupBy(policy => policy.VehicleType)
                 .Select(type => type.OrderByDescending(policy => policy.Version).First())
-                .Select(policy => new CustomerLotPrice(policy.VehicleType, policy.Price, policy.BillingMode))
+                .Select(policy => new CustomerLotPrice(policy.VehicleType, policy.Price, policy.BillingMode,
+                    policy.BlockMinutes))
                 .ToList());
 
         return lotIds.Distinct().ToDictionary(id => id, id => new CustomerLotMetrics(

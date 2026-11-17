@@ -15,7 +15,8 @@ public sealed record GetParkingLotRecommendationsQuery(
     DateTimeOffset? ArrivalAt = null,
     int DurationMinutes = 120,
     double RadiusKm = 10.0,
-    int TopK = 3) : IRequest<ParkingLotRecommendationResult>;
+    int TopK = 3,
+    string Priority = "balanced") : IRequest<ParkingLotRecommendationResult>;
 
 public sealed record ParkingLotRecommendationResult(
     IReadOnlyList<RecommendedParkingLotDto> RecommendedLots,
@@ -48,6 +49,9 @@ public sealed class GetParkingLotRecommendationsQueryValidator : AbstractValidat
         RuleFor(x => x.RadiusKm).GreaterThan(0).LessThanOrEqualTo(50);
         RuleFor(x => x.DurationMinutes).InclusiveBetween(15, 1440);
         RuleFor(x => x.TopK).InclusiveBetween(1, 10);
+        RuleFor(x => x.Priority)
+            .Must(priority => priority is "balanced" or "cheapest" or "fastest" or "availability")
+            .WithMessage("Priority must be balanced, cheapest, fastest, or availability.");
         RuleFor(x => x.VehicleType)
             .Must(x => x.Equals("Car", StringComparison.OrdinalIgnoreCase) ||
                        x.Equals("Motorbike", StringComparison.OrdinalIgnoreCase))
@@ -64,8 +68,6 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
     ILogger<GetParkingLotRecommendationsQueryHandler> logger)
     : IRequestHandler<GetParkingLotRecommendationsQuery, ParkingLotRecommendationResult>
 {
-    private const decimal DefaultHourlyRate = 10000m;
-
     public async Task<ParkingLotRecommendationResult> Handle(
         GetParkingLotRecommendationsQuery request,
         CancellationToken cancellationToken)
@@ -92,9 +94,18 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         var candidateIds = nearbyLots.Select(x => x.Id).Distinct().ToList();
         var metrics = await metricsReader.ReadAsync(candidateIds, cancellationToken);
 
-        // 2. Fetch held quotas in parallel via IHeldQuotaProvider (does not use ParkingDbContext, avoids sequential timeout)
-        var durationHours = Math.Max(1.0, request.DurationMinutes / 60.0);
-        var heldQuotaTasks = nearbyLots.Select(async lot =>
+        // Never invent a missing price (the old code substituted 10,000 VND).
+        // Only send lots with an applicable PerEntry/Block policy to the LLM.
+        var pricedLots = nearbyLots.Where(lot =>
+            metrics.TryGetValue(lot.Id, out var metric) &&
+            GetPriceForDuration(metric, vehicleTypeStr, request.DurationMinutes).HasValue).ToList();
+        if (pricedLots.Count == 0)
+        {
+            return new ParkingLotRecommendationResult([], true, "no_applicable_pricing_policy");
+        }
+
+        // 2. Fetch held quotas in parallel (no ParkingDbContext usage here).
+        var heldQuotaTasks = pricedLots.Select(async lot =>
         {
             var held = await heldQuotaProvider.GetHeldReservationsAsync(lot.Id, cancellationToken);
             return (LotId: lot.Id, Held: held);
@@ -102,14 +113,14 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         var heldQuotaMap = (await Task.WhenAll(heldQuotaTasks)).ToDictionary(x => x.LotId, x => x.Held);
 
         // 3. Fetch snapshots SEQUENTIALLY on ParkingDbContext to prevent concurrent EF Core queries on same DbContext instance
-        var candidateMap = nearbyLots.ToDictionary(x => x.Id);
+        var candidateMap = pricedLots.ToDictionary(x => x.Id);
         var candidateInputs = new List<CandidateLotInputDto>();
 
-        foreach (var lot in nearbyLots)
+        foreach (var lot in pricedLots)
         {
             metrics.TryGetValue(lot.Id, out var metric);
-            var baseHourlyRate = GetBaseHourlyRate(metric, vehicleTypeStr);
-            var priceForDuration = (double)Math.Round(baseHourlyRate * (decimal)durationHours);
+            var priceForDuration = (double)GetPriceForDuration(metric, vehicleTypeStr,
+                request.DurationMinutes)!.Value;
 
             var snapshots = await snapshotReader.GetSessionProxyAsync(
                 lot.Id,
@@ -143,50 +154,63 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
             vehicleTypeStr,
             arrivalAt,
             request.DurationMinutes,
-            candidateInputs);
+            candidateInputs,
+            request.Priority);
 
         var aiResponse = await recommendationClient.GetRecommendationsAsync(aiRequest, cancellationToken);
 
-        // 5. If AI service responded successfully, map and return results
-        if (aiResponse is not null && aiResponse.RecommendedLots.Count > 0)
+        // 5. Validate the *entire* AI result. Never silently drop unknown IDs or
+        // accept invented prices/quality numbers before returning recommendations.
+        // The AI Service has already checked the model's JSON; this is our
+        // service-to-service trust boundary, not a second ranking algorithm.
+        var inputMap = candidateInputs.ToDictionary(x => x.LotId);
+        if (aiResponse is not null && IsValidAiResponse(aiResponse, inputMap))
         {
-            var recommendedLots = new List<RecommendedParkingLotDto>();
-            foreach (var item in aiResponse.RecommendedLots.Take(request.TopK))
-            {
-                if (!candidateMap.TryGetValue(item.LotId, out var candidate))
-                    continue;
+            var recommendedLots = aiResponse.RecommendedLots.Take(request.TopK)
+                .Select(item =>
+                {
+                    var candidate = candidateMap[item.LotId];
+                    var input = inputMap[item.LotId];
+                    return new RecommendedParkingLotDto(
+                        candidate.Id,
+                        candidate.Name,
+                        candidate.Address,
+                        candidate.Latitude,
+                        candidate.Longitude,
+                        item.Rank,
+                        item.DriveTimeMinutes,
+                        item.ProbabilityPercent,
+                        // Use the price that Parking calculated, not the service echo.
+                        (decimal)input.PriceForDuration,
+                        item.WarningHighFullRisk,
+                        item.Reasons,
+                        candidate.DistanceKm,
+                        item.SampleCount,
+                        item.InsufficientData,
+                        item.BaselineSource);
+                }).ToList();
 
-                recommendedLots.Add(new RecommendedParkingLotDto(
-                    candidate.Id,
-                    candidate.Name,
-                    candidate.Address,
-                    candidate.Latitude,
-                    candidate.Longitude,
-                    item.Rank,
-                    item.DriveTimeMinutes,
-                    item.ProbabilityPercent,
-                    (decimal)item.Price,
-                    item.WarningHighFullRisk,
-                    item.Reasons,
-                    candidate.DistanceKm,
-                    item.SampleCount,
-                    item.InsufficientData,
-                    item.BaselineSource));
-            }
-
-            if (recommendedLots.Count > 0)
-            {
-                return new ParkingLotRecommendationResult(
-                    recommendedLots,
-                    aiResponse.FallbackUsed,
-                    aiResponse.FallbackReason);
-            }
+            return new ParkingLotRecommendationResult(
+                recommendedLots,
+                aiResponse.FallbackUsed,
+                aiResponse.FallbackReason);
         }
 
-        // 5. Fail-Closed Fallback: Rank by Haversine distance & capacity (BR-08.f)
-        logger.LogWarning("Engaging fail-closed Haversine & capacity fallback for Top-3 recommendation.");
+        var fallbackReason = aiResponse switch
+        {
+            null => "ai_service_timeout_or_unavailable",
+            { FallbackUsed: true, RecommendedLots.Count: 0 } => "ai_recommendation_unavailable",
+            _ => "ai_response_invalid"
+        };
+        if (fallbackReason == "ai_response_invalid")
+        {
+            logger.LogWarning("Rejected invalid AI recommendation response; returning non-AI fallback.");
+        }
+
+        // 6. Clearly labelled non-AI fallback; do not present it as LLM ranking.
+        logger.LogWarning("Engaging fail-closed Haversine & capacity fallback for Top-3 recommendation. Reason={FallbackReason}", fallbackReason);
         var fallbackLots = BuildFailClosedFallback(
-            nearbyLots,
+            pricedLots,
             metrics,
             isCar,
             vehicleTypeStr,
@@ -196,18 +220,70 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         return new ParkingLotRecommendationResult(
             fallbackLots,
             FallbackUsed: true,
-            FallbackReason: "ai_service_timeout_or_unavailable");
+            FallbackReason: fallbackReason);
     }
 
-    private static decimal GetBaseHourlyRate(CustomerLotMetrics? metric, string vehicleTypeStr)
+    private static bool IsValidAiResponse(
+        RecommendationClientResponse response,
+        IReadOnlyDictionary<Guid, CandidateLotInputDto> inputs)
     {
-        if (metric is null || metric.Prices.Count == 0)
-            return DefaultHourlyRate;
+        // AI Service returns at most 3, even if the public endpoint's TopK is larger.
+        if (response.FallbackUsed || response.FallbackReason is not null ||
+            response.RecommendedLots is null ||
+            response.RecommendedLots.Count != Math.Min(3, inputs.Count))
+            return false;
 
-        var matchingPrice = metric.Prices
-            .FirstOrDefault(p => p.VehicleType.Equals(vehicleTypeStr, StringComparison.OrdinalIgnoreCase));
+        var seen = new HashSet<Guid>();
+        for (var index = 0; index < response.RecommendedLots.Count; index++)
+        {
+            var item = response.RecommendedLots[index];
+            if (item is null || item.Rank != index + 1 || !seen.Add(item.LotId) ||
+                !inputs.TryGetValue(item.LotId, out var input))
+                return false;
 
-        return matchingPrice?.Price ?? DefaultHourlyRate;
+            if (!string.Equals(item.Name, input.Name, StringComparison.Ordinal) ||
+                !double.IsFinite(item.Price) ||
+                Math.Abs(item.Price - input.PriceForDuration) > 0.01 ||
+                item.SampleCount < 0 ||
+                item.Reasons is null || item.Reasons.Count is < 1 or > 5 ||
+                item.Reasons.Any(reason => string.IsNullOrWhiteSpace(reason) || reason.Length > 400))
+                return false;
+
+            if (item.DriveTimeMinutes is double time && (!double.IsFinite(time) || time < 0))
+                return false;
+
+            if (item.ProbabilityPercent is double probability &&
+                (!double.IsFinite(probability) || probability is < 0 or > 100 ||
+                 item.InsufficientData || !input.HeldQuotaKnown))
+                return false;
+
+            // Prevent an AI response from claiming enough data while hiding its probability.
+            if (item.ProbabilityPercent is null && !item.InsufficientData)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static decimal? GetPriceForDuration(
+        CustomerLotMetrics? metric, string vehicleTypeStr, int durationMinutes)
+    {
+        var policy = metric?.Prices.FirstOrDefault(p =>
+            p.VehicleType.Equals(vehicleTypeStr, StringComparison.OrdinalIgnoreCase));
+        if (policy is null || policy.Price <= 0)
+            return null;
+
+        if (policy.BillingMode.Equals("PerEntry", StringComparison.OrdinalIgnoreCase))
+            return policy.Price;
+
+        if (policy.BillingMode.Equals("Block", StringComparison.OrdinalIgnoreCase) &&
+            policy.BlockMinutes is > 0)
+        {
+            return Math.Ceiling((decimal)durationMinutes / policy.BlockMinutes.Value) * policy.Price;
+        }
+
+        // Unsupported or incomplete policies must not be treated as hourly prices.
+        return null;
     }
 
     private static IReadOnlyList<RecommendedParkingLotDto> BuildFailClosedFallback(
@@ -218,15 +294,12 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         int durationMinutes,
         int topK)
     {
-        var durationHours = Math.Max(1.0, durationMinutes / 60.0);
-
         var ranked = candidates
             .Select(lot =>
             {
                 metrics.TryGetValue(lot.Id, out var metric);
                 var availableSpaces = isCar ? (metric?.AvailableCars ?? 0) : (metric?.AvailableMotorbikes ?? 0);
-                var baseRate = GetBaseHourlyRate(metric, vehicleTypeStr);
-                var price = Math.Round(baseRate * (decimal)durationHours);
+                var price = GetPriceForDuration(metric, vehicleTypeStr, durationMinutes)!.Value;
                 var driveTimeMinutes = Math.Max(2.0, Math.Round(lot.DistanceKm / 30.0 * 60.0, 1));
 
                 return new
@@ -280,9 +353,11 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
     {
         return rank switch
         {
-            1 => ["Gần nhất", $"{distanceKm:F1} km", availableSpaces > 0 ? "Đang có chỗ trống" : "Sắp đầy"],
-            2 => ["Giá tối ưu", $"{price:N0} đ", availableSpaces > 0 ? "Khả năng còn chỗ cao" : "Cần kiểm tra"],
-            _ => ["Bãi đỗ phù hợp", $"{distanceKm:F1} km"]
+            1 => ["Gần nhất theo khoảng cách", $"{distanceKm:F1} km",
+                availableSpaces > 0 ? "Đang báo còn chỗ" : "Chưa xác nhận còn chỗ"],
+            2 => ["Bãi gần khu vực", $"Giá ước tính {price:N0} đ",
+                availableSpaces > 0 ? "Đang báo còn chỗ" : "Cần kiểm tra chỗ trống"],
+            _ => ["Bãi lân cận (không phải AI)", $"{distanceKm:F1} km"]
         };
     }
 }

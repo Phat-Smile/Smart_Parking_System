@@ -71,7 +71,10 @@ builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSection(BookingServiceOptions.SectionName));
 builder.Services.AddHttpClient<IBookingCheckInClient, BookingCheckInHttpClient>();
 builder.Services.AddHttpClient<ArrivalAvailabilityClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
-builder.Services.AddHttpClient<IParkingRecommendationClient, ParkingRecommendationClient>(client => client.Timeout = TimeSpan.FromSeconds(2));
+// The AI Service may spend up to 3s waiting for an LLM. The per-request budget
+// in ParkingRecommendationClient (default 5s) controls cancellation instead.
+builder.Services.AddHttpClient<IParkingRecommendationClient, ParkingRecommendationClient>(client =>
+    client.Timeout = Timeout.InfiniteTimeSpan);
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IParkingRealtimeNotifier, SignalRParkingRealtimeNotifier>();
 builder.Services.AddHealthChecks()

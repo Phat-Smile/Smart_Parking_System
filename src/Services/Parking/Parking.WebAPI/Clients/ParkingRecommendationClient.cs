@@ -19,6 +19,16 @@ public sealed class ParkingRecommendationClient(
     {
         var key = config["ArrivalIntegration:Key"] ?? config["AiService:ApiKey"];
         var aiUrl = (config["AiService:BaseUrl"] ?? "http://localhost:8000").TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            logger.LogWarning("AI recommendation service key is not configured; using non-AI fallback.");
+            return null;
+        }
+
+        // The original 700ms budget always cancelled a provider with a 3s LLM
+        // timeout before it could reply. Use a bounded, configurable budget.
+        var configuredTimeout = config.GetValue<int?>("AiService:RecommendationTimeoutMs") ?? 5000;
+        var timeout = TimeSpan.FromMilliseconds(Math.Clamp(configuredTimeout, 100, 15000));
 
         try
         {
@@ -27,14 +37,10 @@ public sealed class ParkingRecommendationClient(
                 Content = JsonContent.Create(request, options: Options)
             };
 
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                httpRequest.Headers.TryAddWithoutValidation("X-Arrival-Service-Key", key);
-            }
+            httpRequest.Headers.TryAddWithoutValidation("X-Arrival-Service-Key", key);
 
-            // Enforce strict 700ms timeout for AI service call (US-AI-001/002)
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(700));
+            timeoutCts.CancelAfter(timeout);
 
             using var response = await client.SendAsync(httpRequest, timeoutCts.Token);
             if (!response.IsSuccessStatusCode)
@@ -45,9 +51,13 @@ public sealed class ParkingRecommendationClient(
 
             return await response.Content.ReadFromJsonAsync<RecommendationClientResponse>(Options, timeoutCts.Token);
         }
-        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "AI recommendation request timed out after 700ms, triggering fail-closed fallback.");
+            throw; // A real caller cancellation must not be converted into a fallback.
+        }
+        catch (OperationCanceledException ex)
+        {
+            logger.LogWarning(ex, "AI recommendation request timed out after {TimeoutMs}ms.", timeout.TotalMilliseconds);
             return null;
         }
         catch (Exception ex)

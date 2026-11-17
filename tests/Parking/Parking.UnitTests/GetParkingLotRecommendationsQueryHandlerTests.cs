@@ -24,6 +24,8 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         Assert.False(Validator.Validate(new GetParkingLotRecommendationsQuery(10m, 106m, DurationMinutes: 1500)).IsValid);
         Assert.False(Validator.Validate(new GetParkingLotRecommendationsQuery(10m, 106m, TopK: 0)).IsValid);
         Assert.False(Validator.Validate(new GetParkingLotRecommendationsQuery(10m, 106m, VehicleType: "Airplane")).IsValid);
+        Assert.False(Validator.Validate(new GetParkingLotRecommendationsQuery(10m, 106m, Priority: "unknown")).IsValid);
+        Assert.True(Validator.Validate(new GetParkingLotRecommendationsQuery(10m, 106m, Priority: "cheapest")).IsValid);
 
         Assert.True(Validator.Validate(new GetParkingLotRecommendationsQuery(10.77m, 106.70m)).IsValid);
         Assert.True(Validator.Validate(new GetParkingLotRecommendationsQuery(10.77m, 106.70m, VehicleType: "Motorbike")).IsValid);
@@ -61,12 +63,12 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
 
         var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
         {
-            [lot1Id] = new CustomerLotMetrics(10, 5, [new CustomerLotPrice("Car", 15000m, "Hourly")]),
-            [lot2Id] = new CustomerLotMetrics(5, 2, [new CustomerLotPrice("Car", 10000m, "Hourly")])
+            [lot1Id] = new CustomerLotMetrics(10, 5, [new CustomerLotPrice("Car", 15000m, "Block", 60)]),
+            [lot2Id] = new CustomerLotMetrics(5, 2, [new CustomerLotPrice("Car", 10000m, "Block", 60)])
         });
 
         var snapshots = new FakeSnapshotReader();
-        var heldQuota = new FakeHeldQuotaProvider();
+        var heldQuota = new FakeHeldQuotaProvider(_ => 0);
         var aiClient = new FakeAiClient
         {
             ResponseToReturn = new RecommendationClientResponse(
@@ -75,7 +77,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
                         lot1Id, "Lot 1", 1, 5.0, 92.5, 30000.0, false, ["Gần nhất", "Tỷ lệ còn chỗ 92%"],
                         SampleCount: 15, InsufficientData: false, BaselineSource: "lot_weekday_15m"),
                     new RecommendedLotItemDto(
-                        lot2Id, "Lot 2", 2, 8.0, 78.0, 20000.0, false, ["Giá rẻ nhất"],
+                        lot2Id, "Lot 2", 2, 8.0, null, 20000.0, false, ["Giá rẻ nhất"],
                         SampleCount: 2, InsufficientData: true, BaselineSource: "peer_daily_15m")
                 ],
                 FallbackUsed: false,
@@ -105,12 +107,16 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
 
         var second = result.RecommendedLots[1];
         Assert.Equal(2, second.SampleCount);
+        Assert.Null(second.ProbabilityPercent);
         Assert.True(second.InsufficientData);
         Assert.Equal("peer_daily_15m", second.BaselineSource);
     }
 
-    [Fact]
-    public async Task Handle_WhenAiServiceFails_EngagesFailClosedFallbackWithNullProbability()
+    [Theory]
+    [InlineData(false, "ai_service_timeout_or_unavailable")]
+    [InlineData(true, "ai_recommendation_unavailable")]
+    public async Task Handle_WhenAiServiceFails_EngagesFailClosedFallbackWithNullProbability(
+        bool explicitAiFallback, string expectedReason)
     {
         var lot1Id = Guid.NewGuid();
         var lot2Id = Guid.NewGuid();
@@ -122,15 +128,17 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
 
         var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
         {
-            [lot1Id] = new CustomerLotMetrics(8, 0, [new CustomerLotPrice("Car", 10000m, "Hourly")]),
-            [lot2Id] = new CustomerLotMetrics(20, 0, [new CustomerLotPrice("Car", 12000m, "Hourly")])
+            [lot1Id] = new CustomerLotMetrics(8, 0, [new CustomerLotPrice("Car", 10000m, "Block", 60)]),
+            [lot2Id] = new CustomerLotMetrics(20, 0, [new CustomerLotPrice("Car", 12000m, "Block", 60)])
         });
 
         var snapshots = new FakeSnapshotReader();
         var heldQuota = new FakeHeldQuotaProvider();
         var aiClient = new FakeAiClient
         {
-            ResponseToReturn = null // Simulates timeout / network error
+            ResponseToReturn = explicitAiFallback
+                ? new RecommendationClientResponse([], true, "ai_recommendation_unavailable")
+                : null // Simulates timeout / network error
         };
 
         var handler = new GetParkingLotRecommendationsQueryHandler(
@@ -141,14 +149,14 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
 
         Assert.Equal(2, result.RecommendedLots.Count);
         Assert.True(result.FallbackUsed);
-        Assert.Equal("ai_service_timeout_or_unavailable", result.FallbackReason);
+        Assert.Equal(expectedReason, result.FallbackReason);
 
         // Nearest lot should be Rank 1 in fallback
         var top = result.RecommendedLots[0];
         Assert.Equal(lot1Id, top.LotId);
         Assert.Equal(1, top.Rank);
         Assert.Equal(0.8, top.DistanceKm);
-        Assert.Contains("Gần nhất", top.Reasons);
+        Assert.Contains("Gần nhất theo khoảng cách", top.Reasons);
         Assert.True(top.DriveTimeMinutes > 0);
         Assert.Null(top.ProbabilityPercent); // Fallback MUST NOT invent probabilities (WP-TRUST-AI)
         Assert.True(top.InsufficientData);
@@ -169,8 +177,8 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
 
         var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
         {
-            [lot1Id] = new CustomerLotMetrics(10, 5, [new CustomerLotPrice("Car", 15000m, "Hourly")]),
-            [lot2Id] = new CustomerLotMetrics(5, 2, [new CustomerLotPrice("Car", 10000m, "Hourly")])
+            [lot1Id] = new CustomerLotMetrics(10, 5, [new CustomerLotPrice("Car", 15000m, "Block", 60)]),
+            [lot2Id] = new CustomerLotMetrics(5, 2, [new CustomerLotPrice("Car", 10000m, "Block", 60)])
         });
 
         var snapshots = new FakeSnapshotReader();
@@ -180,10 +188,12 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         var handler = new GetParkingLotRecommendationsQueryHandler(
             nearby, metrics, snapshots, heldQuota, aiClient, NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
 
-        var query = new GetParkingLotRecommendationsQuery(10.77m, 106.70m, "Car", DurationMinutes: 60);
+        var query = new GetParkingLotRecommendationsQuery(10.77m, 106.70m, "Car", DurationMinutes: 60,
+            Priority: "cheapest");
         await handler.Handle(query, TestContext.Current.CancellationToken);
 
         Assert.NotNull(aiClient.LastRequest);
+        Assert.Equal("cheapest", aiClient.LastRequest.Priority);
         Assert.Equal(2, aiClient.LastRequest.CandidateLots.Count);
 
         var c1 = aiClient.LastRequest.CandidateLots.Single(x => x.LotId == lot1Id);
@@ -208,7 +218,12 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
             new NearbyParkingLotItem(lot3, "Lot 3", "Addr 3", 10.79m, 106.72m, "Standard", 3.0),
         ]);
 
-        var metrics = new FakeMetricsReader();
+        var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
+        {
+            [lot1] = new CustomerLotMetrics(1, 0, [new CustomerLotPrice("Car", 10000m, "Block", 60)]),
+            [lot2] = new CustomerLotMetrics(1, 0, [new CustomerLotPrice("Car", 10000m, "Block", 60)]),
+            [lot3] = new CustomerLotMetrics(1, 0, [new CustomerLotPrice("Car", 10000m, "Block", 60)])
+        });
         var heldQuota = new FakeHeldQuotaProvider();
         var aiClient = new FakeAiClient();
         var guardedReader = new ThreadSafeGuardedSnapshotReader();
@@ -271,6 +286,150 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
     {
         public Task<int?> GetHeldReservationsAsync(Guid lotId, CancellationToken cancellationToken) =>
             Task.FromResult(getHeld?.Invoke(lotId));
+    }
+
+    [Fact]
+    public async Task Handle_Uses_actual_per_entry_and_block_pricing_and_skips_missing_price()
+    {
+        var perEntry = Guid.NewGuid();
+        var block = Guid.NewGuid();
+        var unpriced = Guid.NewGuid();
+        var nearby = new FakeNearbyReader([
+            new NearbyParkingLotItem(perEntry, "PerEntry", "Address", 10.77m, 106.70m, "Standard", 1.0),
+            new NearbyParkingLotItem(block, "Block", "Address", 10.78m, 106.71m, "Standard", 2.0),
+            new NearbyParkingLotItem(unpriced, "Missing price", "Address", 10.79m, 106.72m, "Standard", 3.0)
+        ]);
+        var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
+        {
+            [perEntry] = new CustomerLotMetrics(10, 0, [new CustomerLotPrice("Car", 15000m, "PerEntry")]),
+            [block] = new CustomerLotMetrics(10, 0, [new CustomerLotPrice("Car", 4000m, "Block", 30)]),
+            [unpriced] = new CustomerLotMetrics(10, 0, [])
+        });
+        var client = new FakeAiClient();
+        var handler = new GetParkingLotRecommendationsQueryHandler(
+            nearby, metrics, new FakeSnapshotReader(), new FakeHeldQuotaProvider(), client,
+            NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
+
+        var result = await handler.Handle(
+            new GetParkingLotRecommendationsQuery(10.77m, 106.70m, DurationMinutes: 95),
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(client.LastRequest);
+        Assert.Equal(2, client.LastRequest.CandidateLots.Count);
+        Assert.Equal(15000d, client.LastRequest.CandidateLots.Single(x => x.LotId == perEntry).PriceForDuration);
+        Assert.Equal(16000d, client.LastRequest.CandidateLots.Single(x => x.LotId == block).PriceForDuration);
+        Assert.DoesNotContain(client.LastRequest.CandidateLots, x => x.LotId == unpriced);
+        Assert.True(result.FallbackUsed);
+        Assert.Equal(2, result.RecommendedLots.Count);
+        Assert.DoesNotContain(result.RecommendedLots, x => x.LotId == unpriced);
+    }
+
+    [Fact]
+    public async Task Handle_WithNoKnownPrice_DoesNotInventCostOrInvokeAi()
+    {
+        var lotId = Guid.NewGuid();
+        var nearby = new FakeNearbyReader([
+            new NearbyParkingLotItem(lotId, "No pricing", "Address", 10.77m, 106.70m, "Standard", 1.0)
+        ]);
+        var handlerClient = new FakeAiClient();
+        var handler = new GetParkingLotRecommendationsQueryHandler(
+            nearby, new FakeMetricsReader(), new FakeSnapshotReader(), new FakeHeldQuotaProvider(), handlerClient,
+            NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
+
+        var result = await handler.Handle(
+            new GetParkingLotRecommendationsQuery(10.77m, 106.70m), TestContext.Current.CancellationToken);
+
+        Assert.Null(handlerClient.LastRequest);
+        Assert.Empty(result.RecommendedLots);
+        Assert.True(result.FallbackUsed);
+        Assert.Equal("no_applicable_pricing_policy", result.FallbackReason);
+    }
+
+    [Theory]
+    [InlineData("unknown_id")]
+    [InlineData("wrong_rank")]
+    [InlineData("wrong_price")]
+    [InlineData("untrusted_probability")]
+    [InlineData("invalid_time")]
+    [InlineData("contradictory_fallback")]
+    [InlineData("unexpected_fallback_reason")]
+    [InlineData("empty_success")]
+    public async Task Handle_WhenAiResponseIsUntrusted_ReturnsLabelledNonAiFallback(string problem)
+    {
+        var lotId = Guid.NewGuid();
+        var nearby = new FakeNearbyReader([
+            new NearbyParkingLotItem(lotId, "Lot Test", "Address", 10.77m, 106.70m, "Standard", 0.9)
+        ]);
+        var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
+        {
+            [lotId] = new CustomerLotMetrics(10, 0, [new CustomerLotPrice("Car", 10000m, "Block", 60)])
+        });
+        var row = new RecommendedLotItemDto(
+            lotId, "Lot Test", 1, 3.0, null, 20000.0, false, ["Dữ liệu chưa đủ"],
+            SampleCount: 0, InsufficientData: true, BaselineSource: "insufficient");
+        row = problem switch
+        {
+            "unknown_id" => row with { LotId = Guid.NewGuid() },
+            "wrong_rank" => row with { Rank = 2 },
+            "wrong_price" => row with { Price = 123456.0 },
+            "untrusted_probability" => row with { ProbabilityPercent = 85.0 },
+            "invalid_time" => row with { DriveTimeMinutes = double.NaN },
+            "contradictory_fallback" or "unexpected_fallback_reason" or "empty_success" => row,
+            _ => throw new InvalidOperationException("Unexpected case")
+        };
+        var client = new FakeAiClient
+        {
+            ResponseToReturn = new RecommendationClientResponse(
+                problem == "empty_success" ? [] : [row],
+                problem == "contradictory_fallback",
+                problem == "unexpected_fallback_reason" ? "unexpected_reason" : null)
+        };
+        var handler = new GetParkingLotRecommendationsQueryHandler(
+            nearby, metrics, new FakeSnapshotReader(), new FakeHeldQuotaProvider(_ => 0), client,
+            NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
+
+        var result = await handler.Handle(
+            new GetParkingLotRecommendationsQuery(10.77m, 106.70m), TestContext.Current.CancellationToken);
+
+        Assert.True(result.FallbackUsed);
+        Assert.Equal("ai_response_invalid", result.FallbackReason);
+        Assert.Single(result.RecommendedLots);
+        Assert.Equal(lotId, result.RecommendedLots[0].LotId);
+        Assert.Null(result.RecommendedLots[0].ProbabilityPercent);
+    }
+
+    [Fact]
+    public async Task Handle_Preserves_model_chosen_order_instead_of_reordering_by_distance()
+    {
+        var near = Guid.NewGuid();
+        var far = Guid.NewGuid();
+        var nearby = new FakeNearbyReader([
+            new NearbyParkingLotItem(near, "Near", "Address near", 10.77m, 106.70m, "Standard", 0.8),
+            new NearbyParkingLotItem(far, "Far", "Address far", 10.79m, 106.72m, "Standard", 3.2)
+        ]);
+        var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
+        {
+            [near] = new CustomerLotMetrics(10, 5, [new CustomerLotPrice("Car", 10000m, "Block", 60)]),
+            [far] = new CustomerLotMetrics(10, 5, [new CustomerLotPrice("Car", 15000m, "Block", 60)])
+        });
+        var client = new FakeAiClient
+        {
+            ResponseToReturn = new RecommendationClientResponse([
+                new RecommendedLotItemDto(far, "Far", 1, 9, null, 30000, false, ["Model chose far"],
+                    0, true, "insufficient"),
+                new RecommendedLotItemDto(near, "Near", 2, 3, null, 20000, false, ["Model chose near"],
+                    0, true, "insufficient")
+            ], false, null)
+        };
+        var handler = new GetParkingLotRecommendationsQueryHandler(
+            nearby, metrics, new FakeSnapshotReader(), new FakeHeldQuotaProvider(), client,
+            NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
+
+        var result = await handler.Handle(
+            new GetParkingLotRecommendationsQuery(10.77m, 106.70m), TestContext.Current.CancellationToken);
+
+        Assert.False(result.FallbackUsed);
+        Assert.Equal(new[] { far, near }, result.RecommendedLots.Select(x => x.LotId).ToArray());
     }
 
     private sealed class FakeAiClient : IParkingRecommendationClient

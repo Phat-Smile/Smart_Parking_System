@@ -76,6 +76,102 @@ class RecommendationApiTests(unittest.TestCase):
             status, _ = self._call_post(payload, service_key="wrong_key")
             self.assertEqual(403, status)
 
+    def test_prompting_api_uses_provider_selection_and_stays_authenticated(self):
+        lot_id = str(uuid4())
+        payload = {
+            "customerLatitude": 10.7725,
+            "customerLongitude": 106.6980,
+            "vehicleType": "Car",
+            "arrivalAt": "2026-11-07T10:00:00Z",
+            "durationMinutes": 120,
+            "priority": "cheapest",
+            "candidateLots": [{
+                "lotId": lot_id, "name": "Bãi mẫu", "latitude": 10.77,
+                "longitude": 106.70, "priceForDuration": 20000.0,
+                "heldQuota": 0, "snapshots": [],
+            }],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "prompting"}), \
+             patch("app.application.prompting_recommendations.OpenAICompatibleChatProvider") as provider:
+            provider.return_value.choose.return_value = {
+                "recommendations": [{"lotId": lot_id, "rank": 1, "reasonCode": "limited_data"}]
+            }
+            status, data = self._call_post(payload, service_key=self.api_key)
+            self.assertEqual(200, status)
+            self.assertFalse(data["fallbackUsed"])
+            self.assertEqual(lot_id, data["recommendedLots"][0]["lotId"])
+            self.assertEqual(1, provider.return_value.choose.call_count)
+            self.assertEqual("cheapest", provider.return_value.choose.call_args.args[1]["priority"])
+
+    def test_prompting_unknown_held_quota_retains_quality_contract(self):
+        lot_id = str(uuid4())
+        payload = {
+            "customerLatitude": 10.7725, "customerLongitude": 106.6980,
+            "vehicleType": "Car", "arrivalAt": "2026-11-07T10:00:00Z",
+            "candidateLots": [{"lotId": lot_id, "name": "Bãi thử", "latitude": 10.77,
+                               "longitude": 106.70, "priceForDuration": 18000,
+                               "heldQuotaKnown": False, "snapshots": []}],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "prompting"}), \
+             patch("app.application.prompting_recommendations.OpenAICompatibleChatProvider") as provider:
+            provider.return_value.choose.return_value = {
+                "recommendations": [{"lotId": lot_id, "rank": 1, "reasonCode": "limited_data"}]
+            }
+            status, data = self._call_post(payload, service_key=self.api_key)
+        self.assertEqual(200, status)
+        lot = data["recommendedLots"][0]
+        self.assertIsNone(lot["probabilityPercent"])
+        self.assertEqual(0, lot["sampleCount"])
+        self.assertTrue(lot["insufficientData"])
+        self.assertEqual("default_50_percent", lot["baselineSource"])
+
+    def test_invalid_mode_fails_closed_without_invoking_legacy_engine(self):
+        payload = {
+            "customerLatitude": 10.7725, "customerLongitude": 106.6980,
+            "vehicleType": "Car", "arrivalAt": "2026-11-07T10:00:00Z",
+            "candidateLots": [{"lotId": str(uuid4()), "name": "A", "latitude": 10.77,
+                               "longitude": 106.70, "priceForDuration": 10000}],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "typo"}):
+            status, data = self._call_post(payload, service_key=self.api_key)
+        self.assertEqual(200, status)
+        self.assertTrue(data["fallbackUsed"])
+        self.assertEqual("ai_recommendation_mode_invalid", data["fallbackReason"])
+        self.assertEqual([], data["recommendedLots"])
+
+    def test_duplicate_candidate_ids_are_rejected(self):
+        lot = {"lotId": str(uuid4()), "name": "A", "latitude": 10.77,
+               "longitude": 106.70, "priceForDuration": 10000}
+        payload = {
+            "customerLatitude": 10.7725, "customerLongitude": 106.6980,
+            "vehicleType": "Car", "arrivalAt": "2026-11-07T10:00:00Z",
+            "candidateLots": [lot, lot.copy()],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "prompting"}):
+            status, _ = self._call_post(payload, service_key=self.api_key)
+        self.assertEqual(422, status)
+
+    def test_prompting_provider_failure_does_not_return_legacy_ranking(self):
+        lot_id = str(uuid4())
+        payload = {
+            "customerLatitude": 10.7725, "customerLongitude": 106.6980,
+            "vehicleType": "Car", "arrivalAt": "2026-11-07T10:00:00Z",
+            "candidateLots": [{"lotId": lot_id, "name": "A", "latitude": 10.77,
+                               "longitude": 106.70, "priceForDuration": 10000}],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "prompting"}), \
+             patch("app.application.prompting_recommendations.OpenAICompatibleChatProvider") as provider:
+            provider.return_value.choose.side_effect = ValueError("bad output")
+            status, data = self._call_post(payload, service_key=self.api_key)
+        self.assertEqual(200, status)
+        self.assertTrue(data["fallbackUsed"])
+        self.assertEqual([], data["recommendedLots"])
+
     def test_valid_recommendation_request_returns_top_candidates(self):
         with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key}):
             lot1_id = str(uuid4())
