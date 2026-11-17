@@ -284,6 +284,8 @@ public sealed class OpenParkingSessionTests
         Assert.Equal(FakeSlotDesignator.CarZoneId, session.ZoneId);
         // BR-04.a: the driver is told the slot, with its zone and floor.
         Assert.Equal("A-01", result.Value!.SlotCode);
+        // US-PARK-005: the staff screen confirms the slot by its id.
+        Assert.Equal(FakeSlotDesignator.SlotId, result.Value.SlotId);
         Assert.Equal("CAR-A", result.Value.ZoneCode);
         Assert.Equal("Tầng 1", result.Value.FloorName);
         Assert.True(slots.Locked);
@@ -366,6 +368,7 @@ public sealed class OpenParkingSessionTests
         Assert.Equal(0, heldQuota.Calls);
         Assert.False(slots.Locked);
         Assert.Null(result.Value!.SlotCode);
+        Assert.Null(result.Value.SlotId);
     }
 
     [Fact]
@@ -538,6 +541,7 @@ public sealed class OpenParkingSessionTests
     private sealed class FakeSlotDesignator(int available = 5, bool slotLeft = true) : ISlotDesignator
     {
         public static readonly Guid CarZoneId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        public static readonly Guid SlotId = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
         public bool Locked { get; private set; }
         public Guid? DesignatedFor { get; private set; }
@@ -553,7 +557,7 @@ public sealed class OpenParkingSessionTests
             if (!slotLeft)
                 return Task.FromResult<DesignatedSlot?>(null);
             DesignatedFor = sessionId;
-            return Task.FromResult<DesignatedSlot?>(new DesignatedSlot(Guid.NewGuid(), CarZoneId, "A-01"));
+            return Task.FromResult<DesignatedSlot?>(new DesignatedSlot(SlotId, CarZoneId, "A-01"));
         }
 
         public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) =>
