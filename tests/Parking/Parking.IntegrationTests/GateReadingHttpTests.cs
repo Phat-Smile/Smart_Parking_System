@@ -61,7 +61,7 @@ public sealed class GateReadingHttpTests
     [Theory]
     [InlineData("Staff")]
     [InlineData("ParkingLotOwner")]
-    public async Task Returns_201_with_auto_accepted_for_a_confident_valid_plate(string role)
+    public async Task Returns_201_with_pending_staff_for_a_confident_valid_web_reading(string role)
     {
         await using var app = await CreateAppAsync();
 
@@ -69,10 +69,20 @@ public sealed class GateReadingHttpTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.Equal(nameof(GateReadingDecision.AutoAccepted), body.GetProperty("decision").GetString());
+        // Q-A4: all web readings require staff confirmation, even with a valid high-confidence plate.
+        Assert.Equal(nameof(GateReadingDecision.PendingStaff), body.GetProperty("decision").GetString());
         Assert.Equal("51A-123.45", body.GetProperty("plateNumber").GetString());
-        // Nothing for staff to confirm, so no incident.
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("incidentId").ValueKind);
+        var incidentId = body.GetProperty("incidentId").GetGuid();
+        Assert.NotEqual(Guid.Empty, incidentId);
+
+        // Verify that the incident is actually waiting in this lot's staff queue.
+        var queue = await GetJsonAsync(app, $"{Route}/pending?lotId={AssignedLotId}", role);
+        var item = Assert.Single(queue.EnumerateArray());
+        Assert.Equal(incidentId, item.GetProperty("incidentId").GetGuid());
+        Assert.Equal("51A-123.45", item.GetProperty("observedPlate").GetString());
+        Assert.Equal("Car", item.GetProperty("vehicleType").GetString());
+        Assert.Equal(0.9m, item.GetProperty("confidence").GetDecimal());
+        Assert.True(item.GetProperty("plateFormatValid").GetBoolean());
     }
 
     [Fact]
