@@ -59,6 +59,19 @@ public sealed class DevelopmentEnvFileTests : IDisposable
     }
 
     [Fact]
+    public void Explicit_cloud_connection_string_is_respected()
+    {
+        var configuration = Build("Development", new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Host=aws-0-ap-south-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.nafwszkzmtaqwdspvidk;Password=secret;SSL Mode=Require;Trust Server Certificate=true"
+        });
+
+        Assert.Equal(
+            "Host=aws-0-ap-south-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.nafwszkzmtaqwdspvidk;Password=secret;SSL Mode=Require;Trust Server Certificate=true",
+            configuration["ConnectionStrings:DefaultConnection"]);
+    }
+
+    [Fact]
     public void An_empty_placeholder_from_appsettings_is_filled_from_the_env_file()
     {
         var configuration = Build("Development", new Dictionary<string, string?>
