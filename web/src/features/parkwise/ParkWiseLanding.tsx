@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
+import { parkwiseAssets } from "./parkwiseAssets";
 import { useRouter } from "next/navigation";
 import { ParkWiseFooter } from "./ParkWiseFooter";
 import { ParkWiseGridInfo } from "./ParkWiseGridInfo";
@@ -74,7 +75,7 @@ export function ParkWiseLanding({ fontClassName }: { fontClassName: string }) {
                 {/* ParkWise Homepage.jsx: hero and search */}
                 <section className="parkwise-hero" id="search">
                     <Image
-                        src="/images/parkwise/hero-parking-garage.png"
+                        src={parkwiseAssets.parkingHero}
                         alt=""
                         fill
                         priority

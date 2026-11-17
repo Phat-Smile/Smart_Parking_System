@@ -1,0 +1,1009 @@
+/* Mobile is an app layout; no tablet or desktop layout rules are overridden. */
+.pw-app-topbar,
+.pw-app-activity-tabs,
+.pw-mobile-bottom-nav,
+.pw-mobile-shortcuts,
+.pw-app-empty-car {
+    display: none;
+}
+
+@media (width < 768px) {
+    .parkwise-page.customer-data-page:has(.pw-mobile-bottom-nav)
+        .customer-data-panel
+        .pw-app-activity-content
+        .pw-app-activity-summary {
+        padding: 14px 0;
+        border: 0;
+        background: transparent;
+        color: var(--pw-gray-600);
+        box-shadow: none;
+    }
+    .parkwise-page.customer-data-page:has(.pw-mobile-bottom-nav)
+        .customer-data-panel
+        .pw-app-activity-content
+        .pw-app-activity-summary
+        :is(strong, p) {
+        color: var(--pw-gray-600);
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-bookings-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        border: 0;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-bookings-tabs button {
+        min-height: 44px;
+        border-radius: 24px;
+    }
+    .parkwise-page .pw-app-home-main > section {
+        padding: 0;
+    }
+    .parkwise-page .pw-app-home-main > .pw-app-welcome {
+        padding: 12px 20px 24px;
+    }
+    .parkwise-page .pw-app-account > .pw-app-section {
+        padding: 0;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) {
+        --parkwise-nav-height: 72px;
+        --pw-app-ink: var(--pw-color-black);
+        --pw-app-muted: var(--pw-gray-500);
+        --pw-app-line: var(--pw-gray-200);
+        min-height: 100dvh;
+        padding-top: 72px;
+        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+        background: var(--pw-gray-50);
+        color: var(--pw-app-ink);
+        color-scheme: light;
+    }
+    html:has(.pw-mobile-bottom-nav) {
+        scroll-padding-top: 84px;
+        scroll-padding-bottom: 128px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav)
+        :is(.parkwise-navbar-customer, .parkwise-footer) {
+        display: none;
+    }
+    .parkwise-page .pw-app-topbar {
+        position: fixed;
+        inset: 0 0 auto;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 72px;
+        padding: 12px 20px;
+        background: var(--pw-gray-50);
+        color: var(--pw-app-ink);
+    }
+    .parkwise-page .pw-app-topbar-title {
+        flex: 1;
+        margin: 0;
+        font-size: 27px;
+        font-weight: 800;
+        letter-spacing: -1px;
+        line-height: 1.2;
+    }
+    .parkwise-page .pw-app-topbar-home {
+        background: var(--pw-gray-100);
+    }
+    .parkwise-page .pw-app-topbar-home .pw-app-topbar-title {
+        font-size: 22px;
+        letter-spacing: -0.7px;
+    }
+    .parkwise-page .pw-app-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .parkwise-page .pw-app-topbar-actions > a,
+    .parkwise-page .pw-app-back {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        color: inherit;
+        border-radius: 50%;
+    }
+    .parkwise-page .pw-app-topbar .customer-language-switcher > button {
+        min-height: 44px;
+    }
+    .parkwise-page .pw-app-floating-nav {
+        position: fixed;
+        z-index: 110;
+        inset: auto 16px max(16px, env(safe-area-inset-bottom, 0px));
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        width: calc(100% - 32px);
+        max-width: 460px;
+        margin-inline: auto;
+        height: 76px;
+        padding: 7px 8px;
+        border: 1px solid rgb(255 255 255 / 95%);
+        border-radius: 40px;
+        background: rgb(255 255 255 / 96%);
+        color: var(--pw-gray-500);
+        box-shadow:
+            0 5px 24px rgb(0 0 0 / 10%),
+            inset 0 0 0 1px var(--pw-gray-200);
+        backdrop-filter: blur(16px);
+        font-family: var(--font-sans), sans-serif;
+    }
+    .parkwise-page .pw-app-floating-nav a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        min-height: 58px;
+        gap: 3px;
+        padding: 0;
+        border: 0;
+        border-radius: 30px;
+        color: inherit;
+        text-decoration: none;
+        font-size: 11px;
+        line-height: 1.3;
+        font-weight: 600;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .parkwise-page .pw-app-floating-nav .pw-mobile-nav-icon {
+        display: grid;
+        width: 46px;
+        height: 32px;
+        place-items: center;
+        border-radius: 22px;
+        transition: background-color 160ms ease;
+    }
+    .parkwise-page .pw-app-floating-nav a[aria-current="page"] {
+        font-weight: 800;
+    }
+    .parkwise-page .pw-app-floating-nav a:active {
+        background: var(--pw-gray-100);
+    }
+    .parkwise-page .pw-app-floating-nav a:focus-visible {
+        outline: 2px solid var(--pw-gray-600);
+        outline-offset: 2px;
+    }
+    body:has(.pw-mobile-bottom-nav) :is(.pw-push-prompt, .pw-toast-hub) {
+        top: auto;
+        bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+        z-index: 90;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) :is(input, select, textarea) {
+        font-size: 16px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav)
+        :is(a, button, input, select):focus-visible {
+        outline: 2px solid var(--pw-gray-600);
+        outline-offset: 3px;
+    }
+
+    .parkwise-page .pw-app-home-main {
+        padding: 0 20px;
+    }
+    .parkwise-page .pw-app-welcome {
+        margin: 0 -20px;
+        padding: 12px 20px 24px;
+        background: var(--pw-bg-dark);
+        border-radius: 0 0 30px 30px;
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        color: var(--pw-text-inverse);
+    }
+    .parkwise-page .pw-app-greeting {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin: 4px 0 22px;
+    }
+    .parkwise-page .pw-app-greeting > div {
+        flex: 1;
+        min-width: 0;
+    }
+    .parkwise-page .pw-app-greeting p {
+        margin: 0 0 8px !important;
+        font-size: 14px;
+        color: var(--pw-gray-200);
+    }
+    .parkwise-page .pw-app-greeting h1,
+    .parkwise-page .pw-app-greeting h2 {
+        margin: 0;
+        max-width: 280px;
+        font-size: 29px;
+        line-height: 1.2;
+        font-weight: 800;
+        letter-spacing: -1px;
+        text-wrap: balance;
+        color: var(--pw-text-inverse);
+    }
+    .parkwise-page .pw-app-search {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 64px;
+        padding: 8px 10px 8px 16px;
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 20px;
+        background: var(--pw-color-white);
+        box-shadow: 0 5px 14px rgb(0 0 0 / 5%);
+    }
+    .parkwise-page .pw-app-search > svg {
+        flex-shrink: 0;
+        color: var(--pw-gray-600);
+    }
+    .parkwise-page .pw-app-search input {
+        min-width: 0;
+        width: 100%;
+        padding: 5px 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        outline-offset: 3px;
+        color: var(--pw-color-black);
+        font-size: 15px;
+    }
+    .parkwise-page .pw-app-search input::placeholder {
+        color: var(--pw-gray-500);
+    }
+    .parkwise-page .pw-app-search button {
+        display: grid;
+        flex: 0 0 44px;
+        height: 44px;
+        place-items: center;
+        border-radius: 14px;
+        cursor: pointer;
+    }
+    .parkwise-page .pw-app-search-hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 12px !important;
+        color: var(--pw-gray-200);
+        font-size: 11px;
+    }
+    .parkwise-page .pw-app-services {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 12px;
+        margin: 22px 0;
+    }
+    .parkwise-page .pw-app-services a {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 178px;
+        padding: 18px;
+        overflow: hidden;
+        border-radius: 24px;
+        color: var(--pw-color-black);
+        text-decoration: none;
+    }
+    .parkwise-page .pw-app-services h2 {
+        margin: 0;
+        font-size: 19px;
+        font-weight: 800;
+        line-height: 1.25;
+        letter-spacing: -0.5px;
+    }
+    .parkwise-page .pw-app-services p {
+        margin-top: 5px !important;
+        max-width: 130px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--pw-gray-600);
+    }
+    .parkwise-page .pw-app-service-primary {
+        justify-content: space-between;
+        background: var(--pw-bg-accent);
+        border: 1px solid var(--pw-gray-200);
+    }
+    .parkwise-page .pw-app-service-primary > svg {
+        margin-top: 16px;
+        color: var(--pw-gray-500);
+    }
+    .parkwise-page .pw-app-service-primary > span {
+        position: absolute;
+        bottom: 18px;
+        right: 16px;
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--pw-color-white);
+    }
+    .parkwise-page .pw-app-service-secondary {
+        border: 1px solid var(--pw-tone-border, var(--pw-border-default));
+        background: var(--pw-tone-surface, var(--pw-bg-surface));
+    }
+    .parkwise-page .pw-app-service-secondary > svg:first-child {
+        margin-bottom: 18px;
+        color: var(--pw-tone);
+    }
+    .parkwise-page .pw-app-service-secondary > svg:last-child {
+        position: absolute;
+        right: 14px;
+        bottom: 17px;
+    }
+    .parkwise-page .pw-app-tools {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin: 0 -4px 26px;
+    }
+    .parkwise-page .pw-app-tools a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        color: var(--pw-gray-600);
+        text-align: center;
+        text-decoration: none;
+        font-size: 12px;
+    }
+    .parkwise-page .pw-app-tools a > span {
+        display: grid;
+        width: 52px;
+        height: 52px;
+        place-items: center;
+        border-radius: 18px;
+    }
+    .parkwise-page .pw-app-section {
+        margin: 26px 0;
+    }
+    .parkwise-page .pw-app-section-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+    .parkwise-page .pw-app-section-heading h2,
+    .parkwise-page .pw-app-section-title {
+        margin: 0;
+        font-size: 19px;
+        line-height: 1.3;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+    }
+    .parkwise-page .pw-app-section-heading > a {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        gap: 2px;
+        color: var(--pw-gray-600);
+        text-decoration: none;
+        font-size: 12px;
+    }
+    .parkwise-page .pw-app-live-card,
+    .parkwise-page .pw-app-state {
+        padding: 20px;
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 22px;
+        background: var(--pw-color-white);
+        color: var(--pw-gray-500);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    .parkwise-page .pw-app-live-card .customer-sessions-empty {
+        padding: 10px 0;
+        text-align: left;
+    }
+    .parkwise-page .pw-app-live-card a,
+    .parkwise-page .pw-app-state a {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 44px;
+        color: var(--pw-gray-600);
+        font-weight: 700;
+    }
+    .parkwise-page .pw-app-lot-list {
+        display: grid;
+        gap: 10px;
+    }
+    .parkwise-page .pw-app-lot {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 90px;
+        padding: 14px;
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 20px;
+        background: var(--pw-color-white);
+        text-decoration: none;
+        color: var(--pw-color-black);
+    }
+    .parkwise-page .pw-app-lot > div {
+        flex: 1;
+        min-width: 0;
+    }
+    .parkwise-page .pw-app-lot h3 {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.4;
+        font-weight: 700;
+    }
+    .parkwise-page .pw-app-lot p {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        margin-top: 5px !important;
+        color: var(--pw-gray-500);
+        font-size: 11px;
+        line-height: 1.5;
+    }
+    .parkwise-page .pw-app-lot p svg {
+        flex-shrink: 0;
+    }
+    .parkwise-page .pw-app-lot-symbol {
+        display: grid;
+        flex: 0 0 50px;
+        height: 54px;
+        place-items: center;
+        border-radius: 16px;
+        background: var(--pw-gray-100);
+        color: var(--pw-gray-500);
+    }
+
+    .parkwise-page:has(.pw-mobile-bottom-nav)
+        :is(
+            .customer-data-main,
+            .customer-sessions-main,
+            .customer-account-main
+        ) {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 12px 20px 0;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-data-panel {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    .parkwise-page .pw-app-activity-tabs {
+        display: flex;
+        gap: 10px;
+        padding: 4px 0 22px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .parkwise-page .pw-app-activity-tabs a {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        min-width: max-content;
+        min-height: 44px;
+        padding: 10px 17px;
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 24px;
+        background: var(--pw-color-white);
+        color: var(--pw-gray-600);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 650;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-activity-content h1,
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-sessions-main > h1 {
+        display: none;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-empty {
+        min-height: 340px;
+        padding: 40px 20px;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-empty > div:first-child {
+        width: 110px;
+        height: 110px;
+        margin-bottom: 28px;
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 38px;
+        background: var(--pw-gray-100);
+        color: var(--pw-gray-500);
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-empty h3 {
+        font-size: 20px;
+        color: var(--pw-color-black);
+    }
+    .parkwise-page .pw-app-empty .pw-app-empty-desktop-icon {
+        display: none;
+    }
+    .parkwise-page .pw-app-empty .pw-app-empty-car {
+        display: block;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-empty p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--pw-gray-500);
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-empty > a {
+        min-height: 48px;
+        margin-top: 20px;
+        padding: 12px 22px;
+        box-shadow: none;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-sessions-main > p {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--pw-gray-500);
+    }
+
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-account-heading {
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+    .parkwise-page:has(.customer-notifications-card)
+        .customer-account-heading
+        > div {
+        display: none;
+    }
+    .parkwise-page:has(.customer-notifications-card) .customer-account-heading {
+        justify-content: flex-end;
+    }
+    .parkwise-page:has(.customer-notifications-card)
+        .customer-notifications-card {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-toolbar {
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 0 0 22px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-tabs {
+        display: flex;
+        gap: 10px;
+        padding: 0;
+        background: transparent;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav)
+        .customer-notification-tabs
+        button {
+        min-height: 44px;
+        padding: 9px 20px;
+        border-radius: 24px;
+        box-shadow: none;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-list {
+        display: grid;
+        gap: 0;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-list li {
+        gap: 12px;
+        padding: 24px 0;
+        border: 0;
+        border-bottom: 1px solid var(--pw-gray-100);
+        border-radius: 0;
+        background: transparent;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-icon {
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        border-radius: 18px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-copy h2 {
+        font-size: 15px;
+        line-height: 1.5;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-copy p {
+        font-size: 13px;
+        line-height: 1.7;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-copy time {
+        font-size: 10px;
+        color: var(--pw-gray-500);
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-copy > a {
+        min-height: 44px;
+        padding: 10px 0;
+        color: var(--pw-gray-600);
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-notification-read {
+        min-width: 44px;
+        min-height: 44px;
+        border: 0;
+        background: radial-gradient(
+            circle,
+            var(--pw-gray-500) 0 4px,
+            transparent 5px
+        );
+    }
+
+    .parkwise-page .pw-app-account {
+        margin: -12px -20px 0;
+        padding: 14px 20px 0;
+        background: linear-gradient(
+            var(--pw-gray-100) 0,
+            var(--pw-gray-100) 280px,
+            var(--pw-gray-50) 520px
+        );
+    }
+    .parkwise-page .pw-app-account-identity {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 108px;
+        margin: 2px 0 22px;
+        text-decoration: none;
+        color: var(--pw-color-black);
+    }
+    .parkwise-page .pw-app-account-identity > div {
+        flex: 1;
+        min-width: 0;
+    }
+    .parkwise-page .pw-app-account-identity h1,
+    .parkwise-page .pw-app-account-identity h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: -0.6px;
+        overflow-wrap: anywhere;
+    }
+    .parkwise-page .pw-app-account-identity p {
+        margin-top: 6px !important;
+        color: var(--pw-gray-500);
+        font-size: 14px;
+    }
+    .parkwise-page .pw-app-avatar {
+        display: grid;
+        flex: 0 0 68px;
+        height: 68px;
+        place-items: center;
+        border: 3px solid var(--pw-color-white);
+        border-radius: 25px;
+        background: var(--pw-tone-surface);
+        background-position: center;
+        background-size: cover;
+        color: var(--pw-tone);
+        font-size: 30px;
+        font-weight: 800;
+    }
+    .parkwise-page .pw-app-profile-banner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 110px;
+        padding: 18px;
+        border: 1px solid var(--pw-gray-100);
+        border-radius: 24px;
+        background: var(--pw-color-white);
+        text-decoration: none;
+        color: var(--pw-gray-600);
+    }
+    .parkwise-page .pw-app-profile-banner > span {
+        display: grid;
+        flex: 0 0 44px;
+        height: 52px;
+        place-items: center;
+        border-radius: 16px;
+    }
+    .parkwise-page .pw-app-profile-banner > div {
+        flex: 1;
+    }
+    .parkwise-page .pw-app-profile-banner h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 750;
+    }
+    .parkwise-page .pw-app-profile-banner p {
+        margin-top: 5px !important;
+        color: var(--pw-gray-500);
+        font-size: 12px;
+        line-height: 1.6;
+    }
+    .parkwise-page .pw-app-account-tiles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 20px;
+    }
+    .parkwise-page .pw-app-account-tiles a {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        min-height: 158px;
+        padding: 20px;
+        border: 1px solid var(--pw-tone-border, var(--pw-border-default));
+        border-radius: 24px;
+        background: var(--pw-tone-surface, var(--pw-bg-surface));
+        text-decoration: none;
+        color: var(--pw-color-black);
+    }
+    .parkwise-page .pw-app-account-tiles svg {
+        margin-bottom: 8px;
+        color: var(--pw-tone);
+    }
+    .parkwise-page .pw-app-account-tiles h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 750;
+    }
+    .parkwise-page .pw-app-account-tiles span {
+        color: var(--pw-gray-500);
+        font-size: 11px;
+        line-height: 1.5;
+    }
+    .parkwise-page .pw-app-account-links {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+        padding: 6px 14px;
+        border: 1px solid var(--pw-gray-100);
+        border-radius: 22px;
+        background: var(--pw-color-white);
+    }
+    .parkwise-page .pw-app-account-links a,
+    .parkwise-page .pw-app-language-setting {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 64px;
+        color: var(--pw-gray-600);
+        text-decoration: none;
+        font-size: 14px;
+    }
+    .parkwise-page .pw-app-account-links a > svg:first-child,
+    .parkwise-page .pw-app-language-setting > svg {
+        color: var(--pw-gray-500);
+    }
+    .parkwise-page .pw-app-account-links a > span,
+    .parkwise-page .pw-app-language-setting > span {
+        flex: 1;
+    }
+    .parkwise-page .pw-app-privacy {
+        display: grid;
+        gap: 12px;
+        margin: 20px 0;
+        padding: 18px;
+        border: 1px solid var(--pw-gray-100);
+        border-radius: 22px;
+        background: var(--pw-color-white);
+    }
+    .parkwise-page .pw-app-privacy h2 {
+        margin: 0;
+        font-size: 16px;
+    }
+    .parkwise-page .pw-app-privacy button {
+        min-height: 44px;
+        padding: 10px;
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 12px;
+        background: var(--pw-gray-50);
+        color: var(--pw-gray-600);
+        font-size: 13px;
+    }
+    .parkwise-page .pw-app-privacy p {
+        font-size: 12px;
+        line-height: 1.6;
+    }
+    .parkwise-page .pw-app-account-footer {
+        display: grid;
+        gap: 16px;
+        margin-top: 26px;
+        text-align: center;
+        color: var(--pw-gray-500);
+        font-size: 12px;
+    }
+    .parkwise-page .pw-app-account-footer > p {
+        overflow-wrap: anywhere;
+    }
+    .parkwise-page .pw-app-account-footer button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 16px;
+        background: var(--pw-color-white);
+        color: var(--pw-gray-600);
+        font-size: 14px;
+    }
+    .parkwise-page .pw-app-account-footer > div {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+    }
+    .parkwise-page .pw-app-account-footer a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        color: var(--pw-gray-500);
+    }
+
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-search-main {
+        width: calc(100% - 40px);
+        padding-top: 16px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-search-intro {
+        display: none;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-search-form {
+        border: 1px solid var(--pw-gray-200);
+        border-radius: 24px;
+        background: var(--pw-color-white);
+        box-shadow: none;
+    }
+    .vehicles-page:has(.pw-mobile-bottom-nav) .vehicles-main {
+        width: calc(100% - 40px);
+        padding: 12px 0 0;
+    }
+    .vehicles-page:has(.pw-mobile-bottom-nav) .vehicles-layout {
+        grid-template-columns: 1fr;
+    }
+    .vehicles-page:has(.pw-mobile-bottom-nav) .vehicles-heading {
+        display: none;
+    }
+    .vehicles-page:has(.pw-mobile-bottom-nav) .vehicles-card-grid {
+        grid-template-columns: 1fr;
+    }
+    .vehicles-page:has(.pw-mobile-bottom-nav) .vehicles-card {
+        border-radius: 24px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) {
+        padding-top: 120px;
+    }
+    .parkwise-page.pw-app-home:has(.pw-mobile-bottom-nav) {
+        padding-top: 76px;
+    }
+    .parkwise-page .pw-app-topbar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        height: 120px;
+        gap: 0;
+        padding: 8px 20px 12px;
+        background: var(--pw-color-white);
+        border-bottom: 1px solid var(--pw-gray-200);
+    }
+    .parkwise-page .pw-app-topbar-home {
+        height: 76px;
+    }
+    .parkwise-page .pw-app-topbar-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 52px;
+    }
+    .parkwise-page .pw-app-brand {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        flex-shrink: 0;
+    }
+    .parkwise-page .pw-app-brand img {
+        width: 112px;
+        height: 48px;
+        object-fit: contain;
+    }
+    .parkwise-page .pw-app-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 40px;
+    }
+    .parkwise-page .pw-app-title-row .pw-app-topbar-title {
+        font-size: 27px;
+    }
+    .parkwise-page .pw-app-topbar-home .pw-app-title-row {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+    .parkwise-page .pw-app-floating-nav a > span:last-child {
+        white-space: nowrap;
+        font-size: 10.5px;
+    }
+    .parkwise-page .pw-app-account {
+        background: var(--pw-gray-50);
+    }
+    .parkwise-page.customer-data-page:has(.pw-mobile-bottom-nav)
+        .customer-data-panel
+        .pw-app-activity-content
+        .pw-app-activity-summary {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 0;
+    }
+    .parkwise-page.customer-data-page:has(.pw-mobile-bottom-nav)
+        .customer-data-panel
+        .pw-app-activity-summary
+        > div:last-child {
+        gap: 8px;
+    }
+    .parkwise-page.customer-data-page:has(.pw-mobile-bottom-nav)
+        .customer-data-panel
+        .pw-app-activity-summary
+        > div:last-child
+        a {
+        min-height: 44px;
+        padding: 10px 12px;
+        gap: 6px;
+        font-size: 12px;
+        box-shadow: none;
+    }
+    .parkwise-page.customer-data-page:has(.pw-mobile-bottom-nav)
+        .customer-data-panel
+        .pw-app-activity-summary
+        > div:first-child
+        p {
+        font-size: 12px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-bookings-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        overflow: visible;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .customer-bookings-tabs button {
+        min-width: 0;
+        min-height: 44px;
+        padding: 10px 8px;
+        white-space: normal;
+        font-size: 12px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-booking-error {
+        padding: 20px 16px;
+        margin-top: 20px;
+        border-radius: 18px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-booking-error > svg {
+        width: 26px;
+        height: 26px;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-booking-error p {
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    .parkwise-page:has(.pw-mobile-bottom-nav) .pw-app-booking-error button {
+        min-height: 44px;
+        padding: 10px 20px;
+    }
+    .parkwise-page .pw-app-welcome-image {
+        object-fit: cover;
+        object-position: center;
+        z-index: 0;
+    }
+    .parkwise-page .pw-app-welcome::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: linear-gradient(100deg, rgb(0 0 0 / 88%), rgb(0 0 0 / 46%));
+    }
+    .parkwise-page .pw-app-welcome > :not(.pw-app-welcome-image) {
+        position: relative;
+        z-index: 2;
+    }
+    .parkwise-page .pw-app-search-hint svg {
+        color: var(--pw-accent);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pw-app-floating-nav .pw-mobile-nav-icon {
+        transition: none;
+    }
+}

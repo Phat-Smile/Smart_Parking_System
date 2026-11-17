@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
+import { useCustomerMobile } from "./mobile/useCustomerMobile";
+import { CustomerMobileAccount } from "./mobile/CustomerMobileAccount";
 import Link from "next/link";
 import {
     ArrowUpRight,
@@ -52,6 +54,7 @@ function ProfileField({
 }
 
 export function CustomerProfilePage() {
+    const isMobile = useCustomerMobile();
     const { copy } = useCustomerLanguage();
     const session = useSyncExternalStore(
         subscribeAuthSession,
@@ -201,6 +204,66 @@ export function CustomerProfilePage() {
             <UserRound size={36} />
         ) : (
             name[0].toUpperCase()
+        );
+
+    if (isMobile)
+        return (
+            <CustomerMobileAccount
+                name={name}
+                phone={phone}
+                email={email}
+                avatar={avatarObjectUrl}
+                initial={initial}
+                loading={loading}
+                privacyControls={
+                    profile &&
+                    Boolean(
+                        profile.avatarUrl?.startsWith(
+                            "/api/identity/accounts/me/media/",
+                        ) ||
+                        profile.citizenIdNumber ||
+                        profile.driverLicenseNumber ||
+                        profile.identityFrontMediaId ||
+                        profile.identityBackMediaId,
+                    ) && (
+                        <section className="pw-app-privacy">
+                            <h2>{copy("Your privacy", "Quyền riêng tư")}</h2>
+                            {profile.avatarUrl?.startsWith(
+                                "/api/identity/accounts/me/media/",
+                            ) && (
+                                <button
+                                    type="button"
+                                    disabled={privacyBusy}
+                                    onClick={() => void removeAvatar()}
+                                >
+                                    {copy(
+                                        "Remove profile photo",
+                                        "Xóa ảnh đại diện",
+                                    )}
+                                </button>
+                            )}
+                            {(profile.citizenIdNumber ||
+                                profile.driverLicenseNumber ||
+                                profile.identityFrontMediaId ||
+                                profile.identityBackMediaId) && (
+                                <button
+                                    type="button"
+                                    disabled={privacyBusy}
+                                    onClick={() => void removeIdentity()}
+                                >
+                                    {copy(
+                                        "Delete saved identity details",
+                                        "Xóa thông tin định danh đã lưu",
+                                    )}
+                                </button>
+                            )}
+                            {privacyMessage && (
+                                <p role="status">{privacyMessage}</p>
+                            )}
+                        </section>
+                    )
+                }
+            />
         );
 
     return (
@@ -388,11 +451,6 @@ export function CustomerProfilePage() {
                         )}
                     >
                         <h2>{copy("Account settings", "Cài đặt tài khoản")}</h2>
-                        <Link href="/settings/security">
-                            <ShieldCheck size={19} />{" "}
-                            {copy("Security", "Bảo mật")}{" "}
-                            <ArrowUpRight size={17} />
-                        </Link>
                         <Link href="/customer/notifications">
                             <Bell size={19} />{" "}
                             {copy("Notifications", "Thông báo")}{" "}

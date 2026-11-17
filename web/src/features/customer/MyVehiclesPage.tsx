@@ -1007,10 +1007,8 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         return (
             <main
                 className={`parkwise-page vehicles-page ${fontClassName}`}
-                aria-live="polite"
-            >
-                {copy("Loading your vehicles...", "Đang tải danh sách xe...")}
-            </main>
+                aria-busy="true"
+            />
         );
     }
 

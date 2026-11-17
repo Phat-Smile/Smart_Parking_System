@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ParkWiseLogo } from "./ParkWiseLogo";
 
 export function ParkWiseFooter({
     language = "en",
@@ -13,12 +14,7 @@ export function ParkWiseFooter({
             <div className="parkwise-container">
                 <div className="parkwise-footer-grid">
                     <div className="parkwise-footer-intro">
-                        <Image
-                            src="/images/parkwise/logo.png"
-                            alt="ParkWise"
-                            width={707}
-                            height={353}
-                        />
+                        <ParkWiseLogo />
                         <p>
                             {copy(
                                 "Find Convenient and Affordable Parking.",
