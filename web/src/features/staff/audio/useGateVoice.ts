@@ -63,6 +63,8 @@ export function useGateVoice() {
         setVoiceURI: (uri: string) => gateVoiceService.setVoiceURI(uri),
         setPlayChime: (play: boolean) => gateVoiceService.setPlayChime(play),
         stop: () => gateVoiceService.stop(),
+        clearQueue: () => gateVoiceService.clearQueue(),
+        getQueueLength: () => gateVoiceService.getQueueLength(),
 
         // Triggers
         announceCheckIn: (params: {
@@ -71,14 +73,16 @@ export function useGateVoice() {
             lotName?: string;
         }) => gateVoiceService.announceCheckIn(params),
 
-        announceCheckOut: (params: {
-            plateNumber: string;
+        announceCheckOut: (params?: {
+            plateNumber?: string;
             lotName?: string;
             amountPaid?: number;
         }) => gateVoiceService.announceCheckOut(params),
 
         announceWarning: (reason?: string) =>
             gateVoiceService.announceWarning(reason),
+
+        announceUnpaidExit: () => gateVoiceService.announceUnpaidExit(),
 
         testVoice: (
             sampleType: "checkin" | "checkout" | "warning" = "checkin",

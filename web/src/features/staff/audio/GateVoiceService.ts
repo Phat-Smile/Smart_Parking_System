@@ -9,6 +9,8 @@ import {
     buildCheckInSpeech,
     buildCheckOutSpeech,
     buildWarningSpeech,
+    buildUnpaidExitSpeech,
+    UNPAID_EXIT_WARNING_MESSAGE,
 } from "./phoneticHelper";
 import { pickVoice } from "./voiceSelection";
 
@@ -30,7 +32,7 @@ export interface GateVoiceSettings {
 
 type VoiceListener = () => void;
 
-class GateVoiceService {
+export class GateVoiceService {
     private static instance: GateVoiceService | null = null;
 
     private synth: SpeechSynthesis | null = null;
@@ -99,44 +101,63 @@ class GateVoiceService {
         }
     }
 
+    private getSynth(): SpeechSynthesis | null {
+        try {
+            if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+                return null;
+            }
+            return (this.synth = window.speechSynthesis);
+        } catch {
+            return null;
+        }
+    }
+
     private initSpeechSynth() {
-        if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-            return;
-        }
+        try {
+            const synth = this.getSynth();
+            if (!synth) return;
 
-        this.synth = window.speechSynthesis;
-        this.loadVoices();
+            this.loadVoices();
 
-        if (this.synth.onvoiceschanged !== undefined) {
-            this.synth.onvoiceschanged = () => {
-                this.loadVoices();
-            };
-        }
+            if (synth.onvoiceschanged !== undefined) {
+                synth.onvoiceschanged = () => {
+                    this.loadVoices();
+                };
+            }
 
-        // Khắc phục bug Chrome treo speech synthesis sau khi chạy ngầm
-        window.setInterval(() => {
-            if (this.synth && this.synth.paused) {
+            // Khắc phục bug Chrome treo speech synthesis sau khi chạy ngầm
+            window.setInterval(() => {
                 try {
-                    this.synth.resume();
+                    const currentSynth = this.getSynth();
+                    if (currentSynth && currentSynth.paused) {
+                        currentSynth.resume();
+                    }
                 } catch {
                     // Bỏ qua nếu trình duyệt chặn resume khi chưa có thao tác người dùng
                 }
-            }
-        }, 10000);
+            }, 10000);
+        } catch {
+            this.synth = null;
+        }
     }
 
     private loadVoices() {
-        if (!this.synth) return;
-        const all = this.synth.getVoices();
-        if (!all || all.length === 0) return;
+        const synth = this.getSynth();
+        if (!synth) return;
+        try {
+            const all = synth.getVoices();
+            if (!all || all.length === 0) return;
 
-        const pick = pickVoice(all, this.settings.voiceURI);
-        this.availableVoices = pick.options;
-        this.selectedVoice = pick.voice;
-        if (pick.voice) {
-            this.settings.voiceURI = pick.voice.voiceURI;
+            const pick = pickVoice(all, this.settings.voiceURI);
+            this.availableVoices = pick.options;
+            this.selectedVoice = pick.voice;
+            if (pick.voice) {
+                this.settings.voiceURI = pick.voice.voiceURI;
+            }
+            this.notify();
+        } catch {
+            // Silently fallback if getVoices throws
         }
-        this.notify();
     }
 
     public subscribe(listener: VoiceListener): () => void {
@@ -168,8 +189,30 @@ class GateVoiceService {
         return this.isSpeakingState;
     }
 
+    public getQueueLength(): number {
+        return this.queue.length;
+    }
+
+    public clearQueue() {
+        this.queue = [];
+        this.notify();
+    }
+
     public isEnabled(): boolean {
         return this.settings.enabled;
+    }
+
+    public isSupported(): boolean {
+        if (typeof window === "undefined") return false;
+        try {
+            return (
+                "speechSynthesis" in window &&
+                typeof SpeechSynthesisUtterance !== "undefined" &&
+                !!window.speechSynthesis
+            );
+        } catch {
+            return false;
+        }
     }
 
     public getLogs(): VoiceLogItem[] {
@@ -223,9 +266,10 @@ class GateVoiceService {
     // ================== PHÁT ÂM VÀ HÀNG ĐỢI ==================
 
     public stop() {
-        if (this.synth) {
+        const synth = this.getSynth();
+        if (synth) {
             try {
-                this.synth.cancel();
+                synth.cancel();
             } catch {
                 // Bỏ qua lỗi khi trình duyệt chặn audio
             }
@@ -276,6 +320,10 @@ class GateVoiceService {
                 playChime,
             });
         } else {
+            // Giữ hàng đợi gọn gàng, tránh dồn ứ lời thoại cũ khi sự kiện cổng dồn dập
+            while (this.queue.length >= 5) {
+                this.queue.shift();
+            }
             this.queue.push({
                 text: options.text,
                 type,
@@ -316,8 +364,9 @@ class GateVoiceService {
         urgent?: boolean;
         playChime?: boolean;
     }): Promise<void> {
+        const synth = this.getSynth();
         if (
-            !this.synth ||
+            !synth ||
             !this.settings.enabled ||
             typeof SpeechSynthesisUtterance === "undefined"
         ) {
@@ -346,13 +395,17 @@ class GateVoiceService {
                 return;
             }
 
-            if (this.selectedVoice) {
-                utterance.voice = this.selectedVoice;
+            try {
+                if (this.selectedVoice) {
+                    utterance.voice = this.selectedVoice;
+                }
+                utterance.lang = this.selectedVoice?.lang || "vi-VN";
+                utterance.rate = this.settings.rate;
+                utterance.pitch = this.settings.pitch;
+                utterance.volume = this.settings.volume;
+            } catch {
+                // Bỏ qua nếu việc gán thuộc tính bị từ chối
             }
-            utterance.lang = this.selectedVoice?.lang || "vi-VN";
-            utterance.rate = this.settings.rate;
-            utterance.pitch = this.settings.pitch;
-            utterance.volume = this.settings.volume;
 
             this.activeUtterances.add(utterance);
             this.isSpeakingState = true;
@@ -389,7 +442,7 @@ class GateVoiceService {
             }, maxWait);
 
             try {
-                this.synth?.speak(utterance);
+                synth.speak(utterance);
             } catch {
                 cleanup();
             }
@@ -417,8 +470,8 @@ class GateVoiceService {
     /**
      * Thông báo xe Check-out thành công
      */
-    public announceCheckOut(params: {
-        plateNumber: string;
+    public announceCheckOut(params?: {
+        plateNumber?: string;
         lotName?: string;
         amountPaid?: number;
     }) {
@@ -435,6 +488,19 @@ class GateVoiceService {
      */
     public announceWarning(reason?: string) {
         const text = buildWarningSpeech(reason);
+        return this.speak({
+            text,
+            type: "warning",
+            urgent: true,
+            playChime: true,
+        });
+    }
+
+    /**
+     * Cảnh báo phiên đỗ chưa thanh toán ở cổng ra
+     */
+    public announceUnpaidExit() {
+        const text = buildUnpaidExitSpeech();
         return this.speak({
             text,
             type: "warning",
