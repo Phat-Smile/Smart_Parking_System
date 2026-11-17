@@ -159,8 +159,7 @@ public sealed class OpenParkingSessionCommandHandler(
                 if (cancelledReservationId is not { } reservationId)
                     return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
 
-                incidents.Add(Incident.OpenNoSuitableSlot(Guid.NewGuid(), request.LotId, reservationId, plate, entryTime));
-                await incidents.SaveChangesAsync(cancellationToken);
+                await RecordNoSuitableSlotAsync(request.LotId, reservationId, plate, entryTime, cancellationToken);
                 return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.ReservedNoSlot);
             }
 
@@ -305,9 +304,21 @@ public sealed class OpenParkingSessionCommandHandler(
         IParkingTransaction transaction,
         CancellationToken cancellationToken)
     {
-        incidents.Add(Incident.OpenNoSuitableSlot(Guid.NewGuid(), request.LotId, checkedInBooking.ReservationId, plate, entryTime));
-        await incidents.SaveChangesAsync(cancellationToken);
+        await RecordNoSuitableSlotAsync(request.LotId, checkedInBooking.ReservationId, plate, entryTime, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.ReservedNoSlot);
+    }
+
+    // One Open incident per reservation: staff retrying the entry for the same car (Booking answers the repeat with the
+    // same cancelled reservation) must not fill the staff list with copies.
+    private async Task RecordNoSuitableSlotAsync(
+        Guid lotId, Guid reservationId, string plate, DateTimeOffset entryTime, CancellationToken cancellationToken)
+    {
+        var open = await incidents.ListOpenByLotAsync(lotId, IncidentType.NoSuitableSlot, cancellationToken);
+        if (open.Any(incident => incident.ReservationId == reservationId))
+            return;
+
+        incidents.Add(Incident.OpenNoSuitableSlot(Guid.NewGuid(), lotId, reservationId, plate, entryTime));
+        await incidents.SaveChangesAsync(cancellationToken);
     }
 }

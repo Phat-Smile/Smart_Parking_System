@@ -454,6 +454,23 @@ public sealed class OpenParkingSessionTests
     }
 
     [Fact]
+    public async Task Retrying_the_same_reserved_car_at_a_full_lot_keeps_one_open_incident()
+    {
+        // Booking answers a repeat with the same cancelled reservation (idempotent), so staff retries must not add copies.
+        var reservationId = Guid.NewGuid();
+        var incidents = new FakeIncidents();
+        var handler = NewHandler(new FakeParkingSessionRepository(), new FakeMotorbikeZones(), new FakeUnitOfWork(), new FakeSlotDesignator(available: 0),
+            noSlotReporter: new FakeNoSlotReporter(reservationId), incidents: incidents);
+
+        var first = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId), TestContext.Current.CancellationToken);
+        var second = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(OpenParkingSessionErrors.ReservedNoSlot, first.Error);
+        Assert.Equal(OpenParkingSessionErrors.ReservedNoSlot, second.Error);
+        Assert.Equal(reservationId, Assert.Single(incidents.Saved).ReservationId);
+    }
+
+    [Fact]
     public async Task Car_without_reservation_and_no_slot_left_is_a_full_walk_in_without_an_incident()
     {
         var reporter = new FakeNoSlotReporter(cancelledReservationId: null);
@@ -723,7 +740,9 @@ public sealed class OpenParkingSessionTests
         public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            Task.FromResult<IReadOnlyList<Incident>>(Saved
+                .Where(incident => incident.LotId == lotId && incident.Status == IncidentStatus.Open && incident.IncidentType == incidentType)
+                .ToList());
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }

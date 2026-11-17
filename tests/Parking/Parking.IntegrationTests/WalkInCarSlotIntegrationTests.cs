@@ -102,8 +102,11 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
         Assert.True((await OpenCarSessionAsync(serviceProvider, lotId, "51A-111.11", cancellationToken)).IsSuccess);
 
         var result = await OpenCarSessionAsync(serviceProvider, lotId, "51A-222.22", cancellationToken);
+        // Staff retry the same car: Booking returns the same cancelled reservation, still one incident.
+        var retried = await OpenCarSessionAsync(serviceProvider, lotId, "51A-222.22", cancellationToken);
 
         Assert.Equal(OpenParkingSessionErrors.ReservedNoSlot, result.Error);
+        Assert.Equal(OpenParkingSessionErrors.ReservedNoSlot, retried.Error);
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
         var incident = await dbContext.Incidents.AsNoTracking().SingleAsync(item => item.LotId == lotId, cancellationToken);
