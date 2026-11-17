@@ -1,6 +1,7 @@
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Parking;
+using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
@@ -168,6 +169,97 @@ public sealed class CompleteParkingSessionTests
     }
 
     [Fact]
+    public async Task Staff_reason_lets_a_misread_plate_leave_and_is_audited_in_the_same_transaction()
+    {
+        // US-STAFF-004 (BR-11.d): the gate read the plate wrong, staff checked the vehicle in person.
+        var session = PaidSession();
+        var context = new Context(session, now: PaidAt.AddMinutes(1));
+
+        var result = await context.Complete("51A-999.99", Qr, "  OCR misread, checked the car in person  ");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ParkingSessionStatus.Completed, session.Status);
+        Assert.Equal(1, context.Slots.Released);
+        Assert.Single(context.Outbox.Events);
+        var entry = Assert.Single(context.Audit.Entries);
+        Assert.Equal(AuditActions.SessionExitManuallyVerified, entry.Action);
+        Assert.Equal(StaffId, entry.ActorUserId);
+        Assert.Equal("OCR misread, checked the car in person", entry.Reason);
+        Assert.Equal("False", entry.Details!["plateMatched"]);
+        Assert.Equal("True", entry.Details["canExit"]);
+        // NFR-15: no plate value in the audit details.
+        Assert.DoesNotContain(entry.Details.Values, value => value.Contains("51A", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(1, context.Sessions.SaveCount);
+        Assert.True(context.UnitOfWork.Committed);
+    }
+
+    [Fact]
+    public async Task Staff_reason_never_replaces_the_qr_match()
+    {
+        var session = PaidSession();
+        var context = new Context(session, now: PaidAt.AddMinutes(1));
+
+        var result = await context.Complete("51A-999.99", "other-qr", "checked in person");
+
+        Assert.Equal(CompleteParkingSessionErrors.ExitNotVerified, result.Error);
+        Assert.Equal(ParkingSessionStatus.Paid, session.Status);
+        Assert.Empty(context.Audit.Entries);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public async Task A_blank_reason_does_not_count_as_a_manual_check(string? reason)
+    {
+        var session = PaidSession();
+        var context = new Context(session, now: PaidAt.AddMinutes(1));
+
+        var result = await context.Complete("51A-999.99", Qr, reason);
+
+        Assert.Equal(CompleteParkingSessionErrors.ExitNotVerified, result.Error);
+        Assert.Empty(context.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task Staff_reason_never_skips_payment()
+    {
+        var session = NewSession();
+        var context = new Context(session, now: PaidAt);
+
+        var result = await context.Complete("51A-999.99", Qr, "checked in person");
+
+        Assert.Equal(CompleteParkingSessionErrors.PaymentRequired, result.Error);
+        Assert.Equal(ParkingSessionStatus.Active, session.Status);
+        Assert.Empty(context.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task Staff_reason_after_the_exit_window_reopens_the_session_and_is_audited()
+    {
+        var session = PaidSession();
+        var context = new Context(session, now: PaidAt.AddMinutes(16));
+
+        var result = await context.Complete("51A-999.99", Qr, "checked in person");
+
+        Assert.Equal(CompleteParkingSessionErrors.ExitWindowExpired, result.Error);
+        Assert.Equal(ParkingSessionStatus.Active, session.Status);
+        Assert.Equal(0, context.Slots.Released);
+        var entry = Assert.Single(context.Audit.Entries);
+        Assert.Equal("False", entry.Details!["canExit"]);
+    }
+
+    [Fact]
+    public async Task A_matching_plate_with_a_reason_is_not_audited()
+    {
+        var context = new Context(PaidSession(), now: PaidAt.AddMinutes(1));
+
+        var result = await context.Complete(Plate, Qr, "not needed");
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(context.Audit.Entries);
+    }
+
+    [Fact]
     public async Task The_plate_is_normalized_like_at_entry()
     {
         var context = new Context(PaidSession(), now: PaidAt.AddMinutes(1));
@@ -217,6 +309,19 @@ public sealed class CompleteParkingSessionTests
         var validator = new CompleteParkingSessionCommandValidator();
 
         Assert.False(validator.Validate(new CompleteParkingSessionCommand(Guid.NewGuid(), plate, qr, StaffId)).IsValid);
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("checked in person", true)]
+    [InlineData(500, true)]
+    [InlineData(501, false)]
+    public void Validator_caps_the_staff_reason_at_500_characters(object? reason, bool valid)
+    {
+        var text = reason is int length ? new string('x', length) : (string?)reason;
+        var validator = new CompleteParkingSessionCommandValidator();
+
+        Assert.Equal(valid, validator.Validate(new CompleteParkingSessionCommand(Guid.NewGuid(), Plate, Qr, StaffId, text)).IsValid);
     }
 
     [Fact]
@@ -286,13 +391,15 @@ public sealed class CompleteParkingSessionTests
         public FakeSlots Slots { get; } = new();
         public FakeZones Zones { get; } = new();
         public FakeOutbox Outbox { get; } = new();
+        public FakeAuditLog Audit { get; } = new();
         public FakeClock Clock { get; } = new() { Now = now };
 
-        public Task<ParkingSystem.BuildingBlocks.Results.Result<CompletedParkingSession>> Complete(string plate = Plate, string qr = Qr)
+        public Task<ParkingSystem.BuildingBlocks.Results.Result<CompletedParkingSession>> Complete(
+            string plate = Plate, string qr = Qr, string? manualReason = null)
         {
-            var handler = new CompleteParkingSessionCommandHandler(Sessions, UnitOfWork, new FakeLotAccess(allowed), Slots, Zones, Outbox, Clock);
+            var handler = new CompleteParkingSessionCommandHandler(Sessions, UnitOfWork, new FakeLotAccess(allowed), Slots, Zones, Outbox, Audit, Clock);
             return handler.Handle(
-                new CompleteParkingSessionCommand(session?.Id ?? Guid.NewGuid(), plate, qr, StaffId),
+                new CompleteParkingSessionCommand(session?.Id ?? Guid.NewGuid(), plate, qr, StaffId, manualReason),
                 TestContext.Current.CancellationToken);
         }
     }
@@ -389,6 +496,13 @@ public sealed class CompleteParkingSessionTests
     private sealed class FakeLotAccess(bool allowed) : IParkingLotAccess
     {
         public Task<bool> CanOperateAsync(Guid accountId, Guid lotId, CancellationToken cancellationToken) => Task.FromResult(allowed);
+    }
+
+    private sealed class FakeAuditLog : IAuditLog
+    {
+        public List<AuditEntry> Entries { get; } = [];
+
+        public void Record(AuditEntry entry) => Entries.Add(entry);
     }
 
     private sealed class FakeClock : IClock

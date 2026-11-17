@@ -34,7 +34,9 @@ public sealed record OpenedParkingSession(
     string? ZoneCode,
     string? FloorName,
     int? AvailableMotorbikeSpaces,
-    string? SlotCode);
+    string? SlotCode,
+    // US-PARK-005: the staff screen confirms this slot as parked, so it needs the id, not only the code.
+    Guid? SlotId = null);
 
 public static class OpenParkingSessionErrors
 {
@@ -263,6 +265,7 @@ public sealed class OpenParkingSessionCommandHandler(
             space?.ZoneCode ?? slotZone?.ZoneCode,
             space?.FloorName ?? slotZone?.FloorName,
             space?.AvailableSpaces,
-            slot?.SlotCode));
+            slot?.SlotCode,
+            slot?.SlotId));
     }
 }

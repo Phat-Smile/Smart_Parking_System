@@ -4,6 +4,7 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Parking;
+using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Parking.Application.Common.Persistence;
 using ParkingSystem.Parking.Application.ParkingLayout;
@@ -15,7 +16,14 @@ namespace ParkingSystem.Parking.Application.ParkingSessions.CompleteParkingSessi
 // US-PAY-006 (BR-09.d, BR-11.c, BR-11.e, MF-12): staff or the gate device call this when the vehicle is at the exit, and
 // this call is what confirms the vehicle left (lead decision 2026-11-04). Parking takes no money here: payment arrives
 // as payment.session-paid.v1.
-public sealed record CompleteParkingSessionCommand(Guid SessionId, string PlateNumber, string QrToken, Guid ActorUserId)
+// ManualVerificationReason (US-STAFF-004, BR-11.d): staff checked the vehicle in person because the gate read the plate
+// wrong. It stands in for the plate match only; the QR must still match and payment still decides.
+public sealed record CompleteParkingSessionCommand(
+    Guid SessionId,
+    string PlateNumber,
+    string QrToken,
+    Guid ActorUserId,
+    string? ManualVerificationReason = null)
     : IRequest<Result<CompletedParkingSession>>;
 
 public sealed record CompletedParkingSession(Guid SessionId, string Status, DateTimeOffset CompletedAt);
@@ -51,6 +59,8 @@ public sealed class CompleteParkingSessionCommandValidator : AbstractValidator<C
         RuleFor(command => command.QrToken)
             .Must(token => !string.IsNullOrWhiteSpace(token))
             .MaximumLength(ParkingSession.QrTokenMaxLength);
+        RuleFor(command => command.ManualVerificationReason)
+            .MaximumLength(ParkingSession.StaffActionReasonMaxLength);
     }
 }
 
@@ -61,6 +71,7 @@ public sealed class CompleteParkingSessionCommandHandler(
     ISlotDesignator slots,
     IMotorbikeZoneCounter motorbikeZones,
     IOutboxWriter outbox,
+    IAuditLog auditLog,
     IClock clock) : IRequestHandler<CompleteParkingSessionCommand, Result<CompletedParkingSession>>
 {
     public async Task<Result<CompletedParkingSession>> Handle(CompleteParkingSessionCommand request, CancellationToken cancellationToken)
@@ -84,7 +95,9 @@ public sealed class CompleteParkingSessionCommandHandler(
 
         var plateMatches = session.PlateNumber == ParkingSession.NormalizePlate(request.PlateNumber);
         var qrMatches = session.QrToken == request.QrToken.Trim();
-        if (!plateMatches || !qrMatches)
+        var manualReason = request.ManualVerificationReason?.Trim();
+        var plateManuallyVerified = !plateMatches && !string.IsNullOrEmpty(manualReason);
+        if (!qrMatches || (!plateMatches && !plateManuallyVerified))
             return Result<CompletedParkingSession>.Failure(CompleteParkingSessionErrors.ExitNotVerified);
 
         if (session.Status == ParkingSessionStatus.Active)
@@ -92,10 +105,12 @@ public sealed class CompleteParkingSessionCommandHandler(
 
         var now = clock.UtcNow;
         session.RecordExitArrival(now);
-        if (!ExitEligibility.CanExit(session, plateMatches, qrMatches, now) || !session.Complete(now))
+        if (!ExitEligibility.CanExit(session, plateMatches: true, qrMatches, now) || !session.Complete(now))
         {
             // BR-09.d: Paid goes back to Active until the extra fee is paid.
             session.ReopenAfterExitWindow();
+            if (plateManuallyVerified)
+                RecordManualVerification(request, session, manualReason!, canExit: false, now);
             await sessions.TrySaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return Result<CompletedParkingSession>.Failure(CompleteParkingSessionErrors.ExitWindowExpired);
@@ -125,11 +140,32 @@ public sealed class CompleteParkingSessionCommandHandler(
             "parking.session-closed.v1",
             1);
 
+        if (plateManuallyVerified)
+            RecordManualVerification(request, session, manualReason!, canExit: true, now);
+
         await sessions.TrySaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         return Result<CompletedParkingSession>.Success(ToResult(session, now));
     }
+
+    // NFR-16: who let the vehicle out on a manual check, and why. Saved in the same transaction. No plate value (NFR-15).
+    private void RecordManualVerification(
+        CompleteParkingSessionCommand request, ParkingSession session, string reason, bool canExit, DateTimeOffset now) =>
+        auditLog.Record(new AuditEntry(
+            AuditActions.SessionExitManuallyVerified,
+            request.ActorUserId,
+            session.LotId,
+            nameof(ParkingSession),
+            session.Id.ToString(),
+            reason,
+            now,
+            new Dictionary<string, string>
+            {
+                ["status"] = session.Status.ToString(),
+                ["canExit"] = canExit.ToString(),
+                ["plateMatched"] = bool.FalseString
+            }));
 
     private static CompletedParkingSession ToResult(ParkingSession session, DateTimeOffset completedAt) =>
         new(session.Id, session.Status.ToString(), completedAt);
