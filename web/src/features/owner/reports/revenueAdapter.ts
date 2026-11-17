@@ -85,6 +85,22 @@ export function short(amount: number): string {
     return Math.round(amount).toLocaleString("vi-VN") + " đ";
 }
 
+export function parseHourFromTime(timeOrDateStr?: string): number {
+    if (!timeOrDateStr) return -1;
+    if (timeOrDateStr.includes("T")) {
+        const timePart = timeOrDateStr.split("T")[1];
+        const h = parseInt(timePart.split(":")[0], 10);
+        return isNaN(h) ? -1 : h;
+    }
+    const h = parseInt(timeOrDateStr.split(":")[0], 10);
+    return isNaN(h) ? -1 : h;
+}
+
+export function getTrafficPointCounts(pt: any): number {
+    if (!pt) return 0;
+    return (pt.inCount ?? 0) + (pt.outCount ?? 0) + (pt.count ?? 0);
+}
+
 /**
  * Trích xuất và định dạng dữ liệu báo cáo tài chính từ số liệu thực tế của bãi xe.
  * Trả về cấu trúc chuẩn cho KPI cards, biểu đồ cột, phân bổ tầng, phương thức thanh toán và bảng xuất file.
@@ -257,14 +273,14 @@ export function getRevenueReportData(
 
         if (hourlyTraffic.length > 0) {
             for (const pt of hourlyTraffic) {
-                const hourNum = parseInt(pt.time.split(":")[0], 10);
+                const hourNum = parseHourFromTime((pt as any).time || (pt as any).hour);
                 if (hourNum >= 0 && hourNum < 24) {
-                    hourlyWeights[hourNum] += pt.inCount + pt.outCount;
+                    hourlyWeights[hourNum] += getTrafficPointCounts(pt);
                 }
             }
         } else if (sessions.length > 0) {
             for (const s of sessions) {
-                const hourNum = parseInt(s.entryTime.split(":")[0], 10);
+                const hourNum = parseHourFromTime(s.entryTime);
                 if (hourNum >= 0 && hourNum < 24) {
                     hourlyWeights[hourNum] += 1;
                 }
@@ -419,14 +435,15 @@ export function getRevenueReportData(
     let peakTimes: PeakTimeItem[] = [];
     if (hourlyTraffic.length > 0) {
         const sortedTraffic = [...hourlyTraffic]
-            .sort((a, b) => b.inCount + b.outCount - (a.inCount + a.outCount))
+            .sort((a, b) => getTrafficPointCounts(b) - getTrafficPointCounts(a))
             .slice(0, 4);
 
         peakTimes = sortedTraffic.map((pt) => {
-            const h = parseInt(pt.time.split(":")[0], 10);
+            const parsedH = parseHourFromTime((pt as any).time || (pt as any).hour);
+            const h = parsedH >= 0 ? parsedH : 8;
             const nextH = (h + 2) % 24;
             const timeRange = `${p2(h)}:00 – ${p2(nextH)}:00`;
-            const traffic = pt.inCount + pt.outCount;
+            const traffic = getTrafficPointCounts(pt);
             const rev =
                 totalRev > 0 && todaySessionsCount > 0
                     ? Math.round((traffic / todaySessionsCount) * totalRev)
@@ -476,7 +493,7 @@ export function getRevenueReportData(
                 revenueText: vnd(fee),
                 popularMethod: s.paymentMethod || "Ví Smart Parking",
                 status: statusText,
-                plateNumber: s.plateNumber,
+                plateNumber: s.plateNumber || (s as any).licensePlate,
                 vehicleType: s.vehicleType,
                 slotCode: s.slotCode,
                 durationMinutes: s.durationMinutes,
