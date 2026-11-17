@@ -92,4 +92,11 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
             .OrderByDescending(p => p.PaymentTimeUtc)
             .FirstOrDefaultAsync(ct);
     }
+
+    // Lấy hóa đơn thành công của phiên xe để cập nhật phụ phí quá giờ (BR-09.d)
+    public async Task<ParkingFeePayment?> GetSucceededBySessionIdAsync(Guid sessionId, CancellationToken ct)
+    {
+        return await dbContext.Set<ParkingFeePayment>()
+            .FirstOrDefaultAsync(p => p.SessionId == sessionId && p.Status == PaymentStatus.Succeeded, ct);
+    }
 }

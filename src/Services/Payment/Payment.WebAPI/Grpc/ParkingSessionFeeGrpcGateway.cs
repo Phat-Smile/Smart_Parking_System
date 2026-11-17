@@ -92,6 +92,28 @@ public sealed class ParkingSessionFeeGrpcGateway(
             return Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.ParkingServiceUnavailable);
         }
 
+        DateTimeOffset? lastPaid = null;
+        if (!string.IsNullOrWhiteSpace(r.LastPaidAtUtc) && DateTimeOffset.TryParse(
+            r.LastPaidAtUtc,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsedLastPaid))
+        {
+            lastPaid = parsedLastPaid;
+        }
+
+        DateTimeOffset? arrivedAtExit = null;
+        if (!string.IsNullOrWhiteSpace(r.ArrivedAtExitUtc) && DateTimeOffset.TryParse(
+            r.ArrivedAtExitUtc,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsedArrivedAtExit))
+        {
+            arrivedAtExit = parsedArrivedAtExit;
+        }
+
+        var gracePeriod = r.GracePeriodMinutes > 0 ? r.GracePeriodMinutes : 15;
+
         return Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
             requestedSessionId,
             lotId,
@@ -101,6 +123,9 @@ public sealed class ParkingSessionFeeGrpcGateway(
             entry,
             Guid.TryParse(r.AccountId, out var account) && account != Guid.Empty ? account : null,
             Guid.TryParse(r.BookingId, out var booking) && booking != Guid.Empty ? booking : null,
-            new PricingSnapshotDto(pricing!.PolicyId, pricing.CalculationMethod, pricing.BlockMinutes, pricing.PricePerUnit)));
+            new PricingSnapshotDto(pricing!.PolicyId, pricing.CalculationMethod, pricing.BlockMinutes, pricing.PricePerUnit),
+            lastPaid,
+            arrivedAtExit,
+            gracePeriod));
     }
 }
