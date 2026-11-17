@@ -20,6 +20,7 @@ using ParkingSystem.Parking.WebAPI.Realtime;
 using ParkingSystem.Parking.WebAPI.Security;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.Recommendations;
+using ParkingSystem.Parking.Application.ParkingLots.Availability;
 using ParkingSystem.Parking.WebAPI.Clients;
 using ParkingSystem.Parking.WebAPI.Geocoding;
 using ParkingSystem.Parking.WebAPI.Routing;
@@ -71,6 +72,12 @@ builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSection(BookingServiceOptions.SectionName));
 builder.Services.AddHttpClient<IBookingCheckInClient, BookingCheckInHttpClient>();
 builder.Services.AddHttpClient<ArrivalAvailabilityClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
+// Recommendation quota is time-specific and must not reuse the walk-in Gate quota cache.
+builder.Services.AddHttpClient<IArrivalHeldQuotaClient, ArrivalHeldQuotaClient>(client =>
+{
+    client.Timeout = Timeout.InfiniteTimeSpan; // The client owns the per-call deadline.
+    client.MaxResponseContentBufferSize = 16 * 1024;
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 // The AI Service may spend up to 3s waiting for an LLM. The per-request budget
 // in ParkingRecommendationClient (default 5s) controls cancellation instead.
 builder.Services.AddHttpClient<IParkingRecommendationClient, ParkingRecommendationClient>(client =>

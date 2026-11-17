@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.Availability;
 using ParkingSystem.Parking.Application.ParkingLots.Recommendations;
@@ -37,7 +36,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         var nearby = new FakeNearbyReader([]);
         var metrics = new FakeMetricsReader();
         var snapshots = new FakeSnapshotReader();
-        var heldQuota = new FakeHeldQuotaProvider();
+        var heldQuota = new FakeArrivalHeldQuotaClient();
         var aiClient = new FakeAiClient();
         var handler = new GetParkingLotRecommendationsQueryHandler(
             nearby, metrics, snapshots, heldQuota, aiClient, NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
@@ -68,7 +67,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         });
 
         var snapshots = new FakeSnapshotReader();
-        var heldQuota = new FakeHeldQuotaProvider(_ => 0);
+        var heldQuota = new FakeArrivalHeldQuotaClient(_ => 0);
         var aiClient = new FakeAiClient
         {
             ResponseToReturn = new RecommendationClientResponse(
@@ -133,7 +132,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         });
 
         var snapshots = new FakeSnapshotReader();
-        var heldQuota = new FakeHeldQuotaProvider();
+        var heldQuota = new FakeArrivalHeldQuotaClient();
         var aiClient = new FakeAiClient
         {
             ResponseToReturn = explicitAiFallback
@@ -182,18 +181,24 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         });
 
         var snapshots = new FakeSnapshotReader();
-        var heldQuota = new FakeHeldQuotaProvider(id => id == lot1Id ? 4 : null);
+        var heldQuota = new FakeArrivalHeldQuotaClient(id => id == lot1Id ? 4 : null);
         var aiClient = new FakeAiClient();
 
         var handler = new GetParkingLotRecommendationsQueryHandler(
             nearby, metrics, snapshots, heldQuota, aiClient, NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
 
-        var query = new GetParkingLotRecommendationsQuery(10.77m, 106.70m, "Car", DurationMinutes: 60,
+        var arrival = DateTimeOffset.UtcNow.AddHours(3);
+        var query = new GetParkingLotRecommendationsQuery(10.77m, 106.70m, "Car", ArrivalAt: arrival, DurationMinutes: 60,
             Priority: "cheapest");
         await handler.Handle(query, TestContext.Current.CancellationToken);
 
         Assert.NotNull(aiClient.LastRequest);
         Assert.Equal("cheapest", aiClient.LastRequest.Priority);
+        Assert.Equal(arrival, aiClient.LastRequest.ArrivalAt);
+        Assert.Equal(2, heldQuota.Calls.Count);
+        Assert.All(heldQuota.Calls, call => Assert.Equal(arrival, call.ArrivalAt));
+        Assert.Contains(heldQuota.Calls, call => call.LotId == lot1Id);
+        Assert.Contains(heldQuota.Calls, call => call.LotId == lot2Id);
         Assert.Equal(2, aiClient.LastRequest.CandidateLots.Count);
 
         var c1 = aiClient.LastRequest.CandidateLots.Single(x => x.LotId == lot1Id);
@@ -224,7 +229,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
             [lot2] = new CustomerLotMetrics(1, 0, [new CustomerLotPrice("Car", 10000m, "Block", 60)]),
             [lot3] = new CustomerLotMetrics(1, 0, [new CustomerLotPrice("Car", 10000m, "Block", 60)])
         });
-        var heldQuota = new FakeHeldQuotaProvider();
+        var heldQuota = new FakeArrivalHeldQuotaClient();
         var aiClient = new FakeAiClient();
         var guardedReader = new ThreadSafeGuardedSnapshotReader();
 
@@ -282,10 +287,15 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
             Task.FromResult<IReadOnlyList<ArrivalAvailabilitySnapshot>>([]);
     }
 
-    private sealed class FakeHeldQuotaProvider(Func<Guid, int?>? getHeld = null) : IHeldQuotaProvider
+    private sealed class FakeArrivalHeldQuotaClient(Func<Guid, int?>? getHeld = null) : IArrivalHeldQuotaClient
     {
-        public Task<int?> GetHeldReservationsAsync(Guid lotId, CancellationToken cancellationToken) =>
-            Task.FromResult(getHeld?.Invoke(lotId));
+        public System.Collections.Concurrent.ConcurrentQueue<(Guid LotId, DateTimeOffset ArrivalAt)> Calls { get; } = new();
+        public Task<int?> GetHeldQuotaAsync(Guid lotId, DateTimeOffset arrivalAt, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Calls.Enqueue((lotId, arrivalAt));
+            return Task.FromResult(getHeld?.Invoke(lotId));
+        }
     }
 
     [Fact]
@@ -307,7 +317,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         });
         var client = new FakeAiClient();
         var handler = new GetParkingLotRecommendationsQueryHandler(
-            nearby, metrics, new FakeSnapshotReader(), new FakeHeldQuotaProvider(), client,
+            nearby, metrics, new FakeSnapshotReader(), new FakeArrivalHeldQuotaClient(), client,
             NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
 
         var result = await handler.Handle(
@@ -333,7 +343,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
         ]);
         var handlerClient = new FakeAiClient();
         var handler = new GetParkingLotRecommendationsQueryHandler(
-            nearby, new FakeMetricsReader(), new FakeSnapshotReader(), new FakeHeldQuotaProvider(), handlerClient,
+            nearby, new FakeMetricsReader(), new FakeSnapshotReader(), new FakeArrivalHeldQuotaClient(), handlerClient,
             NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
 
         var result = await handler.Handle(
@@ -385,7 +395,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
                 problem == "unexpected_fallback_reason" ? "unexpected_reason" : null)
         };
         var handler = new GetParkingLotRecommendationsQueryHandler(
-            nearby, metrics, new FakeSnapshotReader(), new FakeHeldQuotaProvider(_ => 0), client,
+            nearby, metrics, new FakeSnapshotReader(), new FakeArrivalHeldQuotaClient(_ => 0), client,
             NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
 
         var result = await handler.Handle(
@@ -422,7 +432,7 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
             ], false, null)
         };
         var handler = new GetParkingLotRecommendationsQueryHandler(
-            nearby, metrics, new FakeSnapshotReader(), new FakeHeldQuotaProvider(), client,
+            nearby, metrics, new FakeSnapshotReader(), new FakeArrivalHeldQuotaClient(), client,
             NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
 
         var result = await handler.Handle(
@@ -430,6 +440,66 @@ public sealed class GetParkingLotRecommendationsQueryHandlerTests
 
         Assert.False(result.FallbackUsed);
         Assert.Equal(new[] { far, near }, result.RecommendedLots.Select(x => x.LotId).ToArray());
+    }
+
+    [Theory]
+    [InlineData("Car", 0, true, 1)]
+    [InlineData("Car", -1, false, 1)]
+    [InlineData("Motorbike", 7, true, 0)]
+    public async Task Handle_Distinguishes_known_zero_invalid_quota_and_motorbike_policy(
+        string vehicleType, int quota, bool known, int expectedCalls)
+    {
+        var lotId = Guid.NewGuid();
+        var nearby = new FakeNearbyReader([
+            new NearbyParkingLotItem(lotId, "Lot", "Address", 10.77m, 106.70m, "Standard", 1.0)
+        ]);
+        var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
+        {
+            [lotId] = new CustomerLotMetrics(5, 5, [new CustomerLotPrice(vehicleType, 10000m, "PerEntry")])
+        });
+        var quotaClient = new FakeArrivalHeldQuotaClient(_ => quota);
+        var ai = new FakeAiClient();
+        var handler = new GetParkingLotRecommendationsQueryHandler(nearby, metrics,
+            new FakeSnapshotReader(), quotaClient, ai, NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
+        var firstArrival = DateTimeOffset.UtcNow.AddHours(1);
+        var secondArrival = firstArrival.AddHours(1);
+        await handler.Handle(new GetParkingLotRecommendationsQuery(10.77m, 106.70m, vehicleType, firstArrival),
+            TestContext.Current.CancellationToken);
+        await handler.Handle(new GetParkingLotRecommendationsQuery(10.77m, 106.70m, vehicleType, secondArrival),
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(ai.LastRequest);
+        var candidate = Assert.Single(ai.LastRequest.CandidateLots);
+        Assert.Equal(0, candidate.HeldQuota);
+        Assert.Equal(known, candidate.HeldQuotaKnown);
+        Assert.Equal(expectedCalls * 2, quotaClient.Calls.Count);
+        if (expectedCalls > 0)
+            Assert.Equal(new[] { firstArrival, secondArrival }, quotaClient.Calls.Select(x => x.ArrivalAt).ToArray());
+    }
+
+    [Fact]
+    public async Task Handle_Rejects_probability_when_booking_quota_is_unknown()
+    {
+        var lotId = Guid.NewGuid();
+        var nearby = new FakeNearbyReader([
+            new NearbyParkingLotItem(lotId, "Lot", "Address", 10.77m, 106.70m, "Standard", 1.0)
+        ]);
+        var metrics = new FakeMetricsReader(new Dictionary<Guid, CustomerLotMetrics>
+        {
+            [lotId] = new CustomerLotMetrics(5, 0, [new CustomerLotPrice("Car", 10000m, "PerEntry")])
+        });
+        var ai = new FakeAiClient { ResponseToReturn = new RecommendationClientResponse([
+            new RecommendedLotItemDto(lotId, "Lot", 1, 3, 90, 10000, false, ["High probability"], 10, false)
+        ], false, null) };
+        var handler = new GetParkingLotRecommendationsQueryHandler(nearby, metrics,
+            new FakeSnapshotReader(), new FakeArrivalHeldQuotaClient(), ai,
+            NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
+        var result = await handler.Handle(new GetParkingLotRecommendationsQuery(10.77m, 106.70m),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.FallbackUsed);
+        Assert.Equal("ai_response_invalid", result.FallbackReason);
+        Assert.Null(Assert.Single(result.RecommendedLots).ProbabilityPercent);
     }
 
     private sealed class FakeAiClient : IParkingRecommendationClient
