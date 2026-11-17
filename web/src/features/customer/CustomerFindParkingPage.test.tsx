@@ -133,7 +133,7 @@ describe("search results loading", () => {
         );
         await screen.findByRole("heading", { name: lot.name });
         const signal = vi.mocked(searchCustomerParkingLots).mock.calls[0][1];
-        fireEvent.click(screen.getByRole("checkbox", { name: "Has EV charging station" }));
+        fireEvent.click(screen.getByLabelText(/EV charging/));
         await screen.findByRole("heading", { name: "EV-only lot" });
         expect(signal?.aborted).toBe(true);
         await act(async () => pending.resolve([metrics]));
