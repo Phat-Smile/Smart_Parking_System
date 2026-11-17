@@ -303,6 +303,10 @@ public class GetParkingFeeReceiptQueryHandlerTests
         Assert.Equal(_entryTime, receipt.EntryTimeUtc);
         Assert.Equal(150, receipt.DurationMinutes); // 2h 30m = 150m
         Assert.Equal(PaymentStatus.Succeeded, receipt.Status);
+        Assert.Equal(10000, receipt.UnitPrice);
+        Assert.Equal("PerBlock", receipt.PricingCalculationMethod);
+        Assert.Equal(60, receipt.BlockMinutes);
+        Assert.Equal(_paymentTime, receipt.ExitTimeUtc);
     }
 
     [Fact]

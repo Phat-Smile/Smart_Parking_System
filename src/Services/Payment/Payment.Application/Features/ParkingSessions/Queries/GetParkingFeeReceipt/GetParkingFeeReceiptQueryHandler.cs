@@ -35,6 +35,9 @@ public sealed class GetParkingFeeReceiptQueryHandler(
 
         DateTimeOffset? entryTimeUtc = null;
         int? durationMinutes = null;
+        long? unitPrice = null;
+        string? pricingMethod = null;
+        int? blockMinutes = null;
 
         var contextResult = await parkingGateway.GetFeeContextAsync(
             payment.SessionId, query.CallerAccountId, query.CallerRole, cancellationToken);
@@ -44,6 +47,14 @@ public sealed class GetParkingFeeReceiptQueryHandler(
             entryTimeUtc = contextResult.Value.EntryTimeUtc;
             var duration = payment.PaymentTimeUtc - contextResult.Value.EntryTimeUtc;
             durationMinutes = (int)Math.Max(0, duration.TotalMinutes);
+
+            // Lấy thông tin đơn giá từ bảng giá gốc
+            if (contextResult.Value.Pricing is not null)
+            {
+                unitPrice = contextResult.Value.Pricing.PricePerUnit;
+                pricingMethod = contextResult.Value.Pricing.CalculationMethod;
+                blockMinutes = contextResult.Value.Pricing.BlockMinutes;
+            }
         }
 
         var txnRef = !string.IsNullOrWhiteSpace(payment.GatewayTransactionNo)
@@ -66,6 +77,10 @@ public sealed class GetParkingFeeReceiptQueryHandler(
             Status: payment.Status,
             EntryTimeUtc: entryTimeUtc,
             DurationMinutes: durationMinutes,
-            TransactionReference: txnRef));
+            TransactionReference: txnRef,
+            UnitPrice: unitPrice,
+            PricingCalculationMethod: pricingMethod,
+            BlockMinutes: blockMinutes,
+            ExitTimeUtc: payment.PaymentTimeUtc));
     }
 }
