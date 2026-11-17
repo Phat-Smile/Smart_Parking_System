@@ -46,6 +46,7 @@ export function ReportPeriodPicker({
                             key={m}
                             type="button"
                             onClick={() => onModeChange(m)}
+                            className="transition-all active:scale-[0.98]"
                             style={{
                                 border: "none",
                                 background: isActive
