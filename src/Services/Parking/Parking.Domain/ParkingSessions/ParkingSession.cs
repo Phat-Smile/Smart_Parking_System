@@ -130,6 +130,9 @@ public sealed class ParkingSession
         return true;
     }
 
+    /// <summary>US-PAY-005: length of the current exit window, 15 minutes or 30 after the one-time extension.</summary>
+    public TimeSpan CurrentExitWindow => ExitWindow + (HasExitWindowExtension ? ExitWindow : TimeSpan.Zero);
+
     /// <summary>US-PAY-006 & Q-EXIT-WINDOW: the last moment the vehicle may leave without paying again; null until the first payment.</summary>
     public DateTimeOffset? ExitWindowEndsAt =>
         LastPaidAt is { } paidAt

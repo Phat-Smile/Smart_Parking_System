@@ -32,7 +32,7 @@ public sealed class ParkingSessionFeeGrpcTests
     {
         var fee = new SessionFeeContext(
             SessionId, LotId, "51A-123.45", "Car", "Active", EntryTime, "RegisteredWalkIn", AccountId, null,
-            new SessionPricing(PolicyId, "Block", 30, 15000));
+            new SessionPricing(PolicyId, "Block", 30, 15000, 20000), null, null, 15);
         await using var host = await GrpcHost.StartAsync(Result<SessionFeeContext>.Success(fee));
 
         var response = await host.Client.GetSessionFeeContextAsync(
@@ -53,6 +53,31 @@ public sealed class ParkingSessionFeeGrpcTests
         Assert.Equal("Block", response.Pricing.CalculationMethod);
         Assert.Equal(30, response.Pricing.BlockMinutes);
         Assert.Equal(15000, response.Pricing.PricePerUnit);
+        Assert.Equal(20000, response.Pricing.OvernightFee);
+        // Never paid: the times are empty strings, the window is the default 15 minutes.
+        Assert.Equal(string.Empty, response.LastPaidAtUtc);
+        Assert.Equal(string.Empty, response.ArrivedAtExitUtc);
+        Assert.Equal(15, response.GracePeriodMinutes);
+    }
+
+    [Fact]
+    public async Task A_paid_session_returns_its_payment_time_exit_arrival_and_extended_window()
+    {
+        var paidAt = EntryTime.AddHours(2);
+        var arrivedAt = paidAt.AddMinutes(20);
+        var fee = new SessionFeeContext(
+            SessionId, LotId, "51A-123.45", "Car", "Active", EntryTime, "RegisteredWalkIn", AccountId, null,
+            new SessionPricing(PolicyId, "Block", 30, 15000, 0), paidAt, arrivedAt, 30);
+        await using var host = await GrpcHost.StartAsync(Result<SessionFeeContext>.Success(fee));
+
+        var response = await host.Client.GetSessionFeeContextAsync(
+            new GetSessionFeeContextRequest { SessionId = SessionId.ToString("D") },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(paidAt, DateTimeOffset.Parse(response.LastPaidAtUtc));
+        Assert.EndsWith("+00:00", response.LastPaidAtUtc);
+        Assert.Equal(arrivedAt, DateTimeOffset.Parse(response.ArrivedAtExitUtc));
+        Assert.Equal(30, response.GracePeriodMinutes);
     }
 
     [Fact]

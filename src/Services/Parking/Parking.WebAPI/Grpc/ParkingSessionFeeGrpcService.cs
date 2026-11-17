@@ -47,8 +47,12 @@ public sealed class ParkingSessionFeeGrpcService(
                     PolicyId = fee.Pricing.PolicyId.ToString("D"),
                     CalculationMethod = fee.Pricing.CalculationMethod,
                     BlockMinutes = fee.Pricing.BlockMinutes,
-                    PricePerUnit = fee.Pricing.PricePerUnit
-                }
+                    PricePerUnit = fee.Pricing.PricePerUnit,
+                    OvernightFee = fee.Pricing.OvernightFee
+                },
+                LastPaidAtUtc = ToIso(fee.LastPaidAtUtc),
+                ArrivedAtExitUtc = ToIso(fee.ArrivedAtExitUtc),
+                GracePeriodMinutes = fee.GracePeriodMinutes
             };
         }
         catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
@@ -62,4 +66,7 @@ public sealed class ParkingSessionFeeGrpcService(
             throw new RpcException(new Status(StatusCode.Internal, "Session fee context failed."));
         }
     }
+
+    private static string ToIso(DateTimeOffset? value) =>
+        value?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? string.Empty;
 }
