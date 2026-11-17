@@ -8,16 +8,22 @@ const {
     mockGetStaffProfile,
     mockGetStaffAssignedShift,
     mockListLotInsideSessions,
+    mockRouterReplace,
 } = vi.hoisted(() => ({
     mockGetStaffLots: vi.fn(),
     mockGetAssignedLot: vi.fn(),
     mockGetStaffProfile: vi.fn(),
     mockGetStaffAssignedShift: vi.fn(),
     mockListLotInsideSessions: vi.fn(),
+    mockRouterReplace: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
     usePathname: () => "/staff/entry",
+    useRouter: () => ({
+        push: vi.fn(),
+        replace: mockRouterReplace,
+    }),
 }));
 
 vi.mock("next/image", () => ({
@@ -71,6 +77,24 @@ vi.mock("./staffApi", async (importOriginal) => {
 
 import { StaffShell } from "./StaffShell";
 import { staffStore } from "./staffData";
+import { clearAuthSession, setAuthSession } from "@/features/auth/authSession";
+import type { LoginResponse } from "@/features/auth/loginParkWiseAccount";
+
+function signInStaff(role: LoginResponse["account"]["role"] = "Staff") {
+    setAuthSession({
+        accessToken: "test-token",
+        refreshToken: "test-refresh-token",
+        tokenType: "Bearer",
+        expiresIn: 60,
+        account: {
+            id: "staff-1",
+            email: "staff@parkwise.local",
+            phoneNumber: null,
+            status: "Active",
+            role,
+        },
+    });
+}
 
 describe("StaffShell", () => {
     beforeEach(() => {
@@ -80,6 +104,7 @@ describe("StaffShell", () => {
         } catch {
             // ignore
         }
+        signInStaff("Staff");
         staffStore.setAssignedLot(null);
         mockGetStaffProfile.mockResolvedValue({
             id: "staff-1",
@@ -101,12 +126,40 @@ describe("StaffShell", () => {
     });
 
     afterEach(() => {
+        clearAuthSession();
         try {
             sessionStorage.clear();
         } catch {
             // ignore
         }
     });
+
+    it("redirects unauthenticated guest to /login and blocks rendering", () => {
+        clearAuthSession();
+        render(
+            <StaffShell>
+                <div>Secret staff content</div>
+            </StaffShell>,
+        );
+        expect(screen.queryByText("Secret staff content")).not.toBeInTheDocument();
+        expect(screen.getByText("Checking staff access…")).toBeInTheDocument();
+        expect(mockRouterReplace).toHaveBeenCalledWith("/login");
+    });
+
+    it.each(["Customer", "ParkingLotOwner", "SystemAdmin"] as const)(
+        "blocks access and redirects %s to /403",
+        (role) => {
+            signInStaff(role);
+            render(
+                <StaffShell>
+                    <div>Secret staff content</div>
+                </StaffShell>,
+            );
+            expect(screen.queryByText("Secret staff content")).not.toBeInTheDocument();
+            expect(screen.getByText("Checking staff access…")).toBeInTheDocument();
+            expect(mockRouterReplace).toHaveBeenCalledWith("/403");
+        },
+    );
 
     it("does not render a lot selector when staff manages only one lot", async () => {
         mockGetStaffLots.mockResolvedValue([
