@@ -222,7 +222,7 @@ public sealed class SecurityFoundationTests
             Assert.Equal(HttpStatusCode.NoContent, preflightResponse.StatusCode);
             Assert.Equal("https://frontend.test", preflightResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
             Assert.Contains("authorization", preflightResponse.Headers.GetValues("Access-Control-Allow-Headers").Single(), StringComparison.OrdinalIgnoreCase);
-            Assert.False(preflightResponse.Headers.Contains("Access-Control-Allow-Credentials"));
+            Assert.True(preflightResponse.Headers.Contains("Access-Control-Allow-Credentials"));
             AssertSecurityHeaders(preflightResponse);
 
             using var allowedRequest = new HttpRequestMessage(HttpMethod.Get, "/secure");
@@ -317,7 +317,7 @@ public sealed class SecurityFoundationTests
             Assert.Contains("authorization", allowedHeaderTokens, StringComparer.OrdinalIgnoreCase);
             Assert.Contains("x-requested-with", allowedHeaderTokens, StringComparer.OrdinalIgnoreCase);
             Assert.Contains("x-signalr-user-agent", allowedHeaderTokens, StringComparer.OrdinalIgnoreCase);
-            Assert.False(preflightResponse.Headers.Contains("Access-Control-Allow-Credentials"));
+            Assert.True(preflightResponse.Headers.Contains("Access-Control-Allow-Credentials"));
             AssertSecurityHeaders(preflightResponse);
 
             // Payment's pay/cash and pay/wallet routes require X-Idempotency-Key; the browser preflight for it was refused.
@@ -354,7 +354,7 @@ public sealed class SecurityFoundationTests
             using var negotiateResponse = await client.SendAsync(negotiateRequest, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, negotiateResponse.StatusCode);
             Assert.Equal("http://localhost:3000", negotiateResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
-            Assert.False(negotiateResponse.Headers.Contains("Access-Control-Allow-Credentials"));
+            Assert.True(negotiateResponse.Headers.Contains("Access-Control-Allow-Credentials"));
             AssertSecurityHeaders(negotiateResponse);
         }
     }

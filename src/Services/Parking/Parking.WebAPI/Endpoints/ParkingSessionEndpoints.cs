@@ -42,10 +42,11 @@ internal static class ParkingSessionEndpoints
     public sealed record StaffActionReasonRequest(
         [property: Required, StringLength(ParkingSession.StaffActionReasonMaxLength, MinimumLength = 1)] string? Reason);
 
-    // US-PAY-006: only what the gate reads. Parking takes no money here (lead decision 2026-11-04).
+    // US-PAY-006: only what the gate reads, plus the staff reason when the plate was checked by hand (US-STAFF-004). Parking takes no money here (lead decision 2026-11-04).
     public sealed record CompleteParkingSessionRequest(
         [property: Required, StringLength(ParkingSession.PlateNumberMaxLength, MinimumLength = 1)] string? PlateNumber,
-        [property: Required, StringLength(ParkingSession.QrTokenMaxLength, MinimumLength = 1)] string? QrToken);
+        [property: Required, StringLength(ParkingSession.QrTokenMaxLength, MinimumLength = 1)] string? QrToken,
+        [property: StringLength(ParkingSession.StaffActionReasonMaxLength)] string? ManualVerificationReason = null);
 
     public static IEndpointRouteBuilder MapParkingSessionEndpoints(this IEndpointRouteBuilder app)
     {
@@ -62,7 +63,12 @@ internal static class ParkingSessionEndpoints
                     return Results.Forbid();
 
                 var result = await sender.Send(
-                    new CompleteParkingSessionCommand(sessionId, request.PlateNumber ?? string.Empty, request.QrToken ?? string.Empty, actorUserId),
+                    new CompleteParkingSessionCommand(
+                        sessionId,
+                        request.PlateNumber ?? string.Empty,
+                        request.QrToken ?? string.Empty,
+                        actorUserId,
+                        request.ManualVerificationReason),
                     cancellationToken);
 
                 if (result.IsSuccess)

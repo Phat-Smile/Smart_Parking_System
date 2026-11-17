@@ -666,4 +666,71 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         expect(screen.getByText(translations.vi.exitAuthorizeBtn)).toBeInTheDocument();
         warnSpy.mockRestore();
     });
+
+    it("BUG-BE2-03: manualVerify sends original session plateNumber to completeParkingSession instead of mismatched OCR plate", async () => {
+        apiMocks.findSessionByQr.mockResolvedValue({
+            ...unpaidSession(),
+            paymentStatus: "Paid",
+            amountDueVnd: 0,
+        });
+        apiMocks.manualVerifyExit.mockResolvedValue({ success: true });
+        apiMocks.completeParkingSession.mockResolvedValue({
+            sessionId: SESSION_ID,
+            status: "Completed",
+        });
+
+        render(<StaffExitPage />);
+        await scanQr();
+
+        // Giả lập OCR đọc nhầm 8 thành B (51B-999.88 -> 51B-999.B8)
+        enterGatePlate("51B-999.B8");
+
+        // Nhân viên kiểm tra giấy tờ thật và bấm xác minh thủ công
+        const manualBtn = screen.getByRole("button", {
+            name: /Xác minh thủ công/i,
+        });
+        fireEvent.click(manualBtn);
+
+        await waitFor(() => {
+            expect(apiMocks.manualVerifyExit).toHaveBeenCalledWith(
+                SESSION_ID,
+                "Nhân viên đối soát giấy tờ xe thủ công tại quầy",
+            );
+        });
+
+        // Bất biến BUG-BE2-03: completeParkingSession BẮT BUỘC nhận biển số gốc của phiên (51B-999.88)
+        // để Backend không ném lỗi 409 ExitNotVerified
+        await waitFor(() => {
+            expect(apiMocks.completeParkingSession).toHaveBeenCalledWith(
+                SESSION_ID,
+                {
+                    plateNumber: "51B-999.88",
+                    qrToken: "qr-abc",
+                },
+            );
+        });
+    });
+
+    it("displays optical match hint and enables one-click sync button when OCR differs by optical confusion character", async () => {
+        render(<StaffExitPage />);
+        await scanQr();
+
+        // Nhập biển số sai ký tự quang học 8 -> B
+        enterGatePlate("51B-999.B8");
+
+        // Kiểm tra xuất hiện pill Khớp quang học và gợi ý ANPR
+        expect(screen.getByText(/Khớp quang học/i)).toBeInTheDocument();
+        const syncBtn = screen.getByRole("button", {
+            name: /Đồng bộ theo vé vào/i,
+        });
+        expect(syncBtn).toBeInTheDocument();
+
+        // Bấm đồng bộ
+        fireEvent.click(syncBtn);
+
+        // Biển số ở ô input đã được đồng bộ thành biển số vé vào
+        const plateInput = document.getElementById("staff-exit-plate") as HTMLInputElement;
+        expect(plateInput.value).toBe("51B-999.88");
+        expect(screen.getByText(/^Khớp biển số$/)).toBeInTheDocument();
+    });
 });

@@ -182,6 +182,7 @@ public sealed class MotorbikeZoneIntegrationTests(PostgreSqlContainerFixture pos
         services.AddPersistence(PostgreSqlTestConfiguration.Create(postgres.ConnectionString));
         services.AddApplicationServices();
         services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
+        services.AddSingleton<IBookingNoSlotReporter, NoMatchingBookingCheckInClient>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
         services.AddSingleton<IBookingCheckInClient, NoBookingCheckInClient>();

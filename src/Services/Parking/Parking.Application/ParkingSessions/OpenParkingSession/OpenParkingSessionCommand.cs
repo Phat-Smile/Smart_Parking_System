@@ -4,6 +4,8 @@ using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.Common.Booking;
+using ParkingSystem.Parking.Application.Incidents;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.Common.Realtime;
 using ParkingSystem.Parking.Application.Common.Persistence;
@@ -34,7 +36,9 @@ public sealed record OpenedParkingSession(
     string? ZoneCode,
     string? FloorName,
     int? AvailableMotorbikeSpaces,
-    string? SlotCode);
+    string? SlotCode,
+    // US-PARK-005: the staff screen confirms this slot as parked, so it needs the id, not only the code.
+    Guid? SlotId = null);
 
 public static class OpenParkingSessionErrors
 {
@@ -57,6 +61,11 @@ public static class OpenParkingSessionErrors
     // closed. The message is the one the gate screen shows.
     public static readonly Error WalkInFull =
         new("parking.walk_in.full", "Hết chỗ cho xe không đặt trước.");
+
+    // US-PARK-004 (BR-02.f, point 35): a car with a reservation arrived and no suitable slot is left. An Open
+    // NoSuitableSlot incident is recorded so staff place it in another zone or the prepaid amount is refunded.
+    public static readonly Error ReservedNoSlot =
+        new("parking.session.reserved_no_slot", "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước.");
 
     // US-PARK-007 (decision 2026-10-09): Booking did not answer and no answer from the last minute is known, so walk-in
     // cars are refused rather than risking a slot that belongs to a reservation. Motorbikes are not affected.
@@ -108,6 +117,9 @@ public sealed class OpenParkingSessionCommandHandler(
     IHeldQuotaProvider heldQuota,
     IZoneLabelReader zoneLabels,
     IBookingCheckInClient bookingClient,
+    IBookingNoSlotReporter noSlotReporter,
+    IAvailableCarSlotCounter availableCarSlots,
+    IIncidentRepository incidents,
     IParkingRealtimeNotifier? realtimeNotifier = null,
     IOutboxWriter? outbox = null) : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
 {
@@ -138,6 +150,20 @@ public sealed class OpenParkingSessionCommandHandler(
         int? held = null;
         if (vehicleType == VehicleType.Car)
         {
+            // BR-02.f, point 35 option (a): count first and check the reservation in only when a slot is left, so a
+            // reservation is never moved to Used for a car that cannot get a slot. Booking then cancels and refunds it.
+            if (await availableCarSlots.CountAvailableCarSlotsAsync(request.LotId, cancellationToken) <= 0)
+            {
+                var cancelledReservationId = await noSlotReporter.ReportNoSuitableSlotAsync(
+                    request.LotId, plate, entryTime, cancellationToken);
+                if (cancelledReservationId is not { } reservationId)
+                    return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+
+                incidents.Add(Incident.OpenNoSuitableSlot(Guid.NewGuid(), request.LotId, reservationId, plate, entryTime));
+                await incidents.SaveChangesAsync(cancellationToken);
+                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.ReservedNoSlot);
+            }
+
             // Kiểm tra xe có đặt chỗ trước đang Confirmed tại bãi trong khung giờ hay không (US-PARK-004)
             checkedInBooking = await bookingClient.CheckInReservationAsync(
                 request.LotId,
@@ -168,7 +194,7 @@ public sealed class OpenParkingSessionCommandHandler(
                 // US-PARK-004: Xe có đặt chỗ đã được giữ slot trước đó trong held quota.
                 // Chỉ từ chối nếu bãi thực tế không còn slot trống nào khả dụng.
                 if (available <= 0)
-                    return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+                    return await NoSlotAfterCheckInAsync(request, checkedInBooking, plate, entryTime, transaction, cancellationToken);
             }
             else
             {
@@ -181,7 +207,9 @@ public sealed class OpenParkingSessionCommandHandler(
             // changed state after the count without the lock (for example staff set it to Maintenance).
             slot = await slots.DesignateCarSlotAsync(request.LotId, sessionId, entryTime, cancellationToken);
             if (slot is null)
-                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
+                return checkedInBooking is null
+                    ? Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull)
+                    : await NoSlotAfterCheckInAsync(request, checkedInBooking, plate, entryTime, transaction, cancellationToken);
         }
 
         MotorbikeSpaceTaken? space = null;
@@ -263,6 +291,23 @@ public sealed class OpenParkingSessionCommandHandler(
             space?.ZoneCode ?? slotZone?.ZoneCode,
             space?.FloorName ?? slotZone?.FloorName,
             space?.AvailableSpaces,
-            slot?.SlotCode));
+            slot?.SlotCode,
+            slot?.SlotId));
+    }
+
+    // Rare race: a slot was free at the count above but taken before the lock, after Booking already moved the
+    // reservation to Used. Booking has no way out of Used yet (point 35), so staff handle it from the incident (BR-02.f).
+    private async Task<Result<OpenedParkingSession>> NoSlotAfterCheckInAsync(
+        OpenParkingSessionCommand request,
+        CheckedInReservation checkedInBooking,
+        string plate,
+        DateTimeOffset entryTime,
+        IParkingTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        incidents.Add(Incident.OpenNoSuitableSlot(Guid.NewGuid(), request.LotId, checkedInBooking.ReservationId, plate, entryTime));
+        await incidents.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.ReservedNoSlot);
     }
 }

@@ -45,10 +45,10 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
 
         // Khung giờ đón xe hợp lệ (MF-08):
         // Cho phép xe đến sớm tối đa 15 phút so với WindowStartAt
-        // Cho phép xe đến muộn tối đa 15 phút (NoShowGracePeriodMinutes) + 3 phút dung sai kỹ thuật (TechnicalToleranceMinutes)
+        // Cho phép xe đến muộn tối đa 15 phút (NoShowGracePeriodMinutes) + 1 phút dung sai kỹ thuật (TechnicalToleranceMinutes)
         return candidates.FirstOrDefault(r =>
             utcArrival >= r.WindowStartAt.AddMinutes(-15) &&
-            utcArrival <= r.AppointmentTime.AddMinutes(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes));
+            utcArrival < Reservation.GetNoShowCutoff(r.AppointmentTime));
     }
 
     public void Add(Reservation reservation) =>
@@ -94,7 +94,7 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
         int batchSize,
         CancellationToken cancellationToken)
     {
-        var graceThreshold = now.AddMinutes(-(Reservation.NoShowGracePeriodMinutes + Reservation.TechnicalToleranceMinutes));
+        var graceThreshold = Reservation.GetNoShowCandidateThreshold(now);
 
         return await dbContext.Reservations
             .Where(r => r.Status == ReservationStatus.Confirmed &&

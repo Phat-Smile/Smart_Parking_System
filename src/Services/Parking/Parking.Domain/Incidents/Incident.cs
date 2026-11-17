@@ -97,6 +97,23 @@ public sealed class Incident
             OccurredAt = occurredAt
         };
 
+    /// <summary>
+    /// US-PARK-004 (BR-02.f): a car with a reservation arrived and no suitable slot was left. Staff place it in another
+    /// zone of the same vehicle group or, if they cannot, the prepaid amount is refunded. OccurredAt is the arrival time,
+    /// so Booking does not count it as a no-show (BR-03.e).
+    /// </summary>
+    public static Incident OpenNoSuitableSlot(Guid id, Guid lotId, Guid reservationId, string observedPlate, DateTimeOffset occurredAt) =>
+        new()
+        {
+            Id = id,
+            LotId = lotId,
+            IncidentType = IncidentType.NoSuitableSlot,
+            Status = IncidentStatus.Open,
+            ReservationId = reservationId,
+            ObservedPlate = observedPlate,
+            OccurredAt = occurredAt
+        };
+
     // Not in the team ERD yet (lead review of #151, 2026-10-31): the plate and vehicle type staff confirmed for a
     // LowConfidencePlate incident, kept in columns so the next steps (open the session, reconciliation) can read them.
     public string? ConfirmedPlate { get; private set; }

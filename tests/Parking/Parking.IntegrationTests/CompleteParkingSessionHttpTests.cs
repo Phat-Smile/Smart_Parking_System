@@ -98,20 +98,49 @@ public sealed class CompleteParkingSessionHttpTests
         Assert.Equal(errorCode, problem.GetProperty("errorCode").GetString());
     }
 
+    [Fact]
+    public async Task Passes_the_staff_reason_to_the_command()
+    {
+        // US-STAFF-004: staff checked a misread plate in person and send the reason with complete.
+        var sender = new FixedSender(Result<CompletedParkingSession>.Success(Completed()));
+        await using var app = await CreateAppAsync(sender);
+
+        using var response = await PostAsync(app, "Staff", manualVerificationReason: "OCR misread");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var command = Assert.IsType<CompleteParkingSessionCommand>(sender.LastRequest);
+        Assert.Equal("OCR misread", command.ManualVerificationReason);
+    }
+
+    [Fact]
+    public async Task Without_a_reason_the_command_has_none()
+    {
+        var sender = new FixedSender(Result<CompletedParkingSession>.Success(Completed()));
+        await using var app = await CreateAppAsync(sender);
+
+        using var response = await PostAsync(app, "Staff");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(Assert.IsType<CompleteParkingSessionCommand>(sender.LastRequest).ManualVerificationReason);
+    }
+
     private static CompletedParkingSession Completed() => new(SessionId, "Completed", DateTimeOffset.UtcNow);
 
-    private static async Task<HttpResponseMessage> PostAsync(WebApplication app, string? role)
+    private static async Task<HttpResponseMessage> PostAsync(WebApplication app, string? role, string? manualVerificationReason = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, Route)
         {
-            Content = JsonContent.Create(new { plateNumber = "51A-123.45", qrToken = "session-qr" })
+            Content = JsonContent.Create(new { plateNumber = "51A-123.45", qrToken = "session-qr", manualVerificationReason })
         };
         if (role is not null)
             request.Headers.Add(RoleHeader, role);
         return await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
     }
 
-    private static async Task<WebApplication> CreateAppAsync(Result<CompletedParkingSession> result)
+    private static Task<WebApplication> CreateAppAsync(Result<CompletedParkingSession> result) =>
+        CreateAppAsync(new FixedSender(result));
+
+    private static async Task<WebApplication> CreateAppAsync(FixedSender sender)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Production" });
         builder.Host.UseDefaultServiceProvider(options => options.ValidateOnBuild = false);
@@ -121,7 +150,7 @@ public sealed class CompleteParkingSessionHttpTests
         builder.Services.AddAuthentication(HeaderRoleAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderRoleAuthenticationHandler>(HeaderRoleAuthenticationHandler.SchemeName, null);
         builder.Services.AddScoped<ICurrentUser, FixedCurrentUser>();
-        builder.Services.AddSingleton<ISender>(new FixedSender(result));
+        builder.Services.AddSingleton<ISender>(sender);
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
@@ -160,8 +189,13 @@ public sealed class CompleteParkingSessionHttpTests
 
     private sealed class FixedSender(Result<CompletedParkingSession> result) : ISender
     {
-        public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default) =>
-            Task.FromResult((TResponse)(object)result);
+        public object? LastRequest { get; private set; }
+
+        public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            return Task.FromResult((TResponse)(object)result);
+        }
 
         public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest =>
             throw new NotSupportedException();

@@ -8,7 +8,7 @@ const AUTH_SESSION_STORAGE_KEY = "parkwise:auth-session";
 
 export type ActiveAuthSession = {
     account: LoginResponse["account"];
-    refreshToken: string;
+    refreshToken?: string;
     displayName: string;
 };
 
@@ -29,11 +29,8 @@ function hydrateSessionIfNeeded() {
             window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
         if (!raw) return;
         const parsed = JSON.parse(raw) as ActiveAuthSession;
-        if (
-            parsed &&
-            parsed.account?.email &&
-            !parsed.refreshToken?.startsWith("mock-refresh-")
-        ) {
+        if (parsed && parsed.account?.email) {
+            delete parsed.refreshToken;
             activeSession = parsed;
         } else {
             window.sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
@@ -61,12 +58,17 @@ export function setAuthSession(response: LoginResponse) {
     const displayName = readRegisteredProfileName(response.account.email);
     activeSession = {
         account: response.account,
-        refreshToken: response.refreshToken ?? "",
         displayName,
     };
     if (typeof window !== "undefined") {
         try {
-            const serialized = JSON.stringify(activeSession);
+            // Strictly omit refreshToken from storage to prevent XSS exfiltration.
+            // HttpOnly cookie handles refresh via credentials: "include".
+            const sessionToPersist = {
+                account: activeSession.account,
+                displayName: activeSession.displayName,
+            };
+            const serialized = JSON.stringify(sessionToPersist);
             window.sessionStorage.setItem(AUTH_SESSION_STORAGE_KEY, serialized);
             window.localStorage.setItem(AUTH_SESSION_STORAGE_KEY, serialized);
         } catch {
@@ -123,24 +125,29 @@ export function readRegisteredProfileName(email: string) {
 
 registerAuthRefreshHandler(async () => {
     hydrateSessionIfNeeded();
-    const token = activeSession?.refreshToken;
-    if (!token || token.startsWith("mock-refresh-")) return null;
-    const response = await fetch(
-        new URL("/api/identity/accounts/refresh", `${getGatewayBaseUrl()}/`),
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
+    try {
+        const response = await fetch(
+            new URL("/api/identity/accounts/refresh", `${getGatewayBaseUrl()}/`),
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                credentials: "include",
+                body: "{}",
             },
-            body: JSON.stringify({ refreshToken: token }),
-        },
-    );
-    if (!response.ok) {
-        if ([401, 403].includes(response.status)) clearAuthSession();
+        );
+        if (!response.ok) {
+            if ([401, 403].includes(response.status)) {
+                clearAuthSession();
+            }
+            return null;
+        }
+        const next = (await response.json()) as LoginResponse;
+        setAuthSession(next);
+        return next.accessToken;
+    } catch {
         return null;
     }
-    const next = (await response.json()) as LoginResponse;
-    setAuthSession(next);
-    return next.accessToken;
 });

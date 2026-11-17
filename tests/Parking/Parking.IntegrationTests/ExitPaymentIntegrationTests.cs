@@ -192,6 +192,7 @@ public sealed class ExitPaymentIntegrationTests(PostgreSqlContainerFixture postg
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
         services.AddSingleton<IBookingCheckInClient, NoBookingCheckInClient>();
+        services.AddSingleton<IBookingNoSlotReporter, NoMatchingBookingCheckInClient>();
         services.AddSingleton<IHeldQuotaReader, NoHeldQuota>();
         var serviceProvider = services.BuildServiceProvider(validateScopes: true);
 
