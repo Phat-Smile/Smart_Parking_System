@@ -33,34 +33,12 @@ internal static class DevelopmentEnvFile
         var values = env.ToDictionary(pair => pair.Key, pair => (string?)pair.Value, StringComparer.OrdinalIgnoreCase);
         string Get(string key, string fallback) => env.TryGetValue(key, out var value) && value.Length > 0 ? value : fallback;
 
-        // The IDE reaches the compose containers through their published localhost ports, or cloud databases (e.g. Supabase)
-        if (env.TryGetValue("ConnectionStrings__DefaultConnection", out var explicitConn) && !string.IsNullOrWhiteSpace(explicitConn))
+        // The IDE reaches the compose containers through their published localhost ports.
+        if (env.ContainsKey("POSTGRES_USER") && env.ContainsKey("POSTGRES_PASSWORD"))
         {
-            values["ConnectionStrings:DefaultConnection"] = explicitConn;
-        }
-        else if (env.TryGetValue("ConnectionStrings:DefaultConnection", out var explicitColonConn) && !string.IsNullOrWhiteSpace(explicitColonConn))
-        {
-            values["ConnectionStrings:DefaultConnection"] = explicitColonConn;
-        }
-        else if (env.ContainsKey("POSTGRES_USER") && env.ContainsKey("POSTGRES_PASSWORD"))
-        {
-            var host = Get("POSTGRES_HOST", "127.0.0.1");
-            if (host.Equals("postgres", StringComparison.OrdinalIgnoreCase)) host = "127.0.0.1";
-            var isLocal = host is "127.0.0.1" or "localhost";
-            var port = Get("POSTGRES_HOST_PORT", isLocal ? "5433" : "5432");
-            var db = Get("POSTGRES_DB", "parking_system");
-            var sslMode = Get("POSTGRES_SSL_MODE", isLocal ? "Disable" : "Require");
-
-            var connStr = $"Host={host};Port={port};Database={db};Username={env["POSTGRES_USER"]};Password={env["POSTGRES_PASSWORD"]};";
-            if (sslMode.Equals("Disable", StringComparison.OrdinalIgnoreCase))
-            {
-                connStr += "GSS Encryption Mode=Disable";
-            }
-            else
-            {
-                connStr += $"SSL Mode={sslMode};Trust Server Certificate=true";
-            }
-            values["ConnectionStrings:DefaultConnection"] = connStr;
+            values["ConnectionStrings:DefaultConnection"] =
+                $"Host=127.0.0.1;Port={Get("POSTGRES_HOST_PORT", "5433")};Database={Get("POSTGRES_DB", "parking_system")};" +
+                $"Username={env["POSTGRES_USER"]};Password={env["POSTGRES_PASSWORD"]};GSS Encryption Mode=Disable";
         }
 
         if (env.ContainsKey("RABBITMQ_USER") && env.ContainsKey("RABBITMQ_PASSWORD"))
