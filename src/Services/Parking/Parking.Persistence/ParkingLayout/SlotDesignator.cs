@@ -5,7 +5,7 @@ using ParkingSystem.Parking.Domain.ParkingSessions;
 
 namespace ParkingSystem.Parking.Persistence.ParkingLayout;
 
-internal sealed class SlotDesignator(ParkingDbContext dbContext) : ISlotDesignator
+internal sealed class SlotDesignator(ParkingDbContext dbContext) : ISlotDesignator, IAvailableCarSlotCounter
 {
     private const string CarEntryLockPrefix = "parking.car-entry:";
 
@@ -55,14 +55,18 @@ internal sealed class SlotDesignator(ParkingDbContext dbContext) : ISlotDesignat
             $"SELECT pg_advisory_xact_lock(hashtextextended({CarEntryLockPrefix + lotId}, 0))", cancellationToken);
 
         // Counted after the lock, so a car admitted by the previous holder is already seen.
-        return await (from slot in dbContext.ParkingSlots
-                      join zone in dbContext.Zones on slot.ZoneId equals zone.Id
-                      where slot.LotId == lotId
-                            && slot.EffectiveStatus == SlotEffectiveStatus.Available
-                            && zone.VehicleGroup == VehicleType.Car
-                      select slot.Id)
-            .CountAsync(cancellationToken);
+        return await CountAvailableCarSlotsAsync(lotId, cancellationToken);
     }
+
+    // Same query with or without the lock, so the gate check before Booking and the locked check agree (US-PARK-004).
+    public Task<int> CountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) =>
+        (from slot in dbContext.ParkingSlots
+         join zone in dbContext.Zones on slot.ZoneId equals zone.Id
+         where slot.LotId == lotId
+               && slot.EffectiveStatus == SlotEffectiveStatus.Available
+               && zone.VehicleGroup == VehicleType.Car
+         select slot.Id)
+        .CountAsync(cancellationToken);
 
     public async Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(
         IReadOnlyCollection<Guid> sessionIds,

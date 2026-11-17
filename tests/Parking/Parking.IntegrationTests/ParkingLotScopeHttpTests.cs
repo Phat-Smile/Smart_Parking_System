@@ -21,11 +21,13 @@ using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.Common.Interfaces;
 using ParkingSystem.Parking.Application.Common.Persistence;
+using ParkingSystem.Parking.Application.Incidents;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Domain.Entities;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.WebAPI.Endpoints;
 using ParkingSystem.Parking.WebAPI.Security;
@@ -179,6 +181,7 @@ public sealed class ParkingLotScopeHttpTests
         builder.AddParkingSystemWebFoundation();
         builder.Services.AddApplicationServices();
         builder.Services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
+        builder.Services.AddSingleton<IBookingNoSlotReporter, NoMatchingBookingCheckInClient>();
         builder.Services.AddParkingAuthorization();
         builder.Services.AddAuthentication(HeaderRoleAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, HeaderRoleAuthenticationHandler>(HeaderRoleAuthenticationHandler.SchemeName, null);
@@ -191,6 +194,8 @@ public sealed class ParkingLotScopeHttpTests
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
         builder.Services.AddSingleton<IMotorbikeZoneCounter, UnusedMotorbikeZones>();
         builder.Services.AddSingleton<ISlotDesignator, UnusedSlotDesignator>();
+        builder.Services.AddSingleton<IAvailableCarSlotCounter, UnusedAvailableSlots>();
+        builder.Services.AddSingleton<IIncidentRepository, UnusedIncidents>();
         builder.Services.AddSingleton<IHeldQuotaReader, UnusedHeldQuotaReader>();
         builder.Services.AddSingleton<IZoneLabelReader, UnusedZoneLabels>();
         builder.Services.AddSingleton<IParkingUnitOfWork, UnusedUnitOfWork>();
@@ -278,6 +283,25 @@ public sealed class ParkingLotScopeHttpTests
         public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
+    private sealed class UnusedAvailableSlots : IAvailableCarSlotCounter
+    {
+        public Task<int> CountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+    }
+
+    private sealed class UnusedIncidents : IIncidentRepository
+    {
+        public void Add(Incident incident) => throw new InvalidOperationException();
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
+
+        public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+
+        public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException();
+
+        public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
     }
 
     private sealed class UnusedHeldQuotaReader : IHeldQuotaReader

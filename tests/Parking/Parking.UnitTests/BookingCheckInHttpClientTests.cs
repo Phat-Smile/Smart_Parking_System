@@ -109,6 +109,50 @@ public sealed class BookingCheckInHttpClientTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task No_suitable_slot_report_calls_its_internal_route_and_returns_the_cancelled_reservation()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, $$"""{"cancelled":true,"reservationId":"{{ReservationId}}"}"""));
+
+        var result = await NewClient(handler, new ListLogger(), ArrivalKey)
+            .ReportNoSuitableSlotAsync(LotId, "51A12345", EntryTime, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ReservationId, result);
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("http://booking-api:8080/internal/booking/reservations/no-suitable-slot", request.Uri);
+        Assert.Equal(ArrivalKey, request.Headers[BookingCheckInHttpClient.ArrivalKeyHeader]);
+        Assert.Contains("\"PlateNumber\":\"51A12345\"", request.Body);
+        Assert.Contains("\"ArrivedAt\"", request.Body);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, """{"cancelled":false}""")]
+    [InlineData(HttpStatusCode.NotFound, "")]
+    [InlineData(HttpStatusCode.InternalServerError, "")]
+    public async Task No_suitable_slot_report_returns_null_without_a_cancelled_reservation(HttpStatusCode status, string body)
+    {
+        // 404 also covers a Booking that does not have the route yet.
+        var handler = new StubHandler(_ => Json(status, body));
+
+        var result = await NewClient(handler, new ListLogger(), ArrivalKey)
+            .ReportNoSuitableSlotAsync(LotId, "51A12345", EntryTime, TestContext.Current.CancellationToken);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task No_suitable_slot_report_is_skipped_without_the_arrival_key()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, """{"cancelled":true}"""));
+
+        var result = await NewClient(handler, new ListLogger(), arrivalKey: null)
+            .ReportNoSuitableSlotAsync(LotId, "51A12345", EntryTime, TestContext.Current.CancellationToken);
+
+        Assert.Null(result);
+        Assert.Empty(handler.Requests);
+    }
+
     private static BookingCheckInHttpClient NewClient(StubHandler handler, ListLogger logger, string? arrivalKey, string? serviceKey = null)
     {
         var settings = new Dictionary<string, string?>

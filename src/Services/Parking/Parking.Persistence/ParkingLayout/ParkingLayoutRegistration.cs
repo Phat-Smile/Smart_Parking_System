@@ -10,7 +10,9 @@ internal static class ParkingLayoutRegistration
 {
     public static IServiceCollection AddParkingLayout(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddScoped<ISlotDesignator, SlotDesignator>();
+        services.AddScoped<SlotDesignator>();
+        services.AddScoped<ISlotDesignator>(provider => provider.GetRequiredService<SlotDesignator>());
+        services.AddScoped<IAvailableCarSlotCounter>(provider => provider.GetRequiredService<SlotDesignator>());
         services.AddScoped<IMotorbikeZoneCounter, MotorbikeZoneCounter>();
         services.AddScoped<IZoneLabelReader, ZoneLabelReader>();
         services.AddScoped<IZoneCapacityReader, ZoneCapacityReader>();
