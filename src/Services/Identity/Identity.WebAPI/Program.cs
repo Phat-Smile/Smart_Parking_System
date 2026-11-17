@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
@@ -48,6 +49,21 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        await dbContext.Database.MigrateAsync();
+        app.Logger.LogInformation("Database migration checked and applied successfully for IdentityDbContext in Development environment.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Failed to apply database migration on startup in Development environment. Continuing application startup safely.");
+    }
+}
 if (!app.Environment.IsDevelopment() && VehicleLookupRegistration.IsStubConfigured(builder.Configuration))
     app.Logger.LogWarning("VehicleLookup uses the Stub provider outside Development: vehicle lookups return demo data.");
 app.UseParkingSystemWebFoundation();

@@ -139,7 +139,9 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
             }
 
             var alreadyPaid = await paymentRepository.HasSucceededPaymentAsync(request.SessionId, ct);
-            if (alreadyPaid)
+            var isOverstayPayment = alreadyPaid && ctx.LastPaidAtUtc.HasValue;
+
+            if (alreadyPaid && !isOverstayPayment)
             {
                 await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
@@ -151,21 +153,45 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
                 || string.Equals(ctx.Pricing.CalculationMethod, "PerEntry", StringComparison.OrdinalIgnoreCase);
             var parkingMethod = isPerTurn ? ParkingMethod.PerTurn : ParkingMethod.PerBlock;
 
-            var calculation = ParkingFeeCalculator.Calculate(
-                parkingMethod,
-                ctx.Pricing.BlockMinutes,
-                ctx.Pricing.PricePerUnit,
-                ctx.EntryTimeUtc,
-                calculationTime);
-
+            long totalFee;
             long prepaidAmount = 0;
-            if (ctx.BookingId.HasValue && ctx.AccountId.HasValue)
-            {
-                prepaidAmount = await prepaymentReader.GetPrepaidAmountAsync(
-                    ctx.AccountId.Value, ctx.BookingId.Value, ct);
-            }
+            long actualAmountDue;
 
-            var actualAmountDue = Math.Max(0, calculation.TotalFee - prepaidAmount);
+            if (isOverstayPayment)
+            {
+                var exitTime = ctx.ArrivedAtExitUtc ?? calculationTime;
+                var overstayFee = PricingEngine.CalculateOverstayFee(
+                    ctx.LastPaidAtUtc!.Value,
+                    exitTime,
+                    parkingMethod,
+                    ctx.Pricing.BlockMinutes,
+                    ctx.Pricing.PricePerUnit,
+                    overnightFee: 0m,
+                    overnightTimeMark: TimeSpan.Zero,
+                    gracePeriodMinutes: ctx.GracePeriodMinutes);
+
+                totalFee = (long)overstayFee;
+                actualAmountDue = totalFee;
+            }
+            else
+            {
+                var calculation = ParkingFeeCalculator.Calculate(
+                    parkingMethod,
+                    ctx.Pricing.BlockMinutes,
+                    ctx.Pricing.PricePerUnit,
+                    ctx.EntryTimeUtc,
+                    calculationTime);
+
+                totalFee = calculation.TotalFee;
+
+                if (ctx.BookingId.HasValue && ctx.AccountId.HasValue)
+                {
+                    prepaidAmount = await prepaymentReader.GetPrepaidAmountAsync(
+                        ctx.AccountId.Value, ctx.BookingId.Value, ct);
+                }
+
+                actualAmountDue = Math.Max(0, totalFee - prepaidAmount);
+            }
 
             if (actualAmountDue == 0)
             {
@@ -231,7 +257,7 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
                 accountId: ctx.AccountId,
                 plateNumber: ctx.PlateNumber,
                 vehicleType: ctx.VehicleType,
-                totalFee: calculation.TotalFee,
+                totalFee: totalFee,
                 prepaidAmount: prepaidAmount,
                 amountPaid: actualAmountDue,
                 feeCalculatedAtUtc: calculationTime,

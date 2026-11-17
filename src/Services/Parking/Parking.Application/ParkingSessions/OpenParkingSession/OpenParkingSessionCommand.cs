@@ -16,7 +16,7 @@ using ParkingSystem.Contracts.Events.Parking;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 
-public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType, Guid ActorUserId)
+public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType, Guid ActorUserId, DateTimeOffset? PhysicalDetectionTime = null)
     : IRequest<Result<OpenedParkingSession>>;
 
 public sealed record OpenedParkingSession(
@@ -131,7 +131,7 @@ public sealed class OpenParkingSessionCommandHandler(
         var owner = await plateOwners.FindByPlateAsync(plate, cancellationToken);
 
         var sessionId = Guid.NewGuid();
-        var entryTime = clock.UtcNow;
+        var entryTime = request.PhysicalDetectionTime ?? clock.UtcNow;
 
         // US-PARK-004 (MF-08) & US-PARK-007: asked before the transaction, so no lot lock is held while waiting for Booking.
         CheckedInReservation? checkedInBooking = null;

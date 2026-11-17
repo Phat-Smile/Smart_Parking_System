@@ -201,4 +201,15 @@ public class ParkingFeePayment
         SurplusRefundStatus = surplusRefundStatus;
         ConfirmedAtUtc = confirmedAtUtc;
     }
+
+    // Ghi nhận thanh toán phụ phí quá giờ cho phiên đã từng thanh toán trước đó (BR-09.d)
+    public void RecordOverstayPayment(long additionalFee, DateTimeOffset newPaymentTime, DateTimeOffset newExitWindowExpires)
+    {
+        TotalFee += additionalFee;
+        AmountPaid += additionalFee;
+        PaymentTimeUtc = newPaymentTime;
+        ExitWindowExpiresUtc = newExitWindowExpires;
+        ConfirmedAtUtc = newPaymentTime;
+        Status = Constants.PaymentStatus.Succeeded;
+    }
 }

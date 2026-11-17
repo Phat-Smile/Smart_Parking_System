@@ -3,6 +3,7 @@ using MediatR;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
@@ -99,7 +100,10 @@ internal static class AccountEndpoints
         string? PhoneNumber,
         /// <summary>[Tùy chọn] Họ và tên người đại diện.</summary>
         /// <example>Nguyễn Văn A</example>
-        string? FullName);
+        string? FullName,
+        /// <summary>[Tùy chọn] Loại chủ thể (Individual, HouseholdBusiness, Enterprise).</summary>
+        /// <example>Individual</example>
+        string? OwnerType = null);
 
     /// <summary>
     /// Dữ liệu yêu cầu nộp lại hồ sơ xét duyệt làm Chủ bãi sau khi bị từ chối.
@@ -1362,12 +1366,19 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
                     return Results.Unauthorized();
 
+                OwnerType? parsedOwnerType = null;
+                if (!string.IsNullOrWhiteSpace(request?.OwnerType) && OwnerTypeParser.TryParse(request.OwnerType, out var parsed))
+                {
+                    parsedOwnerType = parsed;
+                }
+
                 var command = new ApplyForOwnerApplicationCommand(
                     accountId,
                     request?.TaxCode,
                     request?.BusinessName,
                     request?.PhoneNumber,
-                    request?.FullName);
+                    request?.FullName,
+                    parsedOwnerType);
 
                 var result = await sender.Send(command, cancellationToken);
                 if (!result.IsSuccess)

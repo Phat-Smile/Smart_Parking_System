@@ -6,4 +6,7 @@ public sealed record OwnerDocumentDto(
     string FileName,
     string ContentType,
     long SizeBytes,
-    DateTimeOffset UploadedAtUtc);
+    DateTimeOffset UploadedAtUtc)
+{
+    public string OriginalFileName => FileName;
+}

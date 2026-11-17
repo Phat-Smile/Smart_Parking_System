@@ -6,6 +6,7 @@ using ParkingSystem.Contracts.Events.Payment;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Application.Common.Messaging.Outbox;
+using ParkingSystem.Payment.Domain.Constants;
 using ParkingSystem.Payment.Domain.Entities;
 using ParkingSystem.Payment.Domain.Pricing;
 
@@ -146,9 +147,11 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionNotActive);
             }
 
-            // Kiểm tra xe đã trả tiền trước đó
+            // Kiểm tra xe đã trả tiền trước đó (BR-09.d: cho phép thu phụ phí nếu phiên bị reopen do quá giờ)
             var hasSucceeded = await paymentRepository.HasSucceededPaymentAsync(request.SessionId, cancellationToken);
-            if (hasSucceeded)
+            var isOverstayPayment = hasSucceeded && ctx.LastPaidAtUtc.HasValue;
+
+            if (hasSucceeded && !isOverstayPayment)
             {
                 await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
@@ -168,21 +171,45 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
                 || string.Equals(ctx.Pricing.CalculationMethod, "PerEntry", StringComparison.OrdinalIgnoreCase);
             var parkingMethod = isPerTurn ? ParkingMethod.PerTurn : ParkingMethod.PerBlock;
 
-            var calculation = ParkingFeeCalculator.Calculate(
-                parkingMethod,
-                ctx.Pricing.BlockMinutes,
-                ctx.Pricing.PricePerUnit,
-                ctx.EntryTimeUtc,
-                calculationTime);
-
+            long totalFee;
             long prepaidAmount = 0;
-            if (ctx.BookingId.HasValue && ctx.AccountId.HasValue)
-            {
-                prepaidAmount = await prepaymentReader.GetPrepaidAmountAsync(
-                    ctx.AccountId.Value, ctx.BookingId.Value, cancellationToken);
-            }
+            long actualAmountDue;
 
-            var actualAmountDue = Math.Max(0, calculation.TotalFee - prepaidAmount);
+            if (isOverstayPayment)
+            {
+                var exitTime = ctx.ArrivedAtExitUtc ?? calculationTime;
+                var overstayFee = PricingEngine.CalculateOverstayFee(
+                    ctx.LastPaidAtUtc!.Value,
+                    exitTime,
+                    parkingMethod,
+                    ctx.Pricing.BlockMinutes,
+                    ctx.Pricing.PricePerUnit,
+                    overnightFee: 0m,
+                    overnightTimeMark: TimeSpan.Zero,
+                    gracePeriodMinutes: ctx.GracePeriodMinutes);
+
+                totalFee = (long)overstayFee;
+                actualAmountDue = totalFee;
+            }
+            else
+            {
+                var calculation = ParkingFeeCalculator.Calculate(
+                    parkingMethod,
+                    ctx.Pricing.BlockMinutes,
+                    ctx.Pricing.PricePerUnit,
+                    ctx.EntryTimeUtc,
+                    calculationTime);
+
+                totalFee = calculation.TotalFee;
+
+                if (ctx.BookingId.HasValue && ctx.AccountId.HasValue)
+                {
+                    prepaidAmount = await prepaymentReader.GetPrepaidAmountAsync(
+                        ctx.AccountId.Value, ctx.BookingId.Value, cancellationToken);
+                }
+
+                actualAmountDue = Math.Max(0, totalFee - prepaidAmount);
+            }
 
             if (actualAmountDue != request.ExpectedAmountDue)
             {
@@ -190,21 +217,53 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
                 return Result<ConfirmCashParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.FeeChanged);
             }
 
-            // Tạo hóa đơn thu tiền mặt
+            // Tạo hoặc cập nhật hóa đơn thu tiền mặt
             var exitWindowExpiresUtc = calculationTime.AddMinutes(15);
-            var payment = ParkingFeePayment.CreateCashPayment(
-                request.SessionId,
-                ctx.ParkingLotId,
-                ctx.AccountId,
-                ctx.PlateNumber,
-                ctx.VehicleType,
-                calculation.TotalFee,
-                prepaidAmount,
-                actualAmountDue,
-                calculationTime,
-                exitWindowExpiresUtc);
+            Guid paymentId;
 
-            await paymentRepository.AddAsync(payment, cancellationToken);
+            if (isOverstayPayment)
+            {
+                var existingPayment = await paymentRepository.GetSucceededBySessionIdAsync(request.SessionId, cancellationToken);
+                if (existingPayment != null)
+                {
+                    existingPayment.RecordOverstayPayment(actualAmountDue, calculationTime, exitWindowExpiresUtc);
+                    paymentId = existingPayment.Id;
+                }
+                else
+                {
+                    var payment = ParkingFeePayment.CreateCashPayment(
+                        request.SessionId,
+                        ctx.ParkingLotId,
+                        ctx.AccountId,
+                        ctx.PlateNumber,
+                        ctx.VehicleType,
+                        totalFee,
+                        0,
+                        actualAmountDue,
+                        calculationTime,
+                        exitWindowExpiresUtc);
+
+                    await paymentRepository.AddAsync(payment, cancellationToken);
+                    paymentId = payment.Id;
+                }
+            }
+            else
+            {
+                var payment = ParkingFeePayment.CreateCashPayment(
+                    request.SessionId,
+                    ctx.ParkingLotId,
+                    ctx.AccountId,
+                    ctx.PlateNumber,
+                    ctx.VehicleType,
+                    totalFee,
+                    prepaidAmount,
+                    actualAmountDue,
+                    calculationTime,
+                    exitWindowExpiresUtc);
+
+                await paymentRepository.AddAsync(payment, cancellationToken);
+                paymentId = payment.Id;
+            }
 
             // Ghi nhật ký kiểm toán thu tiền mặt
             var auditReason = string.IsNullOrWhiteSpace(request.Reason)
@@ -213,7 +272,7 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
 
             var auditDetails = new Dictionary<string, object?>
             {
-                ["paymentId"] = payment.Id,
+                ["paymentId"] = paymentId,
                 ["amountPaid"] = actualAmountDue,
                 ["paymentMethod"] = "Cash",
                 ["exitWindowExpiresUtc"] = exitWindowExpiresUtc
@@ -232,7 +291,7 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
             // Đưa sự kiện mở cổng vào hộp thư Outbox
             var paidEvent = new ParkingSessionPaidIntegrationEvent(
                 SessionId: request.SessionId,
-                PaymentId: payment.Id,
+                PaymentId: paymentId,
                 AmountPaid: actualAmountDue,
                 PaidAtUtc: calculationTime,
                 ExitWindowExpiresUtc: exitWindowExpiresUtc);
@@ -241,13 +300,13 @@ public sealed class ConfirmCashParkingFeePaymentCommandHandler(
                 integrationEvent: paidEvent,
                 eventType: "payment.session-paid.v1",
                 eventVersion: 1,
-                correlationId: payment.Id);
+                correlationId: paymentId);
 
             var response = new ConfirmCashParkingFeePaymentResponse(
-                TransactionId: payment.Id,
+                TransactionId: paymentId,
                 SessionId: request.SessionId,
                 AmountPaid: actualAmountDue,
-                PaymentMethod: payment.PaymentMethod,
+                PaymentMethod: PaymentMethod.Cash,
                 ConfirmedByStaffId: request.StaffAccountId,
                 ParkingLotId: ctx.ParkingLotId,
                 PaymentTimeUtc: calculationTime,
