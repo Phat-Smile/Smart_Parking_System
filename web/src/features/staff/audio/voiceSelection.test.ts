@@ -3,6 +3,8 @@ import {
     isVietnameseVoice,
     pickVoice,
     scoreVietnameseVoice,
+    hasVietnameseVoice,
+    getBestVietnameseVoice,
     type VoiceLike,
 } from "./voiceSelection";
 
@@ -37,6 +39,12 @@ describe("isVietnameseVoice", () => {
         expect(isVietnameseVoice(enUS)).toBe(false);
         expect(isVietnameseVoice(v("Amelie", "fr-CA"))).toBe(false);
         expect(isVietnameseVoice(v("Viking", "vik-XX"))).toBe(false);
+    });
+
+    it("an toàn khi truyền null, undefined hoặc thiếu thuộc tính", () => {
+        expect(isVietnameseVoice(null)).toBe(false);
+        expect(isVietnameseVoice(undefined)).toBe(false);
+        expect(isVietnameseVoice({ name: "", lang: "", voiceURI: "" })).toBe(false);
     });
 });
 
@@ -86,5 +94,27 @@ describe("scoreVietnameseVoice", () => {
         expect(scoreVietnameseVoice(viNatural)).toBeGreaterThan(
             scoreVietnameseVoice(viLocal),
         );
+    });
+
+    it("trả về 0 an toàn khi giọng là null hoặc undefined", () => {
+        expect(scoreVietnameseVoice(null)).toBe(0);
+        expect(scoreVietnameseVoice(undefined)).toBe(0);
+    });
+});
+
+describe("hasVietnameseVoice & getBestVietnameseVoice", () => {
+    it("hasVietnameseVoice phát hiện chuẩn xác giọng tiếng Việt trong danh sách", () => {
+        expect(hasVietnameseVoice([enUS, viLocal])).toBe(true);
+        expect(hasVietnameseVoice([enUS])).toBe(false);
+        expect(hasVietnameseVoice([])).toBe(false);
+        expect(hasVietnameseVoice(null)).toBe(false);
+    });
+
+    it("getBestVietnameseVoice chọn đúng giọng tiếng Việt tối ưu nhất", () => {
+        const best = getBestVietnameseVoice([enUS, viLocal, viNatural]);
+        expect(best?.name).toBe(viNatural.name);
+        expect(getBestVietnameseVoice([enUS])).toBeNull();
+        expect(getBestVietnameseVoice([])).toBeNull();
+        expect(getBestVietnameseVoice(null)).toBeNull();
     });
 });

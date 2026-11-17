@@ -32,7 +32,7 @@ export interface GateVoiceSettings {
 
 type VoiceListener = () => void;
 
-class GateVoiceService {
+export class GateVoiceService {
     private static instance: GateVoiceService | null = null;
 
     private synth: SpeechSynthesis | null = null;

@@ -5,8 +5,14 @@ import {
     buildCheckInSpeech,
     buildCheckOutSpeech,
     buildWarningSpeech,
+    buildUnpaidExitSpeech,
+    UNPAID_EXIT_WARNING_MESSAGE,
 } from "./phoneticHelper";
 import { gateVoiceService } from "./GateVoiceService";
+import {
+    isGateVoiceSupported,
+    GATE_VOICE_PROMPTS,
+} from "./gateVoice";
 
 describe("phoneticHelper - Chuẩn hóa giọng đọc tiếng Việt", () => {
     it("chuẩn hóa biển số xe dạng có dấu chấm 51F-123.45 chính xác", () => {
@@ -339,5 +345,168 @@ describe("chimeGenerator & GateVoiceService - chống kẹt hàng đợi audio",
             (service as unknown as { processingQueue: boolean })
                 .processingQueue,
         ).toBe(false);
+    });
+});
+
+describe("Gate Voice Assistant - Kịch bản Cổng bãi và Fallback headless", () => {
+    beforeEach(() => {
+        vi.resetModules();
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it("tạo câu thoại Check-in với các dạng ô đỗ khác nhau", () => {
+        const bikeCheckin = buildCheckInSpeech({
+            plateNumber: "51F-123.45",
+            slotCode: "MOTO-B",
+        });
+        expect(bikeCheckin).toBe(
+            "Xe 5 1 Ép, một hai ba, bốn năm đã xác thực, mời xe vào ô đỗ khu vực xe máy B.",
+        );
+
+        const noSlotCheckin = buildCheckInSpeech({
+            plateNumber: "51F-123.45",
+        });
+        expect(noSlotCheckin).toBe(
+            "Xe 5 1 Ép, một hai ba, bốn năm đã xác thực, mời xe vào ô đỗ khu vực đã được hướng dẫn.",
+        );
+    });
+
+    it("tạo câu cảnh báo chưa thanh toán chuẩn", () => {
+        expect(buildUnpaidExitSpeech()).toBe(UNPAID_EXIT_WARNING_MESSAGE);
+        expect(UNPAID_EXIT_WARNING_MESSAGE).toBe(
+            "Phiên đỗ chưa thanh toán, vui lòng thanh toán trước khi mở rào chắn!",
+        );
+        expect(GATE_VOICE_PROMPTS.unpaidWarning()).toBe(
+            "Phiên đỗ chưa thanh toán, vui lòng thanh toán trước khi mở rào chắn!",
+        );
+    });
+
+    it("fallback yên lặng khi Web Speech API không được hỗ trợ hoặc trong headless browser", async () => {
+        vi.stubGlobal("speechSynthesis", undefined);
+        vi.stubGlobal("SpeechSynthesisUtterance", undefined);
+
+        const { gateVoiceService: service, isGateVoiceSupported } =
+            await import("./gateVoice");
+        expect(isGateVoiceSupported()).toBe(false);
+        expect(service.isSupported()).toBe(false);
+
+        await expect(
+            service.speak({ text: "Test headless fallback", playChime: false }),
+        ).resolves.toBeUndefined();
+
+        await expect(
+            service.announceUnpaidExit(),
+        ).resolves.toBeUndefined();
+
+        const logs = service.getLogs();
+        expect(logs[0]?.text).toBe(
+            "Phiên đỗ chưa thanh toán, vui lòng thanh toán trước khi mở rào chắn!",
+        );
+    });
+
+    it("giới hạn tối đa 5 câu thoại trong hàng đợi để tránh dồn ứ âm thanh", async () => {
+        class MockUtterance {
+            text: string;
+            lang = "";
+            rate = 1;
+            pitch = 1;
+            volume = 1;
+            voice: unknown = null;
+            onend: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            constructor(text: string) {
+                this.text = text;
+            }
+        }
+        let activeUtterance: MockUtterance | null = null;
+        const mockSynth = {
+            paused: false,
+            onvoiceschanged: null,
+            getVoices: () => [],
+            cancel: vi.fn(),
+            resume: vi.fn(),
+            speak: vi.fn((u: MockUtterance) => {
+                activeUtterance = u;
+            }),
+        };
+
+        vi.stubGlobal("speechSynthesis", mockSynth);
+        vi.stubGlobal("SpeechSynthesisUtterance", MockUtterance);
+
+        const { gateVoiceService: service } =
+            await import("./GateVoiceService");
+        service.setEnabled(true);
+        service.setPlayChime(false);
+        service.clearQueue();
+
+        void service.speak({ text: "Câu 1", playChime: false });
+
+        for (let i = 2; i <= 8; i++) {
+            void service.speak({ text: `Câu ${i}`, playChime: false });
+        }
+
+        expect(service.getQueueLength()).toBeLessThanOrEqual(5);
+
+        service.clearQueue();
+        expect(service.getQueueLength()).toBe(0);
+
+        (activeUtterance as MockUtterance | null)?.onend?.();
+        service.stop();
+    });
+
+    it("announceGateUnpaidExit và announceGateCheckOut trigger chuẩn qua helper gateVoice", async () => {
+        const spokenList: string[] = [];
+        class MockUtterance {
+            text: string;
+            lang = "";
+            rate = 1;
+            pitch = 1;
+            volume = 1;
+            voice: unknown = null;
+            onend: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            constructor(text: string) {
+                this.text = text;
+            }
+        }
+        const mockSynth = {
+            paused: false,
+            onvoiceschanged: null,
+            getVoices: () => [],
+            cancel: vi.fn(),
+            resume: vi.fn(),
+            speak: vi.fn((u: MockUtterance) => {
+                spokenList.push(u.text);
+                u.onend?.();
+            }),
+        };
+
+        vi.stubGlobal("speechSynthesis", mockSynth);
+        vi.stubGlobal("SpeechSynthesisUtterance", MockUtterance);
+
+        const {
+            announceGateCheckOut,
+            announceGateUnpaidExit,
+            gateVoiceService: service,
+        } = await import("./gateVoice");
+
+        service.setEnabled(true);
+        service.setPlayChime(false);
+
+        await announceGateCheckOut();
+        expect(spokenList).toContain(
+            "Thanh toán thành công, mời xe xuất bến. ParkWise chúc quý khách thượng lộ bình an!",
+        );
+
+        await announceGateUnpaidExit();
+        expect(spokenList).toContain(
+            "Phiên đỗ chưa thanh toán, vui lòng thanh toán trước khi mở rào chắn!",
+        );
     });
 });
