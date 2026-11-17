@@ -51,106 +51,126 @@ export function PaymentPieChart({ items }: PaymentPieChartProps) {
                 Phương thức thanh toán
             </h2>
 
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 20,
-                    flexWrap: "wrap",
-                    flex: 1,
-                }}
-            >
+            {items.length === 0 ? (
                 <div
                     style={{
-                        position: "relative",
-                        width: size,
-                        height: size,
-                        flexShrink: 0,
-                        margin: "0 auto",
+                        padding: "28px 12px",
+                        textAlign: "center",
+                        color: "#6a7491",
+                        fontSize: 13,
+                        background: "#f8faff",
+                        borderRadius: 12,
+                        border: "1px dashed #e2e8f0",
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                     }}
                 >
-                    <svg
-                        width={size}
-                        height={size}
-                        viewBox={`0 0 ${size} ${size}`}
-                        style={{ transform: "rotate(-90deg)" }}
-                        aria-label="Biểu đồ tỷ lệ phương thức thanh toán"
+                    Chưa phát sinh giao dịch thanh toán
+                </div>
+            ) : (
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 20,
+                        flexWrap: "wrap",
+                        flex: 1,
+                    }}
+                >
+                    <div
+                        style={{
+                            position: "relative",
+                            width: size,
+                            height: size,
+                            flexShrink: 0,
+                            margin: "0 auto",
+                        }}
                     >
-                        <circle
-                            cx={size / 2}
-                            cy={size / 2}
-                            r={radius}
-                            fill="none"
-                            stroke="#f3f6fb"
-                            strokeWidth={strokeWidth}
-                        />
-                        {segments.map((seg) => (
+                        <svg
+                            width={size}
+                            height={size}
+                            viewBox={`0 0 ${size} ${size}`}
+                            style={{ transform: "rotate(-90deg)" }}
+                            aria-label="Biểu đồ tỷ lệ phương thức thanh toán"
+                        >
                             <circle
-                                key={seg.name}
                                 cx={size / 2}
                                 cy={size / 2}
                                 r={radius}
                                 fill="none"
-                                stroke={seg.color}
+                                stroke="#f3f6fb"
                                 strokeWidth={strokeWidth}
-                                strokeDasharray={seg.strokeDasharray}
-                                strokeDashoffset={seg.strokeDashoffset}
                             />
-                        ))}
-                    </svg>
-                </div>
+                            {segments.map((seg) => (
+                                <circle
+                                    key={seg.name}
+                                    cx={size / 2}
+                                    cy={size / 2}
+                                    r={radius}
+                                    fill="none"
+                                    stroke={seg.color}
+                                    strokeWidth={strokeWidth}
+                                    strokeDasharray={seg.strokeDasharray}
+                                    strokeDashoffset={seg.strokeDashoffset}
+                                />
+                            ))}
+                        </svg>
+                    </div>
 
-                <div
-                    style={{
-                        flex: 1,
-                        minWidth: 150,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 10,
-                    }}
-                >
-                    {items.map((m) => (
-                        <div
-                            key={m.name}
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                fontSize: 13,
-                            }}
-                        >
+                    <div
+                        style={{
+                            flex: 1,
+                            minWidth: 150,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 10,
+                        }}
+                    >
+                        {items.map((m) => (
                             <div
+                                key={m.name}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: 8,
+                                    justifyContent: "space-between",
+                                    fontSize: 13,
                                 }}
                             >
-                                <span
+                                <div
                                     style={{
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: "50%",
-                                        backgroundColor: m.color,
-                                    }}
-                                />
-                                <span
-                                    style={{
-                                        color: "#0f1b3d",
-                                        fontWeight: 500,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
                                     }}
                                 >
-                                    {m.name}
+                                    <span
+                                        style={{
+                                            width: 8,
+                                            height: 8,
+                                            borderRadius: "50%",
+                                            backgroundColor: m.color,
+                                        }}
+                                    />
+                                    <span
+                                        style={{
+                                            color: "#0f1b3d",
+                                            fontWeight: 500,
+                                        }}
+                                    >
+                                        {m.name}
+                                    </span>
+                                </div>
+                                <span style={{ fontWeight: 700, color: "#0f1b3d" }}>
+                                    {m.pct}%
                                 </span>
                             </div>
-                            <span style={{ fontWeight: 700, color: "#0f1b3d" }}>
-                                {m.pct}%
-                            </span>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

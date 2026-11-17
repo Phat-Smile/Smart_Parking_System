@@ -29,6 +29,7 @@ export interface ParkingLotStatistics {
         durationMinutes: number;
         interimFee: number;
         status: string;
+        paymentMethod?: string;
     }>;
 }
 
@@ -49,6 +50,7 @@ export interface AggregatedOwnerDashboardStats {
         durationMinutes: number;
         interimFee: number;
         status: string;
+        paymentMethod?: string;
     }>;
     hourlyTraffic: Array<{
         time: string;
