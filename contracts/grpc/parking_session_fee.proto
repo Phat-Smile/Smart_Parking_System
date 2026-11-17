@@ -34,6 +34,12 @@ message GetSessionFeeContextResponse {
   // Empty when the session has no reservation.
   string booking_id = 9;
   SessionPricing pricing = 10;
+  // US-PAY-005 (BR-09.d), added fields. ISO 8601, UTC; empty when the session was never paid.
+  string last_paid_at_utc = 11;
+  // When the vehicle reached the exit gate in the current payment cycle; empty when it has not.
+  string arrived_at_exit_utc = 12;
+  // Exit window after a payment: 15, or 30 after the one-time staff extension.
+  int32 grace_period_minutes = 13;
 }
 
 // BR-09.a: the price list in force when the vehicle entered, not the current one.
@@ -45,4 +51,6 @@ message SessionPricing {
   int32 block_minutes = 3;
   // VND: the price of one entry or one block.
   int64 price_per_unit = 4;
+  // VND: fixed overnight fee of the price list (BR-09.b), 0 when none.
+  int64 overnight_fee = 5;
 }

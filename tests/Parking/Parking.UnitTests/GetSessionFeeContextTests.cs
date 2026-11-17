@@ -18,12 +18,15 @@ public sealed class GetSessionFeeContextTests
     public async Task Returns_the_session_and_its_block_price()
     {
         var session = ParkingSession.Open(Guid.NewGuid(), LotId, "51A-123.45", VehicleType.Car, EntryTime, "qr", UserId, null);
-        var policy = PricingPolicy.Create(LotId, "Car", 1, "Block", 30, 15000m, 0m);
+        var policy = PricingPolicy.Create(LotId, "Car", 1, "Block", 30, 15000m, 20000m);
         var prices = new FakePrices(policy);
 
         var result = await Handle(session, prices);
 
         var fee = result.Value!;
+        Assert.Null(fee.LastPaidAtUtc);
+        Assert.Null(fee.ArrivedAtExitUtc);
+        Assert.Equal(15, fee.GracePeriodMinutes);
         Assert.Equal(session.Id, fee.SessionId);
         Assert.Equal(LotId, fee.LotId);
         Assert.Equal("51A-123.45", fee.PlateNumber);
@@ -33,7 +36,24 @@ public sealed class GetSessionFeeContextTests
         Assert.Equal("RegisteredWalkIn", fee.CustomerType);
         Assert.Equal(UserId, fee.AccountId);
         Assert.Null(fee.BookingId);
-        Assert.Equal(new SessionPricing(policy.Id, "Block", 30, 15000), fee.Pricing);
+        Assert.Equal(new SessionPricing(policy.Id, "Block", 30, 15000, 20000), fee.Pricing);
+    }
+
+    [Fact]
+    public async Task A_paid_session_returns_what_payment_needs_for_the_overstay_fee()
+    {
+        // US-PAY-005 (BR-09.d): paid at T, window extended once by staff, reached the exit gate at T + 20 minutes.
+        var paidAt = EntryTime.AddHours(2);
+        var session = ParkingSession.Open(Guid.NewGuid(), LotId, "51A-123.45", VehicleType.Car, EntryTime, "qr", UserId, null);
+        Assert.True(session.MarkPaid(paidAt));
+        Assert.True(session.ExtendExitWindow(paidAt.AddMinutes(5), "traffic jam on ramp B2"));
+        Assert.True(session.RecordExitArrival(paidAt.AddMinutes(20)));
+
+        var result = await Handle(session, new FakePrices(PricingPolicy.Create(LotId, "Car", 1, "Block", 30, 15000m, 0m)));
+
+        Assert.Equal(paidAt, result.Value!.LastPaidAtUtc);
+        Assert.Equal(paidAt.AddMinutes(20), result.Value.ArrivedAtExitUtc);
+        Assert.Equal(30, result.Value.GracePeriodMinutes);
     }
 
     [Fact]
