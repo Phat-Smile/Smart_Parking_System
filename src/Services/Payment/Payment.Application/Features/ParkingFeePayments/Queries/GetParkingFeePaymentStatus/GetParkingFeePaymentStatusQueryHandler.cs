@@ -47,6 +47,7 @@ public sealed class GetParkingFeePaymentStatusQueryHandler(
         }
 
         // Chỉ hiện giờ chốt phí và hạn ra cổng khi đã trả xong
+        var status = payment.Status;
         DateTimeOffset? paymentTime = null;
         DateTimeOffset? exitWindow = null;
         if (payment.Status == PaymentStatus.Succeeded)
@@ -54,12 +55,23 @@ public sealed class GetParkingFeePaymentStatusQueryHandler(
             paymentTime = payment.PaymentTimeUtc;
             exitWindow = payment.ExitWindowExpiresUtc;
         }
+        else if (payment.Status == PaymentStatus.Superseded)
+        {
+            // Kiểm tra nếu là mã overstay đã gộp thành công vào hóa đơn phiên
+            var sessionPayment = await paymentRepository.GetSucceededBySessionIdAsync(payment.SessionId, ct);
+            if (sessionPayment != null && sessionPayment.ExitWindowExpiresUtc.HasValue && sessionPayment.ExitWindowExpiresUtc.Value > payment.PaymentTimeUtc)
+            {
+                status = PaymentStatus.Succeeded;
+                paymentTime = sessionPayment.PaymentTimeUtc;
+                exitWindow = sessionPayment.ExitWindowExpiresUtc;
+            }
+        }
 
         var response = new GetParkingFeePaymentStatusResponse(
             payment.Id,
             payment.SessionId,
             payment.PaymentMethod,
-            payment.Status,
+            status,
             payment.AmountPaid,
             paymentUrl,
             payment.ExpiresAtUtc,

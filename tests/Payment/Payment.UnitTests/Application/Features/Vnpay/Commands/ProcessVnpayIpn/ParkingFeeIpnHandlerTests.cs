@@ -77,7 +77,14 @@ public class ParkingFeeIpnHandlerTests
 
         public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
         {
-            var payment = _paymentsByTxnRef.Values.FirstOrDefault(p => p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId);
+            var payment = _paymentsByTxnRef.Values.FirstOrDefault(p => (p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded);
+            if (payment == null && HasSucceededPayment)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var fallback = CreateSamplePayment(amountPaid: 35000, txnRef: "OLD_TXN");
+                fallback.MarkAsSucceeded("OLD_NO", now, now.AddMinutes(15));
+                return Task.FromResult<ParkingFeePayment?>(fallback);
+            }
             return Task.FromResult(payment);
         }
     }
@@ -399,5 +406,70 @@ public class ParkingFeeIpnHandlerTests
         var result = await _handler.HandleAsync(query, payment.TxnRef!, CancellationToken.None);
 
         Assert.Equal(VnpayIpnResponseDto.Codes.UnknownError, result.RspCode);
+    }
+
+    // Kiểm tra khi thanh toán phụ phí quá hạn (Overstay) qua VNPay: mở barie và cập nhật hóa đơn
+    [Fact]
+    public async Task HandleAsync_WhenOverstayPaymentViaVnpay_UpdatesExistingPayment_EnqueuesOutbox_AndReturnsRspCode00()
+    {
+        var sessionId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+
+        // Hóa đơn cũ đã hết hạn cách đây 15 phút (quá hạn lái xe ra)
+        var oldPayment = ParkingFeePayment.CreateVnPayPayment(
+            sessionId: sessionId,
+            parkingLotId: Guid.NewGuid(),
+            accountId: accountId,
+            plateNumber: "51F-12345",
+            vehicleType: "Car",
+            totalFee: 35000,
+            prepaidAmount: 0,
+            amountPaid: 35000,
+            feeCalculatedAtUtc: _clock.UtcNow.AddMinutes(-45),
+            expiresAtUtc: _clock.UtcNow.AddMinutes(-30),
+            txnRef: "OLD_PAID_TXN",
+            paymentUrl: "https://sandbox.vnpayment.vn");
+        oldPayment.MarkAsSucceeded("14111111", _clock.UtcNow.AddMinutes(-45), _clock.UtcNow.AddMinutes(-30));
+        _paymentRepository.SeedPayment(oldPayment);
+
+        // Hóa đơn overstay mới quét tại cổng
+        var overstayPayment = ParkingFeePayment.CreateVnPayPayment(
+            sessionId: sessionId,
+            parkingLotId: oldPayment.ParkingLotId,
+            accountId: accountId,
+            plateNumber: "51F-12345",
+            vehicleType: "Car",
+            totalFee: 15000,
+            prepaidAmount: 0,
+            amountPaid: 15000,
+            feeCalculatedAtUtc: _clock.UtcNow,
+            expiresAtUtc: _clock.UtcNow.AddMinutes(15),
+            txnRef: "OVERSTAY_TXN_002",
+            paymentUrl: "https://sandbox.vnpayment.vn");
+        _paymentRepository.SeedPayment(overstayPayment);
+
+        var query = CreateValidQuery(overstayPayment.TxnRef!, overstayPayment.AmountPaid);
+
+        var result = await _handler.HandleAsync(query, overstayPayment.TxnRef!, CancellationToken.None);
+
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(PaymentStatus.Superseded, overstayPayment.Status);
+        Assert.Equal(50000, oldPayment.TotalFee);
+        Assert.Equal(50000, oldPayment.AmountPaid);
+        Assert.Equal(_clock.UtcNow.AddMinutes(15), oldPayment.ExitWindowExpiresUtc);
+        Assert.True(_paymentRepository.SaveChangesCalled);
+
+        // Đảm bảo phát sự kiện mở cổng barie cho phiên xe
+        Assert.Single(_outboxWriter.Enqueued);
+        var (ev, eventType, version, correlationId) = _outboxWriter.Enqueued[0];
+        Assert.Equal("payment.session-paid.v1", eventType);
+        Assert.Equal(1, version);
+        Assert.Equal(oldPayment.Id, correlationId);
+
+        var paidEvent = Assert.IsType<ParkingSessionPaidIntegrationEvent>(ev);
+        Assert.Equal(sessionId, paidEvent.SessionId);
+        Assert.Equal(15000, paidEvent.AmountPaid);
+        Assert.Equal(_clock.UtcNow, paidEvent.PaidAtUtc);
+        Assert.Equal(_clock.UtcNow.AddMinutes(15), paidEvent.ExitWindowExpiresUtc);
     }
 }
