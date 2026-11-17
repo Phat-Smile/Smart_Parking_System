@@ -11,6 +11,7 @@ using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingSessions.CancelParkingSession;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.Domain.ParkingLayout;
 using ParkingSystem.Parking.Domain.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -90,6 +91,29 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
         Assert.Equal("A-01", (await OpenCarSessionAsync(serviceProvider, lotId, "51A-555.55", cancellationToken)).Value!.SlotCode);
     }
 
+    [Fact]
+    public async Task Reserved_car_arriving_at_a_full_lot_is_reported_to_booking_and_saved_as_an_incident()
+    {
+        // US-PARK-004 (BR-02.f, point 35 option a): no check-in, Booking cancels and refunds, staff see the incident.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var reservationId = Guid.NewGuid();
+        await using var serviceProvider = await CreateMigratedServiceProviderAsync(held: 0, cancellationToken, cancelledReservationId: reservationId);
+        var lotId = await SeedLotWithCarSlotsAsync(serviceProvider, cancellationToken, "A-01");
+        Assert.True((await OpenCarSessionAsync(serviceProvider, lotId, "51A-111.11", cancellationToken)).IsSuccess);
+
+        var result = await OpenCarSessionAsync(serviceProvider, lotId, "51A-222.22", cancellationToken);
+
+        Assert.Equal(OpenParkingSessionErrors.ReservedNoSlot, result.Error);
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+        var incident = await dbContext.Incidents.AsNoTracking().SingleAsync(item => item.LotId == lotId, cancellationToken);
+        Assert.Equal(IncidentType.NoSuitableSlot, incident.IncidentType);
+        Assert.Equal(IncidentStatus.Open, incident.Status);
+        Assert.Equal(reservationId, incident.ReservationId);
+        Assert.Equal("51A-222.22", incident.ObservedPlate);
+        Assert.Equal(1, await dbContext.ParkingSessions.CountAsync(session => session.LotId == lotId, cancellationToken));
+    }
+
     private static async Task<Result<OpenedParkingSession>> OpenCarSessionAsync(
         ServiceProvider serviceProvider, Guid lotId, string plate, CancellationToken cancellationToken)
     {
@@ -132,16 +156,19 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
         return lotId;
     }
 
-    private async Task<ServiceProvider> CreateMigratedServiceProviderAsync(int held, CancellationToken cancellationToken)
+    private async Task<ServiceProvider> CreateMigratedServiceProviderAsync(
+        int held, CancellationToken cancellationToken, Guid? cancelledReservationId = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddPersistence(PostgreSqlTestConfiguration.Create(postgres.ConnectionString));
         services.AddApplicationServices();
         services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
+        services.AddSingleton<IBookingNoSlotReporter, NoMatchingBookingCheckInClient>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
         services.AddSingleton<IBookingCheckInClient, NoBookingCheckInClient>();
+        services.AddSingleton<IBookingNoSlotReporter>(new FixedNoSlotReporter(cancelledReservationId));
         // Booking contract #4 is still a stub returning 0; the test sets how many reservations are held.
         services.AddSingleton<IHeldQuotaReader>(new FixedHeldQuota(held));
         var serviceProvider = services.BuildServiceProvider(validateScopes: true);
@@ -159,6 +186,12 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
             DateTimeOffset entryTime,
             Guid sessionId,
             CancellationToken cancellationToken) => Task.FromResult<CheckedInReservation?>(null);
+    }
+
+    private sealed class FixedNoSlotReporter(Guid? cancelledReservationId) : IBookingNoSlotReporter
+    {
+        public Task<Guid?> ReportNoSuitableSlotAsync(Guid lotId, string normalizedPlate, DateTimeOffset arrivedAt, CancellationToken cancellationToken) =>
+            Task.FromResult(cancelledReservationId);
     }
 
     private sealed class FixedHeldQuota(int held) : IHeldQuotaReader
