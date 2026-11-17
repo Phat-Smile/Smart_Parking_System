@@ -24,7 +24,8 @@ public sealed record RecommendationClientRequest(
     [property: JsonPropertyName("vehicleType")] string VehicleType,
     [property: JsonPropertyName("arrivalAt")] DateTimeOffset ArrivalAt,
     [property: JsonPropertyName("durationMinutes")] int DurationMinutes,
-    [property: JsonPropertyName("candidateLots")] IReadOnlyList<CandidateLotInputDto> CandidateLots);
+    [property: JsonPropertyName("candidateLots")] IReadOnlyList<CandidateLotInputDto> CandidateLots,
+    [property: JsonPropertyName("priority")] string Priority = "balanced");
 
 public sealed record RecommendedLotItemDto(
     [property: JsonPropertyName("lotId")] Guid LotId,
