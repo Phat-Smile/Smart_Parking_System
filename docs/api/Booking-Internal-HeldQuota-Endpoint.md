@@ -152,5 +152,5 @@ When implementing the client in `Parking.Infrastructure` (replacing `StubHeldQuo
    Follow the standard `HeldQuotaProvider` resilience rules:
    - **Timeout:** 2-second deadline.
    - **Cache:** 60-second in-memory cache to prevent blocking the gate camera / sensor loop.
-   - **Failure fallback:** If Booking service does not respond within deadline and cache is expired, fail safe: refuse unreserved walk-in entries when available capacity is low.
+   - **Failure fallback:** If Booking service does not respond within deadline and the cached answer is older than 60 seconds, HeldQuotaProvider returns null and the gate refuses all walk-in cars until Booking answers again.
 
