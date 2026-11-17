@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ParkWiseAction } from "@/features/parkwise/ParkWiseAction";
+import { ParkWiseIconTile } from "@/features/parkwise/ParkWiseIconTile";
 import {
     ArrowRight,
     Bell,
@@ -201,7 +203,9 @@ export function CustomerNotificationsPage() {
                             "Lọc thông báo",
                         )}
                     >
-                        <button
+                        <ParkWiseAction
+                            variant="secondary"
+                            className="parkwise-choice"
                             type="button"
                             aria-pressed={filter === "all"}
                             onClick={() => {
@@ -210,8 +214,10 @@ export function CustomerNotificationsPage() {
                             }}
                         >
                             {copy("All", "Tất cả")} <span>{totalCount}</span>
-                        </button>
-                        <button
+                        </ParkWiseAction>
+                        <ParkWiseAction
+                            variant="secondary"
+                            className="parkwise-choice"
                             type="button"
                             aria-pressed={filter === "unread"}
                             onClick={() => {
@@ -221,7 +227,7 @@ export function CustomerNotificationsPage() {
                         >
                             {copy("Unread", "Chưa đọc")}{" "}
                             <span>{unreadCount}</span>
-                        </button>
+                        </ParkWiseAction>
                     </div>
                     {filter === "all" && unreadCount > 0 && (
                         <button
@@ -244,7 +250,8 @@ export function CustomerNotificationsPage() {
                     <p className="customer-notification-demo" role="status">
                         {copy("Loading notifications…", "Đang tải thông báo…")}
                     </p>
-                ) : visible.length === 0 ? (
+                ) : error && visible.length === 0 ? null : visible.length ===
+                  0 ? (
                     <div className="customer-notification-empty">
                         <span>
                             <Bell size={30} strokeWidth={1.7} />
@@ -290,12 +297,20 @@ export function CustomerNotificationsPage() {
                                     key={notice.id}
                                     className={isRead ? "is-read" : ""}
                                 >
-                                    <span
-                                        className={`customer-notification-icon is-${notice.type}`}
-                                        aria-hidden="true"
+                                    <ParkWiseIconTile
+                                        className="customer-notification-icon"
+                                        tone={
+                                            notice.type === "wallet"
+                                                ? "wallet"
+                                                : notice.type === "parking"
+                                                  ? "parking"
+                                                  : notice.type === "booking"
+                                                    ? "booking"
+                                                    : "notifications"
+                                        }
                                     >
-                                        <Icon size={22} />
-                                    </span>
+                                        <Icon size={22} aria-hidden="true" />
+                                    </ParkWiseIconTile>
                                     <div className="customer-notification-copy">
                                         <div>
                                             <h2>{localized.title}</h2>

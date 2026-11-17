@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { CustomerAccessGuard } from "./CustomerAccessGuard";
 import { CustomerFooter, CustomerHeader } from "./CustomerShell";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
+import { CustomerMobileActivityTabs } from "./mobile/CustomerMobileActivityTabs";
 
 export function CustomerDataShell({
     children,
@@ -24,6 +25,7 @@ export function CustomerDataShell({
         >
             <CustomerHeader active={active} />
             <main className="customer-data-main">
+                <CustomerMobileActivityTabs />
                 <div className="customer-data-panel">{children}</div>
             </main>
             <CustomerFooter />

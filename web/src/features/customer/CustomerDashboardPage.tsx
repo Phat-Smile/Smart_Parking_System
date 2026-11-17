@@ -20,6 +20,8 @@ import { ActiveSessionCard } from "./CustomerSessions";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { dashboardPreviewData } from "./dashboardPreviewData";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
+import { useCustomerMobile } from "./mobile/useCustomerMobile";
+import { CustomerMobileHome } from "./mobile/CustomerMobileHome";
 
 type SearchTab = "find" | "quick" | "saved";
 const recentPlaces = [
@@ -65,6 +67,7 @@ export function CustomerDashboardPage({
     fontClassName: string;
 }) {
     const router = useRouter();
+    const isMobile = useCustomerMobile();
     const { copy, language } = useCustomerLanguage();
     const session = useSyncExternalStore(
         subscribeAuthSession,
@@ -174,9 +177,10 @@ export function CustomerDashboardPage({
     ]);
 
     useEffect(() => {
+        if (window.matchMedia("(width < 768px)").matches) return;
         const timer = window.setTimeout(locateCurrentPosition, 0);
         return () => window.clearTimeout(timer);
-    }, [locateCurrentPosition]);
+    }, [isMobile, locateCurrentPosition]);
 
     function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -210,6 +214,14 @@ export function CustomerDashboardPage({
         if (vehicle !== "any") params.set("vehicle", vehicle);
         router.push(`/search?${params.toString()}`);
     }
+
+    if (isMobile)
+        return (
+            <CustomerMobileHome
+                fontClassName={fontClassName}
+                displayName={displayName}
+            />
+        );
 
     return (
         <div

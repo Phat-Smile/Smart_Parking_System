@@ -5,6 +5,17 @@
     --pw-color-lime: #eafe89;
     --pw-color-lime-hover: #ddf66f;
     --pw-color-blue: #1e19d8;
+    --pw-color-teal: #087f8c;
+    --pw-tone-wallet: var(--pw-color-blue);
+    --pw-tone-booking: #638415;
+    --pw-tone-parking: color-mix(
+        in srgb,
+        var(--pw-color-success) 75%,
+        var(--pw-color-black)
+    );
+    --pw-tone-vehicles: var(--pw-color-teal);
+    --pw-tone-account: var(--pw-color-info);
+    --pw-tone-notifications: var(--pw-color-info);
     --pw-gray-50: #fafafa;
     --pw-gray-100: #f5f5f5;
     --pw-gray-200: #e5e5e5;
@@ -30,9 +41,16 @@
     --pw-border-strong: var(--pw-gray-300);
     --pw-primary: var(--pw-color-black);
     --pw-primary-text: var(--pw-color-white);
+    --pw-selection-bg: var(--pw-primary);
+    --pw-selection-text: var(--pw-primary-text);
     --pw-accent: var(--pw-color-lime);
     --pw-accent-hover: var(--pw-color-lime-hover);
     --pw-accent-text: var(--pw-color-black);
+    --pw-bg-accent: color-mix(
+        in srgb,
+        var(--pw-accent) 25%,
+        var(--pw-bg-surface)
+    );
     --pw-parking-available: #22c55e;
     --pw-parking-assigned: #3b82f6;
     --pw-parking-occupied: #ef4444;
