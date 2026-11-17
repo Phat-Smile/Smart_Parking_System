@@ -426,15 +426,18 @@ public sealed class ReservationDepositIntegrationTests(PostgreSqlContainerFixtur
             Assert.Equal(PrepaidOutcome.Refunded, r5.PrepaidOutcome);
         }
 
-        // Verify refunds: Exactly 2 refunds (for resDebitedId and resDebited2Id)
-        Assert.Equal(2, paymentClient.RefundCalls.Count);
-        Assert.Contains(paymentClient.RefundCalls, r => r.ReservationId == resDebitedId && r.AmountVnd == 20000L);
-        Assert.Contains(paymentClient.RefundCalls, r => r.ReservationId == resDebited2Id && r.AmountVnd == 30000L);
+        // Verify refunds: Exactly 2 refunds for this test's reservations (for resDebitedId and resDebited2Id)
+        var testIds = new HashSet<Guid> { resDebitedId, resNotDebitedId, resConfirmedId, resFailingId, resDebited2Id };
+        var testRefundCallsPass1 = paymentClient.RefundCalls.Where(r => testIds.Contains(r.ReservationId)).ToList();
+        Assert.Equal(2, testRefundCallsPass1.Count);
+        Assert.Contains(testRefundCallsPass1, r => r.ReservationId == resDebitedId && r.AmountVnd == 20000L);
+        Assert.Contains(testRefundCallsPass1, r => r.ReservationId == resDebited2Id && r.AmountVnd == 30000L);
 
         // Run batch pass 2 -> Second run does nothing for already refunded rows!
-        var refundsBeforePass2 = paymentClient.RefundCalls.Count;
+        var refundsBeforePass2 = paymentClient.RefundCalls.Count(r => testIds.Contains(r.ReservationId));
         await worker.ReconcileBatchAsync(ct);
-        Assert.Equal(refundsBeforePass2, paymentClient.RefundCalls.Count);
+        var refundsAfterPass2 = paymentClient.RefundCalls.Count(r => testIds.Contains(r.ReservationId));
+        Assert.Equal(refundsBeforePass2, refundsAfterPass2);
     }
 
     // =========================================================================
