@@ -270,7 +270,15 @@ async function getCachedOcrWorker() {
 
     try {
         isInitializing = true;
-        const { createWorker, PSM } = await import("tesseract.js");
+        // ALPR is processed by C# Backend (<300ms). Client-side tesseract is kept as dynamic fallback only.
+        const tesseractPkg = "tesseract.js";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tesseract: any = await import(/* webpackIgnore: true */ tesseractPkg).catch(() => null);
+        if (!tesseract || !tesseract.createWorker) {
+            cachedWorker = null;
+            return null;
+        }
+        const { createWorker, PSM } = tesseract;
         const worker = await createWorker("eng");
         // PSM.SINGLE_BLOCK: Single uniform block of text (tăng tốc độ quét gấp 4 lần cho biển số xe)
         await worker.setParameters({
@@ -280,8 +288,7 @@ async function getCachedOcrWorker() {
         });
         cachedWorker = worker;
         return cachedWorker;
-    } catch (err) {
-        console.warn("[ANPR] Không thể khởi tạo Tesseract worker:", err);
+    } catch {
         cachedWorker = null;
         return null;
     } finally {

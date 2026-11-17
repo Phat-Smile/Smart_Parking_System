@@ -879,11 +879,25 @@ export function StaffEntryPage() {
                                                               lastOpened?.customerName?.trim() ||
                                                               lastOpened?.accountOwnerName?.trim()
                                                             : "";
-                                                    return matchedOwner
-                                                        ? `✓ ${matchedOwner} (${language === "en" ? "Wallet active" : "Ví khả dụng"})`
-                                                        : t(
-                                                              "entryAccountLinked",
-                                                          );
+                                                    return matchedOwner ? (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <CheckCircle2
+                                                                size={12}
+                                                                strokeWidth={2.4}
+                                                                className="text-emerald-500"
+                                                            />
+                                                            <span>
+                                                                {matchedOwner} (
+                                                                {language ===
+                                                                "en"
+                                                                    ? "Wallet active"
+                                                                    : "Ví khả dụng"}
+                                                                )
+                                                            </span>
+                                                        </span>
+                                                    ) : (
+                                                        t("entryAccountLinked")
+                                                    );
                                                 })()}
                                             </span>
                                         </span>
@@ -1031,7 +1045,7 @@ export function StaffEntryPage() {
                             {step !== "barrier_open" ? (
                                 <button
                                     type="button"
-                                    className="staff-btn staff-btn-checkin-primary"
+                                    className="staff-btn staff-btn-checkin-primary transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                     disabled={loading || !plateNumber.trim()}
                                     onClick={handleConfirmEntry}
                                 >

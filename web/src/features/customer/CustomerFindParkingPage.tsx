@@ -2,6 +2,7 @@
 
 import {
     useEffect,
+    useMemo,
     useRef,
     useState,
     type FormEvent,
@@ -123,6 +124,16 @@ export function CustomerFindParkingPage({
 }) {
     const { copy, language } = useCustomerLanguage();
     const [destination, setDestination] = useState(initialSearch.destination);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
+        initialSearch.destination,
+    );
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(destination);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [destination]);
     const [parkingDate, setParkingDate] = useState(initialSearch.date);
     const [parkingTime, setParkingTime] = useState(initialSearch.time);
     // Hour on the arrival scrubber; the anchor fixes the scrubber window while the user moves inside it.
@@ -407,18 +418,59 @@ export function CustomerFindParkingPage({
     const results: SearchResult[] = originKey
         ? (nearbyCurrent?.lots ?? [])
         : approvedLots;
-    const visibleParkings = results;
+
+    const sortedParkings = useMemo(() => {
+        let list = [...results];
+
+        const term = debouncedSearchQuery.trim().toLowerCase();
+        if (term && term !== "current location" && !originKey) {
+            const matched = list.filter(
+                (lot) =>
+                    lot.name.toLowerCase().includes(term) ||
+                    lot.address.toLowerCase().includes(term),
+            );
+            if (matched.length > 0) {
+                list = matched;
+            }
+        }
+
+        if (filters.sort === "name") {
+            list.sort((a, b) => a.name.localeCompare(b.name, "vi"));
+        } else if (filters.sort === "price") {
+            list.sort((a, b) => {
+                const priceA = a.startingPrice ?? Number.MAX_SAFE_INTEGER;
+                const priceB = b.startingPrice ?? Number.MAX_SAFE_INTEGER;
+                return priceA - priceB;
+            });
+        } else if (filters.sort === "distance" && originKey) {
+            list.sort((a, b) => {
+                const distA = a.distanceKm ?? Number.MAX_SAFE_INTEGER;
+                const distB = b.distanceKm ?? Number.MAX_SAFE_INTEGER;
+                return distA - distB;
+            });
+        }
+        return list;
+    }, [results, debouncedSearchQuery, originKey, filters.sort]);
+
+    const visibleParkings = sortedParkings;
+
     // Only recommendations for lots that survive the current filters, ranked at the chosen arrival hour.
-    const allRecommendations =
-        slotAtArrival?.lots?.filter((rec) =>
+    const allRecommendations = useMemo(() => {
+        if (!slotAtArrival?.lots) return null;
+        return slotAtArrival.lots.filter((rec) =>
             visibleParkings.some((lot) => lot.id === rec.lotId),
-        ) ?? null;
-    const currentRecommendations = allRecommendations?.slice(0, 3) ?? null;
-    const activeSelectedId = visibleParkings.some(
-        (parking) => parking.id === selectedId,
-    )
-        ? selectedId
-        : (visibleParkings[0]?.id ?? "");
+        );
+    }, [slotAtArrival?.lots, visibleParkings]);
+
+    const currentRecommendations = useMemo(() => {
+        return allRecommendations?.slice(0, 3) ?? null;
+    }, [allRecommendations]);
+
+    const activeSelectedId = useMemo(() => {
+        return visibleParkings.some((parking) => parking.id === selectedId)
+            ? selectedId
+            : (visibleParkings[0]?.id ?? "");
+    }, [visibleParkings, selectedId]);
 
     function useCurrentLocation() {
         searchAbortRef.current?.abort();

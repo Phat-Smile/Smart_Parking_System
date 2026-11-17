@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { getPublicMapboxToken } from "@/shared/config/env";
@@ -39,7 +40,7 @@ function toPins(
     }));
 }
 
-export function CustomerMap({
+export const CustomerMap = memo(function CustomerMap({
     selectedId,
     onSelect,
     currentLocation,
@@ -118,4 +119,4 @@ export function CustomerMap({
             </span>
         </div>
     );
-}
+});
