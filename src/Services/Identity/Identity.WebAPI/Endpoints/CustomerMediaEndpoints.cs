@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Http;
+using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
+using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Identity.Application.Profiles.CustomerMedia;
 
 namespace ParkingSystem.Identity.WebAPI.Endpoints;
@@ -18,7 +20,9 @@ internal static class CustomerMediaEndpoints
             if (!request.HasFormContentType) return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
             var form = await request.ReadFormAsync(ct);
             var file = form.Files.GetFile("file");
-            if (file is null || file.Length == 0) return Results.BadRequest(new { errorCode = "identity.media_file_required" });
+            if (file is null || file.Length == 0)
+                return BusinessProblem.Create(request.HttpContext, StatusCodes.Status400BadRequest,
+                    new Error("identity.media_file_required", "Media file is required."));
             if (file.Length > 5 * 1024 * 1024) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
             var kind = form["kind"].ToString();
             try
@@ -29,9 +33,11 @@ internal static class CustomerMediaEndpoints
             }
             catch (ArgumentException error)
             {
-                return Results.BadRequest(new { errorCode = "identity.invalid_customer_media", detail = error.Message });
+                return BusinessProblem.Create(request.HttpContext, StatusCodes.Status400BadRequest,
+                    new Error("identity.invalid_customer_media", string.IsNullOrWhiteSpace(error.Message) ? "Invalid customer media." : error.Message));
             }
-        }).DisableAntiforgery().WithName("UploadMyCustomerMedia");
+        }).DisableAntiforgery().WithName("UploadMyCustomerMedia")
+        .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapGet("/{mediaId:guid}", async (Guid mediaId, ICurrentUser user,
             ICustomerMediaStore store, CancellationToken ct) =>
