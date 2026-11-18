@@ -67,11 +67,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (!mounted) return;
-        if (role && role !== "SystemAdmin") router.replace("/403");
-        if (role === "SystemAdmin") {
-            getAdminParkingLots("All").catch(() => undefined);
+        if (!session) {
+            const returnUrl = pathname
+                ? `?returnUrl=${encodeURIComponent(pathname)}`
+                : "";
+            router.replace(`/login${returnUrl}`);
+            return;
         }
-    }, [role, router, mounted]);
+        if (role !== "SystemAdmin") {
+            router.replace("/403");
+            return;
+        }
+        getAdminParkingLots("All").catch(() => undefined);
+    }, [role, session, pathname, router, mounted]);
 
     // Close account dropdown on outside click
     useEffect(() => {
@@ -627,20 +635,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
                         </div>
                     </div>
                 </div>
-
-                {mounted && !session && (
-                    <div className="admin-banner" role="status">
-                        <AdminIcon name="alert" size={16} />
-                        <span>
-                            You&apos;re not signed in. Approve/Reject require a
-                            SystemAdmin session (e.g.{" "}
-                            <code>admin@test.local</code> /{" "}
-                            <code>admin@demo.local</code> /{" "}
-                            <code>admin@parking.test</code>).
-                        </span>
-                        <Link href="/login">Sign in</Link>
-                    </div>
-                )}
 
                 <div className="admin-page-content">{children}</div>
             </main>

@@ -477,7 +477,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsBusinessName: "Doanh nghiệp / MST",
         ownerAppsTaxCode: "Mã số thuế",
         ownerAppsDocuments: "Giấy tờ pháp lý",
-        ownerAppsInspectDocs: "📑 Xem giấy tờ",
+        ownerAppsInspectDocs: "Xem giấy tờ",
         ownerAppsVerifyAndApprove: "Kiểm tra & Duyệt",
         ownerAppsReject: "Từ chối",
         ownerAppsChecklistTitle:
@@ -895,7 +895,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsBusinessName: "Business / Tax ID",
         ownerAppsTaxCode: "Tax Code",
         ownerAppsDocuments: "Legal Documents",
-        ownerAppsInspectDocs: "📑 View Documents",
+        ownerAppsInspectDocs: "View Documents",
         ownerAppsVerifyAndApprove: "Inspect & Approve",
         ownerAppsReject: "Reject",
         ownerAppsChecklistTitle:

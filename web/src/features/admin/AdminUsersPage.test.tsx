@@ -156,39 +156,21 @@ describe("AdminUsersPage UI/UX redesign", () => {
         });
     });
 
-    it("opens confirmation dialog before changing role and calls changeAccountRole", async () => {
-        const user = userEvent.setup();
-        vi.mocked(adminAccounts.changeAccountRole).mockResolvedValue({
-            accountId: "00000000-0000-0000-0000-000000000002",
-            role: "Staff",
-        });
-
+    it("displays roles as read-only badges and does not allow admin to change roles", async () => {
         renderUsersPage();
 
         await waitFor(() => {
             expect(screen.getByText("Nguyễn Khách Hàng")).toBeInTheDocument();
         });
 
-        const roleSelect = screen.getByLabelText(
-            "Change role for customer@parkwise.vn",
-        );
-        await user.selectOptions(roleSelect, "Staff");
+        // Roles are displayed as badges
+        expect(screen.getAllByText("Khách hàng").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Chủ bãi").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Quản trị viên").length).toBeGreaterThan(0);
 
-        const dialog = screen.getByRole("dialog");
+        // No select dropdown to change user roles
         expect(
-            within(dialog).getByText(/Xác nhận thay đổi vai trò/i),
-        ).toBeInTheDocument();
-
-        const confirmBtn = within(dialog).getByRole("button", {
-            name: /Xác nhận thực hiện/i,
-        });
-        await user.click(confirmBtn);
-
-        await waitFor(() => {
-            expect(adminAccounts.changeAccountRole).toHaveBeenCalledWith(
-                "00000000-0000-0000-0000-000000000002",
-                "Staff",
-            );
-        });
+            screen.queryByLabelText(/Change role for/i),
+        ).not.toBeInTheDocument();
     });
 });

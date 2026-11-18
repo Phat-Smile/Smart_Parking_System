@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import { AdminShell } from "@/features/admin/AdminShell";
+import { AdminAccessGuard } from "@/features/admin/AdminAccessGuard";
 import "./admin.css";
 
 const manrope = Manrope({ subsets: ["latin"], display: "swap" });
@@ -17,7 +18,9 @@ export default function AdminLayout({
 }: Readonly<{ children: React.ReactNode }>) {
     return (
         <div className={manrope.className}>
-            <AdminShell>{children}</AdminShell>
+            <AdminAccessGuard>
+                <AdminShell>{children}</AdminShell>
+            </AdminAccessGuard>
         </div>
     );
 }

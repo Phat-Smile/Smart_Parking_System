@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { AdminIcon, StatusPill, formatDate } from "./AdminUi";
 import {
     approveOwnerApplication,
@@ -34,6 +33,24 @@ const DEFAULT_CHECKLIST: VerificationChecklist = {
     fireSafety: false,
     lease: false,
 };
+
+function formatOwnerSubmittedDate(
+    iso: string | null | undefined,
+    isVi: boolean,
+): string {
+    if (!iso) return "—";
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "—";
+    if (isVi) {
+        const day = String(dt.getDate()).padStart(2, "0");
+        const month = String(dt.getMonth() + 1).padStart(2, "0");
+        const year = dt.getFullYear();
+        const hours = String(dt.getHours()).padStart(2, "0");
+        const minutes = String(dt.getMinutes()).padStart(2, "0");
+        return `${day}/${month}/${year} · ${hours}:${minutes}`;
+    }
+    return formatDate(iso);
+}
 
 export function AdminOwnerApplicationsPage() {
     const { t, language } = useLanguage();
@@ -114,32 +131,55 @@ export function AdminOwnerApplicationsPage() {
         }
     }
 
+    const fetchAllApplications = useCallback(async () => {
+        const PAGE_LIMIT = 100;
+        const firstPage = await getOwnerApplications({
+            status: "All",
+            page: 1,
+            pageSize: PAGE_LIMIT,
+        });
+        const allItems = [...firstPage.items];
+        const totalCount = firstPage.totalCount ?? allItems.length;
+        const totalPages = Math.ceil(totalCount / PAGE_LIMIT);
+
+        for (let p = 2; p <= totalPages; p++) {
+            const nextPage = await getOwnerApplications({
+                status: "All",
+                page: p,
+                pageSize: PAGE_LIMIT,
+            });
+            if (!nextPage.items || nextPage.items.length === 0) break;
+            allItems.push(...nextPage.items);
+        }
+        return allItems;
+    }, []);
+
     const loadData = useCallback(async () => {
         setLoading(true);
         setRawError(null);
         try {
-            const res = await getOwnerApplications({ status });
-            setApplications(res.items);
+            const items = await fetchAllApplications();
+            setApplications(items);
         } catch (err) {
             setRawError(err);
         } finally {
             setLoading(false);
         }
-    }, [status]);
+    }, [fetchAllApplications]);
 
     function handleStatusTabChange(nextStatus: Filter) {
         if (nextStatus === status) return;
-        setLoading(true);
         setRawError(null);
         setStatus(nextStatus);
     }
 
     useEffect(() => {
         let active = true;
-        getOwnerApplications({ status })
-            .then((res) => {
+        setLoading(true);
+        fetchAllApplications()
+            .then((items) => {
                 if (active) {
-                    setApplications(res.items);
+                    setApplications(items);
                     setLoading(false);
                 }
             })
@@ -152,7 +192,7 @@ export function AdminOwnerApplicationsPage() {
         return () => {
             active = false;
         };
-    }, [status]);
+    }, [fetchAllApplications]);
 
     useEffect(() => {
         if (!toast) return;
@@ -187,6 +227,7 @@ export function AdminOwnerApplicationsPage() {
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
         const matching = applications.filter((app) => {
+            if (status !== "All" && app.status !== status) return false;
             if (!term) return true;
             return (
                 (app.fullName && app.fullName.toLowerCase().includes(term)) ||
@@ -214,7 +255,7 @@ export function AdminOwnerApplicationsPage() {
             }
             return dateA.localeCompare(dateB);
         });
-    }, [applications, search, sortOrder, isVi]);
+    }, [applications, status, search, sortOrder, isVi]);
 
     const counts = useMemo(() => {
         return {
@@ -325,106 +366,39 @@ export function AdminOwnerApplicationsPage() {
 
     return (
         <div className="admin-owner-apps-page">
-            {/* 1. Page Heading & Action Bar */}
-            <header className="admin-heading admin-owner-heading">
-                <div className="admin-heading-main">
+            {/* 1. Page Heading */}
+            <header className="admin-heading admin-dash-heading">
+                <div className="admin-dash-heading-left">
                     <p className="admin-eyebrow">{t("ownerAppsEyebrow")}</p>
                     <h1>{t("ownerAppsTitle")}</h1>
-                    <p className="admin-owner-subtitle">
-                        {isVi
-                            ? "Thẩm định hồ sơ pháp lý, mã số thuế doanh nghiệp và định danh chủ bãi đỗ xe trên hệ thống ParkWise."
-                            : "Verify legal documents, tax registration, and partner identity for parking lot owner applications."}
-                    </p>
                 </div>
-                <div className="admin-heading-actions">
-                    <Link
-                        href="/admin/parking-lots/pending"
-                        className="admin-btn admin-btn-ghost admin-owner-nav-btn"
-                    >
-                        <AdminIcon name="clock" size={15} />
-                        <span>{t("parkingLotsPendingTab")}</span>
-                    </Link>
+                <div className="admin-dash-heading-actions">
                     <button
                         type="button"
                         onClick={loadData}
-                        className="admin-btn admin-btn-ghost admin-refresh-btn"
+                        className="admin-btn admin-btn-ghost"
                         disabled={loading}
+                        title={
+                            isVi
+                                ? "Tải lại dữ liệu hồ sơ từ hệ thống"
+                                : "Reload applications from server"
+                        }
                     >
-                        <span
-                            className={`admin-refresh-icon ${loading ? "is-spinning" : ""}`}
-                        >
-                            <AdminIcon name="refresh" size={15} />
+                        <AdminIcon
+                            name="refresh"
+                            size={15}
+                            className={loading ? "admin-spin" : undefined}
+                        />
+                        <span>
+                            {loading
+                                ? isVi
+                                    ? "Đang tải..."
+                                    : "Refreshing..."
+                                : t("refresh")}
                         </span>
-                        <span>{t("refresh")}</span>
                     </button>
                 </div>
             </header>
-
-            {/* 2. Compact 4-Card Statistics Strip */}
-            <section
-                className="admin-owner-kpi-grid"
-                aria-label={
-                    isVi
-                        ? "Thống kê hồ sơ chủ bãi"
-                        : "Owner application statistics"
-                }
-            >
-                <article className="admin-owner-kpi-card is-neutral">
-                    <div className="admin-owner-kpi-icon">
-                        <AdminIcon name="file" size={18} />
-                    </div>
-                    <div className="admin-owner-kpi-meta">
-                        <span className="admin-owner-kpi-label">
-                            {isVi ? "Tổng số hồ sơ" : "Total Applications"}
-                        </span>
-                        <strong className="admin-owner-kpi-value">
-                            {counts.All}
-                        </strong>
-                    </div>
-                </article>
-
-                <article className="admin-owner-kpi-card is-pending">
-                    <div className="admin-owner-kpi-icon">
-                        <AdminIcon name="clock" size={18} />
-                    </div>
-                    <div className="admin-owner-kpi-meta">
-                        <span className="admin-owner-kpi-label">
-                            {isVi ? "Hồ sơ chờ duyệt" : "Pending Review"}
-                        </span>
-                        <strong className="admin-owner-kpi-value">
-                            {counts.Pending}
-                        </strong>
-                    </div>
-                </article>
-
-                <article className="admin-owner-kpi-card is-approved">
-                    <div className="admin-owner-kpi-icon">
-                        <AdminIcon name="check" size={18} />
-                    </div>
-                    <div className="admin-owner-kpi-meta">
-                        <span className="admin-owner-kpi-label">
-                            {isVi ? "Hồ sơ đã duyệt" : "Approved"}
-                        </span>
-                        <strong className="admin-owner-kpi-value">
-                            {counts.Approved}
-                        </strong>
-                    </div>
-                </article>
-
-                <article className="admin-owner-kpi-card is-rejected">
-                    <div className="admin-owner-kpi-icon">
-                        <AdminIcon name="close" size={18} />
-                    </div>
-                    <div className="admin-owner-kpi-meta">
-                        <span className="admin-owner-kpi-label">
-                            {isVi ? "Hồ sơ bị từ chối" : "Rejected"}
-                        </span>
-                        <strong className="admin-owner-kpi-value">
-                            {counts.Rejected}
-                        </strong>
-                    </div>
-                </article>
-            </section>
 
             {/* 3. Error Banner */}
             {errorMsg && (
@@ -467,18 +441,18 @@ export function AdminOwnerApplicationsPage() {
                 </div>
             )}
 
-            {/* 4. Status Tabs & Search/Filter Toolbar */}
+            {/* 2. Unified Smartbase Data Grid Shell */}
             <section
-                className="admin-toolbar-card admin-owner-toolbar-card"
+                className="admin-card admin-datagrid-card admin-table-card admin-owner-table-card"
                 aria-label={
                     isVi
-                        ? "Thanh tìm kiếm và lọc hồ sơ chủ bãi"
-                        : "Search and filter owner applications"
+                        ? "Bảng dữ liệu và thanh công cụ duyệt hồ sơ chủ bãi"
+                        : "Owner applications data grid and toolbar"
                 }
             >
-                <div className="admin-toolbar-top">
+                <div className="admin-datagrid-status-bar">
                     <div
-                        className="admin-tabs admin-status-tabs"
+                        className="admin-tabs admin-status-tabs admin-datagrid-view-tabs admin-owner-status-tabs"
                         role="tablist"
                     >
                         {tabs.map((tab) => {
@@ -519,7 +493,7 @@ export function AdminOwnerApplicationsPage() {
                         })}
                     </div>
 
-                    <span className="admin-toolbar-result-badge">
+                    <span className="admin-datagrid-result-count admin-owner-result-badge">
                         {isVi ? (
                             <>
                                 Đang hiển thị <strong>{filtered.length}</strong>{" "}
@@ -534,12 +508,12 @@ export function AdminOwnerApplicationsPage() {
                     </span>
                 </div>
 
-                <div className="admin-toolbar-controls">
+                <div className="admin-datagrid-toolbar-row1">
                     <label
-                        className="admin-search admin-toolbar-search admin-owner-search"
+                        className="admin-search admin-toolbar-search admin-datagrid-search admin-owner-search"
                         htmlFor="owner-apps-search"
                     >
-                        <AdminIcon name="search" size={16} />
+                        <AdminIcon name="search" size={15} />
                         <input
                             id="owner-apps-search"
                             type="search"
@@ -561,8 +535,8 @@ export function AdminOwnerApplicationsPage() {
                         )}
                     </label>
 
-                    <div className="admin-toolbar-filters">
-                        <div className="admin-filter-group">
+                    <div className="admin-toolbar-filters admin-owner-toolbar-filters">
+                        <div className="admin-filter-group admin-owner-sort-group">
                             <AdminIcon name="sort" size={14} />
                             <select
                                 className="admin-select admin-toolbar-select"
@@ -596,24 +570,11 @@ export function AdminOwnerApplicationsPage() {
                                 </option>
                             </select>
                         </div>
-
-                        {hasActiveFilters && (
-                            <button
-                                type="button"
-                                className="admin-btn admin-btn-ghost admin-clear-filter-btn"
-                                onClick={handleClearFilters}
-                            >
-                                <AdminIcon name="close" size={14} />
-                                <span>
-                                    {isVi ? "Xóa bộ lọc" : "Clear filters"}
-                                </span>
-                            </button>
-                        )}
                     </div>
                 </div>
 
                 {hasActiveFilters && (
-                    <div className="admin-toolbar-summary">
+                    <div className="admin-toolbar-summary admin-owner-toolbar-summary">
                         <span>
                             {isVi ? (
                                 <>
@@ -632,10 +593,6 @@ export function AdminOwnerApplicationsPage() {
                         </span>
                     </div>
                 )}
-            </section>
-
-            {/* 5. Applications Data Table */}
-            <section className="admin-card admin-table-card">
                 <div className="admin-table-scroll">
                     <table className="admin-table admin-owner-table">
                         <thead>
@@ -791,7 +748,7 @@ export function AdminOwnerApplicationsPage() {
                                                 >
                                                     <AdminIcon
                                                         name="file"
-                                                        size={14}
+                                                        size={13}
                                                     />
                                                     <span>
                                                         {t(
@@ -816,11 +773,12 @@ export function AdminOwnerApplicationsPage() {
                                         </td>
 
                                         {/* 7.4 Submitted Date */}
-                                        <td className="admin-lot-cell-date">
+                                        <td className="admin-lot-cell-date admin-owner-date-cell">
                                             {app.createdAtUtc ? (
                                                 <span className="admin-owner-date">
-                                                    {formatDate(
+                                                    {formatOwnerSubmittedDate(
                                                         app.createdAtUtc,
+                                                        isVi,
                                                     )}
                                                 </span>
                                             ) : (
@@ -831,18 +789,18 @@ export function AdminOwnerApplicationsPage() {
                                         </td>
 
                                         {/* 7.5 Status */}
-                                        <td className="admin-lot-cell-status">
+                                        <td className="admin-lot-cell-status admin-owner-status-cell">
                                             <StatusPill status={app.status} />
                                         </td>
 
                                         {/* 7.6 Actions */}
-                                        <td className="admin-table-action">
-                                            <div className="admin-row-actions">
+                                        <td className="admin-table-action admin-owner-action-cell">
+                                            <div className="admin-row-actions admin-owner-row-actions">
                                                 {app.status === "Pending" ? (
                                                     <>
                                                         <button
                                                             type="button"
-                                                            className="admin-btn admin-btn-sm admin-btn-lime"
+                                                            className="admin-btn admin-btn-sm admin-btn-lime admin-owner-action-btn"
                                                             title={t(
                                                                 "ownerAppsVerifyAndApprove",
                                                             )}
@@ -858,7 +816,7 @@ export function AdminOwnerApplicationsPage() {
                                                         >
                                                             <AdminIcon
                                                                 name="check"
-                                                                size={14}
+                                                                size={13}
                                                             />
                                                             <span>
                                                                 {t(
@@ -868,7 +826,7 @@ export function AdminOwnerApplicationsPage() {
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className="admin-btn admin-btn-sm admin-btn-danger-ghost"
+                                                            className="admin-btn admin-btn-sm admin-btn-danger-ghost admin-owner-action-btn"
                                                             disabled={
                                                                 actionBusy
                                                             }
@@ -881,7 +839,7 @@ export function AdminOwnerApplicationsPage() {
                                                         >
                                                             <AdminIcon
                                                                 name="close"
-                                                                size={14}
+                                                                size={13}
                                                             />
                                                             <span>
                                                                 {t(
@@ -893,7 +851,7 @@ export function AdminOwnerApplicationsPage() {
                                                 ) : (
                                                     <button
                                                         type="button"
-                                                        className="admin-btn admin-btn-sm admin-btn-ghost"
+                                                        className="admin-btn admin-btn-sm admin-btn-ghost admin-owner-action-btn"
                                                         onClick={() =>
                                                             openReviewModal(
                                                                 app,
@@ -903,7 +861,7 @@ export function AdminOwnerApplicationsPage() {
                                                     >
                                                         <AdminIcon
                                                             name="eye"
-                                                            size={14}
+                                                            size={13}
                                                         />
                                                         <span>
                                                             {t("details")}

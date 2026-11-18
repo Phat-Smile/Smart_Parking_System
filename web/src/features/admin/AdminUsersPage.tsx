@@ -10,7 +10,6 @@ import {
 import { AdminIcon, formatDate } from "./AdminUi";
 import {
     activateAccount,
-    changeAccountRole,
     describeAccountError,
     searchAccounts,
     suspendAccount,
@@ -24,7 +23,6 @@ import { useLanguage } from "@/shared/i18n/LanguageContext";
 const roles: AccountRole[] = [
     "Customer",
     "ParkingLotOwner",
-    "Staff",
     "SystemAdmin",
 ];
 
@@ -38,9 +36,8 @@ const statuses: AccountStatus[] = [
 const PAGE_SIZE = 20;
 
 interface PendingConfirmAction {
-    type: "suspend" | "activate" | "unlock" | "role";
+    type: "suspend" | "activate" | "unlock";
     account: AccountSummary;
-    newRole?: AccountRole;
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -50,6 +47,24 @@ function getInitials(name?: string | null, email?: string | null): string {
         return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
     }
     return source.slice(0, 2).toUpperCase();
+}
+
+function formatUserCreatedAt(
+    iso: string | null | undefined,
+    isVi: boolean,
+): string {
+    if (!iso) return "—";
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "—";
+    if (isVi) {
+        const day = String(dt.getDate()).padStart(2, "0");
+        const month = String(dt.getMonth() + 1).padStart(2, "0");
+        const year = dt.getFullYear();
+        const hours = String(dt.getHours()).padStart(2, "0");
+        const minutes = String(dt.getMinutes()).padStart(2, "0");
+        return `${day}/${month}/${year} · ${hours}:${minutes}`;
+    }
+    return formatDate(iso);
 }
 
 /** Only actions Identity actually exposes: list, suspend, activate, unlock, change role. */
@@ -232,38 +247,9 @@ export function AdminUsersPage() {
         }
     }
 
-    async function updateRole(account: AccountSummary, newRole: AccountRole) {
-        if (newRole === account.role) return;
-        setBusyId(account.id);
-        setMessage(null);
-        try {
-            await changeAccountRole(account.id, newRole);
-            setMessage({
-                kind: "ok",
-                text: isVi
-                    ? `${account.email}: Đã cập nhật vai trò thành ${roleDisplay[newRole]}.`
-                    : `${account.email}: role changed to ${roleDisplay[newRole]}.`,
-            });
-            setPendingAction(null);
-        } catch (error) {
-            setMessage({
-                kind: "error",
-                text: describeAccountError(error, language),
-            });
-            setPendingAction(null);
-        } finally {
-            setBusyId("");
-            await client.invalidateQueries({ queryKey: ["admin-accounts"] });
-        }
-    }
-
     async function handleConfirmPendingAction() {
         if (!pendingAction) return;
-        if (pendingAction.type === "role" && pendingAction.newRole) {
-            await updateRole(pendingAction.account, pendingAction.newRole);
-        } else if (pendingAction.type !== "role") {
-            await run(pendingAction.account, pendingAction.type);
-        }
+        await run(pendingAction.account, pendingAction.type);
     }
 
     const rangeStart =
@@ -492,18 +478,6 @@ export function AdminUsersPage() {
                                 ))}
                             </select>
                         </div>
-
-                        {hasActiveFilters && (
-                            <button
-                                type="button"
-                                className="admin-btn admin-btn-ghost admin-clear-filter-btn"
-                                onClick={handleClearFilters}
-                            >
-                                <span>
-                                    {isVi ? "Xóa bộ lọc" : "Clear filters"}
-                                </span>
-                            </button>
-                        )}
                     </div>
                 </div>
 
@@ -734,63 +708,6 @@ export function AdminUsersPage() {
                                                                 }
                                                             </span>
                                                         </span>
-                                                        {!self ? (
-                                                            <select
-                                                                className="admin-select admin-select-sm admin-users-role-select"
-                                                                value={
-                                                                    account.role
-                                                                }
-                                                                disabled={
-                                                                    isRowBusy
-                                                                }
-                                                                onChange={(
-                                                                    e,
-                                                                ) => {
-                                                                    const nextRole =
-                                                                        e.target
-                                                                            .value as AccountRole;
-                                                                    if (
-                                                                        nextRole !==
-                                                                        account.role
-                                                                    ) {
-                                                                        setPendingAction(
-                                                                            {
-                                                                                type: "role",
-                                                                                account,
-                                                                                newRole:
-                                                                                    nextRole,
-                                                                            },
-                                                                        );
-                                                                    }
-                                                                }}
-                                                                aria-label={`Change role for ${account.email}`}
-                                                            >
-                                                                {roles.map(
-                                                                    (r) => (
-                                                                        <option
-                                                                            key={
-                                                                                r
-                                                                            }
-                                                                            value={
-                                                                                r
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                roleDisplay[
-                                                                                    r
-                                                                                ]
-                                                                            }
-                                                                        </option>
-                                                                    ),
-                                                                )}
-                                                            </select>
-                                                        ) : (
-                                                            <span className="admin-users-role-select is-self-locked">
-                                                                {isVi
-                                                                    ? "Mặc định (Bạn)"
-                                                                    : "Locked (You)"}
-                                                            </span>
-                                                        )}
                                                     </div>
                                                 </td>
 
@@ -828,8 +745,9 @@ export function AdminUsersPage() {
                                                     )}
                                                 >
                                                     <span className="admin-users-date">
-                                                        {formatDate(
+                                                        {formatUserCreatedAt(
                                                             account.createdAtUtc,
+                                                            isVi,
                                                         )}
                                                     </span>
                                                 </td>
@@ -845,7 +763,7 @@ export function AdminUsersPage() {
                                                         {account.isLocked && (
                                                             <button
                                                                 type="button"
-                                                                className="admin-btn admin-btn-ghost admin-btn-xs"
+                                                                className="admin-btn admin-btn-ghost admin-btn-xs admin-users-action-btn"
                                                                 disabled={
                                                                     isRowBusy
                                                                 }
@@ -857,10 +775,19 @@ export function AdminUsersPage() {
                                                                         },
                                                                     )
                                                                 }
-                                                            >
-                                                                {t(
+                                                                title={t(
                                                                     "adminUsersUnlock",
                                                                 )}
+                                                            >
+                                                                <AdminIcon
+                                                                    name="key"
+                                                                    size={13}
+                                                                />
+                                                                <span>
+                                                                    {t(
+                                                                        "adminUsersUnlock",
+                                                                    )}
+                                                                </span>
                                                             </button>
                                                         )}
                                                         {!self &&
@@ -869,7 +796,7 @@ export function AdminUsersPage() {
                                                                 "EmailVerified" && (
                                                                 <button
                                                                     type="button"
-                                                                    className="admin-btn admin-btn-danger-ghost admin-btn-xs"
+                                                                    className="admin-btn admin-btn-danger-ghost admin-btn-xs admin-users-action-btn"
                                                                     disabled={
                                                                         isRowBusy
                                                                     }
@@ -881,10 +808,19 @@ export function AdminUsersPage() {
                                                                             },
                                                                         )
                                                                     }
-                                                                >
-                                                                    {t(
+                                                                    title={t(
                                                                         "adminUsersSuspend",
                                                                     )}
+                                                                >
+                                                                    <AdminIcon
+                                                                        name="close"
+                                                                        size={13}
+                                                                    />
+                                                                    <span>
+                                                                        {t(
+                                                                            "adminUsersSuspend",
+                                                                        )}
+                                                                    </span>
                                                                 </button>
                                                             )}
                                                         {!self &&
@@ -892,7 +828,7 @@ export function AdminUsersPage() {
                                                                 "Suspended" && (
                                                                 <button
                                                                     type="button"
-                                                                    className="admin-btn admin-btn-lime admin-btn-xs"
+                                                                    className="admin-btn admin-btn-lime admin-btn-xs admin-users-action-btn"
                                                                     disabled={
                                                                         isRowBusy
                                                                     }
@@ -904,10 +840,19 @@ export function AdminUsersPage() {
                                                                             },
                                                                         )
                                                                     }
-                                                                >
-                                                                    {t(
+                                                                    title={t(
                                                                         "adminUsersActivate",
                                                                     )}
+                                                                >
+                                                                    <AdminIcon
+                                                                        name="check"
+                                                                        size={13}
+                                                                    />
+                                                                    <span>
+                                                                        {t(
+                                                                            "adminUsersActivate",
+                                                                        )}
+                                                                    </span>
                                                                 </button>
                                                             )}
                                                         {self && (
@@ -1045,13 +990,9 @@ export function AdminUsersPage() {
                                   ? isVi
                                       ? "Xác nhận kích hoạt tài khoản"
                                       : "Confirm Account Activation"
-                                  : pendingAction.type === "unlock"
-                                    ? isVi
-                                        ? "Xác nhận mở khóa đăng nhập"
-                                        : "Confirm Account Unlock"
-                                    : isVi
-                                      ? "Xác nhận thay đổi vai trò"
-                                      : "Confirm Role Change"}
+                                  : isVi
+                                    ? "Xác nhận mở khóa đăng nhập"
+                                    : "Confirm Account Unlock"}
                         </h2>
 
                         <p className="admin-owner-reject-desc">
@@ -1063,13 +1004,9 @@ export function AdminUsersPage() {
                                   ? isVi
                                       ? "Khôi phục quyền truy cập bình thường cho tài khoản này trên hệ thống ParkWise."
                                       : "Restore normal system access for this account."
-                                  : pendingAction.type === "unlock"
-                                    ? isVi
-                                        ? "Gỡ bỏ trạng thái khóa tạm thời do đăng nhập sai nhiều lần cho tài khoản này."
-                                        : "Clear the temporary login lockout for this account."
-                                    : isVi
-                                      ? `Bạn đang thay đổi vai trò của tài khoản từ "${roleDisplay[pendingAction.account.role]}" sang "${roleDisplay[pendingAction.newRole ?? pendingAction.account.role]}".`
-                                      : `You are changing this account's role from "${roleDisplay[pendingAction.account.role]}" to "${roleDisplay[pendingAction.newRole ?? pendingAction.account.role]}".`}
+                                  : isVi
+                                    ? "Gỡ bỏ trạng thái khóa tạm thời do đăng nhập sai nhiều lần cho tài khoản này."
+                                    : "Clear the temporary login lockout for this account."}
                         </p>
 
                         <div className="admin-owner-reject-summary">
@@ -1088,7 +1025,7 @@ export function AdminUsersPage() {
                             </div>
                             <div>
                                 <span>
-                                    {isVi ? "Vai trò hiện tại" : "Current Role"}
+                                    {isVi ? "Vai trò" : "Role"}
                                 </span>
                                 <strong>
                                     {roleDisplay[pendingAction.account.role]}
@@ -1105,9 +1042,7 @@ export function AdminUsersPage() {
                                         ? t("adminUsersSuspend")
                                         : pendingAction.type === "activate"
                                           ? t("adminUsersActivate")
-                                          : pendingAction.type === "unlock"
-                                            ? t("adminUsersUnlock")
-                                            : `${roleDisplay[pendingAction.account.role]} → ${roleDisplay[pendingAction.newRole ?? pendingAction.account.role]}`}
+                                          : t("adminUsersUnlock")}
                                 </strong>
                             </div>
                         </div>

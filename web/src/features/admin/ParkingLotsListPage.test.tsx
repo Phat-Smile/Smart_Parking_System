@@ -123,9 +123,11 @@ describe("ParkingLotsListPage — UI/UX & 4 Distinct States", () => {
             screen.getByText("Bãi xe Sân bay Tân Sơn Nhất"),
         ).toBeInTheDocument();
 
-        // Clear filter button restores full list
-        const clearBtn = screen.getByRole("button", { name: /Xóa bộ lọc/i });
-        await user.click(clearBtn);
+        // Removing search chip restores full list
+        const removeSearchChip = screen.getByRole("button", {
+            name: /Gỡ từ khóa tìm kiếm/i,
+        });
+        await user.click(removeSearchChip);
 
         expect(screen.getByText("Bãi xe Trung tâm Quận 1")).toBeInTheDocument();
     });
@@ -251,9 +253,10 @@ describe("ParkingLotsListPage — UI/UX & 4 Distinct States", () => {
         // Raw GPS coordinates are not rendered directly as text inside the table cell
         expect(screen.queryByText(/10\.7765/)).not.toBeInTheDocument();
 
-        // Missing ownerUserId, submittedAtUtc, totalCapacity display "Chưa cập nhật" instead of "-"
-        const notUpdatedCells = screen.getAllByText("Chưa cập nhật");
-        expect(notUpdatedCells.length).toBeGreaterThanOrEqual(6);
+        // Missing ownerUserId, submittedAtUtc, totalCapacity display "—" without repeating "Chưa cập nhật"
+        expect(screen.queryByText("Chưa cập nhật")).not.toBeInTheDocument();
+        const dashCells = screen.getAllByText("—");
+        expect(dashCells.length).toBeGreaterThanOrEqual(6);
 
         // Action "Xem" is rendered for Approved lots (staff assignment belongs to Owner portal)
         expect(
@@ -261,5 +264,79 @@ describe("ParkingLotsListPage — UI/UX & 4 Distinct States", () => {
         ).not.toBeInTheDocument();
         const viewLinks = screen.getAllByRole("link", { name: /^Xem$/i });
         expect(viewLinks).toHaveLength(2);
+    });
+
+    it("supports Smartbase Add Filter (+ Thêm bộ lọc), active filter chips removal, and Column Visibility toggle (Cột hiển thị)", async () => {
+        mockGetAdminParkingLots.mockResolvedValueOnce(samplePendingLots);
+        const user = userEvent.setup();
+
+        renderPage("all");
+
+        expect(
+            await screen.findByText("Bãi xe Trung tâm Quận 1"),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText("Bãi xe Sân bay Tân Sơn Nhất"),
+        ).toBeInTheDocument();
+
+        // 1. Open "+ Thêm bộ lọc" and select "Tên bãi xe" to reveal its input
+        const addFilterBtn = screen.getByRole("button", {
+            name: /\+ Thêm bộ lọc/i,
+        });
+        await user.click(addFilterBtn);
+
+        const nameFieldBtn = screen.getByRole("button", {
+            name: /^Tên bãi xe$/i,
+        });
+        await user.click(nameFieldBtn);
+
+        const nameFilterInput = screen.getByPlaceholderText(
+            /Nhập tên bãi xe/i,
+        );
+        await user.type(nameFilterInput, "Quận 1");
+
+        // Only Quận 1 lot remains
+        expect(
+            screen.getByText("Bãi xe Trung tâm Quận 1"),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText("Bãi xe Sân bay Tân Sơn Nhất"),
+        ).not.toBeInTheDocument();
+
+        // Remove the active name filter chip
+        const removeNameChipBtn = screen.getByRole("button", {
+            name: /Gỡ lọc tên bãi xe/i,
+        });
+        await user.click(removeNameChipBtn);
+
+        expect(
+            screen.getByText("Bãi xe Sân bay Tân Sơn Nhất"),
+        ).toBeInTheDocument();
+
+        // 2. Toggle column visibility via "Cột hiển thị"
+        const columnsBtn = screen.getByRole("button", {
+            name: /Cột hiển thị/i,
+        });
+        await user.click(columnsBtn);
+
+        // Hide "Địa chỉ" column
+        const addressColCheckbox = screen.getByRole("checkbox", {
+            name: /Địa chỉ/i,
+        });
+        await user.click(addressColCheckbox);
+
+        expect(
+            screen.queryByText("123 Lê Lợi, Quận 1, TP.HCM"),
+        ).not.toBeInTheDocument();
+
+        // Reset all columns via "Hiện tất cả"
+        const resetColsBtn = screen.getByRole("button", {
+            name: /Hiện tất cả/i,
+        });
+        await user.click(resetColsBtn);
+
+        expect(
+            screen.getByText("123 Lê Lợi, Quận 1, TP.HCM"),
+        ).toBeInTheDocument();
     });
 });
