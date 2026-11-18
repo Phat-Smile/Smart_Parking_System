@@ -1,16 +1,21 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Booking.Application.Payments;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Domain.Reservations;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
+using ParkingSystem.Contracts.Events.Booking;
 
 namespace ParkingSystem.Booking.Application.Reservations.Commands.HandleSlotStatusChanged;
 
 public sealed class HandleSlotStatusChangedCommandHandler(
     IReservationRepository reservationRepository,
+    IReservationPaymentClient paymentClient,
     IClock clock,
-    ILogger<HandleSlotStatusChangedCommandHandler> logger)
+    ILogger<HandleSlotStatusChangedCommandHandler> logger,
+    IOutboxWriter outbox)
     : IRequestHandler<HandleSlotStatusChangedCommand, Result<SlotStatusChangedOutcomeDto>>
 {
     private static readonly HashSet<string> DisruptiveStatuses = new(StringComparer.OrdinalIgnoreCase)
@@ -62,6 +67,7 @@ public sealed class HandleSlotStatusChangedCommandHandler(
 
         var now = clock.UtcNow;
         var cancelledCount = 0;
+        bool? refundSucceeded = null;
 
         // When a slot is disabled, cancel temporary holds first before confirmed reservations
         var candidates = activeReservations
@@ -74,16 +80,93 @@ public sealed class HandleSlotStatusChangedCommandHandler(
         {
             try
             {
-                var outcome = reservation.PrepaidAmount > 0 ? PrepaidOutcome.Refunded : (PrepaidOutcome?)null;
-                reservation.Cancel(now, CancelReason.NoSuitableSlot, outcome);
-                cancelledCount++;
+                if (reservation.Status == ReservationStatus.Confirmed)
+                {
+                    reservation.CancelForNoSuitableSlot(now);
 
-                logger.LogWarning(
-                    "Reservation {ReservationId} cancelled automatically because slot {SlotCode} entered {EffectiveStatus}. Prepaid outcome: {Outcome}.",
-                    reservation.Id,
-                    request.SlotCode,
-                    request.EffectiveStatus,
-                    outcome);
+                    outbox.Enqueue(
+                        new ReservationCancelledIntegrationEvent(
+                            reservation.Id,
+                            reservation.UserId,
+                            reservation.LotId,
+                            CancelReason.NoSuitableSlot.ToString(),
+                            reservation.PrepaidAmount,
+                            now,
+                            forfeitedAmount: 0m),
+                        "booking.reservation-cancelled.v1",
+                        1,
+                        correlationId: reservation.Id);
+
+                    await reservationRepository.SaveChangesAsync(cancellationToken);
+                    cancelledCount++;
+
+                    if (reservation.PrepaidAmount > 0m)
+                    {
+                        refundSucceeded = false;
+                        try
+                        {
+                            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+                            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+                            var refundResult = await paymentClient.RefundAsync(
+                                reservation.Id,
+                                reservation.UserId,
+                                (long)reservation.PrepaidAmount,
+                                "NoSuitableSlot",
+                                linkedCts.Token);
+
+                            if (refundResult.IsSuccess && refundResult.Value == ReservationDebitState.Refunded)
+                            {
+                                reservation.RecordCancellationRefunded();
+                                await reservationRepository.SaveChangesAsync(cancellationToken);
+                                refundSucceeded = true;
+                            }
+                            else
+                            {
+                                logger.LogWarning("Refund call unconfirmed for reservation {ReservationId}: {Error}. Reconciliation worker will finish it.",
+                                    reservation.Id, refundResult.Error?.Message ?? "RefundNotConfirmed");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "Exception calling refund for reservation {ReservationId} due to slot maintenance. Reconciliation worker will finish it.", reservation.Id);
+                        }
+                    }
+
+                    logger.LogWarning(
+                        "Confirmed reservation {ReservationId} cancelled automatically because slot {SlotCode} entered {EffectiveStatus}. Prepaid outcome: {Outcome}.",
+                        reservation.Id,
+                        request.SlotCode,
+                        request.EffectiveStatus,
+                        reservation.PrepaidOutcome);
+                }
+                else
+                {
+                    // TemporaryHold reservation
+                    reservation.Cancel(now, CancelReason.NoSuitableSlot, null);
+
+                    outbox.Enqueue(
+                        new ReservationCancelledIntegrationEvent(
+                            reservation.Id,
+                            reservation.UserId,
+                            reservation.LotId,
+                            CancelReason.NoSuitableSlot.ToString(),
+                            0m,
+                            now,
+                            forfeitedAmount: 0m),
+                        "booking.reservation-cancelled.v1",
+                        1,
+                        correlationId: reservation.Id);
+
+                    await reservationRepository.SaveChangesAsync(cancellationToken);
+                    cancelledCount++;
+
+                    logger.LogWarning(
+                        "TemporaryHold reservation {ReservationId} cancelled automatically because slot {SlotCode} entered {EffectiveStatus}.",
+                        reservation.Id,
+                        request.SlotCode,
+                        request.EffectiveStatus);
+                }
             }
             catch (Exception ex)
             {
@@ -91,10 +174,12 @@ public sealed class HandleSlotStatusChangedCommandHandler(
             }
         }
 
-        if (cancelledCount > 0)
+        string outcomeMessage = refundSucceeded switch
         {
-            await reservationRepository.SaveChangesAsync(cancellationToken);
-        }
+            true => $"Đã tự động xử lý hủy {cancelledCount} lượt giữ chỗ do chỗ đỗ {request.SlotCode} chuyển sang trạng thái {request.EffectiveStatus}. Tiền đã được hoàn về ví.",
+            false => $"Đã tự động xử lý hủy {cancelledCount} lượt giữ chỗ do chỗ đỗ {request.SlotCode} chuyển sang trạng thái {request.EffectiveStatus}. Tiền hoàn đang được xử lý.",
+            _ => $"Đã tự động xử lý hủy {cancelledCount} lượt giữ chỗ do chỗ đỗ {request.SlotCode} chuyển sang trạng thái {request.EffectiveStatus}."
+        };
 
         return Result<SlotStatusChangedOutcomeDto>.Success(new SlotStatusChangedOutcomeDto(
             request.LotId,
@@ -102,6 +187,6 @@ public sealed class HandleSlotStatusChangedCommandHandler(
             request.SlotCode,
             request.EffectiveStatus,
             cancelledCount,
-            $"Đã tự động xử lý hủy {cancelledCount} lượt giữ chỗ do chỗ đỗ {request.SlotCode} chuyển sang trạng thái {request.EffectiveStatus}."));
+            outcomeMessage));
     }
 }

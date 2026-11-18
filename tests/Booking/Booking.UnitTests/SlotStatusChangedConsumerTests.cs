@@ -4,6 +4,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Booking.Application.Payments;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Application.Reservations.Commands.HandleSlotStatusChanged;
 using ParkingSystem.Booking.Domain.Reservations;
@@ -22,6 +24,33 @@ public sealed class SlotStatusChangedConsumerTests
     private sealed class FakeClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow => now;
+    }
+
+    private sealed class FakeReservationPaymentClient : IReservationPaymentClient
+    {
+        public List<(Guid ReservationId, Guid AccountId, long AmountVnd, string Reason)> RefundCalls { get; } = [];
+        public Result<ReservationDebitState> RefundResultToReturn { get; set; } = Result<ReservationDebitState>.Success(ReservationDebitState.Refunded);
+
+        public Task<Result<ReservationDebitResult>> DebitAsync(Guid reservationId, Guid accountId, Guid lotId, long amountVnd, PrepaymentPurpose purpose = PrepaymentPurpose.Deposit, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ReservationDebitResult>.Failure(ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ReservationDebitState>> GetDebitStateAsync(Guid reservationId, Guid accountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<ReservationDebitState>.Failure(ReservationPaymentErrors.Unavailable));
+
+        public Task<Result<ReservationDebitState>> RefundAsync(Guid reservationId, Guid accountId, long amountVnd, string reason, CancellationToken cancellationToken = default)
+        {
+            RefundCalls.Add((reservationId, accountId, amountVnd, reason));
+            return Task.FromResult(RefundResultToReturn);
+        }
+    }
+
+    private sealed class RecordingOutbox : IOutboxWriter
+    {
+        public List<object> Events { get; } = [];
+
+        public void Enqueue<TEvent>(TEvent integrationEvent, string eventType, int eventVersion,
+            Guid? correlationId = null, Guid? causationId = null) where TEvent : class =>
+            Events.Add(integrationEvent);
     }
 
     private sealed class InMemoryReservationRepository : IReservationRepository
@@ -103,8 +132,10 @@ public sealed class SlotStatusChangedConsumerTests
 
         var handler = new HandleSlotStatusChangedCommandHandler(
             repo,
+            new FakeReservationPaymentClient(),
             new FakeClock(FixedNow),
-            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance);
+            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance,
+            new RecordingOutbox());
 
         var command = new HandleSlotStatusChangedCommand(
             lotId,
@@ -137,8 +168,10 @@ public sealed class SlotStatusChangedConsumerTests
 
         var handler = new HandleSlotStatusChangedCommandHandler(
             repo,
+            new FakeReservationPaymentClient(),
             new FakeClock(FixedNow),
-            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance);
+            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance,
+            new RecordingOutbox());
 
         var command = new HandleSlotStatusChangedCommand(
             lotId,
@@ -171,8 +204,10 @@ public sealed class SlotStatusChangedConsumerTests
 
         var handler = new HandleSlotStatusChangedCommandHandler(
             repo,
+            new FakeReservationPaymentClient(),
             new FakeClock(FixedNow),
-            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance);
+            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance,
+            new RecordingOutbox());
 
         var command = new HandleSlotStatusChangedCommand(
             lotId,
@@ -201,8 +236,10 @@ public sealed class SlotStatusChangedConsumerTests
 
         var handler = new HandleSlotStatusChangedCommandHandler(
             repo,
+            new FakeReservationPaymentClient(),
             new FakeClock(FixedNow),
-            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance);
+            NullLogger<HandleSlotStatusChangedCommandHandler>.Instance,
+            new RecordingOutbox());
 
         var command = new HandleSlotStatusChangedCommand(
             lotId,
