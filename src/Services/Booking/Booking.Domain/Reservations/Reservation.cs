@@ -232,6 +232,21 @@ public sealed class Reservation
     PrepaidOutcome = prepaidOutcome;
     }
 
+    public void CancelForNoSuitableSlot(DateTimeOffset now)
+    {
+        if (Status != ReservationStatus.Confirmed)
+        {
+            throw new ReservationDomainException(
+                $"Only confirmed reservations can be cancelled due to no suitable slot. Current status: '{Status}'.");
+        }
+
+        TransitionTo(ReservationStatus.Cancelled);
+        CancelledAt = now.ToUniversalTime();
+        CancelReason = Reservations.CancelReason.NoSuitableSlot;
+        IsNoShow = false;
+        PrepaidOutcome = null;
+    }
+
     public void Expire()
     {
         TransitionTo(ReservationStatus.Expired);
@@ -251,11 +266,12 @@ public sealed class Reservation
     public void RecordCancellationRefunded()
     {
         if (Status != ReservationStatus.Cancelled ||
-            CancelReason != Reservations.CancelReason.CustomerCancelled ||
+            (CancelReason != Reservations.CancelReason.CustomerCancelled &&
+             CancelReason != Reservations.CancelReason.NoSuitableSlot) ||
             PrepaidOutcome != null)
         {
             throw new ReservationDomainException(
-                "Cannot record cancellation refund on a reservation that is not cancelled by customer with pending prepaid outcome.");
+                "Cannot record cancellation refund on a reservation that is not cancelled by customer or no suitable slot with pending prepaid outcome.");
         }
 
         PrepaidOutcome = Reservations.PrepaidOutcome.Refunded;

@@ -80,18 +80,23 @@ public sealed class ReservationPaymentReconciliationWorker(
                     continue;
                 }
 
-                // Candidate set 2: Cancelled confirmed reservation with pending refund (US-RES-006)
+                // Candidate set 2: Cancelled confirmed reservation with pending refund (US-RES-006 / US-RES-009)
                 if (candidate.Status == ReservationStatus.Cancelled &&
-                    candidate.CancelReason == CancelReason.CustomerCancelled &&
+                    (candidate.CancelReason == CancelReason.CustomerCancelled ||
+                     candidate.CancelReason == CancelReason.NoSuitableSlot) &&
                     candidate.ConfirmedAt != null &&
                     candidate.PrepaidAmount > 0m &&
                     candidate.PrepaidOutcome == null)
                 {
+                    var reason = candidate.CancelReason == CancelReason.NoSuitableSlot
+                        ? "NoSuitableSlot"
+                        : "CustomerCancelled";
+
                     var refundResult = await paymentClient.RefundAsync(
                         candidate.Id,
                         candidate.UserId,
                         (long)candidate.PrepaidAmount,
-                        "CustomerCancelled",
+                        reason,
                         cancellationToken);
 
                     if (refundResult.IsSuccess && refundResult.Value == ReservationDebitState.Refunded)
