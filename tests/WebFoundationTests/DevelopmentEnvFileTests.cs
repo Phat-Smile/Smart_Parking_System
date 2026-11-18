@@ -45,6 +45,22 @@ public sealed class DevelopmentEnvFileTests : IDisposable
     }
 
     [Fact]
+    public void Shared_database_overrides_local_postgres_values()
+    {
+        File.AppendAllText(Path.Combine(root, ".env"), "\nDATABASE_CONNECTION_STRING=Host=shared.example.test;Database=postgres;SSL Mode=VerifyFull\n");
+        var configuration = Build("Development");
+        Assert.Equal("Host=shared.example.test;Database=postgres;SSL Mode=VerifyFull", configuration["ConnectionStrings:DefaultConnection"]);
+    }
+
+    [Fact]
+    public void Existing_configuration_wins_over_shared_database_from_env_file()
+    {
+        File.AppendAllText(Path.Combine(root, ".env"), "\nDATABASE_CONNECTION_STRING=Host=shared.example.test;Database=postgres\n");
+        var configuration = Build("Development", new Dictionary<string, string?> { ["ConnectionStrings:DefaultConnection"] = "from-process" });
+        Assert.Equal("from-process", configuration["ConnectionStrings:DefaultConnection"]);
+    }
+
+    [Fact]
     public void Values_already_configured_win_over_the_env_file()
     {
         var configuration = Build("Development", new Dictionary<string, string?>

@@ -21,7 +21,7 @@ x-dotnet-service: &dotnet-service
   restart: unless-stopped
 
 x-default-database-connection: &default-database-connection >-
-  Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-parking_system};Username=${POSTGRES_USER:-parking_dev};Password=${POSTGRES_PASSWORD:-parking_dev_local_only};GSS Encryption Mode=Disable
+  ${DATABASE_CONNECTION_STRING:-Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-parking_system};Username=${POSTGRES_USER:-parking_dev};Password=${POSTGRES_PASSWORD:-parking_dev_local_only};GSS Encryption Mode=Disable}
 
 services:
   postgres:
@@ -168,6 +168,7 @@ services:
     <<: *dotnet-service
     volumes:
       - parking_dataprotection_keys:/var/parking-system/dataprotection-keys
+      - ./.local/security/jwt/public.pem:/run/parking-system/security/jwt/public.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
