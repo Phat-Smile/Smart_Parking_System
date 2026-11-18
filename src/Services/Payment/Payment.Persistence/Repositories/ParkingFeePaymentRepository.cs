@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Application.Features.OwnerRevenue.Queries.GetOwnerRevenueSummary;
 using ParkingSystem.Payment.Domain.Constants;
 using ParkingSystem.Payment.Domain.Entities;
 
@@ -91,5 +92,95 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
             .Where(p => (p.SessionId == sessionOrPaymentId || p.Id == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
             .OrderByDescending(p => p.PaymentTimeUtc)
             .FirstOrDefaultAsync(ct);
+    }
+
+    // Lấy hóa đơn thành công của phiên xe để cập nhật phụ phí quá giờ (BR-09.d)
+    public async Task<ParkingFeePayment?> GetSucceededBySessionIdAsync(Guid sessionId, CancellationToken ct)
+    {
+        return await dbContext.Set<ParkingFeePayment>()
+            .FirstOrDefaultAsync(p => p.SessionId == sessionId && p.Status == PaymentStatus.Succeeded, ct);
+    }
+
+    // Tính toán tổng hợp doanh thu 1 round-trip theo từng mốc thời gian
+    public async Task<OwnerRevenueMetricsResult> GetRevenueMetricsAsync(
+        IReadOnlyList<Guid> lotIds,
+        DateTimeOffset todayStartUtc,
+        DateTimeOffset weekStartUtc,
+        DateTimeOffset monthStartUtc,
+        CancellationToken ct)
+    {
+        var query = dbContext.Set<ParkingFeePayment>()
+            .AsNoTracking()
+            .Where(p => p.Status == PaymentStatus.Succeeded);
+
+        if (lotIds.Count == 1)
+        {
+            var singleLot = lotIds[0];
+            query = query.Where(p => p.ParkingLotId == singleLot);
+        }
+        else if (lotIds.Count > 1)
+        {
+            query = query.Where(p => lotIds.Contains(p.ParkingLotId));
+        }
+
+        var grouped = await query
+            .GroupBy(p => p.PaymentMethod)
+            .Select(g => new
+            {
+                Method = g.Key,
+                TodayAmount = g.Where(x => x.PaymentTimeUtc >= todayStartUtc).Sum(x => (long?)x.AmountPaid) ?? 0L,
+                TodayCount = g.Count(x => x.PaymentTimeUtc >= todayStartUtc),
+                WeekAmount = g.Where(x => x.PaymentTimeUtc >= weekStartUtc).Sum(x => (long?)x.AmountPaid) ?? 0L,
+                WeekCount = g.Count(x => x.PaymentTimeUtc >= weekStartUtc),
+                MonthAmount = g.Where(x => x.PaymentTimeUtc >= monthStartUtc).Sum(x => (long?)x.AmountPaid) ?? 0L,
+                MonthCount = g.Count(x => x.PaymentTimeUtc >= monthStartUtc),
+                AllTimeAmount = g.Sum(x => (long?)x.AmountPaid) ?? 0L,
+                AllTimeCount = g.Count()
+            })
+            .ToListAsync(ct);
+
+        long GetAmount(Func<dynamic, long> selector, string method) =>
+            grouped.Where(x => string.Equals(x.Method, method, StringComparison.OrdinalIgnoreCase))
+                   .Select(selector)
+                   .FirstOrDefault();
+
+        int GetCount(Func<dynamic, int> selector, string method) =>
+            grouped.Where(x => string.Equals(x.Method, method, StringComparison.OrdinalIgnoreCase))
+                   .Select(selector)
+                   .FirstOrDefault();
+
+        RevenuePeriodMetrics BuildMetrics(
+            Func<dynamic, long> amountSelector,
+            Func<dynamic, int> countSelector)
+        {
+            var cashAmt = GetAmount(amountSelector, PaymentMethod.Cash);
+            var vnpayAmt = GetAmount(amountSelector, PaymentMethod.VnPay);
+            var walletAmt = GetAmount(amountSelector, PaymentMethod.Wallet);
+            var onlineAmt = vnpayAmt + walletAmt;
+            var totalAmt = cashAmt + onlineAmt;
+
+            var cashCnt = GetCount(countSelector, PaymentMethod.Cash);
+            var vnpayCnt = GetCount(countSelector, PaymentMethod.VnPay);
+            var walletCnt = GetCount(countSelector, PaymentMethod.Wallet);
+            var onlineCnt = vnpayCnt + walletCnt;
+            var totalCnt = cashCnt + onlineCnt;
+
+            return new RevenuePeriodMetrics(
+                TotalRevenue: totalAmt,
+                CashRevenue: cashAmt,
+                OnlineRevenue: onlineAmt,
+                VnpayRevenue: vnpayAmt,
+                WalletRevenue: walletAmt,
+                ForfeitedDepositRevenue: 0L,
+                TransactionCount: totalCnt,
+                CashTransactionCount: cashCnt,
+                OnlineTransactionCount: onlineCnt);
+        }
+
+        return new OwnerRevenueMetricsResult(
+            Today: BuildMetrics(x => (long)x.TodayAmount, x => (int)x.TodayCount),
+            ThisWeek: BuildMetrics(x => (long)x.WeekAmount, x => (int)x.WeekCount),
+            ThisMonth: BuildMetrics(x => (long)x.MonthAmount, x => (int)x.MonthCount),
+            AllTime: BuildMetrics(x => (long)x.AllTimeAmount, x => (int)x.AllTimeCount));
     }
 }

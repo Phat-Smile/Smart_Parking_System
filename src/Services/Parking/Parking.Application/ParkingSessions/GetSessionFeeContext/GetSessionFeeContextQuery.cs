@@ -18,10 +18,13 @@ public sealed record SessionFeeContext(
     string CustomerType,
     Guid? AccountId,
     Guid? BookingId,
-    SessionPricing Pricing);
+    SessionPricing Pricing,
+    DateTimeOffset? LastPaidAtUtc,
+    DateTimeOffset? ArrivedAtExitUtc,
+    int GracePeriodMinutes);
 
 /// <param name="BlockMinutes">0 when the lot charges per entry.</param>
-public sealed record SessionPricing(Guid PolicyId, string CalculationMethod, int BlockMinutes, long PricePerUnit);
+public sealed record SessionPricing(Guid PolicyId, string CalculationMethod, int BlockMinutes, long PricePerUnit, long OvernightFee);
 
 public static class GetSessionFeeContextErrors
 {
@@ -55,6 +58,10 @@ public sealed class GetSessionFeeContextQueryHandler(IParkingSessionRepository s
             session.CustomerType.ToString(),
             session.UserId,
             session.ReservationId,
-            new SessionPricing(policy.Id, policy.BillingMode, policy.BlockMinutes ?? 0, (long)policy.Price)));
+            new SessionPricing(policy.Id, policy.BillingMode, policy.BlockMinutes ?? 0, (long)policy.Price, (long)policy.OvernightFee),
+            // US-PAY-005: Payment charges the overstay from T + window to the exit arrival (BR-09.d).
+            session.LastPaidAt,
+            session.ExitArrivedAt,
+            (int)session.CurrentExitWindow.TotalMinutes));
     }
 }

@@ -68,10 +68,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (!mounted) return;
         if (!session) {
-            const returnUrl = pathname
-                ? `?returnUrl=${encodeURIComponent(pathname)}`
-                : "";
-            router.replace(`/login${returnUrl}`);
+            router.replace("/login");
             return;
         }
         if (role !== "SystemAdmin") {
@@ -79,7 +76,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             return;
         }
         getAdminParkingLots("All").catch(() => undefined);
-    }, [role, session, pathname, router, mounted]);
+    }, [role, router, mounted, session]);
 
     // Close account dropdown on outside click
     useEffect(() => {
@@ -272,6 +269,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
     )
         .charAt(0)
         .toUpperCase();
+
+    if (!mounted || !session || role !== "SystemAdmin") {
+        return <main aria-live="polite">Checking admin access…</main>;
+    }
 
     return (
         <div

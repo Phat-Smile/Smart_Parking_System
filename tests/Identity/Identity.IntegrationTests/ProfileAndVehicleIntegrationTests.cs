@@ -160,31 +160,16 @@ public sealed class ProfileAndVehicleIntegrationTests(PostgreSqlContainerFixture
     }
 
     [Fact]
-    public async Task Customer_can_register_multiple_bicycles_without_plates()
+    public async Task Customer_cannot_register_bicycles()
     {
         await using var provider = await BuildAsync();
         var accountId = await NewVerifiedAccountAsync(provider);
-        var photo1 = new VehicleDetails(null, null, null, null, null, "red", null, null,
-            $"/api/identity/accounts/me/media/{Guid.NewGuid()}");
-        var photo2 = new VehicleDetails(null, null, null, null, null, "blue", null, null,
-            $"/api/identity/accounts/me/media/{Guid.NewGuid()}");
-        var defaultImage = new VehicleDetails("Giant", "Escape", null, null, null, "green", 2024, "standard",
-            "/images/parkwise/vehicle-bicycle-default.svg");
-
-        var first = await SendAsync(provider, new AddVehicleCommand(accountId, null, "Bicycle", "Bike one", photo1));
-        var second = await SendAsync(provider, new AddVehicleCommand(accountId, null, "Bicycle", "Bike two", photo2));
-        var third = await SendAsync(provider, new AddVehicleCommand(accountId, null, "Bicycle", "City bike", defaultImage));
+        var result = await SendAsync(provider, new AddVehicleCommand(accountId, null, "Bicycle", "City bike"));
         var list = await SendAsync(provider, new GetVehiclesQuery(accountId));
 
-        Assert.True(first.IsSuccess, first.Error?.Message);
-        Assert.True(second.IsSuccess, second.Error?.Message);
-        Assert.True(third.IsSuccess, third.Error?.Message);
-        Assert.Null(first.Value!.LicensePlate);
-        Assert.Equal(3, list.Value!.Vehicles.Count(x => x.VehicleType == "Bicycle"));
-        var saved = list.Value.Vehicles.Single(x => x.VehicleId == third.Value!.VehicleId);
-        Assert.Equal("Giant", saved.Details?.Brand);
-        Assert.Equal("Escape", saved.Details?.Model);
-        Assert.Equal(defaultImage.PhotoUrl, saved.Details?.PhotoUrl);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(AddVehicleErrors.InvalidVehicleType.Code, result.Error!.Code);
+        Assert.Empty(list.Value!.Vehicles);
     }
 
     [Fact]

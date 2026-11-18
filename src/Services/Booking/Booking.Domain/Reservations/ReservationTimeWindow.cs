@@ -11,7 +11,7 @@ namespace ParkingSystem.Booking.Domain.Reservations;
 public static class ReservationTimeWindow
 {
     public const int DefaultLeadTimeMinutes = 30;
-    public const int DefaultGracePeriodMinutes = 15;
+    public const int DefaultGracePeriodMinutes = Reservation.TotalNoShowGracePeriodMinutes;
     public const int DefaultTempHoldDurationMinutes = 10;
     public const int MaxScheduledDurationMinutes = 24 * 60; // 1440 minutes = 24 hours
     public const int MaxScheduledAdvanceDays = 7;

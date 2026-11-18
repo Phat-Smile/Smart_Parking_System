@@ -13,15 +13,15 @@ public sealed class ReservationCapacityGuardDomainTests
     [Fact]
     public void U1_HoldWhileDriving_calculates_correct_windows_with_default_and_custom_lead_grace()
     {
-        // Default lead (30m) & grace (15m): 10:00 -> [09:30, 10:15)
+        // Default lead (30m) & grace (16m): 10:00 -> [09:30, 10:16)
         var defaultWindows = ReservationTimeWindow.CalculateWindows(
             ReservationType.HoldWhileDriving,
             BaseTime,
             durationMinutes: null);
 
         Assert.Equal(BaseTime.AddMinutes(-30), defaultWindows.WindowStartAt);
-        Assert.Equal(BaseTime.AddMinutes(15), defaultWindows.WindowEndAt);
-        Assert.Equal(BaseTime.AddMinutes(15), defaultWindows.HoldEndAt);
+        Assert.Equal(BaseTime.AddMinutes(16), defaultWindows.WindowEndAt);
+        Assert.Equal(BaseTime.AddMinutes(16), defaultWindows.HoldEndAt);
 
         // Custom lead (20m) & grace (10m): 10:00 -> [09:40, 10:10)
         var customWindows = ReservationTimeWindow.CalculateWindows(
@@ -40,7 +40,7 @@ public sealed class ReservationCapacityGuardDomainTests
     public void U1_Scheduled_calculates_distinct_hold_and_ceiling_windows()
     {
         // 10:00 with duration 120m:
-        // Hold window: [09:30, 10:15)
+        // Hold window: [09:30, 10:16)
         // Ceiling check window: [09:30, 12:00)
         var windows = ReservationTimeWindow.CalculateWindows(
             ReservationType.Scheduled,
@@ -49,7 +49,7 @@ public sealed class ReservationCapacityGuardDomainTests
 
         Assert.Equal(BaseTime.AddMinutes(-30), windows.WindowStartAt);
         Assert.Equal(BaseTime.AddMinutes(120), windows.WindowEndAt);
-        Assert.Equal(BaseTime.AddMinutes(15), windows.HoldEndAt);
+        Assert.Equal(BaseTime.AddMinutes(16), windows.HoldEndAt);
 
         // Custom config: lead 45m, grace 20m, duration 180m
         var customWindows = ReservationTimeWindow.CalculateWindows(

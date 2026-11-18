@@ -1,15 +1,16 @@
-"""Internal recommendation API contract (US-AI-001, FR-AI-001, BR-08).
+"""Internal recommendation HTTP API.
 
-Consumes candidate parking lots from Parking Service and returns Top-3 utility-ranked
-recommendations with explainable reasons. Protected by ARRIVAL_API_KEY.
+In prompting mode an LLM selects Top 3 from caller-provided candidates.
+Legacy formula ranking remains available for rollback. Protected by ARRIVAL_API_KEY.
 """
 
 from datetime import datetime
+import os
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.api.arrival_availability import require_service_key
 from app.application.arrival_availability import AvailabilitySnapshot
@@ -17,6 +18,7 @@ from app.application.recommend_lots import (
     CandidateLotDto,
     recommend_parking_lots,
 )
+from app.application.prompting_recommendations import recommend_parking_lots_prompting
 
 
 router = APIRouter(prefix="/internal/ai", tags=["recommendations"])
@@ -38,10 +40,10 @@ class CandidateSnapshotInput(BaseModel):
 
 class CandidateLotRequest(BaseModel):
     lotId: UUID
-    name: str
+    name: str = Field(min_length=1, max_length=160)
     latitude: float = Field(ge=-90.0, le=90.0)
     longitude: float = Field(ge=-180.0, le=180.0)
-    priceForDuration: float = Field(ge=0.0)
+    priceForDuration: float = Field(ge=0.0, allow_inf_nan=False)
     heldQuota: int = Field(default=0, ge=0)
     heldQuotaKnown: bool = Field(default=True)
     snapshots: list[CandidateSnapshotInput] = Field(default_factory=list, max_length=5000)
@@ -53,7 +55,15 @@ class RecommendationRequest(BaseModel):
     vehicleType: Literal["Car", "Motorbike"]
     arrivalAt: datetime
     durationMinutes: int = Field(default=120, ge=15, le=1440)
+    priority: Literal["balanced", "cheapest", "fastest", "availability"] = "balanced"
     candidateLots: list[CandidateLotRequest] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def require_distinct_lot_ids(self):
+        ids = [c.lotId for c in self.candidateLots]
+        if len(ids) != len(set(ids)):
+            raise ValueError("candidateLots must not contain duplicate lotId values")
+        return self
 
     @field_validator("arrivalAt")
     @classmethod
@@ -108,15 +118,32 @@ def get_recommendations(request: RecommendationRequest) -> RecommendationRespons
         for c in request.candidateLots
     ]
 
-    result = recommend_parking_lots(
-        customer_latitude=request.customerLatitude,
-        customer_longitude=request.customerLongitude,
-        vehicle_type=request.vehicleType,
-        arrival_at=request.arrivalAt,
-        duration_minutes=request.durationMinutes,
-        candidates=candidates,
-        top_k=3,
-    )
+    mode = os.getenv("AI_RECOMMENDATION_MODE", "legacy").strip().lower()
+    if mode == "prompting":
+        result = recommend_parking_lots_prompting(
+            customer_latitude=request.customerLatitude,
+            customer_longitude=request.customerLongitude,
+            vehicle_type=request.vehicleType,
+            arrival_at=request.arrivalAt,
+            duration_minutes=request.durationMinutes,
+            candidates=candidates,
+            priority=request.priority,
+        )
+    elif mode == "legacy":
+        result = recommend_parking_lots(
+            customer_latitude=request.customerLatitude,
+            customer_longitude=request.customerLongitude,
+            vehicle_type=request.vehicleType,
+            arrival_at=request.arrivalAt,
+            duration_minutes=request.durationMinutes,
+            candidates=candidates,
+            top_k=3,
+        )
+    else:
+        # Misconfiguration must not silently switch B to deterministic ranking.
+        return RecommendationResponse(
+            recommendedLots=[], fallbackUsed=True, fallbackReason="ai_recommendation_mode_invalid"
+        )
 
     return RecommendationResponse(
         recommendedLots=[

@@ -260,7 +260,7 @@ public sealed class ExitArrivalSecurityTests
         public Task<Result<CompletedParkingSession>> Complete(string plate = Plate, string qr = Qr)
         {
             var handler = new CompleteParkingSessionCommandHandler(
-                Sessions, UnitOfWork, new FakeLotAccess(allowed), Slots, Zones, Outbox, Clock);
+                Sessions, UnitOfWork, new FakeLotAccess(allowed), Slots, Zones, Outbox, new FakeAuditLog(), Clock);
             return handler.Handle(
                 new CompleteParkingSessionCommand(session?.Id ?? Guid.NewGuid(), plate, qr, StaffId),
                 TestContext.Current.CancellationToken);

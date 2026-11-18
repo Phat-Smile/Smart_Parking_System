@@ -77,7 +77,6 @@ const vehicleLabelsVi: Record<string, string> = {
     "Car area": "Khu ô tô",
     "Electric car area": "Khu ô tô điện",
     "Two-wheelers": "Xe hai bánh",
-    "Motorbike or bicycle": "Xe máy hoặc xe đạp",
     "Fuel or electric": "Xăng hoặc điện",
     Nickname: "Tên gợi nhớ",
     "Vehicle Brand": "Hãng xe",
@@ -129,10 +128,7 @@ const VEHICLE_FORM_CATEGORIES = VEHICLE_CATEGORIES.filter(
 ).map((item) => ({
     ...item,
     label: item.value === "motorbike" ? "Two-wheelers" : item.label,
-    description:
-        item.value === "motorbike"
-            ? "Motorbike or bicycle"
-            : "Fuel or electric",
+    description: "Fuel or electric",
 }));
 function categoryInfo(category: VehicleCategory) {
     return VEHICLE_CATEGORIES.find((item) => item.value === category)!;
@@ -497,11 +493,11 @@ function TwoWheelerTypeSelector({
 }: {
     category: VehicleCategory;
     disabled: boolean;
-    onChange: (kind: "motorbike" | "electric-motorbike" | "bicycle") => void;
+    onChange: (kind: "motorbike" | "electric-motorbike") => void;
 }) {
     const { copy } = useCustomerLanguage();
     if (baseCategory(category) !== "motorbike") return null;
-    const options = ["motorbike", "electric-motorbike", "bicycle"] as const;
+    const options = ["motorbike", "electric-motorbike"] as const;
     return (
         <fieldset className="vehicles-size-field vehicles-two-wheeler-field">
             <legend>{copy("Two-wheeler type", "Loại xe hai bánh")}</legend>
@@ -703,13 +699,8 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         setCategory(kind);
         resetVehicleDetails();
     }
-    function chooseTwoWheelerType(
-        kind: "motorbike" | "electric-motorbike" | "bicycle",
-    ) {
+    function chooseTwoWheelerType(kind: "motorbike" | "electric-motorbike") {
         if (category === kind) return;
-        if ((category === "bicycle") !== (kind === "bicycle")) {
-            resetVehicleDetails();
-        }
         setCategory(kind);
         setFuelType(kind === "electric-motorbike" ? "electric" : "");
     }
@@ -749,6 +740,15 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
     async function saveVehicle(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (isSaving) return;
+        if (modal === "add" && category === "bicycle") {
+            setError(
+                copy(
+                    "Bicycles can no longer be added.",
+                    "Không thể thêm xe đạp nữa.",
+                ),
+            );
+            return;
+        }
         const nextPlate = needsPlate(category)
             ? formatPlate(plate, category)
             : "";
@@ -761,21 +761,13 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         );
         const plateCheck = validateVehiclePlate(
             nextPlate,
-            category === "bicycle"
-                ? "Bicycle"
-                : isCarCategory(category)
-                  ? "Car"
-                  : "Motorbike",
+            plateGroup(category),
         );
         if (modal === "add" && !plateCheck.valid) {
             setError(
                 copy(
-                    category === "bicycle"
-                        ? "A bicycle does not use a license plate."
-                        : "Enter a valid Vietnamese civilian plate for this vehicle type.",
-                    category === "bicycle"
-                        ? "Xe đạp không có biển số."
-                        : "Nhập biển số dân sự Việt Nam hợp lệ cho loại xe này.",
+                    "Enter a valid Vietnamese civilian plate for this vehicle type.",
+                    "Nhập biển số dân sự Việt Nam hợp lệ cho loại xe này.",
                 ),
             );
             return;
@@ -832,11 +824,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                     };
                     const saved = await addMyVehicle(
                         nextPlate || null,
-                        category === "bicycle"
-                            ? "Bicycle"
-                            : isCarCategory(category)
-                              ? "Car"
-                              : "Motorbike",
+                        isCarCategory(category) ? "Car" : "Motorbike",
                         nextBrand || null,
                         details,
                     );
@@ -1019,10 +1007,8 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         return (
             <main
                 className={`parkwise-page vehicles-page ${fontClassName}`}
-                aria-live="polite"
-            >
-                {copy("Loading your vehicles...", "Đang tải danh sách xe...")}
-            </main>
+                aria-busy="true"
+            />
         );
     }
 
@@ -1553,15 +1539,10 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                           "Your vehicle photo is ready. Choose another photo to replace it.",
                                                           "Ảnh xe đã sẵn sàng. Chọn ảnh khác để thay thế.",
                                                       )
-                                                    : category === "bicycle"
-                                                      ? copy(
-                                                            "A bicycle illustration will be used if you skip this step.",
-                                                            "Nếu bỏ qua, hệ thống sẽ dùng ảnh minh họa xe đạp.",
-                                                        )
-                                                      : copy(
-                                                            "Add a photo to help you recognize your vehicle.",
-                                                            "Thêm ảnh để dễ nhận ra xe của bạn.",
-                                                        )}
+                                                    : copy(
+                                                          "Add a photo to help you recognize your vehicle.",
+                                                          "Thêm ảnh để dễ nhận ra xe của bạn.",
+                                                      )}
                                             </span>
                                         </span>
                                     </button>
@@ -1717,92 +1698,6 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
                                                 disabled={false}
                                                 onChange={choosePowerSource}
                                             />
-                                            {category === "bicycle" && (
-                                                <div className="vehicles-field-grid vehicles-field-grid--extra">
-                                                    <div className="vehicles-field">
-                                                        <label htmlFor="vehicles-bicycle-brand">
-                                                            {copy(
-                                                                "Brand (Optional)",
-                                                                "Hãng xe (Không bắt buộc)",
-                                                            )}
-                                                        </label>
-                                                        <input
-                                                            id="vehicles-bicycle-brand"
-                                                            value={brand}
-                                                            maxLength={80}
-                                                            onChange={(event) =>
-                                                                setBrand(
-                                                                    event.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className="vehicles-field">
-                                                        <label htmlFor="vehicles-bicycle-model">
-                                                            {copy(
-                                                                "Model (Optional)",
-                                                                "Dòng xe (Không bắt buộc)",
-                                                            )}
-                                                        </label>
-                                                        <input
-                                                            id="vehicles-bicycle-model"
-                                                            value={model}
-                                                            maxLength={80}
-                                                            onChange={(event) =>
-                                                                setModel(
-                                                                    event.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className="vehicles-field">
-                                                        <label htmlFor="vehicles-bicycle-color">
-                                                            {copy(
-                                                                "Color (Optional)",
-                                                                "Màu sắc (Không bắt buộc)",
-                                                            )}
-                                                        </label>
-                                                        <VehicleDropdown
-                                                            id="vehicles-bicycle-color"
-                                                            value={color}
-                                                            options={
-                                                                COLOR_OPTIONS
-                                                            }
-                                                            placeholder={copy(
-                                                                "Select color",
-                                                                "Chọn màu",
-                                                            )}
-                                                            onChange={setColor}
-                                                        />
-                                                    </div>
-                                                    <div className="vehicles-field">
-                                                        <label htmlFor="vehicles-bicycle-year">
-                                                            {copy(
-                                                                "Year (Optional)",
-                                                                "Năm sản xuất (Không bắt buộc)",
-                                                            )}
-                                                        </label>
-                                                        <VehicleDropdown
-                                                            id="vehicles-bicycle-year"
-                                                            value={
-                                                                manufacturingYear
-                                                            }
-                                                            options={
-                                                                YEAR_OPTIONS
-                                                            }
-                                                            placeholder={copy(
-                                                                "Select year",
-                                                                "Chọn năm",
-                                                            )}
-                                                            onChange={
-                                                                setManufacturingYear
-                                                            }
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
                                             {needsPlate(category) && (
                                                 <div className="vehicles-field">
                                                     <label htmlFor="vehicles-plate">

@@ -69,9 +69,14 @@ builder.Services.AddIdempotentConsumer<ParkingSessionPaidConsumer>("parking.sess
 builder.Services.AddInfrastructure(builder.Configuration, bus => bus.AddConsumer<ParkingSessionPaidConsumer>());
 builder.Services.AddIdentityServiceClient(builder.Configuration);
 builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSection(BookingServiceOptions.SectionName));
-builder.Services.AddHttpClient<IBookingCheckInClient, BookingCheckInHttpClient>();
+builder.Services.AddHttpClient<BookingCheckInHttpClient>();
+builder.Services.AddTransient<IBookingCheckInClient>(services => services.GetRequiredService<BookingCheckInHttpClient>());
+builder.Services.AddTransient<IBookingNoSlotReporter>(services => services.GetRequiredService<BookingCheckInHttpClient>());
 builder.Services.AddHttpClient<ArrivalAvailabilityClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
-builder.Services.AddHttpClient<IParkingRecommendationClient, ParkingRecommendationClient>(client => client.Timeout = TimeSpan.FromSeconds(2));
+// The AI Service may spend up to 3s waiting for an LLM. The per-request budget
+// in ParkingRecommendationClient (default 5s) controls cancellation instead.
+builder.Services.AddHttpClient<IParkingRecommendationClient, ParkingRecommendationClient>(client =>
+    client.Timeout = Timeout.InfiniteTimeSpan);
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IParkingRealtimeNotifier, SignalRParkingRealtimeNotifier>();
 builder.Services.AddHealthChecks()

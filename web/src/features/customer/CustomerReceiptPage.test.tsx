@@ -7,7 +7,10 @@ import { clearAuthSession } from "@/features/auth/authSession";
 import type { ParkingFeeReceipt } from "./receiptApi";
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+vi.mock("next/navigation", () => ({
+    useRouter: () => ({ replace }),
+    usePathname: () => "/customer/receipts/sess-2222",
+}));
 vi.mock("next/image", () => ({ default: () => null }));
 
 const mockGetParkingFeeReceiptApi = vi.fn();

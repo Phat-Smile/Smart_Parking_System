@@ -205,6 +205,7 @@ public sealed class AddVehicleHandlerTests
     [InlineData("Car", true)]
     [InlineData("car", true)]
     [InlineData("MOTORBIKE", true)]
+    [InlineData("Bicycle", false)]
     [InlineData("1", false)]
     [InlineData("0", false)]
     [InlineData("99", false)]
@@ -228,6 +229,21 @@ public sealed class AddVehicleHandlerTests
         var result = await handler.Handle(new AddVehicleCommand(Guid.NewGuid(), "51A12345", "Car", null), TestContext.Current.CancellationToken);
 
         Assert.Equal(AddVehicleErrors.AccountNotFound.Code, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Bicycle_registration_is_rejected()
+    {
+        var vehicles = new FakeVehicles();
+        var result = await Handler(vehicles).Handle(
+            new AddVehicleCommand(OwnerId, null, "Bicycle", null),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(AddVehicleErrors.InvalidVehicleType.Code, result.Error!.Code);
+        Assert.Empty(vehicles.Items);
+        Assert.Throws<ArgumentException>(() =>
+            Vehicle.Add(Guid.NewGuid(), OwnerId, null, VehicleDomainType.Bicycle, Now));
     }
 
     private static AddVehicleCommandHandler Handler(FakeVehicles vehicles) =>
@@ -286,19 +302,6 @@ public sealed class CustomerVehicleDetailsTests
         Assert.True(VehicleDetailsValidation.IsSystemVehicleImageUrl(details.PhotoUrl));
         Assert.True(new AddVehicleCommandValidator().Validate(
             new AddVehicleCommand(Guid.NewGuid(), "55A44555", "Car", null, details)).IsValid);
-    }
-
-    [Fact]
-    public void Bicycle_requires_photo_and_no_plate()
-    {
-        var validator = new AddVehicleCommandValidator();
-        var photo = new VehicleDetails(null, null, null, null, null, null, null, null,
-            $"/api/identity/accounts/me/media/{Guid.NewGuid()}");
-        Assert.True(validator.Validate(new AddVehicleCommand(Guid.NewGuid(), null, "Bicycle", null, photo)).IsValid);
-        Assert.False(validator.Validate(new AddVehicleCommand(Guid.NewGuid(), null, "Bicycle", null)).IsValid);
-        Assert.False(validator.Validate(new AddVehicleCommand(Guid.NewGuid(), "BIKE123", "Bicycle", null, photo)).IsValid);
-        var bicycle = Vehicle.Add(Guid.NewGuid(), Guid.NewGuid(), null, VehicleDomainType.Bicycle, DateTimeOffset.UtcNow);
-        Assert.Null(bicycle.LicensePlate);
     }
 
     [Fact]

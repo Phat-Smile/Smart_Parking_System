@@ -34,4 +34,21 @@ public interface IParkingFeePaymentRepository
 
     // Tìm hóa đơn thành công theo mã phiên xe hoặc mã giao dịch để xuất hóa đơn điện tử (US-PAY-003)
     Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct);
+
+    // Lấy hóa đơn thành công của phiên xe để cập nhật phụ phí quá giờ (BR-09.d)
+    Task<ParkingFeePayment?> GetSucceededBySessionIdAsync(Guid sessionId, CancellationToken ct) =>
+        GetReceiptPaymentAsync(sessionId, ct);
+
+    // Tính toán tổng hợp doanh thu theo bãi và mốc thời gian (US-OWNER-010)
+    Task<OwnerRevenueMetricsResult> GetRevenueMetricsAsync(
+        IReadOnlyList<Guid> lotIds,
+        DateTimeOffset todayStartUtc,
+        DateTimeOffset weekStartUtc,
+        DateTimeOffset monthStartUtc,
+        CancellationToken ct) =>
+        Task.FromResult(new OwnerRevenueMetricsResult(
+            new Features.OwnerRevenue.Queries.GetOwnerRevenueSummary.RevenuePeriodMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new Features.OwnerRevenue.Queries.GetOwnerRevenueSummary.RevenuePeriodMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new Features.OwnerRevenue.Queries.GetOwnerRevenueSummary.RevenuePeriodMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new Features.OwnerRevenue.Queries.GetOwnerRevenueSummary.RevenuePeriodMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0)));
 }

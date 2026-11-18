@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
 import { CustomerDataShell } from "@/features/customer/CustomerDataShell";
 import { CustomerReceiptPage } from "@/features/customer/CustomerReceiptPage";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
@@ -19,12 +20,13 @@ interface ReceiptRouteProps {
 export default async function ReceiptRoute({ params }: ReceiptRouteProps) {
     const { sessionId } = await params;
     return (
-        <CustomerDataShell
-            active="history"
-            fontClassName={parkwiseFont.className}
-            requireAuth={false}
-        >
-            <CustomerReceiptPage sessionId={sessionId} />
-        </CustomerDataShell>
+        <CustomerAccessGuard>
+            <CustomerDataShell
+                active="history"
+                fontClassName={parkwiseFont.className}
+            >
+                <CustomerReceiptPage sessionId={sessionId} />
+            </CustomerDataShell>
+        </CustomerAccessGuard>
     );
 }

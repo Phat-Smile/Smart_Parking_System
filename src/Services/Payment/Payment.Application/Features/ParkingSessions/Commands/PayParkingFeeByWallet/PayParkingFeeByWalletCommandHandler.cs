@@ -122,9 +122,11 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.SessionNotActive);
             }
 
-            // Kiểm tra xe đã trả tiền trước đó chưa
+            // Kiểm tra xe đã trả tiền trước đó chưa (BR-09.d: cho phép thu phụ phí nếu phiên bị reopen do quá giờ)
             var alreadyPaid = await paymentRepository.ExistsForSessionAsync(request.SessionId, cancellationToken);
-            if (alreadyPaid)
+            var isOverstayPayment = alreadyPaid && ctx.LastPaidAtUtc.HasValue;
+
+            if (alreadyPaid && !isOverstayPayment)
             {
                 await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
@@ -136,22 +138,46 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                 || string.Equals(ctx.Pricing.CalculationMethod, "PerEntry", StringComparison.OrdinalIgnoreCase);
             var parkingMethod = isPerTurn ? ParkingMethod.PerTurn : ParkingMethod.PerBlock;
 
-            var calculation = ParkingFeeCalculator.Calculate(
-                parkingMethod,
-                ctx.Pricing.BlockMinutes,
-                ctx.Pricing.PricePerUnit,
-                ctx.EntryTimeUtc,
-                calculationTime);
-
+            long totalFee;
             long prepaidAmount = 0;
-            // Đọc tiền cọc bằng đúng hàm có sẵn của US-PAY-001
-            if (ctx.BookingId.HasValue && ctx.AccountId.HasValue)
-            {
-                prepaidAmount = await prepaymentReader.GetPrepaidAmountAsync(
-                    ctx.AccountId.Value, ctx.BookingId.Value, cancellationToken);
-            }
+            long actualAmountDue;
 
-            var actualAmountDue = Math.Max(0, calculation.TotalFee - prepaidAmount);
+            if (isOverstayPayment)
+            {
+                var exitTime = ctx.ArrivedAtExitUtc ?? calculationTime;
+                var overstayFee = PricingEngine.CalculateOverstayFee(
+                    ctx.LastPaidAtUtc!.Value,
+                    exitTime,
+                    parkingMethod,
+                    ctx.Pricing.BlockMinutes,
+                    ctx.Pricing.PricePerUnit,
+                    overnightFee: 0m,
+                    overnightTimeMark: TimeSpan.Zero,
+                    gracePeriodMinutes: ctx.GracePeriodMinutes);
+
+                totalFee = (long)overstayFee;
+                actualAmountDue = totalFee;
+            }
+            else
+            {
+                var calculation = ParkingFeeCalculator.Calculate(
+                    parkingMethod,
+                    ctx.Pricing.BlockMinutes,
+                    ctx.Pricing.PricePerUnit,
+                    ctx.EntryTimeUtc,
+                    calculationTime);
+
+                totalFee = calculation.TotalFee;
+
+                // Đọc tiền cọc bằng đúng hàm có sẵn của US-PAY-001
+                if (ctx.BookingId.HasValue && ctx.AccountId.HasValue)
+                {
+                    prepaidAmount = await prepaymentReader.GetPrepaidAmountAsync(
+                        ctx.AccountId.Value, ctx.BookingId.Value, cancellationToken);
+                }
+
+                actualAmountDue = Math.Max(0, totalFee - prepaidAmount);
+            }
 
             // Giá nhảy khác giá khách đã đồng ý
             if (actualAmountDue != request.ExpectedAmountDue)
@@ -191,10 +217,10 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                         idempotencyKey: request.IdempotencyKey,
                         createdBy: request.CallerAccountId);
                 }
-                else if (prepaidAmount > calculation.TotalFee)
+                else if (!isOverstayPayment && prepaidAmount > totalFee)
                 {
                     // Hoàn phần tiền cọc dôi dư vào ví theo BR-10.b
-                    var surplus = prepaidAmount - calculation.TotalFee;
+                    var surplus = prepaidAmount - totalFee;
                     wallet.AddEntry(
                         entryType: LedgerEntryType.Refund,
                         amount: surplus,
@@ -206,27 +232,60 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                         createdBy: request.CallerAccountId);
                 }
 
-                // Tạo hóa đơn thanh toán tiền gửi xe
+                // Tạo hoặc cập nhật hóa đơn thanh toán tiền gửi xe
                 var exitWindowExpiresUtc = calculationTime.AddMinutes(15);
-                var payment = ParkingFeePayment.Create(
-                    sessionId: request.SessionId,
-                    parkingLotId: ctx.ParkingLotId,
-                    walletId: wallet.Id,
-                    accountId: request.CallerAccountId,
-                    plateNumber: ctx.PlateNumber,
-                    vehicleType: ctx.VehicleType,
-                    totalFee: calculation.TotalFee,
-                    prepaidAmount: prepaidAmount,
-                    amountPaid: actualAmountDue,
-                    paymentTimeUtc: calculationTime,
-                    exitWindowExpiresUtc: exitWindowExpiresUtc);
+                Guid paymentId;
 
-                await paymentRepository.AddAsync(payment, cancellationToken);
+                if (isOverstayPayment)
+                {
+                    var existingPayment = await paymentRepository.GetSucceededBySessionIdAsync(request.SessionId, cancellationToken);
+                    if (existingPayment != null)
+                    {
+                        existingPayment.RecordOverstayPayment(actualAmountDue, calculationTime, exitWindowExpiresUtc);
+                        paymentId = existingPayment.Id;
+                    }
+                    else
+                    {
+                        var payment = ParkingFeePayment.Create(
+                            sessionId: request.SessionId,
+                            parkingLotId: ctx.ParkingLotId,
+                            walletId: wallet.Id,
+                            accountId: request.CallerAccountId,
+                            plateNumber: ctx.PlateNumber,
+                            vehicleType: ctx.VehicleType,
+                            totalFee: totalFee,
+                            prepaidAmount: 0,
+                            amountPaid: actualAmountDue,
+                            paymentTimeUtc: calculationTime,
+                            exitWindowExpiresUtc: exitWindowExpiresUtc);
+
+                        await paymentRepository.AddAsync(payment, cancellationToken);
+                        paymentId = payment.Id;
+                    }
+                }
+                else
+                {
+                    var payment = ParkingFeePayment.Create(
+                        sessionId: request.SessionId,
+                        parkingLotId: ctx.ParkingLotId,
+                        walletId: wallet.Id,
+                        accountId: request.CallerAccountId,
+                        plateNumber: ctx.PlateNumber,
+                        vehicleType: ctx.VehicleType,
+                        totalFee: totalFee,
+                        prepaidAmount: prepaidAmount,
+                        amountPaid: actualAmountDue,
+                        paymentTimeUtc: calculationTime,
+                        exitWindowExpiresUtc: exitWindowExpiresUtc);
+
+                    await paymentRepository.AddAsync(payment, cancellationToken);
+                    paymentId = payment.Id;
+                }
 
                 // Gửi tin nhắn nâng thanh chắn cổng ra vào hộp thư
                 var paidEvent = new ParkingSessionPaidIntegrationEvent(
                     SessionId: request.SessionId,
-                    PaymentId: payment.Id,
+                    PaymentId: paymentId,
                     AmountPaid: actualAmountDue,
                     PaidAtUtc: calculationTime,
                     ExitWindowExpiresUtc: exitWindowExpiresUtc);
@@ -235,11 +294,11 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                     integrationEvent: paidEvent,
                     eventType: "payment.session-paid.v1",
                     eventVersion: 1,
-                    correlationId: payment.Id);
+                    correlationId: paymentId);
 
                 // Đóng gói kết quả thành công
                 var successResponse = new PayParkingFeeByWalletResponse(
-                    TransactionId: payment.Id,
+                    TransactionId: paymentId,
                     SessionId: request.SessionId,
                     AmountPaid: actualAmountDue,
                     WalletBalanceRemaining: (long)wallet.Balance,

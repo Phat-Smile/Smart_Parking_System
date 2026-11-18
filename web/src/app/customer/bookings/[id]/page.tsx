@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
 import { CustomerDataShell } from "@/features/customer/CustomerDataShell";
 import { CustomerBookingPassPage } from "@/features/customer/booking/CustomerBookingPassPage";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
@@ -21,11 +22,13 @@ export default async function BookingPassRoute({
 }: BookingPassRouteProps) {
     const { id } = await params;
     return (
-        <CustomerDataShell
-            active="bookings"
-            fontClassName={parkwiseFont.className}
-        >
-            <CustomerBookingPassPage bookingId={id} />
-        </CustomerDataShell>
+        <CustomerAccessGuard>
+            <CustomerDataShell
+                active="bookings"
+                fontClassName={parkwiseFont.className}
+            >
+                <CustomerBookingPassPage bookingId={id} />
+            </CustomerDataShell>
+        </CustomerAccessGuard>
     );
 }

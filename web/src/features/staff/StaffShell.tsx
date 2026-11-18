@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     LayoutDashboard,
     CarFront,
@@ -17,6 +17,10 @@ import {
     MapPin,
     Clock,
 } from "lucide-react";
+import {
+    getAuthSessionSnapshot,
+    subscribeAuthSession,
+} from "@/features/auth/authSession";
 import { useStaffData } from "./staffData";
 import {
     getStaffAssignedShift,
@@ -32,6 +36,34 @@ import { StaffNotifications } from "./StaffNotifications";
 
 export function StaffShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
+
+    const ready = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
+
+    const session = useSyncExternalStore(
+        subscribeAuthSession,
+        getAuthSessionSnapshot,
+        () => null,
+    );
+
+    const role = session?.account.role;
+
+    useEffect(() => {
+        if (!ready) return;
+        if (!session) {
+            router.replace("/login");
+            return;
+        }
+        if (role !== "Staff") {
+            router.replace("/403");
+            return;
+        }
+    }, [ready, router, session, role]);
+
     const { occupancy, issues, assignedLot, fetchAssignedLot } = useStaffData();
     const [currentTime, setCurrentTime] = useState("");
 
@@ -44,6 +76,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
     });
 
     useEffect(() => {
+        if (!ready || !session || role !== "Staff") return;
         fetchAssignedLot().catch(() => {});
         const updateClock = () => {
             const now = new Date();
@@ -58,9 +91,10 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         updateClock();
         const timer = setInterval(updateClock, 1000);
         return () => clearInterval(timer);
-    }, [fetchAssignedLot]);
+    }, [ready, session, role, fetchAssignedLot]);
 
     useEffect(() => {
+        if (!ready || !session || role !== "Staff") return;
         let active = true;
         Promise.all([getStaffProfile(), getStaffLots()])
             .then(async ([profile, lots]) => {
@@ -79,7 +113,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         return () => {
             active = false;
         };
-    }, [assignedLot?.lotId]);
+    }, [ready, session, role, assignedLot?.lotId]);
 
     const handleLotSelect = (lotId: string) => {
         if (!lotId || lotId === assignedLot?.lotId) return;
@@ -133,6 +167,10 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         (staffProfile?.email
             ? staffProfile.email.split("@")[0]
             : "Nhân viên trực bãi");
+
+    if (!ready || !session || role !== "Staff") {
+        return <main aria-live="polite">Checking staff access…</main>;
+    }
 
     return (
         <div className="staff-layout">

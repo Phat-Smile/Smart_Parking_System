@@ -1,0 +1,86 @@
+/* Product-wide control colors. Layouts only own sizing and positioning. */
+.parkwise-tone[data-tone="wallet"] {
+    --pw-tone: var(--pw-tone-wallet);
+}
+.parkwise-tone[data-tone="booking"] {
+    --pw-tone: var(--pw-tone-booking);
+}
+.parkwise-tone[data-tone="parking"] {
+    --pw-tone: var(--pw-tone-parking);
+}
+.parkwise-tone[data-tone="vehicles"] {
+    --pw-tone: var(--pw-tone-vehicles);
+}
+.parkwise-tone[data-tone="account"] {
+    --pw-tone: var(--pw-tone-account);
+}
+.parkwise-tone[data-tone="notifications"] {
+    --pw-tone: var(--pw-tone-notifications);
+}
+.parkwise-tone {
+    --pw-tone-surface: color-mix(
+        in srgb,
+        var(--pw-tone) 10%,
+        var(--pw-bg-surface)
+    );
+    --pw-tone-border: color-mix(
+        in srgb,
+        var(--pw-tone) 18%,
+        var(--pw-border-default)
+    );
+}
+.parkwise-page .parkwise-icon-tile {
+    display: inline-grid;
+    place-items: center;
+    background: var(--pw-tone-surface);
+    border: 1px solid var(--pw-tone-border);
+    color: var(--pw-tone);
+}
+.parkwise-page .parkwise-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 10px 18px;
+    border: 1px solid var(--pw-primary);
+    border-radius: var(--pw-radius-md);
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+.parkwise-page .parkwise-action[data-variant="primary"] {
+    background: var(--pw-accent);
+    border-color: var(--pw-accent);
+    color: var(--pw-accent-text);
+}
+.parkwise-page .parkwise-action[data-variant="secondary"] {
+    background: var(--pw-bg-surface);
+    border-color: var(--pw-border-default);
+    color: var(--pw-text-primary);
+}
+.parkwise-page .parkwise-action-icon {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    flex-shrink: 0;
+}
+.parkwise-action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.parkwise-action:focus-visible {
+    outline: 2px solid var(--pw-primary);
+    outline-offset: 3px;
+}
+
+.parkwise-page .parkwise-choice[aria-current="page"],
+.parkwise-page .parkwise-choice[aria-pressed="true"] {
+    background: var(--pw-selection-bg);
+    border-color: var(--pw-selection-bg);
+    color: var(--pw-selection-text);
+}
+.parkwise-page .parkwise-choice[aria-current="page"] svg {
+    color: var(--pw-accent);
+}

@@ -593,4 +593,66 @@ public class PayParkingFeeByWalletCommandHandlerTests
         Assert.Equal(20000, result2.Value!.AmountPaid);
         Assert.Equal(30000, result2.Value!.WalletBalanceRemaining);
     }
+
+    [Fact]
+    public async Task Handle_WhenSessionReopenedDueToOverstay_AllowsOverstayFeePayment_AndExtendsExitWindow()
+    {
+        var handler = CreateHandler();
+        var sessionId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var sharedKey = Guid.NewGuid().ToString();
+
+        var wallet = Wallet.Create(callerId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 100000, "Topup balance", ReferenceType.VnpayTransaction, Guid.NewGuid().ToString(), null, null, callerId);
+        _walletRepository.SeedWallet(wallet);
+
+        // Đã có 1 hóa đơn thanh toán thành công trước đó
+        var previousPayment = ParkingFeePayment.CreateWalletPayment(
+            sessionId,
+            lotId,
+            wallet.Id,
+            callerId,
+            "51A-12345",
+            "Car",
+            20000,
+            0,
+            20000,
+            _clock.UtcNow.AddMinutes(-45),
+            _clock.UtcNow.AddMinutes(-30));
+        _paymentRepository.AddedPayments.Add(previousPayment);
+        _paymentRepository.SessionExists = true;
+
+        // Phiên bị reopen sang Active sau khi quá hạn 15p ra cổng (LastPaidAtUtc = 45 phút trước)
+        // Block 15p = 5000đ. Đã quá 45 - 15 = 30 phút -> 2 blocks = 10000đ
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            SessionId: sessionId,
+            ParkingLotId: lotId,
+            PlateNumber: "51A-12345",
+            VehicleType: "Car",
+            Status: "Active",
+            EntryTimeUtc: _clock.UtcNow.AddHours(-2),
+            AccountId: callerId,
+            BookingId: null,
+            Pricing: new PricingSnapshotDto("P1", "Block", 15, 5000),
+            LastPaidAtUtc: _clock.UtcNow.AddMinutes(-45),
+            ArrivedAtExitUtc: _clock.UtcNow,
+            GracePeriodMinutes: 15));
+
+        var command = new PayParkingFeeByWalletCommand(
+            SessionId: sessionId,
+            ExpectedAmountDue: 10000,
+            IdempotencyKey: sharedKey,
+            CallerAccountId: callerId,
+            CallerRole: "Customer");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(10000, result.Value!.AmountPaid);
+        Assert.Equal(90000, result.Value!.WalletBalanceRemaining);
+        Assert.Equal(30000, previousPayment.TotalFee); // 20000 + 10000
+        Assert.Equal(30000, previousPayment.AmountPaid); // 20000 + 10000
+        Assert.Single(_outboxWriter.EnqueuedEvents);
+    }
 }

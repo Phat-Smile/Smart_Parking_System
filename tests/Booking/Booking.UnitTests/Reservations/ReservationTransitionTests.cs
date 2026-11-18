@@ -125,7 +125,7 @@ public sealed class ReservationTransitionTests
     {
         var reservation = CreateSampleReservation();
         reservation.Confirm(Now.AddMinutes(2));
-        var cancelledAt = reservation.AppointmentTime.AddMinutes(15);
+        var cancelledAt = reservation.AppointmentTime.AddMinutes(16);
 
         reservation.Cancel(cancelledAt, reason);
 
@@ -194,11 +194,11 @@ public sealed class ReservationTransitionTests
         reservation.Confirm(Now.AddMinutes(2));
         var versionAfterConfirm = reservation.RowVersion;
 
-        // 14 minutes 59 seconds after AppointmentTime (1 second before 15 min boundary)
-        var before15Min = reservation.AppointmentTime.AddMinutes(15).AddSeconds(-1);
+        // 15 minutes 59 seconds after AppointmentTime (1 second before 16 min cutoff)
+        var beforeCutoff = reservation.AppointmentTime.AddMinutes(16).AddSeconds(-1);
 
         var ex = Assert.Throws<ReservationDomainException>(() =>
-            reservation.Cancel(before15Min, CancelReason.NoShow, PrepaidOutcome.Forfeited));
+            reservation.Cancel(beforeCutoff, CancelReason.NoShow, PrepaidOutcome.Forfeited));
 
         Assert.Contains("after 15 minutes past its appointment time", ex.Message);
         Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
@@ -210,31 +210,31 @@ public sealed class ReservationTransitionTests
     }
 
     [Fact]
-    public void Cancel_with_NoShow_exactly_at_15_minutes_boundary_succeeds()
+    public void Cancel_with_NoShow_exactly_at_cutoff_boundary_succeeds()
     {
         var reservation = CreateSampleReservation();
         reservation.Confirm(Now.AddMinutes(2));
-        var exactly15Min = reservation.AppointmentTime.AddMinutes(15);
+        var exactlyCutoff = reservation.AppointmentTime.AddMinutes(16);
 
-        reservation.Cancel(exactly15Min, CancelReason.NoShow, PrepaidOutcome.Forfeited);
+        reservation.Cancel(exactlyCutoff, CancelReason.NoShow, PrepaidOutcome.Forfeited);
 
         Assert.Equal(ReservationStatus.Cancelled, reservation.Status);
         Assert.Equal(CancelReason.NoShow, reservation.CancelReason);
         Assert.True(reservation.IsNoShow);
         Assert.Equal(PrepaidOutcome.Forfeited, reservation.PrepaidOutcome);
-        Assert.Equal(exactly15Min.ToUniversalTime(), reservation.CancelledAt);
+        Assert.Equal(exactlyCutoff.ToUniversalTime(), reservation.CancelledAt);
         Assert.Equal(TimeSpan.Zero, reservation.CancelledAt!.Value.Offset);
         Assert.Equal(2, reservation.RowVersion);
     }
 
     [Fact]
-    public void Cancel_with_NoShow_after_15_minutes_succeeds()
+    public void Cancel_with_NoShow_after_cutoff_succeeds()
     {
         var reservation = CreateSampleReservation();
         reservation.Confirm(Now.AddMinutes(2));
-        var after16Min = reservation.AppointmentTime.AddMinutes(16);
+        var afterCutoff = reservation.AppointmentTime.AddMinutes(17);
 
-        reservation.Cancel(after16Min, CancelReason.NoShow, PrepaidOutcome.Forfeited);
+        reservation.Cancel(afterCutoff, CancelReason.NoShow, PrepaidOutcome.Forfeited);
 
         Assert.Equal(ReservationStatus.Cancelled, reservation.Status);
         Assert.Equal(CancelReason.NoShow, reservation.CancelReason);
@@ -261,18 +261,18 @@ public sealed class ReservationTransitionTests
 
         reservation.Confirm(vnAppointmentTime.AddMinutes(-30));
 
-        // 14 min 59 sec in UTC (03:14:59 UTC) -> rejects
-        var beforeBoundaryUtc = new DateTimeOffset(2026, 10, 20, 3, 14, 59, TimeSpan.Zero);
+        // 15 min 59 sec in UTC (03:15:59 UTC) -> rejects
+        var beforeBoundaryUtc = new DateTimeOffset(2026, 10, 20, 3, 15, 59, TimeSpan.Zero);
         Assert.Throws<ReservationDomainException>(() =>
             reservation.Cancel(beforeBoundaryUtc, CancelReason.NoShow));
 
-        // Exactly 15 min in VN time (+07:00: 10:15:00) -> equals 03:15:00 UTC -> succeeds
-        var exactBoundaryVn = new DateTimeOffset(2026, 10, 20, 10, 15, 0, vnOffset);
+        // Exactly 16 min in VN time (+07:00: 10:16:00) -> equals 03:16:00 UTC -> succeeds
+        var exactBoundaryVn = new DateTimeOffset(2026, 10, 20, 10, 16, 0, vnOffset);
         reservation.Cancel(exactBoundaryVn, CancelReason.NoShow);
 
         Assert.Equal(ReservationStatus.Cancelled, reservation.Status);
         Assert.True(reservation.IsNoShow);
-        Assert.Equal(new DateTimeOffset(2026, 10, 20, 3, 15, 0, TimeSpan.Zero), reservation.CancelledAt);
+        Assert.Equal(new DateTimeOffset(2026, 10, 20, 3, 16, 0, TimeSpan.Zero), reservation.CancelledAt);
     }
 
     [Theory]

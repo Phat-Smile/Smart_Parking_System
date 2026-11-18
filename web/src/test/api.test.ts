@@ -92,7 +92,7 @@ describe("Gateway config and API client", () => {
         });
     });
 
-    it("attaches X-Correlation-ID header to outbound requests", async () => {
+    it("attaches X-Correlation-ID header and credentials: include to outbound requests", async () => {
         const fetchMock = vi.fn().mockResolvedValue(
             new Response(JSON.stringify({ ok: true }), {
                 status: 200,
@@ -106,5 +106,6 @@ describe("Gateway config and API client", () => {
         expect(headers.get("X-Correlation-ID")).toMatch(
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
         );
+        expect(fetchMock.mock.calls[0][1]?.credentials).toBe("include");
     });
 });

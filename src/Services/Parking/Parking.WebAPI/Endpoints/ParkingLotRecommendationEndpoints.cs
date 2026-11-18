@@ -18,6 +18,7 @@ public static class ParkingLotRecommendationEndpoints
             int? durationMinutes,
             double? radiusKm,
             int? topK,
+            string? priority,
             ISender sender,
             CancellationToken cancellationToken) =>
         {
@@ -36,15 +37,16 @@ public static class ParkingLotRecommendationEndpoints
                 arrivalAt,
                 durationMinutes ?? 120,
                 radiusKm ?? 10.0,
-                topK ?? 3);
+                topK ?? 3,
+                priority ?? "balanced");
 
             var result = await sender.Send(query, cancellationToken);
             return Results.Ok(result);
         })
         .AllowAnonymous()
         .WithName("GetParkingLotRecommendations")
-        .WithSummary("Get Top-3 recommended parking lots with multi-criteria scoring and AI fallback")
-        .WithDescription("Scores candidate lots by driving time, arrival availability probability, and cost with automatic fallback to Haversine distance.")
+        .WithSummary("Get Top-3 parking recommendations with configurable user priority")
+        .WithDescription("AI Service chooses the order in prompting mode; Parking validates its response. When AI fails, a separately labelled non-AI nearby fallback is used.")
         .Produces<ParkingLotRecommendationResult>(StatusCodes.Status200OK)
         .ProducesValidationProblem();
 

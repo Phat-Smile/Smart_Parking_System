@@ -45,9 +45,11 @@ export function mk3D(
         (R as unknown as { outputColorSpace: string }).outputColorSpace =
             THREE.SRGBColorSpace;
     } else {
-        (R as unknown as { outputEncoding: number }).outputEncoding = (
-            THREE as unknown as { sRGBEncoding: number }
-        ).sRGBEncoding;
+        const legacyThree = THREE as Record<string, unknown>;
+        if (typeof legacyThree.sRGBEncoding === "number") {
+            (R as unknown as { outputEncoding: number }).outputEncoding =
+                legacyThree.sRGBEncoding as number;
+        }
     }
     R.toneMapping = THREE.ACESFilmicToneMapping;
     R.toneMappingExposure = 1;
@@ -76,9 +78,11 @@ export function mk3D(
             (t as unknown as { colorSpace: string }).colorSpace =
                 THREE.SRGBColorSpace;
         } else {
-            (t as unknown as { encoding: number }).encoding = (
-                THREE as unknown as { sRGBEncoding: number }
-            ).sRGBEncoding;
+            const legacyThree = THREE as Record<string, unknown>;
+            if (typeof legacyThree.sRGBEncoding === "number") {
+                (t as unknown as { encoding: number }).encoding =
+                    legacyThree.sRGBEncoding as number;
+            }
         }
         return t;
     };

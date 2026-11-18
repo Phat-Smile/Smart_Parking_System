@@ -4,7 +4,18 @@ public sealed class Reservation
 {
     public const int PlateNumberMaxLength = 20;
     public const int NoShowGracePeriodMinutes = 15;
+    public const int TechnicalToleranceMinutes = 1;
     public const int MaxActiveReservationsPerUser = 3;
+
+    public const int TotalNoShowGracePeriodMinutes = NoShowGracePeriodMinutes + TechnicalToleranceMinutes;
+
+    public static DateTimeOffset GetNoShowCutoff(DateTimeOffset appointmentTime) =>
+        appointmentTime.AddMinutes(TotalNoShowGracePeriodMinutes);
+
+    public DateTimeOffset NoShowCutoff => GetNoShowCutoff(AppointmentTime);
+
+    public static DateTimeOffset GetNoShowCandidateThreshold(DateTimeOffset now) =>
+        now.AddMinutes(-TotalNoShowGracePeriodMinutes);
     private Reservation()
     {
     }
@@ -201,16 +212,15 @@ public sealed class Reservation
                     "Only confirmed reservations can be marked as NoShow.");
             }
 
-                // The full 15-minute grace period must have elapsed.
-            var noShowEligibleAt = AppointmentTime.AddMinutes(
-                NoShowGracePeriodMinutes);
+            // The full grace period (including tolerance) must have elapsed.
+            var noShowEligibleAt = GetNoShowCutoff(AppointmentTime);
 
             if (cancelledAtUtc < noShowEligibleAt)
             {
-            throw new ReservationDomainException(
-                $"A reservation can only be marked as NoShow " +
-                $"after {NoShowGracePeriodMinutes} minutes past its appointment time.");
-        }
+                throw new ReservationDomainException(
+                    $"A reservation can only be marked as NoShow " +
+                    $"after {NoShowGracePeriodMinutes} minutes past its appointment time.");
+            }
     }
 
     // Validate all business rules before changing the state.

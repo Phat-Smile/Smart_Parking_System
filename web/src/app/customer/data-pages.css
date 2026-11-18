@@ -47,37 +47,45 @@
     opacity: 1;
 }
 
-.customer-data-panel .animate-in > .border-b button {
+.customer-data-panel .animate-in > .border-b button:not(.parkwise-choice) {
     color: #525252 !important;
 }
 
 .customer-data-panel
     .animate-in
     [class~="border-b"]
-    button[class~="text-[#8790a3]"] {
+    button:not(.parkwise-choice)[class~="text-[#8790a3]"] {
     color: #525252 !important;
 }
 
 .customer-data-panel
     .animate-in
     [class*="border-b"]
-    button[class*="text-[#8790a3]"] {
+    button:not(.parkwise-choice)[class*="text-[#8790a3]"] {
     background: transparent !important;
     color: #525252 !important;
 }
 
-.customer-data-panel button[class*="shrink-0"][class*="whitespace-nowrap"] {
+.customer-data-panel
+    button:not(
+        .parkwise-choice
+    )[class*="shrink-0"][class*="whitespace-nowrap"] {
     background: transparent;
     color: #525252 !important;
 }
 
 .customer-data-panel
-    button[class*="shrink-0"][class*="whitespace-nowrap"][class*="bg-[#6246ea]"] {
+    button:not(
+        .parkwise-choice
+    )[class*="shrink-0"][class*="whitespace-nowrap"][class*="bg-[#6246ea]"] {
     background: #eafe89 !important;
     color: #171717 !important;
 }
 
-.customer-data-panel .animate-in > .border-b button[class~="bg-[#6246ea]"] {
+.customer-data-panel
+    .animate-in
+    > .border-b
+    button:not(.parkwise-choice)[class~="bg-[#6246ea]"] {
     background: #eafe89;
     color: #171717 !important;
 }

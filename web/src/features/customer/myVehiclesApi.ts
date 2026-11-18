@@ -67,7 +67,7 @@ export function getMyVehicles(signal?: AbortSignal) {
 
 export function addMyVehicle(
     licensePlate: string | null,
-    vehicleType: "Car" | "Motorbike" | "Bicycle",
+    vehicleType: "Car" | "Motorbike",
     nickName: string | null,
     details?: VehicleDetails,
 ) {

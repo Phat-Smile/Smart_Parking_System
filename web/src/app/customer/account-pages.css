@@ -339,10 +339,7 @@
     gap: 8px;
     min-height: 46px;
     padding: 0 4px;
-    border: 0;
     border-bottom: 3px solid transparent;
-    background: transparent;
-    color: #66788f;
     font: inherit;
     font-size: 14px;
     font-weight: 750;
@@ -351,8 +348,6 @@
 }
 
 .customer-notification-tabs button[aria-pressed="true"] {
-    border-color: #9fc530;
-    color: #18283f;
 }
 
 .customer-notification-tabs span {
@@ -452,18 +447,12 @@
     height: 46px;
     place-items: center;
     border-radius: 13px;
-    background: #eaf5df;
-    color: #426a43;
 }
 
 .customer-notification-icon.is-parking {
-    background: #e8f2fb;
-    color: #38698a;
 }
 
 .customer-notification-icon.is-wallet {
-    background: #fff4e4;
-    color: #9a681d;
 }
 
 .customer-notification-copy {

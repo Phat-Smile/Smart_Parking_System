@@ -1028,7 +1028,7 @@ body:has(.vehicles-dialog[open]) {
     font-size: 11px;
 }
 .vehicles-two-wheeler-field .vehicles-size-options {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 .vehicles-two-wheeler-field .vehicles-size-option {
@@ -1042,9 +1042,6 @@ body:has(.vehicles-dialog[open]) {
 @media (max-width: 600px) {
     .vehicles-two-wheeler-field .vehicles-size-options {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .vehicles-two-wheeler-field .vehicles-size-option:last-child {
-        grid-column: 1 / -1;
     }
 }
 .vehicles-power-field .vehicles-size-options {

@@ -4,6 +4,7 @@ using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Common.Interfaces;
+using ParkingSystem.Payment.Application.Features.OwnerRevenue.Queries.GetOwnerRevenueSummary;
 using ParkingSystem.Payment.Application.Features.ParkingFeePayments.Queries.GetParkingFeePaymentStatus;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.ConfirmCashParkingFeePayment;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.CreateVnPayParkingFeePayment;
@@ -348,8 +349,8 @@ internal static class ParkingFeeEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
-        // Lấy hóa đơn điện tử quyết toán theo mã phiên đỗ xe (US-PAY-003)
-        app.MapGet("/api/payment/parking-sessions/{sessionId}/receipt", async (
+        // Xử lý truy vấn hóa đơn điện tử theo phiên
+        var handleSessionReceipt = async (
                 string sessionId,
                 HttpContext httpContext,
                 ISender sender,
@@ -389,12 +390,29 @@ internal static class ParkingFeeEndpoints
                 }
 
                 return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error);
-            })
+            };
+
+        // Lấy hóa đơn điện tử quyết toán theo mã phiên đỗ xe (US-PAY-003)
+        app.MapGet("/api/payment/parking-sessions/{sessionId}/receipt", handleSessionReceipt)
             .AllowAnonymous()
             .WithTags("Thanh toán phí đỗ (Parking Fee)")
             .WithName("GetParkingSessionReceipt")
             .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo phiên")
             .WithDescription("Lấy chi tiết bảng kê hóa đơn điện tử quyết toán sau khi thanh toán thành công (US-PAY-003).")
+            .Produces<ParkingFeeReceiptResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Alias đường dẫn ngắn theo spec của Lộc
+        app.MapGet("/api/payment/receipts/{sessionId}", handleSessionReceipt)
+            .AllowAnonymous()
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("GetParkingSessionReceiptAlias")
+            .WithSummary("Hóa đơn điện tử quyết toán phí đỗ xe theo phiên (Alias)")
+            .WithDescription("Alias đường dẫn ngắn phục vụ tích hợp FE.")
             .Produces<ParkingFeeReceiptResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -530,6 +548,45 @@ internal static class ParkingFeeEndpoints
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
+        // US-OWNER-010: Báo cáo tổng hợp doanh thu thực tế cho Chủ bãi xe
+        app.MapGet("/api/payment/owner/revenue/summary", async (
+                [FromQuery] Guid? parkingLotId,
+                [FromQuery] int? timeZoneOffsetMinutes,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                var callerAccountId = Guid.TryParse(
+                    httpContext.User.FindFirst("sub")?.Value, out var id)
+                    ? id : (Guid?)null;
+                var callerRole = httpContext.User.FindFirst("role")?.Value
+                    ?? string.Empty;
+
+                var query = new GetOwnerRevenueSummaryQuery(
+                    parkingLotId,
+                    timeZoneOffsetMinutes ?? 420,
+                    callerAccountId,
+                    callerRole);
+
+                var result = await sender.Send(query, cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : BusinessProblem.Create(httpContext, StatusForOwnerRevenue(result.Error!), result.Error!);
+            })
+            .RequireAuthorization(PaymentAuthorization.OwnerRevenueReportPolicy)
+            .WithTags("Báo cáo doanh thu (Owner Revenue)")
+            .WithName("GetOwnerRevenueSummary")
+            .WithSummary("Báo cáo tổng hợp doanh thu thực tế cho Chủ bãi")
+            .WithDescription("Trả về tổng doanh thu theo hôm nay, tuần này, tháng này, tất cả thời gian và phân tách tiền mặt vs online.")
+            .Produces<OwnerRevenueSummaryResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
         return app;
     }
 
@@ -638,5 +695,18 @@ internal static class ParkingFeeEndpoints
             return StatusCodes.Status503ServiceUnavailable;
 
         return StatusCodes.Status500InternalServerError;
+    }
+
+    // Ánh xạ lỗi nghiệp vụ báo cáo doanh thu sang mã HTTP
+    private static int StatusForOwnerRevenue(Error error)
+    {
+        if (error.Code == OwnerRevenueErrors.ForbiddenRole.Code ||
+            error.Code == OwnerRevenueErrors.ForbiddenLotAccess.Code)
+            return StatusCodes.Status403Forbidden;
+
+        if (error.Code == OwnerRevenueErrors.ParkingServiceUnavailable.Code)
+            return StatusCodes.Status503ServiceUnavailable;
+
+        return StatusCodes.Status400BadRequest;
     }
 }

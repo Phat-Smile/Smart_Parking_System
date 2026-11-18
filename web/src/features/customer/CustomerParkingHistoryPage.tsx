@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { ParkWiseAction } from "@/features/parkwise/ParkWiseAction";
 import {
     getMyParkingSessionHistory,
     type MyParkingSessionHistoryItem,
@@ -87,8 +88,8 @@ export default function ParkingHistoryPage() {
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
     return (
-        <div className="animate-in fade-in duration-500 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="pw-app-activity-content animate-in fade-in duration-500 space-y-6">
+            <div className="pw-app-activity-summary flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-white mb-1">
                         {copy("Parking History", "Lịch sử đỗ xe")}
@@ -126,11 +127,13 @@ export default function ParkingHistoryPage() {
                             {copy("Cancelled", "Đã hủy")}
                         </option>
                     </select>
-                    <button
+                    <ParkWiseAction
+                        variant="secondary"
+                        iconOnly
                         type="button"
                         onClick={loadHistory}
                         disabled={loading}
-                        className="customer-data-refresh"
+
                         title={copy("Refresh history", "Làm mới lịch sử")}
                         aria-label={copy("Refresh history", "Làm mới lịch sử")}
                         aria-busy={loading}
@@ -139,7 +142,7 @@ export default function ParkingHistoryPage() {
                             size={18}
                             className={loading ? "animate-spin" : ""}
                         />
-                    </button>
+                    </ParkWiseAction>
                 </div>
             </div>
 
@@ -166,21 +169,29 @@ export default function ParkingHistoryPage() {
                 <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3">
                     <AlertCircle size={32} className="mx-auto text-red-400" />
                     <p className="text-red-300 text-sm font-medium">{error}</p>
-                    <button
+                    <ParkWiseAction
                         type="button"
                         onClick={loadHistory}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-semibold transition-colors"
+                        variant="secondary"
                     >
                         {copy("Try again", "Thử lại")}
-                    </button>
+                    </ParkWiseAction>
                 </div>
             )}
 
             {/* Trạng thái Trống (Empty) */}
             {!loading && !error && sessions.length === 0 && (
-                <div className="customer-data-empty bg-[#0b0c17] border border-white/10 rounded-2xl p-12 text-center space-y-4 shadow-card-light">
+                <div className="pw-app-empty customer-data-empty bg-[#0b0c17] border border-white/10 rounded-2xl p-12 text-center space-y-4 shadow-card-light">
                     <div className="w-16 h-16 rounded-full bg-[#6246ea]/10 border border-[#6246ea]/20 flex items-center justify-center mx-auto text-[#a28aff]">
-                        <History size={28} />
+                        <History
+                            size={28}
+                            className="pw-app-empty-desktop-icon"
+                        />
+                        <Car
+                            size={64}
+                            className="pw-app-empty-car"
+                            aria-hidden="true"
+                        />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white mb-1">
@@ -190,13 +201,10 @@ export default function ParkingHistoryPage() {
                             )}
                         </h3>
                     </div>
-                    <Link
-                        href="/search"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6246ea] hover:bg-[#7c5cff] text-white font-bold text-sm transition-colors shadow-glow-purple"
-                    >
+                    <ParkWiseAction href="/search">
                         <Search size={16} />{" "}
                         {copy("Find nearby parking", "Tìm bãi đỗ gần đây")}
-                    </Link>
+                    </ParkWiseAction>
                 </div>
             )}
 

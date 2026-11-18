@@ -17,4 +17,7 @@ public sealed record ParkingSessionFeeContext(
     DateTimeOffset EntryTimeUtc,// Giờ xe vào bãi theo giờ quốc tế
     Guid? AccountId,            // Mã tài khoản người gửi xe, có thể để trống
     Guid? BookingId,            // Mã đặt chỗ trước, có thể để trống nếu không đặt
-    PricingSnapshotDto Pricing);// Bảng giá gắn liền với phiên gửi xe này
+    PricingSnapshotDto Pricing, // Bảng giá gắn liền với phiên gửi xe này
+    DateTimeOffset? LastPaidAtUtc = null,       // Giờ thanh toán trước đó (nếu đã từng thanh toán và bị quá giờ)
+    DateTimeOffset? ArrivedAtExitUtc = null,    // Giờ tới trạm ra (nếu có)
+    int GracePeriodMinutes = 15);               // Thời gian ân hạn ra cổng (mặc định 15 phút)

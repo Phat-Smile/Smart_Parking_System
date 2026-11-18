@@ -5,7 +5,7 @@ export interface LoginResponse {
     accessToken: string;
     tokenType: "Bearer";
     expiresIn: number;
-    refreshToken: string;
+    refreshToken?: string;
     account: {
         id: string;
         email: string;

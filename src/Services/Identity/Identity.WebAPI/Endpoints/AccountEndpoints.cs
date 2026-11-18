@@ -3,6 +3,7 @@ using MediatR;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Identity.Domain.Accounts;
 using ParkingSystem.Identity.Application.Accounts.ChangeAccountRole;
 using ParkingSystem.Identity.Application.Accounts.ChangePassword;
 using ParkingSystem.Identity.Application.Accounts.ForgotPassword;
@@ -23,6 +24,7 @@ using ParkingSystem.Identity.Application.Accounts.VerifyEmailOtp;
 using ParkingSystem.Identity.Application.Accounts.Admin.ActivateAccount;
 using ParkingSystem.Identity.Application.Accounts.Admin.SearchAccounts;
 using ParkingSystem.Identity.Application.Accounts.Admin.SuspendAccount;
+using ParkingSystem.Identity.Application.Accounts.AnonymizeAccount;
 using ParkingSystem.Identity.Application.Accounts.OwnerApplications;
 using ParkingSystem.Identity.Application.Profiles.DeleteProfileIdentity;
 using ParkingSystem.Identity.Application.Profiles.GetMyProfile;
@@ -99,7 +101,10 @@ internal static class AccountEndpoints
         string? PhoneNumber,
         /// <summary>[Tùy chọn] Họ và tên người đại diện.</summary>
         /// <example>Nguyễn Văn A</example>
-        string? FullName);
+        string? FullName,
+        /// <summary>[Tùy chọn] Loại chủ thể (Individual, HouseholdBusiness, Enterprise).</summary>
+        /// <example>Individual</example>
+        string? OwnerType = null);
 
     /// <summary>
     /// Dữ liệu yêu cầu nộp lại hồ sơ xét duyệt làm Chủ bãi sau khi bị từ chối.
@@ -177,7 +182,7 @@ internal static class AccountEndpoints
     public sealed record RefreshTokenRequest(
         /// <summary>Mã làm mới (Refresh Token) hợp lệ đã nhận khi đăng nhập.</summary>
         /// <example>sample_refresh_token_string</example>
-        string RefreshToken);
+        string? RefreshToken = null);
 
     /// <summary>
     /// Dữ liệu yêu cầu đăng xuất phiên hiện tại.
@@ -508,10 +513,10 @@ internal static class AccountEndpoints
                     httpContext.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
                     {
                         HttpOnly = true,
-                        SameSite = SameSiteMode.Strict,
+                        SameSite = SameSiteMode.Lax,
                         Path = "/api/identity/accounts",
                         MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
-                        Secure = !httpContext.Request.IsHttps ? false : true
+                        Secure = httpContext.Request.IsHttps
                     });
                     return Results.Ok(session);
                 }
@@ -556,10 +561,10 @@ internal static class AccountEndpoints
                     httpContext.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
                     {
                         HttpOnly = true,
-                        SameSite = SameSiteMode.Strict,
+                        SameSite = SameSiteMode.Lax,
                         Path = "/api/identity/accounts",
                         MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
-                        Secure = !httpContext.Request.IsHttps ? false : true
+                        Secure = httpContext.Request.IsHttps
                     });
                     return Results.Ok(session);
                 }
@@ -593,10 +598,10 @@ internal static class AccountEndpoints
                     httpContext.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
                     {
                         HttpOnly = true,
-                        SameSite = SameSiteMode.Strict,
+                        SameSite = SameSiteMode.Lax,
                         Path = "/api/identity/accounts",
                         MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
-                        Secure = !httpContext.Request.IsHttps ? false : true
+                        Secure = httpContext.Request.IsHttps
                     });
                     return Results.Ok(session);
                 }
@@ -633,10 +638,10 @@ internal static class AccountEndpoints
                     httpContext.Response.Cookies.Append(RefreshCookieName, result.Value!.RefreshToken, new CookieOptions
                     {
                         HttpOnly = true,
-                        SameSite = SameSiteMode.Strict,
+                        SameSite = SameSiteMode.Lax,
                         Path = "/api/identity/accounts",
                         MaxAge = TimeSpan.FromDays(RefreshCookieMaxAgeDays),
-                        Secure = !httpContext.Request.IsHttps ? false : true
+                        Secure = httpContext.Request.IsHttps
                     });
                     return Results.Ok(result.Value);
                 }
@@ -1153,6 +1158,42 @@ internal static class AccountEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
+        // US-PRIV-003: Quyền được lãng quên / Xóa tài khoản và ẩn danh hóa dữ liệu (GDPR Compliance).
+        app.MapDelete("/api/identity/accounts/me", async (
+                HttpContext httpContext,
+                ICurrentUser currentUser,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
+                    return Results.Unauthorized();
+
+                var result = await sender.Send(new AnonymizeAccountCommand(accountId), cancellationToken);
+
+                if (result.IsSuccess)
+                {
+                    httpContext.Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+                    {
+                        Path = "/api/identity/accounts"
+                    });
+                    return Results.NoContent();
+                }
+
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: result.Error!.Message,
+                    detail: result.Error.Message,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = result.Error.Code });
+            })
+            .RequireAuthorization()
+            .WithTags("5. Hồ sơ & Phiên (Profile & Sessions)")
+            .WithName("AnonymizeMyAccount")
+            .WithSummary("Xóa và ẩn danh hóa tài khoản cá nhân (GDPR)")
+            .WithDescription("Vô hiệu hóa tài khoản, thu hồi toàn bộ phiên đăng nhập, xóa media định danh và ẩn danh hóa dữ liệu theo quyền được lãng quên (US-PRIV-003).")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status400BadRequest);
+
         // US-VEH-001: Add a vehicle to the current account.
         app.MapPost("/api/identity/accounts/me/vehicles", async (
                 AddVehicleRequest request,
@@ -1362,12 +1403,19 @@ internal static class AccountEndpoints
                 if (!Guid.TryParse(currentUser.SubjectId, out var accountId))
                     return Results.Unauthorized();
 
+                OwnerType? parsedOwnerType = null;
+                if (!string.IsNullOrWhiteSpace(request?.OwnerType) && OwnerTypeParser.TryParse(request.OwnerType, out var parsed))
+                {
+                    parsedOwnerType = parsed;
+                }
+
                 var command = new ApplyForOwnerApplicationCommand(
                     accountId,
                     request?.TaxCode,
                     request?.BusinessName,
                     request?.PhoneNumber,
-                    request?.FullName);
+                    request?.FullName,
+                    parsedOwnerType);
 
                 var result = await sender.Send(command, cancellationToken);
                 if (!result.IsSuccess)

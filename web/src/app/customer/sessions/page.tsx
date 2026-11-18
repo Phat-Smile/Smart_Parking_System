@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { parkwiseFont } from "@/features/parkwise/parkwiseFont";
 import { CustomerAccessGuard } from "@/features/customer/CustomerAccessGuard";
+import { CustomerMobileActivityTabs } from "@/features/customer/mobile/CustomerMobileActivityTabs";
 import {
     CustomerSessionsIntro,
     CustomerSessionsList,
@@ -26,6 +27,7 @@ export default function CustomerSessionsRoute() {
             >
                 <CustomerHeader active="sessions" />
                 <main className="customer-sessions-main">
+                    <CustomerMobileActivityTabs />
                     <CustomerSessionsIntro />
                     <CustomerSessionsList />
                 </main>

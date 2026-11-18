@@ -11,6 +11,9 @@ const parkingQaApiUrl = process.env.PARKING_QA_API_URL?.trim().replace(
 
 const nextConfig: NextConfig = {
     output: "standalone",
+    experimental: {
+        cpus: 1,
+    },
     async rewrites() {
         return [
             {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { ParkWiseAction } from "@/features/parkwise/ParkWiseAction";
 import { en } from "@/features/customer/i18n/en";
 import { vi as viCopy } from "@/features/customer/i18n/vi";
 import { useCustomerLanguage } from "@/features/customer/i18n/customerLanguage";
@@ -217,9 +218,9 @@ export default function BookingsPage() {
     }
 
     return (
-        <div className="animate-in fade-in duration-500 space-y-6">
+        <div className="pw-app-activity-content animate-in fade-in duration-500 space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="pw-app-activity-summary flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white mb-1">
                         {dictionary.bookingsPage.title}
@@ -230,10 +231,12 @@ export default function BookingsPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
+                    <ParkWiseAction
+                        variant="secondary"
+                        iconOnly
                         type="button"
                         onClick={loadReservations}
-                        className="customer-data-refresh"
+
                         title={copy("Reload bookings", "Tải lại đặt chỗ")}
                         aria-label={copy("Reload bookings", "Tải lại đặt chỗ")}
                         aria-busy={loading}
@@ -243,14 +246,14 @@ export default function BookingsPage() {
                             size={18}
                             className={loading ? "animate-spin" : ""}
                         />
-                    </button>
-                    <Link
+                    </ParkWiseAction>
+                    <ParkWiseAction
                         href="/search"
-                        className="bg-[#6246ea] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#7c5cff] transition-colors shadow-glow-purple text-sm"
+                        className="pw-booking-create"
                     >
                         <Plus size={18} />
                         {dictionary.bookingsPage.newBooking}
-                    </Link>
+                    </ParkWiseAction>
                 </div>
             </div>
 
@@ -273,50 +276,42 @@ export default function BookingsPage() {
 
             {/* Tab lọc */}
             <div className="customer-bookings-tabs flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
-                <button
+                <ParkWiseAction
                     type="button"
                     onClick={() => setActiveTab("all")}
-                    className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                        activeTab === "all"
-                            ? "bg-[#6246ea] text-white"
-                            : "text-[#8790a3] hover:text-white hover:bg-white/5"
-                    }`}
+                    aria-pressed={activeTab === "all"}
+                    className="parkwise-choice"
+                    variant="secondary"
                 >
                     {copy("All", "Tất cả")} ({reservations.length})
-                </button>
-                <button
+                </ParkWiseAction>
+                <ParkWiseAction
                     type="button"
                     onClick={() => setActiveTab("active")}
-                    className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                        activeTab === "active"
-                            ? "bg-[#6246ea] text-white"
-                            : "text-[#8790a3] hover:text-white hover:bg-white/5"
-                    }`}
+                    aria-pressed={activeTab === "active"}
+                    className="parkwise-choice"
+                    variant="secondary"
                 >
                     {copy("Active", "Đang có hiệu lực")} ({activeCount})
-                </button>
-                <button
+                </ParkWiseAction>
+                <ParkWiseAction
                     type="button"
                     onClick={() => setActiveTab("used")}
-                    className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                        activeTab === "used"
-                            ? "bg-[#6246ea] text-white"
-                            : "text-[#8790a3] hover:text-white hover:bg-white/5"
-                    }`}
+                    aria-pressed={activeTab === "used"}
+                    className="parkwise-choice"
+                    variant="secondary"
                 >
                     {copy("Completed", "Đã hoàn thành")}
-                </button>
-                <button
+                </ParkWiseAction>
+                <ParkWiseAction
                     type="button"
                     onClick={() => setActiveTab("cancelled")}
-                    className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                        activeTab === "cancelled"
-                            ? "bg-[#6246ea] text-white"
-                            : "text-[#8790a3] hover:text-white hover:bg-white/5"
-                    }`}
+                    aria-pressed={activeTab === "cancelled"}
+                    className="parkwise-choice"
+                    variant="secondary"
                 >
                     {copy("Cancelled / Expired", "Đã hủy / Hết hạn")}
-                </button>
+                </ParkWiseAction>
             </div>
 
             {/* Trạng thái Loading */}
@@ -341,7 +336,7 @@ export default function BookingsPage() {
             {/* Trạng thái Lỗi */}
             {!loading && error && (
                 <div
-                    className="p-6 pb-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3"
+                    className="pw-app-booking-error p-6 pb-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3"
                     role="alert"
                 >
                     <AlertCircle size={32} className="mx-auto text-red-400" />
@@ -349,22 +344,30 @@ export default function BookingsPage() {
                         <p className="text-red-300 text-sm font-medium">
                             {error}
                         </p>
-                        <button
+                        <ParkWiseAction
                             type="button"
                             onClick={loadReservations}
-                            className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-semibold transition-colors"
+                            variant="secondary"
                         >
                             {copy("Try again", "Thử lại")}
-                        </button>
+                        </ParkWiseAction>
                     </div>
                 </div>
             )}
 
             {/* Trạng thái Trống (Empty) */}
             {!loading && !error && filteredReservations.length === 0 && (
-                <div className="bg-[#0b0c17] border border-white/10 rounded-2xl p-12 text-center space-y-4 shadow-card-light">
+                <div className="pw-app-empty bg-[#0b0c17] border border-white/10 rounded-2xl p-12 text-center space-y-4 shadow-card-light">
                     <div className="w-16 h-16 rounded-full bg-[#6246ea]/10 border border-[#6246ea]/20 flex items-center justify-center mx-auto text-[#a28aff]">
-                        <Calendar size={28} />
+                        <Calendar
+                            size={28}
+                            className="pw-app-empty-desktop-icon"
+                        />
+                        <Car
+                            size={64}
+                            className="pw-app-empty-car"
+                            aria-hidden="true"
+                        />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white mb-1">
@@ -385,12 +388,9 @@ export default function BookingsPage() {
                                   )}
                         </p>
                     </div>
-                    <Link
-                        href="/search"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6246ea] hover:bg-[#7c5cff] text-white font-bold text-sm transition-colors shadow-glow-purple"
-                    >
+                    <ParkWiseAction href="/search">
                         <Plus size={16} /> {copy("Find parking", "Tìm bãi đỗ")}
-                    </Link>
+                    </ParkWiseAction>
                 </div>
             )}
 

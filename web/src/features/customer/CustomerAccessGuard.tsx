@@ -34,7 +34,7 @@ export function CustomerAccessGuard({ children }: { children: ReactNode }) {
         !CUSTOMER_UI_PREVIEW &&
         (!ready || session?.account.role !== "Customer")
     ) {
-        return <main aria-live="polite">Checking customer access…</main>;
+        return <main aria-busy="true" />;
     }
 
     return <>{children}</>;

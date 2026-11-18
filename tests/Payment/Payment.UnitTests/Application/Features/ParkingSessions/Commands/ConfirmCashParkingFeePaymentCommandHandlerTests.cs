@@ -790,4 +790,64 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         Assert.Equal(PayParkingFeeErrors.ParkingServiceUnavailable, result.Error);
         Assert.Empty(_paymentRepository.AddedPayments);
     }
+
+    [Fact]
+    public async Task Handle_WhenOverstaySession_ShouldAllowCashPayment_AndUpdateExistingPayment()
+    {
+        var sessionId = Guid.NewGuid();
+        var staffAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var entryTime = _fixedNow.AddHours(-3);
+
+        // Đã từng thanh toán thành công 20,000 VND
+        var previousPayment = ParkingFeePayment.CreateCashPayment(
+            sessionId,
+            lotId,
+            null,
+            "51A-12345",
+            "Car",
+            20000,
+            0,
+            20000,
+            _fixedNow.AddMinutes(-45),
+            _fixedNow.AddMinutes(-30));
+        _paymentRepository.AddedPayments.Add(previousPayment);
+        _paymentRepository.HasSucceeded = true;
+
+        // Phiên bị reopen sang Active sau khi quá hạn 15p (LastPaidAt = 45p trước)
+        // Block 15p = 5000đ. Quá 45 - 15 = 30p -> 2 blocks = 10000đ
+        var ctx = new ParkingSessionFeeContext(
+            sessionId,
+            lotId,
+            "51A-12345",
+            "Car",
+            "Active",
+            entryTime,
+            null,
+            null,
+            new PricingSnapshotDto("P1", "Block", 15, 5000),
+            LastPaidAtUtc: _fixedNow.AddMinutes(-45),
+            ArrivedAtExitUtc: _fixedNow,
+            GracePeriodMinutes: 15);
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(ctx);
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Success(
+            new ParkingLotMembershipInfo(true, "Staff"));
+
+        var command = new ConfirmCashParkingFeePaymentCommand(
+            sessionId,
+            staffAccountId,
+            "Staff",
+            Guid.NewGuid().ToString(),
+            10000);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(10000, result.Value!.AmountPaid);
+        Assert.Equal(30000, previousPayment.TotalFee); // 20000 + 10000
+        Assert.Equal(30000, previousPayment.AmountPaid); // 20000 + 10000
+        Assert.Single(_outboxWriter.EnqueuedEvents);
+    }
 }
