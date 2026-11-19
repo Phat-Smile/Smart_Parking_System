@@ -88,7 +88,6 @@ export function StaffDashboardPage() {
             <header className="staff-header">
                 <div>
                     <h1 className="staff-title">{t("dashTitle")}</h1>
-                    <p className="staff-subtitle">{t("dashSubtitle")}</p>
                 </div>
                 <div className="staff-header-actions">
                     <button
@@ -125,9 +124,6 @@ export function StaffDashboardPage() {
                             <h2 className="staff-assign-heading">
                                 Phân công trực bãi & Ca làm việc
                             </h2>
-                            <p className="staff-assign-sub">
-                                Nhiệm vụ vận hành được phân công từ Quản trị viên (Admin)
-                            </p>
                         </div>
                     </div>
 
