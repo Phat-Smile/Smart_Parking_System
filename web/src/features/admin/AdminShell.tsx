@@ -146,18 +146,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 ],
             },
             {
-                id: "operations",
-                titleVi: "Vận hành",
-                titleEn: "Operations",
-                items: [
-                    {
-                        href: "/admin/parking-lots/assignments",
-                        label: t("adminLotAssignments"),
-                        icon: "briefcase",
-                    },
-                ],
-            },
-            {
                 id: "system",
                 titleVi: "Hệ thống",
                 titleEn: "System",
@@ -199,16 +187,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     href: "/admin/parking-lots",
                 },
                 { label: t("adminPendingLots") },
-            ];
-        }
-        if (pathname.startsWith("/admin/parking-lots/assignments")) {
-            return [
-                root,
-                {
-                    label: isVi ? "Vận hành" : "Operations",
-                    href: "/admin/parking-lots/assignments",
-                },
-                { label: t("adminLotAssignments") },
             ];
         }
         if (/^\/admin\/parking-lots\/[^/]+/.test(pathname)) {
