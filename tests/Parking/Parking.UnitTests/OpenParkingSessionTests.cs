@@ -328,7 +328,7 @@ public sealed class OpenParkingSessionTests
     }
 
     [Fact]
-    public async Task Walk_in_car_is_refused_without_opening_a_transaction_when_the_held_reservations_are_unknown()
+    public async Task Walk_in_car_is_admitted_when_the_held_reservations_are_unknown()
     {
         var repository = new FakeParkingSessionRepository();
         var unitOfWork = new FakeUnitOfWork();
@@ -337,10 +337,10 @@ public sealed class OpenParkingSessionTests
 
         var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId), TestContext.Current.CancellationToken);
 
-        Assert.Equal(OpenParkingSessionErrors.HeldQuotaUnavailable, result.Error);
-        Assert.False(unitOfWork.Begun);
-        Assert.False(slots.Locked);
-        Assert.Empty(repository.Added);
+        Assert.True(result.IsSuccess);
+        Assert.True(unitOfWork.Committed);
+        Assert.True(slots.Locked);
+        Assert.Single(repository.Added);
     }
 
     [Fact]
@@ -667,7 +667,7 @@ public sealed class OpenParkingSessionTests
     }
 
     [Fact]
-    public async Task Unknown_quota_refuses_entry_and_does_not_consume_evidence()
+    public async Task Unknown_quota_does_not_refuse_entry_and_consumes_evidence()
     {
         var reading = ConfirmedReading(Now.AddMinutes(-2));
         var incidents = new FakeIncidents();
@@ -675,10 +675,9 @@ public sealed class OpenParkingSessionTests
         var unit = new FakeUnitOfWork();
         var handler = NewHandler(new FakeParkingSessionRepository(), new FakeMotorbikeZones(), unit, heldQuota: new FakeHeldQuota(null), incidents: incidents);
         var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId, reading.Id), TestContext.Current.CancellationToken);
-        Assert.Equal(OpenParkingSessionErrors.HeldQuotaUnavailable, result.Error);
-        Assert.Null(reading.SessionId);
-        Assert.False(unit.Committed);
-        Assert.True(unit.Disposed);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(reading.SessionId);
+        Assert.True(unit.Committed);
     }
 
     [Fact]
