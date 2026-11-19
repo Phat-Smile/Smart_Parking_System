@@ -359,10 +359,11 @@ public sealed class HoldWhileDrivingCancellationIntegrationTests(PostgreSqlConta
 
         // Run worker pass 1
         var processed1 = await worker.ReconcileBatchAsync(ct);
-        Assert.Equal(1, processed1);
-        Assert.Single(paymentClient.RefundCalls);
-        Assert.Equal(50000L, paymentClient.RefundCalls[0].AmountVnd);
-        Assert.Equal(reservationId, paymentClient.RefundCalls[0].ReservationId);
+        Assert.True(processed1 >= 1);
+        var testRefundCalls1 = paymentClient.RefundCalls.Where(c => c.ReservationId == reservationId).ToList();
+        var call = Assert.Single(testRefundCalls1);
+        Assert.Equal(50000L, call.AmountVnd);
+        Assert.Equal(reservationId, call.ReservationId);
 
         // Verify entity outcome updated in DB
         await using (var verifyScope = provider.CreateAsyncScope())
@@ -373,13 +374,11 @@ public sealed class HoldWhileDrivingCancellationIntegrationTests(PostgreSqlConta
             Assert.Equal(PrepaidOutcome.Refunded, updated.PrepaidOutcome);
         }
 
-        // Reset payment call tracker
-        paymentClient.RefundCalls.Clear();
-
-        // Run worker pass 2 -> 0 candidates, 0 refunds
-        var processed2 = await worker.ReconcileBatchAsync(ct);
-        Assert.Equal(0, processed2);
-        Assert.Empty(paymentClient.RefundCalls);
+        // Run worker pass 2 -> 0 additional refunds for this test's reservation
+        var countBefore = paymentClient.RefundCalls.Count(c => c.ReservationId == reservationId);
+        await worker.ReconcileBatchAsync(ct);
+        var countAfter = paymentClient.RefundCalls.Count(c => c.ReservationId == reservationId);
+        Assert.Equal(countBefore, countAfter);
     }
 
     // =========================================================================

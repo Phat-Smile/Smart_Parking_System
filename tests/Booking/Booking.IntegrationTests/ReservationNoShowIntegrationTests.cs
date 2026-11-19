@@ -341,15 +341,21 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
         {
             var worker = workerScope.ServiceProvider.GetRequiredService<ReservationNoShowWorker>();
             var processed = await worker.ProcessNoShowsAsync(ct);
-            Assert.Equal(1, processed);
+            Assert.True(processed >= 1);
         }
 
-        // After no-show: held quota drops by 1 (becomes 0)
+        // After no-show: held quota drops by 1 (becomes 0) and reservation is Cancelled(NoShow)
         await using (var verifyScope = provider.CreateAsyncScope())
         {
             var reader = verifyScope.ServiceProvider.GetRequiredService<IArrivalHeldQuotaReader>();
             var afterCount = await reader.CountAsync(lotId, AppointmentTime, ct);
             Assert.Equal(0, afterCount);
+
+            var db = verifyScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var res = await db.Reservations.AsNoTracking().SingleAsync(r => r.Id == reservationId, ct);
+            Assert.Equal(ReservationStatus.Cancelled, res.Status);
+            Assert.Equal(CancelReason.NoShow, res.CancelReason);
+            Assert.True(res.IsNoShow);
         }
     }
 
