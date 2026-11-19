@@ -634,7 +634,7 @@ export default function NewParkingLotPage() {
                             </label>
 
                             <label className="f">
-                                <span>Loại bãi xe (Chuẩn BE)</span>
+                                <span>Loại bãi xe</span>
                                 <select
                                     value={data.type}
                                     onChange={(e) => {
@@ -949,7 +949,7 @@ export default function NewParkingLotPage() {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td>Loại bãi xe (BE)</td>
+                                        <td>Loại bãi xe</td>
                                         <td>
                                             {data.type === "MultiStorey"
                                                 ? "Nhà xe cao tầng (MultiStorey)"

@@ -211,122 +211,14 @@ export const hourly = (y: number, m: number, d: number) => {
 
 // Seed 500 spots
 export function createInitialSpots(): ParkingSpot[] {
-    const spots: ParkingSpot[] = [];
-    FLOORS.forEach((f, fi) => {
-        (["A", "B", "C", "D"] as const).forEach((r, ri) => {
-            for (let n = 0; n < 25; n++) {
-                const i = fi * 100 + ri * 25 + n;
-                spots.push({
-                    id: `${f}-${r}${n + 1}`,
-                    f,
-                    r,
-                    n,
-                    i,
-                    s: pat[(i * 5 + fi) % 12],
-                    p: plate(i),
-                });
-            }
-        });
-    });
-    return spots;
+    return [];
 }
 
 // Initial Lots - Empty by default; loaded dynamically from GET /api/parking/owner/lots
 export const INITIAL_LOTS: ParkingLot[] = [];
 
 // Initial Reservations
-export const INITIAL_RESERVATIONS: Reservation[] = [
-    {
-        id: "R-1042",
-        type: "Đặt trước",
-        plate: "51A-123.45",
-        slot: "T1-A3",
-        time: "14:00 – 16:00",
-        status: "Đã xác nhận",
-        paid: true,
-    },
-    {
-        id: "R-1043",
-        type: "Giữ chỗ",
-        plate: "59X1-678.90",
-        slot: "T2-B5",
-        time: "14:30 – 15:00",
-        status: "Đang giữ",
-        paid: false,
-    },
-    {
-        id: "R-1044",
-        type: "Đặt trước",
-        plate: "30H-555.12",
-        slot: "T1-B2",
-        time: "17:00 – 19:00",
-        status: "Đã xác nhận",
-        paid: true,
-    },
-    {
-        id: "R-1045",
-        type: "Đặt trước",
-        plate: "51F-222.33",
-        slot: "T3-A8",
-        time: "18:00 – 20:00",
-        status: "Chờ thanh toán",
-        paid: false,
-    },
-    {
-        id: "R-1039",
-        type: "Giữ chỗ",
-        plate: "72A-111.22",
-        slot: "T2-A1",
-        time: "09:00 – 10:00",
-        status: "Hết hạn",
-        paid: false,
-    },
-    {
-        id: "R-1036",
-        type: "Đặt trước",
-        plate: "50Z-999.99",
-        slot: "T1-A9",
-        time: "08:00 – 10:00",
-        status: "Đã hủy",
-        paid: false,
-    },
-];
+export const INITIAL_RESERVATIONS: Reservation[] = [];
 
 // Initial Activities
-export const INITIAL_ACTIVITIES: ActivityItem[] = [
-    {
-        plate: "51A-123.45",
-        slot: "T1-A3",
-        method: "Ví Smart Parking",
-        time: "2 phút",
-        statusOrAmount: "Đang đỗ",
-    },
-    {
-        plate: "59X1-678.90",
-        slot: "T2-B5",
-        method: "Thẻ **** 0224",
-        time: "8 phút",
-        statusOrAmount: "+20.000 đ",
-    },
-    {
-        plate: "30H-555.12",
-        slot: "T1-B2",
-        method: "Tiền mặt",
-        time: "15 phút",
-        statusOrAmount: "+45.000 đ",
-    },
-    {
-        plate: "51F-222.33",
-        slot: "T3-A8",
-        method: "Ví Smart Parking",
-        time: "32 phút",
-        statusOrAmount: "+30.000 đ",
-    },
-    {
-        plate: "72A-111.22",
-        slot: "T2-A1",
-        method: "Thẻ **** 4432",
-        time: "1 giờ",
-        statusOrAmount: "+60.000 đ",
-    },
-];
+export const INITIAL_ACTIVITIES: ActivityItem[] = [];

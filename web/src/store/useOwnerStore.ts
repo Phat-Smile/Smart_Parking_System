@@ -63,15 +63,14 @@ interface OwnerStoreState {
 }
 
 export const useOwnerStore = create<OwnerStoreState>((set, get) => ({
-    // Apply mapStatus at seed point so engine 3D and all UI receive normalized s.s
-    spots: createInitialSpots().map((sp) => ({ ...sp, s: mapStatus(sp.s) })),
+    spots: [],
     selectedId: null,
     activeFloor: "all",
     viewMode: "both",
     lots: INITIAL_LOTS,
     currentLotId: 0,
-    reservations: INITIAL_RESERVATIONS,
-    activities: INITIAL_ACTIVITIES,
+    reservations: [],
+    activities: [],
     reportFilter: {
         mode: "day",
         date: new Date().toISOString().slice(0, 10),

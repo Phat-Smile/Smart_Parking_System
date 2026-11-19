@@ -238,7 +238,7 @@ export default function Layout3DPage() {
         selectSpot(id);
     };
 
-    const mainLot = lots[0] || { name: "Bãi đỗ xe Vincom Đồng Khởi" };
+    const mainLot = lots[0] || { name: "Chưa chọn bãi xe" };
 
     return (
         <>
