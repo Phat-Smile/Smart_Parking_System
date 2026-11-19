@@ -1,4 +1,5 @@
 using MediatR;
+using Npgsql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.BuildingBlocks.Results;
@@ -117,12 +118,89 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
         Assert.Equal(1, await dbContext.ParkingSessions.CountAsync(session => session.LotId == lotId, cancellationToken));
     }
 
+    [Fact]
+    public async Task Two_gates_using_same_confirmed_reading_only_one_calls_booking_and_replay_after_cancel_is_refused()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new GateClock();
+        var booking = new RecordingBookingCheckIn();
+        await using var provider = await CreateMigratedServiceProviderAsync(0, ct, booking: booking, clock: clock);
+        var lot = await SeedLotWithCarSlotsAsync(provider, ct, "A-01", "A-02");
+        var arrivedAt = clock.UtcNow.AddMinutes(-2);
+        var reading = Incident.OpenLowConfidencePlate(Guid.NewGuid(), lot, "51A-123.4S", 0.5m, VehicleType.Car, arrivedAt);
+        Assert.True(reading.ConfirmPlate(StaffId, arrivedAt.AddSeconds(1), "51A-123.45", VehicleType.Car));
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            db.Incidents.Add(reading);
+            await db.SaveChangesAsync(ct);
+        }
+        var first = OpenCarSessionAsync(provider, lot, "51A-123.45", ct, reading.Id);
+        Task<Result<OpenedParkingSession>> second;
+        try
+        {
+            await booking.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15), ct);
+            // PostgreSQL itself proves the incident is already locked before the external Booking call returns.
+            await using (var probe = provider.CreateAsyncScope())
+            {
+                var db = probe.ServiceProvider.GetRequiredService<ParkingDbContext>();
+                var blocked = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT id FROM parking.incidents WHERE id = {reading.Id} FOR UPDATE NOWAIT", ct));
+                Assert.Equal(PostgresErrorCodes.LockNotAvailable, blocked.SqlState);
+            }
+            second = OpenCarSessionAsync(provider, lot, "51A-123.45", ct, reading.Id);
+        }
+        finally
+        {
+            booking.Release.TrySetResult(true);
+        }
+        var results = await Task.WhenAll(first, second);
+        var winner = Assert.Single(results, result => result.IsSuccess).Value!;
+        Assert.Equal(OpenParkingSessionErrors.InvalidGateReading, Assert.Single(results, result => !result.IsSuccess).Error);
+        Assert.Equal(1, booking.Calls);
+        Assert.Equal(arrivedAt, booking.ArrivedAt);
+        Assert.Equal(clock.UtcNow, winner.EntryTime);
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ParkingDbContext>();
+            Assert.Equal(winner.SessionId, (await db.Incidents.AsNoTracking().SingleAsync(x => x.Id == reading.Id, ct)).SessionId);
+            Assert.Equal(1, await db.ParkingSessions.CountAsync(x => x.LotId == lot, ct));
+            var cancelled = await scope.ServiceProvider.GetRequiredService<ISender>().Send(new CancelParkingSessionCommand(winner.SessionId, "Vehicle did not enter", StaffId), ct);
+            Assert.True(cancelled.IsSuccess);
+        }
+        var replay = await OpenCarSessionAsync(provider, lot, "51A-123.45", ct, reading.Id);
+        Assert.Equal(OpenParkingSessionErrors.InvalidGateReading, replay.Error);
+        Assert.Equal(1, booking.Calls);
+    }
+
+    private sealed class GateClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; } = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+    }
+
+    private sealed class RecordingBookingCheckIn : IBookingCheckInClient
+    {
+        private int calls;
+        public int Calls => calls;
+        public DateTimeOffset? ArrivedAt { get; private set; }
+        public TaskCompletionSource<bool> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task<CheckedInReservation?> CheckInReservationAsync(Guid lotId, string normalizedPlate, DateTimeOffset entryTime, Guid sessionId, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref calls);
+            ArrivedAt = entryTime;
+            Entered.TrySetResult(true);
+            await Release.Task.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
+            return null;
+        }
+    }
+
     private static async Task<Result<OpenedParkingSession>> OpenCarSessionAsync(
-        ServiceProvider serviceProvider, Guid lotId, string plate, CancellationToken cancellationToken)
+        ServiceProvider serviceProvider, Guid lotId, string plate, CancellationToken cancellationToken, Guid? incidentId = null)
     {
         await using var scope = serviceProvider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new OpenParkingSessionCommand(lotId, plate, nameof(VehicleType.Car), StaffId), cancellationToken);
+            .Send(new OpenParkingSessionCommand(lotId, plate, nameof(VehicleType.Car), StaffId, incidentId), cancellationToken);
     }
 
     private static async Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(
@@ -160,7 +238,7 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
     }
 
     private async Task<ServiceProvider> CreateMigratedServiceProviderAsync(
-        int held, CancellationToken cancellationToken, Guid? cancelledReservationId = null)
+        int held, CancellationToken cancellationToken, Guid? cancelledReservationId = null, IBookingCheckInClient? booking = null, IClock? clock = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -168,9 +246,9 @@ public sealed class WalkInCarSlotIntegrationTests(PostgreSqlContainerFixture pos
         services.AddApplicationServices();
         services.AddSingleton<IBookingCheckInClient, NoMatchingBookingCheckInClient>();
         services.AddSingleton<IBookingNoSlotReporter, NoMatchingBookingCheckInClient>();
-        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IClock>(clock ?? new SystemClock());
         services.AddSingleton<IPlateOwnerLookup, NoPlateOwner>();
-        services.AddSingleton<IBookingCheckInClient, NoBookingCheckInClient>();
+        services.AddSingleton<IBookingCheckInClient>(booking ?? new NoBookingCheckInClient());
         services.AddSingleton<IBookingNoSlotReporter>(new FixedNoSlotReporter(cancelledReservationId));
         // Booking contract #4 is still a stub returning 0; the test sets how many reservations are held.
         services.AddSingleton<IHeldQuotaReader>(new FixedHeldQuota(held));

@@ -226,6 +226,8 @@ public sealed class GateReadingConfirmationTests
         public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) =>
             Task.FromResult(incident?.Id == incidentId ? incident : null);
 
+        public Task<Incident?> FindByIdForUpdateAsync(Guid incidentId, Guid lotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken)
         {
             ListedType = incidentType;

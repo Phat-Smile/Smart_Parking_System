@@ -225,6 +225,8 @@ public sealed class GateReadingTests
 
         public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<Incident?> FindByIdForUpdateAsync(Guid incidentId, Guid lotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

@@ -33,7 +33,9 @@ internal static class ParkingSessionEndpoints
         [property: Required, StringLength(ParkingSession.PlateNumberMaxLength, MinimumLength = 1)] string? PlateNumber,
         [property: Required, AllowedValues(nameof(VehicleType.Car), nameof(VehicleType.Motorbike))]
         [property: Description("Car or Motorbike, case-insensitive (car and MOTORBIKE are accepted).")]
-        string? VehicleType);
+        string? VehicleType,
+        [property: Description("Optional confirmed gate reading from this lot; server uses its recorded arrival time once.")]
+        Guid? GateReadingIncidentId = null);
 
     public sealed record CancelParkingSessionRequest(
         [property: Required, StringLength(ParkingSession.CancelReasonMaxLength, MinimumLength = 1)] string? Reason);
@@ -106,7 +108,7 @@ internal static class ParkingSessionEndpoints
                     return Results.Forbid();
 
                 var result = await sender.Send(
-                    new OpenParkingSessionCommand(request.LotId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty, actorUserId),
+                    new OpenParkingSessionCommand(request.LotId, request.PlateNumber ?? string.Empty, request.VehicleType ?? string.Empty, actorUserId, request.GateReadingIncidentId),
                     cancellationToken);
 
                 // Location points to GET /{sessionId} (lead task S2 2026-10-27; replaces DOC-006).

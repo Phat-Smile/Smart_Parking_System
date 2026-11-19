@@ -135,6 +135,24 @@ public sealed class Incident
         return true;
     }
 
+    /// <summary>Only a confirmed gate reading that has never been linked can be used as arrival evidence.</summary>
+    public bool CanUseForEntry(Guid lotId, string normalizedPlate, VehicleType vehicleType, DateTimeOffset now, TimeSpan maxAge) =>
+        LotId == lotId && IncidentType == IncidentType.LowConfidencePlate && Status == IncidentStatus.Resolved
+        && SessionId is null && ResolvedBy is { } actor && actor != Guid.Empty
+        && ResolvedAt is { } confirmedAt && OccurredAt != default
+        && OccurredAt <= confirmedAt && confirmedAt <= now && now - OccurredAt <= maxAge
+        && ResolutionReason == PlateConfirmedReason && ConfirmedPlate == normalizedPlate && ConfirmedVehicleType == vehicleType;
+
+    // Caller must hold the evidence row lock. The link and session insert are saved in the same transaction.
+    public void AttachEntrySession(Guid sessionId)
+    {
+        if (sessionId == Guid.Empty || IncidentType != IncidentType.LowConfidencePlate
+            || Status != IncidentStatus.Resolved || SessionId is not null || ResolutionReason != PlateConfirmedReason)
+            throw new InvalidOperationException("Gate reading cannot be linked to a session.");
+
+        SessionId = sessionId;
+    }
+
     // Staff do not type a reason when confirming a plate yet; the case itself says why it went to staff.
     public const string PlateConfirmedReason = "Plate and vehicle type confirmed by staff at the gate.";
 

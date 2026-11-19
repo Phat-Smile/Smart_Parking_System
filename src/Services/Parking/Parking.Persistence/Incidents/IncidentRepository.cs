@@ -13,6 +13,18 @@ internal sealed class IncidentRepository(ParkingDbContext dbContext) : IIncident
     public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) =>
         dbContext.Incidents.FirstOrDefaultAsync(incident => incident.Id == incidentId, cancellationToken);
 
+    public async Task<Incident?> FindByIdForUpdateAsync(Guid incidentId, Guid lotId, CancellationToken cancellationToken)
+    {
+        if (dbContext.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("Gate reading requires a Parking transaction.");
+
+        var rows = await dbContext.Incidents
+            .FromSqlInterpolated($"SELECT * FROM parking.incidents WHERE id = {incidentId} AND lot_id = {lotId} FOR UPDATE")
+            .AsTracking()
+            .ToListAsync(cancellationToken);
+        return rows.SingleOrDefault();
+    }
+
     public async Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
         await dbContext.Incidents.AsNoTracking()
             .Where(incident => incident.LotId == lotId

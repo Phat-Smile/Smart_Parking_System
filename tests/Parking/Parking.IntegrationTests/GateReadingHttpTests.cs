@@ -320,6 +320,8 @@ public sealed class GateReadingHttpTests
         public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) =>
             Task.FromResult(stored.FirstOrDefault(incident => incident.Id == incidentId));
 
+        public Task<Incident?> FindByIdForUpdateAsync(Guid incidentId, Guid lotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Incident>>(stored
                 .Where(incident => incident.LotId == lotId && incident.Status == IncidentStatus.Open && incident.IncidentType == incidentType)
