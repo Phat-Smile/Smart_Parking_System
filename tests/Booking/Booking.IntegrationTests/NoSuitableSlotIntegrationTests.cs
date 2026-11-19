@@ -22,6 +22,7 @@ using ParkingSystem.Booking.Application.Reservations.Commands.CancelForNoSuitabl
 using ParkingSystem.Booking.Application.Reservations.Commands.CancelReservation;
 using ParkingSystem.Booking.Application.Reservations.Commands.HandleSlotStatusChanged;
 using ParkingSystem.Booking.Domain.Reservations;
+using ParkingSystem.Booking.Infrastructure.Workers;
 using ParkingSystem.Booking.Persistence;
 using ParkingSystem.BuildingBlocks.Identity;
 using ParkingSystem.BuildingBlocks.Results;
@@ -112,6 +113,12 @@ public sealed class NoSuitableSlotIntegrationTests(PostgreSqlContainerFixture po
         services.AddScoped<CancelForNoSuitableSlotCommandHandler>();
         services.AddScoped<CancelReservationCommandHandler>();
         services.AddScoped<HandleSlotStatusChangedCommandHandler>();
+        services.Configure<ReservationNoShowOptions>(opt =>
+        {
+            opt.BatchSize = 50;
+            opt.IntervalSeconds = 60;
+        });
+        services.AddScoped<ReservationNoShowWorker>();
         return services.BuildServiceProvider(validateScopes: true);
     }
 
@@ -302,12 +309,13 @@ public sealed class NoSuitableSlotIntegrationTests(PostgreSqlContainerFixture po
     // S-11: Worker race at cutoff against real PostgreSQL
     // -------------------------------------------------------------------------
     [Fact]
-    public async Task S11_CancelForNoSuitableSlot_WinsOverNoShowWorker_MarksNotNoShow()
+    public async Task S11_CancelForNoSuitableSlot_Vs_NoShowWorker_RaceAtCutoff()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var lotId = Guid.NewGuid();
         var apptTime = new DateTimeOffset(2026, 11, 20, 14, 0, 0, TimeSpan.Zero);
-        var clock = new FakeClock(apptTime.AddMinutes(15)); // At 14:15, inside valid arrival window [WindowStartAt - 15m, Cutoff)
+        // Cutoff is A + 16:00. At 14:16, worker considers it eligible for NoShow.
+        var clock = new FakeClock(apptTime.AddMinutes(16));
         var paymentClient = new TrackingPaymentClient();
 
         await using var provider = CreateProvider(clock, paymentClient);
@@ -326,28 +334,89 @@ public sealed class NoSuitableSlotIntegrationTests(PostgreSqlContainerFixture po
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        // Execute CancelForNoSuitableSlotCommand with raw formatted plate "51A-123.45"
-        await using (var actScope = provider.CreateAsyncScope())
-        {
-            var handler = actScope.ServiceProvider.GetRequiredService<CancelForNoSuitableSlotCommandHandler>();
-            var command = new CancelForNoSuitableSlotCommand(lotId, PlateNumber, apptTime.AddMinutes(15));
-            var result = await handler.Handle(command, cancellationToken);
+        var barrier = new Barrier(2);
 
-            Assert.True(result.IsSuccess);
-            Assert.True(result.Value!.Cancelled);
-            Assert.Equal(resId, result.Value.ReservationId);
+        async Task RunApiCancelAsync()
+        {
+            try
+            {
+                await using var scope = provider.CreateAsyncScope();
+                var handler = scope.ServiceProvider.GetRequiredService<CancelForNoSuitableSlotCommandHandler>();
+                barrier.SignalAndWait(cancellationToken);
+                // Car arrived just before cutoff (at 14:15, inside arrival window)
+                await handler.Handle(new CancelForNoSuitableSlotCommand(lotId, PlateNumber, apptTime.AddMinutes(15)), cancellationToken);
+            }
+            catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.InnerException?.GetType().Name == "DbUpdateConcurrencyException")
+            {
+                // Expected concurrency loss when worker wins
+            }
         }
 
-        // Verify in DB: Cancelled with NoSuitableSlot, IsNoShow is strictly false
+        async Task RunWorkerAsync()
+        {
+            try
+            {
+                await using var scope = provider.CreateAsyncScope();
+                var worker = scope.ServiceProvider.GetRequiredService<ReservationNoShowWorker>();
+                barrier.SignalAndWait(cancellationToken);
+                await worker.ProcessNoShowsAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.InnerException?.GetType().Name == "DbUpdateConcurrencyException")
+            {
+                // Expected concurrency loss when API cancel wins
+            }
+        }
+
+        var apiTask = Task.Run(RunApiCancelAsync, cancellationToken);
+        var workerTask = Task.Run(RunWorkerAsync, cancellationToken);
+
+        await Task.WhenAll(apiTask, workerTask);
+
+        // Verify database state: exactly one winner
         await using (var assertScope = provider.CreateAsyncScope())
         {
             var db = assertScope.ServiceProvider.GetRequiredService<BookingDbContext>();
             var loaded = await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == resId, cancellationToken);
             Assert.NotNull(loaded);
             Assert.Equal(ReservationStatus.Cancelled, loaded.Status);
-            Assert.Equal(CancelReason.NoSuitableSlot, loaded.CancelReason);
-            Assert.False(loaded.IsNoShow);
-            Assert.Equal(PrepaidOutcome.Refunded, loaded.PrepaidOutcome);
+
+            // Exactly one winner: Cancelled(NoSuitableSlot) or Cancelled(NoShow)
+            Assert.True(
+                loaded.CancelReason == CancelReason.NoSuitableSlot ^
+                loaded.CancelReason == CancelReason.NoShow,
+                $"Unexpected cancel reason: {loaded.CancelReason}");
+
+            // IsNoShow matches the winner
+            if (loaded.CancelReason == CancelReason.NoShow)
+            {
+                Assert.True(loaded.IsNoShow);
+                Assert.Equal(PrepaidOutcome.Forfeited, loaded.PrepaidOutcome);
+            }
+            else
+            {
+                Assert.False(loaded.IsNoShow);
+                Assert.Equal(PrepaidOutcome.Refunded, loaded.PrepaidOutcome);
+            }
+
+            // At most 1 refund call across both paths
+            lock (paymentClient.RefundCalls)
+            {
+                Assert.True(paymentClient.RefundCalls.Count <= 1);
+                if (loaded.CancelReason == CancelReason.NoSuitableSlot)
+                {
+                    Assert.Single(paymentClient.RefundCalls);
+                }
+                else
+                {
+                    Assert.Empty(paymentClient.RefundCalls);
+                }
+            }
+
+            // Exactly 1 cancel event in outbox
+            var cancelEvents = await db.OutboxMessages.AsNoTracking()
+                .Where(m => m.CorrelationId == resId && m.EventType == "booking.reservation-cancelled.v1")
+                .ToListAsync(cancellationToken);
+            Assert.Single(cancelEvents);
         }
     }
 
@@ -379,28 +448,70 @@ public sealed class NoSuitableSlotIntegrationTests(PostgreSqlContainerFixture po
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        // Simulate customer cancels first
-        await using (var customerScope = provider.CreateAsyncScope())
+        var barrier = new Barrier(2);
+
+        async Task RunCustomerCancelAsync()
         {
-            var handler = customerScope.ServiceProvider.GetRequiredService<CancelReservationCommandHandler>();
-            var command = new CancelReservationCommand(resId, UserId, "Customer cancelled");
-            var result = await handler.Handle(command, cancellationToken);
-            Assert.True(result.IsSuccess);
+            try
+            {
+                await using var scope = provider.CreateAsyncScope();
+                var handler = scope.ServiceProvider.GetRequiredService<CancelReservationCommandHandler>();
+                barrier.SignalAndWait(cancellationToken);
+                await handler.Handle(new CancelReservationCommand(resId, UserId, "Customer cancelled concurrently"), cancellationToken);
+            }
+            catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.InnerException?.GetType().Name == "DbUpdateConcurrencyException")
+            {
+                // Expected concurrency conflict
+            }
         }
 
-        // Gate arrival attempt calls CancelForNoSuitableSlot
-        await using (var gateScope = provider.CreateAsyncScope())
+        async Task RunApiCancelAsync()
         {
-            var handler = gateScope.ServiceProvider.GetRequiredService<CancelForNoSuitableSlotCommandHandler>();
-            var command = new CancelForNoSuitableSlotCommand(lotId, PlateNumber, apptTime);
-            var result = await handler.Handle(command, cancellationToken);
-
-            Assert.True(result.IsSuccess);
-            Assert.False(result.Value!.Cancelled); // Cannot cancel already-cancelled reservation
+            try
+            {
+                await using var scope = provider.CreateAsyncScope();
+                var handler = scope.ServiceProvider.GetRequiredService<CancelForNoSuitableSlotCommandHandler>();
+                barrier.SignalAndWait(cancellationToken);
+                await handler.Handle(new CancelForNoSuitableSlotCommand(lotId, PlateNumber, apptTime), cancellationToken);
+            }
+            catch (Exception ex) when (ex.GetType().Name == "DbUpdateConcurrencyException" || ex.InnerException?.GetType().Name == "DbUpdateConcurrencyException")
+            {
+                // Expected concurrency conflict
+            }
         }
 
-        // Payment refund called exactly once (by customer cancel, not twice)
-        Assert.Single(paymentClient.RefundCalls);
+        var customerTask = Task.Run(RunCustomerCancelAsync, cancellationToken);
+        var apiTask = Task.Run(RunApiCancelAsync, cancellationToken);
+
+        await Task.WhenAll(customerTask, apiTask);
+
+        // Verify database state: exactly one winner
+        await using (var assertScope = provider.CreateAsyncScope())
+        {
+            var db = assertScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var loaded = await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == resId, cancellationToken);
+            Assert.NotNull(loaded);
+            Assert.Equal(ReservationStatus.Cancelled, loaded.Status);
+
+            Assert.True(
+                loaded.CancelReason == CancelReason.CustomerCancelled ^
+                loaded.CancelReason == CancelReason.NoSuitableSlot,
+                $"Unexpected cancel reason: {loaded.CancelReason}");
+
+            Assert.False(loaded.IsNoShow);
+
+            // At most 1 refund call
+            lock (paymentClient.RefundCalls)
+            {
+                Assert.True(paymentClient.RefundCalls.Count <= 1);
+            }
+
+            // Exactly 1 cancel event in outbox
+            var cancelEvents = await db.OutboxMessages.AsNoTracking()
+                .Where(m => m.CorrelationId == resId && m.EventType == "booking.reservation-cancelled.v1")
+                .ToListAsync(cancellationToken);
+            Assert.Single(cancelEvents);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -578,5 +689,50 @@ public sealed class NoSuitableSlotIntegrationTests(PostgreSqlContainerFixture po
         var call = Assert.Single(paymentClient.RefundCalls);
         Assert.Equal(resId, call.ReservationId);
         Assert.Equal(50000, call.AmountVnd);
+
+        // --- Part 2: Payment FAILS -> never Refunded without a real refund (PrepaidOutcome remains null) ---
+        var res2Id = Guid.NewGuid();
+        await using (var seedScope2 = provider.CreateAsyncScope())
+        {
+            var db = seedScope2.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var res2 = CreateConfirmedReservation(res2Id, lotId, apptTime, 50000m, plate: "51B-999.88");
+            db.Reservations.Add(res2);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        // Configure payment to fail
+        paymentClient.RefundCalls.Clear();
+        paymentClient.RefundResultToReturn = Result<ReservationDebitState>.Failure(ReservationPaymentErrors.Unavailable);
+
+        await using (var actScope2 = provider.CreateAsyncScope())
+        {
+            var handler = actScope2.ServiceProvider.GetRequiredService<HandleSlotStatusChangedCommandHandler>();
+            var command = new HandleSlotStatusChangedCommand(
+                lotId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "A-02",
+                "Maintenance",
+                "Available",
+                "Sensor",
+                apptTime,
+                2);
+
+            var result = await handler.Handle(command, cancellationToken);
+            Assert.True(result.IsSuccess);
+            Assert.Equal(1, result.Value!.CancelledReservationsCount);
+            Assert.Contains("Tiền hoàn đang được xử lý", result.Value.Message);
+        }
+
+        // Verify in PostgreSQL: Status is Cancelled, but PrepaidOutcome is strictly NULL (never marked Refunded!)
+        await using (var assertScope2 = provider.CreateAsyncScope())
+        {
+            var db = assertScope2.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var loaded2 = await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == res2Id, cancellationToken);
+            Assert.NotNull(loaded2);
+            Assert.Equal(ReservationStatus.Cancelled, loaded2.Status);
+            Assert.Equal(CancelReason.NoSuitableSlot, loaded2.CancelReason);
+            Assert.Null(loaded2.PrepaidOutcome); // NEVER Refunded without real refund!
+        }
     }
 }

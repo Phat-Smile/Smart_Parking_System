@@ -101,6 +101,23 @@ public sealed class CheckInEndpointSecurityIntegrationTests
             return Task.FromResult(res);
         }
 
+        public Task<Reservation?> FindCancelledNoSuitableSlotByLotAndPlateAsync(
+            Guid lotId,
+            string plateNumber,
+            DateTimeOffset arrivalTime,
+            CancellationToken cancellationToken)
+        {
+            var normalized = LicensePlateNormalizer.Normalize(plateNumber);
+            var res = _list.FirstOrDefault(r =>
+                r.LotId == lotId &&
+                LicensePlateNormalizer.Normalize(r.PlateNumber) == normalized &&
+                r.Status == ReservationStatus.Cancelled &&
+                r.CancelReason == CancelReason.NoSuitableSlot &&
+                arrivalTime >= r.WindowStartAt.AddMinutes(-15) &&
+                arrivalTime < Reservation.GetNoShowCutoff(r.AppointmentTime));
+            return Task.FromResult(res);
+        }
+
         public void Add(Reservation reservation) => _list.Add(reservation);
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }

@@ -20,7 +20,7 @@ public interface IReservationRepository
         Guid lotId,
         string plateNumber,
         DateTimeOffset arrivalTime,
-        CancellationToken cancellationToken) => Task.FromResult<Reservation?>(null);
+        CancellationToken cancellationToken);
 
     void Add(Reservation reservation);
 

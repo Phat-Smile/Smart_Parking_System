@@ -607,6 +607,9 @@ public sealed class ReservationNoShowWorkerTests
                 utcArrival < Reservation.GetNoShowCutoff(r.AppointmentTime)));
         }
 
+        public Task<Reservation?> FindCancelledNoSuitableSlotByLotAndPlateAsync(Guid lotId, string plateNumber, DateTimeOffset arrivalTime, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Reservation?>(null);
+
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         private readonly RecordingOutbox? _outbox;

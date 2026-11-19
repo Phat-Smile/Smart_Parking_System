@@ -459,6 +459,9 @@ public sealed class ReservationNoShowIntegrationTests(PostgreSqlContainerFixture
         public Task<Reservation?> FindActiveConfirmedByLotAndPlateAsync(Guid lotId, string plateNumber, DateTimeOffset arrivalTime, CancellationToken cancellationToken) =>
             inner.FindActiveConfirmedByLotAndPlateAsync(lotId, plateNumber, arrivalTime, cancellationToken);
 
+        public Task<Reservation?> FindCancelledNoSuitableSlotByLotAndPlateAsync(Guid lotId, string plateNumber, DateTimeOffset arrivalTime, CancellationToken cancellationToken) =>
+            inner.FindCancelledNoSuitableSlotByLotAndPlateAsync(lotId, plateNumber, arrivalTime, cancellationToken);
+
         public void Add(Reservation reservation) => inner.Add(reservation);
 
         public Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken) =>
