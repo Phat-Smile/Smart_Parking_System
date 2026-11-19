@@ -101,33 +101,32 @@ export function StaffDashboardPage() {
                         disabled={loadingLots}
                     >
                         <RefreshCw
-                            size={15}
+                            size={14}
                             strokeWidth={2.2}
                             className={loadingLots ? "staff-spin" : ""}
                         />
                         <span>
                             {loadingLots
                                 ? "Đang làm mới..."
-                                : "Cập nhật số liệu CSDL"}
+                                : "Làm mới số liệu"}
                         </span>
                     </button>
                 </div>
             </header>
 
-            {/* THÔNG TIN BÃI TRỰC & CA LÀM VIỆC DUY NHẤT TỪ ADMIN */}
+            {/* THÔNG TIN BÃI TRỰC & CA LÀM VIỆC TỪ ADMIN */}
             <section className="staff-card staff-assignment-card">
                 <div className="staff-assign-header">
                     <div className="staff-assign-title-group">
                         <div className="staff-assign-icon-badge">
-                            <Building2 size={18} strokeWidth={2.2} />
+                            <Building2 size={16} strokeWidth={2.2} />
                         </div>
                         <div>
                             <h2 className="staff-assign-heading">
-                                Bãi trực & Ca làm việc của bạn
+                                Phân công trực bãi & Ca làm việc
                             </h2>
                             <p className="staff-assign-sub">
-                                Mỗi nhân viên trực 1 bãi duy nhất theo phân công
-                                từ Quản trị viên (Admin).
+                                Nhiệm vụ vận hành được phân công từ Quản trị viên (Admin)
                             </p>
                         </div>
                     </div>
@@ -142,154 +141,94 @@ export function StaffDashboardPage() {
                                 <span>{staffProfile.fullName}</span>
                             </span>
                         )}
-                        <span className="staff-assign-role-pill">
-                            <CheckCircle2 size={13} strokeWidth={2.3} />
-                            <span>Bãi trực duy nhất · Admin phân công</span>
-                        </span>
+                        {activeLotDetail && (
+                            activeLotDetail.isCurrentShift ? (
+                                <span className="staff-shift-status active">
+                                    <span className="staff-pulse-dot green" />
+                                    <span>Đang trong ca trực</span>
+                                </span>
+                            ) : (
+                                <span className="staff-shift-status inactive">
+                                    <span>Ngoài ca trực</span>
+                                </span>
+                            )
+                        )}
                     </div>
                 </div>
 
                 {loadingLots && !activeLotDetail ? (
-                    <p className="staff-empty">
-                        Đang tải thông tin phân công bãi và ca trực từ CSDL...
-                    </p>
+                    <div className="staff-assign-loading">
+                        <RefreshCw size={15} strokeWidth={2.2} className="staff-spin" />
+                        <span>Đang tải thông tin phân công bãi và ca trực...</span>
+                    </div>
                 ) : !activeLotDetail ? (
                     <div className="staff-assign-empty">
                         <p>
-                            Bạn chưa được quản trị viên phân công vào bãi xe
-                            nào. Vui lòng liên hệ Admin để được phân quyền trực
-                            bãi.
+                            Bạn chưa được quản trị viên phân công vào bãi xe nào. Vui lòng liên hệ Admin để được phân quyền trực bãi.
                         </p>
                     </div>
                 ) : (
                     <div className="staff-assign-grid">
-                        {/* Cột 1: Thông tin Bãi & Ca trực */}
-                        <div className="staff-assign-lot-box">
-                            <div className="staff-assign-lot-top">
-                                <span className="staff-eyebrow-label">
-                                    BÃI ĐỖ XE ĐƯỢC PHÂN QUYỀN
-                                </span>
-                                <h3 className="staff-assign-lot-name">
-                                    {activeLotDetail.lotName}
-                                </h3>
-                                <p className="staff-assign-lot-addr">
-                                    <MapPin size={14} strokeWidth={2.2} />
-                                    <span>{activeLotDetail.address}</span>
-                                </p>
-                            </div>
-
-                            {/* Khối Ca trực */}
-                            <div className="staff-shift-strip">
-                                <div className="staff-shift-strip-left">
-                                    <div className="staff-shift-clock-icon">
-                                        <Clock size={16} strokeWidth={2.2} />
-                                    </div>
-                                    <div className="staff-shift-meta">
-                                        <span className="staff-shift-eyebrow">
-                                            CA TRỰC CỦA BẠN
-                                        </span>
-                                        <div className="staff-shift-main-line">
-                                            <strong className="staff-shift-name">
-                                                {activeLotDetail.shiftName}
-                                            </strong>
-                                            <span className="staff-shift-hours">
-                                                {activeLotDetail.hours}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="staff-shift-strip-right">
-                                    {activeLotDetail.isCurrentShift ? (
-                                        <span className="staff-shift-status active">
-                                            <span className="staff-pulse-dot green" />
-                                            <span>Đang trong ca trực</span>
-                                        </span>
-                                    ) : (
-                                        <span className="staff-shift-status inactive">
-                                            <span>Ngoài ca trực</span>
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+                        {/* Cột 1: Thông tin Bãi trực */}
+                        <div className="staff-assign-box">
+                            <span className="staff-eyebrow-label">
+                                BÃI ĐỖ XE ĐƯỢC PHÂN CÔNG
+                            </span>
+                            <h3 className="staff-assign-lot-name">
+                                {activeLotDetail.lotName}
+                            </h3>
+                            <p className="staff-assign-lot-addr">
+                                <MapPin size={13} strokeWidth={2.2} />
+                                <span>{activeLotDetail.address}</span>
+                            </p>
                         </div>
 
-                        {/* Cột 2: Tình trạng vận hành bãi (Real-time Operation) */}
-                        <div className="staff-ops-box">
-                            <div className="staff-ops-box-head">
-                                <span className="staff-eyebrow-label">
-                                    TÌNH TRẠNG VẬN HÀNH THỜI GIAN THỰC
-                                </span>
-                                <span className="staff-ops-sync-tag">
-                                    <span className="staff-pulse-dot green" />
-                                    IN 01 & OUT 02 đồng bộ
-                                </span>
-                            </div>
+                        {/* Cột 2: Thông tin Ca trực */}
+                        <div className="staff-assign-box">
+                            <span className="staff-eyebrow-label">
+                                CA LÀM VIỆC HIỆN TẠI
+                            </span>
+                            <h3 className="staff-assign-shift-name">
+                                {activeLotDetail.shiftName}
+                            </h3>
+                            <p className="staff-assign-shift-hours">
+                                <Clock size={13} strokeWidth={2.2} />
+                                <span>{activeLotDetail.hours}</span>
+                            </p>
+                        </div>
 
-                            <div className="staff-ops-mini-grid">
-                                <div className="staff-ops-mini-card">
-                                    <div className="staff-ops-mini-icon emerald">
-                                        <Car size={16} strokeWidth={2.2} />
-                                    </div>
-                                    <div className="staff-ops-mini-content">
-                                        <span className="staff-ops-mini-label">
-                                            Chỗ trống Ô tô
-                                        </span>
-                                        <strong className="staff-ops-mini-val text-emerald">
-                                            {activeLotDetail.carAvailable}{" "}
-                                            <small>chỗ</small>
-                                        </strong>
-                                    </div>
+                        {/* Cột 3: Tóm tắt sức chứa thực tế */}
+                        <div className="staff-assign-box staff-assign-box-stats">
+                            <span className="staff-eyebrow-label">
+                                TÌNH TRẠNG CHỖ TRỐNG NHANH
+                            </span>
+                            <div className="staff-assign-mini-metrics">
+                                <div className="staff-assign-mini-stat">
+                                    <span className="staff-mini-label">
+                                        <Car size={13} strokeWidth={2.2} />
+                                        <span>Ô tô:</span>
+                                    </span>
+                                    <strong className="text-emerald">
+                                        {activeLotDetail.carAvailable} <small>chỗ</small>
+                                    </strong>
                                 </div>
-
-                                <div className="staff-ops-mini-card">
-                                    <div className="staff-ops-mini-icon emerald">
-                                        <Bike size={16} strokeWidth={2.2} />
-                                    </div>
-                                    <div className="staff-ops-mini-content">
-                                        <span className="staff-ops-mini-label">
-                                            Chỗ trống Xe máy
-                                        </span>
-                                        <strong className="staff-ops-mini-val text-emerald">
-                                            {activeLotDetail.motorbikeAvailable}{" "}
-                                            <small>chỗ</small>
-                                        </strong>
-                                    </div>
+                                <div className="staff-assign-mini-stat">
+                                    <span className="staff-mini-label">
+                                        <Bike size={13} strokeWidth={2.2} />
+                                        <span>Xe máy:</span>
+                                    </span>
+                                    <strong className="text-emerald">
+                                        {activeLotDetail.motorbikeAvailable} <small>chỗ</small>
+                                    </strong>
                                 </div>
-
-                                <div className="staff-ops-mini-card">
-                                    <div className="staff-ops-mini-icon blue">
-                                        <Activity size={16} strokeWidth={2.2} />
-                                    </div>
-                                    <div className="staff-ops-mini-content">
-                                        <span className="staff-ops-mini-label">
-                                            Xe đang đỗ
-                                        </span>
-                                        <strong className="staff-ops-mini-val text-sky">
-                                            {
-                                                activeLotDetail.activeSessionsCount
-                                            }{" "}
-                                            <small>xe</small>
-                                        </strong>
-                                    </div>
-                                </div>
-
-                                <div className="staff-ops-mini-card">
-                                    <div className="staff-ops-mini-icon emerald">
-                                        <ShieldCheck
-                                            size={16}
-                                            strokeWidth={2.2}
-                                        />
-                                    </div>
-                                    <div className="staff-ops-mini-content">
-                                        <span className="staff-ops-mini-label">
-                                            Trạng thái Barrier
-                                        </span>
-                                        <strong className="staff-ops-mini-val text-emerald status-inline">
-                                            <span className="staff-pulse-dot green" />
-                                            <span>Hoạt động tốt</span>
-                                        </strong>
-                                    </div>
+                                <div className="staff-assign-mini-stat">
+                                    <span className="staff-mini-label">
+                                        <Activity size={13} strokeWidth={2.2} />
+                                        <span>Đang đỗ:</span>
+                                    </span>
+                                    <strong className="text-sky">
+                                        {activeLotDetail.activeSessionsCount} <small>xe</small>
+                                    </strong>
                                 </div>
                             </div>
                         </div>
@@ -300,12 +239,12 @@ export function StaffDashboardPage() {
             {/* Current occupancy & High level KPI stats */}
             <section className="staff-stats-grid">
                 {/* KPI 1: Công suất bãi đỗ hiện tại */}
-                <div className="staff-stat-card occupancy-card">
+                <div className="staff-stat-card">
                     <div className="staff-stat-top">
                         <div className="staff-stat-header">
                             <div className="staff-stat-title-wrap">
-                                <span className="staff-stat-icon icon-ink">
-                                    <Gauge size={16} strokeWidth={2.2} />
+                                <span className="staff-stat-icon">
+                                    <Gauge size={15} strokeWidth={2.2} />
                                 </span>
                                 <span className="staff-stat-title">
                                     {t("dashOccupancy")}
@@ -338,8 +277,8 @@ export function StaffDashboardPage() {
                                     width: `${occupancyPercent}%`,
                                     backgroundColor:
                                         occupancyPercent > 85
-                                            ? "#ef4444"
-                                            : "#10b981",
+                                            ? "#DC2626"
+                                            : "#16A34A",
                                 }}
                             />
                         </div>
@@ -348,8 +287,8 @@ export function StaffDashboardPage() {
                     <div className="staff-slot-breakdown">
                         <div className="staff-slot-sub">
                             <span className="staff-slot-sub-label">
-                                <Car size={12} strokeWidth={2.2} />
-                                {t("dashCarAvailable")}
+                                <Car size={13} strokeWidth={2} />
+                                <span>{t("dashCarAvailable")}</span>
                             </span>
                             <strong className="text-emerald">
                                 {countText(occupancy.carAvailable)}{" "}
@@ -358,8 +297,8 @@ export function StaffDashboardPage() {
                         </div>
                         <div className="staff-slot-sub">
                             <span className="staff-slot-sub-label">
-                                <Bike size={12} strokeWidth={2.2} />
-                                {t("dashMotorbikeAvailable")}
+                                <Bike size={13} strokeWidth={2} />
+                                <span>{t("dashMotorbikeAvailable")}</span>
                             </span>
                             <strong className="text-emerald">
                                 {countText(occupancy.motorbikeAvailable)}{" "}
@@ -375,13 +314,13 @@ export function StaffDashboardPage() {
                         <div className="staff-stat-header">
                             <div className="staff-stat-title-wrap">
                                 <span className="staff-stat-icon icon-blue">
-                                    <Layers size={16} strokeWidth={2.2} />
+                                    <Layers size={15} strokeWidth={2.2} />
                                 </span>
                                 <span className="staff-stat-title">
                                     {t("dashActiveSessions")}
                                 </span>
                             </div>
-                            <span className="staff-stat-pill">LIVE</span>
+                            <span className="staff-stat-pill pill-neutral">LIVE</span>
                         </div>
                         <div className="staff-stat-number">
                             {occupancy.activeSessionsCount}
@@ -393,7 +332,7 @@ export function StaffDashboardPage() {
                             <span>
                                 {t("dashViewSessions").replace(/\s*→$/, "")}
                             </span>
-                            <ArrowRight size={14} strokeWidth={2.3} />
+                            <ArrowRight size={13} strokeWidth={2.2} />
                         </Link>
                     </div>
                 </div>
@@ -407,10 +346,10 @@ export function StaffDashboardPage() {
                                     className={`staff-stat-icon ${
                                         occupancy.needsVerificationCount > 0
                                             ? "icon-danger"
-                                            : "icon-amber"
+                                            : "icon-neutral"
                                     }`}
                                 >
-                                    <ScanLine size={16} strokeWidth={2.2} />
+                                    <ScanLine size={15} strokeWidth={2.2} />
                                 </span>
                                 <span className="staff-stat-title">
                                     {t("dashNeedsVerif")}
@@ -453,7 +392,7 @@ export function StaffDashboardPage() {
                             <span>
                                 {t("dashResolveNow").replace(/\s*→$/, "")}
                             </span>
-                            <ArrowRight size={14} strokeWidth={2.3} />
+                            <ArrowRight size={13} strokeWidth={2.2} />
                         </Link>
                     </div>
                 </div>
@@ -464,7 +403,7 @@ export function StaffDashboardPage() {
                         <div className="staff-stat-header">
                             <div className="staff-stat-title-wrap">
                                 <span className="staff-stat-icon icon-emerald">
-                                    <ShieldCheck size={16} strokeWidth={2.2} />
+                                    <ShieldCheck size={15} strokeWidth={2.2} />
                                 </span>
                                 <span className="staff-stat-title">
                                     {t("dashGateHealth")}
@@ -480,7 +419,7 @@ export function StaffDashboardPage() {
                         <p className="staff-stat-hint">{t("dashGateSynced")}</p>
                     </div>
                     <div className="staff-stat-footer">
-                        <span className="staff-pill staff-pill-success">
+                        <span className="staff-gate-ping">
                             <span className="staff-pulse-dot green" />
                             <span>{t("dashLatency")} 24ms</span>
                         </span>
@@ -509,10 +448,16 @@ export function StaffDashboardPage() {
 
                     <div className="staff-activity-list">
                         {entryActivities.length === 0 ? (
-                            <p className="staff-empty">
-                                Chưa có lượt xe vào nào được ghi nhận trong
-                                phiên làm việc.
-                            </p>
+                            <div className="staff-feed-empty">
+                                <ArrowDownLeft
+                                    size={20}
+                                    strokeWidth={1.8}
+                                    className="staff-feed-empty-icon"
+                                />
+                                <p>
+                                    Chưa có lượt xe vào nào được ghi nhận trong phiên làm việc.
+                                </p>
+                            </div>
                         ) : (
                             entryActivities.map((act) => (
                                 <div
@@ -562,10 +507,16 @@ export function StaffDashboardPage() {
 
                     <div className="staff-activity-list">
                         {exitActivities.length === 0 ? (
-                            <p className="staff-empty">
-                                Chưa có lượt xe ra nào được ghi nhận trong phiên
-                                làm việc.
-                            </p>
+                            <div className="staff-feed-empty">
+                                <ArrowUpRight
+                                    size={20}
+                                    strokeWidth={1.8}
+                                    className="staff-feed-empty-icon"
+                                />
+                                <p>
+                                    Chưa có lượt xe ra nào được ghi nhận trong phiên làm việc.
+                                </p>
+                            </div>
                         ) : (
                             exitActivities.map((act) => (
                                 <div
