@@ -39,6 +39,8 @@ import {
     type MapCoordinates,
 } from "./geocodeDestination";
 
+const EMPTY_RESULTS: SearchResult[] = [];
+
 const initialFilters = {
     distance: "any",
     evChargingOnly: false,
@@ -104,8 +106,6 @@ const filterOptions = {
         { value: "motorbike", label: "Motorbike", icon: "motorbike" as const },
     ],
 };
-
-const EMPTY_RESULTS: SearchResult[] = [];
 
 export function CustomerFindParkingPage({
     fontClassName,

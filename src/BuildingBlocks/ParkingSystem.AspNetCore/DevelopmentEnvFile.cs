@@ -34,7 +34,12 @@ internal static class DevelopmentEnvFile
         string Get(string key, string fallback) => env.TryGetValue(key, out var value) && value.Length > 0 ? value : fallback;
 
         // The IDE reaches the compose containers through their published localhost ports.
-        if (env.ContainsKey("POSTGRES_USER") && env.ContainsKey("POSTGRES_PASSWORD"))
+        if (env.TryGetValue("DATABASE_CONNECTION_STRING", out var sharedConnection) &&
+            !string.IsNullOrWhiteSpace(sharedConnection))
+        {
+            values["ConnectionStrings:DefaultConnection"] = sharedConnection;
+        }
+        else if (env.ContainsKey("POSTGRES_USER") && env.ContainsKey("POSTGRES_PASSWORD"))
         {
             values["ConnectionStrings:DefaultConnection"] =
                 $"Host=127.0.0.1;Port={Get("POSTGRES_HOST_PORT", "5433")};Database={Get("POSTGRES_DB", "parking_system")};" +
