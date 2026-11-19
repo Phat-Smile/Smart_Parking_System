@@ -1,7 +1,6 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots.Availability;
 using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -63,7 +62,7 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
     INearbyParkingLotReader nearbyReader,
     ICustomerLotMetricsReader metricsReader,
     IArrivalSnapshotReader snapshotReader,
-    IHeldQuotaProvider heldQuotaProvider,
+    IArrivalHeldQuotaClient arrivalHeldQuotaClient,
     IParkingRecommendationClient recommendationClient,
     ILogger<GetParkingLotRecommendationsQueryHandler> logger)
     : IRequestHandler<GetParkingLotRecommendationsQuery, ParkingLotRecommendationResult>
@@ -107,10 +106,16 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         // 2. Fetch held quotas in parallel (no ParkingDbContext usage here).
         var heldQuotaTasks = pricedLots.Select(async lot =>
         {
-            var held = await heldQuotaProvider.GetHeldReservationsAsync(lot.Id, cancellationToken);
+            // Booking holds car reservations only. Motorbike zero is known by policy.
+            var held = isCar
+                ? await arrivalHeldQuotaClient.GetHeldQuotaAsync(lot.Id, arrivalAt, cancellationToken)
+                : 0;
+            if (held is < 0)
+                held = null;
             return (LotId: lot.Id, Held: held);
         });
         var heldQuotaMap = (await Task.WhenAll(heldQuotaTasks)).ToDictionary(x => x.LotId, x => x.Held);
+        cancellationToken.ThrowIfCancellationRequested();
 
         // 3. Fetch snapshots SEQUENTIALLY on ParkingDbContext to prevent concurrent EF Core queries on same DbContext instance
         var candidateMap = pricedLots.ToDictionary(x => x.Id);
