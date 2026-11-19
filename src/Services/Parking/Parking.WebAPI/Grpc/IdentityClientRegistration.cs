@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ParkingSystem.Parking.Application.Common.Identity;
+using SmartParking.Contracts.Identity.Staff.V1;
 using SmartParking.Contracts.Identity.Vehicle.V1;
 
 namespace ParkingSystem.Parking.WebAPI.Grpc;
@@ -33,7 +34,14 @@ public static class IdentityClientRegistration
             return new IdentityVehicleContract.IdentityVehicleContractClient(GrpcChannel.ForAddress(options.GrpcEndpoint));
         });
 
+        services.AddSingleton(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<IdentityServiceOptions>>().Value;
+            return new IdentityStaffContract.IdentityStaffContractClient(GrpcChannel.ForAddress(options.GrpcEndpoint));
+        });
+
         services.AddScoped<IPlateOwnerLookup, IdentityVehicleGrpcClient>();
+        services.AddScoped<IStaffAccountLookup, IdentityStaffGrpcClient>();
 
         return services;
     }

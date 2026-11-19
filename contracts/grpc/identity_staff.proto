@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package smartparking.identity.staff.v1;
+
+option csharp_namespace = "SmartParking.Contracts.Identity.Staff.V1";
+
+service IdentityStaffContract {
+  rpc LookupStaffAccount(LookupStaffAccountRequest)
+      returns (LookupStaffAccountResponse);
+}
+
+message LookupStaffAccountRequest {
+  // Raw or normalized email of the staff account. Empty or malformed -> INVALID_ARGUMENT.
+  string email = 1;
+}
+
+// Returns is_found = true ONLY when the email exists AND the account has role Staff AND is active.
+// All other cases (not found, role != Staff, inactive/suspended) return is_found = false with
+// empty account_id to strictly prevent account/email enumeration. Never throws NOT_FOUND.
+message LookupStaffAccountResponse {
+  bool is_found = 1;
+
+  // Canonical lowercase UUID "D" format (36 chars) when is_found == true; empty string ("") otherwise.
+  string account_id = 2;
+}
