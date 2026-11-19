@@ -574,6 +574,39 @@ describe("staffApi integration", () => {
             );
         });
 
+        it("handles reserved car at full lot even when status is 409 (parking.session.reserved_no_slot)", () => {
+            const err = new ApiError(
+                409,
+                { errorCode: "parking.session.reserved_no_slot", detail: "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước." },
+                undefined,
+            );
+            expect(describeStaffError(err)).toBe(
+                "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước.",
+            );
+        });
+
+        it("handles invalid gate reading evidence before the generic 409 fallback", () => {
+            const err = new ApiError(
+                409,
+                { errorCode: "parking.gate_reading.invalid_evidence" },
+                undefined,
+            );
+            expect(describeStaffError(err)).toBe(
+                "Lượt nhận diện không hợp lệ, chưa xác nhận, đã hết hạn hoặc đã được sử dụng. Vui lòng làm mới và quét lại xe.",
+            );
+        });
+
+        it("uses the reserved-no-slot fallback when a 409 has no detail", () => {
+            const err = new ApiError(
+                409,
+                { errorCode: "parking.session.reserved_no_slot" },
+                undefined,
+            );
+            expect(describeStaffError(err)).toBe(
+                "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước.",
+            );
+        });
+
         it("keeps already-open fallback message for 409 with unknown errorCode", () => {
             const err = new ApiError(
                 409,

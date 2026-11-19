@@ -645,6 +645,12 @@ export function describeStaffError(error: unknown): string {
     if (code === "parking.gate_reading.invalid_evidence") {
         return "Lượt nhận diện không hợp lệ, chưa xác nhận, đã hết hạn hoặc đã được sử dụng. Vui lòng làm mới và quét lại xe.";
     }
+    if (code === "parking.session.reserved_no_slot") {
+        return (
+            error.problem?.detail ||
+            "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước."
+        );
+    }
     if (code === "parking.session.already_open" || error.status === 409) {
         return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
     }

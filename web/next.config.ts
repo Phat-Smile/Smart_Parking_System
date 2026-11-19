@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
     async rewrites() {
         return [
             {
+                source: "/receipts/:sessionId",
+                destination: "/customer/receipts/:sessionId",
+            },
+            {
                 source: "/api/payment/:path*",
                 destination: `${gatewayUrl}/api/payment/:path*`,
             },

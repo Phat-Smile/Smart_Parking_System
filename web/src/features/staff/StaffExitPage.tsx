@@ -495,7 +495,7 @@ export function StaffExitPage() {
             const statusRes = await getParkingFeePaymentStatus(vnPayTxId);
             setVnPayStatus(statusRes.status);
 
-            if (statusRes.status === "Success") {
+            if (statusRes.status === "Success" || statusRes.status === "Succeeded") {
                 for (let i = 0; i < 4; i++) {
                     try {
                         const detail = await getParkingSession(
@@ -544,8 +544,8 @@ export function StaffExitPage() {
         const interval = setInterval(async () => {
             try {
                 const statusRes = await getParkingFeePaymentStatus(vnPayTxId);
-                if (statusRes.status === "Success") {
-                    setVnPayStatus("Success");
+                if (statusRes.status === "Success" || statusRes.status === "Succeeded") {
+                    setVnPayStatus(statusRes.status);
                     for (let i = 0; i < 4; i++) {
                         try {
                             const detail = await getParkingSession(
