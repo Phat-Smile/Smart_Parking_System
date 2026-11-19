@@ -1,5 +1,7 @@
 using FluentValidation;
 using MediatR;
+using ParkingSystem.Parking.Application.Lots.Services;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots.ListParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.SearchNearbyParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -15,7 +17,8 @@ public sealed record CustomerLotSearchItem(Guid Id, string Name, string Address,
     decimal Longitude, string Type, double? DistanceKm, decimal? StartingPrice,
     string? BillingMode, int AvailableSpaces, bool Prebookable,
     IReadOnlyList<string> Compatibility, IReadOnlyList<string> Amenities,
-    double? DrivingTimeMinutes = null);
+    double? DrivingTimeMinutes = null,
+    int WalkInPlaces = 0);
 
 public sealed class SearchCustomerLotsQueryValidator : AbstractValidator<SearchCustomerLotsQuery>
 {
@@ -37,7 +40,7 @@ public sealed class SearchCustomerLotsQueryValidator : AbstractValidator<SearchC
 }
 
 public sealed class SearchCustomerLotsQueryHandler(ISender sender, ICustomerLotFeaturesReader featureReader,
-    ICustomerLotMetricsReader metricsReader)
+    ICustomerLotMetricsReader metricsReader, IHeldQuotaProvider? heldQuotaProvider = null)
     : IRequestHandler<SearchCustomerLotsQuery, IReadOnlyList<CustomerLotSearchItem>>
 {
     public async Task<IReadOnlyList<CustomerLotSearchItem>> Handle(SearchCustomerLotsQuery request, CancellationToken ct)
@@ -57,6 +60,18 @@ public sealed class SearchCustomerLotsQueryHandler(ISender sender, ICustomerLotF
 
         var features = await featureReader.ReadAsync(candidates.Select(x => x.Lot.Id).ToArray(), ct);
         var metrics = await metricsReader.ReadAsync(candidates.Select(x => x.Lot.Id).ToArray(), ct);
+
+        Dictionary<Guid, int> heldQuotas = new();
+        if (heldQuotaProvider is not null && request.VehicleType != VehicleType.Motorbike && candidates.Count > 0)
+        {
+            var tasks = candidates.Select(async c =>
+            {
+                var quota = await heldQuotaProvider.GetHeldReservationsAsync(c.Lot.Id, ct);
+                return (c.Lot.Id, Quota: quota ?? 0);
+            });
+            var items = await Task.WhenAll(tasks);
+            heldQuotas = items.ToDictionary(x => x.Id, x => x.Quota);
+        }
 
         var results = new List<CustomerLotSearchItem>();
         foreach (var (lot, distance) in candidates)
@@ -82,9 +97,17 @@ public sealed class SearchCustomerLotsQueryHandler(ISender sender, ICustomerLotF
                     .OrderBy(x => x.Price).ToList();
             var cheapest = prices.FirstOrDefault();
             if (request.MaxPrice.HasValue && (cheapest is null || cheapest.Price > request.MaxPrice.Value)) continue;
+
+            var held = heldQuotas.GetValueOrDefault(lot.Id, 0);
+            var walkInPlaces = request.VehicleType == VehicleType.Motorbike
+                ? spaces
+                : WalkInPlacesCalculator.Calculate(metric.AvailableCars, held).WalkInPlaces;
+
             results.Add(new CustomerLotSearchItem(lot.Id, lot.Name, lot.Address, lot.Latitude,
                 lot.Longitude, lot.Type, distance, cheapest?.Price, cheapest?.BillingMode, spaces,
-                feature.Prebookable, feature.Compatibility, feature.Amenities));
+                feature.Prebookable, feature.Compatibility, feature.Amenities,
+                DrivingTimeMinutes: null,
+                WalkInPlaces: walkInPlaces));
         }
 
         var sorted = request.Sort switch
