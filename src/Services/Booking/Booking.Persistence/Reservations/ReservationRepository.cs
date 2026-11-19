@@ -51,6 +51,28 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
             utcArrival < Reservation.GetNoShowCutoff(r.AppointmentTime));
     }
 
+    public async Task<Reservation?> FindCancelledNoSuitableSlotByLotAndPlateAsync(
+        Guid lotId,
+        string plateNumber,
+        DateTimeOffset arrivalTime,
+        CancellationToken cancellationToken)
+    {
+        var normalizedPlate = LicensePlateNormalizer.Normalize(plateNumber);
+        var utcArrival = arrivalTime.ToUniversalTime();
+
+        var candidates = await dbContext.Reservations
+            .Where(r => r.LotId == lotId &&
+                        r.PlateNumber == normalizedPlate &&
+                        r.Status == ReservationStatus.Cancelled &&
+                        r.CancelReason == CancelReason.NoSuitableSlot)
+            .OrderByDescending(r => r.CancelledAt)
+            .ToListAsync(cancellationToken);
+
+        return candidates.FirstOrDefault(r =>
+            utcArrival >= r.WindowStartAt.AddMinutes(-15) &&
+            utcArrival < Reservation.GetNoShowCutoff(r.AppointmentTime));
+    }
+
     public void Add(Reservation reservation) =>
         dbContext.Reservations.Add(reservation);
 
@@ -80,7 +102,8 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
                           r.Status == ReservationStatus.Cancelled))
                         ||
                         (r.Status == ReservationStatus.Cancelled &&
-                         r.CancelReason == CancelReason.CustomerCancelled &&
+                         (r.CancelReason == CancelReason.CustomerCancelled ||
+                          r.CancelReason == CancelReason.NoSuitableSlot) &&
                          r.ConfirmedAt != null &&
                          r.PrepaidAmount > 0m &&
                          r.PrepaidOutcome == null))

@@ -179,6 +179,13 @@ public sealed class CheckInReservationCommandHandlerTests
             return Task.FromResult(res);
         }
 
+        public Task<Reservation?> FindCancelledNoSuitableSlotByLotAndPlateAsync(
+            Guid lotId,
+            string plateNumber,
+            DateTimeOffset arrivalTime,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<Reservation?>(null);
+
         public void Add(Reservation reservation) => _list.Add(reservation);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;

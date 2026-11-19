@@ -295,9 +295,10 @@ public sealed class ScheduledPrepaymentIntegrationTests(PostgreSqlContainerFixtu
         var worker = new ReservationPaymentReconciliationWorker(provider.GetRequiredService<IServiceScopeFactory>(), options, workerLogger);
 
         var processed = await worker.ReconcileBatchAsync(ct);
-        Assert.Equal(1, processed);
+        Assert.True(processed >= 1);
 
-        var refund = Assert.Single(paymentClient.RefundCalls);
+        var testRefundCalls = paymentClient.RefundCalls.Where(r => r.ReservationId == reservationId).ToList();
+        var refund = Assert.Single(testRefundCalls);
         Assert.Equal(reservationId, refund.ReservationId);
         Assert.Equal(50000L, refund.AmountVnd);
 
@@ -309,11 +310,11 @@ public sealed class ScheduledPrepaymentIntegrationTests(PostgreSqlContainerFixtu
             Assert.Equal(PrepaidOutcome.Refunded, res.PrepaidOutcome);
         }
 
-        // Second run does nothing
-        var countBefore = paymentClient.RefundCalls.Count;
-        var processed2 = await worker.ReconcileBatchAsync(ct);
-        Assert.Equal(0, processed2);
-        Assert.Equal(countBefore, paymentClient.RefundCalls.Count);
+        // Second run does nothing for this reservation
+        var countBefore = paymentClient.RefundCalls.Count(r => r.ReservationId == reservationId);
+        await worker.ReconcileBatchAsync(ct);
+        var countAfter = paymentClient.RefundCalls.Count(r => r.ReservationId == reservationId);
+        Assert.Equal(countBefore, countAfter);
     }
 
     // =========================================================================

@@ -16,6 +16,12 @@ public interface IReservationRepository
         DateTimeOffset arrivalTime,
         CancellationToken cancellationToken);
 
+    Task<Reservation?> FindCancelledNoSuitableSlotByLotAndPlateAsync(
+        Guid lotId,
+        string plateNumber,
+        DateTimeOffset arrivalTime,
+        CancellationToken cancellationToken);
+
     void Add(Reservation reservation);
 
     Task ReloadAsync(Reservation reservation, CancellationToken cancellationToken);

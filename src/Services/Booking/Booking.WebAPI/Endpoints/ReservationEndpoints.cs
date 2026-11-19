@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.Booking.Application.Reservations;
+using ParkingSystem.Booking.Application.Reservations.Commands.CancelForNoSuitableSlot;
 using ParkingSystem.Booking.Application.Reservations.Commands.CancelReservation;
 using ParkingSystem.Booking.Application.Reservations.Commands.CheckInReservation;
 using ParkingSystem.Booking.Application.Reservations.Commands.ConfirmReservation;
@@ -242,9 +243,60 @@ public static class ReservationEndpoints
         .WithName("CheckInReservation")
         .ExcludeFromDescription();
 
+        // 6. Hủy đặt chỗ khi bãi không còn chỗ phù hợp lúc xe đến cổng (US-PARK-004 / BR-02.f, point 35)
+        app.MapPost("/internal/booking/reservations/no-suitable-slot", async (
+            HttpContext httpContext,
+            CancelForNoSuitableSlotApiRequest request,
+            IConfiguration configuration,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            var requiredKey = configuration["ArrivalIntegration:Key"];
+            if (string.IsNullOrWhiteSpace(requiredKey))
+            {
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
+
+            var receivedKey = httpContext.Request.Headers["X-Arrival-Service-Key"].ToString();
+            if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(requiredKey), Encoding.UTF8.GetBytes(receivedKey)))
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            if (request is null ||
+                request.LotId == Guid.Empty ||
+                string.IsNullOrWhiteSpace(request.PlateNumber) ||
+                request.ArrivedAt == default)
+            {
+                return Results.BadRequest();
+            }
+
+            var command = new CancelForNoSuitableSlotCommand(
+                request.LotId,
+                request.PlateNumber,
+                request.ArrivedAt);
+
+            var result = await sender.Send(command, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return BusinessProblem.Create(httpContext, StatusCodes.Status400BadRequest, result.Error!);
+            }
+
+            return Results.Ok(result.Value);
+        })
+        .AllowAnonymous()
+        .WithName("CancelForNoSuitableSlot")
+        .ExcludeFromDescription();
+
         return app;
     }
 }
+
+public sealed record CancelForNoSuitableSlotApiRequest(
+    [Required] Guid LotId,
+    [Required] string PlateNumber,
+    [Required] DateTimeOffset ArrivedAt);
 
 public sealed record CheckInReservationApiRequest(
     [Required] Guid LotId,
