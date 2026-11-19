@@ -70,33 +70,6 @@ export function ParkWiseAuthAside({
             </div>
 
             {afterSupport}
-
-            <div className="parkwise-login-social">
-                <p>
-                    <svg
-                        viewBox="0 0 24 24"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        aria-hidden="true"
-                    >
-                        <path d="M23 12a11 11 0 01-17.437 8.912L2 22l1.088-3.563A11 11 0 1123 12z" />
-                    </svg>{" "}
-                    Follow us on Social Media
-                </p>
-                <div>
-                    {[1, 2, 3, 4, 5].map((number) => (
-                        <span key={number}>
-                            <Image
-                                src={`/images/parkwise/as (${number}).svg`}
-                                alt=""
-                                width={24}
-                                height={24}
-                            />
-                        </span>
-                    ))}
-                </div>
-            </div>
         </aside>
     );
 }

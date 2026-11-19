@@ -54,20 +54,6 @@ export function ParkWiseFooter({
                             </Link>
                         </div>
                     </div>
-                    <div className="parkwise-footer-column parkwise-footer-social-column">
-                        <h3>{copy("Follow Us", "Theo dõi chúng tôi")}</h3>
-                        <div className="parkwise-socials" aria-hidden="true">
-                            {[1, 2, 3, 4, 5].map((number) => (
-                                <Image
-                                    key={number}
-                                    src={`/images/parkwise/ss (${number}).svg`}
-                                    alt=""
-                                    width={40}
-                                    height={40}
-                                />
-                            ))}
-                        </div>
-                    </div>
                 </div>
                 <div className="parkwise-footer-bottom">
                     <p>
