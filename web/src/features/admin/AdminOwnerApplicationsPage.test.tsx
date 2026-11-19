@@ -121,7 +121,9 @@ describe("AdminOwnerApplicationsPage documents", () => {
         expect(
             await screen.findByTestId("admin-vneid-badge"),
         ).toBeInTheDocument();
-        expect(screen.getByText(/VNeID Mức 2/i)).toBeInTheDocument();
+        expect(
+            screen.getByText(/Hồ sơ cá nhân đối chiếu CCCD/i),
+        ).toBeInTheDocument();
     });
 
     it("supports searching, clearing filters, approving after 4-item checklist, and rejecting with reason", async () => {

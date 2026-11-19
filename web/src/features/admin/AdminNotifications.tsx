@@ -19,44 +19,7 @@ interface NotificationItem {
     read: boolean;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-    {
-        id: "notif-1",
-        type: "lot",
-        titleVi: "Bãi đỗ xe chờ phê duyệt",
-        titleEn: "Parking lot awaiting approval",
-        descVi: "Kiểm tra các bãi xe mới gửi hồ sơ xin phê duyệt mở bãi.",
-        descEn: "Review newly submitted parking lot applications.",
-        timeVi: "15 phút trước",
-        timeEn: "15m ago",
-        href: "/admin/parking-lots/pending",
-        read: false,
-    },
-    {
-        id: "notif-2",
-        type: "application",
-        titleVi: "Hồ sơ đối tác chủ bãi",
-        titleEn: "Partner owner application",
-        descVi: "Có hồ sơ đăng ký chủ bãi mới cần đối chiếu giấy tờ pháp lý.",
-        descEn: "New partner documents awaiting legal verification.",
-        timeVi: "1 giờ trước",
-        timeEn: "1h ago",
-        href: "/admin/owner-applications",
-        read: false,
-    },
-    {
-        id: "notif-3",
-        type: "system",
-        titleVi: "Đối soát & Nhật ký kiểm toán",
-        titleEn: "Audit & Financial Reconciliation",
-        descVi: "Hệ thống ghi nhận tự động các biến động ví và cấu hình giá.",
-        descEn: "System audit trail is actively recording wallet and pricing events.",
-        timeVi: "Hôm nay",
-        timeEn: "Today",
-        href: "/admin/audit-logs",
-        read: false,
-    },
-];
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [];
 
 export function AdminNotifications() {
     const { language } = useLanguage();

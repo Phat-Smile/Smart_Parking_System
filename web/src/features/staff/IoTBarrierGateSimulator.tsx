@@ -1296,10 +1296,23 @@ export function IoTBarrierGateSimulator({
                             }}
                         >
                             <span style={{ color: "#8b949e" }}>
-                                Khoảng cách Radar:
+                                Trạng thái Radar:
                             </span>
-                            <strong style={{ color: "#38bdf8" }}>
-                                {radarDistanceMeters.toFixed(1)} m
+                            <strong
+                                style={{
+                                    color:
+                                        vehicleState === "AT_STOP_LINE" ||
+                                        vehicleState === "PASSING" ||
+                                        vehicleState === "APPROACHING"
+                                            ? "#38bdf8"
+                                            : "#8b949e",
+                                }}
+                            >
+                                {vehicleState === "AT_STOP_LINE" ||
+                                vehicleState === "PASSING" ||
+                                vehicleState === "APPROACHING"
+                                    ? "Có xe tại vạch dừng"
+                                    : "Không có xe"}
                             </strong>
                         </div>
                         <div

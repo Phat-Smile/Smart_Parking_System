@@ -178,22 +178,13 @@ export async function getAssignedLot(
 }
 
 /**
- * Tính toán tiền đỗ xe dựa trên thời gian vào và loại phương tiện
+ * Tính toán tiền đỗ xe dựa trên thời gian vào và loại phương tiện (hoặc 0 nếu chưa kết toán từ BE)
  */
 export function calculateParkingFee(
-    entryTimeIso: string,
-    vehicleType: VehicleType,
+    _entryTimeIso: string,
+    _vehicleType: VehicleType,
 ): { totalFeeVnd: number; amountDueVnd: number } {
-    const entry = new Date(entryTimeIso).getTime();
-    const diffMs = Math.max(
-        0,
-        Date.now() - (isNaN(entry) ? Date.now() : entry),
-    );
-    const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
-    const ratePerHour = vehicleType === "Car" ? 20000 : 5000;
-    const baseFee = vehicleType === "Car" ? 30000 : 6000;
-    const fee = baseFee + (hours > 1 ? (hours - 1) * ratePerHour : 0);
-    return { totalFeeVnd: fee, amountDueVnd: fee };
+    return { totalFeeVnd: 0, amountDueVnd: 0 };
 }
 
 interface OpenedSessionWire extends Omit<
