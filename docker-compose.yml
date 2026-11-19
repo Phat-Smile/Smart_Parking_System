@@ -338,6 +338,7 @@ services:
     environment:
       APP_ENVIRONMENT: Development
       AI_GRPC_PORT: 50051
+      AI_RECOMMENDATION_MODE: legacy
       ARRIVAL_API_KEY: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
       OTEL_SERVICE_NAME: ai-service
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}
