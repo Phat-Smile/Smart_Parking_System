@@ -9,6 +9,7 @@ import {
     getAssignedLot,
     listLotInsideSessions,
     openParkingSession,
+    recordGateReading,
     payParkingSessionCash,
 } from "./staffApi";
 
@@ -246,6 +247,23 @@ describe("staffApi integration", () => {
             const afterStorageError = await getAssignedLot();
             expect(afterStorageError?.lotId).toBe("lot-alpha");
         });
+    });
+
+    it("records only server-contract reading fields, without a browser timestamp", async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ incidentId: "reading-1", decision: "PendingStaff" }), { status: 201, headers: { "Content-Type": "application/json" } }));
+        vi.stubGlobal("fetch", fetchMock);
+        await recordGateReading({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: " 51a-123.45 ", vehicleType: "Car", confidence: 0.8 });
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(String(url)).toBe("http://localhost:5000/api/parking/gate-readings");
+        expect(init.method).toBe("POST");
+        expect(JSON.parse(init.body as string)).toEqual({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: "51A-123.45", vehicleType: "Car", confidence: 0.8 });
+    });
+
+    it("forwards the optional incident ID when opening a session", async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ availableMotorbikeSpaces: null }), { status: 201, headers: { "Content-Type": "application/json" } }));
+        vi.stubGlobal("fetch", fetchMock);
+        await openParkingSession({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: "51A-123.45", vehicleType: "Car", gateReadingIncidentId: "reading-1" });
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: "51A-123.45", vehicleType: "Car", gateReadingIncidentId: "reading-1" });
     });
 
     describe("openParkingSession", () => {

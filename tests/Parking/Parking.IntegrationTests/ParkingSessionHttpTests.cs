@@ -1,4 +1,7 @@
 using System.Net;
+using MediatR;
+using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
@@ -64,7 +67,51 @@ public sealed class ParkingSessionHttpTests
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
 
-    private static async Task<WebApplication> CreateAppAsync(string environment = "Production")
+    [Fact]
+    public async Task Open_session_binds_incident_id_but_not_untrusted_timestamp()
+    {
+        var capture = new CaptureOpenCommand();
+        await using var app = await CreateAppAsync(capture: capture);
+        var incidentId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        using var response = await app.GetTestClient().PostAsJsonAsync(SessionsRoute, new
+        {
+            lotId, plateNumber = "51A-123.45", vehicleType = "Car", gateReadingIncidentId = incidentId,
+            physicalDetectionTime = "2000-01-01T00:00:00Z", entryTime = "2000-01-01T00:00:00Z"
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(incidentId, capture.Command!.GateReadingIncidentId);
+        Assert.Equal(lotId, capture.Command.LotId);
+        Assert.Equal(Guid.Parse(StaffId), capture.Command.ActorUserId);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(OpenParkingSessionErrors.InvalidGateReading.Code, problem.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task Open_session_without_incident_id_still_binds_legacy_contract()
+    {
+        var capture = new CaptureOpenCommand();
+        await using var app = await CreateAppAsync(capture: capture);
+        using var response = await app.GetTestClient().PostAsJsonAsync(SessionsRoute, new
+        {
+            lotId = Guid.NewGuid(), plateNumber = "51A-123.45", vehicleType = "Car",
+            physicalDetectionTime = "2000-01-01T00:00:00Z"
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Null(capture.Command!.GateReadingIncidentId);
+    }
+
+    private sealed class CaptureOpenCommand : IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>
+    {
+        public OpenParkingSessionCommand? Command { get; private set; }
+        public Task<Result<OpenedParkingSession>> Handle(OpenParkingSessionCommand request, CancellationToken cancellationToken)
+        {
+            Command = request;
+            return Task.FromResult(Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.InvalidGateReading));
+        }
+    }
+
+    private static async Task<WebApplication> CreateAppAsync(string environment = "Production", CaptureOpenCommand? capture = null)
     {
         // The tester ran Development; production must give the same errorCode (PR #31 review).
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment });
@@ -73,6 +120,8 @@ public sealed class ParkingSessionHttpTests
         builder.WebHost.UseTestServer();
         builder.AddParkingSystemWebFoundation();
         builder.Services.AddApplicationServices();
+        if (capture is not null)
+            builder.Services.AddSingleton<IRequestHandler<OpenParkingSessionCommand, Result<OpenedParkingSession>>>(capture);
         builder.Services.AddParkingAuthorization();
         // A fixed Staff identity replaces JWT validation; authorization itself still runs.
         builder.Services.AddAuthentication(StaffAuthenticationHandler.SchemeName)

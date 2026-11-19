@@ -21,6 +21,7 @@ export interface OpenSessionPayload {
     lotId: string;
     plateNumber: string;
     vehicleType: VehicleType;
+    gateReadingIncidentId?: string;
 }
 
 // CompleteParkingSessionRequest on the server: the exit needs the plate and the session QR (BR exit rule).
@@ -217,6 +218,7 @@ export async function openParkingSession(
                 lotId: payload.lotId,
                 plateNumber: payload.plateNumber.trim().toUpperCase(),
                 vehicleType: payload.vehicleType,
+                gateReadingIncidentId: payload.gateReadingIncidentId,
             }),
         });
     return {
@@ -435,6 +437,35 @@ export async function getParkingSession(
     );
 }
 
+export interface RecordedGateReadingResponse {
+    incidentId: string | null;
+    lotId: string;
+    plateNumber: string;
+    vehicleType: string;
+    confidence: number;
+    decision: string;
+    receivedAt: string;
+}
+
+// Send at detection, not when the staff later opens the session. No client timestamp is sent.
+export async function recordGateReading(payload: {
+    lotId: string;
+    plateNumber: string;
+    vehicleType: VehicleType;
+    confidence: number;
+}): Promise<RecordedGateReadingResponse> {
+    return await gatewayFetch<RecordedGateReadingResponse>("/api/parking/gate-readings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            lotId: payload.lotId,
+            plateNumber: payload.plateNumber.trim().toUpperCase(),
+            vehicleType: payload.vehicleType,
+            confidence: payload.confidence,
+        }),
+    });
+}
+
 export interface PendingGateReadingResponse {
     incidentId: string;
     observedPlate: string | null;
@@ -610,6 +641,9 @@ export function describeStaffError(error: unknown): string {
         code === "parking.motorbike_zone.full"
     ) {
         return "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.";
+    }
+    if (code === "parking.gate_reading.invalid_evidence") {
+        return "Lượt nhận diện không hợp lệ, chưa xác nhận, đã hết hạn hoặc đã được sử dụng. Vui lòng làm mới và quét lại xe.";
     }
     if (code === "parking.session.already_open" || error.status === 409) {
         return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";

@@ -536,6 +536,158 @@ public sealed class OpenParkingSessionTests
         Assert.Equal(0, reporter.Calls);
     }
 
+    private static Incident ConfirmedReading(DateTimeOffset arrivedAt, Guid? lotId = null, string plate = "51A-123.45", VehicleType vehicleType = VehicleType.Car)
+    {
+        var reading = Incident.OpenLowConfidencePlate(Guid.NewGuid(), lotId ?? LotId, "51A-123.4S", 0.6m, VehicleType.Car, arrivedAt);
+        Assert.True(reading.ConfirmPlate(StaffId, arrivedAt.AddSeconds(10), plate, vehicleType));
+        return reading;
+    }
+
+    [Fact]
+    public async Task Confirmed_gate_reading_uses_arrival_for_booking_but_opening_clock_for_session_and_slot()
+    {
+        // 121 seconds models 12:14:59 -> 12:17:00 (before and after the 16-minute cutoff).
+        var reading = ConfirmedReading(Now.AddSeconds(-121));
+        var incidents = new FakeIncidents();
+        incidents.Saved.Add(reading);
+        var booking = new FakeBookingCheckInClient(new CheckedInReservation(Guid.NewGuid(), null, null));
+        var repository = new FakeParkingSessionRepository();
+        var slots = new FakeSlotDesignator();
+        var unit = new FakeUnitOfWork();
+        var handler = NewHandler(repository, new FakeMotorbikeZones(), unit, slots, bookingClient: booking, incidents: incidents);
+
+        var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51a-123.45", "Car", StaffId, reading.Id), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(reading.OccurredAt, booking.ArrivedAt);
+        Assert.Equal(Now, result.Value!.EntryTime);
+        Assert.Equal(Now, Assert.Single(repository.Saved).EntryTime);
+        Assert.Equal(Now, slots.AssignedAt);
+        Assert.Equal(result.Value.SessionId, reading.SessionId);
+        Assert.True(unit.Committed);
+        Assert.Equal(1, booking.Calls);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("wrong-lot")]
+    [InlineData("wrong-plate")]
+    [InlineData("wrong-vehicle")]
+    [InlineData("unconfirmed")]
+    [InlineData("wrong-type")]
+    [InlineData("expired")]
+    [InlineData("future")]
+    [InlineData("used")]
+    [InlineData("resolved-without-confirmation")]
+    public async Task Invalid_gate_reading_is_rejected_before_booking_or_slot_side_effects(string scenario)
+    {
+        var reading = scenario switch
+        {
+            "wrong-lot" => ConfirmedReading(Now.AddMinutes(-2), Guid.NewGuid()),
+            "wrong-plate" => ConfirmedReading(Now.AddMinutes(-2), plate: "51A-999.99"),
+            "wrong-vehicle" => ConfirmedReading(Now.AddMinutes(-2), vehicleType: VehicleType.Motorbike),
+            "unconfirmed" or "resolved-without-confirmation" => Incident.OpenLowConfidencePlate(Guid.NewGuid(), LotId, "51A-123.45", 0.7m, VehicleType.Car, Now.AddMinutes(-2)),
+            "wrong-type" => Incident.OpenNoSuitableSlot(Guid.NewGuid(), LotId, Guid.NewGuid(), "51A-123.45", Now.AddMinutes(-2)),
+            "expired" => ConfirmedReading(Now.AddMinutes(-10).AddSeconds(-1)),
+            "future" => ConfirmedReading(Now.AddSeconds(1)),
+            _ => ConfirmedReading(Now.AddMinutes(-2))
+        };
+        if (scenario == "used") reading.AttachEntrySession(Guid.NewGuid());
+        if (scenario == "resolved-without-confirmation") Assert.True(reading.Resolve(StaffId, Now, "Dismissed"));
+        var incidents = new FakeIncidents();
+        if (scenario != "missing") incidents.Saved.Add(reading);
+        var booking = new FakeBookingCheckInClient();
+        var repository = new FakeParkingSessionRepository();
+        var slots = new FakeSlotDesignator();
+        var unit = new FakeUnitOfWork();
+        var handler = NewHandler(repository, new FakeMotorbikeZones(), unit, slots, bookingClient: booking, incidents: incidents);
+
+        var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId, reading.Id), TestContext.Current.CancellationToken);
+
+        Assert.Equal(OpenParkingSessionErrors.InvalidGateReading, result.Error);
+        Assert.Equal(0, booking.Calls);
+        Assert.False(slots.Locked);
+        Assert.Empty(repository.Added);
+        Assert.False(unit.Committed);
+        Assert.True(unit.Disposed);
+    }
+
+    [Fact]
+    public async Task Full_lot_reports_trusted_arrival_without_consuming_evidence()
+    {
+        var reading = ConfirmedReading(Now.AddMinutes(-2));
+        var incidents = new FakeIncidents();
+        incidents.Saved.Add(reading);
+        var reporter = new FakeNoSlotReporter(Guid.NewGuid());
+        var booking = new FakeBookingCheckInClient();
+        var unit = new FakeUnitOfWork();
+        var handler = NewHandler(new FakeParkingSessionRepository(), new FakeMotorbikeZones(), unit, new FakeSlotDesignator(available: 0), bookingClient: booking, noSlotReporter: reporter, incidents: incidents);
+        var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId, reading.Id), TestContext.Current.CancellationToken);
+        Assert.Equal(OpenParkingSessionErrors.ReservedNoSlot, result.Error);
+        Assert.Equal(reading.OccurredAt, reporter.ArrivedAt);
+        Assert.Equal(0, booking.Calls);
+        Assert.Null(reading.SessionId);
+        Assert.Equal(reading.OccurredAt, Assert.Single(incidents.Saved, i => i.IncidentType == IncidentType.NoSuitableSlot).OccurredAt);
+        Assert.True(unit.Committed);
+    }
+
+    [Theory]
+    [InlineData(600, true)]
+    [InlineData(601, false)]
+    public void Arrival_evidence_age_limit_is_inclusive(int seconds, bool expected)
+    {
+        var reading = ConfirmedReading(Now.AddSeconds(-seconds));
+        Assert.Equal(expected, reading.CanUseForEntry(LotId, "51A-123.45", VehicleType.Car, Now, TimeSpan.FromMinutes(10)));
+    }
+
+    [Fact]
+    public async Task Legacy_car_uses_opening_clock_without_evidence()
+    {
+        var booking = new FakeBookingCheckInClient();
+        var handler = NewHandler(new FakeParkingSessionRepository(), new FakeMotorbikeZones(), new FakeUnitOfWork(), bookingClient: booking);
+        var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId), TestContext.Current.CancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(Now, booking.ArrivedAt);
+        Assert.Equal(Now, result.Value!.EntryTime);
+    }
+
+    [Fact]
+    public async Task Motorbike_with_confirmed_reading_links_session_without_booking()
+    {
+        var reading = ConfirmedReading(Now.AddMinutes(-2), vehicleType: VehicleType.Motorbike);
+        var incidents = new FakeIncidents();
+        incidents.Saved.Add(reading);
+        var booking = new FakeBookingCheckInClient();
+        var handler = NewHandler(new FakeParkingSessionRepository(), new FakeMotorbikeZones(), new FakeUnitOfWork(), bookingClient: booking, incidents: incidents);
+        var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Motorbike", StaffId, reading.Id), TestContext.Current.CancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, booking.Calls);
+        Assert.Equal(result.Value!.SessionId, reading.SessionId);
+        Assert.Equal(Now, result.Value.EntryTime);
+    }
+
+    [Fact]
+    public async Task Unknown_quota_refuses_entry_and_does_not_consume_evidence()
+    {
+        var reading = ConfirmedReading(Now.AddMinutes(-2));
+        var incidents = new FakeIncidents();
+        incidents.Saved.Add(reading);
+        var unit = new FakeUnitOfWork();
+        var handler = NewHandler(new FakeParkingSessionRepository(), new FakeMotorbikeZones(), unit, heldQuota: new FakeHeldQuota(null), incidents: incidents);
+        var result = await handler.Handle(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId, reading.Id), TestContext.Current.CancellationToken);
+        Assert.Equal(OpenParkingSessionErrors.HeldQuotaUnavailable, result.Error);
+        Assert.Null(reading.SessionId);
+        Assert.False(unit.Committed);
+        Assert.True(unit.Disposed);
+    }
+
+    [Fact]
+    public void Empty_evidence_id_is_invalid_but_missing_evidence_is_allowed()
+    {
+        Assert.False(validator.Validate(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId, Guid.Empty)).IsValid);
+        Assert.True(validator.Validate(new OpenParkingSessionCommand(LotId, "51A-123.45", "Car", StaffId)).IsValid);
+    }
+
     private static OpenParkingSessionCommandHandler NewHandler(
         FakeParkingSessionRepository repository,
         FakeMotorbikeZones zones,
@@ -665,6 +817,7 @@ public sealed class OpenParkingSessionTests
 
         public bool Locked { get; private set; }
         public Guid? DesignatedFor { get; private set; }
+        public DateTimeOffset? AssignedAt { get; private set; }
         public int Available => available;
 
         public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken)
@@ -678,6 +831,7 @@ public sealed class OpenParkingSessionTests
             if (!slotLeft)
                 return Task.FromResult<DesignatedSlot?>(null);
             DesignatedFor = sessionId;
+            AssignedAt = assignedAt;
             return Task.FromResult<DesignatedSlot?>(new DesignatedSlot(SlotId, CarZoneId, "A-01"));
         }
 
@@ -709,10 +863,12 @@ public sealed class OpenParkingSessionTests
     private sealed class FakeNoSlotReporter(Guid? cancelledReservationId = null) : IBookingNoSlotReporter
     {
         public int Calls { get; private set; }
+        public DateTimeOffset? ArrivedAt { get; private set; }
 
         public Task<Guid?> ReportNoSuitableSlotAsync(Guid lotId, string normalizedPlate, DateTimeOffset arrivedAt, CancellationToken cancellationToken)
         {
             Calls++;
+            ArrivedAt = arrivedAt;
             return Task.FromResult(cancelledReservationId);
         }
     }
@@ -739,6 +895,9 @@ public sealed class OpenParkingSessionTests
 
         public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<Incident?> FindByIdForUpdateAsync(Guid incidentId, Guid lotId, CancellationToken cancellationToken) =>
+            Task.FromResult(Saved.SingleOrDefault(incident => incident.Id == incidentId && incident.LotId == lotId));
+
         public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Incident>>(Saved
                 .Where(incident => incident.LotId == lotId && incident.Status == IncidentStatus.Open && incident.IncidentType == incidentType)
@@ -750,6 +909,7 @@ public sealed class OpenParkingSessionTests
     private sealed class FakeBookingCheckInClient(CheckedInReservation? reservation = null) : IBookingCheckInClient
     {
         public int Calls { get; private set; }
+        public DateTimeOffset? ArrivedAt { get; private set; }
 
         public Task<CheckedInReservation?> CheckInReservationAsync(
             Guid lotId,
@@ -759,6 +919,7 @@ public sealed class OpenParkingSessionTests
             CancellationToken cancellationToken)
         {
             Calls++;
+            ArrivedAt = entryTime;
             return Task.FromResult(reservation);
         }
     }

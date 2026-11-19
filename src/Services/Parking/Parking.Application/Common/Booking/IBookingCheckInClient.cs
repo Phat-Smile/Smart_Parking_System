@@ -2,6 +2,7 @@ namespace ParkingSystem.Parking.Application.Common.Booking;
 
 public interface IBookingCheckInClient
 {
+    // entryTime is the Booking contract name for the time used to match a reservation (trusted gate arrival when available).
     Task<CheckedInReservation?> CheckInReservationAsync(
         Guid lotId,
         string normalizedPlate,

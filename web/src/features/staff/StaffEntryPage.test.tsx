@@ -7,10 +7,12 @@ import {
 } from "@/shared/i18n/translations";
 import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
 
-const { mockState, mockOpenParkingSession, mockConfirmSlotParked } = vi.hoisted(() => ({
+const { mockState, mockOpenParkingSession, mockConfirmSlotParked, mockRecordGateReading, mockConfirmGateReading } = vi.hoisted(() => ({
     mockState: { language: "vi" as SupportedLanguage },
     mockOpenParkingSession: vi.fn(),
     mockConfirmSlotParked: vi.fn(),
+    mockRecordGateReading: vi.fn(),
+    mockConfirmGateReading: vi.fn(),
 }));
 
 vi.mock("@/shared/i18n/LanguageContext", () => ({
@@ -22,7 +24,12 @@ vi.mock("@/shared/i18n/LanguageContext", () => ({
 }));
 
 vi.mock("./RealCameraFeed", () => ({
-    RealCameraFeed: () => <div data-testid="real-camera-feed" />,
+    RealCameraFeed: (props: { onPlateDetected?: (plate: string, type: "Car", confidence: number) => void }) => (
+        <>
+            <button type="button" data-testid="real-camera-feed" onClick={() => props.onPlateDetected?.("51A-123.4S", "Car", 0.85)}>Scan</button>
+            <button type="button" data-testid="different-ocr-frame" onClick={() => props.onPlateDetected?.("51A-999.99", "Car", 0.9)}>Scan again</button>
+        </>
+    ),
 }));
 
 vi.mock("./audio", () => ({
@@ -64,6 +71,8 @@ vi.mock("./staffApi", async (importOriginal) => {
         ...actual,
         openParkingSession: mockOpenParkingSession,
         confirmSlotParked: mockConfirmSlotParked,
+        recordGateReading: mockRecordGateReading,
+        confirmGateReading: mockConfirmGateReading,
     };
 });
 
@@ -73,6 +82,76 @@ describe("StaffEntryPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockState.language = "vi";
+        mockRecordGateReading.mockReset();
+        mockConfirmGateReading.mockReset();
+        mockOpenParkingSession.mockReset();
+    });
+
+    function configureArrival() {
+        mockRecordGateReading.mockResolvedValue({ incidentId: "reading-1", lotId: "lot-1", decision: "PendingStaff" });
+        mockConfirmGateReading.mockResolvedValue({ incidentId: "reading-1", lotId: "lot-1", decision: "StaffConfirmed", plateNumber: "51A-123.45", vehicleType: "Car" });
+        mockOpenParkingSession.mockResolvedValue({ sessionId: "ses-1", lotId: "lot-1", plateNumber: "51A-123.45", vehicleType: "Car", customerType: "Guest", status: "Active", entryTime: "2026-11-19T04:17:00Z", isAccountLinked: false, reservationId: null, qrToken: "QR-1", availableMotorbikeSlots: 30 });
+    }
+
+    function scanAndCorrect() {
+        fireEvent.click(screen.getByTestId("real-camera-feed"));
+        fireEvent.change(document.getElementById("staff-edit-plate")!, { target: { value: "51A-123.45" } });
+    }
+
+    function submitEntry() {
+        fireEvent.click(screen.getByRole("button", { name: /Tạo phiên & Cấp vé QR/i }));
+    }
+
+    it("records at detection, deduplicates repeated scans and confirms corrected plate before opening", async () => {
+        configureArrival();
+        render(<StaffEntryPage />);
+        scanAndCorrect();
+        expect(mockRecordGateReading).toHaveBeenCalledWith({ lotId: "lot-1", plateNumber: "51A-123.4S", vehicleType: "Car", confidence: 0.85 });
+        fireEvent.click(screen.getByTestId("real-camera-feed"));
+        fireEvent.click(screen.getByTestId("different-ocr-frame"));
+        expect(mockRecordGateReading).toHaveBeenCalledTimes(1);
+        expect(mockConfirmGateReading).not.toHaveBeenCalled();
+        expect(mockOpenParkingSession).not.toHaveBeenCalled();
+        submitEntry();
+        await waitFor(() => expect(mockOpenParkingSession).toHaveBeenCalledWith({ lotId: "lot-1", plateNumber: "51A-123.45", vehicleType: "Car", gateReadingIncidentId: "reading-1" }));
+        expect(mockConfirmGateReading).toHaveBeenCalledWith("reading-1", "51A-123.45", "Car");
+        expect(mockConfirmGateReading.mock.invocationCallOrder[0]).toBeLessThan(mockOpenParkingSession.mock.invocationCallOrder[0]!);
+    });
+
+    it("does not silently open without evidence if recording fails", async () => {
+        configureArrival();
+        mockRecordGateReading.mockRejectedValueOnce(new Error("Reading failed"));
+        render(<StaffEntryPage />);
+        scanAndCorrect();
+        submitEntry();
+        await waitFor(() => expect(screen.getByRole("button", { name: /Tạo phiên & Cấp vé QR/i })).not.toBeDisabled());
+        expect(mockConfirmGateReading).not.toHaveBeenCalled();
+        expect(mockOpenParkingSession).not.toHaveBeenCalled();
+    });
+
+    it("does not open if staff confirmation fails", async () => {
+        configureArrival();
+        mockConfirmGateReading.mockRejectedValueOnce(new Error("Confirmation failed"));
+        render(<StaffEntryPage />);
+        scanAndCorrect();
+        submitEntry();
+        await waitFor(() => expect(mockConfirmGateReading).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(screen.getByRole("button", { name: /Tạo phiên & Cấp vé QR/i })).not.toBeDisabled());
+        expect(mockOpenParkingSession).not.toHaveBeenCalled();
+    });
+
+    it("reuses confirmed incident after failed open, without sending a second confirmation", async () => {
+        configureArrival();
+        mockOpenParkingSession.mockRejectedValueOnce(new Error("Open failed"));
+        render(<StaffEntryPage />);
+        scanAndCorrect();
+        submitEntry();
+        await waitFor(() => expect(mockOpenParkingSession).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(screen.getByRole("button", { name: /Tạo phiên & Cấp vé QR/i })).not.toBeDisabled());
+        submitEntry();
+        await waitFor(() => expect(mockOpenParkingSession).toHaveBeenCalledTimes(2));
+        expect(mockConfirmGateReading).toHaveBeenCalledTimes(1);
+        expect(mockOpenParkingSession.mock.calls[1]?.[0].gateReadingIncidentId).toBe("reading-1");
     });
 
     it("renders neutral account status instead of hardcoded Nguyễn Văn An in Registered mode (vi & en)", () => {

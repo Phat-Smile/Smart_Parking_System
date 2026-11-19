@@ -81,14 +81,16 @@ public sealed class ParkingLotScopeHttpTests
     }
 
     [Theory]
-    [InlineData("Staff")]
-    [InlineData("ParkingLotOwner")]
-    public async Task Staff_or_owner_not_assigned_to_the_lot_get_403_lot_access_denied(string role)
+    [InlineData("Staff", false)]
+    [InlineData("Staff", true)]
+    [InlineData("ParkingLotOwner", false)]
+    [InlineData("ParkingLotOwner", true)]
+    public async Task Staff_or_owner_not_assigned_to_the_lot_get_403_lot_access_denied(string role, bool hasEvidence)
     {
         await using var app = await CreateAppAsync();
 
         using var response = await SendAsync(app.GetTestClient(), HttpMethod.Post, "/api/parking/sessions", role,
-            new { lotId = Guid.NewGuid(), plateNumber = "51A-123.45", vehicleType = "Car" });
+            new { lotId = Guid.NewGuid(), plateNumber = "51A-123.45", vehicleType = "Car", gateReadingIncidentId = hasEvidence ? (Guid?)Guid.NewGuid() : null });
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -297,6 +299,8 @@ public sealed class ParkingLotScopeHttpTests
         public Task SaveChangesAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
 
         public Task<Incident?> FindByIdAsync(Guid incidentId, CancellationToken cancellationToken) => throw new InvalidOperationException();
+
+        public Task<Incident?> FindByIdForUpdateAsync(Guid incidentId, Guid lotId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyList<Incident>> ListOpenByLotAsync(Guid lotId, IncidentType incidentType, CancellationToken cancellationToken) =>
             throw new InvalidOperationException();

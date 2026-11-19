@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
     Car,
     Bike,
@@ -30,8 +30,10 @@ import {
 } from "./StaffUi";
 import {
     confirmSlotParked,
+    confirmGateReading,
     describeStaffError,
     openParkingSession,
+    recordGateReading,
 } from "./staffApi";
 import { GATE_OCR_AUTO_ACCEPT_CONFIDENCE_THRESHOLD } from "./anpr/plateOcr";
 import { emitLiveToast } from "@/shared/ui/ToastNotificationHub";
@@ -39,6 +41,12 @@ import { useStaffData } from "./staffData";
 import type { CustomerType, OpenedSessionResponse, VehicleType } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 import { useGateVoice } from "./audio";
+
+type ArrivalReadingAttempt = {
+    lotId: string;
+    receipt: Promise<{ incidentId: string } | { error: unknown }>;
+    confirmed?: { plateNumber: string; vehicleType: VehicleType };
+};
 
 export function StaffEntryPage() {
     const {
@@ -94,9 +102,12 @@ export function StaffEntryPage() {
     const [showQrModal, setShowQrModal] = useState(false);
     const [isParkedConfirmed, setIsParkedConfirmed] = useState(false);
     const [isConfirmingParked, setIsConfirmingParked] = useState(false);
+    const arrivalReading = useRef<ArrivalReadingAttempt | null>(null);
+    const opening = useRef(false);
 
     // When snapshot is taken from real camera
     function handleCameraSnapshot(dataUrl: string) {
+        if (arrivalReading.current || opening.current || lastOpened) return;
         setCameraSnapshot(dataUrl);
         setOcrConfidence(0);
     }
@@ -110,18 +121,34 @@ export function StaffEntryPage() {
             snapshotUrl?: string,
         ) => {
             const formatted = plate.trim().toUpperCase();
-            if (!formatted) return;
+            if (!formatted || opening.current || lastOpened) return;
+
+            const lotId = assignedLot?.lotId ?? "";
+            const observedVehicleType = detectedVehicleType ?? vehicleType;
+            // Preserve the first reading for this entry attempt, including when a later OCR frame differs.
+            // Staff can correct the plate/type in the form; a different vehicle requires an explicit reset.
+            if (arrivalReading.current) return;
+
+            const score = typeof confidence === "number" && Number.isFinite(confidence)
+                ? Math.min(1, Math.max(0, confidence)) : 0;
+            const receipt: ArrivalReadingAttempt["receipt"] = lotId
+                ? recordGateReading({ lotId, plateNumber: formatted, vehicleType: observedVehicleType, confidence: score })
+                    .then(result => {
+                        if (!result || result.lotId !== lotId || result.decision !== "PendingStaff" || !result.incidentId)
+                            return { error: new Error("Gate reading was not recorded for staff confirmation.") };
+                        return { incidentId: result.incidentId };
+                    }).catch(error => ({ error }))
+                : Promise.resolve({ error: new Error("Assigned lot is not ready. Reset and scan again.") });
+            arrivalReading.current = { lotId, receipt };
 
             setPlateNumber(formatted);
             setEditedPlate(formatted);
             if (detectedVehicleType) {
                 setVehicleType(detectedVehicleType);
             }
-            if (typeof confidence === "number") {
-                setOcrConfidence(confidence);
-                // GATE-A4 / Q-A4: All web readings require staff confirmation
-                setIsEditingPlate(true);
-            }
+            setOcrConfidence(score);
+            // GATE-A4 / Q-A4: All web readings require staff confirmation.
+            setIsEditingPlate(true);
             if (snapshotUrl) {
                 setCameraSnapshot(snapshotUrl);
             }
@@ -135,10 +162,11 @@ export function StaffEntryPage() {
                 "info",
             );
         },
-        [emitLiveToast],
+        [assignedLot?.lotId, vehicleType, lastOpened],
     );
 
     async function handleConfirmEntry() {
+        if (opening.current || lastOpened) return;
         const finalPlate = (isEditingPlate ? editedPlate : plateNumber)
             .trim()
             .toUpperCase();
@@ -160,16 +188,41 @@ export function StaffEntryPage() {
             return;
         }
 
+        opening.current = true;
         setLoading(true);
         setErrorMsg("");
         setStep("checking");
 
+        let verifyingArrival = false;
         try {
-            // 100% Real API: Call POST /api/parking/sessions
+            let gateReadingIncidentId: string | undefined;
+            const reading = arrivalReading.current;
+            if (reading) {
+                verifyingArrival = true;
+                if (reading.lotId !== assignedLot.lotId)
+                    throw new Error("Assigned lot changed. Reset and scan the vehicle again.");
+                const receipt = await reading.receipt;
+                if ("error" in receipt) throw receipt.error;
+                gateReadingIncidentId = receipt.incidentId;
+                // Keep a successful confirmation across retries of the session-open request.
+                if (!reading.confirmed) {
+                    const confirmed = await confirmGateReading(gateReadingIncidentId, finalPlate, vehicleType);
+                    if (!confirmed || confirmed.incidentId !== gateReadingIncidentId || confirmed.lotId !== assignedLot.lotId
+                        || confirmed.decision !== "StaffConfirmed"
+                        || confirmed.plateNumber !== finalPlate || confirmed.vehicleType !== vehicleType)
+                        throw new Error("Gate reading confirmation does not match the vehicle.");
+                    reading.confirmed = { plateNumber: finalPlate, vehicleType };
+                } else if (reading.confirmed.plateNumber !== finalPlate || reading.confirmed.vehicleType !== vehicleType) {
+                    throw new Error("Vehicle details changed after confirmation. Reset and scan again.");
+                }
+            }
+            verifyingArrival = false;
+            // Manual entry without a camera reading remains compatible. A failed camera reading never silently falls back.
             const res = await openParkingSession({
                 lotId: assignedLot.lotId,
                 plateNumber: finalPlate,
                 vehicleType,
+                ...(gateReadingIncidentId ? { gateReadingIncidentId } : {}),
             });
 
             setLastOpened(res);
@@ -228,10 +281,16 @@ export function StaffEntryPage() {
                 setStep("barrier_open");
             }, 1000);
         } catch (err) {
-            setErrorMsg(describeStaffError(err));
-            announceWarning(describeStaffError(err));
+            const message = verifyingArrival
+                ? (language === "vi"
+                    ? "Không thể ghi nhận/xác nhận lượt xe. Kiểm tra kết nối, bấm Làm mới và quét lại nếu cần."
+                    : "Gate reading could not be recorded or confirmed. Check the connection, reset and scan again if needed.")
+                : describeStaffError(err);
+            setErrorMsg(message);
+            announceWarning(message);
             setStep("camera");
         } finally {
+            opening.current = false;
             setLoading(false);
         }
     }
@@ -271,6 +330,8 @@ export function StaffEntryPage() {
     }
 
     function resetForNextVehicle() {
+        if (opening.current) return;
+        arrivalReading.current = null;
         setStep("camera");
         setLastOpened(null);
         setErrorMsg("");
@@ -314,6 +375,7 @@ export function StaffEntryPage() {
                         type="button"
                         className="staff-btn staff-btn-secondary"
                         onClick={resetForNextVehicle}
+                        disabled={loading || step === "session_created"}
                         title="Làm mới biểu mẫu để tiếp nhận lượt phương tiện tiếp theo"
                     >
                         <RotateCcw size={15} strokeWidth={2.2} />
@@ -504,6 +566,7 @@ export function StaffEntryPage() {
                                         isEditingPlate ? "is-editing" : ""
                                     }`}
                                     value={editedPlate}
+                                    disabled={loading || !!lastOpened}
                                     placeholder="VD: 51F-782.91"
                                     onChange={(e) => {
                                         setEditedPlate(
@@ -516,6 +579,7 @@ export function StaffEntryPage() {
                                     <button
                                         type="button"
                                         className="staff-btn staff-btn-primary staff-plate-confirm-btn"
+                                        disabled={loading || !!lastOpened}
                                         onClick={() => {
                                             setPlateNumber(editedPlate);
                                             setIsEditingPlate(false);
@@ -539,6 +603,7 @@ export function StaffEntryPage() {
                                     id="staff-vehicle-type"
                                     className="staff-select"
                                     value={vehicleType}
+                                    disabled={loading || !!lastOpened}
                                     onChange={(e) =>
                                         setVehicleType(
                                             e.target.value as VehicleType,
@@ -1046,7 +1111,7 @@ export function StaffEntryPage() {
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-checkin-primary transition-all duration-150 active:scale-[0.98] cursor-pointer"
-                                    disabled={loading || !plateNumber.trim()}
+                                    disabled={loading || !!lastOpened || !currentPlateDisplay.trim()}
                                     onClick={handleConfirmEntry}
                                 >
                                     {loading ? (

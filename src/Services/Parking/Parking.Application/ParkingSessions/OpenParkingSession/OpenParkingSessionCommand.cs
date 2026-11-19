@@ -18,7 +18,7 @@ using ParkingSystem.Contracts.Events.Parking;
 
 namespace ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 
-public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType, Guid ActorUserId, DateTimeOffset? PhysicalDetectionTime = null)
+public sealed record OpenParkingSessionCommand(Guid LotId, string PlateNumber, string VehicleType, Guid ActorUserId, Guid? GateReadingIncidentId = null)
     : IRequest<Result<OpenedParkingSession>>;
 
 public sealed record OpenedParkingSession(
@@ -67,6 +67,9 @@ public static class OpenParkingSessionErrors
     public static readonly Error ReservedNoSlot =
         new("parking.session.reserved_no_slot", "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước.");
 
+    public static readonly Error InvalidGateReading =
+        new("parking.gate_reading.invalid_evidence", "Gate reading is invalid, expired, unconfirmed or already used. Scan the vehicle again.");
+
     // US-PARK-007 (decision 2026-10-09): Booking did not answer and no answer from the last minute is known, so walk-in
     // cars are refused rather than risking a slot that belongs to a reservation. Motorbikes are not affected.
     public static readonly Error HeldQuotaUnavailable =
@@ -79,6 +82,8 @@ public sealed class OpenParkingSessionCommandValidator : AbstractValidator<OpenP
     {
         RuleFor(command => command.LotId).NotEmpty();
         RuleFor(command => command.ActorUserId).NotEmpty();
+        RuleFor(command => command.GateReadingIncidentId)
+            .Must(id => id != Guid.Empty);
 
         RuleFor(command => command.PlateNumber)
             .Must(plate => !string.IsNullOrWhiteSpace(plate))
@@ -136,6 +141,17 @@ public sealed class OpenParkingSessionCommandHandler(
         var plate = ParkingSession.NormalizePlate(request.PlateNumber);
         var vehicleType = Enum.Parse<VehicleType>(request.VehicleType, ignoreCase: true);
 
+        // Lock only the evidence row, before any Booking side effect. For legacy callers keep the original transaction timing.
+        await using var evidenceTransaction = request.GateReadingIncidentId.HasValue
+            ? await unitOfWork.BeginTransactionAsync(cancellationToken) : null;
+        Incident? evidence = null;
+        if (request.GateReadingIncidentId is { } incidentId)
+        {
+            evidence = await incidents.FindByIdForUpdateAsync(incidentId, request.LotId, cancellationToken);
+            if (evidence is null || !evidence.CanUseForEntry(request.LotId, plate, vehicleType, clock.UtcNow, GateReadingMaxAge))
+                return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.InvalidGateReading);
+        }
+
         if (await sessions.HasOpenSessionAsync(request.LotId, plate, cancellationToken))
             return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.SessionAlreadyOpen);
 
@@ -143,9 +159,13 @@ public sealed class OpenParkingSessionCommandHandler(
         var owner = await plateOwners.FindByPlateAsync(plate, cancellationToken);
 
         var sessionId = Guid.NewGuid();
-        var entryTime = request.PhysicalDetectionTime ?? clock.UtcNow;
+        var entryTime = clock.UtcNow;
+        // EntryTime remains the session-opening clock (fees, slot assignment, session events). Booking uses arrival evidence.
+        var arrivalAt = evidence?.OccurredAt ?? entryTime;
+        if (evidence is not null && !evidence.CanUseForEntry(request.LotId, plate, vehicleType, entryTime, GateReadingMaxAge))
+            return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.InvalidGateReading);
 
-        // US-PARK-004 (MF-08) & US-PARK-007: asked before the transaction, so no lot lock is held while waiting for Booking.
+        // No lot lock is held while waiting for Booking. Evidence callers hold only their incident row lock.
         CheckedInReservation? checkedInBooking = null;
         int? held = null;
         if (vehicleType == VehicleType.Car)
@@ -155,11 +175,13 @@ public sealed class OpenParkingSessionCommandHandler(
             if (await availableCarSlots.CountAvailableCarSlotsAsync(request.LotId, cancellationToken) <= 0)
             {
                 var cancelledReservationId = await noSlotReporter.ReportNoSuitableSlotAsync(
-                    request.LotId, plate, entryTime, cancellationToken);
+                    request.LotId, plate, arrivalAt, cancellationToken);
                 if (cancelledReservationId is not { } reservationId)
                     return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull);
 
-                await RecordNoSuitableSlotAsync(request.LotId, reservationId, plate, entryTime, cancellationToken);
+                await RecordNoSuitableSlotAsync(request.LotId, reservationId, plate, arrivalAt, cancellationToken);
+                if (evidenceTransaction is not null)
+                    await evidenceTransaction.CommitAsync(cancellationToken);
                 return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.ReservedNoSlot);
             }
 
@@ -167,7 +189,7 @@ public sealed class OpenParkingSessionCommandHandler(
             checkedInBooking = await bookingClient.CheckInReservationAsync(
                 request.LotId,
                 plate,
-                entryTime,
+                arrivalAt,
                 sessionId,
                 cancellationToken);
 
@@ -181,7 +203,9 @@ public sealed class OpenParkingSessionCommandHandler(
         }
 
         // Taking the space or slot and saving the session commit together: a failed save gives it back.
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        await using var sessionTransaction = evidenceTransaction is null
+            ? await unitOfWork.BeginTransactionAsync(cancellationToken) : null;
+        var transaction = evidenceTransaction ?? sessionTransaction!;
 
         DesignatedSlot? slot = null;
         if (vehicleType == VehicleType.Car)
@@ -193,7 +217,7 @@ public sealed class OpenParkingSessionCommandHandler(
                 // US-PARK-004: Xe có đặt chỗ đã được giữ slot trước đó trong held quota.
                 // Chỉ từ chối nếu bãi thực tế không còn slot trống nào khả dụng.
                 if (available <= 0)
-                    return await NoSlotAfterCheckInAsync(request, checkedInBooking, plate, entryTime, transaction, cancellationToken);
+                    return await NoSlotAfterCheckInAsync(request, checkedInBooking, plate, arrivalAt, transaction, cancellationToken);
             }
             else
             {
@@ -208,7 +232,7 @@ public sealed class OpenParkingSessionCommandHandler(
             if (slot is null)
                 return checkedInBooking is null
                     ? Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.WalkInFull)
-                    : await NoSlotAfterCheckInAsync(request, checkedInBooking, plate, entryTime, transaction, cancellationToken);
+                    : await NoSlotAfterCheckInAsync(request, checkedInBooking, plate, arrivalAt, transaction, cancellationToken);
         }
 
         MotorbikeSpaceTaken? space = null;
@@ -235,6 +259,7 @@ public sealed class OpenParkingSessionCommandHandler(
             space?.ZoneId ?? slot?.ZoneId,
             checkedInBooking?.ReservationId);
         sessions.Add(session);
+        evidence?.AttachEntrySession(session.Id);
         if (session.UserId is { } customerId)
             outbox?.Enqueue(new ParkingSessionOpenedIntegrationEvent(session.Id, customerId,
                 session.LotId, session.EntryTime), "parking.session-opened.v1", 1);
@@ -293,6 +318,9 @@ public sealed class OpenParkingSessionCommandHandler(
             slot?.SlotCode,
             slot?.SlotId));
     }
+
+    // A short-lived arrival-evidence window; not the Booking no-show cutoff. A fresh scan is required after expiry.
+    private static readonly TimeSpan GateReadingMaxAge = TimeSpan.FromMinutes(10);
 
     // Rare race: a slot was free at the count above but taken before the lock, after Booking already moved the
     // reservation to Used. Booking has no way out of Used yet (point 35), so staff handle it from the incident (BR-02.f).
