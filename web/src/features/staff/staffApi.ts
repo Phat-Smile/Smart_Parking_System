@@ -647,15 +647,6 @@ export function describeStaffError(error: unknown): string {
             "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước."
         );
     }
-    if (code === "parking.session.already_open" || error.status === 409) {
-        return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
-    }
-    if (code === "parking.lot.not_found") {
-        return "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt (not found or is not approved).";
-    }
-    if (code === "parking.lot.access_denied" || error.status === 403) {
-        return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
-    }
     if (code === "parking.session.payment_required") {
         return "Xe chưa thanh toán phí gửi xe. Vui lòng hoàn tất thanh toán trước khi mở rào chắn.";
     }
@@ -679,6 +670,15 @@ export function describeStaffError(error: unknown): string {
     }
     if (code === "payment.parking_fee.idempotency_key_reused") {
         return "Yêu cầu thanh toán trùng lặp. Đang kiểm tra trạng thái thanh toán.";
+    }
+    if (code === "parking.session.already_open" || error.status === 409) {
+        return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
+    }
+    if (code === "parking.lot.not_found") {
+        return "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt (not found or is not approved).";
+    }
+    if (code === "parking.lot.access_denied" || error.status === 403) {
+        return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
     }
     if (code === "parking.gate_reading.not_found") {
         return "Không tìm thấy dữ liệu đọc biển số cần xác nhận.";

@@ -637,6 +637,17 @@ describe("staffApi integration", () => {
             );
         });
 
+        it("handles exit not verified before the generic 409 fallback (parking.session.exit_not_verified)", () => {
+            const err = new ApiError(
+                409,
+                { errorCode: "parking.session.exit_not_verified" },
+                undefined,
+            );
+            expect(describeStaffError(err)).toBe(
+                "Biển số xe hoặc mã vé QR không khớp với phiên đỗ xe này.",
+            );
+        });
+
         it("uses the reserved-no-slot fallback when a 409 has no detail", () => {
             const err = new ApiError(
                 409,

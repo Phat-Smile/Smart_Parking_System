@@ -12,7 +12,6 @@ import {
     XCircle,
     AlertTriangle,
     Clock,
-    DollarSign,
     Banknote,
     Check,
     Smartphone,
@@ -244,8 +243,9 @@ export function StaffExitPage() {
             };
 
             setScannedSession(scanned);
-            // Bất biến: Không tự ghi đè biển số đọc ở cổng bằng biển số của phiên
-            setQrInput(res.qrToken);
+            // Bất biến: Không tự ghi đè biển số đọc ở cổng bằng biển số của phiên,
+            // không tự gán mã QR từ phiên vào ô quét mã của cổng ra
+            setQrInput(queryToken);
             if (scanned.amountDueVnd === 0 || isPaid) {
                 setPaymentSuccess(true);
             }
@@ -384,6 +384,11 @@ export function StaffExitPage() {
     async function handleManualVerify() {
         if (!scannedSession) return;
         const gatePlate = detectedExitPlate.trim();
+        if (!gatePlate) {
+            setErrorMsg("Nhập biển số đọc ở cổng");
+            announceWarning("Nhập biển số đọc ở cổng");
+            return;
+        }
         const qrToSend = qrInput.trim();
         if (!qrToSend) {
             setErrorMsg(
@@ -403,11 +408,9 @@ export function StaffExitPage() {
             );
 
             // Bước 2: Bắt buộc hoàn tất đóng phiên hợp lệ qua /complete
-            // Fix BUG-BE2-03: Biển số gửi lên phải là scannedSession.plateNumber (biển số gốc đã được xác minh)
-            // thay vì gatePlate (chuỗi OCR đọc sai từ camera) để tránh Backend ném lỗi 409 ExitNotVerified.
-            const verifiedPlate = scannedSession.plateNumber || gatePlate;
+            // Bất biến: /complete nhận biển số đọc ở cổng (gatePlate), tuyệt đối không gửi biển của phiên vào
             await completeParkingSession(scannedSession.id, {
-                plateNumber: verifiedPlate,
+                plateNumber: gatePlate,
                 qrToken: qrToSend,
             });
             completeExit(
@@ -416,7 +419,7 @@ export function StaffExitPage() {
             );
             setExitAllowed(true);
             announceCheckOut({
-                plateNumber: verifiedPlate,
+                plateNumber: gatePlate,
                 lotName: assignedLot?.lotName,
                 amountPaid: scannedSession.totalFeeVnd,
             });
@@ -1096,53 +1099,20 @@ export function StaffExitPage() {
                                             fontSize: "12px",
                                             display: "flex",
                                             alignItems: "center",
-                                            justifyContent: "space-between",
-                                            gap: "8px",
+                                            gap: "6px",
                                         }}
                                     >
-                                        <div
+                                        <Sparkles
+                                            size={14}
                                             style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "6px",
+                                                color: "#d97706",
+                                                flexShrink: 0,
                                             }}
-                                        >
-                                            <Sparkles
-                                                size={14}
-                                                style={{
-                                                    color: "#d97706",
-                                                    flexShrink: 0,
-                                                }}
-                                            />
-                                            <span>
-                                                Gợi ý ANPR: Camera có thể đọc
-                                                lệch ký tự quang học so với vé
-                                                vào (
-                                                <strong>
-                                                    {scannedSession.plateNumber}
-                                                </strong>
-                                                ).
-                                            </span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="staff-btn staff-btn-secondary"
-                                            style={{
-                                                fontSize: "11px",
-                                                padding: "2px 8px",
-                                                height: "auto",
-                                                whiteSpace: "nowrap",
-                                                cursor: "pointer",
-                                            }}
-                                            onClick={() =>
-                                                setDetectedExitPlate(
-                                                    scannedSession.plateNumber,
-                                                )
-                                            }
-                                            title="Đồng bộ biển số theo vé vào đã xác nhận"
-                                        >
-                                            Đồng bộ theo vé vào
-                                        </button>
+                                        />
+                                        <span>
+                                            Biển đọc được gần giống vé vào, kiểm
+                                            tra bằng mắt rồi nhập lại
+                                        </span>
                                     </div>
                                 )}
                         </div>
@@ -1769,8 +1739,9 @@ export function StaffExitPage() {
                                     physicalState="OPEN"
                                     vehicleState="PASSING"
                                     detectedPlate={
+                                        detectedExitPlate ||
                                         scannedSession?.plateNumber ||
-                                        detectedExitPlate
+                                        ""
                                     }
                                     vehicleType={
                                         scannedSession?.vehicleType || "Car"
