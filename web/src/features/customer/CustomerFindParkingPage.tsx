@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { CustomerFooter, CustomerHeader } from "./CustomerShell";
 import {
     useCustomerFindParking,
@@ -7,10 +8,32 @@ import {
     CustomerFilterPanel,
     CustomerFilterToolbar,
     CustomerSearchResultsList,
-    CustomerAiRecommendations,
-    CustomerSearchMapColumn,
+    CustomerSearchMapSkeleton,
+    CustomerAiRecommendationsSkeleton,
     type InitialSearchOptions,
 } from "./search";
+
+const CustomerSearchMapColumn = dynamic(
+    () =>
+        import("./search/CustomerSearchMapColumn").then(
+            (mod) => mod.CustomerSearchMapColumn,
+        ),
+    {
+        ssr: false,
+        loading: () => <CustomerSearchMapSkeleton />,
+    },
+);
+
+const CustomerAiRecommendations = dynamic(
+    () =>
+        import("./search/CustomerAiRecommendations").then(
+            (mod) => mod.CustomerAiRecommendations,
+        ),
+    {
+        ssr: false,
+        loading: () => <CustomerAiRecommendationsSkeleton />,
+    },
+);
 
 export function CustomerFindParkingPage({
     fontClassName,
