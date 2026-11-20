@@ -94,7 +94,8 @@ def rank_candidate_lots(
     min_c, max_c = min(c_values), max(c_values)
 
     scored_items = []
-    has_safe_lot = any(c.probability_percent >= WARNING_THRESHOLD_PERCENT for c in candidates)
+    has_safe_lot = any(not c.insufficient_data and c.probability_percent >= WARNING_THRESHOLD_PERCENT
+                       for c in candidates)
 
     for c in candidates:
         # 1. Min-max normalization (0..100)
@@ -109,7 +110,7 @@ def rank_candidate_lots(
         raw_score = (w_time * s_time) + (w_prob * s_prob) + (w_price * s_price)
 
         # 3. Penalty and warning flag for low arrival probability (BR-08.a)
-        is_risky = c.probability_percent < WARNING_THRESHOLD_PERCENT
+        is_risky = not c.insufficient_data and c.probability_percent < WARNING_THRESHOLD_PERCENT
         if is_risky:
             final_score = max(0.0, raw_score - LOW_PROBABILITY_PENALTY)
         else:

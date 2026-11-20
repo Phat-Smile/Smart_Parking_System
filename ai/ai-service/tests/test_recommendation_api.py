@@ -142,6 +142,32 @@ class RecommendationApiTests(unittest.TestCase):
         self.assertEqual("ai_recommendation_mode_invalid", data["fallbackReason"])
         self.assertEqual([], data["recommendedLots"])
 
+    def test_osrm_eta_contract_echoes_time_and_rejects_invalid_minutes(self):
+        lot_id = str(uuid4())
+        payload = {
+            "customerLatitude": 10.7725,
+            "customerLongitude": 106.6980,
+            "vehicleType": "Car",
+            "arrivalAt": "2026-11-07T10:00:00Z",
+            "candidateLots": [{"lotId": lot_id, "name": "A", "latitude": 10.77,
+                               "longitude": 106.70, "priceForDuration": 10000,
+                               "driveTimeMinutes": 6.5}],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "prompting"}), \
+             patch("app.application.prompting_recommendations.OpenAICompatibleChatProvider") as provider:
+            provider.return_value.choose.return_value = {
+                "recommendations": [{"lotId": lot_id, "rank": 1, "reasonCode": "short_travel"}]
+            }
+            status, data = self._call_post(payload, service_key=self.api_key)
+            self.assertEqual(200, status)
+            self.assertEqual(6.5, data["recommendedLots"][0]["driveTimeMinutes"])
+            self.assertFalse(data["fallbackUsed"])
+            payload["candidateLots"][0]["driveTimeMinutes"] = -1
+            bad_status, _ = self._call_post(payload, service_key=self.api_key)
+            self.assertEqual(422, bad_status)
+            self.assertEqual(1, provider.return_value.choose.call_count)
+
     def test_duplicate_candidate_ids_are_rejected(self):
         lot = {"lotId": str(uuid4()), "name": "A", "latitude": 10.77,
                "longitude": 106.70, "priceForDuration": 10000}
@@ -220,6 +246,50 @@ class RecommendationApiTests(unittest.TestCase):
             self.assertIn("sampleCount", first)
             self.assertIn("insufficientData", first)
             self.assertIn("baselineSource", first)
+
+    def test_legacy_without_history_does_not_claim_probability_or_route_eta(self):
+        lot_id = str(uuid4())
+        payload = {
+            "customerLatitude": 10.7725, "customerLongitude": 106.6980,
+            "vehicleType": "Car", "arrivalAt": "2026-11-07T10:00:00Z",
+            "candidateLots": [{"lotId": lot_id, "name": "No history", "latitude": 10.77,
+                               "longitude": 106.70, "priceForDuration": 18000,
+                               "heldQuotaKnown": True, "snapshots": []}],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "legacy"}):
+            status, response = self._call_post(payload, service_key=self.api_key)
+        self.assertEqual(200, status)
+        self.assertFalse(response["fallbackUsed"])
+        item = response["recommendedLots"][0]
+        self.assertTrue(item["insufficientData"])
+        self.assertIsNone(item["probabilityPercent"])
+        self.assertIsNone(item["driveTimeMinutes"])
+        self.assertEqual("default_50_percent", item["baselineSource"])
+
+    def test_legacy_sparse_high_risk_history_is_not_reported_as_confident_warning(self):
+        lot_id = str(uuid4())
+        payload = {
+            "customerLatitude": 10.7725, "customerLongitude": 106.6980,
+            "vehicleType": "Car", "arrivalAt": "2026-11-07T10:00:00Z",
+            "candidateLots": [{"lotId": lot_id, "name": "Sparse", "latitude": 10.77,
+                               "longitude": 106.70, "priceForDuration": 18000,
+                               "snapshots": [
+                                   {"lotId": lot_id, "vehicleType": "Car",
+                                    "capturedAt": day, "availableSlots": 0}
+                                   for day in ("2026-10-31T10:00:00Z", "2026-10-24T10:00:00Z")
+                               ]}],
+        }
+        with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key,
+                                      "AI_RECOMMENDATION_MODE": "legacy"}):
+            status, response = self._call_post(payload, service_key=self.api_key)
+        self.assertEqual(200, status)
+        item = response["recommendedLots"][0]
+        self.assertTrue(item["insufficientData"])
+        self.assertIsNone(item["probabilityPercent"])
+        self.assertFalse(item["warningHighFullRisk"])
+        self.assertFalse(any("cảnh báo" in reason.lower() for reason in item["reasons"]))
+        self.assertFalse(any("tối ưu" in reason.lower() for reason in item["reasons"]))
 
     def test_unknown_held_quota_flags_insufficient_data(self):
         with patch.dict(os.environ, {"ARRIVAL_API_KEY": self.api_key}):

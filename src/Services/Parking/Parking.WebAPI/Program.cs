@@ -43,11 +43,13 @@ if (!string.IsNullOrWhiteSpace(keysPath))
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
 }
 builder.Services.AddSingleton<OwnerLotLocationConfirmationService>();
-// OSRM Table is added for S4 search only; existing Mapbox adapter remains untouched.
+// Shared OSRM Table for Search and AI Recommendation; existing Mapbox adapter is untouched.
 builder.Services.AddSingleton<OsrmMatrixClient>(sp => new OsrmMatrixClient(
     new HttpClient { Timeout = TimeSpan.FromSeconds(2), MaxResponseContentBufferSize = 256 * 1024 },
     sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
     sp.GetRequiredService<IConfiguration>()));
+builder.Services.AddSingleton<IRecommendationDrivingEtaReader>(sp =>
+    sp.GetRequiredService<OsrmMatrixClient>());
 builder.Services.AddSingleton<NominatimRequestGate>();
 builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
 {
