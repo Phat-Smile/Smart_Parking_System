@@ -21,7 +21,7 @@ export function ThemeToggle({
             aria-label="Switch theme"
             title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             onClick={toggleTheme}
-            className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all cursor-pointer hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 shadow-sm ${
+            className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center border transition-all cursor-pointer hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 shadow-sm ${
                 isDark
                     ? "border-white/[0.08] bg-[#101426] text-brand-300 hover:border-brand-500/50"
                     : "border-[rgba(17,19,34,0.08)] bg-[#F4F5F8] text-[#111322] hover:border-brand-500/50"

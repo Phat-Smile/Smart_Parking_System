@@ -26,9 +26,15 @@ export function TopNav() {
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
-        getMyVehicles().then(res => setVehicles(res.vehicles || [])).catch(() => {});
-        getMyWallet().then(w => setBalance(w.balance)).catch(() => {});
-        getMyNotifications(true, 1, 1).then(p => setUnreadCount(p.unreadCount)).catch(() => {});
+        getMyVehicles()
+            .then((res) => setVehicles(res.vehicles || []))
+            .catch(() => {});
+        getMyWallet()
+            .then((w) => setBalance(w.balance))
+            .catch(() => {});
+        getMyNotifications(true, 1, 1)
+            .then((p) => setUnreadCount(p.unreadCount))
+            .catch(() => {});
     }, []);
 
     return (
@@ -69,7 +75,10 @@ export function TopNav() {
                 <div className="bg-[var(--dash-bg)] px-3 py-1.5 rounded-xl border border-[var(--dash-border)] flex items-center gap-2">
                     <select className="bg-transparent text-[var(--dash-text)] text-sm font-medium outline-none cursor-pointer appearance-none pr-4">
                         {vehicles.length === 0 ? (
-                            <option value="none" className="bg-[var(--dash-surface)] text-[var(--dash-text)]">
+                            <option
+                                value="none"
+                                className="bg-[var(--dash-surface)] text-[var(--dash-text)]"
+                            >
                                 Chưa có xe
                             </option>
                         ) : (
@@ -86,7 +95,13 @@ export function TopNav() {
                                         value={v.licensePlate}
                                         className="bg-[var(--dash-surface)] text-[var(--dash-text)]"
                                     >
-                                        {v.licensePlate} ({v.vehicleType === "Car" ? "Ô tô" : v.vehicleType === "Motorbike" ? "Xe máy" : "Xe đạp"})
+                                        {v.licensePlate} (
+                                        {v.vehicleType === "Car"
+                                            ? "Ô tô"
+                                            : v.vehicleType === "Motorbike"
+                                              ? "Xe máy"
+                                              : "Xe đạp"}
+                                        )
                                     </option>
                                 ))}
                             </>
@@ -97,18 +112,20 @@ export function TopNav() {
                 {/* Wallet */}
                 <Link
                     href="/dashboard/payments"
-                    className="flex items-center gap-2 bg-[var(--dash-bg)] px-3 py-1.5 rounded-xl border border-[var(--dash-border)] hover:border-[var(--dash-primary)] transition-colors"
+                    className="flex items-center gap-2 bg-[var(--dash-bg)] px-3 py-1.5 rounded-xl border border-[var(--dash-border)] hover:border-[var(--dash-primary)] transition-colors min-h-[44px]"
                 >
                     <div className="flex flex-col text-right">
                         <span className="text-[10px] text-[var(--dash-text-muted)] leading-tight">
                             {vi.wallet.balance}
                         </span>
                         <span className="text-sm font-bold text-[var(--dash-text)] leading-tight">
-                            {balance !== null ? `${balance.toLocaleString("vi-VN")}đ` : "—"}
+                            {balance !== null
+                                ? `${balance.toLocaleString("vi-VN")}đ`
+                                : "—"}
                         </span>
                     </div>
-                    <button className="dash-btn-primary p-1.5 rounded-lg flex items-center justify-center">
-                        <Wallet size={14} />
+                    <button className="dash-btn-primary min-w-[44px] min-h-[44px] p-2.5 rounded-lg flex items-center justify-center">
+                        <Wallet size={16} />
                     </button>
                 </Link>
 
@@ -118,7 +135,7 @@ export function TopNav() {
                 {/* Notifications */}
                 <Link
                     href="/dashboard/notifications"
-                    className="relative p-2 text-[var(--dash-text-muted)] hover:text-[var(--dash-text)] transition-colors rounded-full hover:bg-[var(--dash-text)]/5"
+                    className="relative min-w-[44px] min-h-[44px] flex items-center justify-center p-2 text-[var(--dash-text-muted)] hover:text-[var(--dash-text)] transition-colors rounded-full hover:bg-[var(--dash-text)]/5"
                 >
                     <Bell size={20} strokeWidth={1.5} />
                     {unreadCount > 0 && (
@@ -129,7 +146,7 @@ export function TopNav() {
                 {/* Profile Avatar */}
                 <Link
                     href="/dashboard/profile"
-                    className="w-9 h-9 rounded-full bg-[var(--dash-primary)]/20 text-[var(--dash-primary)] flex items-center justify-center border border-[var(--dash-primary)]/30 hover:scale-105 transition-transform"
+                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-[var(--dash-primary)]/20 text-[var(--dash-primary)] flex items-center justify-center border border-[var(--dash-primary)]/30 hover:scale-105 transition-transform"
                 >
                     <User size={18} strokeWidth={1.5} />
                 </Link>

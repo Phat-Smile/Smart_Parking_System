@@ -336,6 +336,7 @@ h2 {
 } /* teal – sessions (logo teal) */
 
 .btn {
+    min-height: 44px;
     border: 1px solid var(--line);
     background: var(--card);
     color: var(--ink);
@@ -371,8 +372,9 @@ h2 {
 }
 
 .btn.sm {
-    padding: 4px 12px;
-    font-size: 12px;
+    min-height: 44px;
+    padding: 6px 14px;
+    font-size: 12.5px;
 }
 
 button:focus-visible,
@@ -830,13 +832,16 @@ th {
 }
 
 .chip {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     border: 1px solid var(--line);
     background: var(--card);
     color: var(--ink);
     border-radius: 99px;
-    padding: 5px 12px;
+    padding: 8px 16px;
     font: inherit;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
 }
 

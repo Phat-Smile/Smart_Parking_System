@@ -1133,10 +1133,14 @@
 }
 
 .admin-btn-sm {
-    height: 34px;
-    padding: 0 12px;
+    min-height: 44px;
+    height: auto;
+    padding: 6px 14px;
     border-radius: var(--radius-sm);
     font-size: 12.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .admin-btn-dark {

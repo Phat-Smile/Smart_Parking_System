@@ -707,18 +707,22 @@ export default function OwnerLayoutEditorPage() {
                                                 }
                                                 style={{
                                                     background: "none",
-                                                    border: "none",
+                                                    border: "1px solid #fee2e2",
+                                                    borderRadius: 8,
                                                     color: "#ef4444",
                                                     fontSize: 12,
+                                                    fontWeight: 600,
                                                     cursor: "pointer",
-                                                    padding: "4px 8px",
+                                                    minHeight: 44,
+                                                    padding: "0 14px",
                                                     display: "inline-flex",
                                                     alignItems: "center",
-                                                    gap: 4,
+                                                    gap: 6,
                                                 }}
+                                                aria-label="Xóa khu"
                                             >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                                Xóa khu
+                                                <Trash2 className="w-4 h-4" />
+                                                <span>Xóa khu</span>
                                             </button>
                                         </div>
 
@@ -809,35 +813,51 @@ export default function OwnerLayoutEditorPage() {
                                                     style={{
                                                         display: "flex",
                                                         alignItems: "center",
-                                                        gap: 8,
-                                                        marginTop: 20,
+                                                        marginTop: 10,
                                                     }}
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        id={`sensor-${zone.id}`}
-                                                        checked={
-                                                            zone.hasSlotSensor
-                                                        }
-                                                        onChange={(e) =>
-                                                            handleUpdateZone(
-                                                                zone.id,
-                                                                {
-                                                                    hasSlotSensor:
-                                                                        e.target
-                                                                            .checked,
-                                                                },
-                                                            )
-                                                        }
-                                                    />
                                                     <label
                                                         htmlFor={`sensor-${zone.id}`}
                                                         style={{
                                                             fontSize: 13,
                                                             color: "#334155",
+                                                            minHeight: 44,
+                                                            display:
+                                                                "inline-flex",
+                                                            alignItems:
+                                                                "center",
+                                                            gap: 8,
+                                                            cursor: "pointer",
+                                                            userSelect: "none",
+                                                            padding: "0 8px",
                                                         }}
                                                     >
-                                                        Có cảm biến từng ô
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`sensor-${zone.id}`}
+                                                            checked={
+                                                                zone.hasSlotSensor
+                                                            }
+                                                            onChange={(e) =>
+                                                                handleUpdateZone(
+                                                                    zone.id,
+                                                                    {
+                                                                        hasSlotSensor:
+                                                                            e
+                                                                                .target
+                                                                                .checked,
+                                                                    },
+                                                                )
+                                                            }
+                                                            style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                cursor: "pointer",
+                                                            }}
+                                                        />
+                                                        <span>
+                                                            Có cảm biến từng ô
+                                                        </span>
                                                     </label>
                                                 </div>
                                             ) : (
