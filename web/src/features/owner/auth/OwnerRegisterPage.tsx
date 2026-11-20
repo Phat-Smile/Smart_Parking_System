@@ -416,7 +416,9 @@ export function OwnerRegisterPage({
                                             background: "#e6f85e",
                                         }}
                                     />
-                                    PARKWISE PARTNER NETWORK
+                                    {isVi
+                                        ? "MẠNG LƯỚI ĐỐI TÁC PARKWISE"
+                                        : "PARKWISE PARTNER NETWORK"}
                                 </div>
 
                                 <h1
@@ -454,7 +456,7 @@ export function OwnerRegisterPage({
                                     }}
                                 >
                                     {isVi
-                                        ? "Gia nhập mạng lưới bãi đỗ xe số 1 Việt Nam. Số hóa quy trình quản lý, lấp đầy công suất và tăng trưởng doanh thu vượt trội."
+                                        ? "Nền tảng quản lý bãi đỗ xe thông minh, tối ưu công suất và theo dõi doanh thu thời gian thực."
                                         : "Join Vietnam's leading smart parking network. Digitize operations, maximize lot occupancy, and accelerate revenue growth."}
                                 </p>
 

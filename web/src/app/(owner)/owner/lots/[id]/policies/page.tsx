@@ -215,7 +215,7 @@ export default function LotPoliciesPage() {
             <PageHeader
                 breadcrumb={`/owner/lots/${lotId}/policies`}
                 title={`Chính sách đặt chỗ & cọc · ${lot?.name || "Bãi xe"}`}
-                subtitle="Cấu hình nhận giữ chỗ trực tuyến, phân bổ tỷ lệ chỗ đặt trước và thiết lập mức cọc chống no-show"
+                subtitle="Cấu hình nhận giữ chỗ trực tuyến, phân bổ tỷ lệ chỗ đặt trước và thiết lập mức cọc chống bỏ chỗ"
                 actions={
                     <div style={{ display: "flex", gap: "8px" }}>
                         <Link
@@ -545,8 +545,8 @@ export default function LotPoliciesPage() {
                         >
                             Khoản tiền tạm trừ từ Ví ParkWise của khách khi xác
                             nhận giữ chỗ. Khoản này sẽ được khấu trừ vào phí đỗ
-                            xe khi check-in, hoặc hoàn lại nếu khách tự hủy
-                            trước 5 phút.
+                            xe khi vào bãi, hoặc hoàn lại nếu khách tự hủy trước
+                            5 phút.
                         </p>
 
                         <div
@@ -648,7 +648,7 @@ export default function LotPoliciesPage() {
                             </div>
                             <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
                                 <li>
-                                    Nếu khách check-in đúng giờ: Tiền cọc được
+                                    Nếu khách vào bãi đúng giờ: Tiền cọc được
                                     trừ trực tiếp vào hóa đơn cuối cùng.
                                 </li>
                                 <li>
@@ -656,10 +656,10 @@ export default function LotPoliciesPage() {
                                     hoàn 100% tiền cọc về ví của khách.
                                 </li>
                                 <li>
-                                    Nếu quá 15 phút không đến (No-show): Ô đỗ tự
-                                    động giải phóng cho tài xế khác, tiền cọc
-                                    được ghi nhận bồi hoàn doanh thu cho chủ
-                                    bãi.
+                                    Nếu quá 15 phút không đến (không nhận chỗ):
+                                    Ô đỗ tự động giải phóng cho tài xế khác,
+                                    tiền cọc được ghi nhận bồi hoàn doanh thu
+                                    cho chủ bãi.
                                 </li>
                             </ul>
                         </div>

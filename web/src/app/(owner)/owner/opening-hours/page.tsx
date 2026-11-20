@@ -339,7 +339,7 @@ export default function OwnerOpeningHoursPage() {
             <OwnerPageHeader
                 breadcrumb="/owner/opening-hours"
                 title="Giờ hoạt động bãi xe"
-                subtitle="Thiết lập lịch mở cửa và đóng cửa chi tiết 7 ngày trong tuần theo chuẩn US-OWNER-002"
+                subtitle="Thiết lập lịch mở cửa và đóng cửa chi tiết 7 ngày trong tuần"
                 actions={
                     <div
                         style={{

@@ -1085,7 +1085,7 @@ export default function OwnerPricingManagementPage() {
                                 fontWeight: 550,
                             }}
                         >
-                            Khi khách check-in thành công, tiền cọc được trừ vào
+                            Khi khách vào bãi thành công, tiền cọc được trừ vào
                             tổng phí đỗ. Nếu khách không đến sau thời gian giữ
                             chỗ, cọc xử lý theo điều khoản hủy.
                         </span>
@@ -1583,7 +1583,7 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 650,
                                 }}
                             >
-                                <span>Tiền cọc (trừ khi check-out)</span>
+                                <span>Tiền cọc (trừ khi ra bãi)</span>
                                 <span
                                     style={{
                                         fontWeight: 800,

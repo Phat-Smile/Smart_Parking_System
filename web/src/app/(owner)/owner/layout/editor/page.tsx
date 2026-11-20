@@ -265,7 +265,7 @@ export default function OwnerLayoutEditorPage() {
             <OwnerPageHeader
                 breadcrumb="/owner/layout/editor"
                 title="Chỉnh sửa sơ đồ mặt bằng"
-                subtitle={`${currentLot?.name || "Bãi đỗ xe"} · Phiên bản layout v${layoutVersion}`}
+                subtitle={`${currentLot?.name || "Bãi đỗ xe"} · Sơ đồ phiên bản ${layoutVersion}`}
                 actions={
                     <div
                         style={{
@@ -387,8 +387,8 @@ export default function OwnerLayoutEditorPage() {
                     </div>
 
                     <div style={{ fontSize: 13, color: "#64748b" }}>
-                        Mã bãi: <code>{lotKey || "Chưa có backend GUID"}</code>{" "}
-                        · Phiên bản: <b>v{layoutVersion}</b>
+                        Mã bãi: <code>{lotKey || "Chưa có mã hệ thống"}</code> ·
+                        Phiên bản: <b>v{layoutVersion}</b>
                     </div>
                 </div>
 
@@ -586,7 +586,7 @@ export default function OwnerLayoutEditorPage() {
                                         cursor: "pointer",
                                     }}
                                 >
-                                    + Thêm khu Ô tô (Car)
+                                    + Thêm khu ô tô
                                 </button>
                                 <button
                                     type="button"
@@ -602,7 +602,7 @@ export default function OwnerLayoutEditorPage() {
                                         cursor: "pointer",
                                     }}
                                 >
-                                    + Thêm khu Xe máy (Motorbike)
+                                    + Thêm khu xe máy
                                 </button>
                             </div>
                         </div>
@@ -1309,12 +1309,13 @@ export default function OwnerLayoutEditorPage() {
                                                                                     <option value="Maintenance">
                                                                                         Bảo
                                                                                         trì
-                                                                                        (Maintenance)
                                                                                     </option>
                                                                                     <option value="Unavailable">
                                                                                         Tạm
                                                                                         dừng
-                                                                                        (Unavailable)
+                                                                                        (Không
+                                                                                        khả
+                                                                                        dụng)
                                                                                     </option>
                                                                                 </select>
                                                                             </td>
