@@ -49,6 +49,26 @@ type ArrivalReadingAttempt = {
     confirmed?: { plateNumber: string; vehicleType: VehicleType };
 };
 
+/**
+ * Calculates late arrival minutes from scheduled arrival time and actual entry time.
+ * Returns positive integer minutes if late, or null if on-time / early / missing data.
+ */
+export function calculateLateArrivalMinutes(
+    entryTimeIso?: string | null,
+    scheduledArrivalTimeIso?: string | null,
+): number | null {
+    if (!entryTimeIso || !scheduledArrivalTimeIso) {
+        return null;
+    }
+    const entryMs = new Date(entryTimeIso).getTime();
+    const scheduledMs = new Date(scheduledArrivalTimeIso).getTime();
+    if (isNaN(entryMs) || isNaN(scheduledMs)) {
+        return null;
+    }
+    const diffMinutes = Math.floor((entryMs - scheduledMs) / 60000);
+    return diffMinutes > 0 ? diffMinutes : null;
+}
+
 export function StaffEntryPage() {
     const {
         addSession,
@@ -84,9 +104,6 @@ export function StaffEntryPage() {
     );
     const [vehicleType, setVehicleType] = useState<VehicleType>("Car");
     const [ocrConfidence, setOcrConfidence] = useState<number>(0);
-    const [bookingLateMinutes, setBookingLateMinutes] = useState<number | null>(
-        null,
-    );
 
     // License Plate Verification state
     const [isEditingPlate, setIsEditingPlate] = useState(false);
@@ -387,7 +404,6 @@ export function StaffEntryPage() {
         setPlateNumber("");
         setEditedPlate("");
         setOcrConfidence(0);
-        setBookingLateMinutes(null);
         setIsParkedConfirmed(false);
         setIsConfirmingParked(false);
     }
@@ -396,6 +412,10 @@ export function StaffEntryPage() {
     const totalCapacity =
         assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
     const activeCount = activeSessions?.length ?? occupancy.occupied ?? 0;
+    const lateArrivalMinutes = calculateLateArrivalMinutes(
+        lastOpened?.entryTime,
+        lastOpened?.scheduledArrivalTimeUtc,
+    );
     const fallbackAvailable = Math.max(0, totalCapacity - activeCount);
     const rawAvailableSlots =
         vehicleType === "Car"
@@ -684,54 +704,6 @@ export function StaffEntryPage() {
                                     <option value="Booking">Xe đặt chỗ</option>
                                 </select>
                             </div>
-
-                            {entryType === "Booking" && (
-                                <div className="staff-form-group">
-                                    <label htmlFor="staff-booking-delay">
-                                        Độ trễ giờ hẹn (nếu xe tới muộn):
-                                    </label>
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                        }}
-                                    >
-                                        <input
-                                            id="staff-booking-delay"
-                                            type="number"
-                                            min="0"
-                                            max="15"
-                                            placeholder="0"
-                                            value={bookingLateMinutes ?? ""}
-                                            onChange={(e) => {
-                                                const val = parseInt(
-                                                    e.target.value,
-                                                    10,
-                                                );
-                                                setBookingLateMinutes(
-                                                    isNaN(val)
-                                                        ? null
-                                                        : Math.min(
-                                                              15,
-                                                              Math.max(0, val),
-                                                          ),
-                                                );
-                                            }}
-                                            className="staff-input"
-                                            style={{ width: "80px" }}
-                                        />
-                                        <span
-                                            style={{
-                                                fontSize: "12px",
-                                                color: "var(--staff-text-muted)",
-                                            }}
-                                        >
-                                            phút (ân hạn tối đa 15 phút)
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -1059,41 +1031,13 @@ export function StaffEntryPage() {
                                             </span>
                                         </span>
                                     ) : entryType === "Booking" ? (
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "8px",
-                                                flexWrap: "wrap",
-                                            }}
-                                        >
-                                            <span className="staff-account-badge acc-booking">
-                                                <BookmarkCheck
-                                                    size={13}
-                                                    strokeWidth={2.2}
-                                                />
-                                                <span>Khách đặt chỗ trước</span>
-                                            </span>
-                                            {bookingLateMinutes != null &&
-                                                bookingLateMinutes > 0 && (
-                                                    <span
-                                                        className="staff-pill staff-pill-warning"
-                                                        style={{
-                                                            backgroundColor:
-                                                                "rgba(245, 158, 11, 0.15)",
-                                                            color: "#f59e0b",
-                                                            border: "1px solid rgba(245, 158, 11, 0.3)",
-                                                            fontWeight: 700,
-                                                            fontSize: "11px",
-                                                            padding: "1px 6px",
-                                                            borderRadius: "4px",
-                                                        }}
-                                                    >
-                                                        Trễ {bookingLateMinutes}{" "}
-                                                        phút
-                                                    </span>
-                                                )}
-                                        </div>
+                                        <span className="staff-account-badge acc-booking">
+                                            <BookmarkCheck
+                                                size={13}
+                                                strokeWidth={2.2}
+                                            />
+                                            <span>Khách đặt chỗ trước</span>
+                                        </span>
                                     ) : (
                                         <span className="staff-account-badge acc-guest">
                                             <span>
@@ -1132,30 +1076,25 @@ export function StaffEntryPage() {
                                                 />
                                                 <span>Khách đặt trước</span>
                                             </span>
-                                            {((lastOpened.lateMinutes != null &&
-                                                lastOpened.lateMinutes > 0) ||
-                                                (bookingLateMinutes != null &&
-                                                    bookingLateMinutes >
-                                                        0)) && (
-                                                <span
-                                                    className="staff-pill staff-pill-warning"
-                                                    style={{
-                                                        backgroundColor:
-                                                            "rgba(245, 158, 11, 0.2)",
-                                                        color: "#fbbf24",
-                                                        border: "1px solid rgba(245, 158, 11, 0.4)",
-                                                        fontWeight: 700,
-                                                        fontSize: "11px",
-                                                        padding: "1px 6px",
-                                                        borderRadius: "4px",
-                                                    }}
-                                                >
-                                                    Trễ{" "}
-                                                    {lastOpened.lateMinutes ??
-                                                        bookingLateMinutes}{" "}
-                                                    phút
-                                                </span>
-                                            )}
+                                            {lateArrivalMinutes != null &&
+                                                lateArrivalMinutes > 0 && (
+                                                    <span
+                                                        className="staff-pill staff-pill-warning"
+                                                        style={{
+                                                            backgroundColor:
+                                                                "rgba(245, 158, 11, 0.2)",
+                                                            color: "#fbbf24",
+                                                            border: "1px solid rgba(245, 158, 11, 0.4)",
+                                                            fontWeight: 700,
+                                                            fontSize: "11px",
+                                                            padding: "1px 6px",
+                                                            borderRadius: "4px",
+                                                        }}
+                                                    >
+                                                        Trễ {lateArrivalMinutes}{" "}
+                                                        phút
+                                                    </span>
+                                                )}
                                         </div>
                                         <code>
                                             #
@@ -1167,10 +1106,8 @@ export function StaffEntryPage() {
                                     </div>
                                 )}
                                 {lastOpened.reservationId &&
-                                    ((lastOpened.lateMinutes != null &&
-                                        lastOpened.lateMinutes > 0) ||
-                                        (bookingLateMinutes != null &&
-                                            bookingLateMinutes > 0)) && (
+                                    lateArrivalMinutes != null &&
+                                    lateArrivalMinutes > 0 && (
                                         <div
                                             style={{
                                                 display: "flex",
@@ -1194,9 +1131,7 @@ export function StaffEntryPage() {
                                                 Xe đặt trước tới muộn trong vòng
                                                 15 phút:{" "}
                                                 <strong>
-                                                    Trễ{" "}
-                                                    {lastOpened.lateMinutes ??
-                                                        bookingLateMinutes}{" "}
+                                                    Trễ {lateArrivalMinutes}{" "}
                                                     phút
                                                 </strong>{" "}
                                                 (trong hạn ân hạn cho phép).

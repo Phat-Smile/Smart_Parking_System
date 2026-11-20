@@ -104,7 +104,7 @@ vi.mock("./staffApi", async (importOriginal) => {
     };
 });
 
-import { StaffEntryPage } from "./StaffEntryPage";
+import { StaffEntryPage, calculateLateArrivalMinutes } from "./StaffEntryPage";
 
 describe("StaffEntryPage", () => {
     beforeEach(() => {
@@ -429,5 +429,151 @@ describe("StaffEntryPage", () => {
             expect.stringContaining("51F-782.91"),
             "success",
         );
+    });
+
+    describe("calculateLateArrivalMinutes", () => {
+        it("returns null when either entry time or scheduled arrival time is missing", () => {
+            expect(calculateLateArrivalMinutes(null, null)).toBeNull();
+            expect(
+                calculateLateArrivalMinutes("2026-11-20T10:15:00Z", null),
+            ).toBeNull();
+            expect(
+                calculateLateArrivalMinutes(null, "2026-11-20T10:00:00Z"),
+            ).toBeNull();
+        });
+
+        it("returns null for invalid date strings", () => {
+            expect(
+                calculateLateArrivalMinutes(
+                    "not-a-date",
+                    "2026-11-20T10:00:00Z",
+                ),
+            ).toBeNull();
+            expect(
+                calculateLateArrivalMinutes("2026-11-20T10:00:00Z", "invalid"),
+            ).toBeNull();
+        });
+
+        it("returns null when vehicle arrives early or exactly on time", () => {
+            // Early by 10 minutes
+            expect(
+                calculateLateArrivalMinutes(
+                    "2026-11-20T09:50:00Z",
+                    "2026-11-20T10:00:00Z",
+                ),
+            ).toBeNull();
+            // Exactly on time
+            expect(
+                calculateLateArrivalMinutes(
+                    "2026-11-20T10:00:00Z",
+                    "2026-11-20T10:00:00Z",
+                ),
+            ).toBeNull();
+        });
+
+        it("returns positive minutes when vehicle arrives after scheduled arrival time", () => {
+            expect(
+                calculateLateArrivalMinutes(
+                    "2026-11-20T10:07:00Z",
+                    "2026-11-20T10:00:00Z",
+                ),
+            ).toBe(7);
+            expect(
+                calculateLateArrivalMinutes(
+                    "2026-11-20T10:14:45Z",
+                    "2026-11-20T10:00:00Z",
+                ),
+            ).toBe(14);
+        });
+    });
+
+    it("does not render manual delay input when switched to Booking mode", () => {
+        render(<StaffEntryPage />);
+
+        const categorySelect = document.getElementById(
+            "staff-cust-category",
+        ) as HTMLSelectElement;
+        fireEvent.change(categorySelect, { target: { value: "Booking" } });
+
+        expect(
+            document.getElementById("staff-booking-delay"),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText(/Độ trễ giờ hẹn/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/Khách đặt chỗ trước/i)).toBeInTheDocument();
+    });
+
+    it("derives and displays late arrival pill and notice when session response has scheduledArrivalTimeUtc", async () => {
+        mockOpenParkingSession.mockResolvedValue({
+            sessionId: "ses-booking-late",
+            lotId: "lot-1",
+            plateNumber: "51F-782.91",
+            vehicleType: "Car",
+            customerType: "Booking",
+            status: "Active",
+            entryTime: "2026-11-20T10:12:00Z",
+            scheduledArrivalTimeUtc: "2026-11-20T10:00:00Z",
+            isAccountLinked: true,
+            reservationId: "res-98765432-abcd",
+            qrToken: "QR-BOOK-123",
+            availableMotorbikeSlots: 30,
+            slotCode: "B-02",
+        });
+
+        render(<StaffEntryPage />);
+        const categorySelect = document.getElementById(
+            "staff-cust-category",
+        ) as HTMLSelectElement;
+        fireEvent.change(categorySelect, { target: { value: "Booking" } });
+
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: /Xác thực & Mở rào chắn/i,
+            }),
+        );
+
+        await waitFor(() =>
+            expect(screen.getAllByText("Trễ 12 phút")).toHaveLength(2),
+        );
+        expect(
+            screen.getByText(/Xe đặt trước tới muộn trong vòng 15 phút:/i),
+        ).toBeInTheDocument();
+    });
+
+    it("does not display late warning when session has no scheduledArrivalTimeUtc or is on time", async () => {
+        mockOpenParkingSession.mockResolvedValue({
+            sessionId: "ses-booking-ontime",
+            lotId: "lot-1",
+            plateNumber: "51F-782.91",
+            vehicleType: "Car",
+            customerType: "Booking",
+            status: "Active",
+            entryTime: "2026-11-20T10:00:00Z",
+            scheduledArrivalTimeUtc: "2026-11-20T10:00:00Z",
+            isAccountLinked: true,
+            reservationId: "res-ontime-1234",
+            qrToken: "QR-BOOK-456",
+            availableMotorbikeSlots: 30,
+            slotCode: "B-03",
+        });
+
+        render(<StaffEntryPage />);
+        const categorySelect = document.getElementById(
+            "staff-cust-category",
+        ) as HTMLSelectElement;
+        fireEvent.change(categorySelect, { target: { value: "Booking" } });
+
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: /Xác thực & Mở rào chắn/i,
+            }),
+        );
+
+        await waitFor(() =>
+            expect(screen.getByText(/Khách đặt trước/i)).toBeInTheDocument(),
+        );
+        expect(screen.queryByText(/Trễ.*phút/i)).not.toBeInTheDocument();
+        expect(
+            screen.queryByText(/Xe đặt trước tới muộn/i),
+        ).not.toBeInTheDocument();
     });
 });
