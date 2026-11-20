@@ -2,7 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { AlertTriangle, Ticket, Car, Bike, Flame } from "lucide-react";
+import {
+    AlertTriangle,
+    CheckCircle,
+    Ticket,
+    Car,
+    Bike,
+    Flame,
+} from "lucide-react";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 import {
@@ -277,7 +284,7 @@ export default function OwnerPricingManagementPage() {
                 } catch {}
                 setIsSubmitting(false);
                 setSuccessMessage(
-                    "✓ Đã lưu bảng giá vào phiên thử nghiệm Sandbox (Không ảnh hưởng dữ liệu thật)!",
+                    "Đã lưu bảng giá vào phiên thử nghiệm Sandbox (Không ảnh hưởng dữ liệu thật)!",
                 );
                 setTimeout(() => setSuccessMessage(""), 5000);
             }, 300);
@@ -578,6 +585,9 @@ export default function OwnerPricingManagementPage() {
                 <div
                     role="status"
                     style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
                         padding: "12px 18px",
                         borderRadius: 12,
                         background: "#EAF7EE",
@@ -588,7 +598,8 @@ export default function OwnerPricingManagementPage() {
                         marginBottom: 20,
                     }}
                 >
-                    ✓ {successMessage}
+                    <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>{successMessage}</span>
                 </div>
             )}
 
@@ -596,6 +607,9 @@ export default function OwnerPricingManagementPage() {
                 <div
                     role="alert"
                     style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
                         padding: "12px 18px",
                         borderRadius: 12,
                         background: "#FDEEEE",
@@ -606,7 +620,8 @@ export default function OwnerPricingManagementPage() {
                         marginBottom: 20,
                     }}
                 >
-                    ⚠️ {errorMessage}
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>{errorMessage}</span>
                 </div>
             )}
 
