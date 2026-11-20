@@ -96,7 +96,15 @@ export function parseHourFromTime(timeOrDateStr?: string): number {
     return isNaN(h) ? -1 : h;
 }
 
-export function getTrafficPointCounts(pt: any): number {
+export interface TrafficDataPoint {
+    time?: string;
+    hour?: string | number;
+    inCount?: number;
+    outCount?: number;
+    count?: number;
+}
+
+export function getTrafficPointCounts(pt?: TrafficDataPoint | null): number {
     if (!pt) return 0;
     return (pt.inCount ?? 0) + (pt.outCount ?? 0) + (pt.count ?? 0);
 }
@@ -272,8 +280,11 @@ export function getRevenueReportData(
         const hourlyWeights = new Array(24).fill(0);
 
         if (hourlyTraffic.length > 0) {
-            for (const pt of hourlyTraffic) {
-                const hourNum = parseHourFromTime((pt as any).time || (pt as any).hour);
+            for (const pt of hourlyTraffic as TrafficDataPoint[]) {
+                const hourVal =
+                    pt.time ||
+                    (pt.hour !== undefined ? String(pt.hour) : undefined);
+                const hourNum = parseHourFromTime(hourVal);
                 if (hourNum >= 0 && hourNum < 24) {
                     hourlyWeights[hourNum] += getTrafficPointCounts(pt);
                 }
@@ -434,12 +445,15 @@ export function getRevenueReportData(
     // ── 6. KHUNG GIỜ CAO ĐIỂM (PEAK TIMES) ──
     let peakTimes: PeakTimeItem[] = [];
     if (hourlyTraffic.length > 0) {
-        const sortedTraffic = [...hourlyTraffic]
+        const sortedTraffic = [...(hourlyTraffic as TrafficDataPoint[])]
             .sort((a, b) => getTrafficPointCounts(b) - getTrafficPointCounts(a))
             .slice(0, 4);
 
         peakTimes = sortedTraffic.map((pt) => {
-            const parsedH = parseHourFromTime((pt as any).time || (pt as any).hour);
+            const hourVal =
+                pt.time ||
+                (pt.hour !== undefined ? String(pt.hour) : undefined);
+            const parsedH = parseHourFromTime(hourVal);
             const h = parsedH >= 0 ? parsedH : 8;
             const nextH = (h + 2) % 24;
             const timeRange = `${p2(h)}:00 – ${p2(nextH)}:00`;
@@ -493,7 +507,9 @@ export function getRevenueReportData(
                 revenueText: vnd(fee),
                 popularMethod: s.paymentMethod || "Ví Smart Parking",
                 status: statusText,
-                plateNumber: s.plateNumber || (s as any).licensePlate,
+                plateNumber:
+                    s.plateNumber ||
+                    (s as { licensePlate?: string }).licensePlate,
                 vehicleType: s.vehicleType,
                 slotCode: s.slotCode,
                 durationMinutes: s.durationMinutes,

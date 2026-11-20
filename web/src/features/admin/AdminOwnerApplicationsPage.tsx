@@ -59,7 +59,7 @@ export function AdminOwnerApplicationsPage() {
     const [applications, setApplications] = useState<OwnerApplicationItem[]>(
         [],
     );
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [rawError, setRawError] = useState<unknown>(null);
     const [search, setSearch] = useState("");
     const [sortOrder, setSortOrder] = useState<SortOrder>("default");
@@ -175,7 +175,6 @@ export function AdminOwnerApplicationsPage() {
 
     useEffect(() => {
         let active = true;
-        setLoading(true);
         fetchAllApplications()
             .then((items) => {
                 if (active) {

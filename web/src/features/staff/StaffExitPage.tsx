@@ -187,13 +187,14 @@ export function StaffExitPage() {
     const qrValid = qrCheckStatus === "SUCCESS";
     const plateMatch = plateCheckStatus === "SUCCESS";
 
+    const scannedPlateNumber = scannedSession?.plateNumber;
     // So khớp quang học thông minh với ma trận Weighted Levenshtein (OCR Confusion Matrix)
     const plateComparison: PlateComparisonResult | null = useMemo(() => {
-        if (!scannedSession?.plateNumber || !detectedExitPlate.trim()) {
+        if (!scannedPlateNumber || !detectedExitPlate.trim()) {
             return null;
         }
-        return comparePlates(scannedSession.plateNumber, detectedExitPlate);
-    }, [scannedSession?.plateNumber, detectedExitPlate]);
+        return comparePlates(scannedPlateNumber, detectedExitPlate);
+    }, [scannedPlateNumber, detectedExitPlate]);
 
     const isOpticalPlateMatch = !plateMatch && (plateComparison?.isHighConfidence ?? false);
 
