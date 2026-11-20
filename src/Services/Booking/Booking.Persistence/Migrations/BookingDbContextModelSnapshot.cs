@@ -39,6 +39,10 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("appointment_time");
 
+                    b.Property<DateTime?>("ArrivalReminderSentAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("arrival_reminder_sent_at_utc");
+
                     b.Property<CancelReason?>("CancelReason")
                         .HasColumnType("booking.cancel_reason")
                         .HasColumnName("cancel_reason");
@@ -72,6 +76,10 @@ namespace ParkingSystem.Booking.Persistence.Migrations
                     b.Property<Guid>("LotId")
                         .HasColumnType("uuid")
                         .HasColumnName("lot_id");
+
+                    b.Property<DateTime?>("NoShowWarningSentAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("no_show_warning_sent_at_utc");
 
                     b.Property<string>("PlateNumber")
                         .IsRequired()
