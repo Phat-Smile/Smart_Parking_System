@@ -1,5 +1,4 @@
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.Parking.Application.Lots.Services;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots;
@@ -92,14 +91,15 @@ public sealed class WalkInPlacesCalculatorTests
     }
 
     [Fact]
-    public async Task GetLotAvailability_handles_null_held_quota_provider_gracefully()
+    public async Task GetLotAvailability_handles_zero_held_quota_when_no_reservations_held()
     {
         var approvedLots = new FakeApprovedLots();
         var carSlots = new FakeCarSlots(8);
         var motorbikeZones = new FakeMotorbikeZones(null);
         var clock = new FixedClock();
+        var heldQuotaProvider = new FakeHeldQuotaProvider(null);
 
-        var handler = new GetLotAvailabilityQueryHandler(approvedLots, carSlots, motorbikeZones, clock);
+        var handler = new GetLotAvailabilityQueryHandler(approvedLots, carSlots, motorbikeZones, clock, heldQuotaProvider);
 
         var result = await handler.Handle(new GetLotAvailabilityQuery(ApprovedLotId), TestContext.Current.CancellationToken);
 

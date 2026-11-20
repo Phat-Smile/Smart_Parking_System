@@ -2,7 +2,6 @@ using FluentValidation;
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
-using ParkingSystem.Parking.Application.Lots.Services;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 
@@ -44,7 +43,7 @@ public sealed class GetLotAvailabilityQueryHandler(
     IAvailableSlotReader availableSlots,
     IMotorbikeZoneCounter motorbikeZones,
     IClock clock,
-    IHeldQuotaProvider? heldQuotaProvider = null) : IRequestHandler<GetLotAvailabilityQuery, Result<LotAvailability>>
+    IHeldQuotaProvider heldQuotaProvider) : IRequestHandler<GetLotAvailabilityQuery, Result<LotAvailability>>
 {
     public async Task<Result<LotAvailability>> Handle(GetLotAvailabilityQuery request, CancellationToken cancellationToken)
     {
@@ -54,12 +53,8 @@ public sealed class GetLotAvailabilityQueryHandler(
         var car = await availableSlots.CountAvailableCarSlotsAsync(request.LotId, cancellationToken);
         var motorbike = await motorbikeZones.GetAvailabilityAsync(request.LotId, cancellationToken);
 
-        int held = 0;
-        if (heldQuotaProvider is not null)
-        {
-            var quota = await heldQuotaProvider.GetHeldReservationsAsync(request.LotId, cancellationToken);
-            held = quota ?? 0;
-        }
+        var quota = await heldQuotaProvider.GetHeldReservationsAsync(request.LotId, cancellationToken);
+        var held = quota ?? 0;
 
         var (walkInPlaces, walkInStatus, walkInMessage) = WalkInPlacesCalculator.Calculate(car, held);
 
