@@ -90,4 +90,68 @@ public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEm
 
         return Task.CompletedTask;
     }
+
+    public Task SendReservationConfirmedEmailAsync(
+        string email,
+        Guid reservationId,
+        DateTimeOffset appointmentTime,
+        decimal prepaidAmount,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(
+            """
+
+            ======================= [DEV EMAIL DISPATCH] =======================
+            To: {Email}
+            Subject: [Smart Parking] Xác nhận đặt chỗ thành công!
+            ReservationId: {ReservationId}
+            Appointment: {AppointmentTimeLocal:HH:mm:ss dd/MM/yyyy}
+            Prepaid: {PrepaidAmount:N0} VND
+            ====================================================================
+            """,
+            email,
+            reservationId,
+            appointmentTime.ToLocalTime(),
+            prepaidAmount);
+
+        return Task.CompletedTask;
+    }
+
+    public Task SendElectronicReceiptEmailAsync(
+        string email,
+        Guid sessionId,
+        string maskedPlateNumber,
+        long totalFee,
+        long paidAmount,
+        long amountDue,
+        DateTimeOffset entryTimeUtc,
+        DateTimeOffset exitTimeUtc,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(
+            """
+
+            ======================= [DEV EMAIL DISPATCH] =======================
+            To: {Email}
+            Subject: [Smart Parking] Hóa đơn điện tử quyết toán phí đỗ xe
+            SessionId: {SessionId}
+            Plate: {MaskedPlate}
+            Entry: {EntryTimeLocal:HH:mm:ss dd/MM/yyyy}
+            Exit: {ExitTimeLocal:HH:mm:ss dd/MM/yyyy}
+            Total: {TotalFee:N0} VND
+            Paid: {PaidAmount:N0} VND
+            Due: {AmountDue:N0} VND
+            ====================================================================
+            """,
+            email,
+            sessionId,
+            maskedPlateNumber,
+            entryTimeUtc.ToLocalTime(),
+            exitTimeUtc.ToLocalTime(),
+            totalFee,
+            paidAmount,
+            amountDue);
+
+        return Task.CompletedTask;
+    }
 }

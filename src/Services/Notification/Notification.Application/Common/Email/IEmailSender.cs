@@ -9,5 +9,23 @@ public interface IEmailSender
     Task SendOwnerApplicationApprovedEmailAsync(string email, DateTimeOffset approvedAtUtc, CancellationToken cancellationToken = default);
 
     Task SendOwnerApplicationRejectedEmailAsync(string email, string reason, DateTimeOffset rejectedAtUtc, CancellationToken cancellationToken = default);
+
+    Task SendReservationConfirmedEmailAsync(
+        string email,
+        Guid reservationId,
+        DateTimeOffset appointmentTime,
+        decimal prepaidAmount,
+        CancellationToken cancellationToken = default);
+
+    Task SendElectronicReceiptEmailAsync(
+        string email,
+        Guid sessionId,
+        string maskedPlateNumber,
+        long totalFee,
+        long paidAmount,
+        long amountDue,
+        DateTimeOffset entryTimeUtc,
+        DateTimeOffset exitTimeUtc,
+        CancellationToken cancellationToken = default);
 }
 

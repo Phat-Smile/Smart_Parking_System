@@ -6,6 +6,7 @@ using ParkingSystem.Notification.Application;
 using ParkingSystem.Notification.Infrastructure;
 using ParkingSystem.Notification.Persistence;
 using ParkingSystem.Notification.WebAPI;
+using ParkingSystem.Notification.WebAPI.Grpc;
 
 // In local development, automatically load environment variables from the root .env file if available
 try
@@ -55,6 +56,7 @@ if (!builder.Environment.IsDevelopment() && ParkingSystem.Notification.Infrastru
 }
 
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddNotificationIdentityServiceClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<NotificationDbContext>(name: "postgresql", tags: ["ready"]);
 builder.Services.AddGrpcHealthChecks(options =>

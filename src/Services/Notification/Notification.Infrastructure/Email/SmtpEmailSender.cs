@@ -139,6 +139,85 @@ public sealed class SmtpEmailSender(
         return SendMailCoreAsync(email, subject, body, "OwnerApplicationRejected", cancellationToken);
     }
 
+    public Task SendReservationConfirmedEmailAsync(
+        string email,
+        Guid reservationId,
+        DateTimeOffset appointmentTime,
+        decimal prepaidAmount,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = "[Smart Parking] Xác nhận đặt chỗ đỗ xe thành công";
+        var body = $"""
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 24px; background-color: #0c0d0e; color: #f4f4f5; border-radius: 16px; border: 1px solid #27272a;">
+            <div style="text-align: center; margin-bottom: 32px;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 2px;">PARKWISE</h1>
+                <p style="color: #a1a1aa; font-size: 12px; margin-top: 6px; text-transform: uppercase; letter-spacing: 1.5px;">Hệ thống bãi đỗ xe thông minh</p>
+            </div>
+            <div style="padding: 28px 24px; background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; margin-bottom: 24px;">
+                <p style="color: #fafafa; font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">Xin chào,</p>
+                <p style="color: #d4d4d8; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+                    Yêu cầu đặt chỗ của bạn tại Smart Parking System đã được xác nhận thành công.
+                </p>
+                <div style="padding: 16px; background-color: #09090b; border-radius: 8px; border: 1px solid #3f3f46; margin-bottom: 16px;">
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Mã đặt chỗ: <strong style="color: #ffffff;">{reservationId}</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Thời gian hẹn: <strong style="color: #ffffff;">{appointmentTime.ToLocalTime():HH:mm dd/MM/yyyy}</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Tiền cọc giữ chỗ: <strong style="color: #4ade80;">{prepaidAmount:N0} VND</strong></p>
+                </div>
+            </div>
+            <hr style="border: none; border-top: 1px solid #27272a; margin: 24px 0;" />
+            <p style="font-size: 11px; color: #52525b; text-align: center; margin: 0; line-height: 1.5;">
+                Email được gửi tự động từ <strong>ParkWise Smart Parking System</strong>.<br/>
+                Vui lòng không trả lời trực tiếp email này.
+            </p>
+        </div>
+        """;
+
+        return SendMailCoreAsync(email, subject, body, "ReservationConfirmed", cancellationToken);
+    }
+
+    public Task SendElectronicReceiptEmailAsync(
+        string email,
+        Guid sessionId,
+        string maskedPlateNumber,
+        long totalFee,
+        long paidAmount,
+        long amountDue,
+        DateTimeOffset entryTimeUtc,
+        DateTimeOffset exitTimeUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = "[Smart Parking] Hóa đơn điện tử quyết toán phí đỗ xe";
+        var body = $"""
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 24px; background-color: #0c0d0e; color: #f4f4f5; border-radius: 16px; border: 1px solid #27272a;">
+            <div style="text-align: center; margin-bottom: 32px;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 2px;">PARKWISE</h1>
+                <p style="color: #a1a1aa; font-size: 12px; margin-top: 6px; text-transform: uppercase; letter-spacing: 1.5px;">Hóa đơn điện tử quyết toán</p>
+            </div>
+            <div style="padding: 28px 24px; background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; margin-bottom: 24px;">
+                <p style="color: #fafafa; font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">Xin chào,</p>
+                <p style="color: #d4d4d8; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+                    Phiên đỗ xe của bạn đã hoàn tất quyết toán. Chi tiết hóa đơn điện tử:
+                </p>
+                <div style="padding: 16px; background-color: #09090b; border-radius: 8px; border: 1px solid #3f3f46; margin-bottom: 16px;">
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Biển số xe: <strong style="color: #ffffff;">{maskedPlateNumber}</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Giờ vào: <strong style="color: #ffffff;">{entryTimeUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Giờ ra: <strong style="color: #ffffff;">{exitTimeUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Tổng phí đỗ: <strong style="color: #ffffff;">{totalFee:N0} VND</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Đã thanh toán: <strong style="color: #4ade80;">{paidAmount:N0} VND</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Còn phải nạp: <strong style="color: #f87171;">{amountDue:N0} VND</strong></p>
+                </div>
+            </div>
+            <hr style="border: none; border-top: 1px solid #27272a; margin: 24px 0;" />
+            <p style="font-size: 11px; color: #52525b; text-align: center; margin: 0; line-height: 1.5;">
+                Email được gửi tự động từ <strong>ParkWise Smart Parking System</strong>.<br/>
+                Vui lòng không trả lời trực tiếp email này.
+            </p>
+        </div>
+        """;
+
+        return SendMailCoreAsync(email, subject, body, "ElectronicReceipt", cancellationToken);
+    }
+
     private Task SendOtpEmailAsync(
         string email,
         string otpCode,

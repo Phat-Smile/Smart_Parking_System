@@ -85,7 +85,8 @@ public sealed class IdentityStaffGrpcService(
                 {
                     AccountId = acc.Id.ToString("D"),
                     DisplayName = displayName,
-                    Email = acc.Email
+                    Email = acc.Email,
+                    IsEmailVerified = acc.Status == AccountStatus.EmailVerified
                 });
             }
 
