@@ -76,7 +76,7 @@ public sealed class OwnerStaffEnrichmentTests
         var staff1 = ParkingLotAssignment.Create(LotId, Staff1Id, ParkingLotMemberRole.Staff, OwnerId, Now);
         var ownership = new FakeLotOwnership(isOwner: false, lotExists: true);
         var assignments = new FakeAssignmentRepository([staff1], lotExists: true);
-        var enricher = new FakeStaffEnricher([]);
+        var enricher = new FakeStaffEnricher(new Dictionary<Guid, (string DisplayName, string MaskedEmail)>());
 
         var handler = new ListOwnerLotAssignmentsQueryHandler(ownership, assignments, enricher);
         var result = await handler.Handle(new ListOwnerLotAssignmentsQuery(LotId, OwnerId), TestContext.Current.CancellationToken);

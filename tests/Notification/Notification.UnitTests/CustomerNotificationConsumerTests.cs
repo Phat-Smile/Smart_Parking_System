@@ -80,7 +80,7 @@ public sealed class CustomerNotificationConsumerTests
 
     private static ServiceProvider Build<T>(RecordingStore store) where T : class, IConsumer =>
         new ServiceCollection()
-            .AddLogging()
+            .AddSingleton(typeof(ILogger<>), typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>))
             .AddSingleton<ICustomerNotificationStore>(store)
             .AddSingleton<IEmailSender>(new DummyEmailSender())
             .AddSingleton<IUserAccountEmailLookup>(new DummyEmailLookup())

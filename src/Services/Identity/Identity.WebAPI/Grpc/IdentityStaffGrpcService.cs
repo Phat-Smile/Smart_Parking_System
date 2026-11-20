@@ -3,6 +3,7 @@ using MediatR;
 using ParkingSystem.Identity.Application.Accounts;
 using ParkingSystem.Identity.Application.Accounts.LookupStaff;
 using ParkingSystem.Identity.Application.Profiles;
+using ParkingSystem.Identity.Domain.Accounts;
 using SmartParking.Contracts.Identity.Staff.V1;
 
 namespace ParkingSystem.Identity.WebAPI.Grpc;

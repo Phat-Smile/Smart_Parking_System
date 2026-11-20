@@ -149,15 +149,21 @@ public sealed class PaymentRateLimitingTests
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
             options.ForwardLimit = 1;
 
-            var trustedCidrs = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>()
-                ?? ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1/8"];
+            var configuredCidrs = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").GetChildren()
+                .Select(c => c.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v!)
+                .ToArray();
+            var trustedCidrs = configuredCidrs.Length > 0
+                ? configuredCidrs
+                : ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1/8"];
 
             foreach (var cidr in trustedCidrs)
             {
                 var parts = cidr.Split('/');
                 if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var ip) && int.TryParse(parts[1], out var prefix))
                 {
-                    options.KnownNetworks.Add(new IPNetwork(ip, prefix));
+                    options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(ip, prefix));
                 }
             }
         });

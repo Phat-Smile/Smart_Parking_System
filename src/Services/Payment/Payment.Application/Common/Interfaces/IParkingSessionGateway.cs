@@ -1,4 +1,5 @@
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Payment.Application.Common.Constants;
 
 namespace ParkingSystem.Payment.Application.Common.Interfaces;
 
@@ -15,5 +16,6 @@ public interface IParkingSessionGateway
     // Lấy thông tin phiên đỗ và bảng giá qua mã QR phiên đỗ (Q-V2c)
     Task<Result<ParkingSessionFeeContext>> GetFeeContextByQrAsync(
         string qrToken,                                 // Mã QR phiên đỗ xe
-        CancellationToken cancellationToken = default); // Tín hiệu hủy lệnh nếu người dùng ngắt kết nối
+        CancellationToken cancellationToken = default)  // Tín hiệu hủy lệnh nếu người dùng ngắt kết nối
+        => Task.FromResult(Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.SessionNotFound));
 }

@@ -1,6 +1,7 @@
 using MassTransit;
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ParkingSystem.Contracts.Events.Booking;
 using ParkingSystem.Contracts.Events.Payment;
 using ParkingSystem.Notification.Application.Common.Email;
@@ -182,7 +183,7 @@ public sealed class BookingAndReceiptEmailConsumerTests
         IUserAccountEmailLookup emailLookup) where TConsumer : class, IConsumer
     {
         var services = new ServiceCollection();
-        services.AddLogging();
+        services.AddSingleton(typeof(ILogger<>), typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>));
         services.AddSingleton(store);
         services.AddSingleton(emailSender);
         services.AddSingleton(emailLookup);

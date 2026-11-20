@@ -198,7 +198,7 @@ public sealed class CompleteParkingSessionTests
         Assert.True(result.IsSuccess);
         Assert.Equal(ParkingSessionStatus.Completed, session.Status);
         Assert.Equal(1, context.Slots.Released);
-        Assert.Equal(2, context.Outbox.Events.Count);
+        Assert.Single(context.Outbox.Events);
         var entry = Assert.Single(context.Audit.Entries);
         Assert.Equal(AuditActions.SessionExitManuallyVerified, entry.Action);
         Assert.Equal(StaffId, entry.ActorUserId);

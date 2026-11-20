@@ -15,7 +15,7 @@ public interface IEmailSender
         Guid reservationId,
         DateTimeOffset appointmentTime,
         decimal prepaidAmount,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     Task SendElectronicReceiptEmailAsync(
         string email,
@@ -26,6 +26,6 @@ public interface IEmailSender
         long amountDue,
         DateTimeOffset paymentTimeUtc,
         DateTimeOffset exitWindowExpiresUtc,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
