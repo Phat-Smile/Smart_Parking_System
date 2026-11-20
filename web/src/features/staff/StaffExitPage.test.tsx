@@ -687,9 +687,10 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         warnSpy.mockRestore();
     });
 
-    it("BUG-BE2-03: manualVerify sends original session plateNumber to completeParkingSession instead of mismatched OCR plate", async () => {
+    it("sends gate plate to completeParkingSession after manual verify (does not bypass with session plate)", async () => {
         apiMocks.findSessionByQr.mockResolvedValue({
             ...unpaidSession(),
+            plateNumber: "51A-123.45",
             paymentStatus: "Paid",
             amountDueVnd: 0,
         });
@@ -702,8 +703,8 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         render(<StaffExitPage />);
         await scanQr();
 
-        // Giả lập OCR đọc nhầm 8 thành B (51B-999.88 -> 51B-999.B8)
-        enterGatePlate("51B-999.B8");
+        // Biển cổng đọc được (hoặc nhập tay) là 51A-123.4S, trong khi phiên là 51A-123.45
+        enterGatePlate("51A-123.4S");
 
         // Nhân viên kiểm tra giấy tờ thật và bấm xác minh thủ công
         const manualBtn = screen.getByRole("button", {
@@ -718,17 +719,82 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
             );
         });
 
-        // Bất biến BUG-BE2-03: completeParkingSession BẮT BUỘC nhận biển số gốc của phiên (51B-999.88)
-        // để Backend không ném lỗi 409 ExitNotVerified
+        // Bất biến: completeParkingSession BẮT BUỘC nhận biển số đọc ở cổng (51A-123.4S),
+        // tuyệt đối KHÔNG được gửi biển số của phiên (51A-123.45)
         await waitFor(() => {
             expect(apiMocks.completeParkingSession).toHaveBeenCalledWith(
                 SESSION_ID,
                 {
-                    plateNumber: "51B-999.88",
+                    plateNumber: "51A-123.4S",
                     qrToken: "qr-abc",
                 },
             );
         });
+    });
+
+    it("stops and warns when gate plate is empty upon manual verify", async () => {
+        apiMocks.findSessionByQr.mockResolvedValue({
+            ...unpaidSession(),
+            plateNumber: "51A-123.45",
+            paymentStatus: "Paid",
+            amountDueVnd: 0,
+        });
+
+        render(<StaffExitPage />);
+        await scanQr();
+
+        enterGatePlate("   ");
+
+        const manualBtn = screen.getByRole("button", {
+            name: /Xác minh thủ công/i,
+        });
+        fireEvent.click(manualBtn);
+
+        expect(
+            await screen.findByText("Nhập biển số đọc ở cổng"),
+        ).toBeInTheDocument();
+        expect(apiMocks.manualVerifyExit).not.toHaveBeenCalled();
+        expect(apiMocks.completeParkingSession).not.toHaveBeenCalled();
+    });
+
+    it("displays error when backend returns 409 exit_not_verified upon manual verify without retrying with session plate", async () => {
+        apiMocks.findSessionByQr.mockResolvedValue({
+            ...unpaidSession(),
+            plateNumber: "51A-123.45",
+            paymentStatus: "Paid",
+            amountDueVnd: 0,
+        });
+        apiMocks.manualVerifyExit.mockResolvedValue({ success: true });
+        apiMocks.completeParkingSession.mockRejectedValue(
+            new ApiError(409, {
+                errorCode: "parking.session.exit_not_verified",
+            }),
+        );
+
+        render(<StaffExitPage />);
+        await scanQr();
+        enterGatePlate("51A-123.4S");
+
+        const manualBtn = screen.getByRole("button", {
+            name: /Xác minh thủ công/i,
+        });
+        fireEvent.click(manualBtn);
+
+        await waitFor(() => {
+            expect(apiMocks.completeParkingSession).toHaveBeenCalledTimes(1);
+        });
+        expect(apiMocks.completeParkingSession).toHaveBeenCalledWith(
+            SESSION_ID,
+            {
+                plateNumber: "51A-123.4S",
+                qrToken: "qr-abc",
+            },
+        );
+        expect(
+            await screen.findByText(
+                "Biển số xe hoặc mã vé QR không khớp với phiên đỗ xe này.",
+            ),
+        ).toBeInTheDocument();
     });
 
     it("keeps barrier button disabled when OCR differs by optical confusion character until staff manually types the correct plate", async () => {

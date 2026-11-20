@@ -12,7 +12,6 @@ import {
     XCircle,
     AlertTriangle,
     Clock,
-    DollarSign,
     Banknote,
     Check,
     Smartphone,
@@ -385,6 +384,11 @@ export function StaffExitPage() {
     async function handleManualVerify() {
         if (!scannedSession) return;
         const gatePlate = detectedExitPlate.trim();
+        if (!gatePlate) {
+            setErrorMsg("Nhập biển số đọc ở cổng");
+            announceWarning("Nhập biển số đọc ở cổng");
+            return;
+        }
         const qrToSend = qrInput.trim();
         if (!qrToSend) {
             setErrorMsg(
@@ -404,11 +408,9 @@ export function StaffExitPage() {
             );
 
             // Bước 2: Bắt buộc hoàn tất đóng phiên hợp lệ qua /complete
-            // Fix BUG-BE2-03: Biển số gửi lên phải là scannedSession.plateNumber (biển số gốc đã được xác minh)
-            // thay vì gatePlate (chuỗi OCR đọc sai từ camera) để tránh Backend ném lỗi 409 ExitNotVerified.
-            const verifiedPlate = scannedSession.plateNumber || gatePlate;
+            // Bất biến: /complete nhận biển số đọc ở cổng (gatePlate), tuyệt đối không gửi biển của phiên vào
             await completeParkingSession(scannedSession.id, {
-                plateNumber: verifiedPlate,
+                plateNumber: gatePlate,
                 qrToken: qrToSend,
             });
             completeExit(
@@ -417,7 +419,7 @@ export function StaffExitPage() {
             );
             setExitAllowed(true);
             announceCheckOut({
-                plateNumber: verifiedPlate,
+                plateNumber: gatePlate,
                 lotName: assignedLot?.lotName,
                 amountPaid: scannedSession.totalFeeVnd,
             });
@@ -1083,31 +1085,36 @@ export function StaffExitPage() {
                             </div>
 
                             {/* Gợi ý thông minh ANPR khi OCR đọc lệch ký tự quang học so với vé vào */}
-                            {isOpticalPlateMatch && scannedSession?.plateNumber && (
-                                <div
-                                    className="staff-plate-ocr-hint"
-                                    style={{
-                                        marginTop: "8px",
-                                        padding: "8px 12px",
-                                        borderRadius: "6px",
-                                        background: "#fef9c3",
-                                        border: "1px solid #fde047",
-                                        color: "#854d0e",
-                                        fontSize: "12px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                    }}
-                                >
-                                    <Sparkles
-                                        size={14}
-                                        style={{ color: "#d97706", flexShrink: 0 }}
-                                    />
-                                    <span>
-                                        Biển đọc được gần giống vé vào, kiểm tra bằng mắt rồi nhập lại
-                                    </span>
-                                </div>
-                            )}
+                            {isOpticalPlateMatch &&
+                                scannedSession?.plateNumber && (
+                                    <div
+                                        className="staff-plate-ocr-hint"
+                                        style={{
+                                            marginTop: "8px",
+                                            padding: "8px 12px",
+                                            borderRadius: "6px",
+                                            background: "#fef9c3",
+                                            border: "1px solid #fde047",
+                                            color: "#854d0e",
+                                            fontSize: "12px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                        }}
+                                    >
+                                        <Sparkles
+                                            size={14}
+                                            style={{
+                                                color: "#d97706",
+                                                flexShrink: 0,
+                                            }}
+                                        />
+                                        <span>
+                                            Biển đọc được gần giống vé vào, kiểm
+                                            tra bằng mắt rồi nhập lại
+                                        </span>
+                                    </div>
+                                )}
                         </div>
 
                         {/* Actions when QR is lost or manual check is needed */}
@@ -1732,8 +1739,9 @@ export function StaffExitPage() {
                                     physicalState="OPEN"
                                     vehicleState="PASSING"
                                     detectedPlate={
+                                        detectedExitPlate ||
                                         scannedSession?.plateNumber ||
-                                        detectedExitPlate
+                                        ""
                                     }
                                     vehicleType={
                                         scannedSession?.vehicleType || "Car"
