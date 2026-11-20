@@ -27,6 +27,8 @@ public static class AuditActions
     public const string SessionExitManuallyVerified = "session.exit_manually_verified";
     public const string LotMemberAssigned = "lot.member_assigned";
     public const string LotMemberRemoved = "lot.member_removed";
+    public const string LotStaffAssigned = "lot.staff_assigned";
+    public const string LotStaffRemoved = "lot.staff_removed";
     public const string ParkingLotApproved = "parking_lot.approved";
     public const string ParkingLotRejected = "parking_lot.rejected";
     public const string GateReadingConfirmed = "gate_reading.confirmed";

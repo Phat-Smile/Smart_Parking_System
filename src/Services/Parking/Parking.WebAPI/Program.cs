@@ -100,10 +100,12 @@ if (enableGrpcReflection)
     builder.Services.AddGrpcReflection();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddParkingSwagger();
+builder.Services.AddOwnerStaffAssignmentRateLimiting();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemServiceSecurity();
+app.UseRateLimiter();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

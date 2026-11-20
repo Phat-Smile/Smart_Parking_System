@@ -92,6 +92,7 @@ app.MapOwnerDocumentEndpoints();
 app.MapCustomerMediaEndpoints();
 app.MapAuditLogEndpoints();
 app.MapGrpcService<IdentityVehicleGrpcService>();
+app.MapGrpcService<IdentityStaffGrpcService>();
 app.MapGrpcHealthChecksService();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
