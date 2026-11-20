@@ -244,8 +244,9 @@ export function StaffExitPage() {
             };
 
             setScannedSession(scanned);
-            // Bất biến: Không tự ghi đè biển số đọc ở cổng bằng biển số của phiên
-            setQrInput(res.qrToken);
+            // Bất biến: Không tự ghi đè biển số đọc ở cổng bằng biển số của phiên,
+            // không tự gán mã QR từ phiên vào ô quét mã của cổng ra
+            setQrInput(queryToken);
             if (scanned.amountDueVnd === 0 || isPaid) {
                 setPaymentSuccess(true);
             }
@@ -1082,69 +1083,31 @@ export function StaffExitPage() {
                             </div>
 
                             {/* Gợi ý thông minh ANPR khi OCR đọc lệch ký tự quang học so với vé vào */}
-                            {isOpticalPlateMatch &&
-                                scannedSession?.plateNumber && (
-                                    <div
-                                        className="staff-plate-ocr-hint"
-                                        style={{
-                                            marginTop: "8px",
-                                            padding: "8px 12px",
-                                            borderRadius: "6px",
-                                            background: "#fef9c3",
-                                            border: "1px solid #fde047",
-                                            color: "#854d0e",
-                                            fontSize: "12px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            gap: "8px",
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "6px",
-                                            }}
-                                        >
-                                            <Sparkles
-                                                size={14}
-                                                style={{
-                                                    color: "#d97706",
-                                                    flexShrink: 0,
-                                                }}
-                                            />
-                                            <span>
-                                                Gợi ý ANPR: Camera có thể đọc
-                                                lệch ký tự quang học so với vé
-                                                vào (
-                                                <strong>
-                                                    {scannedSession.plateNumber}
-                                                </strong>
-                                                ).
-                                            </span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="staff-btn staff-btn-secondary"
-                                            style={{
-                                                fontSize: "11px",
-                                                padding: "2px 8px",
-                                                height: "auto",
-                                                whiteSpace: "nowrap",
-                                                cursor: "pointer",
-                                            }}
-                                            onClick={() =>
-                                                setDetectedExitPlate(
-                                                    scannedSession.plateNumber,
-                                                )
-                                            }
-                                            title="Đồng bộ biển số theo vé vào đã xác nhận"
-                                        >
-                                            Đồng bộ theo vé vào
-                                        </button>
-                                    </div>
-                                )}
+                            {isOpticalPlateMatch && scannedSession?.plateNumber && (
+                                <div
+                                    className="staff-plate-ocr-hint"
+                                    style={{
+                                        marginTop: "8px",
+                                        padding: "8px 12px",
+                                        borderRadius: "6px",
+                                        background: "#fef9c3",
+                                        border: "1px solid #fde047",
+                                        color: "#854d0e",
+                                        fontSize: "12px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                    }}
+                                >
+                                    <Sparkles
+                                        size={14}
+                                        style={{ color: "#d97706", flexShrink: 0 }}
+                                    />
+                                    <span>
+                                        Biển đọc được gần giống vé vào, kiểm tra bằng mắt rồi nhập lại
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Actions when QR is lost or manual check is needed */}

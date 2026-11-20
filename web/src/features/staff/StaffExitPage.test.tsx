@@ -731,28 +731,53 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         });
     });
 
-    it("displays optical match hint and enables one-click sync button when OCR differs by optical confusion character", async () => {
+    it("keeps barrier button disabled when OCR differs by optical confusion character until staff manually types the correct plate", async () => {
+        apiMocks.findSessionByQr.mockResolvedValue({
+            sessionId: SESSION_ID,
+            lotId: "lot-1",
+            plateNumber: "51A-123.45",
+            vehicleType: "Car",
+            customerType: "Registered",
+            status: "Paid",
+            entryTime: "2026-11-12T01:00:00Z",
+            qrToken: "qr-abc",
+            totalFeeVnd: 15000,
+            amountDueVnd: 0,
+        });
+
         render(<StaffExitPage />);
         await scanQr();
 
-        // Nhập biển số sai ký tự quang học 8 -> B
-        enterGatePlate("51B-999.B8");
+        // Camera OCR đọc ra 51A-123.4S (lệch ký tự 5 -> S)
+        enterGatePlate("51A-123.4S");
 
-        // Kiểm tra xuất hiện pill Khớp quang học và gợi ý ANPR
-        expect(screen.getByText(/Khớp quang học/i)).toBeInTheDocument();
-        const syncBtn = screen.getByRole("button", {
-            name: /Đồng bộ theo vé vào/i,
-        });
-        expect(syncBtn).toBeInTheDocument();
+        // Kiểm tra text thông báo gợi ý OCR được hiển thị
+        expect(
+            screen.getByText(
+                "Biển đọc được gần giống vé vào, kiểm tra bằng mắt rồi nhập lại",
+            ),
+        ).toBeInTheDocument();
 
-        // Bấm đồng bộ
-        fireEvent.click(syncBtn);
+        // Bất biến: Tuyệt đối KHÔNG có nút tự động đồng bộ / điền biển số từ phiên
+        expect(
+            screen.queryByRole("button", {
+                name: /Đồng bộ theo vé vào/i,
+            }),
+        ).not.toBeInTheDocument();
 
-        // Biển số ở ô input đã được đồng bộ thành biển số vé vào
-        const plateInput = document.getElementById(
-            "staff-exit-plate",
-        ) as HTMLInputElement;
-        expect(plateInput.value).toBe("51B-999.88");
+        // Nút mở barrier vẫn bị disabled (khóa) vì biển số chưa khớp thực tế
+        const exitBtn = screen
+            .getByText(translations.vi.exitAuthorizeBtn)
+            .closest("button")!;
+        expect(exitBtn).toBeDisabled();
+
+        // Nhân viên kiểm tra thực tế bằng mắt và tự tay nhập đúng biển số 51A-123.45
+        enterGatePlate("51A-123.45");
+
+        // Biển số đã khớp chính xác
         expect(screen.getByText(/^Khớp biển số$/)).toBeInTheDocument();
+
+        // Nút mở barrier được mở khóa (enabled)
+        expect(exitBtn).not.toBeDisabled();
     });
 });
