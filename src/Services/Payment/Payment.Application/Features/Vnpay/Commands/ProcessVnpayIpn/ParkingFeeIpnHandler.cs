@@ -80,10 +80,10 @@ public sealed class ParkingFeeIpnHandler : IParkingFeeIpnHandler
                 _logger.LogWarning("Payment failed at gateway for {TxnRef}. ResponseCode: {ResponseCode}", txnRef, responseCode);
                 return VnpayIpnResponseDto.Success();
             }
-            catch (Exception ex) when (ex.GetType().Name is "DbUpdateConcurrencyException" or "PostgresException")
+            catch (Exception ex) when (ex.GetType().Name is "DbUpdateConcurrencyException" or "DbUpdateException" or "PostgresException")
             {
                 _logger.LogWarning(ex, "Concurrency conflict on failed payment {TxnRef}", txnRef);
-                return await HandleConcurrencyConflictAsync(payment, txnRef, cancellationToken);
+                return await HandleConcurrencyConflictAsync(payment, txnRef, vnpayTxnNo, nowUtc, isSuccess: false, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -92,61 +92,17 @@ public sealed class ParkingFeeIpnHandler : IParkingFeeIpnHandler
             }
         }
 
-        // Kiểm tra xe đã được thanh toán trước đó chưa
-        var existingSucceeded = await _paymentRepository.GetSucceededBySessionIdAsync(payment.SessionId, cancellationToken);
-        var isOverstayPayment = existingSucceeded != null
-            && existingSucceeded.ExitWindowExpiresUtc.HasValue
-            && (nowUtc > existingSucceeded.ExitWindowExpiresUtc.Value || payment.PaymentTimeUtc > existingSucceeded.ExitWindowExpiresUtc.Value);
+        // Kiểm tra đợt thanh toán này đã được trả trước đó chưa
+        var latestSucceeded = await _paymentRepository.GetSucceededBySessionIdAsync(payment.SessionId, cancellationToken);
+        var isCycleAlreadyPaid = latestSucceeded != null && latestSucceeded.PaymentSequence >= payment.PaymentSequence;
 
-        if (existingSucceeded != null && !isOverstayPayment)
+        if (isCycleAlreadyPaid)
         {
-            if (payment.AccountId.HasValue)
-            {
-                // Trả tiền thừa vào ví nếu là khách có tài khoản
-                var wallet = await _walletRepository.GetOrCreateByUserIdAsync(payment.AccountId.Value, cancellationToken);
-                wallet.AddEntry(
-                    entryType: LedgerEntryType.Refund,
-                    amount: payment.AmountPaid,
-                    reason: $"Refund surplus parking fee for session {payment.SessionId}",
-                    referenceType: ReferenceType.ParkingSession,
-                    referenceId: payment.SessionId.ToString(),
-                    lotId: payment.ParkingLotId,
-                    idempotencyKey: $"refund:vnpay_surplus:{payment.Id}");
-
-                payment.MarkAsSurplus(vnpayTxnNo, "RefundedToWallet", nowUtc);
-            }
-            else
-            {
-                // Khách vãng lai cần nhân viên đối soát thủ công
-                payment.MarkAsSurplus(vnpayTxnNo, "NeedsManualRefund", nowUtc);
-            }
-        }
-        else if (isOverstayPayment && existingSucceeded != null)
-        {
-            // Cập nhật hóa đơn và gia hạn 15 phút mở barie
-            var exitWindowExpiresUtc = nowUtc.AddMinutes(15);
-            existingSucceeded.RecordOverstayPayment(payment.AmountPaid, nowUtc, exitWindowExpiresUtc);
-
-            // Đánh dấu mã tạm thời thành Superseded để tránh đụng unique index
-            payment.MarkAsSuperseded();
-
-            // Gửi tin nhắn mở cổng bãi xe qua hòm thư
-            var paidEvent = new ParkingSessionPaidIntegrationEvent(
-                SessionId: payment.SessionId,
-                PaymentId: existingSucceeded.Id,
-                AmountPaid: payment.AmountPaid,
-                PaidAtUtc: nowUtc,
-                ExitWindowExpiresUtc: exitWindowExpiresUtc);
-
-            _outboxWriter.Enqueue(
-                integrationEvent: paidEvent,
-                eventType: "payment.session-paid.v1",
-                eventVersion: 1,
-                correlationId: existingSucceeded.Id);
+            await ApplySurplusAsync(payment, vnpayTxnNo, nowUtc, cancellationToken);
         }
         else
         {
-            // Xác nhận thành công và tạo hạn 15 phút lái xe ra
+            // Chốt hóa đơn hiện tại và cấp 15 phút ra cổng
             var exitWindowExpiresUtc = nowUtc.AddMinutes(15);
             payment.MarkAsSucceeded(vnpayTxnNo, nowUtc, exitWindowExpiresUtc);
 
@@ -171,11 +127,11 @@ public sealed class ParkingFeeIpnHandler : IParkingFeeIpnHandler
             await _paymentRepository.SaveChangesAsync(cancellationToken);
             return VnpayIpnResponseDto.Success();
         }
-        catch (Exception ex) when (ex.GetType().Name is "DbUpdateConcurrencyException" or "PostgresException")
+        catch (Exception ex) when (ex.GetType().Name is "DbUpdateConcurrencyException" or "DbUpdateException" or "PostgresException")
         {
             // Tránh lỗi khi hai tiến trình cùng cập nhật một lúc
             _logger.LogWarning(ex, "Concurrency conflict on payment {TxnRef}", txnRef);
-            return await HandleConcurrencyConflictAsync(payment, txnRef, cancellationToken);
+            return await HandleConcurrencyConflictAsync(payment, txnRef, vnpayTxnNo, nowUtc, isSuccess: true, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -185,9 +141,40 @@ public sealed class ParkingFeeIpnHandler : IParkingFeeIpnHandler
         }
     }
 
+    private async Task ApplySurplusAsync(
+        ParkingFeePayment payment,
+        string vnpayTxnNo,
+        DateTimeOffset nowUtc,
+        CancellationToken cancellationToken)
+    {
+        if (payment.AccountId.HasValue)
+        {
+            // Trả tiền thừa vào ví nếu là khách có tài khoản
+            var wallet = await _walletRepository.GetOrCreateByUserIdAsync(payment.AccountId.Value, cancellationToken);
+            wallet.AddEntry(
+                entryType: LedgerEntryType.Refund,
+                amount: payment.AmountPaid,
+                reason: $"Refund surplus parking fee for session {payment.SessionId}",
+                referenceType: ReferenceType.ParkingSession,
+                referenceId: payment.SessionId.ToString(),
+                lotId: payment.ParkingLotId,
+                idempotencyKey: $"refund:vnpay_surplus:{payment.Id}");
+
+            payment.MarkAsSurplus(vnpayTxnNo, "RefundedToWallet", nowUtc);
+        }
+        else
+        {
+            // Khách vãng lai cần nhân viên đối soát thủ công
+            payment.MarkAsSurplus(vnpayTxnNo, "NeedsManualRefund", nowUtc);
+        }
+    }
+
     private async Task<VnpayIpnResponseDto> HandleConcurrencyConflictAsync(
         ParkingFeePayment payment,
         string txnRef,
+        string vnpayTxnNo,
+        DateTimeOffset nowUtc,
+        bool isSuccess,
         CancellationToken cancellationToken)
     {
         try
@@ -197,6 +184,35 @@ public sealed class ParkingFeeIpnHandler : IParkingFeeIpnHandler
             {
                 _logger.LogInformation("Payment {TxnRef} already confirmed concurrently", txnRef);
                 return VnpayIpnResponseDto.AlreadyConfirmed();
+            }
+
+            if (isSuccess && (payment.Status == PaymentStatus.Pending || payment.Status == PaymentStatus.Superseded))
+            {
+                // Xóa dữ liệu tạm trước khi đọc lại để xử lý thu thừa
+                _paymentRepository.ClearChangeTracker();
+
+                var freshPayment = await _paymentRepository.GetByTxnRefAsync(txnRef, cancellationToken);
+                if (freshPayment == null)
+                {
+                    return VnpayIpnResponseDto.UnknownError();
+                }
+
+                if (freshPayment.Status == PaymentStatus.Succeeded || freshPayment.Status == PaymentStatus.Surplus)
+                {
+                    _logger.LogInformation("Payment {TxnRef} already confirmed concurrently", txnRef);
+                    return VnpayIpnResponseDto.AlreadyConfirmed();
+                }
+
+                if (freshPayment.Status == PaymentStatus.Pending || freshPayment.Status == PaymentStatus.Superseded)
+                {
+                    var latestSucceeded = await _paymentRepository.GetSucceededBySessionIdAsync(freshPayment.SessionId, cancellationToken);
+                    if (latestSucceeded != null && latestSucceeded.PaymentSequence >= freshPayment.PaymentSequence)
+                    {
+                        await ApplySurplusAsync(freshPayment, vnpayTxnNo, nowUtc, cancellationToken);
+                        await _paymentRepository.SaveChangesAsync(cancellationToken);
+                        return VnpayIpnResponseDto.Success();
+                    }
+                }
             }
         }
         catch (Exception reloadEx)

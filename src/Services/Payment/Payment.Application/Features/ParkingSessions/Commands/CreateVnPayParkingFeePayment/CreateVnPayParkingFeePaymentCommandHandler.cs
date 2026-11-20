@@ -147,6 +147,24 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
             }
 
+            // Chặn tạo mã trùng khi bãi chưa kịp nhận tin mở cổng
+            var paymentSequence = 1;
+            if (isOverstayPayment)
+            {
+                var latestSucceeded = await paymentRepository.GetSucceededBySessionIdAsync(request.SessionId, ct);
+                if (latestSucceeded != null)
+                {
+                    var latestPaidAtUtc = latestSucceeded.ConfirmedAtUtc ?? latestSucceeded.PaymentTimeUtc;
+                    if (latestPaidAtUtc > ctx.LastPaidAtUtc!.Value.AddSeconds(1))
+                    {
+                        await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                        return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
+                    }
+
+                    paymentSequence = latestSucceeded.PaymentSequence + 1;
+                }
+            }
+
             // Tính tiền gửi xe theo thời gian thực
             var calculationTime = clock.UtcNow;
             var isPerTurn = string.Equals(ctx.Pricing.CalculationMethod, "PerTurn", StringComparison.OrdinalIgnoreCase)
@@ -211,9 +229,10 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
                 return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.VnPayAmountNotSupported);
             }
 
-            // 8. Tái sử dụng mã cũ nếu còn hạn và cùng số tiền
+            // 8. Tái sử dụng mã cũ nếu cùng đợt, còn hạn, cùng số tiền
             var existingPending = await paymentRepository.GetPendingBySessionIdAsync(request.SessionId, ct);
             if (existingPending != null
+                && existingPending.PaymentSequence == paymentSequence
                 && existingPending.ExpiresAtUtc.HasValue
                 && existingPending.ExpiresAtUtc.Value > nowUtc
                 && existingPending.AmountPaid == actualAmountDue
@@ -258,12 +277,13 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
                 plateNumber: ctx.PlateNumber,
                 vehicleType: ctx.VehicleType,
                 totalFee: totalFee,
-                prepaidAmount: prepaidAmount,
+                prepaidAmount: isOverstayPayment ? 0 : prepaidAmount,
                 amountPaid: actualAmountDue,
                 feeCalculatedAtUtc: calculationTime,
                 expiresAtUtc: expiresAtUtc,
                 txnRef: txnRef,
-                paymentUrl: paymentUrl);
+                paymentUrl: paymentUrl,
+                paymentSequence: paymentSequence);
 
             try
             {
@@ -271,9 +291,13 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
             }
             catch (Exception)
             {
-                // Khi chạm lỗi xung đột chỉ mục, nạp lại mã vừa tạo
-                var conflictPending = await paymentRepository.GetPendingBySessionIdAsync(request.SessionId, ct);
-                if (conflictPending != null && !string.IsNullOrWhiteSpace(conflictPending.PaymentUrl))
+                // Nạp lại mã chờ nếu cùng đợt, khớp tiền và còn hạn
+                var conflictPending = await paymentRepository.GetPendingBySessionIdAsync(request.SessionId, CancellationToken.None);
+                if (conflictPending != null
+                    && conflictPending.PaymentSequence == paymentSequence
+                    && conflictPending.AmountPaid == actualAmountDue
+                    && (!conflictPending.ExpiresAtUtc.HasValue || conflictPending.ExpiresAtUtc.Value > nowUtc)
+                    && !string.IsNullOrWhiteSpace(conflictPending.PaymentUrl))
                 {
                     var fallbackResponse = new CreateVnPayParkingFeePaymentResponse(
                         conflictPending.Id,
@@ -285,6 +309,19 @@ public sealed class CreateVnPayParkingFeePaymentCommandHandler(
 
                     await MarkSuccessAsync(pendingRecord, fallbackResponse, ct);
                     return Result<CreateVnPayParkingFeePaymentResponse>.Success(fallbackResponse);
+                }
+
+                var latest = await paymentRepository.GetSucceededBySessionIdAsync(request.SessionId, CancellationToken.None);
+                if (latest != null && latest.PaymentSequence >= paymentSequence)
+                {
+                    await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                    return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
+                }
+
+                if (conflictPending != null)
+                {
+                    await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                    return Result<CreateVnPayParkingFeePaymentResponse>.Failure(PayParkingFeeErrors.FeeChanged);
                 }
 
                 throw;
