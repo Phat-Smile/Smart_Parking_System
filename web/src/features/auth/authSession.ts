@@ -127,7 +127,10 @@ registerAuthRefreshHandler(async () => {
     hydrateSessionIfNeeded();
     try {
         const response = await fetch(
-            new URL("/api/identity/accounts/refresh", `${getGatewayBaseUrl()}/`),
+            new URL(
+                "/api/identity/accounts/refresh",
+                `${getGatewayBaseUrl()}/`,
+            ),
             {
                 method: "POST",
                 headers: {

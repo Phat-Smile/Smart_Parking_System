@@ -250,20 +250,58 @@ describe("staffApi integration", () => {
     });
 
     it("records only server-contract reading fields, without a browser timestamp", async () => {
-        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ incidentId: "reading-1", decision: "PendingStaff" }), { status: 201, headers: { "Content-Type": "application/json" } }));
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(
+                JSON.stringify({
+                    incidentId: "reading-1",
+                    decision: "PendingStaff",
+                }),
+                {
+                    status: 201,
+                    headers: { "Content-Type": "application/json" },
+                },
+            ),
+        );
         vi.stubGlobal("fetch", fetchMock);
-        await recordGateReading({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: " 51a-123.45 ", vehicleType: "Car", confidence: 0.8 });
+        await recordGateReading({
+            lotId: DEFAULT_STAFF_LOT_ID,
+            plateNumber: " 51a-123.45 ",
+            vehicleType: "Car",
+            confidence: 0.8,
+        });
         const [url, init] = fetchMock.mock.calls[0];
-        expect(String(url)).toBe("http://localhost:5000/api/parking/gate-readings");
+        expect(String(url)).toBe(
+            "http://localhost:5000/api/parking/gate-readings",
+        );
         expect(init.method).toBe("POST");
-        expect(JSON.parse(init.body as string)).toEqual({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: "51A-123.45", vehicleType: "Car", confidence: 0.8 });
+        expect(JSON.parse(init.body as string)).toEqual({
+            lotId: DEFAULT_STAFF_LOT_ID,
+            plateNumber: "51A-123.45",
+            vehicleType: "Car",
+            confidence: 0.8,
+        });
     });
 
     it("forwards the optional incident ID when opening a session", async () => {
-        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ availableMotorbikeSpaces: null }), { status: 201, headers: { "Content-Type": "application/json" } }));
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(JSON.stringify({ availableMotorbikeSpaces: null }), {
+                status: 201,
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
         vi.stubGlobal("fetch", fetchMock);
-        await openParkingSession({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: "51A-123.45", vehicleType: "Car", gateReadingIncidentId: "reading-1" });
-        expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({ lotId: DEFAULT_STAFF_LOT_ID, plateNumber: "51A-123.45", vehicleType: "Car", gateReadingIncidentId: "reading-1" });
+        await openParkingSession({
+            lotId: DEFAULT_STAFF_LOT_ID,
+            plateNumber: "51A-123.45",
+            vehicleType: "Car",
+            gateReadingIncidentId: "reading-1",
+        });
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+            lotId: DEFAULT_STAFF_LOT_ID,
+            plateNumber: "51A-123.45",
+            vehicleType: "Car",
+            gateReadingIncidentId: "reading-1",
+        });
     });
 
     describe("openParkingSession", () => {
@@ -577,7 +615,10 @@ describe("staffApi integration", () => {
         it("handles reserved car at full lot even when status is 409 (parking.session.reserved_no_slot)", () => {
             const err = new ApiError(
                 409,
-                { errorCode: "parking.session.reserved_no_slot", detail: "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước." },
+                {
+                    errorCode: "parking.session.reserved_no_slot",
+                    detail: "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước.",
+                },
                 undefined,
             );
             expect(describeStaffError(err)).toBe(

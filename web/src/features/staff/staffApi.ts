@@ -454,16 +454,19 @@ export async function recordGateReading(payload: {
     vehicleType: VehicleType;
     confidence: number;
 }): Promise<RecordedGateReadingResponse> {
-    return await gatewayFetch<RecordedGateReadingResponse>("/api/parking/gate-readings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            lotId: payload.lotId,
-            plateNumber: payload.plateNumber.trim().toUpperCase(),
-            vehicleType: payload.vehicleType,
-            confidence: payload.confidence,
-        }),
-    });
+    return await gatewayFetch<RecordedGateReadingResponse>(
+        "/api/parking/gate-readings",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                lotId: payload.lotId,
+                plateNumber: payload.plateNumber.trim().toUpperCase(),
+                vehicleType: payload.vehicleType,
+                confidence: payload.confidence,
+            }),
+        },
+    );
 }
 
 export interface PendingGateReadingResponse {
@@ -540,7 +543,9 @@ export async function confirmSlotParked(
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason: reason ?? "Staff manual park confirmation" }),
+            body: JSON.stringify({
+                reason: reason ?? "Staff manual park confirmation",
+            }),
         },
     );
 }
@@ -777,7 +782,10 @@ export async function extendExitWindow(
     sessionId: string,
     reason: string,
 ): Promise<{ sessionId: string; newExitWindowEndsAt: string }> {
-    return await gatewayFetch<{ sessionId: string; newExitWindowEndsAt: string }>(
+    return await gatewayFetch<{
+        sessionId: string;
+        newExitWindowEndsAt: string;
+    }>(
         `/api/parking/sessions/${encodeURIComponent(sessionId)}/extend-exit-window`,
         {
             method: "POST",

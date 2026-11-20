@@ -71,7 +71,11 @@ async function gatewaySend(
     if (accessToken && !headers.has("Authorization")) {
         headers.set("Authorization", `Bearer ${accessToken}`);
     }
-    let response = await fetch(url, { ...init, headers, credentials: "include" });
+    let response = await fetch(url, {
+        ...init,
+        headers,
+        credentials: "include",
+    });
     if (
         response.status === 401 &&
         refreshHandler &&
@@ -83,7 +87,11 @@ async function gatewaySend(
         const token = await refreshInFlight;
         if (token) {
             headers.set("Authorization", `Bearer ${token}`);
-            response = await fetch(url, { ...init, headers, credentials: "include" });
+            response = await fetch(url, {
+                ...init,
+                headers,
+                credentials: "include",
+            });
         }
     }
     const correlationHeader =

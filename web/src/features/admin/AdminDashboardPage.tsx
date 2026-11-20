@@ -48,7 +48,9 @@ function formatShortDateLabel(dateKey: string): string {
  * Hanya tổng hợp xu hướng từ dữ liệu thật có mốc thời gian (submittedAtUtc / reviewedAtUtc) từ API.
  * Tuyệt đối không tự sinh ngày giả hoặc số liệu mẫu nếu Backend chưa trả về timestamp.
  */
-function buildRealActivityTrends(lots: AdminParkingLot[]): ActivityTrendBucket[] {
+function buildRealActivityTrends(
+    lots: AdminParkingLot[],
+): ActivityTrendBucket[] {
     const map = new Map<
         string,
         { submittedCount: number; approvedCount: number; rejectedCount: number }
@@ -164,9 +166,7 @@ export function AdminDashboardPage() {
             ? Math.round((counts.Pending / safeDenominator) * 100)
             : 0;
     const rejectedPct =
-        totalCount > 0
-            ? Math.max(0, 100 - approvedPct - pendingPct)
-            : 0;
+        totalCount > 0 ? Math.max(0, 100 - approvedPct - pendingPct) : 0;
 
     const kpiCards = [
         {
@@ -1234,10 +1234,7 @@ export function AdminDashboardPage() {
                                                     : "Previous page"
                                             }
                                         >
-                                            <AdminIcon
-                                                name="back"
-                                                size={13}
-                                            />
+                                            <AdminIcon name="back" size={13} />
                                         </button>
 
                                         <div className="admin-pager-numbers">
@@ -1246,7 +1243,8 @@ export function AdminDashboardPage() {
                                             }).map((_, idx) => {
                                                 const pageNum = idx + 1;
                                                 const isActive =
-                                                    pageNum === validDecisionPage;
+                                                    pageNum ===
+                                                    validDecisionPage;
                                                 return (
                                                     <button
                                                         key={pageNum}
@@ -1289,20 +1287,13 @@ export function AdminDashboardPage() {
                                                 )
                                             }
                                             title={
-                                                isVi
-                                                    ? "Trang sau"
-                                                    : "Next page"
+                                                isVi ? "Trang sau" : "Next page"
                                             }
                                             aria-label={
-                                                isVi
-                                                    ? "Trang sau"
-                                                    : "Next page"
+                                                isVi ? "Trang sau" : "Next page"
                                             }
                                         >
-                                            <AdminIcon
-                                                name="arrow"
-                                                size={13}
-                                            />
+                                            <AdminIcon name="arrow" size={13} />
                                         </button>
                                     </div>
                                 )}

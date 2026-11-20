@@ -44,7 +44,9 @@ describe("isVietnameseVoice", () => {
     it("an toàn khi truyền null, undefined hoặc thiếu thuộc tính", () => {
         expect(isVietnameseVoice(null)).toBe(false);
         expect(isVietnameseVoice(undefined)).toBe(false);
-        expect(isVietnameseVoice({ name: "", lang: "", voiceURI: "" })).toBe(false);
+        expect(isVietnameseVoice({ name: "", lang: "", voiceURI: "" })).toBe(
+            false,
+        );
     });
 });
 

@@ -58,7 +58,13 @@ export function AdminAccessGuard({ children }: { children: ReactNode }) {
                     fontFamily: "inherit",
                 }}
             >
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                    }}
+                >
                     <div
                         style={{
                             width: 20,
@@ -86,4 +92,3 @@ export function AdminAccessGuard({ children }: { children: ReactNode }) {
 
     return <>{children}</>;
 }
-

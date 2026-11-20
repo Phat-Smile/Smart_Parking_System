@@ -543,19 +543,27 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
             ),
         );
 
-        const reissueBtn = await screen.findByRole("button", { name: /Cấp lại vé QR/i });
+        const reissueBtn = await screen.findByRole("button", {
+            name: /Cấp lại vé QR/i,
+        });
         fireEvent.click(reissueBtn);
 
-        const reasonInput = screen.getByLabelText(/Lý do cấp lại vé/i) as HTMLTextAreaElement;
+        const reasonInput = screen.getByLabelText(
+            /Lý do cấp lại vé/i,
+        ) as HTMLTextAreaElement;
         expect(reasonInput).toBeInTheDocument();
 
         // Clear reason -> button should be disabled
         fireEvent.change(reasonInput, { target: { value: "   " } });
-        const confirmBtn = screen.getByRole("button", { name: /Xác nhận & Cấp vé/i });
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận & Cấp vé/i,
+        });
         expect(confirmBtn).toBeDisabled();
 
         // Enter valid reason
-        fireEvent.change(reasonInput, { target: { value: "Mã QR của khách bị ướt mưa không quét được" } });
+        fireEvent.change(reasonInput, {
+            target: { value: "Mã QR của khách bị ướt mưa không quét được" },
+        });
         expect(confirmBtn).not.toBeDisabled();
         fireEvent.click(confirmBtn);
 
@@ -611,12 +619,16 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         fireEvent.click(extendBtn);
 
         // Modal mở ra
-        const reasonInput = screen.getByLabelText(/Lý do gia hạn/i) as HTMLTextAreaElement;
+        const reasonInput = screen.getByLabelText(
+            /Lý do gia hạn/i,
+        ) as HTMLTextAreaElement;
         expect(reasonInput).toBeInTheDocument();
 
         // Xóa lý do -> nút Xác nhận gia hạn bị vô hiệu hóa
         fireEvent.change(reasonInput, { target: { value: "   " } });
-        const confirmBtn = screen.getByRole("button", { name: /Xác nhận gia hạn/i });
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận gia hạn/i,
+        });
         expect(confirmBtn).toBeDisabled();
 
         // Nhập lý do hợp lệ
@@ -636,7 +648,9 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         // Thông báo thành công hiển thị
         await waitFor(() =>
             expect(
-                screen.getByText(/Đã gia hạn thêm 15 phút xuất bãi thành công/i),
+                screen.getByText(
+                    /Đã gia hạn thêm 15 phút xuất bãi thành công/i,
+                ),
             ).toBeInTheDocument(),
         );
     });
@@ -652,7 +666,9 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
 
     it("does not block QR verification flow when recordExitArrival fails", async () => {
         const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-        apiMocks.recordExitArrival.mockRejectedValueOnce(new Error("Network timeout"));
+        apiMocks.recordExitArrival.mockRejectedValueOnce(
+            new Error("Network timeout"),
+        );
 
         render(<StaffExitPage />);
         await scanQr();
@@ -662,8 +678,12 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         });
 
         // Phiên vẫn được hiển thị thành công và không bị gián đoạn
-        expect(screen.getAllByText("51B-999.88").length).toBeGreaterThanOrEqual(1);
-        expect(screen.getByText(translations.vi.exitAuthorizeBtn)).toBeInTheDocument();
+        expect(screen.getAllByText("51B-999.88").length).toBeGreaterThanOrEqual(
+            1,
+        );
+        expect(
+            screen.getByText(translations.vi.exitAuthorizeBtn),
+        ).toBeInTheDocument();
         warnSpy.mockRestore();
     });
 
@@ -729,7 +749,9 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         fireEvent.click(syncBtn);
 
         // Biển số ở ô input đã được đồng bộ thành biển số vé vào
-        const plateInput = document.getElementById("staff-exit-plate") as HTMLInputElement;
+        const plateInput = document.getElementById(
+            "staff-exit-plate",
+        ) as HTMLInputElement;
         expect(plateInput.value).toBe("51B-999.88");
         expect(screen.getByText(/^Khớp biển số$/)).toBeInTheDocument();
     });

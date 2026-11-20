@@ -46,7 +46,13 @@ export function PeakTimeList({ items }: PeakTimeListProps) {
                     Chưa ghi nhận khung giờ cao điểm
                 </div>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                    }}
+                >
                     {items.map((pt, idx) => (
                         <div
                             key={idx}
@@ -95,7 +101,10 @@ export function PeakTimeList({ items }: PeakTimeListProps) {
                                         {pt.timeRange}
                                     </div>
                                     <div
-                                        style={{ fontSize: 11.5, color: "#6a7491" }}
+                                        style={{
+                                            fontSize: 11.5,
+                                            color: "#6a7491",
+                                        }}
                                     >
                                         {pt.sessions} lượt xe vào
                                     </div>

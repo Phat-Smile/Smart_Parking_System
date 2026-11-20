@@ -29,8 +29,7 @@ export default function ReportsPage() {
     const setReportFilter = useOwnerStore((s) => s.setReportFilter);
 
     const mode = reportFilter.mode || "day";
-    const dateStr =
-        reportFilter.date || new Date().toISOString().slice(0, 10);
+    const dateStr = reportFilter.date || new Date().toISOString().slice(0, 10);
 
     const [lots, setLots] = useState<OwnerParkingLotItem[]>([]);
     const [selectedLotId, setSelectedLotId] = useState<string>("all");

@@ -144,7 +144,8 @@ export function getRevenueReportData(
     const hourlyTraffic = stats?.hourlyTraffic ?? [];
 
     const hasRealActivity = Boolean(
-        stats && (totalRev > 0 || todaySessionsCount > 0 || sessions.length > 0),
+        stats &&
+        (totalRev > 0 || todaySessionsCount > 0 || sessions.length > 0),
     );
 
     // ── 1. NẾU CHƯA PHÁT SINH GIAO DỊCH THẬT (EMPTY STATE) ──
@@ -260,7 +261,9 @@ export function getRevenueReportData(
     ).length;
     const onlineRatePct =
         sessions.length > 0
-            ? Math.round(((sessions.length - cashCount) / sessions.length) * 100)
+            ? Math.round(
+                  ((sessions.length - cashCount) / sessions.length) * 100,
+              )
             : 100;
 
     const kpis: RevenueKpi = {
