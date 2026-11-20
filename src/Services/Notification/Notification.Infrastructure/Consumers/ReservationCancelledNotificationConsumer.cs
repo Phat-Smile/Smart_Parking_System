@@ -15,7 +15,7 @@ public sealed class ReservationCancelledNotificationConsumer(ICustomerNotificati
             $"reservation-cancelled:{message.ReservationId}",
             "booking",
             "Đặt chỗ đã bị hủy",
-            $"Đặt chỗ của bạn đã được hủy. Lý do: {message.CancelReason}. Số tiền hoàn: {message.RefundAmount:N0} đ.",
+            ReservationCancelledNoticeText.Build(message),
             "/customer/bookings",
             message.CancelledAtUtc,
             context.CancellationToken);
