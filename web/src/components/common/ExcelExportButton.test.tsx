@@ -1,10 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-    ExcelExportButton,
-    exportToCsv,
-} from "./ExcelExportButton";
+import { ExcelExportButton, exportToCsv } from "./ExcelExportButton";
 
 describe("ExcelExportButton Component", () => {
     const mockData: (string | number)[][] = [
@@ -47,7 +44,13 @@ describe("ExcelExportButton Component", () => {
         const appendChildSpy = vi.spyOn(document.body, "appendChild");
         const removeChildSpy = vi.spyOn(document.body, "removeChild");
 
-        render(<ExcelExportButton data={mockData} filename="test-report.xlsx" supportCsv={true} />);
+        render(
+            <ExcelExportButton
+                data={mockData}
+                filename="test-report.xlsx"
+                supportCsv={true}
+            />,
+        );
         const toggleBtn = screen.getByTestId("export-dropdown-toggle");
         fireEvent.click(toggleBtn);
 

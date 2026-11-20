@@ -103,7 +103,10 @@ export class GateVoiceService {
 
     private getSynth(): SpeechSynthesis | null {
         try {
-            if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+            if (
+                typeof window === "undefined" ||
+                !("speechSynthesis" in window)
+            ) {
                 return null;
             }
             return (this.synth = window.speechSynthesis);

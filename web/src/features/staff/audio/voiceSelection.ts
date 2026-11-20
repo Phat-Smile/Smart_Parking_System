@@ -39,7 +39,9 @@ export function scoreVietnameseVoice(voice?: VoiceLike | null): number {
 }
 
 /** Kiểm tra nhanh danh sách có giọng tiếng Việt hay không */
-export function hasVietnameseVoice(voices?: readonly VoiceLike[] | null): boolean {
+export function hasVietnameseVoice(
+    voices?: readonly VoiceLike[] | null,
+): boolean {
     if (!voices || !Array.isArray(voices)) return false;
     return voices.some(isVietnameseVoice);
 }
@@ -51,9 +53,11 @@ export function getBestVietnameseVoice<T extends VoiceLike>(
     if (!voices || !Array.isArray(voices) || voices.length === 0) return null;
     const vietnamese = voices.filter(isVietnameseVoice);
     if (vietnamese.length === 0) return null;
-    return [...vietnamese].sort(
-        (a, b) => scoreVietnameseVoice(b) - scoreVietnameseVoice(a),
-    )[0] ?? null;
+    return (
+        [...vietnamese].sort(
+            (a, b) => scoreVietnameseVoice(b) - scoreVietnameseVoice(a),
+        )[0] ?? null
+    );
 }
 
 export interface VoicePick<T extends VoiceLike> {

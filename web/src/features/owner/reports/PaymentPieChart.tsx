@@ -163,7 +163,12 @@ export function PaymentPieChart({ items }: PaymentPieChartProps) {
                                         {m.name}
                                     </span>
                                 </div>
-                                <span style={{ fontWeight: 700, color: "#0f1b3d" }}>
+                                <span
+                                    style={{
+                                        fontWeight: 700,
+                                        color: "#0f1b3d",
+                                    }}
+                                >
                                     {m.pct}%
                                 </span>
                             </div>
