@@ -91,7 +91,7 @@ public static class DependencyInjection
                     host.Username(options.Username);
                     host.Password(options.Password);
                 });
-                rabbit.UseMessageRetry(r => r.Exponential(5, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5)));
+                rabbit.UseMessageRetry(r => NotificationRetryPolicy.Configure(r));
                 rabbit.ConfigureEndpoints(context);
             });
         });
