@@ -132,6 +132,24 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
             }
 
+            // Chặn thu trùng khi bãi chưa kịp nhận tin nhắn mở cổng (BR-09.d)
+            var paymentSequence = 1;
+            if (isOverstayPayment)
+            {
+                var latestSucceeded = await paymentRepository.GetSucceededBySessionIdAsync(request.SessionId, cancellationToken);
+                if (latestSucceeded != null)
+                {
+                    var latestPaidAtUtc = latestSucceeded.ConfirmedAtUtc ?? latestSucceeded.PaymentTimeUtc;
+                    if (latestPaidAtUtc > ctx.LastPaidAtUtc!.Value.AddSeconds(1))
+                    {
+                        await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                        return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
+                    }
+
+                    paymentSequence = latestSucceeded.PaymentSequence + 1;
+                }
+            }
+
             // Tính tiền gửi xe theo giờ thực
             var calculationTime = clock.UtcNow;
             var isPerTurn = string.Equals(ctx.Pricing.CalculationMethod, "PerTurn", StringComparison.OrdinalIgnoreCase)
@@ -232,55 +250,28 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                         createdBy: request.CallerAccountId);
                 }
 
-                // Tạo hoặc cập nhật hóa đơn thanh toán tiền gửi xe
+                // Hủy mã QR chờ thanh toán cũ để tránh kẹt đợt sau
+                var stalePending = await paymentRepository.GetPendingBySessionIdAsync(request.SessionId, cancellationToken);
+                stalePending?.MarkAsSuperseded();
+
+                // Tạo hóa đơn mới bất biến (không sửa chứng từ cũ)
                 var exitWindowExpiresUtc = calculationTime.AddMinutes(15);
-                Guid paymentId;
+                var payment = ParkingFeePayment.CreateWalletPayment(
+                    sessionId: request.SessionId,
+                    parkingLotId: ctx.ParkingLotId,
+                    walletId: wallet.Id,
+                    accountId: request.CallerAccountId,
+                    plateNumber: ctx.PlateNumber,
+                    vehicleType: ctx.VehicleType,
+                    totalFee: totalFee,
+                    prepaidAmount: isOverstayPayment ? 0 : prepaidAmount,
+                    amountPaid: actualAmountDue,
+                    paymentTimeUtc: calculationTime,
+                    exitWindowExpiresUtc: exitWindowExpiresUtc,
+                    paymentSequence: paymentSequence);
 
-                if (isOverstayPayment)
-                {
-                    var existingPayment = await paymentRepository.GetSucceededBySessionIdAsync(request.SessionId, cancellationToken);
-                    if (existingPayment != null)
-                    {
-                        existingPayment.RecordOverstayPayment(actualAmountDue, calculationTime, exitWindowExpiresUtc);
-                        paymentId = existingPayment.Id;
-                    }
-                    else
-                    {
-                        var payment = ParkingFeePayment.Create(
-                            sessionId: request.SessionId,
-                            parkingLotId: ctx.ParkingLotId,
-                            walletId: wallet.Id,
-                            accountId: request.CallerAccountId,
-                            plateNumber: ctx.PlateNumber,
-                            vehicleType: ctx.VehicleType,
-                            totalFee: totalFee,
-                            prepaidAmount: 0,
-                            amountPaid: actualAmountDue,
-                            paymentTimeUtc: calculationTime,
-                            exitWindowExpiresUtc: exitWindowExpiresUtc);
-
-                        await paymentRepository.AddAsync(payment, cancellationToken);
-                        paymentId = payment.Id;
-                    }
-                }
-                else
-                {
-                    var payment = ParkingFeePayment.Create(
-                        sessionId: request.SessionId,
-                        parkingLotId: ctx.ParkingLotId,
-                        walletId: wallet.Id,
-                        accountId: request.CallerAccountId,
-                        plateNumber: ctx.PlateNumber,
-                        vehicleType: ctx.VehicleType,
-                        totalFee: totalFee,
-                        prepaidAmount: prepaidAmount,
-                        amountPaid: actualAmountDue,
-                        paymentTimeUtc: calculationTime,
-                        exitWindowExpiresUtc: exitWindowExpiresUtc);
-
-                    await paymentRepository.AddAsync(payment, cancellationToken);
-                    paymentId = payment.Id;
-                }
+                await paymentRepository.AddAsync(payment, cancellationToken);
+                var paymentId = payment.Id;
 
                 // Gửi tin nhắn nâng thanh chắn cổng ra vào hộp thư
                 var paidEvent = new ParkingSessionPaidIntegrationEvent(
@@ -319,6 +310,18 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                 // Xung đột số dư đồng thời: nhả khóa để Client gọi lại an toàn
                 await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
                 return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.WalletBusy);
+            }
+            catch (Exception ex) when (ex.GetType().Name is "DbUpdateException" or "PostgresException")
+            {
+                // Đua ghi cùng đợt thanh toán: nếu đợt đó đã thành công thì trả 409
+                var latest = await paymentRepository.GetSucceededBySessionIdAsync(request.SessionId, CancellationToken.None);
+                if (latest != null && latest.PaymentSequence >= paymentSequence)
+                {
+                    await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                    return Result<PayParkingFeeByWalletResponse>.Failure(PayParkingFeeErrors.SessionAlreadyPaid);
+                }
+
+                throw;
             }
         }
         catch

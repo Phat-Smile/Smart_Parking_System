@@ -57,7 +57,8 @@ public class GetOwnerRevenueSummaryQueryHandlerTests
         public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
             => Task.FromResult(_payments
                 .Where(p => (p.SessionId == sessionOrPaymentId || p.Id == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
-                .OrderByDescending(p => p.PaymentTimeUtc)
+                .OrderByDescending(p => p.PaymentSequence)
+                .ThenByDescending(p => p.PaymentTimeUtc)
                 .FirstOrDefault());
 
         public Task<OwnerRevenueMetricsResult> GetRevenueMetricsAsync(
@@ -307,7 +308,7 @@ public class GetOwnerRevenueSummaryQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenOverstayPaymentExists_IgnoresSupersededRecords_PreventsDoubleCounting()
+    public async Task Handle_WhenOverstayPaymentExists_CountsEachSucceededRecordByOwnMethod_AndIgnoresSupersededRecords()
     {
         var repo = new FakePaymentRepository();
         var gateway = new FakeMembershipGateway();
@@ -316,18 +317,31 @@ public class GetOwnerRevenueSummaryQueryHandlerTests
         gateway.Memberships[(lotId, ownerAccountId)] = "Owner";
 
         var now = DateTimeOffset.UtcNow;
-        // Succeeded base payment (which recorded overstay update: 40,000 total)
-        repo.Seed(CreatePayment(lotId, PaymentMethod.VnPay, 40_000, now, PaymentStatus.Succeeded));
-        // Superseded overstay pending payment (15,000) that must NOT be counted again!
-        repo.Seed(CreatePayment(lotId, PaymentMethod.VnPay, 15_000, now, PaymentStatus.Superseded));
+        var sessionId = Guid.NewGuid();
+        var baseWallet = ParkingFeePayment.CreateWalletPayment(
+            sessionId, lotId, Guid.NewGuid(), Guid.NewGuid(), "51A-12345", "Car4To7",
+            30_000, 0, 30_000, now.AddMinutes(-45), now.AddMinutes(-30), paymentSequence: 1);
+        var overstayCash = ParkingFeePayment.CreateCashPayment(
+            sessionId, lotId, null, "51A-12345", "Car4To7",
+            15_000, 0, 15_000, now, now.AddMinutes(15), paymentSequence: 2);
+        var supersededVnpay = CreatePayment(lotId, PaymentMethod.VnPay, 15_000, now, PaymentStatus.Superseded);
+
+        repo.Seed(baseWallet);
+        repo.Seed(overstayCash);
+        repo.Seed(supersededVnpay);
 
         var handler = new GetOwnerRevenueSummaryQueryHandler(repo, gateway);
         var query = new GetOwnerRevenueSummaryQuery(lotId, 420, ownerAccountId, "ParkingLotOwner");
         var result = await handler.Handle(query, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(40_000, result.Value!.Today.TotalRevenue);
-        Assert.Equal(1, result.Value.Today.TransactionCount);
+        Assert.Equal(45_000, result.Value!.Today.TotalRevenue);
+        Assert.Equal(30_000, result.Value.Today.WalletRevenue);
+        Assert.Equal(15_000, result.Value.Today.CashRevenue);
+        Assert.Equal(0, result.Value.Today.VnpayRevenue);
+        Assert.Equal(2, result.Value.Today.TransactionCount);
+        Assert.Equal(1, result.Value.Today.CashTransactionCount);
+        Assert.Equal(1, result.Value.Today.OnlineTransactionCount);
     }
 
     [Fact]

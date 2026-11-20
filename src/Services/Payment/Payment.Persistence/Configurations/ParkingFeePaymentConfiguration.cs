@@ -10,7 +10,11 @@ public sealed class ParkingFeePaymentConfiguration : IEntityTypeConfiguration<Pa
 {
     public void Configure(EntityTypeBuilder<ParkingFeePayment> builder)
     {
-        builder.ToTable("parking_fee_payments");
+        builder.ToTable("parking_fee_payments", table =>
+        {
+            // Thứ tự thanh toán luôn bắt đầu từ 1
+            table.HasCheckConstraint("ck_fee_payments_sequence_positive", "\"PaymentSequence\" >= 1");
+        });
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
@@ -29,6 +33,10 @@ public sealed class ParkingFeePaymentConfiguration : IEntityTypeConfiguration<Pa
 
         builder.Property(x => x.Status)
             .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(x => x.PaymentSequence)
+            .HasDefaultValue(1)
             .IsRequired();
 
         builder.Property(x => x.TxnRef)
@@ -68,14 +76,14 @@ public sealed class ParkingFeePaymentConfiguration : IEntityTypeConfiguration<Pa
             .HasDatabaseName("ux_fee_payments_vnpay_txn_ref");
 
         // Chỉ mục duy nhất: Mỗi phiên đỗ chỉ có 1 mã Pending
-        builder.HasIndex(x => x.SessionId)
+        builder.HasIndex(x => x.SessionId, "ux_fee_payments_session_pending")
             .HasDatabaseName("ux_fee_payments_session_pending")
             .HasFilter($"\"Status\" = '{PaymentStatus.Pending}'")
             .IsUnique();
 
-        // Chỉ mục duy nhất: Mỗi phiên đỗ chỉ có 1 giao dịch thành công
-        builder.HasIndex(x => x.SessionId)
-            .HasDatabaseName("ux_fee_payments_session_succeeded")
+        // Mỗi đợt thanh toán trong phiên chỉ có 1 giao dịch thành công
+        builder.HasIndex(x => new { x.SessionId, x.PaymentSequence })
+            .HasDatabaseName("ux_fee_payments_session_sequence_succeeded")
             .HasFilter($"\"Status\" = '{PaymentStatus.Succeeded}'")
             .IsUnique();
     }

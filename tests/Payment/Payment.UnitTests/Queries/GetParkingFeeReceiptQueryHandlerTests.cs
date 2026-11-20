@@ -57,7 +57,8 @@ public class GetParkingFeeReceiptQueryHandlerTests
         public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
             => Task.FromResult(_payments
                 .Where(p => (p.SessionId == sessionOrPaymentId || p.Id == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
-                .OrderByDescending(p => p.PaymentTimeUtc)
+                .OrderByDescending(p => p.PaymentSequence)
+                .ThenByDescending(p => p.PaymentTimeUtc)
                 .FirstOrDefault());
     }
 
@@ -341,5 +342,34 @@ public class GetParkingFeeReceiptQueryHandlerTests
         Assert.Equal(payment.Id, result.Value!.PaymentId);
         Assert.Null(result.Value!.EntryTimeUtc);
         Assert.Null(result.Value!.DurationMinutes);
+    }
+
+    [Fact]
+    public async Task Handle_SessionWithOverstay_QueryBySessionReturnsLatestSequence_WhileQueryByOriginalIdPreservesFirst()
+    {
+        var first = ParkingFeePayment.CreateWalletPayment(
+            _sessionId, _lotId, Guid.NewGuid(), _ownerAccountId, "51A-999.88", "Car",
+            30000, 0, 30000, _paymentTime, _paymentTime.AddMinutes(15), paymentSequence: 1);
+        var second = ParkingFeePayment.CreateCashPayment(
+            _sessionId, _lotId, _ownerAccountId, "51A-999.88", "Car",
+            15000, 0, 15000, _paymentTime.AddMinutes(40), _paymentTime.AddMinutes(55), paymentSequence: 2);
+
+        _paymentRepo.Seed(first);
+        _paymentRepo.Seed(second);
+
+        var handler = new GetParkingFeeReceiptQueryHandler(_paymentRepo, _parkingGateway, _membership);
+
+        var bySession = await handler.Handle(new GetParkingFeeReceiptQuery(_sessionId, _ownerAccountId, "Customer"), CancellationToken.None);
+        var byFirstId = await handler.Handle(new GetParkingFeeReceiptQuery(first.Id, _ownerAccountId, "Customer"), CancellationToken.None);
+
+        Assert.True(bySession.IsSuccess);
+        Assert.Equal(second.Id, bySession.Value!.PaymentId);
+        Assert.Equal(PaymentMethod.Cash, bySession.Value.PaymentMethod);
+        Assert.Equal(15000, bySession.Value.AmountPaid);
+
+        Assert.True(byFirstId.IsSuccess);
+        Assert.Equal(first.Id, byFirstId.Value!.PaymentId);
+        Assert.Equal(PaymentMethod.Wallet, byFirstId.Value.PaymentMethod);
+        Assert.Equal(30000, byFirstId.Value.AmountPaid);
     }
 }

@@ -49,7 +49,11 @@ public class GetParkingFeePaymentStatusQueryHandlerTests
 
         public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
         {
-            var payment = Payments.Values.FirstOrDefault(p => p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId);
+            var payment = Payments.Values
+                .Where(p => (p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
+                .OrderByDescending(p => p.PaymentSequence)
+                .ThenByDescending(p => p.PaymentTimeUtc)
+                .FirstOrDefault();
             return Task.FromResult(payment);
         }
     }
@@ -345,5 +349,39 @@ public class GetParkingFeePaymentStatusQueryHandlerTests
         Assert.Equal(PaymentStatus.Failed, result.Value!.Status);
         Assert.Equal("24", result.Value.FailureCode);
         Assert.Null(result.Value.PaymentUrl);
+    }
+
+    [Fact]
+    public async Task Handle_SupersededPayment_RemainsSuperseded_EvenAfterAnotherPaymentSucceeded()
+    {
+        var sessionId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        var supersededPayment = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, LotA, accountId, "51F-12345", "Car", 15000, 0, 15000,
+            now.AddMinutes(-5), now.AddMinutes(10), "OLD_QR", "https://sandbox.vnpayment.vn/old");
+        supersededPayment.MarkAsSuperseded();
+
+        var succeededOverstay = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, LotA, accountId, "51F-12345", "Car", 15000, 0, 15000,
+            now, now.AddMinutes(15), "NEW_QR", "https://sandbox.vnpayment.vn/new", paymentSequence: 2);
+        succeededOverstay.MarkAsSucceeded("GW_99", now.AddMinutes(1), now.AddMinutes(16));
+
+        await _repository.AddAsync(supersededPayment, CancellationToken.None);
+        await _repository.AddAsync(succeededOverstay, CancellationToken.None);
+
+        var supersededStatus = await _handler.Handle(
+            new GetParkingFeePaymentStatusQuery(supersededPayment.Id, accountId, "Customer"), CancellationToken.None);
+        var overstayStatus = await _handler.Handle(
+            new GetParkingFeePaymentStatusQuery(succeededOverstay.Id, accountId, "Customer"), CancellationToken.None);
+
+        Assert.True(supersededStatus.IsSuccess);
+        Assert.Equal(PaymentStatus.Superseded, supersededStatus.Value!.Status);
+        Assert.Null(supersededStatus.Value.ExitWindowExpiresUtc);
+
+        Assert.True(overstayStatus.IsSuccess);
+        Assert.Equal(PaymentStatus.Succeeded, overstayStatus.Value!.Status);
+        Assert.Equal(now.AddMinutes(16), overstayStatus.Value.ExitWindowExpiresUtc);
     }
 }

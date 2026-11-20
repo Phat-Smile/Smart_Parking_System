@@ -32,12 +32,15 @@ public interface IParkingFeePaymentRepository
     // Tìm hóa đơn theo mã thanh toán
     Task<ParkingFeePayment?> GetByIdAsync(Guid id, CancellationToken ct);
 
-    // Tìm hóa đơn thành công theo mã phiên xe hoặc mã giao dịch để xuất hóa đơn điện tử (US-PAY-003)
+    // Tìm hóa đơn thành công mới nhất để xuất biên lai (US-PAY-003)
     Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct);
 
-    // Lấy hóa đơn thành công của phiên xe để cập nhật phụ phí quá giờ (BR-09.d)
+    // Lấy hóa đơn thành công mới nhất của phiên (BR-09.d)
     Task<ParkingFeePayment?> GetSucceededBySessionIdAsync(Guid sessionId, CancellationToken ct) =>
         GetReceiptPaymentAsync(sessionId, ct);
+
+    // Xóa dữ liệu tạm chưa lưu trước khi xử lý xung đột
+    void ClearChangeTracker() { }
 
     // Tính toán tổng hợp doanh thu theo bãi và mốc thời gian (US-OWNER-010)
     Task<OwnerRevenueMetricsResult> GetRevenueMetricsAsync(

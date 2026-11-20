@@ -19,6 +19,7 @@ public class ParkingFeePayment
     public DateTimeOffset PaymentTimeUtc { get; private set; }      // Giờ chốt tính tiền
     public DateTimeOffset? ExitWindowExpiresUtc { get; private set; }// Giờ hết hạn lái xe ra
     public string Status { get; private set; } = null!;             // Trạng thái hóa đơn
+    public int PaymentSequence { get; private set; } = 1;           // Thứ tự đợt trả trong phiên (1 = gốc)
     
     // Các trường đặc thù của cổng VNPay
     public string? TxnRef { get; private set; }                     // Mã tham chiếu gửi sang VNPay
@@ -43,7 +44,8 @@ public class ParkingFeePayment
         long prepaidAmount,
         long amountPaid,
         DateTimeOffset paymentTimeUtc,
-        DateTimeOffset exitWindowExpiresUtc)
+        DateTimeOffset exitWindowExpiresUtc,
+        int paymentSequence = 1)
     {
         return CreateWalletPayment(
             sessionId,
@@ -56,7 +58,8 @@ public class ParkingFeePayment
             prepaidAmount,
             amountPaid,
             paymentTimeUtc,
-            exitWindowExpiresUtc);
+            exitWindowExpiresUtc,
+            paymentSequence);
     }
 
     // Tạo hóa đơn trừ tiền qua ví
@@ -71,8 +74,11 @@ public class ParkingFeePayment
         long prepaidAmount,
         long amountPaid,
         DateTimeOffset paymentTimeUtc,
-        DateTimeOffset exitWindowExpiresUtc)
+        DateTimeOffset exitWindowExpiresUtc,
+        int paymentSequence = 1)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(paymentSequence, 1);
+
         return new ParkingFeePayment
         {
             Id = Guid.NewGuid(),
@@ -89,7 +95,8 @@ public class ParkingFeePayment
             PaymentTimeUtc = paymentTimeUtc,
             ExitWindowExpiresUtc = exitWindowExpiresUtc,
             Status = Constants.PaymentStatus.Succeeded,
-            ConfirmedAtUtc = paymentTimeUtc
+            ConfirmedAtUtc = paymentTimeUtc,
+            PaymentSequence = paymentSequence
         };
     }
 
@@ -104,8 +111,11 @@ public class ParkingFeePayment
         long prepaidAmount,
         long amountPaid,
         DateTimeOffset paymentTimeUtc,
-        DateTimeOffset exitWindowExpiresUtc)
+        DateTimeOffset exitWindowExpiresUtc,
+        int paymentSequence = 1)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(paymentSequence, 1);
+
         return new ParkingFeePayment
         {
             Id = Guid.NewGuid(),
@@ -121,7 +131,8 @@ public class ParkingFeePayment
             PaymentTimeUtc = paymentTimeUtc,
             ExitWindowExpiresUtc = exitWindowExpiresUtc,
             Status = Constants.PaymentStatus.Succeeded,
-            ConfirmedAtUtc = paymentTimeUtc
+            ConfirmedAtUtc = paymentTimeUtc,
+            PaymentSequence = paymentSequence
         };
     }
 
@@ -138,8 +149,11 @@ public class ParkingFeePayment
         DateTimeOffset feeCalculatedAtUtc,
         DateTimeOffset expiresAtUtc,
         string txnRef,
-        string paymentUrl)
+        string paymentUrl,
+        int paymentSequence = 1)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(paymentSequence, 1);
+
         return new ParkingFeePayment
         {
             Id = Guid.NewGuid(),
@@ -156,7 +170,8 @@ public class ParkingFeePayment
             ExpiresAtUtc = expiresAtUtc,
             TxnRef = txnRef,
             PaymentUrl = paymentUrl,
-            Status = Constants.PaymentStatus.Pending
+            Status = Constants.PaymentStatus.Pending,
+            PaymentSequence = paymentSequence
         };
     }
 
@@ -170,6 +185,11 @@ public class ParkingFeePayment
     // Xác nhận thanh toán thành công khi nhận IPN
     public void MarkAsSucceeded(string gatewayTxnNo, DateTimeOffset confirmedAtUtc, DateTimeOffset exitWindowExpiresUtc)
     {
+        if (Status != Constants.PaymentStatus.Pending && Status != Constants.PaymentStatus.Superseded)
+        {
+            throw new InvalidOperationException($"Cannot mark payment in status '{Status}' as Succeeded.");
+        }
+
         Status = Constants.PaymentStatus.Succeeded;
         GatewayTransactionNo = gatewayTxnNo;
         ConfirmedAtUtc = confirmedAtUtc;
@@ -200,16 +220,5 @@ public class ParkingFeePayment
         GatewayTransactionNo = gatewayTxnNo;
         SurplusRefundStatus = surplusRefundStatus;
         ConfirmedAtUtc = confirmedAtUtc;
-    }
-
-    // Ghi nhận thanh toán phụ phí quá giờ cho phiên đã từng thanh toán trước đó (BR-09.d)
-    public void RecordOverstayPayment(long additionalFee, DateTimeOffset newPaymentTime, DateTimeOffset newExitWindowExpires)
-    {
-        TotalFee += additionalFee;
-        AmountPaid += additionalFee;
-        PaymentTimeUtc = newPaymentTime;
-        ExitWindowExpiresUtc = newExitWindowExpires;
-        ConfirmedAtUtc = newPaymentTime;
-        Status = Constants.PaymentStatus.Succeeded;
     }
 }
