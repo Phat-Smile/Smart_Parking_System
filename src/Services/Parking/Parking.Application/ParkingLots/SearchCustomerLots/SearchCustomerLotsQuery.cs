@@ -15,8 +15,7 @@ public sealed record CustomerLotSearchItem(Guid Id, string Name, string Address,
     decimal Longitude, string Type, double? DistanceKm, decimal? StartingPrice,
     string? BillingMode, int AvailableSpaces, bool Prebookable,
     IReadOnlyList<string> Compatibility, IReadOnlyList<string> Amenities,
-    double? DrivingTimeMinutes = null,
-    int WalkInPlaces = 0);
+    double? DrivingTimeMinutes = null);
 
 public sealed class SearchCustomerLotsQueryValidator : AbstractValidator<SearchCustomerLotsQuery>
 {
@@ -87,8 +86,7 @@ public sealed class SearchCustomerLotsQueryHandler(ISender sender, ICustomerLotF
             results.Add(new CustomerLotSearchItem(lot.Id, lot.Name, lot.Address, lot.Latitude,
                 lot.Longitude, lot.Type, distance, cheapest?.Price, cheapest?.BillingMode, spaces,
                 feature.Prebookable, feature.Compatibility, feature.Amenities,
-                DrivingTimeMinutes: null,
-                WalkInPlaces: 0));
+                DrivingTimeMinutes: null));
         }
 
         var sorted = request.Sort switch
