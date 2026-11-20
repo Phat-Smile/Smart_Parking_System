@@ -136,7 +136,10 @@ export function OwnerPageHeader({
                 {actions && <div className="ov2-header-actions">{actions}</div>}
 
                 {/* Global Search */}
-                <div ref={searchRef} style={{ position: "relative", maxWidth: "100%" }}>
+                <div
+                    ref={searchRef}
+                    style={{ position: "relative", maxWidth: "100%" }}
+                >
                     <div
                         style={{
                             display: "flex",

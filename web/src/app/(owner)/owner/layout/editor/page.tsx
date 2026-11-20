@@ -313,8 +313,7 @@ export default function OwnerLayoutEditorPage() {
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 8,
-                                boxShadow:
-                                    "0 2px 6px rgba(30, 25, 216, 0.25)",
+                                boxShadow: "0 2px 6px rgba(30, 25, 216, 0.25)",
                             }}
                         >
                             <Save className="w-4 h-4" />

@@ -303,7 +303,13 @@ export default function LotPricingConfigPage() {
                 title={`Cấu hình bảng giá · ${lot?.name || "Bãi xe"}`}
                 subtitle="Thiết lập biểu phí theo lượt, theo block, qua đêm và kiểm tra xem trước giá tính toán"
                 actions={
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: "8px",
+                            flexWrap: "wrap",
+                        }}
+                    >
                         <Link
                             href={`/owner/parking-lots/${lot?.id ?? rawId}`}
                             className="btn"
