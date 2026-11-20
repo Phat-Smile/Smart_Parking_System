@@ -105,7 +105,9 @@ public sealed class RefundReservationDepositCommandHandler(
             var entries = await walletRepository.GetReservationLedgerEntriesAsync(
                 request.ReservationId, userId: null, cancellationToken: cancellationToken);
 
-            var depositEntries = entries.Where(e => e.EntryType == LedgerEntryType.ReservationDeposit).ToList();
+            var depositEntries = entries
+                .Where(e => e.EntryType is LedgerEntryType.ReservationDeposit or LedgerEntryType.Prepayment)
+                .ToList();
             if (!depositEntries.Any())
             {
                 await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
@@ -121,13 +123,26 @@ public sealed class RefundReservationDepositCommandHandler(
                 return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.ReservationNotDebited);
             }
 
+            // Trừ luôn phần đã tịch thu và đã áp phí khỏi mức được phép hoàn
             var totalDebited = depositEntries.Sum(e => Math.Abs(e.Amount));
             var totalRefunded = entries.Where(e => e.EntryType == LedgerEntryType.Refund).Sum(e => e.Amount);
-            var remainingRefundable = totalDebited - totalRefunded;
+            var totalForfeited = entries.Where(e => e.EntryType == LedgerEntryType.PrepaymentForfeited).Sum(e => e.Amount);
+            var totalApplied = entries.Where(e => e.EntryType == LedgerEntryType.PrepaymentApplied).Sum(e => e.Amount);
+            var remainingRefundable = totalDebited - totalRefunded - totalForfeited - totalApplied;
 
             if (remainingRefundable <= 0)
             {
                 await idempotencyStore.ReleasePendingAsync(pendingRecord.Id, CancellationToken.None);
+                if (totalForfeited > 0 && totalRefunded == 0)
+                {
+                    return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.AlreadyForfeited);
+                }
+
+                if (totalApplied > 0 && totalRefunded == 0)
+                {
+                    return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.PrepaymentAlreadySettled);
+                }
+
                 return Result<RefundReservationDepositResult>.Failure(ReservationDepositErrors.AlreadyRefunded);
             }
 

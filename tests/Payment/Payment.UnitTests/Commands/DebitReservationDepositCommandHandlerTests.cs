@@ -321,4 +321,34 @@ public sealed class DebitReservationDepositCommandHandlerTests
 
         Assert.True(result.IsFailure);
     }
+
+    [Fact]
+    public async Task Debit_FailsWithAlreadyForfeited_WhenReservationWasForfeited()
+    {
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+        var wallet = CreateWalletWithBalance(userId, 100_000m);
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -20_000m,
+            "Deposit",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+        wallet.AddEntry(
+            LedgerEntryType.PrepaymentForfeited,
+            20_000m,
+            "Forfeited",
+            ReferenceType.Reservation,
+            reservationId.ToString());
+
+        var handler = CreateHandler();
+        var command = new DebitReservationDepositCommand(userId, reservationId, 20_000m, "key-after-forfeit");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.AlreadyForfeited, result.Error);
+        Assert.Equal(80_000m, wallet.Balance);
+    }
 }

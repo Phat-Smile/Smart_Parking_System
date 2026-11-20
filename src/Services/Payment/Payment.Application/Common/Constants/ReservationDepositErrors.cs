@@ -43,4 +43,20 @@ public static class ReservationDepositErrors
     // Số tiền yêu cầu hoàn vượt quá số tiền cọc đã trừ
     public static readonly Error RefundAmountExceedsDeposit =
         new("payment.refund_amount_exceeds_deposit", "Refund amount exceeds debited deposit amount.");
+
+    // Mã bãi đỗ không hợp lệ
+    public static readonly Error LotIdInvalid =
+        new("payment.lot_id_invalid", "Parking lot ID is invalid.");
+
+    // Tiền cọc của đặt chỗ đã bị tịch thu trước đó
+    public static readonly Error AlreadyForfeited =
+        new("payment.reservation_already_forfeited", "Reservation deposit was already forfeited.");
+
+    // Tiền cọc đã được hoàn hoặc đã trừ vào phí đỗ
+    public static readonly Error PrepaymentAlreadySettled =
+        new("payment.prepayment_already_settled", "Reservation prepayment was already settled.");
+
+    // Tiền tịch thu lớn hơn phần cọc còn lại chưa xử lý
+    public static readonly Error ForfeitAmountExceedsDeposit =
+        new("payment.forfeit_amount_exceeds_deposit", "Forfeited amount exceeds remaining unsettled deposit.");
 }

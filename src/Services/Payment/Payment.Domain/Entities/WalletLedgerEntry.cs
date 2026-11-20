@@ -35,12 +35,16 @@ public class WalletLedgerEntry
         Guid? lotId,
         string? idempotencyKey,
         Guid? reversalOfEntryId,
-        Guid? createdBy)
+        Guid? createdBy,
+        DateTimeOffset? occurredAtUtc = null)
     {
         Id = Guid.NewGuid();
         WalletId = walletId;
         Sequence = sequence;
-        CreatedAt = DateTimeOffset.UtcNow;
+        // Lưu giờ gốc của sự kiện theo chuẩn UTC nếu có
+        CreatedAt = occurredAtUtc.HasValue && occurredAtUtc.Value != default
+            ? occurredAtUtc.Value.ToUniversalTime()
+            : DateTimeOffset.UtcNow;
         EntryType = entryType;
         Amount = amount;
         BalanceAfter = balanceAfter;
