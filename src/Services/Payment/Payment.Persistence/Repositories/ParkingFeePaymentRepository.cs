@@ -85,22 +85,30 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
             .FirstOrDefaultAsync(p => p.Id == id, ct);
     }
 
-    // Tìm hóa đơn thành công theo mã phiên xe hoặc mã giao dịch để xuất hóa đơn điện tử (US-PAY-003)
+    // Tìm hóa đơn thành công mới nhất để xuất biên lai (US-PAY-003)
     public async Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
     {
         return await dbContext.Set<ParkingFeePayment>()
             .AsNoTracking()
             .Where(p => (p.SessionId == sessionOrPaymentId || p.Id == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
-            .OrderByDescending(p => p.PaymentTimeUtc)
+            .OrderByDescending(p => p.PaymentSequence)
+            .ThenByDescending(p => p.PaymentTimeUtc)
             .FirstOrDefaultAsync(ct);
     }
 
-    // Lấy hóa đơn thành công của phiên xe để cập nhật phụ phí quá giờ (BR-09.d)
+    // Lấy hóa đơn thành công mới nhất của phiên (BR-09.d)
     public async Task<ParkingFeePayment?> GetSucceededBySessionIdAsync(Guid sessionId, CancellationToken ct)
     {
         return await dbContext.Set<ParkingFeePayment>()
-            .FirstOrDefaultAsync(p => p.SessionId == sessionId && p.Status == PaymentStatus.Succeeded, ct);
+            .AsNoTracking()
+            .Where(p => p.SessionId == sessionId && p.Status == PaymentStatus.Succeeded)
+            .OrderByDescending(p => p.PaymentSequence)
+            .ThenByDescending(p => p.PaymentTimeUtc)
+            .FirstOrDefaultAsync(ct);
     }
+
+    // Xóa dữ liệu tạm chưa lưu trước khi xử lý xung đột
+    public void ClearChangeTracker() => dbContext.ChangeTracker.Clear();
 
     // Tính toán tổng hợp doanh thu 1 round-trip theo từng mốc thời gian
     public async Task<OwnerRevenueMetricsResult> GetRevenueMetricsAsync(
