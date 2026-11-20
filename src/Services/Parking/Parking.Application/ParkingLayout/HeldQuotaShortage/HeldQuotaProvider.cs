@@ -1,11 +1,13 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using ParkingSystem.BuildingBlocks.Time;
 
 namespace ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 
 /// <summary>
 /// The reservations Booking holds for a lot, for deciding walk-in car entry (US-PARK-007, BR-02.d).
-/// Returns null when no trustworthy number is known; the gate then refuses walk-in cars.
+/// When Booking fails or times out: returns the most recent cached answer (≤ 60s); if none is available,
+/// falls back to 0 with a warning log so that the gate does not reject walk-in cars.
 /// </summary>
 public interface IHeldQuotaProvider
 {
@@ -13,7 +15,7 @@ public interface IHeldQuotaProvider
 }
 
 // Team decision 2026-10-09 for a Booking that does not answer: ask with a deadline, otherwise reuse the last answer while
-// it is recent enough, otherwise refuse walk-in cars.
+// it is recent enough (≤ 60s), otherwise fall back to 0 with a warning log so the gate does not reject walk-in cars.
 public sealed class HeldQuotaOptions
 {
     public TimeSpan Deadline { get; init; } = TimeSpan.FromSeconds(2);
@@ -32,7 +34,12 @@ public sealed class HeldQuotaCache
         lastAnswers.TryGetValue(lotId, out var answer) && answer.ReadAt >= oldestAccepted ? answer.Held : null;
 }
 
-public sealed class HeldQuotaProvider(IHeldQuotaReader reader, HeldQuotaCache cache, HeldQuotaOptions options, IClock clock)
+public sealed class HeldQuotaProvider(
+    IHeldQuotaReader reader,
+    HeldQuotaCache cache,
+    HeldQuotaOptions options,
+    IClock clock,
+    ILogger<HeldQuotaProvider> logger)
     : IHeldQuotaProvider
 {
     public async Task<int?> GetHeldReservationsAsync(Guid lotId, CancellationToken cancellationToken)
@@ -46,10 +53,20 @@ public sealed class HeldQuotaProvider(IHeldQuotaReader reader, HeldQuotaCache ca
             cache.Remember(lotId, held, clock.UtcNow);
             return held;
         }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             // Booking failed or was too slow: an answer from the last MaxAge is still good enough.
-            return cache.FindSince(lotId, clock.UtcNow - options.MaxAge);
+            var cached = cache.FindSince(lotId, clock.UtcNow - options.MaxAge);
+            if (cached.HasValue)
+            {
+                logger.LogWarning(ex, "Failed to read held quota for lot {LotId} from Booking. Reusing cached answer {HeldQuota} (max age: {MaxAgeSeconds}s).",
+                    lotId, cached.Value, options.MaxAge.TotalSeconds);
+                return cached.Value;
+            }
+
+            logger.LogWarning(ex, "Failed to read held quota for lot {LotId} from Booking and no recent cache is available. Defaulting held quota to 0.",
+                lotId);
+            return 0;
         }
     }
 }
