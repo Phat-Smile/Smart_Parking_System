@@ -53,6 +53,7 @@ import {
     estimateLotBookingPricing,
     type DailyOpeningHours,
     type LotPrice,
+    type LotAvailability,
 } from "./parkingLotApi";
 
 export type ParkingLotDetailView = {
@@ -76,6 +77,9 @@ export type ParkingLotDetailView = {
     /** Prices and free spaces from Parking (lot detail), already worded for the page. */
     priceText?: string | null;
     spacesText?: string | null;
+    walkInPlaces?: number | null;
+    walkInStatus?: string | null;
+    availability?: LotAvailability | null;
     compatible?: string[];
     amenities?: string[];
     compatibilityDeclared?: boolean;
@@ -233,6 +237,26 @@ export function ParkingLotDetailExperience({
             setRealtimeSpaces(event.availableCarSlots);
         },
     });
+
+    const walkInCount = lot.walkInPlaces ?? lot.availability?.walkInPlaces;
+    const walkInStatus = lot.walkInStatus ?? lot.availability?.walkInStatus;
+    let walkInDisplayText: string | null = null;
+    if (typeof walkInCount === "number") {
+        if (walkInCount > 0) {
+            walkInDisplayText = `Còn ${walkInCount} chỗ cho xe không đặt trước`;
+        } else {
+            walkInDisplayText = "Hết chỗ cho xe không đặt trước";
+        }
+    } else if (walkInStatus) {
+        if (
+            walkInStatus.toLowerCase() === "full" ||
+            walkInStatus.toLowerCase() === "unavailable"
+        ) {
+            walkInDisplayText = "Hết chỗ cho xe không đặt trước";
+        } else {
+            walkInDisplayText = "Còn chỗ cho xe không đặt trước";
+        }
+    }
     const photos = lot.photos.length ? lot.photos : [lot.image];
     const directionsHref =
         lot.latitude !== undefined && lot.longitude !== undefined
@@ -522,6 +546,24 @@ export function ParkingLotDetailExperience({
                                               ? "free spaces now"
                                               : "availability unavailable"}
                                     </small>
+                                    {walkInDisplayText && (
+                                        <small
+                                            className="lot-detail-walk-in-status"
+                                            style={{
+                                                display: "block",
+                                                marginTop: "4px",
+                                                color:
+                                                    walkInCount === 0 ||
+                                                    walkInStatus?.toLowerCase() === "full"
+                                                        ? "var(--color-danger, #ef4444)"
+                                                        : "var(--color-success, #10b981)",
+                                                fontSize: "0.85rem",
+                                                fontWeight: 500,
+                                            }}
+                                        >
+                                            {walkInDisplayText}
+                                        </small>
+                                    )}
                                 </span>
                             </div>
                         </div>

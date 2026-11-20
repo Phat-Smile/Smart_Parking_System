@@ -87,6 +87,8 @@ export type LotPrice = {
 export type LotAvailability = {
     car: { available: number };
     motorbike: { capacity: number; available: number } | null;
+    walkInPlaces?: number;
+    walkInStatus?: string;
 };
 
 export type ParkingLotPublicInfo = {

@@ -954,6 +954,35 @@ export function StaffEntryPage() {
                                     )}
                                 </div>
 
+                                {/* Row 3.5: Trạng thái xe không đặt trước */}
+                                {(assignedLot?.walkInStatus ||
+                                    assignedLot?.walkInPlaces !== undefined) && (
+                                    <div className="staff-summary-row">
+                                        <span className="staff-summary-label">
+                                            Xe không đặt trước
+                                        </span>
+                                        <span
+                                            className={`staff-cap-badge ${
+                                                assignedLot.walkInStatus === "Full" ||
+                                                assignedLot.walkInPlaces === 0
+                                                    ? "cap-full"
+                                                    : "cap-available"
+                                            }`}
+                                        >
+                                            <span>
+                                                {assignedLot.walkInPlaces !== undefined &&
+                                                assignedLot.walkInPlaces !== null
+                                                    ? assignedLot.walkInPlaces > 0
+                                                        ? `Còn ${assignedLot.walkInPlaces} chỗ`
+                                                        : "Hết chỗ"
+                                                    : assignedLot.walkInStatus === "Full"
+                                                      ? "Hết chỗ"
+                                                      : "Còn chỗ"}
+                                            </span>
+                                        </span>
+                                    </div>
+                                )}
+
                                 {/* Row 4: Trạng thái tài khoản */}
                                 <div className="staff-summary-row">
                                     <span className="staff-summary-label">
