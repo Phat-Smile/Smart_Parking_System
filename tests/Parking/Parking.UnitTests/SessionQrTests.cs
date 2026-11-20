@@ -22,7 +22,7 @@ public sealed class SessionQrTests
     {
         var session = NewSession("qr-1", UserId);
         var repository = new FakeRepository(session) { OpenForUser = [session] };
-        var handler = new ListMyParkingSessionsQueryHandler(repository, new FakeZoneLabels());
+        var handler = new ListMyParkingSessionsQueryHandler(repository, new FakeZoneLabels(), new FakeSlotDesignator());
 
         var result = await handler.Handle(new ListMyParkingSessionsQuery(UserId), TestContext.Current.CancellationToken);
 
@@ -39,7 +39,7 @@ public sealed class SessionQrTests
     public async Task My_sessions_shows_the_zone_and_floor_of_a_motorbike_session()
     {
         var session = ParkingSession.Open(Guid.NewGuid(), LotId, "59X1-234.56", VehicleType.Motorbike, EntryTime, "qr-bike", UserId, Guid.NewGuid(), FakeZoneLabels.ZoneId);
-        var handler = new ListMyParkingSessionsQueryHandler(new FakeRepository(session) { OpenForUser = [session] }, new FakeZoneLabels());
+        var handler = new ListMyParkingSessionsQueryHandler(new FakeRepository(session) { OpenForUser = [session] }, new FakeZoneLabels(), new FakeSlotDesignator());
 
         var item = Assert.Single(await handler.Handle(new ListMyParkingSessionsQuery(UserId), TestContext.Current.CancellationToken));
 
@@ -50,11 +50,37 @@ public sealed class SessionQrTests
     [Fact]
     public async Task My_sessions_is_empty_when_the_account_has_no_open_session()
     {
-        var handler = new ListMyParkingSessionsQueryHandler(new FakeRepository(null), new FakeZoneLabels());
+        var handler = new ListMyParkingSessionsQueryHandler(new FakeRepository(null), new FakeZoneLabels(), new FakeSlotDesignator());
 
         var result = await handler.Handle(new ListMyParkingSessionsQuery(UserId), TestContext.Current.CancellationToken);
 
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task My_sessions_includes_assigned_slot_code_for_car_session()
+    {
+        var session = NewSession("qr-car-slot", UserId);
+        var repository = new FakeRepository(session) { OpenForUser = [session] };
+        var slots = new FakeSlotDesignator(new Dictionary<Guid, string> { [session.Id] = "A-102" });
+        var handler = new ListMyParkingSessionsQueryHandler(repository, new FakeZoneLabels(), slots);
+
+        var result = await handler.Handle(new ListMyParkingSessionsQuery(UserId), TestContext.Current.CancellationToken);
+
+        var item = Assert.Single(result);
+        Assert.Equal("A-102", item.SlotCode);
+    }
+
+    [Fact]
+    public async Task My_sessions_returns_null_slot_code_when_no_slot_assigned()
+    {
+        var session = ParkingSession.Open(Guid.NewGuid(), LotId, "59X1-234.56", VehicleType.Motorbike, EntryTime, "qr-bike", UserId, Guid.NewGuid(), FakeZoneLabels.ZoneId);
+        var repository = new FakeRepository(session) { OpenForUser = [session] };
+        var handler = new ListMyParkingSessionsQueryHandler(repository, new FakeZoneLabels(), new FakeSlotDesignator());
+
+        var item = Assert.Single(await handler.Handle(new ListMyParkingSessionsQuery(UserId), TestContext.Current.CancellationToken));
+
+        Assert.Null(item.SlotCode);
     }
 
     [Fact]
@@ -162,5 +188,20 @@ public sealed class SessionQrTests
         public void Add(ParkingSession added) => throw new NotSupportedException();
 
         public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class FakeSlotDesignator(IReadOnlyDictionary<Guid, string>? slotCodes = null) : ISlotDesignator
+    {
+        public Task<DesignatedSlot?> DesignateCarSlotAsync(Guid lotId, Guid sessionId, DateTimeOffset assignedAt, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> LockLotAndCountAvailableCarSlotsAsync(Guid lotId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<Guid, string>> FindSlotCodesAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(slotCodes ?? new Dictionary<Guid, string>());
+
+        public Task<string?> ReleaseSessionSlotAsync(Guid sessionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 }

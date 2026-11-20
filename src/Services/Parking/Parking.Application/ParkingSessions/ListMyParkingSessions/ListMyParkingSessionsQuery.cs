@@ -15,9 +15,13 @@ public sealed record MyParkingSession(
     DateTimeOffset EntryTime,
     string QrToken,
     string? ZoneCode,
-    string? FloorName);
+    string? FloorName,
+    string? SlotCode = null);
 
-public sealed class ListMyParkingSessionsQueryHandler(IParkingSessionRepository sessions, IZoneLabelReader zoneLabels)
+public sealed class ListMyParkingSessionsQueryHandler(
+    IParkingSessionRepository sessions,
+    IZoneLabelReader zoneLabels,
+    ISlotDesignator slotDesignator)
     : IRequestHandler<ListMyParkingSessionsQuery, IReadOnlyList<MyParkingSession>>
 {
     public async Task<IReadOnlyList<MyParkingSession>> Handle(ListMyParkingSessionsQuery request, CancellationToken cancellationToken)
@@ -28,6 +32,9 @@ public sealed class ListMyParkingSessionsQueryHandler(IParkingSessionRepository 
         // US-PARK-008: a motorbike session shows the zone and floor the rider was sent to, next to the QR.
         var zoneIds = openSessions.Where(session => session.ZoneId is not null).Select(session => session.ZoneId!.Value).Distinct().ToList();
         var labels = await zoneLabels.GetLabelsAsync(zoneIds, cancellationToken);
+
+        var sessionIds = openSessions.Select(session => session.Id).ToList();
+        var slotCodes = await slotDesignator.FindSlotCodesAsync(sessionIds, cancellationToken);
 
         return openSessions
             .Select(session =>
@@ -42,7 +49,8 @@ public sealed class ListMyParkingSessionsQueryHandler(IParkingSessionRepository 
                     session.EntryTime,
                     session.QrToken,
                     label?.ZoneCode,
-                    label?.FloorName);
+                    label?.FloorName,
+                    slotCodes.GetValueOrDefault(session.Id));
             })
             .ToList();
     }
