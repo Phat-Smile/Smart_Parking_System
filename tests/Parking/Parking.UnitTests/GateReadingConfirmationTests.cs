@@ -157,6 +157,86 @@ public sealed class GateReadingConfirmationTests
     }
 
     [Fact]
+    public async Task Override_confirms_original_capture_time_and_records_audited_reason()
+    {
+        var incident = Pending("51A-123.45", confidence: 0.6m);
+        var originalCapture = incident.OccurredAt;
+        var audit = new FakeAuditLog();
+        var handler = NewHandler(new FakeIncidents(incident), audit);
+
+        var result = await handler.Handle(new ConfirmGateReadingCommand(
+            incident.Id, "51A-123.45", "Car", StaffId, LotId, "Manual verification at gate camera"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(originalCapture, incident.OccurredAt); // never rewritten to confirmation time
+        Assert.True(incident.CanUseForEntry(LotId, "51A-123.45", VehicleType.Car, Now, TimeSpan.FromMinutes(15)));
+        var entry = Assert.Single(audit.Entries);
+        Assert.Equal(AuditActions.GateArrivalOverride, entry.Action);
+        Assert.Equal("Manual verification at gate camera", entry.Reason);
+        Assert.Equal("incident.occurred_at", entry.Details!["arrivalTimestampSource"]);
+        Assert.DoesNotContain("51A", string.Join(" ", entry.Details.Values), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Override_with_another_lot_id_fails_without_disclosing_or_resolving_the_incident()
+    {
+        var incident = Pending("51A-123.45", confidence: 0.6m);
+        var audit = new FakeAuditLog();
+        var repo = new FakeIncidents(incident);
+        var handler = NewHandler(repo, audit);
+        var result = await handler.Handle(new ConfirmGateReadingCommand(
+            incident.Id, "51A-123.45", "Car", StaffId, Guid.NewGuid(), "Manual confirmation"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(ConfirmGateReadingErrors.ReadingNotFound, result.Error);
+        Assert.Equal(IncidentStatus.Open, incident.Status);
+        Assert.Empty(audit.Entries);
+        Assert.False(repo.Saved);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Override_requires_a_nonblank_reason(string reason)
+    {
+        var command = new ConfirmGateReadingCommand(Guid.NewGuid(), "51A-123.45", "Car", StaffId, LotId, reason);
+        Assert.False(validator.Validate(command).IsValid);
+    }
+
+    [Fact]
+    public void Override_rejects_empty_lot_id_and_a_reason_exceeding_the_audit_limit()
+    {
+        Assert.False(validator.Validate(new ConfirmGateReadingCommand(
+            Guid.NewGuid(), "51A-123.45", "Car", StaffId, Guid.Empty, "manual")).IsValid);
+        Assert.False(validator.Validate(new ConfirmGateReadingCommand(
+            Guid.NewGuid(), "51A-123.45", "Car", StaffId, LotId,
+            new string('x', Incident.ResolutionReasonMaxLength + 1))).IsValid);
+    }
+
+    [Fact]
+    public async Task Override_is_single_use_and_does_not_create_a_session_or_bypass_lot_access()
+    {
+        var incident = Pending("51A-123.45", confidence: 0.6m);
+        var audit = new FakeAuditLog();
+        var repo = new FakeIncidents(incident);
+        var command = new ConfirmGateReadingCommand(incident.Id, "51A-123.45", "Car", StaffId, LotId, "Checked at gate");
+        var denied = await new ConfirmGateReadingCommandHandler(repo, new FakeLotAccess(false), audit, new FixedClock())
+            .Handle(command, TestContext.Current.CancellationToken);
+        Assert.Equal(ParkingLotAccessErrors.AccessDenied, denied.Error);
+        Assert.Equal(IncidentStatus.Open, incident.Status);
+        Assert.Empty(audit.Entries);
+
+        var handler = NewHandler(repo, audit);
+        var first = await handler.Handle(command, TestContext.Current.CancellationToken);
+        var second = await handler.Handle(command, TestContext.Current.CancellationToken);
+        Assert.True(first.IsSuccess);
+        Assert.Equal(ConfirmGateReadingErrors.NotPending, second.Error);
+        Assert.Single(audit.Entries);
+        Assert.Null(incident.SessionId); // session/barrier remains a separate operation
+    }
+
+    [Fact]
     public async Task Pending_list_shows_why_each_reading_was_not_accepted()
     {
         var lowConfidence = Pending("51A-123.45", confidence: 0.6m);

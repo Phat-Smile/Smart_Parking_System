@@ -141,6 +141,31 @@ describe("Plate Comparison & findBestPlateMatch", () => {
         expect(match.isHighConfidence).toBe(true);
     });
 
+    it("never treats two empty plates as an exact or confident match", () => {
+        const result = comparePlates("", "   ");
+        expect(result.score).toBe(0);
+        expect(result.isExactMatch).toBe(false);
+        expect(result.isHighConfidence).toBe(false);
+    });
+
+    it("does not choose arbitrarily between equally-close distinct plates", () => {
+        const scanned = "29A-12B45";
+        const left = "29A-12845";
+        const right = "29A-12B4S";
+        const forward = findBestPlateMatch(scanned, [left, right]);
+        const reverse = findBestPlateMatch(scanned, [right, left]);
+        expect(forward.bestMatch).toBeNull();
+        expect(reverse.bestMatch).toBeNull();
+        expect(forward.isHighConfidence).toBe(false);
+        expect(reverse.isHighConfidence).toBe(false);
+    });
+
+    it("deduplicates alternate formatting of the same plate", () => {
+        const result = findBestPlateMatch("29A-12845", ["29A-128.45", "29A12845"]);
+        expect(result.bestMatch).toBe("29A-128.45");
+        expect(result.isHighConfidence).toBe(true);
+    });
+
     it("handles empty candidates gracefully", () => {
         const match = findBestPlateMatch("29A-12845", []);
         expect(match.bestMatch).toBeNull();

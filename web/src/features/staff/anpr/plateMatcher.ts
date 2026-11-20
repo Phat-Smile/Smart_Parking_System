@@ -1,6 +1,6 @@
 /**
  * Smart ParkWise ANPR - Weighted Levenshtein Distance OCR Matcher
- *
+ * 
  * Thuật toán so khớp mờ biển số xe thông minh sử dụng ma trận khoảng cách Levenshtein có trọng số
  * (Optical Confusion Matrix), chuyên trị các lỗi nhầm lẫn ký tự quang học phổ biến của camera và OCR:
  * - Số 8 và chữ B (cost = 0.2)
@@ -9,7 +9,7 @@
  * - Số 1 và chữ I (cost = 0.2)
  * - Số 5 và chữ S (cost = 0.2)
  * - Số 2 và chữ Z (cost = 0.2)
- *
+ * 
  * Giúp nhận diện chính xác xe ra cổng khi OCR bị sai lệch 1 ký tự hình ảnh,
  * đồng thời hỗ trợ nhân viên đối soát giấy tờ xe tại quầy tránh lỗi 409 ExitNotVerified.
  */
@@ -36,16 +36,15 @@ export interface PlateComparisonResult {
  * Cặp ký tự thường xuyên bị đọc nhầm trong OCR biển số xe Việt Nam.
  * Trọng số lỗi quang học (optical confusion cost) = 0.2 thay vì 1.0.
  */
-export const OPTICAL_CONFUSION_PAIRS: ReadonlyArray<readonly [string, string]> =
-    [
-        ["8", "B"],
-        ["0", "D"],
-        ["0", "O"],
-        ["1", "I"],
-        ["5", "S"],
-        ["2", "Z"],
-        ["D", "O"], // Cặp D-O cũng rất hay gặp do bo góc camera
-    ];
+export const OPTICAL_CONFUSION_PAIRS: ReadonlyArray<readonly [string, string]> = [
+    ["8", "B"],
+    ["0", "D"],
+    ["0", "O"],
+    ["1", "I"],
+    ["5", "S"],
+    ["2", "Z"],
+    ["D", "O"], // Cặp D-O cũng rất hay gặp do bo góc camera
+];
 
 /**
  * Chuẩn hóa biển số xe:
@@ -79,14 +78,14 @@ export function getSubstitutionCost(charA: string, charB: string): number {
 
 /**
  * Tính khoảng cách Levenshtein có trọng số giữa 2 biển số xe.
- *
+ * 
  * - Thao tác Xóa (Deletion): cost = 1.0
  * - Thao tác Chèn (Insertion): cost = 1.0
  * - Thao tác Thay thế (Substitution):
  *     + Giống nhau: 0.0
  *     + Cặp quang học hay nhầm: 0.2
  *     + Ký tự khác: 1.0
- *
+ * 
  * @param plateA Biển số thứ nhất
  * @param plateB Biển số thứ hai
  * @returns Khoảng cách có trọng số (làm tròn 3 chữ số thập phân)
@@ -144,15 +143,16 @@ export function comparePlates(
     const normB = normalizePlate(plateB);
 
     if (!normA && !normB) {
+        // Empty scans are missing evidence, never an exact plate match.
         return {
             plateA,
             plateB,
             normalizedA: "",
             normalizedB: "",
             distance: 0,
-            score: 1.0,
-            isExactMatch: true,
-            isHighConfidence: true,
+            score: 0,
+            isExactMatch: false,
+            isHighConfidence: false,
         };
     }
 
@@ -192,7 +192,7 @@ export function comparePlates(
 /**
  * Tìm biển số trùng khớp nhất trong danh sách ứng viên (candidatePlates)
  * so với biển số đọc được từ camera/OCR (scannedPlate).
- *
+ * 
  * @param scannedPlate Biển số OCR nhận diện được từ camera
  * @param candidatePlates Danh sách biển số các xe đang có phiên đỗ trong bãi
  * @returns Thông tin biển số khớp nhất kèm độ tin cậy
@@ -215,6 +215,7 @@ export function findBestPlateMatch(
     let bestCandidate: string | null = null;
     let minDistance = Infinity;
     let maxScore = -1;
+    let isAmbiguous = false;
 
     for (const candidate of candidatePlates) {
         const normCand = normalizePlate(candidate);
@@ -225,20 +226,27 @@ export function findBestPlateMatch(
         const rawScore = maxLen > 0 ? Math.max(0, 1.0 - dist / maxLen) : 0;
         const score = Math.round(rawScore * 10000) / 10000;
 
-        if (score > maxScore) {
+        if (score > maxScore || (score === maxScore && dist < minDistance)) {
             maxScore = score;
             minDistance = dist;
             bestCandidate = candidate;
-        } else if (score === maxScore && dist < minDistance) {
-            minDistance = dist;
-            bestCandidate = candidate;
+            isAmbiguous = false;
+        } else if (
+            score === maxScore &&
+            dist === minDistance &&
+            bestCandidate !== null &&
+            normCand !== normalizePlate(bestCandidate)
+        ) {
+            // Two distinct plates have identical evidence. Never select the
+            // first one based on database ordering: require staff review.
+            isAmbiguous = true;
         }
     }
 
-    const isHighConfidence = maxScore >= 0.95 || minDistance <= 0.2;
+    const isHighConfidence = !isAmbiguous && (maxScore >= 0.95 || minDistance <= 0.2);
 
     return {
-        bestMatch: bestCandidate,
+        bestMatch: isAmbiguous ? null : bestCandidate,
         score: maxScore >= 0 ? maxScore : 0,
         distance: minDistance < Infinity ? minDistance : Infinity,
         isHighConfidence,
