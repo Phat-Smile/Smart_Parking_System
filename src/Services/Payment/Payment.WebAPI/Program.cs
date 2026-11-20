@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ParkingSystem.AspNetCore;
 using ParkingSystem.AspNetCore.Security;
@@ -16,6 +17,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddParkingSystemWebFoundation();
 builder.AddParkingSystemSecurity();
 builder.AddParkingSystemTelemetry("payment-api");
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+});
 builder.Services.AddPaymentAuthorization();
 builder.Services.AddPaymentRateLimiting(builder.Configuration);
 builder.Services.AddScoped<ICurrentActor, CurrentActor>();
@@ -45,6 +51,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 app.UseParkingSystemServiceSecurity();
+app.UseForwardedHeaders();
 app.UseRateLimiter();
 app.MapVnpayEndpoints();
 app.MapWalletEndpoints();

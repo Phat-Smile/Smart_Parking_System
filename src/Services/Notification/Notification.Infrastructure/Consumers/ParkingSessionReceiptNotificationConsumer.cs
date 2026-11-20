@@ -14,9 +14,9 @@ namespace ParkingSystem.Notification.Infrastructure.Consumers;
 /// </summary>
 public sealed class ParkingSessionReceiptNotificationConsumer(
     ICustomerNotificationStore notifications,
-    IEmailSender? emailSender = null,
-    IUserAccountEmailLookup? emailLookup = null,
-    ILogger<ParkingSessionReceiptNotificationConsumer>? logger = null)
+    IEmailSender emailSender,
+    IUserAccountEmailLookup emailLookup,
+    ILogger<ParkingSessionReceiptNotificationConsumer> logger)
     : IConsumer<ParkingSessionReceiptIssuedIntegrationEvent>
 {
     public async Task Consume(ConsumeContext<ParkingSessionReceiptIssuedIntegrationEvent> context)
@@ -26,7 +26,7 @@ public sealed class ParkingSessionReceiptNotificationConsumer(
         // 1. Unregistered walk-in / guest without account: skip email without failing
         if (message.AccountId is not { } accountId || accountId == Guid.Empty)
         {
-            logger?.LogInformation(
+            logger.LogInformation(
                 "Skipping receipt email for session {SessionId}: session has no authenticated account id.",
                 message.SessionId);
             return;
@@ -44,33 +44,30 @@ public sealed class ParkingSessionReceiptNotificationConsumer(
             context.CancellationToken);
 
         // 3. Email dispatch: Query Identity and only send if email is verified
-        if (emailSender is not null && emailLookup is not null)
+        var account = await emailLookup.LookupAccountEmailAsync(accountId, context.CancellationToken);
+        if (account is null || !account.IsEmailVerified)
         {
-            var account = await emailLookup.LookupAccountEmailAsync(accountId, context.CancellationToken);
-            if (account is null || !account.IsEmailVerified)
-            {
-                logger?.LogInformation(
-                    "Skipping electronic receipt email for session {SessionId}: account {AccountId} email not verified or account not found.",
-                    message.SessionId,
-                    accountId);
-                return;
-            }
-
-            await emailSender.SendElectronicReceiptEmailAsync(
-                account.Email,
-                message.SessionId,
-                message.MaskedPlateNumber,
-                message.TotalFee,
-                message.PaidAmount,
-                message.AmountDue,
-                message.EntryTimeUtc,
-                message.ExitTimeUtc,
-                context.CancellationToken);
-
-            logger?.LogInformation(
-                "Dispatched electronic receipt email for session {SessionId} to account {AccountId}.",
+            logger.LogInformation(
+                "Skipping electronic receipt email for session {SessionId}: account {AccountId} email not verified or account not found.",
                 message.SessionId,
                 accountId);
+            return;
         }
+
+        await emailSender.SendElectronicReceiptEmailAsync(
+            account.Email,
+            message.SessionId,
+            message.MaskedPlateNumber,
+            message.TotalFee,
+            message.PaidAmount,
+            message.AmountDue,
+            message.EntryTimeUtc,
+            message.ExitTimeUtc,
+            context.CancellationToken);
+
+        logger.LogInformation(
+            "Dispatched electronic receipt email for session {SessionId} to account {AccountId}.",
+            message.SessionId,
+            accountId);
     }
 }

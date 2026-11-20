@@ -178,6 +178,7 @@ public sealed class BookingAndReceiptEmailConsumerTests
         IUserAccountEmailLookup emailLookup) where TConsumer : class, IConsumer
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddSingleton(store);
         services.AddSingleton(emailSender);
         services.AddSingleton(emailLookup);

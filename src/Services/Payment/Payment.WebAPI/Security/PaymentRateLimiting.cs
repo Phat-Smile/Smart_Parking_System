@@ -34,13 +34,7 @@ public static class PaymentRateLimiting
 
             options.AddPolicy(PolicyName, context =>
             {
-                // Ưu tiên đọc client IP từ header X-Forwarded-For nếu đi qua Gateway / reverse proxy,
-                // fallback về Connection.RemoteIpAddress nếu gọi trực tiếp.
-                var clientIp = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim();
-                if (string.IsNullOrWhiteSpace(clientIp))
-                {
-                    clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                }
+                var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
                 return RateLimitPartition.GetFixedWindowLimiter(
                     clientIp,
@@ -58,11 +52,7 @@ public static class PaymentRateLimiting
 
             options.AddPolicy(PublicFeePolicyName, context =>
             {
-                var clientIp = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim();
-                if (string.IsNullOrWhiteSpace(clientIp))
-                {
-                    clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                }
+                var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
                 return RateLimitPartition.GetFixedWindowLimiter(
                     clientIp,

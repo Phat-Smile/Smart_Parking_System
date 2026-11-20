@@ -85,13 +85,27 @@ public sealed class CompleteParkingSessionTests
         Assert.Equal(0, context.Zones.Released);
         Assert.True(context.UnitOfWork.Committed);
 
-        var closed = Assert.IsType<ParkingSessionClosedIntegrationEvent>(Assert.Single(context.Outbox.Events).Event);
+        Assert.Equal(2, context.Outbox.Events.Count);
+
+        var closed = Assert.IsType<ParkingSessionClosedIntegrationEvent>(context.Outbox.Events[0].Event);
         Assert.Equal("parking.session-closed.v1", context.Outbox.Events[0].EventType);
         Assert.Equal(session.Id, closed.SessionId);
         Assert.Equal(Plate, closed.PlateNumber);
         Assert.Equal("Car", closed.VehicleType);
         Assert.Equal(EntryTime, closed.EntryTimeUtc);
         Assert.Equal(PaidAt.AddMinutes(5), closed.ExitTimeUtc);
+
+        var receipt = Assert.IsType<ParkingSessionReceiptIssuedIntegrationEvent>(context.Outbox.Events[1].Event);
+        Assert.Equal("parking.session-receipt-issued.v1", context.Outbox.Events[1].EventType);
+        Assert.Equal(session.Id, receipt.SessionId);
+        Assert.Equal(session.LotId, receipt.LotId);
+        Assert.Equal("51A-***.45", receipt.MaskedPlateNumber);
+        Assert.Equal(0, receipt.TotalFee);
+        Assert.Equal(0, receipt.PaidAmount);
+        Assert.Equal(0, receipt.AmountDue);
+        Assert.Equal(EntryTime, receipt.EntryTimeUtc);
+        Assert.Equal(PaidAt.AddMinutes(5), receipt.ExitTimeUtc);
+        Assert.Equal(session.UserId, receipt.AccountId);
     }
 
     [Fact]
@@ -113,6 +127,7 @@ public sealed class CompleteParkingSessionTests
         var session = PaidSession(VehicleType.Motorbike);
         var context = new Context(session, now: PaidAt.AddMinutes(5));
         await context.Complete();
+        Assert.Equal(2, context.Outbox.Events.Count);
         context.Clock.Now = PaidAt.AddMinutes(9);
 
         var repeated = await context.Complete();
@@ -120,7 +135,22 @@ public sealed class CompleteParkingSessionTests
         Assert.True(repeated.IsSuccess);
         Assert.Equal(PaidAt.AddMinutes(5), repeated.Value!.CompletedAt);
         Assert.Equal(1, context.Zones.Released);
-        Assert.Single(context.Outbox.Events);
+        Assert.Equal(2, context.Outbox.Events.Count);
+    }
+
+    [Fact]
+    public async Task Repeating_complete_does_not_enqueue_duplicate_events()
+    {
+        var session = PaidSession();
+        var context = new Context(session, now: PaidAt.AddMinutes(5));
+
+        var first = await context.Complete();
+        Assert.True(first.IsSuccess);
+        Assert.Equal(2, context.Outbox.Events.Count);
+
+        var second = await context.Complete();
+        Assert.True(second.IsSuccess);
+        Assert.Equal(2, context.Outbox.Events.Count);
     }
 
     [Fact]
@@ -180,7 +210,7 @@ public sealed class CompleteParkingSessionTests
         Assert.True(result.IsSuccess);
         Assert.Equal(ParkingSessionStatus.Completed, session.Status);
         Assert.Equal(1, context.Slots.Released);
-        Assert.Single(context.Outbox.Events);
+        Assert.Equal(2, context.Outbox.Events.Count);
         var entry = Assert.Single(context.Audit.Entries);
         Assert.Equal(AuditActions.SessionExitManuallyVerified, entry.Action);
         Assert.Equal(StaffId, entry.ActorUserId);

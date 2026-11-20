@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.AspNetCore;
@@ -76,34 +77,26 @@ public sealed class PaymentRateLimitingTests
     }
 
     [Fact]
-    public async Task Different_ips_via_x_forwarded_for_have_independent_quotas()
+    public async Task Requests_with_different_x_forwarded_for_from_same_connection_share_rate_limit_bucket()
     {
         await using var app = await CreateTestAppAsync(TestPermitsInWindow);
         var client = app.GetTestClient();
 
-        // Client A (IP 10.0.0.1) dùng hết quota
+        // Gửi requests trong hạn mức với các header X-Forwarded-For khác nhau từ cùng một kết nối
         for (var i = 0; i < TestPermitsInWindow; i++)
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, "/api/payment/parking-sessions/public-status?txnRef=TXN_A");
-            req.Headers.Add("X-Forwarded-For", "10.0.0.1");
+            req.Headers.Add("X-Forwarded-For", $"10.0.0.{1 + i}");
             using var res = await client.SendAsync(req, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         }
 
-        // Client A gửi tiếp -> bị 429
+        // Request tiếp theo dù đổi header X-Forwarded-For sang IP khác vẫn bị chặn 429 vì đến từ cùng RemoteIpAddress
         {
-            using var reqA = new HttpRequestMessage(HttpMethod.Get, "/api/payment/parking-sessions/public-status?txnRef=TXN_A");
-            reqA.Headers.Add("X-Forwarded-For", "10.0.0.1");
-            using var resA = await client.SendAsync(reqA, TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.TooManyRequests, resA.StatusCode);
-        }
-
-        // Client B (IP 10.0.0.2) vẫn được phép gửi vì có bucket riêng biệt
-        {
-            using var reqB = new HttpRequestMessage(HttpMethod.Get, "/api/payment/parking-sessions/public-status?txnRef=TXN_B");
-            reqB.Headers.Add("X-Forwarded-For", "10.0.0.2");
-            using var resB = await client.SendAsync(reqB, TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.OK, resB.StatusCode);
+            using var reqSpoofed = new HttpRequestMessage(HttpMethod.Get, "/api/payment/parking-sessions/public-status?txnRef=TXN_A");
+            reqSpoofed.Headers.Add("X-Forwarded-For", "10.0.0.99");
+            using var resSpoofed = await client.SendAsync(reqSpoofed, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.TooManyRequests, resSpoofed.StatusCode);
         }
     }
 
@@ -112,6 +105,11 @@ public sealed class PaymentRateLimitingTests
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseTestServer();
         builder.AddParkingSystemWebFoundation();
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.ForwardLimit = 1;
+        });
         builder.Services.AddPaymentAuthorization();
         builder.Services.AddPaymentRateLimiting(overridePermits: overridePermits);
 
@@ -121,6 +119,7 @@ public sealed class PaymentRateLimitingTests
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
+        app.UseForwardedHeaders();
         app.UseRateLimiter();
         app.MapParkingFeeEndpoints();
         await app.StartAsync(TestContext.Current.CancellationToken);

@@ -9,9 +9,9 @@ namespace ParkingSystem.Notification.Infrastructure.Consumers;
 
 public sealed class ReservationConfirmedNotificationConsumer(
     ICustomerNotificationStore notifications,
-    IEmailSender? emailSender = null,
-    IUserAccountEmailLookup? emailLookup = null,
-    ILogger<ReservationConfirmedNotificationConsumer>? logger = null)
+    IEmailSender emailSender,
+    IUserAccountEmailLookup emailLookup,
+    ILogger<ReservationConfirmedNotificationConsumer> logger)
     : IConsumer<ReservationConfirmedIntegrationEvent>
 {
     public async Task Consume(ConsumeContext<ReservationConfirmedIntegrationEvent> context)
@@ -24,29 +24,26 @@ public sealed class ReservationConfirmedNotificationConsumer(
             "/customer/bookings", message.ConfirmedAtUtc, context.CancellationToken);
 
         // 2. Email confirmation: Only send to accounts with verified email
-        if (emailSender is not null && emailLookup is not null)
+        var account = await emailLookup.LookupAccountEmailAsync(message.UserId, context.CancellationToken);
+        if (account is null || !account.IsEmailVerified)
         {
-            var account = await emailLookup.LookupAccountEmailAsync(message.UserId, context.CancellationToken);
-            if (account is null || !account.IsEmailVerified)
-            {
-                logger?.LogInformation(
-                    "Skipped booking confirmation email for reservation {ReservationId}: account {UserId} email not verified or account not found.",
-                    message.ReservationId,
-                    message.UserId);
-                return;
-            }
-
-            await emailSender.SendReservationConfirmedEmailAsync(
-                account.Email,
-                message.ReservationId,
-                message.AppointmentTime,
-                message.PrepaidAmount,
-                context.CancellationToken);
-
-            logger?.LogInformation(
-                "Dispatched booking confirmation email for reservation {ReservationId} to account {UserId}.",
+            logger.LogInformation(
+                "Skipped booking confirmation email for reservation {ReservationId}: account {UserId} email not verified or account not found.",
                 message.ReservationId,
                 message.UserId);
+            return;
         }
+
+        await emailSender.SendReservationConfirmedEmailAsync(
+            account.Email,
+            message.ReservationId,
+            message.AppointmentTime,
+            message.PrepaidAmount,
+            context.CancellationToken);
+
+        logger.LogInformation(
+            "Dispatched booking confirmation email for reservation {ReservationId} to account {UserId}.",
+            message.ReservationId,
+            message.UserId);
     }
 }
