@@ -16,6 +16,9 @@ public static class PaymentRateLimiting
     public const string PolicyName = "AnonymousPublicStatusPolicy";
     public const string SectionName = "RateLimiting:PublicStatus";
     public const int DefaultPermitsPerMinute = 30;
+    public const string PublicFeePolicyName = "AnonymousPublicFeePolicy";
+    public const string PublicFeeSectionName = "RateLimiting:PublicFee";
+    public const int DefaultPublicFeePermitsPerMinute = 20;
     public const string RejectedErrorCode = "payment.rate_limited";
 
     public static IServiceCollection AddPaymentRateLimiting(
@@ -44,6 +47,28 @@ public static class PaymentRateLimiting
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = permits,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    });
+            });
+
+            var publicFeePermits = overridePermits
+                ?? configuration?.GetValue<int?>($"{PublicFeeSectionName}:PermitsPerMinute")
+                ?? DefaultPublicFeePermitsPerMinute;
+
+            options.AddPolicy(PublicFeePolicyName, context =>
+            {
+                var clientIp = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim();
+                if (string.IsNullOrWhiteSpace(clientIp))
+                {
+                    clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                }
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    clientIp,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = publicFeePermits,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
                     });

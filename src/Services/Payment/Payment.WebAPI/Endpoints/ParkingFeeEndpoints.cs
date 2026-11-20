@@ -11,6 +11,7 @@ using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.Create
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Commands.PayParkingFeeByWallet;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingFeeReceipt;
 using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetParkingSessionFee;
+using ParkingSystem.Payment.Application.Features.ParkingSessions.Queries.GetPublicParkingSessionFee;
 using ParkingSystem.Payment.Domain.Constants;
 using ParkingSystem.Payment.WebAPI.Security;
 
@@ -547,6 +548,49 @@ internal static class ParkingFeeEndpoints
             .WithDescription("Tra cứu trạng thái hoá đơn thanh toán mà không tiết lộ thông tin cá nhân hay biển số xe.")
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        // Tra cứu công khai phí đỗ xe theo Session QR (Q-V2c)
+        app.MapGet("/api/payment/public/sessions/fee", async (
+                [FromQuery] string? qr,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                httpContext.Response.Headers.CacheControl = "no-store";
+
+                if (string.IsNullOrWhiteSpace(qr))
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status404NotFound, ParkingFeeErrors.SessionNotFound);
+                }
+
+                var query = new GetPublicParkingSessionFeeQuery(qr.Trim());
+                var result = await sender.Send(query, cancellationToken);
+
+                if (result.IsSuccess)
+                {
+                    return Results.Ok(result.Value);
+                }
+
+                if (result.Error!.Code == ParkingFeeErrors.ParkingServiceUnavailable.Code)
+                {
+                    return BusinessProblem.Create(
+                        httpContext, StatusCodes.Status503ServiceUnavailable, result.Error);
+                }
+
+                return BusinessProblem.Create(
+                    httpContext, StatusCodes.Status404NotFound, ParkingFeeErrors.SessionNotFound);
+            })
+            .AllowAnonymous()
+            .RequireRateLimiting(PaymentRateLimiting.PublicFeePolicyName)
+            .WithTags("Thanh toán phí đỗ (Parking Fee)")
+            .WithName("GetPublicParkingSessionFeeByQr")
+            .WithSummary("Tra cứu công khai phí đỗ xe theo mã QR")
+            .WithDescription("Tra cứu phí đỗ xe tạm tính qua Session QR ẩn danh mà không trả paymentUrl và đã che biển số xe.")
+            .Produces<PublicParkingSessionFeeResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         // US-OWNER-010: Báo cáo tổng hợp doanh thu thực tế cho Chủ bãi xe
         app.MapGet("/api/payment/owner/revenue/summary", async (

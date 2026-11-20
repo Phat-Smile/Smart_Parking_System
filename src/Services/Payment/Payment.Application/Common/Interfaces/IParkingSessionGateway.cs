@@ -11,4 +11,9 @@ public interface IParkingSessionGateway
         Guid? callerAccountId,                          // Mã người gọi, có thể trống nếu chưa có tài khoản
         string callerRole,                              // Vai trò người gọi: khách hàng, nhân viên hay chủ bãi
         CancellationToken cancellationToken = default); // Tín hiệu hủy lệnh nếu người dùng ngắt kết nối
+
+    // Lấy thông tin phiên đỗ và bảng giá qua mã QR phiên đỗ (Q-V2c)
+    Task<Result<ParkingSessionFeeContext>> GetFeeContextByQrAsync(
+        string qrToken,                                 // Mã QR phiên đỗ xe
+        CancellationToken cancellationToken = default); // Tín hiệu hủy lệnh nếu người dùng ngắt kết nối
 }
