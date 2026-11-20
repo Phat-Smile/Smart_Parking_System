@@ -160,5 +160,14 @@ public sealed class NotificationMessageRetryTests
 
         public Task SendOwnerApplicationRejectedEmailAsync(string email, string reason, DateTimeOffset rejectedAtUtc, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+
+        public Task SendReservationArrivalReminderEmailAsync(
+            string email,
+            string reminderType,
+            DateTime scheduledArrivalTimeUtc,
+            DateTime cutoffTimeUtc,
+            string? maskedPlateNumber,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

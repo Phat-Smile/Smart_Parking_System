@@ -97,5 +97,14 @@ public sealed class OtpEmailConsumerTests
             OwnerRejectedEmails++;
             return Task.CompletedTask;
         }
+
+        public Task SendReservationArrivalReminderEmailAsync(
+            string email,
+            string reminderType,
+            DateTime scheduledArrivalTimeUtc,
+            DateTime cutoffTimeUtc,
+            string? maskedPlateNumber,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }
