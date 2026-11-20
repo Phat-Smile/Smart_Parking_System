@@ -20,7 +20,6 @@ import {
     ArrowRight,
     X,
     Camera,
-    Clock,
 } from "lucide-react";
 import { RealCameraFeed } from "./RealCameraFeed";
 import {
@@ -48,26 +47,6 @@ type ArrivalReadingAttempt = {
     receipt: Promise<{ incidentId: string } | { error: unknown }>;
     confirmed?: { plateNumber: string; vehicleType: VehicleType };
 };
-
-/**
- * Calculates late arrival minutes from scheduled arrival time and actual entry time.
- * Returns positive integer minutes if late, or null if on-time / early / missing data.
- */
-export function calculateLateArrivalMinutes(
-    entryTimeIso?: string | null,
-    scheduledArrivalTimeIso?: string | null,
-): number | null {
-    if (!entryTimeIso || !scheduledArrivalTimeIso) {
-        return null;
-    }
-    const entryMs = new Date(entryTimeIso).getTime();
-    const scheduledMs = new Date(scheduledArrivalTimeIso).getTime();
-    if (isNaN(entryMs) || isNaN(scheduledMs)) {
-        return null;
-    }
-    const diffMinutes = Math.floor((entryMs - scheduledMs) / 60000);
-    return diffMinutes > 0 ? diffMinutes : null;
-}
 
 export function StaffEntryPage() {
     const {
@@ -412,10 +391,6 @@ export function StaffEntryPage() {
     const totalCapacity =
         assignedLot?.totalCapacity ?? assignedLot?.motorbikeCapacity ?? 50;
     const activeCount = activeSessions?.length ?? occupancy.occupied ?? 0;
-    const lateArrivalMinutes = calculateLateArrivalMinutes(
-        lastOpened?.entryTime,
-        lastOpened?.scheduledArrivalTimeUtc,
-    );
     const fallbackAvailable = Math.max(0, totalCapacity - activeCount);
     const rawAvailableSlots =
         vehicleType === "Car"
@@ -1076,25 +1051,6 @@ export function StaffEntryPage() {
                                                 />
                                                 <span>Khách đặt trước</span>
                                             </span>
-                                            {lateArrivalMinutes != null &&
-                                                lateArrivalMinutes > 0 && (
-                                                    <span
-                                                        className="staff-pill staff-pill-warning"
-                                                        style={{
-                                                            backgroundColor:
-                                                                "rgba(245, 158, 11, 0.2)",
-                                                            color: "#fbbf24",
-                                                            border: "1px solid rgba(245, 158, 11, 0.4)",
-                                                            fontWeight: 700,
-                                                            fontSize: "11px",
-                                                            padding: "1px 6px",
-                                                            borderRadius: "4px",
-                                                        }}
-                                                    >
-                                                        Trễ {lateArrivalMinutes}{" "}
-                                                        phút
-                                                    </span>
-                                                )}
                                         </div>
                                         <code>
                                             #
@@ -1105,39 +1061,6 @@ export function StaffEntryPage() {
                                         </code>
                                     </div>
                                 )}
-                                {lastOpened.reservationId &&
-                                    lateArrivalMinutes != null &&
-                                    lateArrivalMinutes > 0 && (
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "8px",
-                                                padding: "8px 12px",
-                                                borderRadius: "8px",
-                                                backgroundColor:
-                                                    "rgba(245, 158, 11, 0.1)",
-                                                border: "1px solid rgba(245, 158, 11, 0.25)",
-                                                color: "#fbbf24",
-                                                fontSize: "12px",
-                                                margin: "4px 0 8px",
-                                            }}
-                                        >
-                                            <Clock
-                                                size={14}
-                                                className="shrink-0"
-                                            />
-                                            <span>
-                                                Xe đặt trước tới muộn trong vòng
-                                                15 phút:{" "}
-                                                <strong>
-                                                    Trễ {lateArrivalMinutes}{" "}
-                                                    phút
-                                                </strong>{" "}
-                                                (trong hạn ân hạn cho phép).
-                                            </span>
-                                        </div>
-                                    )}
                                 <div className="staff-token-box-row">
                                     <span className="staff-token-box-label">
                                         Khu vực / Vị trí đỗ
