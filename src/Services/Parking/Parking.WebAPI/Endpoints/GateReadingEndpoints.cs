@@ -8,6 +8,7 @@ using ParkingSystem.Parking.Application.GateReadings.ListPendingGateReadings;
 using ParkingSystem.Parking.Application.GateReadings.RecordGateReading;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
+using ParkingSystem.Parking.Domain.Incidents;
 using ParkingSystem.Parking.WebAPI.Security;
 
 namespace ParkingSystem.Parking.WebAPI.Endpoints;
@@ -39,8 +40,64 @@ internal static class GateReadingEndpoints
         [property: Description("Car or Motorbike, case-insensitive.")]
         string? VehicleType);
 
+    // BE-PK02: staff can confirm an existing pending gate incident, not invent a capture timestamp.
+    // The original incident.OccurredAt stays immutable and remains the Booking arrival evidence.
+    public sealed record OverrideArrivalRequest(
+        [property: Required] Guid IncidentId,
+        [property: Required] Guid LotId,
+        [property: Required, StringLength(ParkingSession.PlateNumberMaxLength, MinimumLength = 1)] string? PlateNumber,
+        [property: Required, AllowedValues(nameof(VehicleType.Car), nameof(VehicleType.Motorbike))] string? VehicleType,
+        [property: Required, StringLength(Incident.ResolutionReasonMaxLength, MinimumLength = 1)] string? Reason);
+
     public static IEndpointRouteBuilder MapGateReadingEndpoints(this IEndpointRouteBuilder app)
     {
+        // BE-PK02: explicit manual arrival confirmation, isolated from session/barrier actions.
+        // No request timestamp is accepted; an authenticated staff member must reference a pending incident.
+        app.MapPost("/api/parking/staff/gate/override-arrival", async (
+                OverrideArrivalRequest request,
+                ICurrentUser currentUser,
+                HttpContext httpContext,
+                ISender sender,
+                CancellationToken cancellationToken) =>
+            {
+                if (!Guid.TryParse(currentUser.SubjectId, out var actorUserId))
+                    return Results.Forbid();
+
+                if (request.IncidentId == Guid.Empty || request.LotId == Guid.Empty ||
+                    string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > Incident.ResolutionReasonMaxLength)
+                    return Results.BadRequest(new { message = "incidentId, lotId and a reason of up to 500 characters are required." });
+
+                var result = await sender.Send(new ConfirmGateReadingCommand(
+                    request.IncidentId,
+                    request.PlateNumber ?? string.Empty,
+                    request.VehicleType ?? string.Empty,
+                    actorUserId,
+                    ExpectedLotId: request.LotId,
+                    OverrideReason: request.Reason), cancellationToken);
+
+                if (result.IsSuccess)
+                    return Results.Ok(result.Value);
+
+                var statusCode = result.Error == ConfirmGateReadingErrors.ReadingNotFound
+                    ? StatusCodes.Status404NotFound
+                    : result.Error == ParkingLotAccessErrors.AccessDenied
+                        ? StatusCodes.Status403Forbidden
+                        : result.Error == ConfirmGateReadingErrors.OverrideReasonRequired ||
+                          result.Error == ConfirmGateReadingErrors.OverrideReasonTooLong
+                            ? StatusCodes.Status400BadRequest
+                            : StatusCodes.Status409Conflict;
+                return BusinessProblem.Create(httpContext, statusCode, result.Error!);
+            })
+            .RequireAuthorization(ParkingAuthorization.StaffPolicy)
+            .WithName("OverrideGateArrival")
+            .WithSummary("Staff-confirm an existing gate incident with a reason; does not open a parking session")
+            .Produces<ConfirmedGateReading>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         // US-PARK-002. The staff queue of a lot: readings waiting for confirmation, oldest first.
         app.MapGet($"{Route}/pending", async (
                 [Required] Guid? lotId,

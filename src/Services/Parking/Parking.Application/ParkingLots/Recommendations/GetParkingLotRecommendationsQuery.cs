@@ -64,6 +64,7 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
     IArrivalSnapshotReader snapshotReader,
     IArrivalHeldQuotaClient arrivalHeldQuotaClient,
     IParkingRecommendationClient recommendationClient,
+    IRecommendationDrivingEtaReader drivingEtaReader,
     ILogger<GetParkingLotRecommendationsQueryHandler> logger)
     : IRequestHandler<GetParkingLotRecommendationsQuery, ParkingLotRecommendationResult>
 {
@@ -102,6 +103,13 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         {
             return new ParkingLotRecommendationResult([], true, "no_applicable_pricing_policy");
         }
+
+        // Query the same cached OSRM Table adapter used by Search. No Haversine-as-ETA.
+        var verifiedDriveTimes = await drivingEtaReader.GetDrivingMinutesAsync(
+            request.Latitude, request.Longitude,
+            pricedLots.Select(lot => new RecommendationRouteDestination(
+                lot.Id, lot.Latitude, lot.Longitude)).ToList(),
+            vehicleTypeStr, cancellationToken);
 
         // 2. Fetch held quotas in parallel (no ParkingDbContext usage here).
         var heldQuotaTasks = pricedLots.Select(async lot =>
@@ -149,7 +157,8 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                 priceForDuration,
                 HeldQuota: held ?? 0,
                 HeldQuotaKnown: held.HasValue,
-                Snapshots: snapshotDtos));
+                Snapshots: snapshotDtos,
+                DriveTimeMinutes: verifiedDriveTimes.TryGetValue(lot.Id, out var eta) ? eta : null));
         }
 
         // 4. Call AI recommendation client with strict timeout
@@ -171,7 +180,7 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         var inputMap = candidateInputs.ToDictionary(x => x.LotId);
         if (aiResponse is not null && IsValidAiResponse(aiResponse, inputMap))
         {
-            var recommendedLots = aiResponse.RecommendedLots.Take(request.TopK)
+            var recommendedLots = aiResponse.RecommendedLots.Take(Math.Min(3, request.TopK))
                 .Select(item =>
                 {
                     var candidate = candidateMap[item.LotId];
@@ -213,14 +222,15 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         }
 
         // 6. Clearly labelled non-AI fallback; do not present it as LLM ranking.
-        logger.LogWarning("Engaging fail-closed Haversine & capacity fallback for Top-3 recommendation. Reason={FallbackReason}", fallbackReason);
+        logger.LogWarning("Engaging non-AI distance and capacity fallback for Top-3 recommendation. Reason={FallbackReason}", fallbackReason);
         var fallbackLots = BuildFailClosedFallback(
             pricedLots,
             metrics,
             isCar,
             vehicleTypeStr,
             request.DurationMinutes,
-            request.TopK);
+            request.TopK,
+            verifiedDriveTimes);
 
         return new ParkingLotRecommendationResult(
             fallbackLots,
@@ -254,7 +264,10 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                 item.Reasons.Any(reason => string.IsNullOrWhiteSpace(reason) || reason.Length > 400))
                 return false;
 
+            // AI may only echo an OSRM-provided duration; never trust a model to invent one.
             if (item.DriveTimeMinutes is double time && (!double.IsFinite(time) || time < 0))
+                return false;
+            if (item.DriveTimeMinutes != input.DriveTimeMinutes)
                 return false;
 
             if (item.ProbabilityPercent is double probability &&
@@ -265,7 +278,20 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
             // Prevent an AI response from claiming enough data while hiding its probability.
             if (item.ProbabilityPercent is null && !item.InsufficientData)
                 return false;
+
+            // The risk badge must be derived from the published, reliable probability.
+            // An unknown probability cannot be labelled as a verified high-full-risk estimate.
+            var expectedRiskWarning = item.ProbabilityPercent is double p && p < 30d;
+            if (item.WarningHighFullRisk != expectedRiskWarning)
+                return false;
         }
+
+        // BR-08: do not accept an AI-selected risky Top 1 when its own response
+        // contains a safer candidate. Validation, not reranking: fail closed.
+        var winner = response.RecommendedLots[0];
+        if (winner.ProbabilityPercent is double winnerProbability && winnerProbability < 30d &&
+            response.RecommendedLots.Skip(1).Any(item => item.ProbabilityPercent is >= 30d))
+            return false;
 
         return true;
     }
@@ -297,7 +323,8 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         bool isCar,
         string vehicleTypeStr,
         int durationMinutes,
-        int topK)
+        int topK,
+        IReadOnlyDictionary<Guid, double?> verifiedDriveTimes)
     {
         var ranked = candidates
             .Select(lot =>
@@ -305,21 +332,21 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                 metrics.TryGetValue(lot.Id, out var metric);
                 var availableSpaces = isCar ? (metric?.AvailableCars ?? 0) : (metric?.AvailableMotorbikes ?? 0);
                 var price = GetPriceForDuration(metric, vehicleTypeStr, durationMinutes)!.Value;
-                var driveTimeMinutes = Math.Max(2.0, Math.Round(lot.DistanceKm / 30.0 * 60.0, 1));
 
                 return new
                 {
                     Lot = lot,
                     AvailableSpaces = availableSpaces,
                     Price = price,
-                    DriveTimeMinutes = driveTimeMinutes,
-                    WarningHighFullRisk = availableSpaces <= 1
+                    WarningHighFullRisk = availableSpaces <= 1,
+                    DriveTimeMinutes = verifiedDriveTimes.TryGetValue(lot.Id, out var time) ? time : null
                 };
             })
             // Multi-criteria heuristic: distance primary, available space secondary
-            .OrderBy(x => x.Lot.DistanceKm)
+            .OrderBy(x => x.DriveTimeMinutes ?? double.PositiveInfinity)
+            .ThenBy(x => x.Lot.DistanceKm)
             .ThenByDescending(x => x.AvailableSpaces)
-            .Take(topK)
+            .Take(Math.Min(3, topK))
             .ToList();
 
         var result = new List<RecommendedParkingLotDto>();
@@ -327,7 +354,8 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         {
             var item = ranked[i];
             var rank = i + 1;
-            var reasons = GenerateFallbackReasons(rank, item.Lot.DistanceKm, item.AvailableSpaces, item.Price);
+            var reasons = GenerateFallbackReasons(rank, item.Lot.DistanceKm, item.AvailableSpaces,
+                item.Price, item.DriveTimeMinutes);
 
             result.Add(new RecommendedParkingLotDto(
                 item.Lot.Id,
@@ -336,7 +364,7 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
                 item.Lot.Latitude,
                 item.Lot.Longitude,
                 rank,
-                item.DriveTimeMinutes,
+                DriveTimeMinutes: item.DriveTimeMinutes, // Only from the verified OSRM reader.
                 ProbabilityPercent: null,
                 item.Price,
                 item.WarningHighFullRisk,
@@ -354,11 +382,14 @@ public sealed class GetParkingLotRecommendationsQueryHandler(
         int rank,
         double distanceKm,
         int availableSpaces,
-        decimal price)
+        decimal price,
+        double? driveTimeMinutes)
     {
         return rank switch
         {
-            1 => ["Gần nhất theo khoảng cách", $"{distanceKm:F1} km",
+            1 => [driveTimeMinutes.HasValue
+                    ? $"OSRM: khoảng {driveTimeMinutes.Value:F1} phút lái xe"
+                    : "Gần nhất theo khoảng cách", $"{distanceKm:F1} km",
                 availableSpaces > 0 ? "Đang báo còn chỗ" : "Chưa xác nhận còn chỗ"],
             2 => ["Bãi gần khu vực", $"Giá ước tính {price:N0} đ",
                 availableSpaces > 0 ? "Đang báo còn chỗ" : "Cần kiểm tra chỗ trống"],

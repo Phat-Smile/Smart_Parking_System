@@ -170,6 +170,102 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         return await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
     }
 
+    [Fact]
+    public async Task Sprint5_owner_pricing_route_requires_authentication()
+    {
+        await using var app = await CreateAppAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Put,
+            $"/api/parking/owner/lots/{ApprovedLot}/pricing")
+        {
+            Content = JsonContent.Create(new
+            {
+                vehicleType = "CAR", billingMode = "Block", blockMinutes = 30,
+                price = 35000, overnightFee = 0, expectedVersion = 1, reason = "Owner approved"
+            })
+        };
+        using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sprint5_owner_pricing_route_rejects_a_staff_account()
+    {
+        await using var app = await CreateAppAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Put,
+            $"/api/parking/owner/lots/{ApprovedLot}/pricing")
+        {
+            Content = JsonContent.Create(new
+            {
+                vehicleType = "CAR", billingMode = "Block", blockMinutes = 30,
+                price = 35000, overnightFee = 0, expectedVersion = 1, reason = "Owner approved"
+            })
+        };
+        request.Headers.Add(RoleHeader, "Staff");
+        request.Headers.Add(UserHeader, Owner.ToString());
+        using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sprint5_owner_pricing_route_reuses_versioned_handler_and_returns_conflict()
+    {
+        await using var app = await CreateAppAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Put,
+            $"/api/parking/owner/lots/{ApprovedLot}/pricing")
+        {
+            Content = JsonContent.Create(new
+            {
+                vehicleType = "CAR", billingMode = "Block", blockMinutes = 30,
+                price = 35000, overnightFee = 0, expectedVersion = 999, reason = "Owner approved"
+            })
+        };
+        request.Headers.Add(RoleHeader, "ParkingLotOwner");
+        request.Headers.Add(UserHeader, Owner.ToString());
+        using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sprint5_owner_pricing_route_creates_the_next_policy_version()
+    {
+        await using var app = await CreateAppAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Put,
+            $"/api/parking/owner/lots/{ApprovedLot}/pricing")
+        {
+            Content = JsonContent.Create(new
+            {
+                vehicleType = "CAR", billingMode = "Block", blockMinutes = 30,
+                price = 35000, overnightFee = 0, expectedVersion = 1, reason = "Owner approved"
+            })
+        };
+        request.Headers.Add(RoleHeader, "ParkingLotOwner");
+        request.Headers.Add(UserHeader, Owner.ToString());
+        using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, body.GetProperty("result").GetProperty("version").GetInt32());
+        Assert.True(body.GetProperty("result").GetProperty("isNewVersionCreated").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Sprint5_owner_pricing_route_rejects_another_lot_owner()
+    {
+        await using var app = await CreateAppAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Put,
+            $"/api/parking/owner/lots/{ApprovedLot}/pricing")
+        {
+            Content = JsonContent.Create(new
+            {
+                vehicleType = "CAR", billingMode = "Block", blockMinutes = 30,
+                price = 35000, overnightFee = 0, expectedVersion = 1, reason = "Unauthorized"
+            })
+        };
+        request.Headers.Add(RoleHeader, "ParkingLotOwner");
+        request.Headers.Add(UserHeader, OtherOwner.ToString());
+        using var response = await app.GetTestClient().SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private static async Task<WebApplication> CreateAppAsync()
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Production" });
@@ -186,6 +282,7 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         builder.Services.AddSingleton<IAdminParkingLotDetailReader, InMemoryLots>();
         builder.Services.AddSingleton<ILotOwnershipService, InMemoryOwnership>();
         builder.Services.AddSingleton<IPricingPolicyRepository, InMemoryPricing>();
+        builder.Services.AddSingleton<IAuditWriter, InMemoryAudit>();
         builder.Services.AddSingleton<IAvailableSlotReader, InMemoryCarSlots>();
         builder.Services.AddSingleton<IMotorbikeZoneCounter, InMemoryMotorbikeZones>();
         builder.Services.AddSingleton<IClock, ParkingSystem.BuildingBlocks.Time.SystemClock>();
@@ -259,6 +356,11 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         public Task<bool> IsLotApprovedAsync(Guid lotId) => Task.FromResult(lotId == ApprovedLot);
     }
 
+    private sealed class InMemoryAudit : IAuditWriter
+    {
+        public void Log(Guid actorId, string action, string targetId, string details) { }
+    }
+
     private sealed class InMemoryPricing : IPricingPolicyRepository
     {
         public Task<PricingPolicy?> GetEffectiveAtAsync(Guid lotId, string vehicleType, DateTimeOffset at, CancellationToken cancellationToken) =>
@@ -266,7 +368,7 @@ public sealed class LotDetailPricingAvailabilityHttpTests
 
         private static readonly DateTime Effective = new(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        private static readonly PricingPolicy[] Policies =
+        private readonly List<PricingPolicy> Policies =
         [
             PricingPolicy.Create(Guid.NewGuid(), ApprovedLot, "CAR", 1, "Block", 60, 30000m, 0m, Effective),
             PricingPolicy.Create(Guid.NewGuid(), ApprovedLot, "MOTORBIKE", 1, "Block", 60, 5000m, 0m, Effective),
@@ -274,11 +376,18 @@ public sealed class LotDetailPricingAvailabilityHttpTests
         ];
 
         public Task<PricingPolicy?> GetLatestAsync(Guid lotId, string vehicleType, CancellationToken cancellationToken) =>
-            Task.FromResult(Policies.FirstOrDefault(policy => policy.LotId == lotId && policy.VehicleType == vehicleType));
+            Task.FromResult(Policies
+                .Where(policy => policy.LotId == lotId && policy.VehicleType == vehicleType)
+                .OrderByDescending(policy => policy.Version)
+                .FirstOrDefault());
 
-        public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task AddAsync(PricingPolicy policy, CancellationToken cancellationToken)
+        {
+            Policies.Add(policy);
+            return Task.CompletedTask;
+        }
 
-        public Task<bool> SaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(true);
     }
 
     private sealed class InMemoryCarSlots : IAvailableSlotReader

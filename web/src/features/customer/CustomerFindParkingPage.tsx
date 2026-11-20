@@ -140,7 +140,13 @@ export function CustomerFindParkingPage({
     const [anchorHour] = useState(arrivalHour);
     const [vehicleType, setVehicleType] = useState(initialSearch.vehicle);
     const [selectedId, setSelectedId] = useState("parkside");
-    const [searchMessage, setSearchMessage] = useState("");
+    // US-PRIV-001: an incoming search label is not a grant to access GPS.
+    // Only the explicit "Use my current location" button may request location.
+    const [searchMessage, setSearchMessage] = useState(
+        initialSearch.destination === "Current location"
+            ? "Choose Use my current location to share your location, or enter an address instead."
+            : "",
+    );
     const [locationBusy, setLocationBusy] = useState(false);
     const [searchBusy, setSearchBusy] = useState(false);
     const searchAbortRef = useRef<AbortController | null>(null);
@@ -176,27 +182,6 @@ export function CustomerFindParkingPage({
         });
         return () => cancelAnimationFrame(frame);
     }, []);
-    useEffect(() => {
-        if (
-            initialSearch.destination !== "Current location" ||
-            !navigator.geolocation
-        )
-            return;
-        navigator.geolocation.getCurrentPosition(
-            ({ coords }) => {
-                setCurrentLocation({
-                    longitude: coords.longitude,
-                    latitude: coords.latitude,
-                });
-            },
-            () => {
-                setSearchMessage(
-                    "Your location could not be restored. Choose Use my current location to try again.",
-                );
-            },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
-        );
-    }, [initialSearch.destination]);
     useEffect(
         () => () => {
             searchAbortRef.current?.abort();

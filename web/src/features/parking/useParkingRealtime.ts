@@ -53,6 +53,9 @@ export function useParkingRealtime({
     }, [onSlotStatusChanged, onLotOccupancyChanged]);
 
     useEffect(() => {
+        setLastSlotChange(null);
+        setLastOccupancyChange(null);
+        setIsConnected(false);
         if (!lotId) return;
 
         let isMounted = true;
@@ -76,7 +79,7 @@ export function useParkingRealtime({
         }
 
         connection.on("SlotStatusChanged", (event: SlotStatusChangedEvent) => {
-            if (!isMounted) return;
+            if (!isMounted || typeof event?.lotId !== "string" || event.lotId.toLowerCase() !== lotId.toLowerCase()) return;
             setLastSlotChange(event);
             slotCbRef.current?.(event);
         });
@@ -84,7 +87,7 @@ export function useParkingRealtime({
         connection.on(
             "LotOccupancyChanged",
             (event: LotOccupancyChangedEvent) => {
-                if (!isMounted) return;
+                if (!isMounted || typeof event?.lotId !== "string" || event.lotId.toLowerCase() !== lotId.toLowerCase()) return;
                 setLastOccupancyChange(event);
                 occCbRef.current?.(event);
             },
