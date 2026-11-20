@@ -153,7 +153,10 @@ export function RecentActivityV2() {
                                     }}
                                 >
                                     <span
-                                        style={{ fontSize: 12, color: "#6a7491" }}
+                                        style={{
+                                            fontSize: 12,
+                                            color: "#6a7491",
+                                        }}
                                     >
                                         {act.timeAgo}
                                     </span>
@@ -162,7 +165,9 @@ export function RecentActivityV2() {
                                             background: isParked
                                                 ? "#fde8e8"
                                                 : "#def7ec",
-                                            color: isParked ? "#e5484d" : "#0e9f6e",
+                                            color: isParked
+                                                ? "#e5484d"
+                                                : "#0e9f6e",
                                             borderRadius: 999,
                                             padding: "3px 10px",
                                             fontSize: 11.5,
