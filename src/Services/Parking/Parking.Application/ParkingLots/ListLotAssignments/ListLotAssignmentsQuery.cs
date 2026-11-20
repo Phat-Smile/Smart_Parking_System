@@ -1,5 +1,6 @@
 using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
+using ParkingSystem.Parking.Application.Common.Identity;
 using ParkingSystem.Parking.Application.Common.Interfaces;
 using ParkingSystem.Parking.Application.ParkingLots.AssignLotMember;
 using ParkingSystem.Parking.Application.ParkingLots.AssignLotStaff;
@@ -12,7 +13,12 @@ public sealed record ListLotAssignmentsQuery(Guid LotId) : IRequest<Result<IRead
 public sealed record ListOwnerLotAssignmentsQuery(Guid LotId, Guid OwnerId)
     : IRequest<Result<IReadOnlyList<LotAssignment>>>;
 
-public sealed record LotAssignment(Guid AccountId, string Role, DateTimeOffset AssignedAtUtc);
+public sealed record LotAssignment(
+    Guid AccountId,
+    string Role,
+    DateTimeOffset AssignedAtUtc,
+    string? DisplayName = null,
+    string? MaskedEmail = null);
 
 public sealed class ListLotAssignmentsQueryHandler(IParkingLotAssignmentRepository assignments)
     : IRequestHandler<ListLotAssignmentsQuery, Result<IReadOnlyList<LotAssignment>>>
@@ -32,7 +38,8 @@ public sealed class ListLotAssignmentsQueryHandler(IParkingLotAssignmentReposito
 
 public sealed class ListOwnerLotAssignmentsQueryHandler(
     ILotOwnershipService lotOwnership,
-    IParkingLotAssignmentRepository assignments)
+    IParkingLotAssignmentRepository assignments,
+    IStaffAccountEnricher? staffEnricher = null)
     : IRequestHandler<ListOwnerLotAssignmentsQuery, Result<IReadOnlyList<LotAssignment>>>
 {
     public async Task<Result<IReadOnlyList<LotAssignment>>> Handle(ListOwnerLotAssignmentsQuery request, CancellationToken cancellationToken)
@@ -44,8 +51,29 @@ public sealed class ListOwnerLotAssignmentsQueryHandler(
             return Result<IReadOnlyList<LotAssignment>>.Failure(LotMemberErrors.LotNotFound);
 
         var members = await assignments.ListByLotAsync(request.LotId, cancellationToken);
+        if (members.Count == 0)
+            return Result<IReadOnlyList<LotAssignment>>.Success([]);
+
+        IReadOnlyDictionary<Guid, (string DisplayName, string MaskedEmail)> enriched =
+            new Dictionary<Guid, (string, string)>();
+
+        if (staffEnricher is not null)
+        {
+            var accountIds = members.Select(m => m.AccountId).Distinct().ToList();
+            enriched = await staffEnricher.BatchLookupAccountsAsync(accountIds, cancellationToken);
+        }
+
         return Result<IReadOnlyList<LotAssignment>>.Success(members
-            .Select(member => new LotAssignment(member.AccountId, member.Role.ToString(), member.AssignedAtUtc))
+            .Select(member =>
+            {
+                enriched.TryGetValue(member.AccountId, out var details);
+                return new LotAssignment(
+                    member.AccountId,
+                    member.Role.ToString(),
+                    member.AssignedAtUtc,
+                    details.DisplayName,
+                    details.MaskedEmail);
+            })
             .ToList());
     }
 }

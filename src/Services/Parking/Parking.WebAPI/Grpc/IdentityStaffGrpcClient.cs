@@ -11,7 +11,7 @@ public sealed class IdentityStaffGrpcClient(
     IdentityStaffContract.IdentityStaffContractClient client,
     IOptions<IdentityServiceOptions> options,
     IOptions<ServiceKeyOptions> serviceKeyOptions,
-    ILogger<IdentityStaffGrpcClient> logger) : IStaffAccountLookup
+    ILogger<IdentityStaffGrpcClient> logger) : IStaffAccountLookup, IStaffAccountEnricher
 {
     public async Task<(bool IsFound, Guid AccountId)> LookupStaffByEmailAsync(string email, CancellationToken cancellationToken)
     {
@@ -52,6 +52,64 @@ public sealed class IdentityStaffGrpcClient(
         }
 
         return (true, accountId);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, (string DisplayName, string MaskedEmail)>> BatchLookupAccountsAsync(
+        IReadOnlyList<Guid> accountIds,
+        CancellationToken cancellationToken)
+    {
+        if (accountIds.Count == 0)
+            return new Dictionary<Guid, (string, string)>();
+
+        var distinctIds = accountIds.Distinct().ToList();
+        var request = new BatchLookupAccountsRequest();
+        foreach (var id in distinctIds)
+        {
+            request.AccountIds.Add(id.ToString("D"));
+        }
+
+        try
+        {
+            var response = await client.BatchLookupAccountsAsync(
+                request,
+                headers: BuildHeaders(),
+                deadline: DateTime.UtcNow.AddSeconds(options.Value.TimeoutSeconds),
+                cancellationToken: cancellationToken);
+
+            var result = new Dictionary<Guid, (string, string)>();
+            foreach (var account in response.Accounts)
+            {
+                if (Guid.TryParseExact(account.AccountId, "D", out var accountId))
+                {
+                    result[accountId] = (account.DisplayName, MaskEmail(account.Email));
+                }
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (RpcException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Batch staff account lookup in Identity failed.");
+            return new Dictionary<Guid, (string, string)>();
+        }
+    }
+
+    public static string MaskEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "***@***";
+
+        var trimmed = email.Trim();
+        var at = trimmed.IndexOf('@');
+        return at <= 0 ? "***" : $"{trimmed[0]}***{trimmed[at..]}";
     }
 
     private Metadata BuildHeaders()
