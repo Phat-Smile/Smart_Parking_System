@@ -9,10 +9,7 @@ import {
     UNPAID_EXIT_WARNING_MESSAGE,
 } from "./phoneticHelper";
 import { gateVoiceService } from "./GateVoiceService";
-import {
-    isGateVoiceSupported,
-    GATE_VOICE_PROMPTS,
-} from "./gateVoice";
+import { isGateVoiceSupported, GATE_VOICE_PROMPTS } from "./gateVoice";
 
 describe("phoneticHelper - Chuẩn hóa giọng đọc tiếng Việt", () => {
     it("chuẩn hóa biển số xe dạng có dấu chấm 51F-123.45 chính xác", () => {
@@ -400,9 +397,7 @@ describe("Gate Voice Assistant - Kịch bản Cổng bãi và Fallback headless"
             service.speak({ text: "Test headless fallback", playChime: false }),
         ).resolves.toBeUndefined();
 
-        await expect(
-            service.announceUnpaidExit(),
-        ).resolves.toBeUndefined();
+        await expect(service.announceUnpaidExit()).resolves.toBeUndefined();
 
         const logs = service.getLogs();
         expect(logs[0]?.text).toBe(

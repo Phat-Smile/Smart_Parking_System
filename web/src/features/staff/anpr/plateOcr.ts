@@ -198,7 +198,9 @@ async function getCachedOcrWorker() {
         // ALPR is processed by C# Backend (<300ms). Client-side tesseract is kept as dynamic fallback only.
         const tesseractPkg = "tesseract.js";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tesseract: any = await import(/* webpackIgnore: true */ tesseractPkg).catch(() => null);
+        const tesseract: any = await import(
+            /* webpackIgnore: true */ tesseractPkg
+        ).catch(() => null);
         if (!tesseract || !tesseract.createWorker) {
             cachedWorker = null;
             return null;

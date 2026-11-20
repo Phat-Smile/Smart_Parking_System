@@ -48,9 +48,7 @@ vi.mock("./reviewParkingLot", () => ({
     getAdminParkingLots: vi.fn().mockResolvedValue([]),
 }));
 
-function signInAdmin(
-    role: LoginResponse["account"]["role"] = "SystemAdmin",
-) {
+function signInAdmin(role: LoginResponse["account"]["role"] = "SystemAdmin") {
     setAuthSession({
         accessToken: "test-admin-token",
         refreshToken: "test-admin-refresh",

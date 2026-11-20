@@ -24,6 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <Protobuf Include="..\..\..\..\contracts\grpc\identity_vehicle.proto" GrpcServices="Server" Link="Protos\identity_vehicle.proto" />
+    <Protobuf Include="..\..\..\..\contracts\grpc\identity_staff.proto" GrpcServices="Server" Link="Protos\identity_staff.proto" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Identity.Application\Identity.Application.csproj" />

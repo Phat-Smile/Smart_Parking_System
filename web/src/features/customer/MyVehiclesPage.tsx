@@ -274,47 +274,6 @@ function getVehicleDetails(vehicle: Vehicle) {
             Boolean(detail),
     );
 }
-const sampleVehicles: Vehicle[] = [
-    {
-        id: "sample-sedan",
-        category: "electric-car",
-        plate: "51K-123.45",
-        brand: "Toyota",
-        vehicleType: "sedan",
-        seats: "5",
-        fuelType: "electric",
-        color: "white",
-        manufacturingYear: "2023",
-        size: "standard",
-        photo: "/images/parkwise/vehicle-sedan-cutout.png",
-    },
-    {
-        id: "sample-suv",
-        category: "car",
-        plate: "30A-987.65",
-        brand: "Toyota",
-        vehicleType: "suv",
-        seats: "7",
-        fuelType: "gasoline",
-        color: "white",
-        manufacturingYear: "2022",
-        size: "large",
-        photo: "/images/parkwise/vehicle-suv.png",
-    },
-    {
-        id: "sample-motorbike",
-        category: "motorbike",
-        plate: "59A1-123.45",
-        brand: "Honda",
-        model: "Vision",
-        vehicleType: "scooter",
-        fuelType: "gasoline",
-        color: "white",
-        manufacturingYear: "2024",
-        size: "standard",
-        photo: "/images/parkwise/vehicle-motorbike-cutout.png",
-    },
-];
 
 function fromRegisteredVehicle(
     vehicle: Omit<RegisteredVehicle, "createdAtUtc">,
@@ -582,7 +541,7 @@ export function MyVehiclesPage({ fontClassName }: { fontClassName: string }) {
         getAuthSessionSnapshot,
         () => null,
     );
-    const [vehicles, setVehicles] = useState<Vehicle[]>(sampleVehicles);
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
     const [modal, setModal] = useState<Modal>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);

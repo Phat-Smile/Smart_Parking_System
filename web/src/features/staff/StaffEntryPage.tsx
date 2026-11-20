@@ -129,16 +129,37 @@ export function StaffEntryPage() {
             // Staff can correct the plate/type in the form; a different vehicle requires an explicit reset.
             if (arrivalReading.current) return;
 
-            const score = typeof confidence === "number" && Number.isFinite(confidence)
-                ? Math.min(1, Math.max(0, confidence)) : 0;
+            const score =
+                typeof confidence === "number" && Number.isFinite(confidence)
+                    ? Math.min(1, Math.max(0, confidence))
+                    : 0;
             const receipt: ArrivalReadingAttempt["receipt"] = lotId
-                ? recordGateReading({ lotId, plateNumber: formatted, vehicleType: observedVehicleType, confidence: score })
-                    .then(result => {
-                        if (!result || result.lotId !== lotId || result.decision !== "PendingStaff" || !result.incidentId)
-                            return { error: new Error("Gate reading was not recorded for staff confirmation.") };
-                        return { incidentId: result.incidentId };
-                    }).catch(error => ({ error }))
-                : Promise.resolve({ error: new Error("Assigned lot is not ready. Reset and scan again.") });
+                ? recordGateReading({
+                      lotId,
+                      plateNumber: formatted,
+                      vehicleType: observedVehicleType,
+                      confidence: score,
+                  })
+                      .then((result) => {
+                          if (
+                              !result ||
+                              result.lotId !== lotId ||
+                              result.decision !== "PendingStaff" ||
+                              !result.incidentId
+                          )
+                              return {
+                                  error: new Error(
+                                      "Gate reading was not recorded for staff confirmation.",
+                                  ),
+                              };
+                          return { incidentId: result.incidentId };
+                      })
+                      .catch((error) => ({ error }))
+                : Promise.resolve({
+                      error: new Error(
+                          "Assigned lot is not ready. Reset and scan again.",
+                      ),
+                  });
             arrivalReading.current = { lotId, receipt };
 
             setPlateNumber(formatted);
@@ -200,20 +221,41 @@ export function StaffEntryPage() {
             if (reading) {
                 verifyingArrival = true;
                 if (reading.lotId !== assignedLot.lotId)
-                    throw new Error("Assigned lot changed. Reset and scan the vehicle again.");
+                    throw new Error(
+                        "Assigned lot changed. Reset and scan the vehicle again.",
+                    );
                 const receipt = await reading.receipt;
                 if ("error" in receipt) throw receipt.error;
                 gateReadingIncidentId = receipt.incidentId;
                 // Keep a successful confirmation across retries of the session-open request.
                 if (!reading.confirmed) {
-                    const confirmed = await confirmGateReading(gateReadingIncidentId, finalPlate, vehicleType);
-                    if (!confirmed || confirmed.incidentId !== gateReadingIncidentId || confirmed.lotId !== assignedLot.lotId
-                        || confirmed.decision !== "StaffConfirmed"
-                        || confirmed.plateNumber !== finalPlate || confirmed.vehicleType !== vehicleType)
-                        throw new Error("Gate reading confirmation does not match the vehicle.");
-                    reading.confirmed = { plateNumber: finalPlate, vehicleType };
-                } else if (reading.confirmed.plateNumber !== finalPlate || reading.confirmed.vehicleType !== vehicleType) {
-                    throw new Error("Vehicle details changed after confirmation. Reset and scan again.");
+                    const confirmed = await confirmGateReading(
+                        gateReadingIncidentId,
+                        finalPlate,
+                        vehicleType,
+                    );
+                    if (
+                        !confirmed ||
+                        confirmed.incidentId !== gateReadingIncidentId ||
+                        confirmed.lotId !== assignedLot.lotId ||
+                        confirmed.decision !== "StaffConfirmed" ||
+                        confirmed.plateNumber !== finalPlate ||
+                        confirmed.vehicleType !== vehicleType
+                    )
+                        throw new Error(
+                            "Gate reading confirmation does not match the vehicle.",
+                        );
+                    reading.confirmed = {
+                        plateNumber: finalPlate,
+                        vehicleType,
+                    };
+                } else if (
+                    reading.confirmed.plateNumber !== finalPlate ||
+                    reading.confirmed.vehicleType !== vehicleType
+                ) {
+                    throw new Error(
+                        "Vehicle details changed after confirmation. Reset and scan again.",
+                    );
                 }
             }
             verifyingArrival = false;
@@ -282,9 +324,9 @@ export function StaffEntryPage() {
             }, 1000);
         } catch (err) {
             const message = verifyingArrival
-                ? (language === "vi"
+                ? language === "vi"
                     ? "Không thể ghi nhận/xác nhận lượt xe. Kiểm tra kết nối, bấm Làm mới và quét lại nếu cần."
-                    : "Gate reading could not be recorded or confirmed. Check the connection, reset and scan again if needed.")
+                    : "Gate reading could not be recorded or confirmed. Check the connection, reset and scan again if needed."
                 : describeStaffError(err);
             setErrorMsg(message);
             announceWarning(message);
@@ -948,7 +990,9 @@ export function StaffEntryPage() {
                                                         <span className="inline-flex items-center gap-1">
                                                             <CheckCircle2
                                                                 size={12}
-                                                                strokeWidth={2.4}
+                                                                strokeWidth={
+                                                                    2.4
+                                                                }
                                                                 className="text-emerald-500"
                                                             />
                                                             <span>
@@ -1020,7 +1064,14 @@ export function StaffEntryPage() {
                                     <span className="staff-token-box-label">
                                         Khu vực / Vị trí đỗ
                                     </span>
-                                    <div className="staff-slot-status-flex" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <div
+                                        className="staff-slot-status-flex"
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                        }}
+                                    >
                                         <strong>
                                             {[
                                                 lastOpened.floorName,
@@ -1111,7 +1162,11 @@ export function StaffEntryPage() {
                                 <button
                                     type="button"
                                     className="staff-btn staff-btn-checkin-primary transition-all duration-150 active:scale-[0.98] cursor-pointer"
-                                    disabled={loading || !!lastOpened || !currentPlateDisplay.trim()}
+                                    disabled={
+                                        loading ||
+                                        !!lastOpened ||
+                                        !currentPlateDisplay.trim()
+                                    }
                                     onClick={handleConfirmEntry}
                                 >
                                     {loading ? (
@@ -1159,7 +1214,9 @@ export function StaffEntryPage() {
                                     <button
                                         type="button"
                                         className={`staff-btn staff-btn-secondary confirm-parked ${
-                                            isParkedConfirmed ? "is-confirmed" : ""
+                                            isParkedConfirmed
+                                                ? "is-confirmed"
+                                                : ""
                                         }`}
                                         data-testid="confirm-parked-btn"
                                         disabled={

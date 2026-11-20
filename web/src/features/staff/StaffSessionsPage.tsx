@@ -72,8 +72,12 @@ export function StaffSessionsPage() {
                     const isDone =
                         item.status === "Completed" ||
                         item.status === "Cancelled";
-                    const fallbackFee =
-                        item.vehicleType === "Car" ? 30000 : 6000;
+                    const fee =
+                        (item as { totalFee?: number; totalFeeVnd?: number })
+                            .totalFee ??
+                        (item as { totalFee?: number; totalFeeVnd?: number })
+                            .totalFeeVnd ??
+                        0;
                     return {
                         id: item.sessionId,
                         lotId,
@@ -92,8 +96,8 @@ export function StaffSessionsPage() {
                             : isDone
                               ? "Paid"
                               : "Pending",
-                        totalFeeVnd: fallbackFee,
-                        amountDueVnd: isPaid || isDone ? 0 : fallbackFee,
+                        totalFeeVnd: fee,
+                        amountDueVnd: isPaid || isDone ? 0 : fee,
                     };
                 });
                 setRealSessions(mapped);

@@ -93,33 +93,6 @@ export function SessionsTableV2() {
                 });
             });
 
-        // Mock completed sessions
-        const completedPlates = [
-            "51A-455.34",
-            "51A-573.12",
-            "51A-691.80",
-            "60A-882.19",
-            "72A-341.05",
-            "51H-992.41",
-            "59X-441.22",
-            "30H-119.82",
-            "50Z-661.34",
-            "51F-774.90",
-        ];
-        completedPlates.forEach((p, idx) => {
-            const fl = FLOORS[idx % FLOORS.length];
-            list.push({
-                id: `SES-OUT-${idx + 1}`,
-                plate: p,
-                slot: `${fl}-B${idx + 1}`,
-                floor: fl,
-                entryTime: `0${8 + (idx % 4)}:${String(10 + idx * 4).padStart(2, "0")}`,
-                duration: "1 giờ 45 phút",
-                method: idx % 2 === 0 ? "Ví Smart Parking" : "VNPay QR",
-                status: "Đã ra",
-            });
-        });
-
         return list;
     }, [spots]);
 

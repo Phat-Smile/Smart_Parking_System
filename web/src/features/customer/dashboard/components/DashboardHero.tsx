@@ -12,6 +12,8 @@ import {
     AlertTriangle,
 } from "lucide-react";
 import QRCode from "react-qr-code";
+import { getMyParkingSessions, type MyParkingSession } from "../../mySessionsApi";
+import { getMyReservations, type ReservationSummaryDto } from "../../booking/bookingApi";
 
 function formatTime(seconds: number) {
     const m = Math.floor(seconds / 60);
@@ -23,6 +25,26 @@ export function DashboardHero() {
     const { heroState, vehicleType, countdown, setCountdown } =
         useDashboardStore();
     const [qrModalOpen, setQrModalOpen] = useState(false);
+    const [activeSession, setActiveSession] = useState<MyParkingSession | null>(null);
+    const [activeBooking, setActiveBooking] = useState<ReservationSummaryDto | null>(null);
+
+    useEffect(() => {
+        getMyParkingSessions()
+            .then((sessions) => {
+                if (sessions && sessions.length > 0) {
+                    setActiveSession(sessions[0]);
+                }
+            })
+            .catch(() => {});
+        getMyReservations()
+            .then((reservations) => {
+                const upcoming = (reservations || []).find(
+                    (r) => r.status === "Confirmed" || r.status === "PendingPayment",
+                );
+                if (upcoming) setActiveBooking(upcoming);
+            })
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (
@@ -92,14 +114,16 @@ export function DashboardHero() {
             <div className="flex justify-between items-start">
                 <div>
                     <h3 className="text-2xl font-bold text-[var(--dash-text)] mb-1 flex items-center gap-2">
-                        Bãi đỗ Vincom Center{" "}
+                        {activeBooking?.lotId || "Chưa có đặt chỗ"}{" "}
                         <Badge type="success">Đã xác nhận</Badge>
                     </h3>
                     <p className="text-[var(--dash-text-muted)] flex items-center gap-2 mt-2">
-                        <MapPin size={16} /> 72 Lê Thánh Tôn, Q1
+                        <MapPin size={16} /> {activeBooking ? "Vị trí bãi đỗ xe" : "Chưa có địa chỉ"}
                     </p>
                     <p className="text-[var(--dash-text)] mt-3 font-medium">
-                        Giờ hẹn: 14:30 - Hôm nay
+                        {activeBooking?.appointmentTime
+                            ? `Giờ hẹn: ${new Date(activeBooking.appointmentTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} - ${new Date(activeBooking.appointmentTime).toLocaleDateString("vi-VN")}`
+                            : "Chưa có lịch hẹn"}
                     </p>
                 </div>
                 <button className="px-4 py-2 border border-[var(--dash-border)] text-[var(--dash-text)] rounded-lg text-sm hover:bg-[var(--dash-text)]/5 transition-colors">
@@ -130,7 +154,7 @@ export function DashboardHero() {
                             {vi.hero.active.plate}
                         </span>
                         <span className="font-mono font-bold text-lg text-[var(--dash-text)]">
-                            29A-12345
+                            {activeSession?.plateNumber || "Chưa có xe"}
                         </span>
                     </div>
                     <div className="bg-[var(--dash-primary)]/10 border border-[var(--dash-primary)]/30 px-3 py-1 rounded-lg">
@@ -138,7 +162,7 @@ export function DashboardHero() {
                             {vi.hero.active.spot}
                         </span>
                         <span className="font-mono font-bold text-lg text-[var(--dash-text)]">
-                            B2-45
+                            {activeSession?.zoneCode || activeSession?.floorName || "Đỗ tự do"}
                         </span>
                     </div>
                 </div>
@@ -148,7 +172,9 @@ export function DashboardHero() {
                             {vi.hero.active.entryTime}
                         </span>
                         <p className="font-bold text-[var(--dash-text)]">
-                            08:15 AM
+                            {activeSession?.entryTime
+                                ? new Date(activeSession.entryTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+                                : "—"}
                         </p>
                     </div>
                     <div>
@@ -156,7 +182,7 @@ export function DashboardHero() {
                             {vi.hero.active.duration}
                         </span>
                         <p className="font-bold text-[var(--dash-text)]">
-                            02:45:10
+                            {activeSession?.entryTime ? "Đang đỗ" : "—"}
                         </p>
                     </div>
                     <div>
@@ -164,14 +190,14 @@ export function DashboardHero() {
                             {vi.hero.active.prepaid}
                         </span>
                         <p className="font-bold text-[var(--dash-text)]">
-                            50.000đ
+                            0đ
                         </p>
                     </div>
                     <div>
                         <span className="text-[var(--dash-text-muted)]">
                             {vi.hero.active.tempFee}
                         </span>
-                        <p className="font-bold text-red-500">75.000đ</p>
+                        <p className="font-bold text-red-500">Đang tính toán</p>
                     </div>
                 </div>
             </div>
@@ -287,7 +313,7 @@ export function DashboardHero() {
                             className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 w-full flex justify-center mb-6"
                             style={{ filter: "brightness(1.1) contrast(1.2)" }}
                         >
-                            <QRCode value="parking-session-12345" size={200} />
+                            <QRCode value={activeSession?.qrToken || activeSession?.sessionId || "no-session"} size={200} />
                         </div>
 
                         <div className="w-full bg-gray-50 rounded-xl p-4 text-center border border-gray-100">
@@ -295,7 +321,7 @@ export function DashboardHero() {
                                 Biển số
                             </span>
                             <span className="text-2xl font-mono font-bold text-black">
-                                29A-12345
+                                {activeSession?.plateNumber || "Chưa có xe"}
                             </span>
                         </div>
                     </div>

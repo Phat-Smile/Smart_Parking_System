@@ -247,8 +247,7 @@ export function LotStatusPanel() {
                                         color: "#0f1b3d",
                                     }}
                                 >
-                                    {selectedLot.cc} ô đỗ{" "}
-                                    {isApproved ? "· Lấp đầy 58%" : ""}
+                                    {selectedLot.cc} ô đỗ
                                 </span>
                             </div>
 

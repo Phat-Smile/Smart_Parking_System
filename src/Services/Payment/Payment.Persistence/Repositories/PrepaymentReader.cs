@@ -50,9 +50,12 @@ public sealed class PrepaymentReader(PaymentDbContext dbContext) : IPrepaymentRe
             return 0L;
         }
 
-        // Tính số tiền cọc khả dụng:
-        // - Bút toán Prepayment (hoặc trừ tiền với ref Reservation): Amount < 0 -> chuyển thành số dương
-        // - Bút toán Refund: Amount > 0 -> trừ ngược lại khỏi tiền cọc
+        return CalculateNetPrepaid(entries.Select(e => (e.EntryType, e.Amount)));
+    }
+
+    // Tính số tiền cọc còn lại chưa xử lý
+    public static long CalculateNetPrepaid(IEnumerable<(LedgerEntryType EntryType, decimal Amount)> entries)
+    {
         decimal netPrepaid = 0m;
         foreach (var entry in entries)
         {
@@ -60,7 +63,9 @@ public sealed class PrepaymentReader(PaymentDbContext dbContext) : IPrepaymentRe
             {
                 netPrepaid += -entry.Amount;
             }
-            else if (entry.EntryType == LedgerEntryType.Refund)
+            else if (entry.EntryType is LedgerEntryType.Refund
+                     or LedgerEntryType.PrepaymentForfeited
+                     or LedgerEntryType.PrepaymentApplied)
             {
                 netPrepaid -= entry.Amount;
             }

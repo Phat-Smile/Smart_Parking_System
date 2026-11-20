@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-    dim,
-    getRevenueReportData,
-    p2,
-    short,
-    vnd,
-} from "./revenueAdapter";
+import { dim, getRevenueReportData, p2, short, vnd } from "./revenueAdapter";
 import { type AggregatedOwnerDashboardStats } from "@/features/owner/dashboard/ownerStatisticsApi";
 
 describe("revenueAdapter utility functions", () => {

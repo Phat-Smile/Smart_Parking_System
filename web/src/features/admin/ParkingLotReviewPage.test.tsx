@@ -83,7 +83,9 @@ describe("ParkingLotReviewPage", () => {
         expect(screen.getByText("Layout (version 3)")).toBeInTheDocument();
         expect(screen.getByText(/240 min block/)).toBeInTheDocument();
         // No car price yet: said plainly, nothing invented.
-        expect(screen.getAllByText("Not set yet").length).toBeGreaterThan(0);
+        expect(
+            screen.getAllByText("Chưa cấu hình bảng giá").length,
+        ).toBeGreaterThan(0);
     });
 
     it("a failed decision is an error, never a preview-mode success", async () => {

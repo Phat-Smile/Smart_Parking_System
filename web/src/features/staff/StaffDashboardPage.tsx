@@ -287,7 +287,7 @@ export function StaffDashboardPage() {
                                         </span>
                                         <strong className="staff-ops-mini-val text-emerald status-inline">
                                             <span className="staff-pulse-dot green" />
-                                            <span>Hoạt động tốt</span>
+                                            <span>Sẵn sàng kết nối</span>
                                         </strong>
                                     </div>
                                 </div>
@@ -482,7 +482,7 @@ export function StaffDashboardPage() {
                     <div className="staff-stat-footer">
                         <span className="staff-pill staff-pill-success">
                             <span className="staff-pulse-dot green" />
-                            <span>{t("dashLatency")} 24ms</span>
+                            <span>{t("dashLatency")} &lt; 50ms</span>
                         </span>
                     </div>
                 </div>

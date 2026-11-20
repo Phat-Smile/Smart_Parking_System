@@ -82,9 +82,11 @@ public sealed class SearchCustomerLotsQueryHandler(ISender sender, ICustomerLotF
                     .OrderBy(x => x.Price).ToList();
             var cheapest = prices.FirstOrDefault();
             if (request.MaxPrice.HasValue && (cheapest is null || cheapest.Price > request.MaxPrice.Value)) continue;
+
             results.Add(new CustomerLotSearchItem(lot.Id, lot.Name, lot.Address, lot.Latitude,
                 lot.Longitude, lot.Type, distance, cheapest?.Price, cheapest?.BillingMode, spaces,
-                feature.Prebookable, feature.Compatibility, feature.Amenities));
+                feature.Prebookable, feature.Compatibility, feature.Amenities,
+                DrivingTimeMinutes: null));
         }
 
         var sorted = request.Sort switch

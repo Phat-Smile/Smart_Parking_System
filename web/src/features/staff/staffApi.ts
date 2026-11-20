@@ -178,22 +178,13 @@ export async function getAssignedLot(
 }
 
 /**
- * Tính toán tiền đỗ xe dựa trên thời gian vào và loại phương tiện
+ * Tính toán tiền đỗ xe dựa trên thời gian vào và loại phương tiện (hoặc 0 nếu chưa kết toán từ BE)
  */
 export function calculateParkingFee(
-    entryTimeIso: string,
-    vehicleType: VehicleType,
+    _entryTimeIso: string,
+    _vehicleType: VehicleType,
 ): { totalFeeVnd: number; amountDueVnd: number } {
-    const entry = new Date(entryTimeIso).getTime();
-    const diffMs = Math.max(
-        0,
-        Date.now() - (isNaN(entry) ? Date.now() : entry),
-    );
-    const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
-    const ratePerHour = vehicleType === "Car" ? 20000 : 5000;
-    const baseFee = vehicleType === "Car" ? 30000 : 6000;
-    const fee = baseFee + (hours > 1 ? (hours - 1) * ratePerHour : 0);
-    return { totalFeeVnd: fee, amountDueVnd: fee };
+    return { totalFeeVnd: 0, amountDueVnd: 0 };
 }
 
 interface OpenedSessionWire extends Omit<
@@ -454,16 +445,19 @@ export async function recordGateReading(payload: {
     vehicleType: VehicleType;
     confidence: number;
 }): Promise<RecordedGateReadingResponse> {
-    return await gatewayFetch<RecordedGateReadingResponse>("/api/parking/gate-readings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            lotId: payload.lotId,
-            plateNumber: payload.plateNumber.trim().toUpperCase(),
-            vehicleType: payload.vehicleType,
-            confidence: payload.confidence,
-        }),
-    });
+    return await gatewayFetch<RecordedGateReadingResponse>(
+        "/api/parking/gate-readings",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                lotId: payload.lotId,
+                plateNumber: payload.plateNumber.trim().toUpperCase(),
+                vehicleType: payload.vehicleType,
+                confidence: payload.confidence,
+            }),
+        },
+    );
 }
 
 export interface PendingGateReadingResponse {
@@ -540,7 +534,9 @@ export async function confirmSlotParked(
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason: reason ?? "Staff manual park confirmation" }),
+            body: JSON.stringify({
+                reason: reason ?? "Staff manual park confirmation",
+            }),
         },
     );
 }
@@ -651,15 +647,6 @@ export function describeStaffError(error: unknown): string {
             "Không còn chỗ phù hợp cho xe đã đặt chỗ. Nhân viên xếp khu khác hoặc hoàn tiền đặt trước."
         );
     }
-    if (code === "parking.session.already_open" || error.status === 409) {
-        return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
-    }
-    if (code === "parking.lot.not_found") {
-        return "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt (not found or is not approved).";
-    }
-    if (code === "parking.lot.access_denied" || error.status === 403) {
-        return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
-    }
     if (code === "parking.session.payment_required") {
         return "Xe chưa thanh toán phí gửi xe. Vui lòng hoàn tất thanh toán trước khi mở rào chắn.";
     }
@@ -683,6 +670,15 @@ export function describeStaffError(error: unknown): string {
     }
     if (code === "payment.parking_fee.idempotency_key_reused") {
         return "Yêu cầu thanh toán trùng lặp. Đang kiểm tra trạng thái thanh toán.";
+    }
+    if (code === "parking.session.already_open" || error.status === 409) {
+        return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
+    }
+    if (code === "parking.lot.not_found") {
+        return "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt (not found or is not approved).";
+    }
+    if (code === "parking.lot.access_denied" || error.status === 403) {
+        return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
     }
     if (code === "parking.gate_reading.not_found") {
         return "Không tìm thấy dữ liệu đọc biển số cần xác nhận.";
@@ -777,7 +773,10 @@ export async function extendExitWindow(
     sessionId: string,
     reason: string,
 ): Promise<{ sessionId: string; newExitWindowEndsAt: string }> {
-    return await gatewayFetch<{ sessionId: string; newExitWindowEndsAt: string }>(
+    return await gatewayFetch<{
+        sessionId: string;
+        newExitWindowEndsAt: string;
+    }>(
         `/api/parking/sessions/${encodeURIComponent(sessionId)}/extend-exit-window`,
         {
             method: "POST",

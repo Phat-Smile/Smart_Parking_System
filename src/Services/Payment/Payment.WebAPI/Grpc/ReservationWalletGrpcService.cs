@@ -102,7 +102,7 @@ public sealed class ReservationWalletGrpcService(
 
         if (entries.Any(e => e.EntryType == LedgerEntryType.Refund))
         {
-            var debitEntry = entries.FirstOrDefault(e => e.EntryType == LedgerEntryType.ReservationDeposit);
+            var debitEntry = entries.FirstOrDefault(e => e.EntryType is LedgerEntryType.ReservationDeposit or LedgerEntryType.Prepayment);
             var amt = debitEntry != null ? (long)Math.Abs(debitEntry.Amount) : 0L;
             return new GetReservationDebitResponse
             {
@@ -111,7 +111,19 @@ public sealed class ReservationWalletGrpcService(
             };
         }
 
-        var deposit = entries.FirstOrDefault(e => e.EntryType == LedgerEntryType.ReservationDeposit);
+        // Chặn hoàn tiền lặp khi cọc đã bị tịch thu hoặc đã áp phí
+        if (entries.Any(e => e.EntryType is LedgerEntryType.PrepaymentForfeited or LedgerEntryType.PrepaymentApplied))
+        {
+            var debitEntry = entries.FirstOrDefault(e => e.EntryType is LedgerEntryType.ReservationDeposit or LedgerEntryType.Prepayment);
+            var amt = debitEntry != null ? (long)Math.Abs(debitEntry.Amount) : 0L;
+            return new GetReservationDebitResponse
+            {
+                State = DebitState.Unspecified,
+                AmountVnd = amt
+            };
+        }
+
+        var deposit = entries.FirstOrDefault(e => e.EntryType is LedgerEntryType.ReservationDeposit or LedgerEntryType.Prepayment);
         if (deposit != null)
         {
             return new GetReservationDebitResponse

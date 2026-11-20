@@ -36,11 +36,9 @@ public sealed class PaymentIdempotencyStore(PaymentDbContext dbContext) : IIdemp
 
     public async Task ReleasePendingAsync(Guid id, CancellationToken ct)
     {
-        var record = await dbContext.Set<PaymentIdempotencyRecord>().FindAsync([id], ct);
-        if (record != null && record.Status != "Success")
-        {
-            dbContext.Set<PaymentIdempotencyRecord>().Remove(record);
-            await dbContext.SaveChangesAsync(ct);
-        }
+        // Xóa trực tiếp trên DB để tránh lỗi dữ liệu tạm
+        await dbContext.Set<PaymentIdempotencyRecord>()
+            .Where(r => r.Id == id && r.Status != "Success")
+            .ExecuteDeleteAsync(ct);
     }
 }

@@ -136,37 +136,7 @@ export function ParkWiseOtpPage({
                 }
 
                 if (pwd) {
-                    try {
-                        await loginParkWiseAccount(email, pwd);
-                    } catch {
-                        setAuthSession({
-                            accessToken: `mock-token-owner-${Date.now()}`,
-                            tokenType: "Bearer",
-                            expiresIn: 86400,
-                            refreshToken: `mock-refresh-${Date.now()}`,
-                            account: {
-                                id: "00000000-0000-0000-0000-000000000002",
-                                email,
-                                phoneNumber: null,
-                                status: "Active",
-                                role: "ParkingLotOwner",
-                            },
-                        });
-                    }
-                } else {
-                    setAuthSession({
-                        accessToken: `mock-token-owner-${Date.now()}`,
-                        tokenType: "Bearer",
-                        expiresIn: 86400,
-                        refreshToken: `mock-refresh-${Date.now()}`,
-                        account: {
-                            id: "00000000-0000-0000-0000-000000000002",
-                            email,
-                            phoneNumber: null,
-                            status: "Active",
-                            role: "ParkingLotOwner",
-                        },
-                    });
+                    await loginParkWiseAccount(email, pwd);
                 }
             }
             setVerified(true);

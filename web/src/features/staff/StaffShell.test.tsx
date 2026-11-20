@@ -141,7 +141,9 @@ describe("StaffShell", () => {
                 <div>Secret staff content</div>
             </StaffShell>,
         );
-        expect(screen.queryByText("Secret staff content")).not.toBeInTheDocument();
+        expect(
+            screen.queryByText("Secret staff content"),
+        ).not.toBeInTheDocument();
         expect(screen.getByText("Checking staff access…")).toBeInTheDocument();
         expect(mockRouterReplace).toHaveBeenCalledWith("/login");
     });
@@ -155,8 +157,12 @@ describe("StaffShell", () => {
                     <div>Secret staff content</div>
                 </StaffShell>,
             );
-            expect(screen.queryByText("Secret staff content")).not.toBeInTheDocument();
-            expect(screen.getByText("Checking staff access…")).toBeInTheDocument();
+            expect(
+                screen.queryByText("Secret staff content"),
+            ).not.toBeInTheDocument();
+            expect(
+                screen.getByText("Checking staff access…"),
+            ).toBeInTheDocument();
             expect(mockRouterReplace).toHaveBeenCalledWith("/403");
         },
     );

@@ -13,7 +13,6 @@ import {
 import type { OwnerApplicationDocumentsResponse } from "./ownerApplicationsApi";
 import type { ApprovalStatus, OwnerApplicationItem } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
-import { findProfileByCccd } from "@/features/simulator/vneid/vneidSeedData";
 
 type Filter = ApprovalStatus | "All";
 type SortOrder = "default" | "newest" | "oldest" | "name";
@@ -59,7 +58,7 @@ export function AdminOwnerApplicationsPage() {
     const [applications, setApplications] = useState<OwnerApplicationItem[]>(
         [],
     );
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [rawError, setRawError] = useState<unknown>(null);
     const [search, setSearch] = useState("");
     const [sortOrder, setSortOrder] = useState<SortOrder>("default");
@@ -175,7 +174,6 @@ export function AdminOwnerApplicationsPage() {
 
     useEffect(() => {
         let active = true;
-        setLoading(true);
         fetchAllApplications()
             .then((items) => {
                 if (active) {
@@ -289,12 +287,8 @@ export function AdminOwnerApplicationsPage() {
     ) {
         setActiveApp(app);
         setModalAction(action);
-        const hasVneidMatch = Boolean(
-            app.idCardNumber && findProfileByCccd(app.idCardNumber),
-        );
         setChecklist({
             ...DEFAULT_CHECKLIST,
-            idCard: hasVneidMatch,
         });
         setRejectReason("");
         void loadDocuments(app.accountId);
@@ -1028,18 +1022,15 @@ export function AdminOwnerApplicationsPage() {
                                                                 "ownerAppsNotUpdated",
                                                             )}
                                                     </strong>
-                                                    {activeApp.idCardNumber &&
-                                                        findProfileByCccd(
-                                                            activeApp.idCardNumber,
-                                                        ) && (
-                                                            <span
-                                                                data-testid="admin-vneid-badge"
-                                                                className="admin-vneid-badge"
-                                                                title={`Trùng khớp CSDL Quốc gia VNeID: ${findProfileByCccd(activeApp.idCardNumber)?.fullName}`}
-                                                            >
-                                                                🇻🇳 VNeID Mức 2
-                                                            </span>
-                                                        )}
+                                                    {activeApp.idCardNumber && (
+                                                        <span
+                                                            data-testid="admin-vneid-badge"
+                                                            className="admin-vneid-badge"
+                                                            title="Hồ sơ cá nhân đối chiếu CCCD"
+                                                        >
+                                                            Hồ sơ cá nhân đối chiếu CCCD
+                                                        </span>
+                                                    )}
                                                 </dd>
                                             </div>
                                         </dl>
@@ -1287,14 +1278,11 @@ export function AdminOwnerApplicationsPage() {
                                                         "ownerAppsChecklistRule2",
                                                     )}
                                                 </span>
-                                                {activeApp.idCardNumber &&
-                                                    findProfileByCccd(
-                                                        activeApp.idCardNumber,
-                                                    ) && (
-                                                        <span className="admin-vneid-inline-chip">
-                                                            ✓ Đã đối soát VNeID
-                                                        </span>
-                                                    )}
+                                                {checklist.idCard && (
+                                                    <span className="admin-vneid-inline-chip">
+                                                        Đã kiểm tra CCCD/ĐKKD
+                                                    </span>
+                                                )}
                                             </label>
 
                                             <label className="admin-owner-check-item">

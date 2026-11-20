@@ -268,6 +268,25 @@ export function TrafficChart() {
                     overflowX: "auto",
                 }}
             >
+                {data.totalIn === 0 && data.totalOut === 0 && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "rgba(255, 255, 255, 0.75)",
+                            borderRadius: 12,
+                            color: "#6a7491",
+                            fontWeight: 600,
+                            fontSize: 14,
+                            zIndex: 2,
+                        }}
+                    >
+                        Chưa có dữ liệu lưu lượng
+                    </div>
+                )}
                 <svg
                     viewBox={`0 0 ${width} ${height}`}
                     style={{

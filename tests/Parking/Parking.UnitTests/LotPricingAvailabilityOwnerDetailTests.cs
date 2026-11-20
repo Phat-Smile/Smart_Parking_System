@@ -6,6 +6,7 @@ using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 using ParkingSystem.Parking.Application.ParkingLots.Availability;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
 using ParkingSystem.Parking.Domain.Entities;
 using Xunit;
@@ -99,7 +100,7 @@ public sealed class LotPricingAvailabilityOwnerDetailTests
             new MotorbikeZoneAvailability(Guid.Parse("c0000000-0000-0000-0000-000000000001"), "M1", "Tầng 1", 40, 10),
             new MotorbikeZoneAvailability(Guid.Parse("c0000000-0000-0000-0000-000000000002"), "M2", "Tầng 2", 20, 25),
         ]));
-        var handler = new GetLotAvailabilityQueryHandler(new FakeApprovedLots(), new FakeCarSlots(7), motorbikes, new FixedClock());
+        var handler = new GetLotAvailabilityQueryHandler(new FakeApprovedLots(), new FakeCarSlots(7), motorbikes, new FixedClock(), new FakeHeldQuotaProvider());
 
         var result = await handler.Handle(new GetLotAvailabilityQuery(ApprovedLot), TestContext.Current.CancellationToken);
 
@@ -121,7 +122,7 @@ public sealed class LotPricingAvailabilityOwnerDetailTests
     [Fact]
     public async Task Availability_of_a_lot_without_motorbike_zone_has_no_motorbike_part()
     {
-        var handler = new GetLotAvailabilityQueryHandler(new FakeApprovedLots(), new FakeCarSlots(3), new FakeMotorbikeZones(null), new FixedClock());
+        var handler = new GetLotAvailabilityQueryHandler(new FakeApprovedLots(), new FakeCarSlots(3), new FakeMotorbikeZones(null), new FixedClock(), new FakeHeldQuotaProvider());
 
         var result = await handler.Handle(new GetLotAvailabilityQuery(ApprovedLot), TestContext.Current.CancellationToken);
 
@@ -133,7 +134,7 @@ public sealed class LotPricingAvailabilityOwnerDetailTests
     [Fact]
     public async Task Availability_of_a_lot_that_is_not_approved_is_not_found()
     {
-        var handler = new GetLotAvailabilityQueryHandler(new FakeApprovedLots(), new FakeCarSlots(3), new FakeMotorbikeZones(null), new FixedClock());
+        var handler = new GetLotAvailabilityQueryHandler(new FakeApprovedLots(), new FakeCarSlots(3), new FakeMotorbikeZones(null), new FixedClock(), new FakeHeldQuotaProvider());
 
         var result = await handler.Handle(new GetLotAvailabilityQuery(PendingLot), TestContext.Current.CancellationToken);
 
@@ -262,5 +263,10 @@ public sealed class LotPricingAvailabilityOwnerDetailTests
     private sealed class FixedClock : IClock
     {
         public DateTimeOffset UtcNow => Now;
+    }
+
+    private sealed class FakeHeldQuotaProvider(int? held = 0) : IHeldQuotaProvider
+    {
+        public Task<int?> GetHeldReservationsAsync(Guid lotId, CancellationToken cancellationToken) => Task.FromResult(held);
     }
 }

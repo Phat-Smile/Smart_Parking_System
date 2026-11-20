@@ -46,7 +46,13 @@ export function FloorRevenueBars({ items }: FloorRevenueBarsProps) {
                     Chưa có dữ liệu phân bổ doanh thu theo tầng
                 </div>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 14,
+                    }}
+                >
                     {items.map((item) => (
                         <div key={item.floor}>
                             <div
@@ -57,10 +63,20 @@ export function FloorRevenueBars({ items }: FloorRevenueBarsProps) {
                                     marginBottom: 6,
                                 }}
                             >
-                                <span style={{ fontWeight: 600, color: "#0f1b3d" }}>
+                                <span
+                                    style={{
+                                        fontWeight: 600,
+                                        color: "#0f1b3d",
+                                    }}
+                                >
                                     {item.name}
                                 </span>
-                                <span style={{ fontWeight: 700, color: "#2563eb" }}>
+                                <span
+                                    style={{
+                                        fontWeight: 700,
+                                        color: "#2563eb",
+                                    }}
+                                >
                                     {item.revenueText} ({item.pct}%)
                                 </span>
                             </div>

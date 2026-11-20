@@ -12,7 +12,6 @@ import {
     XCircle,
     AlertTriangle,
     Clock,
-    DollarSign,
     Banknote,
     Check,
     Smartphone,
@@ -135,8 +134,7 @@ export function StaffExitPage() {
               : "PENDING"
           : !scannedSession
             ? "PENDING"
-            : scannedSession.qrToken &&
-                scannedSession.qrToken === currentQr
+            : scannedSession.qrToken && scannedSession.qrToken === currentQr
               ? "SUCCESS"
               : "FAILED";
 
@@ -187,15 +185,17 @@ export function StaffExitPage() {
     const qrValid = qrCheckStatus === "SUCCESS";
     const plateMatch = plateCheckStatus === "SUCCESS";
 
+    const scannedPlateNumber = scannedSession?.plateNumber;
     // So khớp quang học thông minh với ma trận Weighted Levenshtein (OCR Confusion Matrix)
     const plateComparison: PlateComparisonResult | null = useMemo(() => {
-        if (!scannedSession?.plateNumber || !detectedExitPlate.trim()) {
+        if (!scannedPlateNumber || !detectedExitPlate.trim()) {
             return null;
         }
-        return comparePlates(scannedSession.plateNumber, detectedExitPlate);
-    }, [scannedSession?.plateNumber, detectedExitPlate]);
+        return comparePlates(scannedPlateNumber, detectedExitPlate);
+    }, [scannedPlateNumber, detectedExitPlate]);
 
-    const isOpticalPlateMatch = !plateMatch && (plateComparison?.isHighConfidence ?? false);
+    const isOpticalPlateMatch =
+        !plateMatch && (plateComparison?.isHighConfidence ?? false);
 
     const canAllowExit =
         plateMatch &&
@@ -243,8 +243,9 @@ export function StaffExitPage() {
             };
 
             setScannedSession(scanned);
-            // Bất biến: Không tự ghi đè biển số đọc ở cổng bằng biển số của phiên
-            setQrInput(res.qrToken);
+            // Bất biến: Không tự ghi đè biển số đọc ở cổng bằng biển số của phiên,
+            // không tự gán mã QR từ phiên vào ô quét mã của cổng ra
+            setQrInput(queryToken);
             if (scanned.amountDueVnd === 0 || isPaid) {
                 setPaymentSuccess(true);
             }
@@ -353,10 +354,7 @@ export function StaffExitPage() {
         setExtendLoading(true);
         setErrorMsg("");
         try {
-            await extendExitWindow(
-                scannedSession.id,
-                extendReason.trim(),
-            );
+            await extendExitWindow(scannedSession.id, extendReason.trim());
             setExtendModalOpen(false);
             setExtendSuccessMsg("Đã gia hạn thêm 15 phút xuất bãi thành công.");
             setTimeout(() => setExtendSuccessMsg(""), 6000);
@@ -386,6 +384,11 @@ export function StaffExitPage() {
     async function handleManualVerify() {
         if (!scannedSession) return;
         const gatePlate = detectedExitPlate.trim();
+        if (!gatePlate) {
+            setErrorMsg("Nhập biển số đọc ở cổng");
+            announceWarning("Nhập biển số đọc ở cổng");
+            return;
+        }
         const qrToSend = qrInput.trim();
         if (!qrToSend) {
             setErrorMsg(
@@ -405,11 +408,9 @@ export function StaffExitPage() {
             );
 
             // Bước 2: Bắt buộc hoàn tất đóng phiên hợp lệ qua /complete
-            // Fix BUG-BE2-03: Biển số gửi lên phải là scannedSession.plateNumber (biển số gốc đã được xác minh)
-            // thay vì gatePlate (chuỗi OCR đọc sai từ camera) để tránh Backend ném lỗi 409 ExitNotVerified.
-            const verifiedPlate = scannedSession.plateNumber || gatePlate;
+            // Bất biến: /complete nhận biển số đọc ở cổng (gatePlate), tuyệt đối không gửi biển của phiên vào
             await completeParkingSession(scannedSession.id, {
-                plateNumber: verifiedPlate,
+                plateNumber: gatePlate,
                 qrToken: qrToSend,
             });
             completeExit(
@@ -418,7 +419,7 @@ export function StaffExitPage() {
             );
             setExitAllowed(true);
             announceCheckOut({
-                plateNumber: verifiedPlate,
+                plateNumber: gatePlate,
                 lotName: assignedLot?.lotName,
                 amountPaid: scannedSession.totalFeeVnd,
             });
@@ -495,7 +496,10 @@ export function StaffExitPage() {
             const statusRes = await getParkingFeePaymentStatus(vnPayTxId);
             setVnPayStatus(statusRes.status);
 
-            if (statusRes.status === "Success" || statusRes.status === "Succeeded") {
+            if (
+                statusRes.status === "Success" ||
+                statusRes.status === "Succeeded"
+            ) {
                 for (let i = 0; i < 4; i++) {
                     try {
                         const detail = await getParkingSession(
@@ -544,7 +548,10 @@ export function StaffExitPage() {
         const interval = setInterval(async () => {
             try {
                 const statusRes = await getParkingFeePaymentStatus(vnPayTxId);
-                if (statusRes.status === "Success" || statusRes.status === "Succeeded") {
+                if (
+                    statusRes.status === "Success" ||
+                    statusRes.status === "Succeeded"
+                ) {
                     setVnPayStatus(statusRes.status);
                     for (let i = 0; i < 4; i++) {
                         try {
@@ -746,7 +753,11 @@ export function StaffExitPage() {
                         <AlertTriangle size={15} strokeWidth={2.2} />
                         <span>{errorMsg}</span>
                     </span>
-                    <button type="button" onClick={() => setErrorMsg("")} aria-label="Đóng">
+                    <button
+                        type="button"
+                        onClick={() => setErrorMsg("")}
+                        aria-label="Đóng"
+                    >
                         <X size={14} strokeWidth={2.4} />
                     </button>
                 </div>
@@ -851,10 +862,7 @@ export function StaffExitPage() {
                 {/* Left column: Real Camera ANPR & QR Scanner */}
                 <div className="staff-col">
                     <RealCameraFeed
-                        title={
-                            t("exitCameraTitle") ||
-                            "Camera Cổng Ra 02"
-                        }
+                        title={t("exitCameraTitle") || "Camera Cổng Ra 02"}
                         mode="exit"
                         detectedPlate={detectedExitPlate}
                         confidence={0.99}
@@ -1077,25 +1085,18 @@ export function StaffExitPage() {
                             </div>
 
                             {/* Gợi ý thông minh ANPR khi OCR đọc lệch ký tự quang học so với vé vào */}
-                            {isOpticalPlateMatch && scannedSession?.plateNumber && (
-                                <div
-                                    className="staff-plate-ocr-hint"
-                                    style={{
-                                        marginTop: "8px",
-                                        padding: "8px 12px",
-                                        borderRadius: "6px",
-                                        background: "#fef9c3",
-                                        border: "1px solid #fde047",
-                                        color: "#854d0e",
-                                        fontSize: "12px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        gap: "8px",
-                                    }}
-                                >
+                            {isOpticalPlateMatch &&
+                                scannedSession?.plateNumber && (
                                     <div
+                                        className="staff-plate-ocr-hint"
                                         style={{
+                                            marginTop: "8px",
+                                            padding: "8px 12px",
+                                            borderRadius: "6px",
+                                            background: "#fef9c3",
+                                            border: "1px solid #fde047",
+                                            color: "#854d0e",
+                                            fontSize: "12px",
                                             display: "flex",
                                             alignItems: "center",
                                             gap: "6px",
@@ -1103,32 +1104,17 @@ export function StaffExitPage() {
                                     >
                                         <Sparkles
                                             size={14}
-                                            style={{ color: "#d97706", flexShrink: 0 }}
+                                            style={{
+                                                color: "#d97706",
+                                                flexShrink: 0,
+                                            }}
                                         />
                                         <span>
-                                            Gợi ý ANPR: Camera có thể đọc lệch ký tự quang học so với vé vào (
-                                            <strong>{scannedSession.plateNumber}</strong>).
+                                            Biển đọc được gần giống vé vào, kiểm
+                                            tra bằng mắt rồi nhập lại
                                         </span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="staff-btn staff-btn-secondary"
-                                        style={{
-                                            fontSize: "11px",
-                                            padding: "2px 8px",
-                                            height: "auto",
-                                            whiteSpace: "nowrap",
-                                            cursor: "pointer",
-                                        }}
-                                        onClick={() =>
-                                            setDetectedExitPlate(scannedSession.plateNumber)
-                                        }
-                                        title="Đồng bộ biển số theo vé vào đã xác nhận"
-                                    >
-                                        Đồng bộ theo vé vào
-                                    </button>
-                                </div>
-                            )}
+                                )}
                         </div>
 
                         {/* Actions when QR is lost or manual check is needed */}
@@ -1753,8 +1739,9 @@ export function StaffExitPage() {
                                     physicalState="OPEN"
                                     vehicleState="PASSING"
                                     detectedPlate={
+                                        detectedExitPlate ||
                                         scannedSession?.plateNumber ||
-                                        detectedExitPlate
+                                        ""
                                     }
                                     vehicleType={
                                         scannedSession?.vehicleType || "Car"
@@ -2288,7 +2275,9 @@ export function StaffExitPage() {
             {reissueModalOpen && (
                 <div
                     className="staff-modal-backdrop"
-                    onClick={() => !reissueLoading && setReissueModalOpen(false)}
+                    onClick={() =>
+                        !reissueLoading && setReissueModalOpen(false)
+                    }
                 >
                     <div
                         className="staff-modal-card staff-reissue-modal"
@@ -2298,12 +2287,24 @@ export function StaffExitPage() {
                         aria-labelledby="reissue-modal-title"
                         style={{ maxWidth: 440 }}
                     >
-                        <div className="staff-modal-head" style={{ padding: "16px 20px" }}>
+                        <div
+                            className="staff-modal-head"
+                            style={{ padding: "16px 20px" }}
+                        >
                             <div className="staff-ticket-head-titles">
-                                <h3 id="reissue-modal-title" style={{ fontSize: 16, fontWeight: 700 }}>
+                                <h3
+                                    id="reissue-modal-title"
+                                    style={{ fontSize: 16, fontWeight: 700 }}
+                                >
                                     Cấp lại vé QR mới
                                 </h3>
-                                <span className="staff-ticket-head-sub" style={{ fontSize: 12, color: "var(--pw-admin-muted)" }}>
+                                <span
+                                    className="staff-ticket-head-sub"
+                                    style={{
+                                        fontSize: 12,
+                                        color: "var(--pw-admin-muted)",
+                                    }}
+                                >
                                     Hủy vé cũ và xuất vé thay thế cho phiên đỗ
                                 </span>
                             </div>
@@ -2317,14 +2318,31 @@ export function StaffExitPage() {
                                 <X size={16} strokeWidth={2.2} />
                             </button>
                         </div>
-                        <div className="staff-modal-body" style={{ padding: "16px 20px" }}>
-                            <p style={{ fontSize: 13, color: "var(--pw-admin-muted)", marginBottom: 14, lineHeight: 1.5 }}>
-                                Lưu ý: Mã QR cũ sẽ bị vô hiệu hóa ngay lập tức. Khách hàng bắt buộc xuất trình vé mới tại cổng ra. Bắt buộc ghi nhận lý do kiểm toán hệ thống.
+                        <div
+                            className="staff-modal-body"
+                            style={{ padding: "16px 20px" }}
+                        >
+                            <p
+                                style={{
+                                    fontSize: 13,
+                                    color: "var(--pw-admin-muted)",
+                                    marginBottom: 14,
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Lưu ý: Mã QR cũ sẽ bị vô hiệu hóa ngay lập tức.
+                                Khách hàng bắt buộc xuất trình vé mới tại cổng
+                                ra. Bắt buộc ghi nhận lý do kiểm toán hệ thống.
                             </p>
                             <div className="staff-form-group">
                                 <label
                                     htmlFor="reissue-reason-input"
-                                    style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6 }}
+                                    style={{
+                                        fontWeight: 600,
+                                        fontSize: 13,
+                                        display: "block",
+                                        marginBottom: 6,
+                                    }}
                                 >
                                     Lý do cấp lại vé (tối đa 500 ký tự) *
                                 </label>
@@ -2333,19 +2351,36 @@ export function StaffExitPage() {
                                     className="staff-input font-sans"
                                     rows={3}
                                     maxLength={500}
-                                    style={{ width: "100%", resize: "vertical" }}
+                                    style={{
+                                        width: "100%",
+                                        resize: "vertical",
+                                    }}
                                     value={reissueReason}
-                                    onChange={(e) => setReissueReason(e.target.value)}
+                                    onChange={(e) =>
+                                        setReissueReason(e.target.value)
+                                    }
                                     placeholder="Nhập lý do cấp lại vé..."
                                 />
-                                <div style={{ fontSize: 11, color: "var(--pw-admin-muted)", textAlign: "right", marginTop: 4 }}>
+                                <div
+                                    style={{
+                                        fontSize: 11,
+                                        color: "var(--pw-admin-muted)",
+                                        textAlign: "right",
+                                        marginTop: 4,
+                                    }}
+                                >
                                     {reissueReason.length}/500 ký tự
                                 </div>
                             </div>
                         </div>
                         <div
                             className="staff-modal-actions"
-                            style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "12px 20px 16px" }}
+                            style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: 10,
+                                padding: "12px 20px 16px",
+                            }}
                         >
                             <button
                                 type="button"
@@ -2358,10 +2393,16 @@ export function StaffExitPage() {
                             <button
                                 type="button"
                                 className="staff-btn staff-btn-primary"
-                                disabled={reissueLoading || !reissueReason.trim() || reissueReason.length > 500}
+                                disabled={
+                                    reissueLoading ||
+                                    !reissueReason.trim() ||
+                                    reissueReason.length > 500
+                                }
                                 onClick={handleConfirmReissueQr}
                             >
-                                {reissueLoading ? "Đang xử lý..." : "Xác nhận & Cấp vé"}
+                                {reissueLoading
+                                    ? "Đang xử lý..."
+                                    : "Xác nhận & Cấp vé"}
                             </button>
                         </div>
                     </div>
@@ -2400,7 +2441,8 @@ export function StaffExitPage() {
                                         color: "var(--pw-admin-muted)",
                                     }}
                                 >
-                                    Gia hạn một lần duy nhất cho phiên đỗ xe đã thanh toán
+                                    Gia hạn một lần duy nhất cho phiên đỗ xe đã
+                                    thanh toán
                                 </span>
                             </div>
                             <button
@@ -2425,7 +2467,9 @@ export function StaffExitPage() {
                                     lineHeight: 1.5,
                                 }}
                             >
-                                Lưu ý: Thời gian xuất bãi sẽ được cộng thêm 15 phút. Bắt buộc ghi nhận lý do kiểm toán hệ thống khi bãi có sự cố hoặc ùn ứ.
+                                Lưu ý: Thời gian xuất bãi sẽ được cộng thêm 15
+                                phút. Bắt buộc ghi nhận lý do kiểm toán hệ thống
+                                khi bãi có sự cố hoặc ùn ứ.
                             </p>
                             <div className="staff-form-group">
                                 <label

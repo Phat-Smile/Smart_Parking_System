@@ -148,10 +148,54 @@ describe("AdminDashboardPage & AdminShell UI/UX", () => {
 
     it("paginates recent decisions by 2 items per page with 1 2 3 pager buttons", async () => {
         vi.spyOn(api, "getAdminParkingLots").mockResolvedValue([
-            { id: "1", name: "Bãi Quyết Định 1", address: "Q1", type: "Outdoor", ownerUserId: "u1", status: "Approved", rejectionReason: null, reviewedAtUtc: "2026-11-05T10:00:00Z", latitude: 10.77, longitude: 106.7 },
-            { id: "2", name: "Bãi Quyết Định 2", address: "Q2", type: "Outdoor", ownerUserId: "u2", status: "Approved", rejectionReason: null, reviewedAtUtc: "2026-11-04T10:00:00Z", latitude: 10.77, longitude: 106.7 },
-            { id: "3", name: "Bãi Quyết Định 3", address: "Q3", type: "Outdoor", ownerUserId: "u3", status: "Approved", rejectionReason: null, reviewedAtUtc: "2026-11-03T10:00:00Z", latitude: 10.77, longitude: 106.7 },
-            { id: "4", name: "Bãi Quyết Định 4", address: "Q4", type: "Outdoor", ownerUserId: "u4", status: "Approved", rejectionReason: null, reviewedAtUtc: "2026-11-02T10:00:00Z", latitude: 10.77, longitude: 106.7 },
+            {
+                id: "1",
+                name: "Bãi Quyết Định 1",
+                address: "Q1",
+                type: "Outdoor",
+                ownerUserId: "u1",
+                status: "Approved",
+                rejectionReason: null,
+                reviewedAtUtc: "2026-11-05T10:00:00Z",
+                latitude: 10.77,
+                longitude: 106.7,
+            },
+            {
+                id: "2",
+                name: "Bãi Quyết Định 2",
+                address: "Q2",
+                type: "Outdoor",
+                ownerUserId: "u2",
+                status: "Approved",
+                rejectionReason: null,
+                reviewedAtUtc: "2026-11-04T10:00:00Z",
+                latitude: 10.77,
+                longitude: 106.7,
+            },
+            {
+                id: "3",
+                name: "Bãi Quyết Định 3",
+                address: "Q3",
+                type: "Outdoor",
+                ownerUserId: "u3",
+                status: "Approved",
+                rejectionReason: null,
+                reviewedAtUtc: "2026-11-03T10:00:00Z",
+                latitude: 10.77,
+                longitude: 106.7,
+            },
+            {
+                id: "4",
+                name: "Bãi Quyết Định 4",
+                address: "Q4",
+                type: "Outdoor",
+                ownerUserId: "u4",
+                status: "Approved",
+                rejectionReason: null,
+                reviewedAtUtc: "2026-11-02T10:00:00Z",
+                latitude: 10.77,
+                longitude: 106.7,
+            },
         ]);
 
         await refreshAdminLots();

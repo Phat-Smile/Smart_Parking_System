@@ -47,6 +47,13 @@ public sealed class DebitReservationDepositCommandHandler(
             return Result<DebitReservationDepositResult>.Failure(ReservationDepositErrors.AlreadyRefunded);
         }
 
+        // Chặn trừ lại cọc nếu đặt chỗ đã bị tịch thu hoặc đã áp phí
+        if (existingLedgerEntries.Any(e => e.EntryType is LedgerEntryType.PrepaymentForfeited or LedgerEntryType.PrepaymentApplied))
+        {
+            logger.LogWarning("Reservation {ReservationId} deposit already settled or forfeited. Rejecting debit.", request.ReservationId);
+            return Result<DebitReservationDepositResult>.Failure(ReservationDepositErrors.AlreadyForfeited);
+        }
+
         var effectiveKey = string.IsNullOrWhiteSpace(request.IdempotencyKey)
             ? $"res-deposit-{request.ReservationId}"
             : request.IdempotencyKey.Trim();

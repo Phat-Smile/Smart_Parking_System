@@ -29,13 +29,7 @@ type SortOrder = "oldest" | "newest" | "name";
 type SubmittedFilter = "all" | "today" | "7days" | "30days";
 type ToggleableColumnKey = "owner" | "address" | "date" | "capacity" | "status";
 type FilterFieldKey =
-    | "name"
-    | "owner"
-    | "address"
-    | "type"
-    | "status"
-    | "date"
-    | "capacity";
+    "name" | "owner" | "address" | "type" | "status" | "date" | "capacity";
 
 const PAGE_SIZE = 10;
 
@@ -246,22 +240,20 @@ export function ParkingLotsListPage({
     );
 
     const visibleColumnCount = useMemo(
-        () =>
-            2 +
-            Object.values(visibleColumns).filter(Boolean).length,
+        () => 2 + Object.values(visibleColumns).filter(Boolean).length,
         [visibleColumns],
     );
 
     const hasActiveFilters = Boolean(
         search.trim() ||
-            nameFilter.trim() ||
-            ownerFilter.trim() ||
-            addressFilter.trim() ||
-            minCapacity.trim() ||
-            typeFilter !== "All" ||
-            submittedFilter !== "all" ||
-            sortOrder !== "oldest" ||
-            (mode === "all" && status !== "All"),
+        nameFilter.trim() ||
+        ownerFilter.trim() ||
+        addressFilter.trim() ||
+        minCapacity.trim() ||
+        typeFilter !== "All" ||
+        submittedFilter !== "all" ||
+        sortOrder !== "oldest" ||
+        (mode === "all" && status !== "All"),
     );
 
     function handleStatusTabChange(nextStatus: Filter) {
@@ -723,9 +715,7 @@ export function ParkingLotsListPage({
                                                 className="admin-popover-reset"
                                                 onClick={handleClearFilters}
                                             >
-                                                {isVi
-                                                    ? "Đặt lại"
-                                                    : "Reset all"}
+                                                {isVi ? "Đặt lại" : "Reset all"}
                                             </button>
                                         )}
                                     </div>
@@ -1123,9 +1113,7 @@ export function ParkingLotsListPage({
                                 }
                             >
                                 <AdminIcon name="grid" size={14} />
-                                <span>
-                                    {isVi ? "Cột hiển thị" : "Columns"}
-                                </span>
+                                <span>{isVi ? "Cột hiển thị" : "Columns"}</span>
                                 <span className="admin-columns-count">
                                     {visibleColumnCount}/7
                                 </span>
@@ -1447,8 +1435,6 @@ export function ParkingLotsListPage({
                                 </span>
                             )}
                         </div>
-
-
                     </div>
                 )}
 

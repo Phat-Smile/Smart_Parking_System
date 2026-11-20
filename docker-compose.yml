@@ -338,14 +338,13 @@ services:
     environment:
       APP_ENVIRONMENT: Development
       AI_GRPC_PORT: 50051
-      # Explicit mode and LLM settings for local QA. No provider call in legacy mode.
-      AI_RECOMMENDATION_MODE: ${AI_RECOMMENDATION_MODE:-legacy}
       AI_LLM_MODEL: ${AI_LLM_MODEL:-}
       AI_LLM_API_KEY: ${AI_LLM_API_KEY:-}
       AI_LLM_CHAT_COMPLETIONS_URL: ${AI_LLM_CHAT_COMPLETIONS_URL:-https://api.openai.com/v1/chat/completions}
       AI_LLM_TIMEOUT_SECONDS: ${AI_LLM_TIMEOUT_SECONDS:-3}
       AI_LLM_MAX_OUTPUT_TOKENS: ${AI_LLM_MAX_OUTPUT_TOKENS:-400}
       AI_LLM_USER_AGENT: ${AI_LLM_USER_AGENT:-ParkWise-AI/1.0}
+      AI_RECOMMENDATION_MODE: legacy
       ARRIVAL_API_KEY: ${ARRIVAL_API_KEY:-arrival_secret_local_dev_only}
       OTEL_SERVICE_NAME: ai-service
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=ParkingSystem,deployment.environment=Development}

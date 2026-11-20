@@ -3,6 +3,7 @@ using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Application.Features.OwnerRevenue.Queries.GetOwnerRevenueSummary;
 using ParkingSystem.Payment.Domain.Constants;
 using ParkingSystem.Payment.Domain.Entities;
+using ParkingSystem.Payment.Domain.Enums;
 
 namespace ParkingSystem.Payment.Persistence.Repositories;
 
@@ -84,22 +85,30 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
             .FirstOrDefaultAsync(p => p.Id == id, ct);
     }
 
-    // Tìm hóa đơn thành công theo mã phiên xe hoặc mã giao dịch để xuất hóa đơn điện tử (US-PAY-003)
+    // Tìm hóa đơn thành công mới nhất để xuất biên lai (US-PAY-003)
     public async Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
     {
         return await dbContext.Set<ParkingFeePayment>()
             .AsNoTracking()
             .Where(p => (p.SessionId == sessionOrPaymentId || p.Id == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
-            .OrderByDescending(p => p.PaymentTimeUtc)
+            .OrderByDescending(p => p.PaymentSequence)
+            .ThenByDescending(p => p.PaymentTimeUtc)
             .FirstOrDefaultAsync(ct);
     }
 
-    // Lấy hóa đơn thành công của phiên xe để cập nhật phụ phí quá giờ (BR-09.d)
+    // Lấy hóa đơn thành công mới nhất của phiên (BR-09.d)
     public async Task<ParkingFeePayment?> GetSucceededBySessionIdAsync(Guid sessionId, CancellationToken ct)
     {
         return await dbContext.Set<ParkingFeePayment>()
-            .FirstOrDefaultAsync(p => p.SessionId == sessionId && p.Status == PaymentStatus.Succeeded, ct);
+            .AsNoTracking()
+            .Where(p => p.SessionId == sessionId && p.Status == PaymentStatus.Succeeded)
+            .OrderByDescending(p => p.PaymentSequence)
+            .ThenByDescending(p => p.PaymentTimeUtc)
+            .FirstOrDefaultAsync(ct);
     }
+
+    // Xóa dữ liệu tạm chưa lưu trước khi xử lý xung đột
+    public void ClearChangeTracker() => dbContext.ChangeTracker.Clear();
 
     // Tính toán tổng hợp doanh thu 1 round-trip theo từng mốc thời gian
     public async Task<OwnerRevenueMetricsResult> GetRevenueMetricsAsync(
@@ -139,6 +148,32 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
             })
             .ToListAsync(ct);
 
+        // Cộng dồn tiền cọc bị mất từ sổ cái theo bãi
+        var forfeitQuery = dbContext.WalletLedgerEntries
+            .AsNoTracking()
+            .Where(e => e.EntryType == LedgerEntryType.PrepaymentForfeited);
+
+        if (lotIds.Count == 1)
+        {
+            var singleLot = lotIds[0];
+            forfeitQuery = forfeitQuery.Where(e => e.LotId == singleLot);
+        }
+        else if (lotIds.Count > 1)
+        {
+            forfeitQuery = forfeitQuery.Where(e => e.LotId.HasValue && lotIds.Contains(e.LotId.Value));
+        }
+
+        var forfeited = await forfeitQuery
+            .GroupBy(e => e.EntryType)
+            .Select(g => new
+            {
+                TodayAmount = g.Where(x => x.CreatedAt >= todayStartUtc).Sum(x => (decimal?)x.Amount) ?? 0m,
+                WeekAmount = g.Where(x => x.CreatedAt >= weekStartUtc).Sum(x => (decimal?)x.Amount) ?? 0m,
+                MonthAmount = g.Where(x => x.CreatedAt >= monthStartUtc).Sum(x => (decimal?)x.Amount) ?? 0m,
+                AllTimeAmount = g.Sum(x => (decimal?)x.Amount) ?? 0m
+            })
+            .FirstOrDefaultAsync(ct);
+
         long GetAmount(Func<dynamic, long> selector, string method) =>
             grouped.Where(x => string.Equals(x.Method, method, StringComparison.OrdinalIgnoreCase))
                    .Select(selector)
@@ -151,13 +186,14 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
 
         RevenuePeriodMetrics BuildMetrics(
             Func<dynamic, long> amountSelector,
-            Func<dynamic, int> countSelector)
+            Func<dynamic, int> countSelector,
+            long forfeitedAmt)
         {
             var cashAmt = GetAmount(amountSelector, PaymentMethod.Cash);
             var vnpayAmt = GetAmount(amountSelector, PaymentMethod.VnPay);
             var walletAmt = GetAmount(amountSelector, PaymentMethod.Wallet);
             var onlineAmt = vnpayAmt + walletAmt;
-            var totalAmt = cashAmt + onlineAmt;
+            var totalAmt = cashAmt + onlineAmt + forfeitedAmt;
 
             var cashCnt = GetCount(countSelector, PaymentMethod.Cash);
             var vnpayCnt = GetCount(countSelector, PaymentMethod.VnPay);
@@ -171,16 +207,16 @@ public sealed class ParkingFeePaymentRepository(PaymentDbContext dbContext) : IP
                 OnlineRevenue: onlineAmt,
                 VnpayRevenue: vnpayAmt,
                 WalletRevenue: walletAmt,
-                ForfeitedDepositRevenue: 0L,
+                ForfeitedDepositRevenue: forfeitedAmt,
                 TransactionCount: totalCnt,
                 CashTransactionCount: cashCnt,
                 OnlineTransactionCount: onlineCnt);
         }
 
         return new OwnerRevenueMetricsResult(
-            Today: BuildMetrics(x => (long)x.TodayAmount, x => (int)x.TodayCount),
-            ThisWeek: BuildMetrics(x => (long)x.WeekAmount, x => (int)x.WeekCount),
-            ThisMonth: BuildMetrics(x => (long)x.MonthAmount, x => (int)x.MonthCount),
-            AllTime: BuildMetrics(x => (long)x.AllTimeAmount, x => (int)x.AllTimeCount));
+            Today: BuildMetrics(x => (long)x.TodayAmount, x => (int)x.TodayCount, (long)(forfeited?.TodayAmount ?? 0m)),
+            ThisWeek: BuildMetrics(x => (long)x.WeekAmount, x => (int)x.WeekCount, (long)(forfeited?.WeekAmount ?? 0m)),
+            ThisMonth: BuildMetrics(x => (long)x.MonthAmount, x => (int)x.MonthCount, (long)(forfeited?.MonthAmount ?? 0m)),
+            AllTime: BuildMetrics(x => (long)x.AllTimeAmount, x => (int)x.AllTimeCount, (long)(forfeited?.AllTimeAmount ?? 0m)));
     }
 }

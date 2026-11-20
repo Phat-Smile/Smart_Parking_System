@@ -125,12 +125,14 @@ export function QrCodeModal({
     plateNumber,
     vehicleType,
     entryTime,
+    hotline,
     onClose,
 }: {
     qrToken: string;
     plateNumber: string;
     vehicleType: VehicleType;
     entryTime: string;
+    hotline?: string;
     onClose: () => void;
 }) {
     const { t } = useLanguage();
@@ -340,10 +342,12 @@ export function QrCodeModal({
                             <p className="guide-secondary">
                                 Quét mã QR để thanh toán phí và đổi xe tự động.
                             </p>
-                            <p className="guide-hotline">
-                                <PhoneCall size={11} strokeWidth={2.2} />
-                                <span>Hotline hỗ trợ: 1900 8888 (24/7)</span>
-                            </p>
+                            {hotline ? (
+                                <p className="guide-hotline">
+                                    <PhoneCall size={11} strokeWidth={2.2} />
+                                    <span>Hotline hỗ trợ: {hotline}</span>
+                                </p>
+                            ) : null}
                         </div>
                     </div>
                 </div>

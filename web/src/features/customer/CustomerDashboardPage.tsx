@@ -17,23 +17,14 @@ import {
 import { CustomerFooter, CustomerHeader, CustomerIcon } from "./CustomerShell";
 import { ActiveSessionCard } from "./CustomerSessions";
 import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
-import { dashboardPreviewData } from "./dashboardPreviewData";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { useCustomerMobile } from "./mobile/useCustomerMobile";
 import { CustomerMobileHome } from "./mobile/CustomerMobileHome";
+import { getMyReservations, type ReservationSummaryDto } from "./booking/bookingApi";
 
 type SearchTab = "find" | "quick" | "saved";
-const recentPlaces = [
-    "Saigon Centre",
-    "Ben Thanh Market",
-    "Bitexco Tower",
-    "Tan Son Nhat Airport",
-];
-const savedPlaces = [
-    { name: "Work", detail: "Bitexco Tower", icon: "car" as const },
-    { name: "Home", detail: "District 7", icon: "location" as const },
-    { name: "Favorite", detail: "Saigon Centre", icon: "bookmark" as const },
-];
+const recentPlaces: string[] = [];
+const savedPlaces: { name: string; detail: string; icon: "car" | "location" | "bookmark" }[] = [];
 const vehicleOptions = [
     { value: "any", label: "Any vehicle", icon: "car" as const },
     { value: "car", label: "Car", icon: "car" as const },
@@ -58,6 +49,101 @@ function formatLocalDate(date: Date) {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+}
+
+function UpcomingBookingCard() {
+    const { copy } = useCustomerLanguage();
+    const [booking, setBooking] = useState<ReservationSummaryDto | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let active = true;
+        getMyReservations()
+            .then((reservations) => {
+                if (!active) return;
+                const upcoming = (reservations || []).find(
+                    (r) => r.status === "Confirmed" || r.status === "PendingPayment",
+                );
+                setBooking(upcoming || null);
+            })
+            .catch(() => {
+                if (active) setBooking(null);
+            })
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="dashboard-booking-body">
+                <p className="dashboard-empty-note py-4 text-center">
+                    {copy("Loading booking information...", "Đang tải thông tin đặt chỗ...")}
+                </p>
+            </div>
+        );
+    }
+
+    if (!booking) {
+        return (
+            <div className="dashboard-booking-body">
+                <p className="dashboard-empty-note py-4 text-center">
+                    {copy("No upcoming bookings", "Chưa có lịch đặt chỗ")}
+                </p>
+            </div>
+        );
+    }
+
+    const bookingDate = new Date(booking.appointmentTime).toLocaleDateString("vi-VN");
+    const bookingTime = new Date(booking.appointmentTime).toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+
+    return (
+        <>
+            <div className="dashboard-booking-body">
+                <div className="dashboard-booking-image">
+                    <Image
+                        src="/images/parkwise/dashboard-parking-entrance.webp"
+                        alt="City parking entrance"
+                        fill
+                        sizes="170px"
+                    />
+                </div>
+                <div>
+                    <h3>{booking.lotId}</h3>
+                    <p>{copy("Parking lot", "Bãi đỗ xe")}</p>
+                </div>
+            </div>
+            <div className="dashboard-booking-facts">
+                <span>
+                    <CustomerIcon name="calendar" size={22} />
+                    <span>
+                        <small>{copy("Date", "Ngày")}</small>
+                        <strong>{bookingDate}</strong>
+                    </span>
+                </span>
+                <span>
+                    <CustomerIcon name="clock" size={22} />
+                    <span>
+                        <small>{copy("Time", "Giờ")}</small>
+                        <strong>{bookingTime}</strong>
+                    </span>
+                </span>
+                <span>
+                    <CustomerIcon name="car" size={22} />
+                    <span>
+                        <small>{copy("Vehicle", "Xe")}</small>
+                        <strong>{booking.plateNumber}</strong>
+                    </span>
+                </span>
+            </div>
+        </>
+    );
 }
 
 export function CustomerDashboardPage({
@@ -244,8 +330,8 @@ export function CustomerDashboardPage({
                         </h1>
                         <h2>
                             {copy(
-                                "Smarter parking. Brighter journeys.",
-                                "Đỗ xe thông minh. Hành trình thuận tiện.",
+                                "ParkWise Smart Parking System",
+                                "Hệ thống hỗ trợ đỗ xe thông minh ParkWise",
                             )}
                         </h2>
                         <button
@@ -333,36 +419,42 @@ export function CustomerDashboardPage({
                                 className="dashboard-saved-options"
                                 role="tabpanel"
                             >
-                                {savedPlaces.map((place) => (
-                                    <button
-                                        key={place.name}
-                                        type="button"
-                                        onClick={() =>
-                                            choosePlace(place.detail)
-                                        }
-                                    >
-                                        <span className="dashboard-saved-icon">
-                                            <CustomerIcon
-                                                name={place.icon}
-                                                size={22}
-                                            />
-                                        </span>
-                                        <span>
-                                            <strong>
-                                                {place.name === "Work"
-                                                    ? copy("Work", "Cơ quan")
-                                                    : place.name === "Home"
-                                                      ? copy("Home", "Nhà")
-                                                      : copy(
-                                                            "Favorite",
-                                                            "Yêu thích",
-                                                        )}
-                                            </strong>
-                                            <small>{place.detail}</small>
-                                        </span>
-                                        <CustomerIcon name="arrow" size={18} />
-                                    </button>
-                                ))}
+                                {savedPlaces.length > 0 ? (
+                                    savedPlaces.map((place) => (
+                                        <button
+                                            key={place.name}
+                                            type="button"
+                                            onClick={() =>
+                                                choosePlace(place.detail)
+                                            }
+                                        >
+                                            <span className="dashboard-saved-icon">
+                                                <CustomerIcon
+                                                    name={place.icon}
+                                                    size={22}
+                                                />
+                                            </span>
+                                            <span>
+                                                <strong>
+                                                    {place.name === "Work"
+                                                        ? copy("Work", "Cơ quan")
+                                                        : place.name === "Home"
+                                                          ? copy("Home", "Nhà")
+                                                          : copy(
+                                                                "Favorite",
+                                                                "Yêu thích",
+                                                            )}
+                                                </strong>
+                                                <small>{place.detail}</small>
+                                            </span>
+                                            <CustomerIcon name="arrow" size={18} />
+                                        </button>
+                                    ))
+                                ) : (
+                                    <p className="dashboard-empty-note py-4 text-center">
+                                        {copy("No saved places", "Chưa có địa điểm đã lưu")}
+                                    </p>
+                                )}
                             </div>
                         ) : tab === "quick" ? (
                             <div
@@ -384,25 +476,31 @@ export function CustomerDashboardPage({
                                     </span>
                                 </div>
                                 <div className="dashboard-quick-places">
-                                    {recentPlaces.map((place) => (
-                                        <button
-                                            type="button"
-                                            key={place}
-                                            onClick={() => quickSearch(place)}
-                                        >
-                                            <span className="dashboard-quick-place-icon">
+                                    {recentPlaces.length > 0 ? (
+                                        recentPlaces.map((place) => (
+                                            <button
+                                                type="button"
+                                                key={place}
+                                                onClick={() => quickSearch(place)}
+                                            >
+                                                <span className="dashboard-quick-place-icon">
+                                                    <CustomerIcon
+                                                        name="location"
+                                                        size={19}
+                                                    />
+                                                </span>
+                                                <strong>{place}</strong>
                                                 <CustomerIcon
-                                                    name="location"
-                                                    size={19}
+                                                    name="arrow"
+                                                    size={18}
                                                 />
-                                            </span>
-                                            <strong>{place}</strong>
-                                            <CustomerIcon
-                                                name="arrow"
-                                                size={18}
-                                            />
-                                        </button>
-                                    ))}
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <p className="dashboard-empty-note py-3 text-center">
+                                            {copy("No recent search history", "Chưa có lịch sử tìm kiếm")}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         ) : (
@@ -580,21 +678,27 @@ export function CustomerDashboardPage({
                                         )}
                                     </span>
                                     <div>
-                                        {recentPlaces.map((place) => (
-                                            <button
-                                                type="button"
-                                                key={place}
-                                                onClick={() =>
-                                                    choosePlace(place)
-                                                }
-                                            >
-                                                <CustomerIcon
-                                                    name="location"
-                                                    size={17}
-                                                />
-                                                {place}
-                                            </button>
-                                        ))}
+                                        {recentPlaces.length > 0 ? (
+                                            recentPlaces.map((place) => (
+                                                <button
+                                                    type="button"
+                                                    key={place}
+                                                    onClick={() =>
+                                                        choosePlace(place)
+                                                    }
+                                                >
+                                                    <CustomerIcon
+                                                        name="location"
+                                                        size={17}
+                                                    />
+                                                    {place}
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <span className="dashboard-empty-note">
+                                                {copy("No search history", "Chưa có lịch sử")}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -646,65 +750,13 @@ export function CustomerDashboardPage({
                                             "Đặt chỗ sắp tới",
                                         )}
                                     </h2>
-                                    <span className="dashboard-status blue">
-                                        {copy("Demo data", "Dữ liệu mẫu")}
-                                    </span>
                                 </div>
                                 <Link href="/search">
                                     {copy("Find parking", "Tìm bãi đỗ")}{" "}
                                     <CustomerIcon name="arrow" size={17} />
                                 </Link>
                             </div>
-                            <div className="dashboard-booking-body">
-                                <div className="dashboard-booking-image">
-                                    <Image
-                                        src="/images/parkwise/dashboard-parking-entrance.webp"
-                                        alt="City parking entrance"
-                                        fill
-                                        sizes="170px"
-                                    />
-                                </div>
-                                <div>
-                                    <h3>
-                                        {dashboardPreviewData.booking.lotName}
-                                    </h3>
-                                    <p>
-                                        {dashboardPreviewData.booking.location}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="dashboard-booking-facts">
-                                <span>
-                                    <CustomerIcon name="calendar" size={22} />
-                                    <span>
-                                        <small>{copy("Date", "Ngày")}</small>
-                                        <strong>
-                                            {dashboardPreviewData.booking.date}
-                                        </strong>
-                                    </span>
-                                </span>
-                                <span>
-                                    <CustomerIcon name="clock" size={22} />
-                                    <span>
-                                        <small>{copy("Time", "Giờ")}</small>
-                                        <strong>
-                                            {dashboardPreviewData.booking.time}
-                                        </strong>
-                                    </span>
-                                </span>
-                                <span>
-                                    <CustomerIcon name="car" size={22} />
-                                    <span>
-                                        <small>{copy("Vehicle", "Xe")}</small>
-                                        <strong>
-                                            {
-                                                dashboardPreviewData.booking
-                                                    .vehicle
-                                            }
-                                        </strong>
-                                    </span>
-                                </span>
-                            </div>
+                            <UpcomingBookingCard />
                         </section>
                     </div>
 
@@ -758,42 +810,48 @@ export function CustomerDashboardPage({
                         </div>
                         <div className="dashboard-map" aria-hidden="true" />
                         <div className="dashboard-map-pins">
-                            {savedPlaces.map((place) => (
-                                <button
-                                    key={place.name}
-                                    type="button"
-                                    onClick={() => {
-                                        choosePlace(place.detail);
-                                        document
-                                            .querySelector(
-                                                ".dashboard-search-card",
-                                            )
-                                            ?.scrollIntoView({
-                                                behavior: "smooth",
-                                            });
-                                    }}
-                                >
-                                    <span className="dashboard-pin-icon">
-                                        <CustomerIcon
-                                            name={place.icon}
-                                            size={19}
-                                        />
-                                    </span>
-                                    <span>
-                                        <strong>
-                                            {place.name === "Work"
-                                                ? copy("Work", "Cơ quan")
-                                                : place.name === "Home"
-                                                  ? copy("Home", "Nhà")
-                                                  : copy(
-                                                        "Favorite",
-                                                        "Yêu thích",
-                                                    )}
-                                        </strong>
-                                        <small>{place.detail}</small>
-                                    </span>
-                                </button>
-                            ))}
+                            {savedPlaces.length > 0 ? (
+                                savedPlaces.map((place) => (
+                                    <button
+                                        key={place.name}
+                                        type="button"
+                                        onClick={() => {
+                                            choosePlace(place.detail);
+                                            document
+                                                .querySelector(
+                                                    ".dashboard-search-card",
+                                                )
+                                                ?.scrollIntoView({
+                                                    behavior: "smooth",
+                                                });
+                                        }}
+                                    >
+                                        <span className="dashboard-pin-icon">
+                                            <CustomerIcon
+                                                name={place.icon}
+                                                size={19}
+                                            />
+                                        </span>
+                                        <span>
+                                            <strong>
+                                                {place.name === "Work"
+                                                    ? copy("Work", "Cơ quan")
+                                                    : place.name === "Home"
+                                                      ? copy("Home", "Nhà")
+                                                      : copy(
+                                                            "Favorite",
+                                                            "Yêu thích",
+                                                        )}
+                                            </strong>
+                                            <small>{place.detail}</small>
+                                        </span>
+                                    </button>
+                                ))
+                            ) : (
+                                <p className="dashboard-empty-note py-3 text-center">
+                                    {copy("No saved places", "Chưa có địa điểm đã lưu")}
+                                </p>
+                            )}
                         </div>
                     </section>
                 </div>

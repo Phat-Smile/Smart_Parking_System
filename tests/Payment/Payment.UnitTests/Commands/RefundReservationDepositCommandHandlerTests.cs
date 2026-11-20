@@ -359,4 +359,68 @@ public sealed class RefundReservationDepositCommandHandlerTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ReservationDepositErrors.AmountInvalid.Code, result.Error?.Code);
     }
+
+    [Fact]
+    public async Task Handle_FailsWithAlreadyForfeited_WhenDepositWasForfeited()
+    {
+        var handler = CreateHandler();
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(userId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Topup");
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -20_000m,
+            "Deposit 20k",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+        wallet.AddEntry(
+            LedgerEntryType.PrepaymentForfeited,
+            20_000m,
+            "Forfeited",
+            ReferenceType.Reservation,
+            reservationId.ToString());
+        _walletRepository.SeedWallet(wallet);
+
+        var command = new RefundReservationDepositCommand(userId, reservationId, 20_000m, "refund-after-forfeit");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.AlreadyForfeited, result.Error);
+        Assert.Equal(80_000m, wallet.Balance);
+    }
+
+    [Fact]
+    public async Task Handle_FailsWithPrepaymentAlreadySettled_WhenDepositWasApplied()
+    {
+        var handler = CreateHandler();
+        var userId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+
+        var wallet = Wallet.Create(userId);
+        wallet.AddEntry(LedgerEntryType.TopUp, 100_000m, "Topup");
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -20_000m,
+            "Deposit 20k",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: userId);
+        wallet.AddEntry(
+            LedgerEntryType.PrepaymentApplied,
+            20_000m,
+            "Applied",
+            ReferenceType.Reservation,
+            reservationId.ToString());
+        _walletRepository.SeedWallet(wallet);
+
+        var command = new RefundReservationDepositCommand(userId, reservationId, 20_000m, "refund-after-applied");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ReservationDepositErrors.PrepaymentAlreadySettled, result.Error);
+        Assert.Equal(80_000m, wallet.Balance);
+    }
 }

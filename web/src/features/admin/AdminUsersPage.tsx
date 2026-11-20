@@ -20,11 +20,7 @@ import {
 } from "./adminAccounts";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
-const roles: AccountRole[] = [
-    "Customer",
-    "ParkingLotOwner",
-    "SystemAdmin",
-];
+const roles: AccountRole[] = ["Customer", "ParkingLotOwner", "SystemAdmin"];
 
 const statuses: AccountStatus[] = [
     "PendingEmailVerification",
@@ -814,7 +810,9 @@ export function AdminUsersPage() {
                                                                 >
                                                                     <AdminIcon
                                                                         name="close"
-                                                                        size={13}
+                                                                        size={
+                                                                            13
+                                                                        }
                                                                     />
                                                                     <span>
                                                                         {t(
@@ -846,7 +844,9 @@ export function AdminUsersPage() {
                                                                 >
                                                                     <AdminIcon
                                                                         name="check"
-                                                                        size={13}
+                                                                        size={
+                                                                            13
+                                                                        }
                                                                     />
                                                                     <span>
                                                                         {t(
@@ -1024,9 +1024,7 @@ export function AdminUsersPage() {
                                 <strong>{pendingAction.account.email}</strong>
                             </div>
                             <div>
-                                <span>
-                                    {isVi ? "Vai trò" : "Role"}
-                                </span>
+                                <span>{isVi ? "Vai trò" : "Role"}</span>
                                 <strong>
                                     {roleDisplay[pendingAction.account.role]}
                                 </strong>

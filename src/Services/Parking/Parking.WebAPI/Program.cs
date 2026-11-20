@@ -7,6 +7,7 @@ using ParkingSystem.Parking.Application;
 using ParkingSystem.Parking.Application.Common.Booking;
 using ParkingSystem.Parking.Application.Common.Mapbox;
 using ParkingSystem.Parking.Application.Common.Realtime;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 using ParkingSystem.Parking.Infrastructure.Booking;
 using ParkingSystem.Parking.Infrastructure.Mapbox;
 using ParkingSystem.Parking.Infrastructure;
@@ -75,6 +76,8 @@ builder.Services.Configure<BookingServiceOptions>(builder.Configuration.GetSecti
 builder.Services.AddHttpClient<BookingCheckInHttpClient>();
 builder.Services.AddTransient<IBookingCheckInClient>(services => services.GetRequiredService<BookingCheckInHttpClient>());
 builder.Services.AddTransient<IBookingNoSlotReporter>(services => services.GetRequiredService<BookingCheckInHttpClient>());
+builder.Services.AddHttpClient<BookingHeldQuotaHttpClient>();
+builder.Services.AddScoped<IHeldQuotaReader>(services => services.GetRequiredService<BookingHeldQuotaHttpClient>());
 builder.Services.AddHttpClient<ArrivalAvailabilityClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
 // Recommendation quota is time-specific and must not reuse the walk-in Gate quota cache.
 builder.Services.AddHttpClient<IArrivalHeldQuotaClient, ArrivalHeldQuotaClient>(client =>
@@ -99,12 +102,14 @@ if (enableGrpcReflection)
     builder.Services.AddGrpcReflection();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddParkingSwagger();
+builder.Services.AddOwnerStaffAssignmentRateLimiting();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
 // Location-derived responses are never stored by browsers or intermediary caches.
 app.UseMiddleware<LocationResponsePrivacyMiddleware>();
 app.UseParkingSystemServiceSecurity();
+app.UseRateLimiter();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

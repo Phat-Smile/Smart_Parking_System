@@ -842,22 +842,7 @@ export function ParkingLotDetailExperience({
                                                 "Phương thức thanh toán",
                                             )}
                                         </h3>
-                                        {lot.isPreview ? (
-                                            <div
-                                                className="lot-detail-payment-icons"
-                                                aria-label="Payment methods"
-                                            >
-                                                <span title="Card example">
-                                                    <CreditCard size={18} />
-                                                </span>
-                                                <span title="Wallet example">
-                                                    <Wallet size={18} />
-                                                </span>
-                                                <span title="Bank example">
-                                                    <Landmark size={18} />
-                                                </span>
-                                            </div>
-                                        ) : lot.paymentMethods?.length ? (
+                                        {lot.paymentMethods?.length ? (
                                             <ul className="lot-detail-amenities">
                                                 {lot.paymentMethods.map(
                                                     (method) => (

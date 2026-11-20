@@ -18,8 +18,15 @@ public class ParkingFeeIpnHandlerTests
         private readonly Dictionary<string, ParkingFeePayment> _paymentsByTxnRef = new();
         public bool HasSucceededPayment { get; set; }
         public bool SaveChangesCalled { get; private set; }
+        public bool ClearChangeTrackerCalled { get; private set; }
         public Exception? ExceptionToThrowOnSaveChanges { get; set; }
+        public Func<Task>? OnSaveChangesAsync { get; set; }
         public Action<ParkingFeePayment>? OnReload { get; set; }
+
+        public void ClearChangeTracker()
+        {
+            ClearChangeTrackerCalled = true;
+        }
 
         public void SeedPayment(ParkingFeePayment payment)
         {
@@ -53,14 +60,17 @@ public class ParkingFeeIpnHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task SaveChangesAsync(CancellationToken ct)
+        public async Task SaveChangesAsync(CancellationToken ct)
         {
+            if (OnSaveChangesAsync != null)
+            {
+                await OnSaveChangesAsync();
+            }
             if (ExceptionToThrowOnSaveChanges != null)
             {
                 throw ExceptionToThrowOnSaveChanges;
             }
             SaveChangesCalled = true;
-            return Task.CompletedTask;
         }
 
         public Task AddAsync(ParkingFeePayment payment, CancellationToken ct)
@@ -77,7 +87,11 @@ public class ParkingFeeIpnHandlerTests
 
         public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
         {
-            var payment = _paymentsByTxnRef.Values.FirstOrDefault(p => (p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded);
+            var payment = _paymentsByTxnRef.Values
+                .Where(p => (p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
+                .OrderByDescending(p => p.PaymentSequence)
+                .ThenByDescending(p => p.PaymentTimeUtc)
+                .FirstOrDefault();
             if (payment == null && HasSucceededPayment)
             {
                 var now = DateTimeOffset.UtcNow;
@@ -152,6 +166,11 @@ public class ParkingFeeIpnHandlerTests
     private class DbUpdateConcurrencyException : Exception
     {
         public DbUpdateConcurrencyException(string message) : base(message) { }
+    }
+
+    private class DbUpdateException : Exception
+    {
+        public DbUpdateException(string message) : base(message) { }
     }
 
     private readonly FakeParkingFeePaymentRepository _paymentRepository = new();
@@ -383,7 +402,13 @@ public class ParkingFeeIpnHandlerTests
         var payment = CreateSamplePayment();
         _paymentRepository.SeedPayment(payment);
         _paymentRepository.ExceptionToThrowOnSaveChanges = new DbUpdateConcurrencyException("Concurrency conflict");
-        _paymentRepository.OnReload = p => p.MarkAsSucceeded("14123456", _clock.UtcNow, _clock.UtcNow.AddMinutes(15));
+        _paymentRepository.OnReload = p =>
+        {
+            if (p.Status != PaymentStatus.Succeeded)
+            {
+                p.MarkAsSucceeded("14123456", _clock.UtcNow, _clock.UtcNow.AddMinutes(15));
+            }
+        };
 
         var query = CreateValidQuery(payment.TxnRef!, payment.AmountPaid);
 
@@ -408,9 +433,9 @@ public class ParkingFeeIpnHandlerTests
         Assert.Equal(VnpayIpnResponseDto.Codes.UnknownError, result.RspCode);
     }
 
-    // Kiểm tra khi thanh toán phụ phí quá hạn (Overstay) qua VNPay: mở barie và cập nhật hóa đơn
+    // Kiểm tra khi thanh toán phụ phí quá hạn (Overstay) qua VNPay: chốt hóa đơn mới thành Succeeded và giữ nguyên hóa đơn cũ
     [Fact]
-    public async Task HandleAsync_WhenOverstayPaymentViaVnpay_UpdatesExistingPayment_EnqueuesOutbox_AndReturnsRspCode00()
+    public async Task HandleAsync_WhenOverstayPaymentViaVnpay_MarksNewPaymentSucceeded_PreservesOriginal_AndEnqueuesOutbox()
     {
         var sessionId = Guid.NewGuid();
         var accountId = Guid.NewGuid();
@@ -428,11 +453,12 @@ public class ParkingFeeIpnHandlerTests
             feeCalculatedAtUtc: _clock.UtcNow.AddMinutes(-45),
             expiresAtUtc: _clock.UtcNow.AddMinutes(-30),
             txnRef: "OLD_PAID_TXN",
-            paymentUrl: "https://sandbox.vnpayment.vn");
+            paymentUrl: "https://sandbox.vnpayment.vn",
+            paymentSequence: 1);
         oldPayment.MarkAsSucceeded("14111111", _clock.UtcNow.AddMinutes(-45), _clock.UtcNow.AddMinutes(-30));
         _paymentRepository.SeedPayment(oldPayment);
 
-        // Hóa đơn overstay mới quét tại cổng
+        // Hóa đơn overstay mới quét tại cổng (đợt 2)
         var overstayPayment = ParkingFeePayment.CreateVnPayPayment(
             sessionId: sessionId,
             parkingLotId: oldPayment.ParkingLotId,
@@ -445,7 +471,8 @@ public class ParkingFeeIpnHandlerTests
             feeCalculatedAtUtc: _clock.UtcNow,
             expiresAtUtc: _clock.UtcNow.AddMinutes(15),
             txnRef: "OVERSTAY_TXN_002",
-            paymentUrl: "https://sandbox.vnpayment.vn");
+            paymentUrl: "https://sandbox.vnpayment.vn",
+            paymentSequence: 2);
         _paymentRepository.SeedPayment(overstayPayment);
 
         var query = CreateValidQuery(overstayPayment.TxnRef!, overstayPayment.AmountPaid);
@@ -453,23 +480,187 @@ public class ParkingFeeIpnHandlerTests
         var result = await _handler.HandleAsync(query, overstayPayment.TxnRef!, CancellationToken.None);
 
         Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
-        Assert.Equal(PaymentStatus.Superseded, overstayPayment.Status);
-        Assert.Equal(50000, oldPayment.TotalFee);
-        Assert.Equal(50000, oldPayment.AmountPaid);
-        Assert.Equal(_clock.UtcNow.AddMinutes(15), oldPayment.ExitWindowExpiresUtc);
+        Assert.Equal(PaymentStatus.Succeeded, overstayPayment.Status);
+        Assert.Equal("14123456", overstayPayment.GatewayTransactionNo);
+        Assert.Equal(_clock.UtcNow.AddMinutes(15), overstayPayment.ExitWindowExpiresUtc);
+
+        // Chứng từ gốc giữ nguyên bất biến
+        Assert.Equal(35000, oldPayment.TotalFee);
+        Assert.Equal(35000, oldPayment.AmountPaid);
         Assert.True(_paymentRepository.SaveChangesCalled);
 
-        // Đảm bảo phát sự kiện mở cổng barie cho phiên xe
+        // Đảm bảo phát sự kiện mở cổng barie theo ID hóa đơn mới
         Assert.Single(_outboxWriter.Enqueued);
         var (ev, eventType, version, correlationId) = _outboxWriter.Enqueued[0];
         Assert.Equal("payment.session-paid.v1", eventType);
         Assert.Equal(1, version);
-        Assert.Equal(oldPayment.Id, correlationId);
+        Assert.Equal(overstayPayment.Id, correlationId);
 
         var paidEvent = Assert.IsType<ParkingSessionPaidIntegrationEvent>(ev);
         Assert.Equal(sessionId, paidEvent.SessionId);
+        Assert.Equal(overstayPayment.Id, paidEvent.PaymentId);
         Assert.Equal(15000, paidEvent.AmountPaid);
         Assert.Equal(_clock.UtcNow, paidEvent.PaidAtUtc);
         Assert.Equal(_clock.UtcNow.AddMinutes(15), paidEvent.ExitWindowExpiresUtc);
+    }
+
+    // Chặn lỗ hổng VNPay gửi lặp IPN overstay trong 15 phút để hoàn tiền khống vào ví
+    [Fact]
+    public async Task HandleAsync_WhenOverstayVnpayIpnReplayedWithinExitWindow_ReturnsRspCode02_WithoutDoubleRefundOrDuplicateOutbox()
+    {
+        var sessionId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var wallet = Wallet.Create(accountId);
+        _walletRepository.SeedWallet(wallet);
+
+        var oldPayment = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, Guid.NewGuid(), accountId, "51F-12345", "Car",
+            35000, 0, 35000, _clock.UtcNow.AddMinutes(-45), _clock.UtcNow.AddMinutes(-30),
+            "OLD_PAID_TXN", "https://sandbox.vnpayment.vn", paymentSequence: 1);
+        oldPayment.MarkAsSucceeded("14111111", _clock.UtcNow.AddMinutes(-45), _clock.UtcNow.AddMinutes(-30));
+        _paymentRepository.SeedPayment(oldPayment);
+
+        var overstayPayment = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, oldPayment.ParkingLotId, accountId, "51F-12345", "Car",
+            15000, 0, 15000, _clock.UtcNow, _clock.UtcNow.AddMinutes(15),
+            "OVERSTAY_TXN_REPLAY", "https://sandbox.vnpayment.vn", paymentSequence: 2);
+        _paymentRepository.SeedPayment(overstayPayment);
+
+        var query = CreateValidQuery(overstayPayment.TxnRef!, overstayPayment.AmountPaid);
+
+        // IPN lần 1 thành công
+        var firstResult = await _handler.HandleAsync(query, overstayPayment.TxnRef!, CancellationToken.None);
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, firstResult.RspCode);
+
+        // IPN lần 2 đến sau 10 giây (vẫn trong cửa sổ 15 phút) phải bị chặn hoàn toàn
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(10);
+        var replayResult = await _handler.HandleAsync(query, overstayPayment.TxnRef!, CancellationToken.None);
+
+        Assert.Equal(VnpayIpnResponseDto.Codes.AlreadyConfirmed, replayResult.RspCode);
+        Assert.Equal(PaymentStatus.Succeeded, overstayPayment.Status);
+        Assert.Equal(0m, wallet.Balance);
+        Assert.Empty(wallet.LedgerEntries);
+        Assert.Single(_outboxWriter.Enqueued);
+    }
+
+    // Đợt overstay đã được trả trước (VD: tiền mặt) -> IPN VNPay trễ của cùng đợt bị tính là thu thừa
+    [Fact]
+    public async Task HandleAsync_WhenOverstayCycleAlreadyPaid_LateVnpayIpn_MarksAsSurplus_AndCreditsRegisteredWallet()
+    {
+        var sessionId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var wallet = Wallet.Create(accountId);
+        _walletRepository.SeedWallet(wallet);
+
+        var paidSeq2 = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, accountId, "51F-12345", "Car",
+            15000, 0, 15000, _clock.UtcNow.AddMinutes(-1), _clock.UtcNow.AddMinutes(14),
+            "PAID_SEQ2", "https://sandbox.vnpayment.vn", paymentSequence: 2);
+        paidSeq2.MarkAsSucceeded("CASH_OR_WALLET", _clock.UtcNow.AddMinutes(-1), _clock.UtcNow.AddMinutes(14));
+        _paymentRepository.SeedPayment(paidSeq2);
+
+        var lateVnpaySeq2 = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, accountId, "51F-12345", "Car",
+            15000, 0, 15000, _clock.UtcNow.AddMinutes(-2), _clock.UtcNow.AddMinutes(13),
+            "LATE_VNPAY_SEQ2", "https://sandbox.vnpayment.vn", paymentSequence: 2);
+        _paymentRepository.SeedPayment(lateVnpaySeq2);
+
+        var query = CreateValidQuery(lateVnpaySeq2.TxnRef!, lateVnpaySeq2.AmountPaid);
+        var result = await _handler.HandleAsync(query, lateVnpaySeq2.TxnRef!, CancellationToken.None);
+
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(PaymentStatus.Surplus, lateVnpaySeq2.Status);
+        Assert.Equal("RefundedToWallet", lateVnpaySeq2.SurplusRefundStatus);
+        Assert.Equal(15000m, wallet.Balance);
+        Assert.Empty(_outboxWriter.Enqueued);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenOverstayCycleAlreadyPaid_LateVnpayIpn_WithoutAccount_MarksNeedsManualRefund()
+    {
+        var sessionId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+
+        var paidSeq2 = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, null, "51F-12345", "Car",
+            15000, 0, 15000, _clock.UtcNow.AddMinutes(-1), _clock.UtcNow.AddMinutes(14),
+            "GUEST_PAID_SEQ2", "https://sandbox.vnpayment.vn", paymentSequence: 2);
+        paidSeq2.MarkAsSucceeded("CASH_REF", _clock.UtcNow.AddMinutes(-1), _clock.UtcNow.AddMinutes(14));
+        _paymentRepository.SeedPayment(paidSeq2);
+
+        var lateGuestSeq2 = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, null, "51F-12345", "Car",
+            15000, 0, 15000, _clock.UtcNow.AddMinutes(-2), _clock.UtcNow.AddMinutes(13),
+            "GUEST_LATE_SEQ2", "https://sandbox.vnpayment.vn", paymentSequence: 2);
+        _paymentRepository.SeedPayment(lateGuestSeq2);
+
+        var query = CreateValidQuery(lateGuestSeq2.TxnRef!, lateGuestSeq2.AmountPaid);
+        var result = await _handler.HandleAsync(query, lateGuestSeq2.TxnRef!, CancellationToken.None);
+
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.Equal(PaymentStatus.Surplus, lateGuestSeq2.Status);
+        Assert.Equal("NeedsManualRefund", lateGuestSeq2.SurplusRefundStatus);
+        Assert.Empty(_outboxWriter.Enqueued);
+    }
+
+    // Đua ghi khác dòng (23505): Cash/Wallet vừa thắng Seq=2 ngay khi IPN gọi SaveChangesAsync -> xóa tạm và hoàn tiền Surplus
+    [Fact]
+    public async Task HandleAsync_WhenCrossRow23505RaceOnSameCycle_ClearsChangeTracker_AndSettlesAsSurplus()
+    {
+        var sessionId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var wallet = Wallet.Create(accountId);
+        _walletRepository.SeedWallet(wallet);
+
+        var racingVnpay = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, accountId, "51F-12345", "Car",
+            15000, 0, 15000, _clock.UtcNow, _clock.UtcNow.AddMinutes(15),
+            "RACING_VNPAY_SEQ2", "https://sandbox.vnpayment.vn", paymentSequence: 2);
+        _paymentRepository.SeedPayment(racingVnpay);
+
+        var saveAttempts = 0;
+        _paymentRepository.OnSaveChangesAsync = () =>
+        {
+            saveAttempts++;
+            if (saveAttempts == 1)
+            {
+                // Mô phỏng một kênh khác vừa chốt Seq=2 thành công trước khi IPN kịp lưu DB
+                var cashWinner = ParkingFeePayment.CreateCashPayment(
+                    sessionId, lotId, accountId, "51F-12345", "Car",
+                    15000, 0, 15000, _clock.UtcNow, _clock.UtcNow.AddMinutes(15), paymentSequence: 2);
+                _paymentRepository.SeedPayment(cashWinner);
+                // Dùng reflection gán TxnRef giả để Fake dictionary lưu cashWinner (trùng key theo TxnRef)
+                typeof(ParkingFeePayment).GetProperty(nameof(ParkingFeePayment.TxnRef))!.SetValue(cashWinner, "CASH_WINNER_SEQ2");
+                _paymentRepository.SeedPayment(cashWinner);
+
+                throw new DbUpdateException("23505 ux_fee_payments_session_sequence_succeeded");
+            }
+
+            return Task.CompletedTask;
+        };
+
+        // Mô phỏng EF Core ReloadAsync nạp lại Status = Pending từ DB sau rollback, kèm instance sạch khi ClearChangeTracker
+        var reloadedFreshCopy = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, accountId, "51F-12345", "Car",
+            15000, 0, 15000, _clock.UtcNow, _clock.UtcNow.AddMinutes(15),
+            "RACING_VNPAY_SEQ2", "https://sandbox.vnpayment.vn", paymentSequence: 2);
+
+        _paymentRepository.OnReload = p =>
+        {
+            typeof(ParkingFeePayment).GetProperty(nameof(ParkingFeePayment.Status))!.SetValue(p, PaymentStatus.Pending);
+            _paymentRepository.SeedPayment(reloadedFreshCopy);
+        };
+
+        var query = CreateValidQuery("RACING_VNPAY_SEQ2", racingVnpay.AmountPaid);
+        var result = await _handler.HandleAsync(query, "RACING_VNPAY_SEQ2", CancellationToken.None);
+
+        Assert.Equal(VnpayIpnResponseDto.Codes.Success, result.RspCode);
+        Assert.True(_paymentRepository.ClearChangeTrackerCalled);
+        Assert.Equal(PaymentStatus.Surplus, reloadedFreshCopy.Status);
+        Assert.Equal("RefundedToWallet", reloadedFreshCopy.SurplusRefundStatus);
+        Assert.Equal(15000m, wallet.Balance);
+        Assert.Equal(2, saveAttempts);
     }
 }

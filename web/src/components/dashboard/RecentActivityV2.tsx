@@ -11,71 +11,7 @@ interface ActivityItemV2 {
     status: "Đang đỗ" | "Đã ra";
 }
 
-const ACTIVITIES: ActivityItemV2[] = [
-    {
-        id: "1",
-        plate: "61C-726.12",
-        method: "VNPay QR",
-        timeAgo: "14 phút trước",
-        status: "Đang đỗ",
-    },
-    {
-        id: "2",
-        plate: "61C-404.31",
-        method: "Ví Smart Parking",
-        timeAgo: "15 phút trước",
-        status: "Đang đỗ",
-    },
-    {
-        id: "3",
-        plate: "51H-100.31",
-        method: "Ví Smart Parking",
-        timeAgo: "15 phút trước",
-        status: "Đang đỗ",
-    },
-    {
-        id: "4",
-        plate: "61C-487.40",
-        method: "VNPay QR",
-        timeAgo: "17 phút trước",
-        status: "Đang đỗ",
-    },
-    {
-        id: "5",
-        plate: "50F-503.55",
-        method: "VNPay QR",
-        timeAgo: "18 phút trước",
-        status: "Đang đỗ",
-    },
-    {
-        id: "6",
-        plate: "59B-130.20",
-        method: "Ví Smart Parking",
-        timeAgo: "20 phút trước",
-        status: "Đang đỗ",
-    },
-    {
-        id: "7",
-        plate: "51A-455.34",
-        method: "Ví Smart Parking",
-        timeAgo: "26 phút trước",
-        status: "Đã ra",
-    },
-    {
-        id: "8",
-        plate: "51A-573.12",
-        method: "Tiền mặt",
-        timeAgo: "39 phút trước",
-        status: "Đã ra",
-    },
-    {
-        id: "9",
-        plate: "51A-691.80",
-        method: "VNPay QR",
-        timeAgo: "52 phút trước",
-        status: "Đã ra",
-    },
-];
+const ACTIVITIES: ActivityItemV2[] = [];
 
 export function RecentActivityV2() {
     return (
@@ -128,107 +64,120 @@ export function RecentActivityV2() {
 
             {/* List */}
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {ACTIVITIES.map((act) => {
-                    const isParked = act.status === "Đang đỗ";
-                    return (
-                        <div
-                            key={act.id}
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "8px 0",
-                                borderBottom: "1px solid #f5f7fa",
-                            }}
-                        >
-                            {/* Left: Car Icon + Plate + Method */}
+                {ACTIVITIES.length === 0 ? (
+                    <p
+                        style={{
+                            textAlign: "center",
+                            color: "#6a7491",
+                            padding: "24px 0",
+                            fontSize: 13.5,
+                        }}
+                    >
+                        Chưa có hoạt động đỗ xe
+                    </p>
+                ) : (
+                    ACTIVITIES.map((act) => {
+                        const isParked = act.status === "Đang đỗ";
+                        return (
                             <div
+                                key={act.id}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: 12,
+                                    justifyContent: "space-between",
+                                    padding: "8px 0",
+                                    borderBottom: "1px solid #f5f7fa",
                                 }}
                             >
+                                {/* Left: Car Icon + Plate + Method */}
                                 <div
                                     style={{
-                                        width: 36,
-                                        height: 36,
-                                        borderRadius: 8,
-                                        background: "#f3f6fb",
                                         display: "flex",
                                         alignItems: "center",
-                                        justifyContent: "center",
-                                        color: "#6a7491",
+                                        gap: 12,
                                     }}
                                 >
-                                    <svg
-                                        width="18"
-                                        height="18"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                    >
-                                        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
-                                        <circle cx="7" cy="17" r="2" />
-                                        <path d="M9 17h6" />
-                                        <circle cx="17" cy="17" r="2" />
-                                    </svg>
-                                </div>
-                                <div>
                                     <div
                                         style={{
-                                            fontSize: 13.5,
-                                            fontWeight: 700,
-                                            color: "#0f1b3d",
-                                        }}
-                                    >
-                                        {act.plate}
-                                    </div>
-                                    <div
-                                        style={{
-                                            fontSize: 11.5,
+                                            width: 36,
+                                            height: 36,
+                                            borderRadius: 8,
+                                            background: "#f3f6fb",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
                                             color: "#6a7491",
                                         }}
                                     >
-                                        {act.method}
+                                        <svg
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                        >
+                                            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+                                            <circle cx="7" cy="17" r="2" />
+                                            <path d="M9 17h6" />
+                                            <circle cx="17" cy="17" r="2" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontSize: 13.5,
+                                                fontWeight: 700,
+                                                color: "#0f1b3d",
+                                            }}
+                                        >
+                                            {act.plate}
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontSize: 11.5,
+                                                color: "#6a7491",
+                                            }}
+                                        >
+                                            {act.method}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Right: Time ago + Status Badge */}
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 12,
-                                }}
-                            >
-                                <span
-                                    style={{ fontSize: 12, color: "#6a7491" }}
-                                >
-                                    {act.timeAgo}
-                                </span>
-                                <span
+                                {/* Right: Time ago + Status Badge */}
+                                <div
                                     style={{
-                                        background: isParked
-                                            ? "#fde8e8"
-                                            : "#def7ec",
-                                        color: isParked ? "#e5484d" : "#0e9f6e",
-                                        borderRadius: 999,
-                                        padding: "3px 10px",
-                                        fontSize: 11.5,
-                                        fontWeight: 700,
-                                        minWidth: 64,
-                                        textAlign: "center",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 12,
                                     }}
                                 >
-                                    {act.status}
-                                </span>
+                                    <span
+                                        style={{ fontSize: 12, color: "#6a7491" }}
+                                    >
+                                        {act.timeAgo}
+                                    </span>
+                                    <span
+                                        style={{
+                                            background: isParked
+                                                ? "#fde8e8"
+                                                : "#def7ec",
+                                            color: isParked ? "#e5484d" : "#0e9f6e",
+                                            borderRadius: 999,
+                                            padding: "3px 10px",
+                                            fontSize: 11.5,
+                                            fontWeight: 700,
+                                            minWidth: 64,
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        {act.status}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })
+                )}
             </div>
         </div>
     );

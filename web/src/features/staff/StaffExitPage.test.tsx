@@ -543,19 +543,27 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
             ),
         );
 
-        const reissueBtn = await screen.findByRole("button", { name: /Cấp lại vé QR/i });
+        const reissueBtn = await screen.findByRole("button", {
+            name: /Cấp lại vé QR/i,
+        });
         fireEvent.click(reissueBtn);
 
-        const reasonInput = screen.getByLabelText(/Lý do cấp lại vé/i) as HTMLTextAreaElement;
+        const reasonInput = screen.getByLabelText(
+            /Lý do cấp lại vé/i,
+        ) as HTMLTextAreaElement;
         expect(reasonInput).toBeInTheDocument();
 
         // Clear reason -> button should be disabled
         fireEvent.change(reasonInput, { target: { value: "   " } });
-        const confirmBtn = screen.getByRole("button", { name: /Xác nhận & Cấp vé/i });
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận & Cấp vé/i,
+        });
         expect(confirmBtn).toBeDisabled();
 
         // Enter valid reason
-        fireEvent.change(reasonInput, { target: { value: "Mã QR của khách bị ướt mưa không quét được" } });
+        fireEvent.change(reasonInput, {
+            target: { value: "Mã QR của khách bị ướt mưa không quét được" },
+        });
         expect(confirmBtn).not.toBeDisabled();
         fireEvent.click(confirmBtn);
 
@@ -611,12 +619,16 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         fireEvent.click(extendBtn);
 
         // Modal mở ra
-        const reasonInput = screen.getByLabelText(/Lý do gia hạn/i) as HTMLTextAreaElement;
+        const reasonInput = screen.getByLabelText(
+            /Lý do gia hạn/i,
+        ) as HTMLTextAreaElement;
         expect(reasonInput).toBeInTheDocument();
 
         // Xóa lý do -> nút Xác nhận gia hạn bị vô hiệu hóa
         fireEvent.change(reasonInput, { target: { value: "   " } });
-        const confirmBtn = screen.getByRole("button", { name: /Xác nhận gia hạn/i });
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận gia hạn/i,
+        });
         expect(confirmBtn).toBeDisabled();
 
         // Nhập lý do hợp lệ
@@ -636,7 +648,9 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         // Thông báo thành công hiển thị
         await waitFor(() =>
             expect(
-                screen.getByText(/Đã gia hạn thêm 15 phút xuất bãi thành công/i),
+                screen.getByText(
+                    /Đã gia hạn thêm 15 phút xuất bãi thành công/i,
+                ),
             ).toBeInTheDocument(),
         );
     });
@@ -652,7 +666,9 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
 
     it("does not block QR verification flow when recordExitArrival fails", async () => {
         const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-        apiMocks.recordExitArrival.mockRejectedValueOnce(new Error("Network timeout"));
+        apiMocks.recordExitArrival.mockRejectedValueOnce(
+            new Error("Network timeout"),
+        );
 
         render(<StaffExitPage />);
         await scanQr();
@@ -662,14 +678,19 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         });
 
         // Phiên vẫn được hiển thị thành công và không bị gián đoạn
-        expect(screen.getAllByText("51B-999.88").length).toBeGreaterThanOrEqual(1);
-        expect(screen.getByText(translations.vi.exitAuthorizeBtn)).toBeInTheDocument();
+        expect(screen.getAllByText("51B-999.88").length).toBeGreaterThanOrEqual(
+            1,
+        );
+        expect(
+            screen.getByText(translations.vi.exitAuthorizeBtn),
+        ).toBeInTheDocument();
         warnSpy.mockRestore();
     });
 
-    it("BUG-BE2-03: manualVerify sends original session plateNumber to completeParkingSession instead of mismatched OCR plate", async () => {
+    it("sends gate plate to completeParkingSession after manual verify (does not bypass with session plate)", async () => {
         apiMocks.findSessionByQr.mockResolvedValue({
             ...unpaidSession(),
+            plateNumber: "51A-123.45",
             paymentStatus: "Paid",
             amountDueVnd: 0,
         });
@@ -682,8 +703,8 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         render(<StaffExitPage />);
         await scanQr();
 
-        // Giả lập OCR đọc nhầm 8 thành B (51B-999.88 -> 51B-999.B8)
-        enterGatePlate("51B-999.B8");
+        // Biển cổng đọc được (hoặc nhập tay) là 51A-123.4S, trong khi phiên là 51A-123.45
+        enterGatePlate("51A-123.4S");
 
         // Nhân viên kiểm tra giấy tờ thật và bấm xác minh thủ công
         const manualBtn = screen.getByRole("button", {
@@ -698,39 +719,131 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
             );
         });
 
-        // Bất biến BUG-BE2-03: completeParkingSession BẮT BUỘC nhận biển số gốc của phiên (51B-999.88)
-        // để Backend không ném lỗi 409 ExitNotVerified
+        // Bất biến: completeParkingSession BẮT BUỘC nhận biển số đọc ở cổng (51A-123.4S),
+        // tuyệt đối KHÔNG được gửi biển số của phiên (51A-123.45)
         await waitFor(() => {
             expect(apiMocks.completeParkingSession).toHaveBeenCalledWith(
                 SESSION_ID,
                 {
-                    plateNumber: "51B-999.88",
+                    plateNumber: "51A-123.4S",
                     qrToken: "qr-abc",
                 },
             );
         });
     });
 
-    it("displays optical match hint and enables one-click sync button when OCR differs by optical confusion character", async () => {
+    it("stops and warns when gate plate is empty upon manual verify", async () => {
+        apiMocks.findSessionByQr.mockResolvedValue({
+            ...unpaidSession(),
+            plateNumber: "51A-123.45",
+            paymentStatus: "Paid",
+            amountDueVnd: 0,
+        });
+
         render(<StaffExitPage />);
         await scanQr();
 
-        // Nhập biển số sai ký tự quang học 8 -> B
-        enterGatePlate("51B-999.B8");
+        enterGatePlate("   ");
 
-        // Kiểm tra xuất hiện pill Khớp quang học và gợi ý ANPR
-        expect(screen.getByText(/Khớp quang học/i)).toBeInTheDocument();
-        const syncBtn = screen.getByRole("button", {
-            name: /Đồng bộ theo vé vào/i,
+        const manualBtn = screen.getByRole("button", {
+            name: /Xác minh thủ công/i,
         });
-        expect(syncBtn).toBeInTheDocument();
+        fireEvent.click(manualBtn);
 
-        // Bấm đồng bộ
-        fireEvent.click(syncBtn);
+        expect(
+            await screen.findByText("Nhập biển số đọc ở cổng"),
+        ).toBeInTheDocument();
+        expect(apiMocks.manualVerifyExit).not.toHaveBeenCalled();
+        expect(apiMocks.completeParkingSession).not.toHaveBeenCalled();
+    });
 
-        // Biển số ở ô input đã được đồng bộ thành biển số vé vào
-        const plateInput = document.getElementById("staff-exit-plate") as HTMLInputElement;
-        expect(plateInput.value).toBe("51B-999.88");
+    it("displays error when backend returns 409 exit_not_verified upon manual verify without retrying with session plate", async () => {
+        apiMocks.findSessionByQr.mockResolvedValue({
+            ...unpaidSession(),
+            plateNumber: "51A-123.45",
+            paymentStatus: "Paid",
+            amountDueVnd: 0,
+        });
+        apiMocks.manualVerifyExit.mockResolvedValue({ success: true });
+        apiMocks.completeParkingSession.mockRejectedValue(
+            new ApiError(409, {
+                errorCode: "parking.session.exit_not_verified",
+            }),
+        );
+
+        render(<StaffExitPage />);
+        await scanQr();
+        enterGatePlate("51A-123.4S");
+
+        const manualBtn = screen.getByRole("button", {
+            name: /Xác minh thủ công/i,
+        });
+        fireEvent.click(manualBtn);
+
+        await waitFor(() => {
+            expect(apiMocks.completeParkingSession).toHaveBeenCalledTimes(1);
+        });
+        expect(apiMocks.completeParkingSession).toHaveBeenCalledWith(
+            SESSION_ID,
+            {
+                plateNumber: "51A-123.4S",
+                qrToken: "qr-abc",
+            },
+        );
+        expect(
+            await screen.findByText(
+                "Biển số xe hoặc mã vé QR không khớp với phiên đỗ xe này.",
+            ),
+        ).toBeInTheDocument();
+    });
+
+    it("keeps barrier button disabled when OCR differs by optical confusion character until staff manually types the correct plate", async () => {
+        apiMocks.findSessionByQr.mockResolvedValue({
+            sessionId: SESSION_ID,
+            lotId: "lot-1",
+            plateNumber: "51A-123.45",
+            vehicleType: "Car",
+            customerType: "Registered",
+            status: "Paid",
+            entryTime: "2026-11-12T01:00:00Z",
+            qrToken: "qr-abc",
+            totalFeeVnd: 15000,
+            amountDueVnd: 0,
+        });
+
+        render(<StaffExitPage />);
+        await scanQr();
+
+        // Camera OCR đọc ra 51A-123.4S (lệch ký tự 5 -> S)
+        enterGatePlate("51A-123.4S");
+
+        // Kiểm tra text thông báo gợi ý OCR được hiển thị
+        expect(
+            screen.getByText(
+                "Biển đọc được gần giống vé vào, kiểm tra bằng mắt rồi nhập lại",
+            ),
+        ).toBeInTheDocument();
+
+        // Bất biến: Tuyệt đối KHÔNG có nút tự động đồng bộ / điền biển số từ phiên
+        expect(
+            screen.queryByRole("button", {
+                name: /Đồng bộ theo vé vào/i,
+            }),
+        ).not.toBeInTheDocument();
+
+        // Nút mở barrier vẫn bị disabled (khóa) vì biển số chưa khớp thực tế
+        const exitBtn = screen
+            .getByText(translations.vi.exitAuthorizeBtn)
+            .closest("button")!;
+        expect(exitBtn).toBeDisabled();
+
+        // Nhân viên kiểm tra thực tế bằng mắt và tự tay nhập đúng biển số 51A-123.45
+        enterGatePlate("51A-123.45");
+
+        // Biển số đã khớp chính xác
         expect(screen.getByText(/^Khớp biển số$/)).toBeInTheDocument();
+
+        // Nút mở barrier được mở khóa (enabled)
+        expect(exitBtn).not.toBeDisabled();
     });
 });

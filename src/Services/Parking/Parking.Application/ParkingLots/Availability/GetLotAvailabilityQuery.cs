@@ -3,6 +3,7 @@ using MediatR;
 using ParkingSystem.BuildingBlocks.Results;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Parking.Application.ParkingLayout;
+using ParkingSystem.Parking.Application.ParkingLayout.HeldQuotaShortage;
 
 namespace ParkingSystem.Parking.Application.ParkingLots.Availability;
 
@@ -12,7 +13,11 @@ public sealed record GetLotAvailabilityQuery(Guid LotId) : IRequest<Result<LotAv
 
 public sealed record LotAvailability(Guid LotId, DateTimeOffset AsOfUtc, CarAvailability Car, MotorbikeLotAvailability? Motorbike);
 
-public sealed record CarAvailability(int Available);
+public sealed record CarAvailability(
+    int Available,
+    int WalkInPlaces = 0,
+    string? WalkInStatus = null,
+    string? WalkInMessage = null);
 
 public sealed record MotorbikeLotAvailability(int Capacity, int Available, IReadOnlyList<MotorbikeZoneSpaces> Zones);
 
@@ -37,7 +42,8 @@ public sealed class GetLotAvailabilityQueryHandler(
     IParkingLotDetailReader parkingLots,
     IAvailableSlotReader availableSlots,
     IMotorbikeZoneCounter motorbikeZones,
-    IClock clock) : IRequestHandler<GetLotAvailabilityQuery, Result<LotAvailability>>
+    IClock clock,
+    IHeldQuotaProvider heldQuotaProvider) : IRequestHandler<GetLotAvailabilityQuery, Result<LotAvailability>>
 {
     public async Task<Result<LotAvailability>> Handle(GetLotAvailabilityQuery request, CancellationToken cancellationToken)
     {
@@ -47,10 +53,15 @@ public sealed class GetLotAvailabilityQueryHandler(
         var car = await availableSlots.CountAvailableCarSlotsAsync(request.LotId, cancellationToken);
         var motorbike = await motorbikeZones.GetAvailabilityAsync(request.LotId, cancellationToken);
 
+        var quota = await heldQuotaProvider.GetHeldReservationsAsync(request.LotId, cancellationToken);
+        var held = quota ?? 0;
+
+        var (walkInPlaces, walkInStatus, walkInMessage) = WalkInPlacesCalculator.Calculate(car, held);
+
         return Result<LotAvailability>.Success(new LotAvailability(
             request.LotId,
             clock.UtcNow,
-            new CarAvailability(car),
+            new CarAvailability(car, walkInPlaces, walkInStatus, walkInMessage),
             motorbike is null
                 ? null
                 : new MotorbikeLotAvailability(

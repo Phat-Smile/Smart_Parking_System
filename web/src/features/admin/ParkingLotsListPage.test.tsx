@@ -290,15 +290,11 @@ describe("ParkingLotsListPage — UI/UX & 4 Distinct States", () => {
         });
         await user.click(nameFieldBtn);
 
-        const nameFilterInput = screen.getByPlaceholderText(
-            /Nhập tên bãi xe/i,
-        );
+        const nameFilterInput = screen.getByPlaceholderText(/Nhập tên bãi xe/i);
         await user.type(nameFilterInput, "Quận 1");
 
         // Only Quận 1 lot remains
-        expect(
-            screen.getByText("Bãi xe Trung tâm Quận 1"),
-        ).toBeInTheDocument();
+        expect(screen.getByText("Bãi xe Trung tâm Quận 1")).toBeInTheDocument();
         expect(
             screen.queryByText("Bãi xe Sân bay Tân Sơn Nhất"),
         ).not.toBeInTheDocument();

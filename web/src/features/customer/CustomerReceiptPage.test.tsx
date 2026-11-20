@@ -60,7 +60,9 @@ describe("CustomerReceiptPage & CustomerDataShell", () => {
         render(<CustomerReceiptPage sessionId="sess-2222" />);
 
         expect(
-            screen.getByText(/(Loading electronic receipt|Đang tải hóa đơn điện tử)/i),
+            screen.getByText(
+                /(Loading electronic receipt|Đang tải hóa đơn điện tử)/i,
+            ),
         ).toBeInTheDocument();
 
         await waitFor(() => {
@@ -72,12 +74,12 @@ describe("CustomerReceiptPage & CustomerDataShell", () => {
             ).toBeInTheDocument();
         });
 
-        expect(
-            screen.getByText("Bãi đỗ xe Landmark 81"),
-        ).toBeInTheDocument();
+        expect(screen.getByText("Bãi đỗ xe Landmark 81")).toBeInTheDocument();
         expect(screen.getByText(/51K-999.88/i)).toBeInTheDocument();
         expect(screen.getByText("TX-REF-12345")).toBeInTheDocument();
-        expect(screen.getByText(/(Cash \/ Counter|Tiền mặt tại bãi)/i)).toBeInTheDocument();
+        expect(
+            screen.getByText(/(Cash \/ Counter|Tiền mặt tại bãi)/i),
+        ).toBeInTheDocument();
     });
 
     it("renders error state when receipt cannot be loaded", async () => {
@@ -96,7 +98,9 @@ describe("CustomerReceiptPage & CustomerDataShell", () => {
         });
 
         expect(
-            screen.getByRole("link", { name: /(Back to parking history|Quay lại lịch sử gửi xe)/i }),
+            screen.getByRole("link", {
+                name: /(Back to parking history|Quay lại lịch sử gửi xe)/i,
+            }),
         ).toBeInTheDocument();
     });
 
@@ -108,12 +112,16 @@ describe("CustomerReceiptPage & CustomerDataShell", () => {
 
         await waitFor(() => {
             expect(
-                screen.getByRole("button", { name: /(Print \/ Save PDF|In \/ Lưu Hóa Đơn PDF)/i }),
+                screen.getByRole("button", {
+                    name: /(Print \/ Save PDF|In \/ Lưu Hóa Đơn PDF)/i,
+                }),
             ).toBeInTheDocument();
         });
 
         fireEvent.click(
-            screen.getByRole("button", { name: /(Print \/ Save PDF|In \/ Lưu Hóa Đơn PDF)/i }),
+            screen.getByRole("button", {
+                name: /(Print \/ Save PDF|In \/ Lưu Hóa Đơn PDF)/i,
+            }),
         );
         expect(printSpy).toHaveBeenCalledTimes(1);
         printSpy.mockRestore();
@@ -130,9 +138,7 @@ describe("CustomerReceiptPage & CustomerDataShell", () => {
             </CustomerDataShell>,
         );
 
-        expect(
-            screen.getByTestId("guest-receipt-content"),
-        ).toBeInTheDocument();
+        expect(screen.getByTestId("guest-receipt-content")).toBeInTheDocument();
         expect(replace).not.toHaveBeenCalled();
     });
 

@@ -196,9 +196,7 @@ public sealed class OpenParkingSessionCommandHandler(
             // Nếu không có đặt chỗ (Walk-in), kiểm tra quota để đảm bảo không lấn vào số chỗ đã giữ (US-PARK-007)
             if (checkedInBooking is null)
             {
-                held = await heldQuota.GetHeldReservationsAsync(request.LotId, cancellationToken);
-                if (held is null)
-                    return Result<OpenedParkingSession>.Failure(OpenParkingSessionErrors.HeldQuotaUnavailable);
+                held = await heldQuota.GetHeldReservationsAsync(request.LotId, cancellationToken) ?? 0;
             }
         }
 

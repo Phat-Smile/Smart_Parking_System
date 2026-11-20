@@ -205,8 +205,8 @@ export function ParkingFeeReturnScreen({
                         Đang xác nhận thanh toán với ngân hàng...
                     </p>
                     <p className="text-xs text-amber-700 mt-2">
-                        Hệ thống đang chờ xác nhận thanh toán từ VNPay (Lần kiểm tra{" "}
-                        {pollCount}/10).
+                        Hệ thống đang chờ xác nhận thanh toán từ VNPay (Lần kiểm
+                        tra {pollCount}/10).
                     </p>
                 </div>
             )}

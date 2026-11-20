@@ -37,7 +37,9 @@ describe("authSession and refresh token security", () => {
 
         // Check raw storage
         const localRaw = window.localStorage.getItem("parkwise:auth-session");
-        const sessionRaw = window.sessionStorage.getItem("parkwise:auth-session");
+        const sessionRaw = window.sessionStorage.getItem(
+            "parkwise:auth-session",
+        );
 
         expect(localRaw).not.toBeNull();
         expect(sessionRaw).not.toBeNull();
@@ -70,7 +72,9 @@ describe("authSession and refresh token security", () => {
         expect(getAuthSessionSnapshot()).toBeNull();
         expect(getAccessToken()).toBeUndefined();
         expect(window.localStorage.getItem("parkwise:auth-session")).toBeNull();
-        expect(window.sessionStorage.getItem("parkwise:auth-session")).toBeNull();
+        expect(
+            window.sessionStorage.getItem("parkwise:auth-session"),
+        ).toBeNull();
     });
 
     it("strips legacy refreshToken when hydrating from storage", async () => {
@@ -91,9 +95,8 @@ describe("authSession and refresh token security", () => {
 
         vi.resetModules();
         // Re-importing authSession ensures both authSession and client are in the same module registry
-        const { getAuthSessionSnapshot: getFreshSnapshot } = await import(
-            "./authSession"
-        );
+        const { getAuthSessionSnapshot: getFreshSnapshot } =
+            await import("./authSession");
         const snapshot = getFreshSnapshot();
         expect(snapshot).not.toBeNull();
         expect(snapshot?.account.email).toBe("legacy@example.com");
@@ -120,50 +123,64 @@ describe("authSession and refresh token security", () => {
         });
 
         const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
-        const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-            const url = String(input);
-            fetchCalls.push({ url, init });
+        const fetchMock = vi
+            .fn()
+            .mockImplementation(
+                async (input: RequestInfo | URL, init?: RequestInit) => {
+                    const url = String(input);
+                    fetchCalls.push({ url, init });
 
-            if (url.includes("/api/parking/test") && fetchCalls.length === 1) {
-                // Initial request returns 401
-                return new Response(JSON.stringify({ title: "Unauthorized" }), {
-                    status: 401,
-                    headers: { "Content-Type": "application/problem+json" },
-                });
-            }
+                    if (
+                        url.includes("/api/parking/test") &&
+                        fetchCalls.length === 1
+                    ) {
+                        // Initial request returns 401
+                        return new Response(
+                            JSON.stringify({ title: "Unauthorized" }),
+                            {
+                                status: 401,
+                                headers: {
+                                    "Content-Type": "application/problem+json",
+                                },
+                            },
+                        );
+                    }
 
-            if (url.includes("/api/identity/accounts/refresh")) {
-                // Refresh endpoint returns 200 with new token
-                return new Response(
-                    JSON.stringify({
-                        accessToken: "new-fresh-access-token",
-                        tokenType: "Bearer",
-                        expiresIn: 3600,
-                        account: {
-                            id: "user-101",
-                            email: "customer@example.com",
-                            phoneNumber: null,
-                            status: "Active",
-                            role: "Customer",
-                        },
-                    }),
-                    {
+                    if (url.includes("/api/identity/accounts/refresh")) {
+                        // Refresh endpoint returns 200 with new token
+                        return new Response(
+                            JSON.stringify({
+                                accessToken: "new-fresh-access-token",
+                                tokenType: "Bearer",
+                                expiresIn: 3600,
+                                account: {
+                                    id: "user-101",
+                                    email: "customer@example.com",
+                                    phoneNumber: null,
+                                    status: "Active",
+                                    role: "Customer",
+                                },
+                            }),
+                            {
+                                status: 200,
+                                headers: { "Content-Type": "application/json" },
+                            },
+                        );
+                    }
+
+                    // Retried request succeeds
+                    return new Response(JSON.stringify({ success: true }), {
                         status: 200,
                         headers: { "Content-Type": "application/json" },
-                    },
-                );
-            }
-
-            // Retried request succeeds
-            return new Response(JSON.stringify({ success: true }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            });
-        });
+                    });
+                },
+            );
 
         vi.stubGlobal("fetch", fetchMock);
 
-        const result = await gatewayFetch<{ success: boolean }>("/api/parking/test");
+        const result = await gatewayFetch<{ success: boolean }>(
+            "/api/parking/test",
+        );
         expect(result).toEqual({ success: true });
 
         // Assert refresh request was made with credentials: "include" and body: "{}"
@@ -180,8 +197,10 @@ describe("authSession and refresh token security", () => {
 
     it("clears session when refresh returns 401 or 403", async () => {
         vi.resetModules();
-        const { setAuthSession: setSession, getAuthSessionSnapshot: getSnapshot } =
-            await import("./authSession");
+        const {
+            setAuthSession: setSession,
+            getAuthSessionSnapshot: getSnapshot,
+        } = await import("./authSession");
         const { gatewayFetch } = await import("@/shared/api/client");
 
         setSession({
@@ -197,24 +216,36 @@ describe("authSession and refresh token security", () => {
             },
         });
 
-        const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
-            const url = String(input);
-            if (url.includes("/api/parking/test")) {
-                return new Response(JSON.stringify({ title: "Unauthorized" }), {
-                    status: 401,
-                    headers: { "Content-Type": "application/problem+json" },
-                });
-            }
+        const fetchMock = vi
+            .fn()
+            .mockImplementation(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.includes("/api/parking/test")) {
+                    return new Response(
+                        JSON.stringify({ title: "Unauthorized" }),
+                        {
+                            status: 401,
+                            headers: {
+                                "Content-Type": "application/problem+json",
+                            },
+                        },
+                    );
+                }
 
-            if (url.includes("/api/identity/accounts/refresh")) {
-                return new Response(JSON.stringify({ title: "Session Expired" }), {
-                    status: 401,
-                    headers: { "Content-Type": "application/problem+json" },
-                });
-            }
+                if (url.includes("/api/identity/accounts/refresh")) {
+                    return new Response(
+                        JSON.stringify({ title: "Session Expired" }),
+                        {
+                            status: 401,
+                            headers: {
+                                "Content-Type": "application/problem+json",
+                            },
+                        },
+                    );
+                }
 
-            return new Response(null, { status: 404 });
-        });
+                return new Response(null, { status: 404 });
+            });
 
         vi.stubGlobal("fetch", fetchMock);
 

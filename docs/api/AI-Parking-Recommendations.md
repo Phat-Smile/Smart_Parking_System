@@ -133,3 +133,20 @@ service ParkingRecommendationContract {
 > - `probabilityPercent = null` (Tuyệt đối không bịa đặt số xác suất giả 95/85/70/25%)
 > - `insufficientData = true`
 > - `baselineSource = "fallback"`
+
+---
+
+## 5. Chế độ hoạt động (Recommendation Modes)
+
+Hệ thống hỗ trợ 2 chế độ điều phối gợi ý bãi đỗ thông qua biến môi trường `AI_RECOMMENDATION_MODE`:
+
+* **`legacy` (Mặc định hệ thống & khuyến nghị cho Demo):**
+  * Mặc định hệ thống, sử dụng công thức định lượng cân bằng (40% thời gian di chuyển, 40% khả năng còn chỗ, 20% chi phí).
+  * Tích hợp thuật toán Jeffreys prior smoothing (Beta(0.5, 0.5) smoothing, AI-M1/AI-M2) từ #289.
+  * Được khuyến nghị và sử dụng chính thức khi demo.
+
+* **`prompting` (Chế độ thử nghiệm):**
+  * Chế độ thử nghiệm (Pure Prompting theo PR #304).
+  * Yêu cầu cấu hình các biến `AI_LLM_*` (`AI_LLM_API_KEY`, `AI_LLM_CHAT_COMPLETIONS_URL`, `AI_LLM_MODEL`, ...).
+  * Nếu gặp lỗi kết nối hoặc phản hồi không hợp lệ từ LLM, hệ thống tự động kích hoạt fallback an toàn.
+  * Không bật khi demo.

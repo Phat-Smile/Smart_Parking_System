@@ -203,6 +203,7 @@ public sealed class ReservationWalletGrpcServiceTests
     [Theory]
     [InlineData("payment.reservation_not_debited", DebitState.NotDebited)]
     [InlineData("payment.reservation_already_refunded", DebitState.Refunded)]
+    [InlineData("payment.reservation_already_forfeited", DebitState.Unspecified)]
     [InlineData("payment.unknown_error", DebitState.Unspecified)]
     public async Task RefundReservation_Failure_MapsErrorStateProperly(string errorCode, DebitState expectedState)
     {
@@ -219,5 +220,42 @@ public sealed class ReservationWalletGrpcServiceTests
         var response = await service.RefundReservation(request, DummyServerCallContext.Instance);
 
         Assert.Equal(expectedState, response.State);
+    }
+
+    [Theory]
+    [InlineData(LedgerEntryType.PrepaymentForfeited)]
+    [InlineData(LedgerEntryType.PrepaymentApplied)]
+    public async Task GetReservationDebit_WhenForfeitedOrApplied_ReturnsUnspecified(LedgerEntryType terminalType)
+    {
+        var wallet = Wallet.Create(Guid.NewGuid());
+        wallet.AddEntry(LedgerEntryType.TopUp, 50_000m, "Topup");
+        var reservationId = Guid.NewGuid();
+        wallet.AddEntry(
+            LedgerEntryType.ReservationDeposit,
+            -20_000m,
+            "Deposit",
+            ReferenceType.Reservation,
+            reservationId.ToString(),
+            createdBy: wallet.UserId);
+        wallet.AddEntry(
+            terminalType,
+            20_000m,
+            "Settled",
+            ReferenceType.Reservation,
+            reservationId.ToString());
+
+        _walletRepository.Entries.AddRange(wallet.LedgerEntries);
+
+        var service = CreateService();
+        var request = new GetReservationDebitRequest
+        {
+            AccountId = wallet.UserId.ToString(),
+            ReservationId = reservationId.ToString()
+        };
+
+        var response = await service.GetReservationDebit(request, DummyServerCallContext.Instance);
+
+        Assert.Equal(DebitState.Unspecified, response.State);
+        Assert.Equal(20_000L, response.AmountVnd);
     }
 }

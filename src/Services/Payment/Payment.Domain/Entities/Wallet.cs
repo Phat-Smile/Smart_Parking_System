@@ -67,9 +67,11 @@ public class Wallet
         Guid? lotId = null,                     // ID bãi đỗ xe
         string? idempotencyKey = null,          // Mã chống trùng lặp (ví dụ mã giao dịch VNPay)
         Guid? reversalOfEntryId = null,         // Trỏ về dòng giao dịch bị sai (bút toán đảo)
-        Guid? createdBy = null)                 // Người thực hiện giao dịch (phục vụ audit log)
+        Guid? createdBy = null,                 // Người thực hiện giao dịch (phục vụ audit log)
+        DateTimeOffset? occurredAtUtc = null)   // Thời điểm phát sinh thực tế
     {
-        if (Status != WalletStatus.Active)
+        // Ví đã đóng vẫn được ghi nhận bút toán không đổi số dư
+        if (Status != WalletStatus.Active && entryType.AffectsBalance())
         {
             throw new InvalidOperationException(DomainErrorMessages.Wallet.AlreadyClosed);
         }
@@ -151,7 +153,8 @@ public class Wallet
             lotId: lotId,
             idempotencyKey: idempotencyKey,
             reversalOfEntryId: reversalOfEntryId,
-            createdBy: createdBy
+            createdBy: createdBy,
+            occurredAtUtc: occurredAtUtc
         );
 
         _ledgerEntries.Add(entry);
