@@ -5,6 +5,7 @@ using ParkingSystem.AspNetCore.Security;
 using ParkingSystem.Payment.Application;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Infrastructure;
+using ParkingSystem.Payment.Infrastructure.Messaging.Consumers;
 using ParkingSystem.Payment.Persistence;
 using ParkingSystem.Payment.WebAPI.Endpoints;
 using ParkingSystem.Payment.WebAPI.Grpc;
@@ -22,7 +23,11 @@ builder.Services.Configure<WalletOptions>(builder.Configuration.GetSection(Walle
 builder.Services.Configure<VnpayOptions>(builder.Configuration.GetSection(VnpayOptions.SectionName));
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistence(builder.Configuration);
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddIdempotentConsumer<PaymentReservationCancelledConsumer>("payment.reservation-cancelled.v1");
+builder.Services.AddInfrastructure(builder.Configuration, bus =>
+{
+    bus.AddConsumer<PaymentReservationCancelledConsumer>();
+});
 builder.Services.AddParkingSessionFeeClient(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<PaymentDbContext>(name: "postgresql", tags: ["ready"]);

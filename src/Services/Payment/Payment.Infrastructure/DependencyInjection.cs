@@ -63,6 +63,12 @@ public static class DependencyInjection
                     host.Username(options.Username);
                     host.Password(options.Password);
                 });
+                // Tự động thử lại khi gặp lỗi tạm thời hoặc đụng độ ví
+                rabbit.UseMessageRetry(retry => retry.Exponential(
+                    5,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(30),
+                    TimeSpan.FromSeconds(5)));
                 rabbit.ConfigureEndpoints(context);
             });
         });

@@ -302,4 +302,39 @@ public class WalletTests
         // LastSequence không bị đốt
         Assert.Equal(1L, wallet.LastSequence);
     }
+
+    // 6. Test ghi nhận mất cọc trên ví đóng và mốc thời gian UTC
+
+    [Fact]
+    public void AddEntry_PrepaymentForfeited_OnClosedWallet_ShouldSucceed_KeepBalanceZero_AndUseOccurredAtUtc()
+    {
+        var wallet = Wallet.Create(Guid.NewGuid());
+        wallet.AddEntry(LedgerEntryType.TopUp, 20000m);
+        wallet.AddEntry(LedgerEntryType.ReservationDeposit, -20000m);
+        wallet.Close();
+
+        var localCancelledAt = new DateTimeOffset(2026, 11, 20, 0, 5, 0, TimeSpan.FromHours(7));
+
+        wallet.AddEntry(LedgerEntryType.PrepaymentForfeited, 20000m, occurredAtUtc: localCancelledAt);
+
+        Assert.Equal(0m, wallet.Balance);
+        var entry = wallet.LedgerEntries.Last();
+        Assert.Equal(LedgerEntryType.PrepaymentForfeited, entry.EntryType);
+        Assert.Equal(20000m, entry.Amount);
+        Assert.Equal(localCancelledAt.ToUniversalTime(), entry.CreatedAt);
+        Assert.Equal(TimeSpan.Zero, entry.CreatedAt.Offset);
+    }
+
+    [Fact]
+    public void AddEntry_WhenOccurredAtUtcIsDefault_ShouldFallbackToUtcNow()
+    {
+        var wallet = Wallet.Create(Guid.NewGuid());
+        var before = DateTimeOffset.UtcNow.AddSeconds(-5);
+
+        wallet.AddEntry(LedgerEntryType.TopUp, 50000m, occurredAtUtc: default(DateTimeOffset));
+
+        var after = DateTimeOffset.UtcNow.AddSeconds(5);
+        var entry = wallet.LedgerEntries.Last();
+        Assert.InRange(entry.CreatedAt, before, after);
+    }
 }
