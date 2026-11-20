@@ -7,7 +7,6 @@ using ParkingSystem.Contracts.Events.Parking;
 using ParkingSystem.Parking.Application.Common.Auditing;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Parking.Application.Common.Persistence;
-using ParkingSystem.Parking.Application.Common.Utilities;
 using ParkingSystem.Parking.Application.ParkingLayout;
 using ParkingSystem.Parking.Application.ParkingLots;
 using ParkingSystem.Parking.Domain.ParkingSessions;
@@ -139,21 +138,6 @@ public sealed class CompleteParkingSessionCommandHandler(
                 now,
                 session.UserId),
             "parking.session-closed.v1",
-            1);
-
-        var maskedPlate = LicensePlateMasker.MaskPlateNumber(session.PlateNumber);
-        outbox.Enqueue(
-            new ParkingSessionReceiptIssuedIntegrationEvent(
-                session.Id,
-                session.LotId,
-                maskedPlate,
-                0,
-                0,
-                0,
-                session.EntryTime,
-                now,
-                session.UserId),
-            "parking.session-receipt-issued.v1",
             1);
 
         if (plateManuallyVerified)

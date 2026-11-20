@@ -2,7 +2,7 @@ using MassTransit;
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using ParkingSystem.Contracts.Events.Booking;
-using ParkingSystem.Contracts.Events.Parking;
+using ParkingSystem.Contracts.Events.Payment;
 using ParkingSystem.Notification.Application.Common.Email;
 using ParkingSystem.Notification.Application.Common.Identity;
 using ParkingSystem.Notification.Application.CustomerNotifications;
@@ -99,8 +99,10 @@ public sealed class BookingAndReceiptEmailConsumerTests
         var emailLookup = new FakeEmailLookup();
         var accountId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
-        var entryTime = DateTimeOffset.UtcNow.AddHours(-3);
-        var exitTime = DateTimeOffset.UtcNow;
+        var paymentId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var paymentTime = DateTimeOffset.UtcNow;
+        var exitExpires = paymentTime.AddMinutes(15);
         const string maskedPlate = "51F-***.89";
 
         emailLookup.Accounts[accountId] = new UserAccountEmailInfo(accountId, "customer@parkwise.vn", IsEmailVerified: true);
@@ -109,21 +111,22 @@ public sealed class BookingAndReceiptEmailConsumerTests
         var harness = provider.GetRequiredService<ITestHarness>();
         await harness.Start();
 
-        var evt = new ParkingSessionReceiptIssuedIntegrationEvent(
+        var evt = new ElectronicInvoiceIssuedIntegrationEvent(
             sessionId,
-            Guid.NewGuid(),
+            paymentId,
+            lotId,
             maskedPlate,
             30000,
             30000,
             0,
-            entryTime,
-            exitTime,
+            paymentTime,
+            exitExpires,
             accountId);
 
         await harness.Bus.Publish(evt, TestContext.Current.CancellationToken);
 
         Assert.True(await harness.GetConsumerHarness<ParkingSessionReceiptNotificationConsumer>()
-            .Consumed.Any<ParkingSessionReceiptIssuedIntegrationEvent>(TestContext.Current.CancellationToken));
+            .Consumed.Any<ElectronicInvoiceIssuedIntegrationEvent>(TestContext.Current.CancellationToken));
 
         // In-app notification created
         Assert.Equal(accountId, store.LastUserId);
@@ -151,21 +154,22 @@ public sealed class BookingAndReceiptEmailConsumerTests
         await harness.Start();
 
         // Guest / unregistered walk-in (AccountId = null)
-        var evt = new ParkingSessionReceiptIssuedIntegrationEvent(
+        var evt = new ElectronicInvoiceIssuedIntegrationEvent(
+            Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
             "59X-***.12",
             15000,
             15000,
             0,
-            DateTimeOffset.UtcNow.AddHours(-1),
             DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(15),
             AccountId: null);
 
         await harness.Bus.Publish(evt, TestContext.Current.CancellationToken);
 
         Assert.True(await harness.GetConsumerHarness<ParkingSessionReceiptNotificationConsumer>()
-            .Consumed.Any<ParkingSessionReceiptIssuedIntegrationEvent>(TestContext.Current.CancellationToken));
+            .Consumed.Any<ElectronicInvoiceIssuedIntegrationEvent>(TestContext.Current.CancellationToken));
 
         // No in-app notice, no email
         Assert.Null(store.LastUserId);
@@ -227,7 +231,7 @@ public sealed class BookingAndReceiptEmailConsumerTests
             return Task.CompletedTask;
         }
 
-        public Task SendElectronicReceiptEmailAsync(string email, Guid sessionId, string maskedPlateNumber, long totalFee, long paidAmount, long amountDue, DateTimeOffset entryTimeUtc, DateTimeOffset exitTimeUtc, CancellationToken cancellationToken = default)
+        public Task SendElectronicReceiptEmailAsync(string email, Guid sessionId, string maskedPlateNumber, long totalFee, long paidAmount, long amountDue, DateTimeOffset paymentTimeUtc, DateTimeOffset exitWindowExpiresUtc, CancellationToken cancellationToken = default)
         {
             SentReceiptEmails.Add((email, sessionId, maskedPlateNumber, totalFee, paidAmount, amountDue));
             return Task.CompletedTask;

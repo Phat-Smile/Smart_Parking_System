@@ -1,6 +1,6 @@
 using MassTransit;
 using Microsoft.Extensions.Logging;
-using ParkingSystem.Contracts.Events.Parking;
+using ParkingSystem.Contracts.Events.Payment;
 using ParkingSystem.Notification.Application.Common.Email;
 using ParkingSystem.Notification.Application.Common.Identity;
 using ParkingSystem.Notification.Application.CustomerNotifications;
@@ -8,7 +8,7 @@ using ParkingSystem.Notification.Application.CustomerNotifications;
 namespace ParkingSystem.Notification.Infrastructure.Consumers;
 
 /// <summary>
-/// Consumes ParkingSessionReceiptIssuedIntegrationEvent to dispatch electronic invoice / receipt emails.
+/// Consumes ElectronicInvoiceIssuedIntegrationEvent from Payment service to dispatch electronic invoice / receipt emails.
 /// Enforces Tin 200 Condition 6: Dispatches emails ONLY to authenticated accounts with verified email addresses.
 /// Guests or unverified accounts receive in-app notifications only (or no-op).
 /// </summary>
@@ -17,9 +17,9 @@ public sealed class ParkingSessionReceiptNotificationConsumer(
     IEmailSender emailSender,
     IUserAccountEmailLookup emailLookup,
     ILogger<ParkingSessionReceiptNotificationConsumer> logger)
-    : IConsumer<ParkingSessionReceiptIssuedIntegrationEvent>
+    : IConsumer<ElectronicInvoiceIssuedIntegrationEvent>
 {
-    public async Task Consume(ConsumeContext<ParkingSessionReceiptIssuedIntegrationEvent> context)
+    public async Task Consume(ConsumeContext<ElectronicInvoiceIssuedIntegrationEvent> context)
     {
         var message = context.Message;
 
@@ -40,7 +40,7 @@ public sealed class ParkingSessionReceiptNotificationConsumer(
             "Parking receipt issued",
             $"Your parking fee receipt for session {message.SessionId} has been issued.",
             "/customer/sessions",
-            message.ExitTimeUtc,
+            message.PaymentTimeUtc,
             context.CancellationToken);
 
         // 3. Email dispatch: Query Identity and only send if email is verified
@@ -61,8 +61,8 @@ public sealed class ParkingSessionReceiptNotificationConsumer(
             message.TotalFee,
             message.PaidAmount,
             message.AmountDue,
-            message.EntryTimeUtc,
-            message.ExitTimeUtc,
+            message.PaymentTimeUtc,
+            message.ExitWindowExpiresUtc,
             context.CancellationToken);
 
         logger.LogInformation(

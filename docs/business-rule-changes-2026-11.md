@@ -86,7 +86,7 @@ Tài liệu này ghi nhận các thay đổi quy tắc nghiệp vụ trong đợ
 
 ### Sau thay đổi (After)
 - **Hoàn thiện `ReservationConfirmedNotificationConsumer`:** Tiếp nhận `ReservationConfirmedIntegrationEvent` để gửi email xác nhận đặt chỗ chi tiết (thời gian hẹn, tiền cọc, mã đặt chỗ).
-- **Thêm mới `ParkingSessionReceiptNotificationConsumer`:** Tiếp nhận `ParkingSessionReceiptIssuedIntegrationEvent` (chứa `MaskedPlateNumber` theo NFR-15, tổng phí, tiền đã cọc/trả, số tiền còn phải nạp, giờ vào/ra).
+- **Thêm mới `ParkingSessionReceiptNotificationConsumer`:** Tiếp nhận `ElectronicInvoiceIssuedIntegrationEvent` phát từ Payment Service (chứa `MaskedPlateNumber` theo NFR-15, tổng phí, tiền đã cọc/trả, số tiền còn phải nạp, giờ thanh toán/hạn ra cổng với số tiền thật từ sổ thanh toán Payment).
 - **Tra cứu email độc lập trước transaction Inbox:** Notification Service tra cứu thông tin email và trạng thái tài khoản từ Identity Service qua gRPC batch lookup trước khi bước vào transaction Inbox DB.
 - **Điều kiện gửi email nghiêm ngặt (Điều kiện 6 Tin 200):** Chỉ gửi email cho tài khoản có email đã xác thực (`IsEmailVerified == true`). Với khách vãng lai (không có `AccountId`) hoặc tài khoản chưa xác thực email, consumer bỏ qua việc gửi email một cách an toàn (no-op, ghi log) mà không báo lỗi.
 - **Tính Idempotent toàn vẹn:** Đăng ký consumer qua `AddIdempotentConsumer` và quản lý qua `IInboxExecutionCoordinator`, đảm bảo không gửi email trùng lặp khi RabbitMQ phân phối lại sự kiện.

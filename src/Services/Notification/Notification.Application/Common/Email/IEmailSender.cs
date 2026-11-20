@@ -24,8 +24,8 @@ public interface IEmailSender
         long totalFee,
         long paidAmount,
         long amountDue,
-        DateTimeOffset entryTimeUtc,
-        DateTimeOffset exitTimeUtc,
+        DateTimeOffset paymentTimeUtc,
+        DateTimeOffset exitWindowExpiresUtc,
         CancellationToken cancellationToken = default);
 }
 

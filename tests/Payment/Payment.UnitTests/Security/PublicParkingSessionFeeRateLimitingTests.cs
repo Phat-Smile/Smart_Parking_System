@@ -54,24 +54,63 @@ public sealed class PublicParkingSessionFeeRateLimitingTests
     }
 
     [Fact]
-    public async Task Requests_with_different_x_forwarded_for_from_same_connection_share_rate_limit_bucket()
+    public async Task Requests_through_trusted_proxy_with_different_x_forwarded_for_have_separate_rate_limit_buckets()
     {
         await using var app = await CreateTestAppAsync(TestPermitsInWindow);
         var client = app.GetTestClient();
+        const string trustedProxyIp = "172.18.0.2"; // In 172.16.0.0/12 trusted proxy CIDR
 
-        // Gửi các requests trong hạn mức với các header X-Forwarded-For khác nhau từ cùng một kết nối
+        // Client A gửi requests đến ngưỡng giới hạn TestPermitsInWindow qua trusted proxy
+        for (var i = 0; i < TestPermitsInWindow; i++)
+        {
+            using var reqA = new HttpRequestMessage(HttpMethod.Get, "/api/payment/public/sessions/fee?qr=valid-qr");
+            reqA.Headers.Add("X-Test-Remote-Ip", trustedProxyIp);
+            reqA.Headers.Add("X-Forwarded-For", "203.0.113.1");
+            using var resA = await client.SendAsync(reqA, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, resA.StatusCode);
+        }
+
+        // Client B gửi request cũng qua trusted proxy nhưng với IP client khác -> có bucket riêng nên vẫn thành công HTTP 200
+        {
+            using var reqB = new HttpRequestMessage(HttpMethod.Get, "/api/payment/public/sessions/fee?qr=valid-qr");
+            reqB.Headers.Add("X-Test-Remote-Ip", trustedProxyIp);
+            reqB.Headers.Add("X-Forwarded-For", "203.0.113.2");
+            using var resB = await client.SendAsync(reqB, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, resB.StatusCode);
+        }
+
+        // Client A gửi thêm 1 request vượt ngưỡng -> bị chặn HTTP 429
+        {
+            using var reqAOverflow = new HttpRequestMessage(HttpMethod.Get, "/api/payment/public/sessions/fee?qr=valid-qr");
+            reqAOverflow.Headers.Add("X-Test-Remote-Ip", trustedProxyIp);
+            reqAOverflow.Headers.Add("X-Forwarded-For", "203.0.113.1");
+            using var resAOverflow = await client.SendAsync(reqAOverflow, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.TooManyRequests, resAOverflow.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Requests_from_untrusted_remote_ip_ignore_spoofed_x_forwarded_for_and_share_rate_limit_bucket()
+    {
+        await using var app = await CreateTestAppAsync(TestPermitsInWindow);
+        var client = app.GetTestClient();
+        const string untrustedCallerIp = "198.51.100.25"; // External public IP NOT in KnownNetworks
+
+        // Gửi các requests trong hạn mức với các header X-Forwarded-For giả mạo khác nhau từ cùng untrusted caller IP
         for (var i = 0; i < TestPermitsInWindow; i++)
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, "/api/payment/public/sessions/fee?qr=valid-qr");
-            req.Headers.Add("X-Forwarded-For", $"192.168.1.{10 + i}");
+            req.Headers.Add("X-Test-Remote-Ip", untrustedCallerIp);
+            req.Headers.Add("X-Forwarded-For", $"10.0.0.{10 + i}");
             using var res = await client.SendAsync(req, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         }
 
-        // Request tiếp theo dù đổi header X-Forwarded-For sang IP khác vẫn bị chặn 429 vì đến từ cùng RemoteIpAddress
+        // Request tiếp theo dù đổi header X-Forwarded-For sang IP khác vẫn bị chặn 429 vì XFF bị bỏ qua và tính theo caller IP
         {
             using var reqSpoofed = new HttpRequestMessage(HttpMethod.Get, "/api/payment/public/sessions/fee?qr=valid-qr");
-            reqSpoofed.Headers.Add("X-Forwarded-For", "192.168.1.99");
+            reqSpoofed.Headers.Add("X-Test-Remote-Ip", untrustedCallerIp);
+            reqSpoofed.Headers.Add("X-Forwarded-For", "10.0.0.99");
             using var resSpoofed = await client.SendAsync(reqSpoofed, TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.TooManyRequests, resSpoofed.StatusCode);
         }
@@ -86,6 +125,18 @@ public sealed class PublicParkingSessionFeeRateLimitingTests
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
             options.ForwardLimit = 1;
+
+            var trustedCidrs = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>()
+                ?? ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1/8"];
+
+            foreach (var cidr in trustedCidrs)
+            {
+                var parts = cidr.Split('/');
+                if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var ip) && int.TryParse(parts[1], out var prefix))
+                {
+                    options.KnownNetworks.Add(new IPNetwork(ip, prefix));
+                }
+            }
         });
         builder.Services.AddPaymentAuthorization();
         builder.Services.AddPaymentRateLimiting(overridePermits: overridePermits);
@@ -96,6 +147,15 @@ public sealed class PublicParkingSessionFeeRateLimitingTests
 
         var app = builder.Build();
         app.UseParkingSystemWebFoundation();
+        app.Use((context, next) =>
+        {
+            if (context.Request.Headers.TryGetValue("X-Test-Remote-Ip", out var remoteIpStr)
+                && IPAddress.TryParse(remoteIpStr, out var ip))
+            {
+                context.Connection.RemoteIpAddress = ip;
+            }
+            return next();
+        });
         app.UseForwardedHeaders();
         app.UseRateLimiter();
         app.MapParkingFeeEndpoints();

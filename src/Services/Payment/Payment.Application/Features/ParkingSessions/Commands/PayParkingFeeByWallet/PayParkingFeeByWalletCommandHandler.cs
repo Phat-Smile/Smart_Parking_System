@@ -6,6 +6,7 @@ using ParkingSystem.Contracts.Events.Payment;
 using ParkingSystem.Payment.Application.Common.Constants;
 using ParkingSystem.Payment.Application.Common.Interfaces;
 using ParkingSystem.Payment.Application.Common.Messaging.Outbox;
+using ParkingSystem.Payment.Application.Common.Utilities;
 using ParkingSystem.Payment.Domain.Entities;
 using ParkingSystem.Payment.Domain.Enums;
 using ParkingSystem.Payment.Domain.Pricing;
@@ -284,6 +285,24 @@ public sealed class PayParkingFeeByWalletCommandHandler(
                 outboxWriter.Enqueue(
                     integrationEvent: paidEvent,
                     eventType: "payment.session-paid.v1",
+                    eventVersion: 1,
+                    correlationId: paymentId);
+
+                var invoiceEvent = new ElectronicInvoiceIssuedIntegrationEvent(
+                    SessionId: payment.SessionId,
+                    PaymentId: payment.Id,
+                    ParkingLotId: payment.ParkingLotId,
+                    MaskedPlateNumber: LicensePlateMasker.MaskPlateNumber(payment.PlateNumber),
+                    TotalFee: payment.TotalFee,
+                    PaidAmount: payment.AmountPaid,
+                    AmountDue: Math.Max(0, payment.TotalFee - payment.PrepaidAmount - payment.AmountPaid),
+                    PaymentTimeUtc: payment.PaymentTimeUtc,
+                    ExitWindowExpiresUtc: payment.ExitWindowExpiresUtc ?? payment.PaymentTimeUtc,
+                    AccountId: payment.AccountId);
+
+                outboxWriter.Enqueue(
+                    integrationEvent: invoiceEvent,
+                    eventType: "payment.electronic-invoice-issued.v1",
                     eventVersion: 1,
                     correlationId: paymentId);
 

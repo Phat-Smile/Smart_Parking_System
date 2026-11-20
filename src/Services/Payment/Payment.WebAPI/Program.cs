@@ -21,6 +21,19 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     options.ForwardLimit = 1;
+
+    // Khai báo các CIDR mạng tin cậy (Docker compose subnet, local proxies)
+    var trustedCidrs = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>()
+        ?? ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1/8"];
+
+    foreach (var cidr in trustedCidrs)
+    {
+        var parts = cidr.Split('/');
+        if (parts.Length == 2 && System.Net.IPAddress.TryParse(parts[0], out var ip) && int.TryParse(parts[1], out var prefix))
+        {
+            options.KnownNetworks.Add(new IPNetwork(ip, prefix));
+        }
+    }
 });
 builder.Services.AddPaymentAuthorization();
 builder.Services.AddPaymentRateLimiting(builder.Configuration);

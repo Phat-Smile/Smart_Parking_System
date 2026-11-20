@@ -182,8 +182,8 @@ public sealed class SmtpEmailSender(
         long totalFee,
         long paidAmount,
         long amountDue,
-        DateTimeOffset entryTimeUtc,
-        DateTimeOffset exitTimeUtc,
+        DateTimeOffset paymentTimeUtc,
+        DateTimeOffset exitWindowExpiresUtc,
         CancellationToken cancellationToken = default)
     {
         var subject = "[Smart Parking] Hóa đơn điện tử quyết toán phí đỗ xe";
@@ -200,8 +200,8 @@ public sealed class SmtpEmailSender(
                 </p>
                 <div style="padding: 16px; background-color: #09090b; border-radius: 8px; border: 1px solid #3f3f46; margin-bottom: 16px;">
                     <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Biển số xe: <strong style="color: #ffffff;">{maskedPlateNumber}</strong></p>
-                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Giờ vào: <strong style="color: #ffffff;">{entryTimeUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong></p>
-                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Giờ ra: <strong style="color: #ffffff;">{exitTimeUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Giờ thanh toán: <strong style="color: #ffffff;">{paymentTimeUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong></p>
+                    <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Hạn ra cổng: <strong style="color: #ffffff;">{exitWindowExpiresUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong></p>
                     <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Tổng phí đỗ: <strong style="color: #ffffff;">{totalFee:N0} VND</strong></p>
                     <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Đã thanh toán: <strong style="color: #4ade80;">{paidAmount:N0} VND</strong></p>
                     <p style="margin: 4px 0; color: #a1a1aa; font-size: 13px;">Còn phải nạp: <strong style="color: #f87171;">{amountDue:N0} VND</strong></p>

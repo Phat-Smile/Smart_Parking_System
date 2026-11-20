@@ -124,8 +124,8 @@ public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEm
         long totalFee,
         long paidAmount,
         long amountDue,
-        DateTimeOffset entryTimeUtc,
-        DateTimeOffset exitTimeUtc,
+        DateTimeOffset paymentTimeUtc,
+        DateTimeOffset exitWindowExpiresUtc,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation(
@@ -136,8 +136,8 @@ public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEm
             Subject: [Smart Parking] Hóa đơn điện tử quyết toán phí đỗ xe
             SessionId: {SessionId}
             Plate: {MaskedPlate}
-            Entry: {EntryTimeLocal:HH:mm:ss dd/MM/yyyy}
-            Exit: {ExitTimeLocal:HH:mm:ss dd/MM/yyyy}
+            PaymentTime: {PaymentTimeLocal:HH:mm:ss dd/MM/yyyy}
+            ExitExpires: {ExitWindowExpiresLocal:HH:mm:ss dd/MM/yyyy}
             Total: {TotalFee:N0} VND
             Paid: {PaidAmount:N0} VND
             Due: {AmountDue:N0} VND
@@ -146,8 +146,8 @@ public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEm
             email,
             sessionId,
             maskedPlateNumber,
-            entryTimeUtc.ToLocalTime(),
-            exitTimeUtc.ToLocalTime(),
+            paymentTimeUtc.ToLocalTime(),
+            exitWindowExpiresUtc.ToLocalTime(),
             totalFee,
             paidAmount,
             amountDue);
