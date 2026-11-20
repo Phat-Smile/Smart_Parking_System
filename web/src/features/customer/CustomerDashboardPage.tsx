@@ -279,11 +279,6 @@ export function CustomerDashboardPage({
         setWeatherState,
     ]);
 
-    useEffect(() => {
-        if (window.matchMedia("(width < 768px)").matches) return;
-        const timer = window.setTimeout(locateCurrentPosition, 0);
-        return () => window.clearTimeout(timer);
-    }, [isMobile, locateCurrentPosition]);
 
     function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
