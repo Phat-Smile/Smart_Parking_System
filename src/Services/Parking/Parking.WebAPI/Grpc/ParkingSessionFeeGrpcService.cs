@@ -67,6 +67,62 @@ public sealed class ParkingSessionFeeGrpcService(
         }
     }
 
+    public override async Task<GetSessionFeeContextResponse> GetSessionFeeContextByQr(
+        GetSessionFeeContextByQrRequest request,
+        ServerCallContext context)
+    {
+        if (string.IsNullOrWhiteSpace(request.QrToken))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "qr_token must not be empty."));
+
+        try
+        {
+            var result = await sender.Send(new GetSessionFeeContextByQrQuery(request.QrToken), context.CancellationToken);
+            if (result.IsFailure)
+            {
+                var statusCode = result.Error == GetSessionFeeContextByQrErrors.SessionNotFound
+                    ? StatusCode.NotFound
+                    : result.Error == GetSessionFeeContextByQrErrors.InvalidQr
+                        ? StatusCode.InvalidArgument
+                        : StatusCode.FailedPrecondition;
+                throw new RpcException(new Status(statusCode, result.Error!.Message));
+            }
+
+            var fee = result.Value!;
+            return new GetSessionFeeContextResponse
+            {
+                SessionId = fee.SessionId.ToString("D"),
+                LotId = fee.LotId.ToString("D"),
+                PlateNumber = fee.PlateNumber,
+                VehicleType = fee.VehicleType,
+                Status = fee.Status,
+                EntryTimeUtc = fee.EntryTimeUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                CustomerType = fee.CustomerType,
+                AccountId = fee.AccountId?.ToString("D") ?? string.Empty,
+                BookingId = fee.BookingId?.ToString("D") ?? string.Empty,
+                Pricing = new SessionPricingMessage
+                {
+                    PolicyId = fee.Pricing.PolicyId.ToString("D"),
+                    CalculationMethod = fee.Pricing.CalculationMethod,
+                    BlockMinutes = fee.Pricing.BlockMinutes,
+                    PricePerUnit = fee.Pricing.PricePerUnit,
+                    OvernightFee = fee.Pricing.OvernightFee
+                },
+                LastPaidAtUtc = ToIso(fee.LastPaidAtUtc),
+                ArrivedAtExitUtc = ToIso(fee.ArrivedAtExitUtc),
+                GracePeriodMinutes = fee.GracePeriodMinutes
+            };
+        }
+        catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+        {
+            throw new RpcException(new Status(StatusCode.Cancelled, "Request was cancelled."));
+        }
+        catch (Exception exception) when (exception is not RpcException)
+        {
+            logger.LogError(exception, "Session fee context by QR failed unexpectedly.");
+            throw new RpcException(new Status(StatusCode.Internal, "Session fee context by QR failed."));
+        }
+    }
+
     private static string ToIso(DateTimeOffset? value) =>
         value?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? string.Empty;
 }
