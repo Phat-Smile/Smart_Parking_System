@@ -71,6 +71,9 @@ Tài liệu này ghi nhận các thay đổi quy tắc nghiệp vụ trong đợ
 - **Tuyệt đối KHÔNG trả `paymentUrl` (Điều kiện 4 Tin 200):** Loại bỏ `paymentUrl` khỏi phản hồi DTO để tránh tác dụng phụ tạo giao dịch thanh toán VNPay trái phép từ một thao tác đọc HTTP GET. Khách thanh toán qua luồng checkout thanh toán riêng.
 - **Mặt nạ dữ liệu cá nhân NFR-15:** Biển số xe bắt buộc được che theo định dạng `51F-***.89`. Không trả `userId`, `accountId` thô.
 - **Giới hạn tần suất an toàn (Rate Limiting):** Cấu hình policy `AnonymousPublicFeePolicy` tại `PaymentRateLimiting.cs` giới hạn 20 req/phút/IP. Trả về HTTP 429 Too Many Requests kèm Header `Retry-After` và RFC 6585 ProblemDetails.
+- **Cấu hình mạng Proxy tin cậy (`ForwardedHeaders:KnownNetworks`):**
+  - Để ASP.NET Core phân giải đúng địa chỉ IP thực của client thông qua header `X-Forwarded-For` từ YARP Gateway / Reverse Proxy (thay vì lấy IP nội bộ của container reverse proxy), `Payment.WebAPI` cấu hình `ForwardedHeadersOptions` với dải CIDR tin cậy từ `ForwardedHeaders:KnownNetworks` (`PAYMENT_KNOWN_NETWORKS_0`, `PAYMENT_KNOWN_NETWORKS_1` trong `docker-compose.yml` và `.env.example`).
+  - Cấu hình này giúp phân tách chính xác bucket giới hạn tần suất cho từng IP client riêng biệt, ngăn chặn triệt để lỗi HTTP 429 Too Many Requests tập thể (tất cả người dùng dùng chung một IP reverse proxy dẫn đến chạm trần hạn mức cùng lúc).
 
 ### Lý do thay đổi (Reason)
 - Hỗ trợ khách vãng lai và người lái xe tra cứu phí đỗ xe tạm tính tức thì bằng cách quét mã QR trên vé giấy/phiên đỗ xe.
