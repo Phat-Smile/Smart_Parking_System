@@ -43,6 +43,8 @@ export interface OpenedSessionResponse {
     driverName?: string | null;
     customerName?: string | null;
     accountOwnerName?: string | null;
+    lateMinutes?: number | null;
+    appointmentTime?: string | null;
 }
 
 export interface CancelledSessionResponse {

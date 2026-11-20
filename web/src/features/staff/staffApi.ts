@@ -632,11 +632,11 @@ export function describeStaffError(error: unknown): string {
     if (code === "parking.session.not_found") {
         return "Không tìm thấy phiên gửi xe nào cho phương tiện này trong bãi.";
     }
-    if (
-        code === "parking.walk_in.full" ||
-        code === "parking.motorbike_zone.full"
-    ) {
-        return "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.";
+    if (code === "parking.walk_in.full") {
+        return "Hết chỗ cho xe không đặt trước.";
+    }
+    if (code === "parking.motorbike_zone.full") {
+        return "Hết chỗ khu vực xe máy.";
     }
     if (code === "parking.gate_reading.invalid_evidence") {
         return "Lượt nhận diện không hợp lệ, chưa xác nhận, đã hết hạn hoặc đã được sử dụng. Vui lòng làm mới và quét lại xe.";
@@ -672,13 +672,13 @@ export function describeStaffError(error: unknown): string {
         return "Yêu cầu thanh toán trùng lặp. Đang kiểm tra trạng thái thanh toán.";
     }
     if (code === "parking.session.already_open" || error.status === 409) {
-        return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi (already has an active session).";
+        return "Biển số xe này đã có một phiên đỗ xe đang hoạt động trong bãi.";
     }
     if (code === "parking.lot.not_found") {
-        return "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt (not found or is not approved).";
+        return "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt.";
     }
     if (code === "parking.lot.access_denied" || error.status === 403) {
-        return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này (not assigned to operate).";
+        return "Tài khoản của bạn chưa được phân công quản lý bãi đỗ xe này.";
     }
     if (code === "parking.gate_reading.not_found") {
         return "Không tìm thấy dữ liệu đọc biển số cần xác nhận.";
@@ -687,7 +687,7 @@ export function describeStaffError(error: unknown): string {
         return "Sự cố đọc biển số này đã được nhân viên khác xử lý.";
     }
     if (error.status === 404) {
-        return "Không tìm thấy thông tin bãi xe hoặc dữ liệu yêu cầu (not found or is not approved).";
+        return "Không tìm thấy thông tin bãi xe hoặc dữ liệu yêu cầu.";
     }
     if (error.status === 400) {
         return (
@@ -696,7 +696,7 @@ export function describeStaffError(error: unknown): string {
         );
     }
     if (error.status === 401) {
-        return "Phiên làm việc của nhân viên đã hết hạn (session has expired). Vui lòng đăng nhập lại.";
+        return "Phiên làm việc của nhân viên đã hết hạn. Vui lòng đăng nhập lại.";
     }
     return (
         error.problem?.detail ||

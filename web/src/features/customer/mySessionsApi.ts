@@ -13,6 +13,7 @@ export interface MyParkingSession {
     qrToken: string;
     zoneCode: string | null;
     floorName: string | null;
+    slotCode?: string | null;
 }
 
 export interface SessionLot {

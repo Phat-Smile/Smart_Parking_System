@@ -20,6 +20,7 @@ import {
     ArrowRight,
     X,
     Camera,
+    Clock,
 } from "lucide-react";
 import { RealCameraFeed } from "./RealCameraFeed";
 import {
@@ -83,6 +84,9 @@ export function StaffEntryPage() {
     );
     const [vehicleType, setVehicleType] = useState<VehicleType>("Car");
     const [ocrConfidence, setOcrConfidence] = useState<number>(0);
+    const [bookingLateMinutes, setBookingLateMinutes] = useState<number | null>(
+        null,
+    );
 
     // License Plate Verification state
     const [isEditingPlate, setIsEditingPlate] = useState(false);
@@ -383,6 +387,7 @@ export function StaffEntryPage() {
         setPlateNumber("");
         setEditedPlate("");
         setOcrConfidence(0);
+        setBookingLateMinutes(null);
         setIsParkedConfirmed(false);
         setIsConfirmingParked(false);
     }
@@ -447,10 +452,7 @@ export function StaffEntryPage() {
                 {/* Left column: Real Camera ANPR & OCR Verification */}
                 <div className="staff-col">
                     <RealCameraFeed
-                        title={
-                            t("entryCameraTitle") ||
-                            "Camera Cổng Vào 01 (Gate In 01)"
-                        }
+                        title={t("entryCameraTitle") || "Camera Cổng Vào 01"}
                         mode="entry"
                         detectedPlate={currentPlateDisplay}
                         confidence={ocrConfidence}
@@ -679,11 +681,57 @@ export function StaffEntryPage() {
                                     <option value="Registered">
                                         {t("entryRegOption")}
                                     </option>
-                                    <option value="Booking">
-                                        Xe đặt chỗ (Booking)
-                                    </option>
+                                    <option value="Booking">Xe đặt chỗ</option>
                                 </select>
                             </div>
+
+                            {entryType === "Booking" && (
+                                <div className="staff-form-group">
+                                    <label htmlFor="staff-booking-delay">
+                                        Độ trễ giờ hẹn (nếu xe tới muộn):
+                                    </label>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                        }}
+                                    >
+                                        <input
+                                            id="staff-booking-delay"
+                                            type="number"
+                                            min="0"
+                                            max="15"
+                                            placeholder="0"
+                                            value={bookingLateMinutes ?? ""}
+                                            onChange={(e) => {
+                                                const val = parseInt(
+                                                    e.target.value,
+                                                    10,
+                                                );
+                                                setBookingLateMinutes(
+                                                    isNaN(val)
+                                                        ? null
+                                                        : Math.min(
+                                                              15,
+                                                              Math.max(0, val),
+                                                          ),
+                                                );
+                                            }}
+                                            className="staff-input"
+                                            style={{ width: "80px" }}
+                                        />
+                                        <span
+                                            style={{
+                                                fontSize: "12px",
+                                                color: "var(--staff-text-muted)",
+                                            }}
+                                        >
+                                            phút (ân hạn tối đa 15 phút)
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1011,13 +1059,41 @@ export function StaffEntryPage() {
                                             </span>
                                         </span>
                                     ) : entryType === "Booking" ? (
-                                        <span className="staff-account-badge acc-booking">
-                                            <BookmarkCheck
-                                                size={13}
-                                                strokeWidth={2.2}
-                                            />
-                                            <span>Khách đặt chỗ trước</span>
-                                        </span>
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                flexWrap: "wrap",
+                                            }}
+                                        >
+                                            <span className="staff-account-badge acc-booking">
+                                                <BookmarkCheck
+                                                    size={13}
+                                                    strokeWidth={2.2}
+                                                />
+                                                <span>Khách đặt chỗ trước</span>
+                                            </span>
+                                            {bookingLateMinutes != null &&
+                                                bookingLateMinutes > 0 && (
+                                                    <span
+                                                        className="staff-pill staff-pill-warning"
+                                                        style={{
+                                                            backgroundColor:
+                                                                "rgba(245, 158, 11, 0.15)",
+                                                            color: "#f59e0b",
+                                                            border: "1px solid rgba(245, 158, 11, 0.3)",
+                                                            fontWeight: 700,
+                                                            fontSize: "11px",
+                                                            padding: "1px 6px",
+                                                            borderRadius: "4px",
+                                                        }}
+                                                    >
+                                                        Trễ {bookingLateMinutes}{" "}
+                                                        phút
+                                                    </span>
+                                                )}
+                                        </div>
                                     ) : (
                                         <span className="staff-account-badge acc-guest">
                                             <span>
@@ -1034,7 +1110,7 @@ export function StaffEntryPage() {
                             <div className="staff-session-token-box">
                                 <div className="staff-token-box-row">
                                     <span className="staff-token-box-label">
-                                        Mã vé QR từ Server (100% Real API)
+                                        Mã vé QR từ máy chủ
                                     </span>
                                     <code className="staff-token-box-code">
                                         {lastOpened.qrToken}
@@ -1042,15 +1118,45 @@ export function StaffEntryPage() {
                                 </div>
                                 {lastOpened.reservationId && (
                                     <div className="staff-token-booking-banner">
-                                        <span>
-                                            <BookmarkCheck
-                                                size={13}
-                                                strokeWidth={2.2}
-                                            />
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                            }}
+                                        >
                                             <span>
-                                                Khách đặt trước (Booking)
+                                                <BookmarkCheck
+                                                    size={13}
+                                                    strokeWidth={2.2}
+                                                />
+                                                <span>Khách đặt trước</span>
                                             </span>
-                                        </span>
+                                            {((lastOpened.lateMinutes != null &&
+                                                lastOpened.lateMinutes > 0) ||
+                                                (bookingLateMinutes != null &&
+                                                    bookingLateMinutes >
+                                                        0)) && (
+                                                <span
+                                                    className="staff-pill staff-pill-warning"
+                                                    style={{
+                                                        backgroundColor:
+                                                            "rgba(245, 158, 11, 0.2)",
+                                                        color: "#fbbf24",
+                                                        border: "1px solid rgba(245, 158, 11, 0.4)",
+                                                        fontWeight: 700,
+                                                        fontSize: "11px",
+                                                        padding: "1px 6px",
+                                                        borderRadius: "4px",
+                                                    }}
+                                                >
+                                                    Trễ{" "}
+                                                    {lastOpened.lateMinutes ??
+                                                        bookingLateMinutes}{" "}
+                                                    phút
+                                                </span>
+                                            )}
+                                        </div>
                                         <code>
                                             #
                                             {lastOpened.reservationId.slice(
@@ -1060,6 +1166,43 @@ export function StaffEntryPage() {
                                         </code>
                                     </div>
                                 )}
+                                {lastOpened.reservationId &&
+                                    ((lastOpened.lateMinutes != null &&
+                                        lastOpened.lateMinutes > 0) ||
+                                        (bookingLateMinutes != null &&
+                                            bookingLateMinutes > 0)) && (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                padding: "8px 12px",
+                                                borderRadius: "8px",
+                                                backgroundColor:
+                                                    "rgba(245, 158, 11, 0.1)",
+                                                border: "1px solid rgba(245, 158, 11, 0.25)",
+                                                color: "#fbbf24",
+                                                fontSize: "12px",
+                                                margin: "4px 0 8px",
+                                            }}
+                                        >
+                                            <Clock
+                                                size={14}
+                                                className="shrink-0"
+                                            />
+                                            <span>
+                                                Xe đặt trước tới muộn trong vòng
+                                                15 phút:{" "}
+                                                <strong>
+                                                    Trễ{" "}
+                                                    {lastOpened.lateMinutes ??
+                                                        bookingLateMinutes}{" "}
+                                                    phút
+                                                </strong>{" "}
+                                                (trong hạn ân hạn cho phép).
+                                            </span>
+                                        </div>
+                                    )}
                                 <div className="staff-token-box-row">
                                     <span className="staff-token-box-label">
                                         Khu vực / Vị trí đỗ
@@ -1128,7 +1271,7 @@ export function StaffEntryPage() {
                             <div className="staff-barrier-sim-wrap">
                                 <IoTBarrierGateSimulator
                                     gateId="GATE-IN-01"
-                                    gateName="Cổng Vào Xe (Gate In 01)"
+                                    gateName="Cổng Vào Xe"
                                     gateType="ENTRY"
                                     isOpen={true}
                                     physicalState="OPEN"

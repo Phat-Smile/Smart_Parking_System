@@ -62,7 +62,27 @@ function formatEntryTime(value: string) {
 }
 
 function zoneText(session: MyParkingSession) {
-    const parts = [session.floorName, session.zoneCode].filter(Boolean);
+    const formatZone = (zone: string | null) => {
+        if (!zone) return null;
+        return zone.toLowerCase().startsWith("khu") ||
+            zone.toLowerCase().startsWith("zone")
+            ? zone
+            : `Khu ${zone}`;
+    };
+
+    const formatSlot = (slot: string | null | undefined) => {
+        if (!slot) return null;
+        return slot.toLowerCase().startsWith("ô") ||
+            slot.toLowerCase().startsWith("slot")
+            ? slot
+            : `Ô ${slot}`;
+    };
+
+    const parts = [
+        session.floorName,
+        formatZone(session.zoneCode),
+        formatSlot(session.slotCode),
+    ].filter(Boolean);
     return parts.length > 0 ? parts.join(" · ") : "Zone not assigned";
 }
 

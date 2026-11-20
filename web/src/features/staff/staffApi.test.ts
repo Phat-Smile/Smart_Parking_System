@@ -586,7 +586,7 @@ describe("staffApi integration", () => {
                 undefined,
             );
             expect(describeStaffError(err)).toContain(
-                "already has an active session",
+                "đã có một phiên đỗ xe đang hoạt động",
             );
         });
 
@@ -597,7 +597,7 @@ describe("staffApi integration", () => {
                 undefined,
             );
             expect(describeStaffError(err)).toBe(
-                "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.",
+                "Hết chỗ cho xe không đặt trước.",
             );
         });
 
@@ -607,9 +607,7 @@ describe("staffApi integration", () => {
                 { errorCode: "parking.motorbike_zone.full" },
                 undefined,
             );
-            expect(describeStaffError(err)).toBe(
-                "Bãi đỗ xe đã hết chỗ trống cho phương tiện này.",
-            );
+            expect(describeStaffError(err)).toBe("Hết chỗ khu vực xe máy.");
         });
 
         it("handles reserved car at full lot even when status is 409 (parking.session.reserved_no_slot)", () => {
@@ -666,7 +664,7 @@ describe("staffApi integration", () => {
                 undefined,
             );
             expect(describeStaffError(err)).toContain(
-                "already has an active session",
+                "đã có một phiên đỗ xe đang hoạt động",
             );
         });
 
@@ -677,7 +675,7 @@ describe("staffApi integration", () => {
                 undefined,
             );
             expect(describeStaffError(err)).toContain(
-                "not assigned to operate",
+                "chưa được phân công quản lý bãi đỗ xe này",
             );
         });
 
@@ -688,13 +686,15 @@ describe("staffApi integration", () => {
                 undefined,
             );
             expect(describeStaffError(err)).toContain(
-                "not found or is not approved",
+                "Không tìm thấy thông tin bãi xe hoặc bãi xe chưa được phê duyệt",
             );
         });
 
         it("handles 401 unauthenticated", () => {
             const err = new ApiError(401, undefined, undefined);
-            expect(describeStaffError(err)).toContain("session has expired");
+            expect(describeStaffError(err)).toContain(
+                "Phiên làm việc của nhân viên đã hết hạn",
+            );
         });
 
         it("sends GET to /api/identity/accounts/me for staff profile", async () => {
