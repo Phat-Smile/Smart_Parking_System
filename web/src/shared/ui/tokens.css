@@ -105,20 +105,20 @@
     --surface: #ffffff;
     --muted: #56657a;
     --border: #d8e1ec;
-    --primary: #1769aa;
+    --primary: var(--pw-brand-primary);
     --danger: #b42318;
     --success: #067647;
     --space-unit: 0.25rem;
     --radius-control: 0.5rem;
     --shadow-surface: 0 8px 24px rgb(22 34 53 / 8%);
 
-    /* Stitch Brand Tokens */
-    --brand-300: #c4b5fd;
-    --brand-400: #a78bfa;
-    --brand-500: #7c5cff;
-    --brand-600: #6246ea;
-    --brand-700: #4d36d0;
-    --brand-dark: #351bbd;
+    /* Stitch Brand Tokens - unified with --pw-brand-primary */
+    --brand-300: #80bded;
+    --brand-400: #4299e1;
+    --brand-500: var(--pw-brand-primary);
+    --brand-600: var(--pw-brand-primary-hover);
+    --brand-700: #130f90;
+    --brand-dark: #0d0a60;
 }
 
 /* ==========================================================================

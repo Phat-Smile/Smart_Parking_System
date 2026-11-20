@@ -272,6 +272,7 @@ export default function OwnerLayoutEditorPage() {
                             display: "flex",
                             gap: 10,
                             alignItems: "center",
+                            flexWrap: "wrap",
                         }}
                     >
                         <Link
@@ -299,7 +300,9 @@ export default function OwnerLayoutEditorPage() {
                             disabled={isSaving || isLoading}
                             id="save-layout-btn"
                             style={{
-                                background: isSaving ? "#64748b" : "#2563eb",
+                                background: isSaving
+                                    ? "#64748b"
+                                    : "var(--pw-brand-primary, #1e19d8)",
                                 color: "#fff",
                                 border: "none",
                                 borderRadius: 8,
@@ -310,7 +313,8 @@ export default function OwnerLayoutEditorPage() {
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 8,
-                                boxShadow: "0 2px 6px rgba(37,99,235,0.25)",
+                                boxShadow:
+                                    "0 2px 6px rgba(30, 25, 216, 0.25)",
                             }}
                         >
                             <Save className="w-4 h-4" />
@@ -322,9 +326,12 @@ export default function OwnerLayoutEditorPage() {
 
             <div
                 style={{
-                    padding: "16px 24px",
+                    padding: "16px 12px",
                     maxWidth: 1200,
                     margin: "0 auto",
+                    width: "100%",
+                    boxSizing: "border-box",
+                    overflowX: "hidden",
                 }}
             >
                 {/* Lot selector card */}
@@ -333,13 +340,15 @@ export default function OwnerLayoutEditorPage() {
                         background: "#fff",
                         border: "1px solid #e2e8f0",
                         borderRadius: 12,
-                        padding: "14px 20px",
+                        padding: "14px 16px",
                         marginBottom: 16,
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
                         flexWrap: "wrap",
                         gap: 12,
+                        width: "100%",
+                        boxSizing: "border-box",
                     }}
                 >
                     <div
@@ -347,6 +356,9 @@ export default function OwnerLayoutEditorPage() {
                             display: "flex",
                             alignItems: "center",
                             gap: 12,
+                            flexWrap: "wrap",
+                            width: "100%",
+                            maxWidth: "100%",
                         }}
                     >
                         <label
@@ -355,6 +367,7 @@ export default function OwnerLayoutEditorPage() {
                                 fontSize: 14,
                                 fontWeight: 600,
                                 color: "#1e293b",
+                                whiteSpace: "nowrap",
                             }}
                         >
                             Chọn bãi đỗ:
@@ -372,7 +385,9 @@ export default function OwnerLayoutEditorPage() {
                                 fontSize: 14,
                                 color: "#0f172a",
                                 background: "#fff",
-                                minWidth: 260,
+                                width: "100%",
+                                maxWidth: 320,
+                                minWidth: 0,
                             }}
                         >
                             {lots.map((lot) => (
@@ -472,6 +487,8 @@ export default function OwnerLayoutEditorPage() {
                         paddingBottom: 8,
                         marginBottom: 20,
                         overflowX: "auto",
+                        maxWidth: "100%",
+                        flexWrap: "nowrap",
                     }}
                 >
                     {floors.map((floor, idx) => (
@@ -485,7 +502,7 @@ export default function OwnerLayoutEditorPage() {
                                 border: "none",
                                 background:
                                     idx === activeFloorIndex
-                                        ? "#2563eb"
+                                        ? "var(--pw-brand-primary, #1e19d8)"
                                         : "#f1f5f9",
                                 color:
                                     idx === activeFloorIndex
@@ -496,6 +513,8 @@ export default function OwnerLayoutEditorPage() {
                                 fontSize: 13,
                                 cursor: "pointer",
                                 transition: "all 0.15s ease",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                             }}
                         >
                             {floor.name} ({floor.zones?.length || 0} khu)
@@ -510,10 +529,12 @@ export default function OwnerLayoutEditorPage() {
                             borderRadius: 8,
                             border: "1px dashed #94a3b8",
                             background: "#fff",
-                            color: "#2563eb",
+                            color: "var(--pw-brand-primary, #1e19d8)",
                             fontWeight: 600,
                             fontSize: 13,
                             cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
                         }}
                     >
                         + Thêm tầng
@@ -535,10 +556,13 @@ export default function OwnerLayoutEditorPage() {
                                 background: "#fff",
                                 border: "1px solid #e2e8f0",
                                 borderRadius: 12,
-                                padding: "16px 20px",
+                                padding: "16px 16px",
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 16,
+                                flexWrap: "wrap",
+                                gap: 12,
+                                width: "100%",
+                                boxSizing: "border-box",
                             }}
                         >
                             <label
@@ -546,6 +570,7 @@ export default function OwnerLayoutEditorPage() {
                                     fontSize: 14,
                                     fontWeight: 600,
                                     color: "#334155",
+                                    whiteSpace: "nowrap",
                                 }}
                             >
                                 Tên tầng:
@@ -562,13 +587,16 @@ export default function OwnerLayoutEditorPage() {
                                     borderRadius: 6,
                                     border: "1px solid #cbd5e1",
                                     fontSize: 14,
-                                    width: 240,
+                                    width: "100%",
+                                    maxWidth: 240,
+                                    minWidth: 0,
                                 }}
                             />
                             <div
                                 style={{
                                     marginLeft: "auto",
                                     display: "flex",
+                                    flexWrap: "wrap",
                                     gap: 8,
                                 }}
                             >
@@ -577,7 +605,7 @@ export default function OwnerLayoutEditorPage() {
                                     onClick={() => handleAddZone("Car")}
                                     style={{
                                         background: "#eff6ff",
-                                        color: "#1d4ed8",
+                                        color: "var(--pw-brand-primary, #1e19d8)",
                                         border: "1px solid #bfdbfe",
                                         borderRadius: 6,
                                         padding: "6px 12px",
@@ -1084,7 +1112,7 @@ export default function OwnerLayoutEditorPage() {
                                                                 background:
                                                                     "#eff6ff",
                                                                 border: "1px solid #bfdbfe",
-                                                                color: "#2563eb",
+                                                                color: "var(--pw-brand-primary, #1e19d8)",
                                                                 borderRadius: 6,
                                                                 padding:
                                                                     "4px 10px",
@@ -1126,8 +1154,11 @@ export default function OwnerLayoutEditorPage() {
                                                         style={{
                                                             maxHeight: 260,
                                                             overflowY: "auto",
+                                                            overflowX: "auto",
                                                             border: "1px solid #e2e8f0",
                                                             borderRadius: 8,
+                                                            width: "100%",
+                                                            maxWidth: "100%",
                                                         }}
                                                     >
                                                         <table

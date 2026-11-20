@@ -152,8 +152,8 @@ export function ToastNotificationHub() {
     return (
         <>
             {/* Quick Web Push Enabler Bar/Badge:
-                On mobile (< 640px / sm): fixed at top of screen (top-16 left-2 right-2) as a compact horizontal bar,
-                keeping bottom form controls and action buttons (such as entrance confirmation) completely unobstructed.
+                On mobile (< 640px / sm): positioned below top header with safe clearance (top-16 left-2 right-2) as a compact horizontal bar,
+                keeping page header titles and bottom form controls completely unobstructed.
                 On desktop (>= 640px / sm): fixed at bottom-right (bottom-4 right-4). */}
             {showPrompt && (
                 <div
@@ -166,8 +166,8 @@ export function ToastNotificationHub() {
                             <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
                             <span className="truncate text-[11px] sm:text-xs">
                                 {copy(
-                                    "Get parking entry and exit alerts?",
-                                    "Nhận thông báo khi xe vào/ra?",
+                                    "Nhận thông báo khi xe ra vào bãi đỗ?",
+                                    "Nhận thông báo khi xe ra vào bãi đỗ?",
                                 )}
                             </span>
                         </div>
@@ -175,23 +175,23 @@ export function ToastNotificationHub() {
                             <button
                                 type="button"
                                 onClick={handleRequestPermission}
-                                className="bg-brand-500 hover:bg-brand-400 text-white font-semibold px-2.5 py-0.5 rounded-full text-[11px] transition cursor-pointer shrink-0"
+                                className="bg-[var(--pw-brand-primary,#1e19d8)] hover:bg-[var(--pw-brand-primary-hover,#1914b8)] text-white font-semibold px-2.5 py-0.5 rounded-full text-[11px] transition cursor-pointer shrink-0"
                             >
-                                {copy("Enable", "Bật")}
+                                {copy("Bật thông báo", "Bật thông báo")}
                             </button>
                             <button
                                 type="button"
                                 onClick={handleDismissLater}
                                 className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-2 py-0.5 rounded-full text-[11px] transition cursor-pointer shrink-0"
                             >
-                                {copy("Later", "Để sau")}
+                                {copy("Để sau", "Để sau")}
                             </button>
                             <button
                                 type="button"
                                 onClick={handleDismissLater}
                                 className="text-neutral-400 hover:text-white p-0.5 rounded-full transition cursor-pointer shrink-0"
                                 aria-label={copy(
-                                    "Dismiss prompt",
+                                    "Đóng gợi ý thông báo",
                                     "Đóng gợi ý thông báo",
                                 )}
                             >

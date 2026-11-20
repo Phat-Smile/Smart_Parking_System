@@ -5,9 +5,9 @@ import "./parkwise.css";
 import "./parkwise-motion.css";
 
 export const metadata: Metadata = {
-    title: "ParkWise | Find Convenient and Affordable Parking",
+    title: "ParkWise | Tìm kiếm chỗ đỗ xe thuận tiện và tiết kiệm",
     description:
-        "Explore ParkWise and learn how registered drivers can plan parking.",
+        "Khám phá ParkWise và tìm hiểu cách người lái xe có thể lên kế hoạch đỗ xe thuận tiện và tiết kiệm.",
     icons: { icon: "/images/parkwise/logo.png" },
 };
 

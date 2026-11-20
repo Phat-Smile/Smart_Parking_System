@@ -1190,7 +1190,7 @@ export function ParkingLotDetailExperience({
 
                 <Link href="/search" className="lot-detail-bottom-back">
                     <ArrowLeft size={16} />{" "}
-                    {copy("Back to Find Parking", "Quay lại tìm bãi đỗ")}
+                    {copy("Quay lại tìm bãi đỗ", "Quay lại tìm bãi đỗ")}
                 </Link>
             </main>
             <CustomerFooter />

@@ -485,7 +485,7 @@ export default function OwnerPricingManagementPage() {
                         disabled={isSubmitting}
                         style={{
                             padding: "8px 20px",
-                            background: "#19301D",
+                            background: "var(--pw-brand-primary, #1e19d8)",
                             color: "#ffffff",
                             border: "none",
                             borderRadius: 10,
@@ -497,7 +497,7 @@ export default function OwnerPricingManagementPage() {
                             cursor: isSubmitting ? "not-allowed" : "pointer",
                             opacity: isSubmitting ? 0.7 : 1,
                             transition: "all 0.15s ease",
-                            boxShadow: "0 2px 6px rgba(25, 48, 29, 0.2)",
+                            boxShadow: "0 2px 6px rgba(30, 25, 216, 0.25)",
                         }}
                     >
                         <svg

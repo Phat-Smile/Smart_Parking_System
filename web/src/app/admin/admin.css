@@ -125,6 +125,14 @@
     gap: 10px;
     min-width: 0;
     text-decoration: none;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 4px 10px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.admin-brand:hover {
+    background: #ffffff;
 }
 
 .admin-brand img {

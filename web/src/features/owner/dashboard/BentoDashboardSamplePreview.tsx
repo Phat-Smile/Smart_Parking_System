@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import "@/styles/bento-dashboard.css";
 
 interface MockLotItem {
@@ -170,7 +169,6 @@ export function BentoDashboardSamplePreview() {
     const [chartTimeframe, setChartTimeframe] = useState<
         "today" | "week" | "month"
     >("today");
-    const [surgeAutoEnabled, setSurgeAutoEnabled] = useState(true);
     const [activePointIndex, setActivePointIndex] = useState<number>(4);
 
     const trafficData =
@@ -533,11 +531,11 @@ export function BentoDashboardSamplePreview() {
                     </div>
                 </div>
 
-                {/* CỘT 3: LƯU LƯỢNG 7 NGÀY & VẬN HÀNH THÔNG MINH */}
+                {/* CỘT 3: LƯU LƯỢNG 7 NGÀY */}
                 <div className="bento-right-col">
                     <div
                         className="bento-card"
-                        style={{ padding: "16px 18px" }}
+                        style={{ padding: "16px 18px", flex: 1 }}
                     >
                         <div
                             className="bento-card-header"
@@ -609,121 +607,6 @@ export function BentoDashboardSamplePreview() {
                                 </div>
                             ))}
                         </div>
-                    </div>
-
-                    <div className="bento-smart-card">
-                        <div
-                            style={{
-                                position: "relative",
-                                zIndex: 2,
-                                maxWidth: "62%",
-                            }}
-                        >
-                            <div
-                                style={{
-                                    fontSize: 9.5,
-                                    fontWeight: 800,
-                                    letterSpacing: 0.8,
-                                    color: "#B8F34A",
-                                    marginBottom: 3,
-                                    textTransform: "uppercase",
-                                }}
-                            >
-                                VẬN HÀNH THÔNG MINH
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 13,
-                                    fontWeight: 800,
-                                    color: "#FFFFFF",
-                                    lineHeight: 1.3,
-                                    marginBottom: 4,
-                                }}
-                            >
-                                Bật tự động giá cao điểm chiều nay?
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 10.5,
-                                    color: "#A8BFA9",
-                                    lineHeight: 1.3,
-                                    marginBottom: 10,
-                                }}
-                            >
-                                Tự động tăng +20% biểu phí từ 17:00 - 19:00 tại
-                                2 bãi Quận 1.
-                            </div>
-                            <span
-                                style={{
-                                    display: "inline-block",
-                                    background: "#B8F34A",
-                                    color: "#19301D",
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    padding: "5px 12px",
-                                    borderRadius: 6,
-                                    cursor: "pointer",
-                                    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-                                }}
-                            >
-                                Thử nghiệm cấu hình →
-                            </span>
-                        </div>
-
-                        <div
-                            style={{
-                                position: "relative",
-                                zIndex: 2,
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "flex-end",
-                                gap: 12,
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setSurgeAutoEnabled(!surgeAutoEnabled)
-                                }
-                                style={{
-                                    width: 44,
-                                    height: 24,
-                                    borderRadius: 999,
-                                    background: surgeAutoEnabled
-                                        ? "#B8F34A"
-                                        : "#324A36",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    padding: 2,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: surgeAutoEnabled
-                                        ? "flex-end"
-                                        : "flex-start",
-                                    transition: "all 0.2s ease",
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        width: 20,
-                                        height: 20,
-                                        borderRadius: "50%",
-                                        background: surgeAutoEnabled
-                                            ? "#19301D"
-                                            : "#A8BFA9",
-                                    }}
-                                />
-                            </button>
-                        </div>
-
-                        <Image
-                            src="/images/parkwise/vehicle-sedan-cutout.png"
-                            alt="Xe sedan ParkWise"
-                            width={145}
-                            height={75}
-                            className="bento-smart-card-bg-car"
-                            style={{ objectFit: "contain" }}
-                        />
                     </div>
                 </div>
             </div>
