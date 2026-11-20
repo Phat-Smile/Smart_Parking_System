@@ -244,15 +244,9 @@ export default function OwnerPricingManagementPage() {
     const peakFee =
         enablePeakSurge && simSurgePeak ? Math.round(basePrice * 0.2) : 0;
 
-    // Phụ thu bão đỗ / tắc nghẽn (+30%)
-    const congestionFee =
-        enableCongestionSurge && simSurgeCongestion
-            ? Math.round(basePrice * 0.3)
-            : 0;
-
     // Tổng thanh toán
     const totalPayment =
-        (isOvernight ? overnightFee : basePrice) + peakFee + congestionFee;
+        (isOvernight ? overnightFee : basePrice) + peakFee;
 
     const handleSave = async () => {
         setErrorMessage("");
@@ -1182,55 +1176,6 @@ export default function OwnerPricingManagementPage() {
                             07:30–09:00 và 17:00–19:00, Thứ Hai đến Thứ Sáu.
                         </div>
                     </div>
-
-                    {/* Mục 2: Bão đỗ / tắc nghẽn */}
-                    <div>
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: 4,
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: 13.5,
-                                        fontWeight: 750,
-                                        color: "#172018",
-                                    }}
-                                >
-                                    Bão đỗ / tắc nghẽn
-                                </span>
-                                <span
-                                    style={{
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: "#269B62",
-                                        background: "#EAF7EE",
-                                        borderRadius: 6,
-                                        padding: "1px 6px",
-                                    }}
-                                >
-                                    +30%
-                                </span>
-                            </div>
-                            <ToggleSwitch
-                                checked={enableCongestionSurge}
-                                onChange={setEnableCongestionSurge}
-                            />
-                        </div>
-                        <div style={{ fontSize: 12, color: "#718071" }}>
-                            Tự bật khi bãi đầy trên 85% sức chứa.
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -1506,38 +1451,6 @@ export default function OwnerPricingManagementPage() {
                                     />
                                     Giờ cao điểm (+20%)
                                 </label>
-                                <label
-                                    style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 8,
-                                        cursor: enableCongestionSurge
-                                            ? "pointer"
-                                            : "not-allowed",
-                                        fontSize: 13,
-                                        color: enableCongestionSurge
-                                            ? "#172018"
-                                            : "#A3AFA3",
-                                        fontWeight: 500,
-                                    }}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={simSurgeCongestion}
-                                        disabled={!enableCongestionSurge}
-                                        onChange={(e) =>
-                                            setSimSurgeCongestion(
-                                                e.target.checked,
-                                            )
-                                        }
-                                        style={{
-                                            width: 15,
-                                            height: 15,
-                                            accentColor: "#19301D",
-                                        }}
-                                    />
-                                    Bãi đỗ trên 85% (+30%)
-                                </label>
                             </div>
                         </div>
                     </div>
@@ -1644,27 +1557,7 @@ export default function OwnerPricingManagementPage() {
                                 </span>
                             </div>
 
-                            <div
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    color: "#718071",
-                                }}
-                            >
-                                <span>Phụ thu bãi đỗ</span>
-                                <span
-                                    style={{
-                                        color:
-                                            congestionFee > 0
-                                                ? "#172018"
-                                                : "#718071",
-                                        fontWeight:
-                                            congestionFee > 0 ? 600 : 400,
-                                    }}
-                                >
-                                    {congestionFee.toLocaleString("vi-VN")} đ
-                                </span>
-                            </div>
+
 
                             <div
                                 style={{

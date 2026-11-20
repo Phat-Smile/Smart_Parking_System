@@ -113,27 +113,7 @@ export default function LotStaffPage({ params }: PageProps) {
                         });
                     setStaffList(mapped);
                 } else {
-                    // Seed realistic demo staff if lot has none yet
-                    setStaffList([
-                        {
-                            accountId: "demo-staff-1",
-                            fullName: "Nguyễn Văn Hùng",
-                            email: "hung.nguyen@parkwise.vn",
-                            phoneNumber: "0908 123 456",
-                            role: "Trưởng ca trực cổng chính",
-                            shiftStatus: "OnDuty",
-                            assignedAt: "15/10/2026",
-                        },
-                        {
-                            accountId: "demo-staff-2",
-                            fullName: "Lê Thị Thanh Mai",
-                            email: "mai.le@parkwise.vn",
-                            phoneNumber: "0977 654 321",
-                            role: "Nhân viên cổng ra & đối soát",
-                            shiftStatus: "OffDuty",
-                            assignedAt: "18/10/2026",
-                        },
-                    ]);
+                    setStaffList([]);
                 }
             } catch {
                 if (active) {
@@ -513,6 +493,16 @@ export default function LotStaffPage({ params }: PageProps) {
                         }}
                     >
                         Đang tải danh sách nhân viên...
+                    </div>
+                ) : staffList.length === 0 ? (
+                    <div
+                        style={{
+                            padding: 40,
+                            textAlign: "center",
+                            color: "#64748b",
+                        }}
+                    >
+                        Chưa có nhân viên nào được phân công vào bãi này.
                     </div>
                 ) : filteredStaff.length === 0 ? (
                     <div

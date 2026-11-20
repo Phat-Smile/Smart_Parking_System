@@ -51,7 +51,7 @@ function Row({
 }
 
 function openingHoursText(detail: AdminParkingLotDetail) {
-    if (!detail.openingHours) return "Not set yet";
+    if (!detail.openingHours) return "Chưa thiết lập giờ mở cửa";
     return detail.openingHours.days
         .map((day) => {
             const hours = day.isClosed
@@ -65,7 +65,7 @@ function openingHoursText(detail: AdminParkingLotDetail) {
 }
 
 function PriceRows({ price }: { price: AdminLotPricing | null }) {
-    if (!price) return <Row label="Price">Not set yet</Row>;
+    if (!price) return <Row label="Price">Chưa cấu hình bảng giá</Row>;
     return (
         <>
             <Row label="Billing">

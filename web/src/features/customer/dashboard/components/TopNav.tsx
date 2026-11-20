@@ -1,10 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Wallet, User } from "lucide-react";
 import { vi } from "../../i18n/vi";
 import { ThemeToggle } from "../../../../shared/ui/ThemeToggle";
+import { getMyVehicles, type RegisteredVehicle } from "../../myVehiclesApi";
+import { getMyWallet } from "../../wallet/walletApi";
+import { getMyNotifications } from "../../customerNotificationApi";
 
 const navItems = [
     { href: "/dashboard", label: vi.dashboard.title },
@@ -17,6 +21,15 @@ const navItems = [
 
 export function TopNav() {
     const pathname = usePathname();
+    const [vehicles, setVehicles] = useState<RegisteredVehicle[]>([]);
+    const [balance, setBalance] = useState<number | null>(null);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        getMyVehicles().then(res => setVehicles(res.vehicles || [])).catch(() => {});
+        getMyWallet().then(w => setBalance(w.balance)).catch(() => {});
+        getMyNotifications(true, 1, 1).then(p => setUnreadCount(p.unreadCount)).catch(() => {});
+    }, []);
 
     return (
         <header className="hidden md:flex items-center justify-between h-20 px-8 sticky top-0 z-50 border-b border-[var(--dash-border)] bg-[var(--dash-surface)]/90 backdrop-blur-md shadow-sm">
@@ -55,18 +68,29 @@ export function TopNav() {
                 {/* Vehicle Selector */}
                 <div className="bg-[var(--dash-bg)] px-3 py-1.5 rounded-xl border border-[var(--dash-border)] flex items-center gap-2">
                     <select className="bg-transparent text-[var(--dash-text)] text-sm font-medium outline-none cursor-pointer appearance-none pr-4">
-                        <option
-                            value="all"
-                            className="bg-[var(--dash-surface)] text-[var(--dash-text)]"
-                        >
-                            Tất cả xe
-                        </option>
-                        <option
-                            value="29A-12345"
-                            className="bg-[var(--dash-surface)] text-[var(--dash-text)]"
-                        >
-                            29A-12345 (Ô tô)
-                        </option>
+                        {vehicles.length === 0 ? (
+                            <option value="none" className="bg-[var(--dash-surface)] text-[var(--dash-text)]">
+                                Chưa có xe
+                            </option>
+                        ) : (
+                            <>
+                                <option
+                                    value="all"
+                                    className="bg-[var(--dash-surface)] text-[var(--dash-text)]"
+                                >
+                                    Tất cả xe
+                                </option>
+                                {vehicles.map((v) => (
+                                    <option
+                                        key={v.vehicleId}
+                                        value={v.licensePlate}
+                                        className="bg-[var(--dash-surface)] text-[var(--dash-text)]"
+                                    >
+                                        {v.licensePlate} ({v.vehicleType === "Car" ? "Ô tô" : v.vehicleType === "Motorbike" ? "Xe máy" : "Xe đạp"})
+                                    </option>
+                                ))}
+                            </>
+                        )}
                     </select>
                 </div>
 
@@ -80,7 +104,7 @@ export function TopNav() {
                             {vi.wallet.balance}
                         </span>
                         <span className="text-sm font-bold text-[var(--dash-text)] leading-tight">
-                            150.000đ
+                            {balance !== null ? `${balance.toLocaleString("vi-VN")}đ` : "—"}
                         </span>
                     </div>
                     <button className="dash-btn-primary p-1.5 rounded-lg flex items-center justify-center">
@@ -97,7 +121,9 @@ export function TopNav() {
                     className="relative p-2 text-[var(--dash-text-muted)] hover:text-[var(--dash-text)] transition-colors rounded-full hover:bg-[var(--dash-text)]/5"
                 >
                     <Bell size={20} strokeWidth={1.5} />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--dash-surface)]"></span>
+                    {unreadCount > 0 && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--dash-surface)]"></span>
+                    )}
                 </Link>
 
                 {/* Profile Avatar */}

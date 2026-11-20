@@ -45,7 +45,7 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                         </label>
                         <input
                             type="text"
-                            placeholder="e.g. Vincom Center Dong Khoi..."
+                            placeholder="Ví dụ: Bãi đỗ xe Nguyễn Huệ..."
                             className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors placeholder-[#8790a3]/50"
                         />
                     </div>
@@ -58,7 +58,7 @@ export function NewBookingModal({ isOpen, onClose }: NewBookingModalProps) {
                             </label>
                             <input
                                 type="text"
-                                placeholder="e.g. 29A-12345"
+                                placeholder="Ví dụ: 51A-123.45"
                                 className="w-full bg-[#101426] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#6246ea] transition-colors placeholder-[#8790a3]/50 uppercase"
                             />
                         </div>

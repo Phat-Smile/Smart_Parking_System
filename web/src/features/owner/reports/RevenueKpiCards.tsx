@@ -12,8 +12,8 @@ export function RevenueKpiCards({ kpis }: RevenueKpiCardsProps) {
         {
             label: "Tổng doanh thu",
             value: kpis.totalRevenueText,
-            change: "15,2% ↑",
-            changeColor: "#16a36a",
+            change: "—",
+            changeColor: "#6a7491",
             icon: (
                 <svg
                     width="22"
@@ -31,8 +31,8 @@ export function RevenueKpiCards({ kpis }: RevenueKpiCardsProps) {
         {
             label: "Doanh thu trung bình",
             value: kpis.avgDailyText,
-            change: "8,4% ↑",
-            changeColor: "#16a36a",
+            change: "—",
+            changeColor: "#6a7491",
             icon: (
                 <svg
                     width="22"
@@ -49,8 +49,8 @@ export function RevenueKpiCards({ kpis }: RevenueKpiCardsProps) {
         {
             label: "Tổng lượt giao dịch",
             value: kpis.totalTransactions.toLocaleString("vi-VN"),
-            change: "11,0% ↑",
-            changeColor: "#16a36a",
+            change: "—",
+            changeColor: "#6a7491",
             icon: (
                 <svg
                     width="22"
@@ -68,8 +68,8 @@ export function RevenueKpiCards({ kpis }: RevenueKpiCardsProps) {
         {
             label: "Tỷ lệ thanh toán online",
             value: `${kpis.onlineRatePct}%`,
-            change: "95% mục tiêu",
-            changeColor: "#2563eb",
+            change: "—",
+            changeColor: "#6a7491",
             icon: (
                 <svg
                     width="22"

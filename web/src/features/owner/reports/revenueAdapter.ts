@@ -386,7 +386,7 @@ export function getRevenueReportData(
     // ── 5. TỶ TRỌNG PHƯƠNG THỨC THANH TOÁN (PAYMENT METHODS) ──
     const methodCounts = new Map<string, number>();
     for (const s of sessions) {
-        const method = s.paymentMethod || "Ví Smart Parking";
+        const method = s.paymentMethod || "Chưa xác định";
         methodCounts.set(method, (methodCounts.get(method) || 0) + 1);
     }
 
@@ -395,7 +395,6 @@ export function getRevenueReportData(
         const colors: Record<string, string> = {
             "Ví Smart Parking": "#2563eb",
             "VNPay QR": "#16a36a",
-            MoMo: "#d946ef",
             "Tiền mặt": "#f59e0b",
         };
         paymentMethods = Array.from(methodCounts.entries()).map(
@@ -411,24 +410,6 @@ export function getRevenueReportData(
                 };
             },
         );
-    } else if (totalRev > 0) {
-        // Mặc định phân bổ phương thức điện tử qua nền tảng ParkWise
-        paymentMethods = [
-            {
-                name: "Ví Smart Parking",
-                pct: 68,
-                color: "#2563eb",
-                amount: Math.round(totalRev * 0.68),
-                amountText: short(totalRev * 0.68),
-            },
-            {
-                name: "VNPay QR",
-                pct: 32,
-                color: "#16a36a",
-                amount: Math.round(totalRev * 0.32),
-                amountText: short(totalRev * 0.32),
-            },
-        ];
     }
 
     // ── 6. KHUNG GIỜ CAO ĐIỂM (PEAK TIMES) ──
