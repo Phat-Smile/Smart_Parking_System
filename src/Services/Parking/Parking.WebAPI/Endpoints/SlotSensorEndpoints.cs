@@ -49,7 +49,27 @@ internal static class SlotSensorEndpoints
                 ISender sender,
                 CancellationToken cancellationToken) =>
             {
-                if (!Enum.TryParse<SensorState>(request.State, ignoreCase: true, out var sensorState))
+                // A sensor must provide stable identifiers and its original event time.
+                // Generating either at the API would silently disable deduplication and ordering.
+                if ((request.EventId is null || request.EventId == Guid.Empty)
+                    || (request.LotId is null || request.LotId == Guid.Empty)
+                    || string.IsNullOrWhiteSpace(request.DeviceId)
+                    || request.DeviceId.Length > 64
+                    || string.IsNullOrWhiteSpace(request.SlotCode)
+                    || request.SlotCode.Length > ParkingSlot.SlotCodeMaxLength
+                    || (request.EventTime is null || request.EventTime == default(DateTimeOffset)))
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        title: "Yêu cầu không hợp lệ.",
+                        detail: "EventId, DeviceId, LotId, SlotCode and EventTime are required and must be valid.",
+                        extensions: ProblemExtensions(httpContext, ProcessSlotSensorEventErrors.InvalidSensorPayload.Code));
+                }
+
+                // Enum.TryParse accepts numeric input such as "1"; the device wire contract does not.
+                var stateText = request.State?.Trim();
+                if (!string.Equals(stateText, nameof(SensorState.Empty), StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(stateText, nameof(SensorState.Occupied), StringComparison.OrdinalIgnoreCase))
                 {
                     return Results.Problem(
                         statusCode: StatusCodes.Status400BadRequest,
@@ -58,13 +78,14 @@ internal static class SlotSensorEndpoints
                         extensions: ProblemExtensions(httpContext, ProcessSlotSensorEventErrors.InvalidSensorState.Code));
                 }
 
+                var sensorState = Enum.Parse<SensorState>(stateText!, ignoreCase: true);
                 var command = new ProcessSlotSensorEventCommand(
-                    request.EventId ?? Guid.NewGuid(),
-                    request.DeviceId ?? string.Empty,
-                    request.LotId ?? Guid.Empty,
-                    request.SlotCode ?? string.Empty,
+                    request.EventId!.Value,
+                    request.DeviceId!.Trim(),
+                    request.LotId!.Value,
+                    request.SlotCode!.Trim(),
                     sensorState,
-                    request.EventTime ?? DateTimeOffset.UtcNow);
+                    request.EventTime!.Value);
 
                 var result = await sender.Send(command, cancellationToken);
                 if (result.IsFailure)

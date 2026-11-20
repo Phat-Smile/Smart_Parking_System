@@ -133,6 +133,52 @@ public static class PricingEndpoints
         .WithName("ConfigurePricing")
         .WithSummary("Cau hinh bang gia cho bai do xe");
 
+        // BE-PK03: Sprint 5 route compatibility. Reuse the same authorization,
+        // optimistic version check, audit writer and legacy pricing behavior.
+        // No new monetary formula is implied by this route alias.
+        app.MapPut("/api/parking/owner/lots/{lotId:guid}/pricing", async (
+            Guid lotId,
+            ConfigureLotPricingRequest request,
+            ICurrentUser currentUser,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            if (!Guid.TryParse(currentUser.SubjectId, out var currentUserId))
+                return Results.Unauthorized();
+
+            var result = await sender.Send(request.ToCommand(lotId, currentUserId), cancellationToken);
+            if (result.IsFailure)
+            {
+                var code = result.Error!.Code;
+                var statusCode = code.Contains("not_found", StringComparison.OrdinalIgnoreCase)
+                    ? StatusCodes.Status404NotFound
+                    : code.Contains("conflict", StringComparison.OrdinalIgnoreCase)
+                        ? StatusCodes.Status409Conflict
+                        : code.Contains("owner", StringComparison.OrdinalIgnoreCase)
+                          || code.Contains("forbidden", StringComparison.OrdinalIgnoreCase)
+                            ? StatusCodes.Status403Forbidden
+                            : StatusCodes.Status400BadRequest;
+                return Results.Json(
+                    new { result = (object?)null, isSuccess = false, statusCode, message = result.Error.Message },
+                    statusCode: statusCode);
+            }
+
+            return Results.Ok(new
+            {
+                result = new
+                {
+                    version = result.Value!.Version,
+                    isNewVersionCreated = result.Value.IsNewVersionCreated
+                },
+                isSuccess = true,
+                statusCode = StatusCodes.Status200OK,
+                message = "Configure pricing successfully"
+            });
+        })
+        .RequireAuthorization(ParkingAuthorization.ParkingLotOwnerPolicy)
+        .WithName("ConfigureLotPricing")
+        .WithSummary("Configure lot pricing by vehicle type using the existing versioned policy");
+
         return app;
     }
 }

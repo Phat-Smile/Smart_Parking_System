@@ -332,12 +332,122 @@ public sealed class SlotSensorEventProcessingTests
         Assert.Empty(realtime.SlotChanges);
     }
 
+    [Fact]
+    public void Validator_rejects_missing_device_event_time()
+    {
+        var validator = new ProcessSlotSensorEventCommandValidator();
+        var valid = new ProcessSlotSensorEventCommand(
+            Guid.NewGuid(), "sensor-1", LotId, "A-01", SensorState.Empty,
+            DateTimeOffset.Parse("2026-11-20T03:00:00Z"));
+
+        Assert.True(validator.Validate(valid).IsValid);
+        Assert.False(validator.Validate(valid with { EventTime = default }).IsValid);
+        Assert.False(validator.Validate(valid with { EventId = Guid.Empty }).IsValid);
+    }
+
+    [Fact]
+    public async Task Failed_persistence_must_not_broadcast_uncommitted_sensor_status()
+    {
+        var slot = ParkingSlot.Create(Guid.NewGuid(), LotId, ZoneId, "A-01");
+        var repository = new FakeSlotSensorRepository(slot) { FailSave = true };
+        var dedupStore = new FakeSlotSensorDeduplicationStore();
+        var notifier = new FakeParkingRealtimeNotifier();
+        var handler = new ProcessSlotSensorEventCommandHandler(
+            repository, dedupStore, new FakeOutboxWriter(),
+            new FakeClock(DateTimeOffset.Parse("2026-11-20T03:00:00Z")),
+            NullLogger<ProcessSlotSensorEventCommandHandler>.Instance, notifier);
+        var eventId = Guid.NewGuid();
+        var command = new ProcessSlotSensorEventCommand(
+            eventId, "sensor-1", LotId, "A-01", SensorState.Occupied,
+            DateTimeOffset.Parse("2026-11-20T02:59:59Z"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(command, TestContext.Current.CancellationToken));
+
+        Assert.Empty(notifier.SlotChanges);
+        Assert.False(await dedupStore.HasBeenProcessedAsync(eventId, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Equal_timestamp_from_a_different_event_cannot_revert_the_latest_slot_state()
+    {
+        var slot = ParkingSlot.Create(Guid.NewGuid(), LotId, ZoneId, "A-01");
+        var dedup = new FakeSlotSensorDeduplicationStore();
+        var outbox = new FakeOutboxWriter();
+        var handler = new ProcessSlotSensorEventCommandHandler(
+            new FakeSlotSensorRepository(slot), dedup, outbox,
+            new FakeClock(DateTimeOffset.Parse("2026-11-20T10:00:00Z")),
+            NullLogger<ProcessSlotSensorEventCommandHandler>.Instance);
+        var timestamp = DateTimeOffset.Parse("2026-11-20T09:59:58Z");
+        var first = await handler.Handle(new ProcessSlotSensorEventCommand(
+            Guid.NewGuid(), "device-1", LotId, "A-01", SensorState.Occupied, timestamp),
+            TestContext.Current.CancellationToken);
+        var second = await handler.Handle(new ProcessSlotSensorEventCommand(
+            Guid.NewGuid(), "device-2", LotId, "A-01", SensorState.Empty, timestamp),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.IsSuccess);
+        Assert.True(second.IsSuccess);
+        Assert.Equal("OutOfOrderIgnored", second.Value?.Status);
+        Assert.Equal(SlotEffectiveStatus.Occupied, slot.EffectiveStatus);
+        Assert.Single(outbox.EnqueuedEvents);
+    }
+
+    [Fact]
+    public async Task Failure_to_broadcast_after_successful_save_does_not_retry_a_committed_sensor_event()
+    {
+        var slot = ParkingSlot.Create(Guid.NewGuid(), LotId, ZoneId, "A-01");
+        var dedup = new FakeSlotSensorDeduplicationStore();
+        var repository = new FakeSlotSensorRepository(slot);
+        var outbox = new FakeOutboxWriter();
+        var eventId = Guid.NewGuid();
+        var notifier = new ThrowingParkingRealtimeNotifier();
+        var handler = new ProcessSlotSensorEventCommandHandler(
+            repository, dedup, outbox,
+            new FakeClock(DateTimeOffset.Parse("2026-11-20T10:00:00Z")),
+            NullLogger<ProcessSlotSensorEventCommandHandler>.Instance,
+            notifier);
+        var command = new ProcessSlotSensorEventCommand(
+            eventId, "device-1", LotId, "A-01", SensorState.Occupied,
+            DateTimeOffset.Parse("2026-11-20T09:59:58Z"));
+        var first = await handler.Handle(command, TestContext.Current.CancellationToken);
+        var again = await handler.Handle(command, TestContext.Current.CancellationToken);
+
+        Assert.True(first.IsSuccess);
+        Assert.Equal("Processed", first.Value?.Status);
+        Assert.Equal("DuplicateIgnored", again.Value?.Status);
+        Assert.True(await dedup.HasBeenProcessedAsync(eventId, TestContext.Current.CancellationToken));
+        Assert.Single(outbox.EnqueuedEvents);
+        Assert.Equal(1, notifier.Attempts);
+    }
+
+    private sealed class ThrowingParkingRealtimeNotifier : IParkingRealtimeNotifier
+    {
+        public int Attempts { get; private set; }
+
+        public Task NotifySlotStatusChangedAsync(Guid lotId, Guid slotId, string slotCode,
+            string effectiveStatus, string previousStatus, DateTimeOffset timestamp,
+            CancellationToken cancellationToken = default)
+        {
+            Attempts++;
+            throw new InvalidOperationException("Simulated SignalR outage");
+        }
+
+        public Task NotifySlotNeedsVerificationAsync(Guid lotId, Guid slotId, string slotCode,
+            string stage, DateTimeOffset timestamp, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task NotifyLotOccupancyChangedAsync(Guid lotId, int availableCarSlots, int availableMotorbikeSlots,
+            DateTimeOffset timestamp, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     private sealed class FakeSlotSensorRepository(ParkingSlot? slot) : ISlotSensorRepository
     {
+        public bool FailSave { get; init; }
         public Task<ParkingSlot?> FindBySlotCodeAsync(Guid lotId, string slotCode, CancellationToken cancellationToken) =>
             Task.FromResult(slot);
 
-        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task SaveChangesAsync(CancellationToken cancellationToken) =>
+            FailSave ? Task.FromException(new InvalidOperationException("Simulated DB failure")) : Task.CompletedTask;
     }
 
     private sealed class FakeSlotSensorDeduplicationStore : ISlotSensorDeduplicationStore

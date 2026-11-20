@@ -36,4 +36,7 @@ public static class ProcessSlotSensorEventErrors
 
     public static readonly Error InvalidSensorState =
         new("parking.slot.invalid_sensor_state", "SensorState must be either 'Empty' or 'Occupied'.");
+
+    public static readonly Error InvalidSensorPayload =
+        new("parking.slot.invalid_sensor_payload", "Sensor event identifiers and event time are required.");
 }

@@ -97,6 +97,41 @@ describe("useParkingRealtime", () => {
         expect(onLotOccupancyChanged).toHaveBeenCalledWith(eventData);
     });
 
+    it("ignores events for another lot even when hub forwards them", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        const onSlotStatusChanged = vi.fn();
+        const onLotOccupancyChanged = vi.fn();
+        const { result } = renderHook(() =>
+            useParkingRealtime({ lotId, onSlotStatusChanged, onLotOccupancyChanged }),
+        );
+        await act(async () => { await Promise.resolve(); });
+        act(() => {
+            mockOn["SlotStatusChanged"]?.({ lotId: "22222222-2222-2222-2222-222222222222" });
+            mockOn["LotOccupancyChanged"]?.({ lotId: "22222222-2222-2222-2222-222222222222" });
+        });
+        expect(onSlotStatusChanged).not.toHaveBeenCalled();
+        expect(onLotOccupancyChanged).not.toHaveBeenCalled();
+        expect(result.current.lastSlotChange).toBeNull();
+        expect(result.current.lastOccupancyChange).toBeNull();
+    });
+
+    it("clears prior lot event state when switching lots", async () => {
+        const firstLotId = "11111111-1111-1111-1111-111111111111";
+        const secondLotId = "22222222-2222-2222-2222-222222222222";
+        const { result, rerender } = renderHook(
+            ({ lotId }: { lotId: string }) => useParkingRealtime({ lotId }),
+            { initialProps: { lotId: firstLotId } },
+        );
+        await act(async () => { await Promise.resolve(); });
+        act(() => {
+            mockOn["LotOccupancyChanged"]?.({ lotId: firstLotId, availableCarSlots: 3, availableMotorbikeSlots: 4, timestamp: "2026-11-20T03:00:00Z" });
+        });
+        expect(result.current.lastOccupancyChange).not.toBeNull();
+        rerender({ lotId: secondLotId });
+        expect(result.current.lastOccupancyChange).toBeNull();
+        expect(result.current.lastSlotChange).toBeNull();
+    });
+
     it("public mode sends no access token and never joins the operations group", async () => {
         const lotId = "11111111-1111-1111-1111-111111111111";
         renderHook(() => useParkingRealtime({ lotId }));
