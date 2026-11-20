@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { CheckCircle2, AlertTriangle, Pin } from "lucide-react";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useOwnerStore } from "@/store/useOwnerStore";
@@ -183,9 +184,15 @@ export default function LotPoliciesPage() {
                 <div
                     data-testid="policies-success-banner"
                     className="ok"
-                    style={{ marginBottom: "16px" }}
+                    style={{
+                        marginBottom: "16px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                    }}
                 >
-                    <b>✓ Thành công:</b> {successMessage}
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <b>Thành công:</b> {successMessage}
                 </div>
             )}
 
@@ -193,9 +200,15 @@ export default function LotPoliciesPage() {
                 <div
                     data-testid="policies-error-banner"
                     className="err"
-                    style={{ marginBottom: "16px" }}
+                    style={{
+                        marginBottom: "16px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                    }}
                 >
-                    <b>⚠️ Lỗi:</b> {errorMessage}
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <b>Lỗi:</b> {errorMessage}
                 </div>
             )}
 
@@ -629,7 +642,10 @@ export default function LotPoliciesPage() {
                                 lineHeight: "1.6",
                             }}
                         >
-                            <b>Quy định vận hành Smart Parking:</b>
+                            <div className="flex items-center gap-1.5 font-bold mb-1">
+                                <Pin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                <span>Quy định vận hành Smart Parking:</span>
+                            </div>
                             <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
                                 <li>
                                     Nếu khách check-in đúng giờ: Tiền cọc được

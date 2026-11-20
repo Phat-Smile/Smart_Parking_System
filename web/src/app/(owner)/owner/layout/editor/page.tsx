@@ -2,6 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+    Eye,
+    Save,
+    CheckCircle2,
+    AlertCircle,
+    Car,
+    Bike,
+    Trash2,
+    Lightbulb,
+    Wand2,
+    X,
+} from "lucide-react";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
@@ -278,6 +290,7 @@ export default function OwnerLayoutEditorPage() {
                                 gap: 6,
                             }}
                         >
+                            <Eye className="w-4 h-4 text-slate-600" />
                             Xem sơ đồ 2D
                         </Link>
                         <button
@@ -300,6 +313,7 @@ export default function OwnerLayoutEditorPage() {
                                 boxShadow: "0 2px 6px rgba(37,99,235,0.25)",
                             }}
                         >
+                            <Save className="w-4 h-4" />
                             {isSaving ? "Đang lưu…" : "Lưu sơ đồ"}
                         </button>
                     </div>
@@ -392,9 +406,13 @@ export default function OwnerLayoutEditorPage() {
                             marginBottom: 16,
                             fontSize: 14,
                             fontWeight: 500,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
                         }}
                     >
-                        ✅ {saveSuccess}
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{saveSuccess}</span>
                     </div>
                 )}
 
@@ -411,9 +429,13 @@ export default function OwnerLayoutEditorPage() {
                             marginBottom: 16,
                             fontSize: 14,
                             fontWeight: 500,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
                         }}
                     >
-                        ❌ {saveError}
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{saveError}</span>
                     </div>
                 )}
 
@@ -647,7 +669,17 @@ export default function OwnerLayoutEditorPage() {
                                                             : "#065f46",
                                                     }}
                                                 >
-                                                    {isCar ? "Ô TÔ" : "XE MÁY"}
+                                                    {isCar ? (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <Car className="w-3.5 h-3.5" />
+                                                            Ô TÔ
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <Bike className="w-3.5 h-3.5" />
+                                                            XE MÁY
+                                                        </span>
+                                                    )}
                                                 </span>
                                                 <strong
                                                     style={{
@@ -680,9 +712,13 @@ export default function OwnerLayoutEditorPage() {
                                                     fontSize: 12,
                                                     cursor: "pointer",
                                                     padding: "4px 8px",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 4,
                                                 }}
                                             >
-                                                ✕ Xóa khu
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                                Xóa khu
                                             </button>
                                         </div>
 
@@ -938,12 +974,18 @@ export default function OwnerLayoutEditorPage() {
                                                     padding: "8px 12px",
                                                     borderRadius: 6,
                                                     border: "1px solid #bbf7d0",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 8,
                                                 }}
                                             >
-                                                Khu xe máy quản lý theo dung
-                                                lượng chung ({zone.capacity}{" "}
-                                                xe), không phân chia từng ô
-                                                riêng biệt.
+                                                <Lightbulb className="w-4 h-4 text-emerald-700 shrink-0" />
+                                                <span>
+                                                    Khu xe máy quản lý theo dung
+                                                    lượng chung ({zone.capacity}{" "}
+                                                    xe), không phân chia từng ô
+                                                    riêng biệt.
+                                                </span>
                                             </div>
                                         )}
 
@@ -1029,8 +1071,14 @@ export default function OwnerLayoutEditorPage() {
                                                                 fontSize: 12,
                                                                 fontWeight: 600,
                                                                 cursor: "pointer",
+                                                                display:
+                                                                    "inline-flex",
+                                                                alignItems:
+                                                                    "center",
+                                                                gap: 4,
                                                             }}
                                                         >
+                                                            <Wand2 className="w-3.5 h-3.5" />
                                                             Tự động tạo{" "}
                                                             {zone.capacity} ô
                                                         </button>
@@ -1273,9 +1321,16 @@ export default function OwnerLayoutEditorPage() {
                                                                                         color: "#94a3b8",
                                                                                         cursor: "pointer",
                                                                                         fontSize: 12,
+                                                                                        display:
+                                                                                            "inline-flex",
+                                                                                        alignItems:
+                                                                                            "center",
+                                                                                        justifyContent:
+                                                                                            "center",
                                                                                     }}
+                                                                                    aria-label="Xóa ô"
                                                                                 >
-                                                                                    ✕
+                                                                                    <X className="w-3.5 h-3.5 hover:text-rose-600 transition-colors" />
                                                                                 </button>
                                                                             </td>
                                                                         </tr>

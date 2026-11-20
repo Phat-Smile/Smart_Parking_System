@@ -11,6 +11,36 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import {
+    ArrowRight,
+    Bell,
+    Bookmark,
+    Calendar,
+    Car,
+    Check,
+    ChevronDown,
+    Clock,
+    Cloud,
+    LayoutGrid,
+    SlidersHorizontal,
+    History,
+    Contact,
+    MapPin,
+    Bike,
+    Banknote,
+    ArrowDownAZ,
+    Sparkles,
+    Route,
+    Search,
+    LogIn,
+    LogOut,
+    Sun,
+    Crosshair,
+    User,
+    Zap,
+    ChevronRight,
+    type LucideIcon,
+} from "lucide-react";
 import { ParkWiseNavbar } from "@/features/parkwise/ParkWiseNavbar";
 import { ParkWiseFooter } from "@/features/parkwise/ParkWiseFooter";
 import {
@@ -52,6 +82,36 @@ export type CustomerIconName =
     | "zap"
     | "chevron-right";
 
+const CUSTOMER_ICON_MAP: Record<CustomerIconName, LucideIcon> = {
+    arrow: ArrowRight,
+    bell: Bell,
+    bookmark: Bookmark,
+    calendar: Calendar,
+    car: Car,
+    check: Check,
+    chevron: ChevronDown,
+    clock: Clock,
+    cloud: Cloud,
+    dashboard: LayoutGrid,
+    filter: SlidersHorizontal,
+    history: History,
+    "id-card": Contact,
+    location: MapPin,
+    motorbike: Bike,
+    price: Banknote,
+    "sort-az": ArrowDownAZ,
+    sparkles: Sparkles,
+    distance: Route,
+    search: Search,
+    "sign-in": LogIn,
+    "sign-out": LogOut,
+    sun: Sun,
+    target: Crosshair,
+    user: User,
+    zap: Zap,
+    "chevron-right": ChevronRight,
+};
+
 export function CustomerIcon({
     name,
     size = 20,
@@ -59,142 +119,8 @@ export function CustomerIcon({
     name: CustomerIconName;
     size?: number;
 }) {
-    const paths: Record<CustomerIconName, ReactNode> = {
-        arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
-        bell: (
-            <>
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
-                <path d="M10 21h4" />
-            </>
-        ),
-        bookmark: <path d="M6 4h12v17l-6-4-6 4V4Z" />,
-        calendar: (
-            <>
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M7 3v4m10-4v4M3 10h18" />
-            </>
-        ),
-        car: (
-            <>
-                <path d="m5 11 1.7-4.2A2 2 0 0 1 8.6 5h6.8a2 2 0 0 1 1.9 1.8L19 11" />
-                <rect x="3" y="11" width="18" height="7" rx="2" />
-                <path d="M5 18v2m14-2v2M7 14h.01M17 14h.01" />
-            </>
-        ),
-        check: <path d="m4 12 5 5L20 6" />,
-        chevron: <path d="m6 9 6 6 6-6" />,
-        clock: (
-            <>
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 2" />
-            </>
-        ),
-        cloud: (
-            <path d="M7 19h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 9.8 4.7 4.7 0 0 0 7 19Z" />
-        ),
-        dashboard: (
-            <>
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-            </>
-        ),
-        filter: <path d="M4 7h16M7 12h10m-7 5h4M8 5v4m8 1v4" />,
-        history: (
-            <>
-                <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-                <path d="M3 3v5h5m4-1v5l3 2" />
-            </>
-        ),
-        "id-card": (
-            <>
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <circle cx="8" cy="10" r="1.5" />
-                <path d="M5.7 15c.3-1.3 1.1-2 2.3-2s2 .7 2.3 2M13 9h5m-5 4h5" />
-            </>
-        ),
-        location: (
-            <>
-                <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
-                <circle cx="12" cy="10" r="2.5" />
-            </>
-        ),
-        motorbike: (
-            <>
-                <circle cx="5" cy="17" r="3" />
-                <circle cx="19" cy="17" r="3" />
-                <path d="M8 17h3l3-6h2l3 6M12 11 9 8H6m9-1h3l2 3" />
-            </>
-        ),
-        price: (
-            <>
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <circle cx="12" cy="12" r="3" />
-                <path d="M6 9h.01M18 15h.01" />
-            </>
-        ),
-        "sort-az": <path d="M4 6h11M4 12h8M4 18h5m8-12v12m-3-3 3 3 3-3" />,
-        sparkles: (
-            <path d="m12 2 1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2Zm7 14 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z" />
-        ),
-        distance: (
-            <>
-                <circle cx="5" cy="17" r="2" />
-                <circle cx="19" cy="7" r="2" />
-                <path d="M7 17h5a3 3 0 0 0 0-6h-1a2 2 0 0 1 0-4h6" />
-            </>
-        ),
-        search: (
-            <>
-                <circle cx="10.5" cy="10.5" r="6.5" />
-                <path d="m16 16 5 5" />
-            </>
-        ),
-        "sign-in": (
-            <path d="M10 4h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-8M4 12h12m-4-4 4 4-4 4" />
-        ),
-        "sign-out": (
-            <path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8M20 12H8m4-4-4 4 4 4" />
-        ),
-        sun: (
-            <>
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
-            </>
-        ),
-        target: (
-            <>
-                <circle cx="12" cy="12" r="8" />
-                <circle cx="12" cy="12" r="3" />
-                <path d="M12 1v3m0 16v3M1 12h3m16 0h3" />
-            </>
-        ),
-        user: (
-            <>
-                <circle cx="12" cy="8" r="3.5" />
-                <path d="M5 20c.4-3.5 3.1-5.5 7-5.5s6.6 2 7 5.5" />
-            </>
-        ),
-        zap: <path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z" />,
-        "chevron-right": <path d="m9 5 7 7-7 7" />,
-    };
-
-    return (
-        <svg
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-        >
-            {paths[name]}
-        </svg>
-    );
+    const Component = CUSTOMER_ICON_MAP[name] ?? Sparkles;
+    return <Component size={size} aria-hidden="true" />;
 }
 
 export function CustomerHeader({

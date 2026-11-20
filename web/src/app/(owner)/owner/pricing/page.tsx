@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { AlertTriangle, Ticket, Car, Bike, Flame } from "lucide-react";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 import {
@@ -245,8 +246,7 @@ export default function OwnerPricingManagementPage() {
         enablePeakSurge && simSurgePeak ? Math.round(basePrice * 0.2) : 0;
 
     // Tổng thanh toán
-    const totalPayment =
-        (isOvernight ? overnightFee : basePrice) + peakFee;
+    const totalPayment = (isOvernight ? overnightFee : basePrice) + peakFee;
 
     const handleSave = async () => {
         setErrorMessage("");
@@ -356,7 +356,7 @@ export default function OwnerPricingManagementPage() {
                             gap: 10,
                         }}
                     >
-                        <span style={{ fontSize: 20 }}>🟡</span>
+                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                         <div>
                             <div
                                 style={{
@@ -724,9 +724,13 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 750,
                                     color: "#172018",
                                     marginBottom: 3,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
                                 }}
                             >
-                                Theo lượt vào / ra
+                                <Ticket className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>Theo lượt vào / ra</span>
                             </div>
                             <div
                                 style={{
@@ -855,9 +859,13 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 750,
                                     color: "#172018",
                                     marginBottom: 10,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
                                 }}
                             >
-                                Ô tô
+                                <Car className="w-4 h-4 text-blue-600 shrink-0" />
+                                <span>Ô tô</span>
                             </div>
 
                             <label
@@ -915,9 +923,13 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 750,
                                     color: "#172018",
                                     marginBottom: 10,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
                                 }}
                             >
-                                Xe máy
+                                <Bike className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>Xe máy</span>
                             </div>
 
                             <label
@@ -1150,8 +1162,12 @@ export default function OwnerPricingManagementPage() {
                                         fontSize: 13.5,
                                         fontWeight: 750,
                                         color: "#172018",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 4,
                                     }}
                                 >
+                                    <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
                                     Giờ cao điểm
                                 </span>
                                 <span
@@ -1556,8 +1572,6 @@ export default function OwnerPricingManagementPage() {
                                     {peakFee.toLocaleString("vi-VN")} đ
                                 </span>
                             </div>
-
-
 
                             <div
                                 style={{
