@@ -66,11 +66,16 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         }
     }
 
+    private class DbUpdateException(string message) : Exception(message) { }
+    private class DbUpdateConcurrencyException(string message) : DbUpdateException(message) { }
+
     private class FakeParkingFeePaymentRepository : IParkingFeePaymentRepository
     {
         public bool HasSucceeded { get; set; }
         public ParkingFeePayment? PendingPayment { get; set; }
         public readonly List<ParkingFeePayment> AddedPayments = [];
+        private readonly List<ParkingFeePayment> _uncommittedAdds = [];
+        public Func<Task>? OnSaveChangesAsync { get; set; }
 
         public Task<bool> HasSucceededPaymentAsync(Guid sessionId, CancellationToken ct)
         {
@@ -95,6 +100,7 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
 
         public Task AddAsync(ParkingFeePayment payment, CancellationToken ct)
         {
+            _uncommittedAdds.Add(payment);
             AddedPayments.Add(payment);
             return Task.CompletedTask;
         }
@@ -109,9 +115,24 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task SaveChangesAsync(CancellationToken ct)
+        public async Task SaveChangesAsync(CancellationToken ct)
         {
-            return Task.CompletedTask;
+            if (OnSaveChangesAsync != null)
+            {
+                await OnSaveChangesAsync();
+            }
+
+            _uncommittedAdds.Clear();
+        }
+
+        public void ClearChangeTracker()
+        {
+            foreach (var pendingAdd in _uncommittedAdds)
+            {
+                AddedPayments.Remove(pendingAdd);
+            }
+
+            _uncommittedAdds.Clear();
         }
 
         public Task<ParkingFeePayment?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -121,7 +142,11 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
 
         public Task<ParkingFeePayment?> GetReceiptPaymentAsync(Guid sessionOrPaymentId, CancellationToken ct)
         {
-            return Task.FromResult(AddedPayments.LastOrDefault(p => p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId));
+            return Task.FromResult(AddedPayments
+                .Where(p => (p.Id == sessionOrPaymentId || p.SessionId == sessionOrPaymentId) && p.Status == PaymentStatus.Succeeded)
+                .OrderByDescending(p => p.PaymentSequence)
+                .ThenByDescending(p => p.PaymentTimeUtc)
+                .FirstOrDefault());
         }
     }
 
@@ -792,18 +817,20 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenOverstaySession_ShouldAllowCashPayment_AndUpdateExistingPayment()
+    public async Task Handle_WhenOverstaySession_ShouldInsertImmutableCashPayment_WithoutMutatingOriginal()
     {
         var sessionId = Guid.NewGuid();
         var staffAccountId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
         var lotId = Guid.NewGuid();
         var entryTime = _fixedNow.AddHours(-3);
 
-        // Đã từng thanh toán thành công 20,000 VND
-        var previousPayment = ParkingFeePayment.CreateCashPayment(
+        // Lần gốc trả qua Ví 20,000 VND (hỗn hợp phương thức)
+        var previousPayment = ParkingFeePayment.CreateWalletPayment(
             sessionId,
             lotId,
-            null,
+            Guid.NewGuid(),
+            customerId,
             "51A-12345",
             "Car",
             20000,
@@ -823,7 +850,7 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
             "Car",
             "Active",
             entryTime,
-            null,
+            customerId,
             null,
             new PricingSnapshotDto("P1", "Block", 15, 5000),
             LastPaidAtUtc: _fixedNow.AddMinutes(-45),
@@ -846,8 +873,228 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(10000, result.Value!.AmountPaid);
-        Assert.Equal(30000, previousPayment.TotalFee); // 20000 + 10000
-        Assert.Equal(30000, previousPayment.AmountPaid); // 20000 + 10000
+        Assert.Equal(2, _paymentRepository.AddedPayments.Count);
+
+        // Chứng từ Ví cũ giữ nguyên 20,000; chứng từ Tiền mặt mới tạo riêng với PaymentSequence = 2
+        Assert.Equal(20000, previousPayment.TotalFee);
+        Assert.Equal(20000, previousPayment.AmountPaid);
+        Assert.Equal(PaymentMethod.Wallet, previousPayment.PaymentMethod);
+
+        var overstayCash = _paymentRepository.AddedPayments[1];
+        Assert.NotEqual(previousPayment.Id, overstayCash.Id);
+        Assert.Equal(2, overstayCash.PaymentSequence);
+        Assert.Equal(PaymentMethod.Cash, overstayCash.PaymentMethod);
+        Assert.Equal(10000, overstayCash.AmountPaid);
+        Assert.Equal(overstayCash.Id, result.Value.TransactionId);
+
+        Assert.Single(_auditWriter.Entries);
+        Assert.Equal(overstayCash.Id, _auditWriter.Entries[0].Details!["paymentId"]);
+        Assert.Equal(2, _auditWriter.Entries[0].Details!["paymentSequence"]);
+
         Assert.Single(_outboxWriter.EnqueuedEvents);
+        Assert.Equal(overstayCash.Id, _outboxWriter.EnqueuedEvents[0].CorrelationId);
+    }
+
+    [Fact]
+    public async Task Handle_WhenConcurrentUniqueConstraintViolation_ReleasesPendingKey_AndReturnsSessionAlreadyPaid()
+    {
+        var sessionId = Guid.NewGuid();
+        var staffAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+
+        var ctx = new ParkingSessionFeeContext(
+            sessionId,
+            lotId,
+            "51A-12345",
+            "Car",
+            "Active",
+            _fixedNow.AddHours(-1),
+            Guid.NewGuid(),
+            null,
+            new PricingSnapshotDto("P1", "PerTurn", 60, 20000));
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(ctx);
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Success(
+            new ParkingLotMembershipInfo(true, "Staff"));
+
+        // Giả lập kênh khác vừa chốt thành công đợt 1 trước khi Cash lưu DB
+        _paymentRepository.OnSaveChangesAsync = () =>
+        {
+            var winningPayment = ParkingFeePayment.CreateWalletPayment(
+                sessionId, lotId, Guid.NewGuid(), ctx.AccountId!.Value, "51A-12345", "Car",
+                20000, 0, 20000, _fixedNow, _fixedNow.AddMinutes(15));
+            _paymentRepository.AddedPayments.Add(winningPayment);
+            throw new DbUpdateException("23505 duplicate key");
+        };
+
+        var command = new ConfirmCashParkingFeePaymentCommand(
+            sessionId,
+            staffAccountId,
+            "Staff",
+            Guid.NewGuid().ToString(),
+            20000);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.SessionAlreadyPaid.Code, result.Error!.Code);
+        Assert.True(_idempotencyStore.ReleaseCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenOverstayLagDoubleChargeAttempted_ReturnsSessionAlreadyPaid()
+    {
+        var sessionId = Guid.NewGuid();
+        var staffAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+
+        // Đợt 2 đã trả bằng Ví lúc -5p nhưng Parking chưa cập nhật LastPaidAtUtc (-45p)
+        var seq1 = ParkingFeePayment.CreateWalletPayment(
+            sessionId, lotId, Guid.NewGuid(), Guid.NewGuid(), "51A-12345", "Car",
+            20000, 0, 20000, _fixedNow.AddMinutes(-45), _fixedNow.AddMinutes(-30), paymentSequence: 1);
+        var seq2 = ParkingFeePayment.CreateWalletPayment(
+            sessionId, lotId, Guid.NewGuid(), seq1.AccountId!.Value, "51A-12345", "Car",
+            10000, 0, 10000, _fixedNow.AddMinutes(-5), _fixedNow.AddMinutes(10), paymentSequence: 2);
+        _paymentRepository.AddedPayments.Add(seq1);
+        _paymentRepository.AddedPayments.Add(seq2);
+        _paymentRepository.HasSucceeded = true;
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            sessionId, lotId, "51A-12345", "Car", "Active", _fixedNow.AddHours(-2),
+            seq1.AccountId, null, new PricingSnapshotDto("P1", "Block", 15, 5000),
+            LastPaidAtUtc: _fixedNow.AddMinutes(-45),
+            ArrivedAtExitUtc: _fixedNow,
+            GracePeriodMinutes: 15));
+
+        var result = await CreateHandler().Handle(
+            new ConfirmCashParkingFeePaymentCommand(sessionId, staffAccountId, "Staff", Guid.NewGuid().ToString(), 10000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.SessionAlreadyPaid.Code, result.Error!.Code);
+        Assert.Equal(2, _paymentRepository.AddedPayments.Count);
+        Assert.True(_idempotencyStore.ReleaseCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenStalePreviousSequenceOrExpiredPendingQrExists_SupersedesQrAndConfirmsCash()
+    {
+        var sessionId = Guid.NewGuid();
+        var staffAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+
+        var seq1 = ParkingFeePayment.CreateWalletPayment(
+            sessionId, lotId, Guid.NewGuid(), Guid.NewGuid(), "51A-12345", "Car",
+            20000, 0, 20000, _fixedNow.AddMinutes(-45), _fixedNow.AddMinutes(-30), paymentSequence: 1);
+        var staleSeq1Qr = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, seq1.AccountId, "51A-12345", "Car",
+            20000, 0, 20000, _fixedNow.AddMinutes(-46), _fixedNow.AddMinutes(5), "OLD_SEQ1_QR", "https://sandbox.vnpayment.vn", paymentSequence: 1);
+
+        _paymentRepository.AddedPayments.Add(seq1);
+        _paymentRepository.HasSucceeded = true;
+        _paymentRepository.PendingPayment = staleSeq1Qr;
+
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            sessionId, lotId, "51A-12345", "Car", "Active", _fixedNow.AddHours(-2),
+            seq1.AccountId, null, new PricingSnapshotDto("P1", "Block", 15, 5000),
+            LastPaidAtUtc: _fixedNow.AddMinutes(-45),
+            ArrivedAtExitUtc: _fixedNow,
+            GracePeriodMinutes: 15));
+
+        var result = await CreateHandler().Handle(
+            new ConfirmCashParkingFeePaymentCommand(sessionId, staffAccountId, "Staff", Guid.NewGuid().ToString(), 10000),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PaymentStatus.Superseded, staleSeq1Qr.Status);
+        Assert.Equal(2, _paymentRepository.AddedPayments[1].PaymentSequence);
+
+        // Trường hợp 2: mã QR cùng đợt 2 nhưng đã quá hạn quét cũng phải được hủy thay vì chặn tiền mặt
+        var session2 = Guid.NewGuid();
+        var expiredSeq2Qr = ParkingFeePayment.CreateVnPayPayment(
+            session2, lotId, null, "51A-99999", "Car",
+            10000, 0, 10000, _fixedNow.AddMinutes(-20), _fixedNow.AddMinutes(-5), "EXPIRED_QR", "https://sandbox.vnpayment.vn", paymentSequence: 1);
+        _paymentRepository.HasSucceeded = false;
+        _paymentRepository.PendingPayment = expiredSeq2Qr;
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            session2, lotId, "51A-99999", "Car", "Active", _fixedNow.AddHours(-1),
+            null, null, new PricingSnapshotDto("P1", "PerTurn", 60, 10000)));
+
+        var result2 = await CreateHandler().Handle(
+            new ConfirmCashParkingFeePaymentCommand(session2, staffAccountId, "Staff", Guid.NewGuid().ToString(), 10000),
+            CancellationToken.None);
+
+        Assert.True(result2.IsSuccess);
+        Assert.Equal(PaymentStatus.Superseded, expiredSeq2Qr.Status);
+    }
+
+    [Fact]
+    public async Task Handle_WhenConcurrentSupersedeHitsConcurrencyException_AndCycleAlreadyPaid_ReturnsSessionAlreadyPaid()
+    {
+        var sessionId = Guid.NewGuid();
+        var staffAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var expiredQr = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, null, "51A-12345", "Car",
+            20000, 0, 20000, _fixedNow.AddMinutes(-20), _fixedNow.AddMinutes(-5), "EXPIRED_QR", "https://sandbox.vnpayment.vn", paymentSequence: 1);
+
+        _paymentRepository.PendingPayment = expiredQr;
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            sessionId, lotId, "51A-12345", "Car", "Active", _fixedNow.AddHours(-1),
+            null, null, new PricingSnapshotDto("P1", "PerTurn", 60, 20000)));
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Success(new ParkingLotMembershipInfo(true, "Staff"));
+
+        // Giả lập VNPay IPN vừa chốt xong cùng đợt làm thay đổi phiên bản dòng QR cũ
+        _paymentRepository.OnSaveChangesAsync = () =>
+        {
+            var winningPayment = ParkingFeePayment.CreateWalletPayment(
+                sessionId, lotId, Guid.NewGuid(), Guid.NewGuid(), "51A-12345", "Car",
+                20000, 0, 20000, _fixedNow, _fixedNow.AddMinutes(15), paymentSequence: 1);
+            _paymentRepository.AddedPayments.Add(winningPayment);
+            throw new DbUpdateConcurrencyException("xmin mismatch");
+        };
+
+        var result = await CreateHandler().Handle(
+            new ConfirmCashParkingFeePaymentCommand(sessionId, staffAccountId, "Staff", Guid.NewGuid().ToString(), 20000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.SessionAlreadyPaid.Code, result.Error!.Code);
+        Assert.True(_idempotencyStore.ReleaseCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenConcurrentSupersedeHitsConcurrencyException_AndNewActiveQrCreated_ReturnsPaymentAlreadyInProgress()
+    {
+        var sessionId = Guid.NewGuid();
+        var staffAccountId = Guid.NewGuid();
+        var lotId = Guid.NewGuid();
+        var expiredQr = ParkingFeePayment.CreateVnPayPayment(
+            sessionId, lotId, null, "51A-12345", "Car",
+            20000, 0, 20000, _fixedNow.AddMinutes(-20), _fixedNow.AddMinutes(-5), "EXPIRED_QR", "https://sandbox.vnpayment.vn", paymentSequence: 1);
+
+        _paymentRepository.PendingPayment = expiredQr;
+        _parkingGateway.ResultToReturn = Result<ParkingSessionFeeContext>.Success(new ParkingSessionFeeContext(
+            sessionId, lotId, "51A-12345", "Car", "Active", _fixedNow.AddHours(-1),
+            null, null, new PricingSnapshotDto("P1", "PerTurn", 60, 20000)));
+        _membershipGateway.ResultToReturn = Result<ParkingLotMembershipInfo>.Success(new ParkingLotMembershipInfo(true, "Staff"));
+
+        // Giả lập luồng tạo QR mới vừa thay thế dòng QR hết hạn trước khi tiền mặt lưu DB
+        _paymentRepository.OnSaveChangesAsync = () =>
+        {
+            _paymentRepository.PendingPayment = ParkingFeePayment.CreateVnPayPayment(
+                sessionId, lotId, null, "51A-12345", "Car",
+                20000, 0, 20000, _fixedNow, _fixedNow.AddMinutes(10), "NEW_QR", "https://sandbox.vnpayment.vn", paymentSequence: 1);
+            throw new DbUpdateConcurrencyException("xmin mismatch");
+        };
+
+        var result = await CreateHandler().Handle(
+            new ConfirmCashParkingFeePaymentCommand(sessionId, staffAccountId, "Staff", Guid.NewGuid().ToString(), 20000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PayParkingFeeErrors.PaymentAlreadyInProgress.Code, result.Error!.Code);
+        Assert.True(_idempotencyStore.ReleaseCalled);
     }
 }
