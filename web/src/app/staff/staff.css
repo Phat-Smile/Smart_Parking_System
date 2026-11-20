@@ -24,7 +24,8 @@
 
     --pw-admin-font-sans:
         var(--font-sans), "Plus Jakarta Sans", system-ui, sans-serif;
-    --pw-admin-font-heading: var(--font-heading), "Space Grotesk", sans-serif;
+    --pw-admin-font-heading:
+        var(--font-heading, var(--font-sans)), "Plus Jakarta Sans", sans-serif;
     --pw-admin-font-mono: var(--font-mono), "JetBrains Mono", monospace;
 
     --pw-admin-radius-sm: 8px;
