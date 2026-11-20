@@ -51,7 +51,6 @@ public static class PersistenceDependencyInjection
                 });
         });
         services.AddScoped<IReservationRepository, ReservationRepository>();
-        services.AddScoped<IReservationArrivalReminderTracker, ReservationArrivalReminderTracker>();
         services.AddScoped<IArrivalHeldQuotaReader, ArrivalHeldQuotaReader>();
         services.AddScoped<IReservationCapacityCoordinator, ReservationCapacityCoordinator>();
         services.AddScoped<IOutboxStore, OutboxStore>();

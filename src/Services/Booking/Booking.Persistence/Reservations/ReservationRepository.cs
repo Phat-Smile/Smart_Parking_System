@@ -138,7 +138,11 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
         return await dbContext.Reservations
             .Where(r => r.Status == ReservationStatus.Confirmed &&
                         r.AppointmentTime >= minTime &&
-                        r.AppointmentTime <= maxTime)
+                        r.AppointmentTime <= maxTime &&
+                        (
+                            (r.ArrivalReminderSentAtUtc == null && r.AppointmentTime <= now.AddMinutes(30)) ||
+                            (r.NoShowWarningSentAtUtc == null && r.AppointmentTime <= now.AddMinutes(-10))
+                        ))
             .OrderBy(r => r.AppointmentTime)
             .Take(batchSize)
             .ToListAsync(cancellationToken);

@@ -103,6 +103,12 @@ internal sealed class ReservationConfiguration : IEntityTypeConfiguration<Reserv
             .HasDefaultValue(false)
             .IsRequired();
 
+        builder.Property(reservation => reservation.ArrivalReminderSentAtUtc)
+            .HasColumnName("arrival_reminder_sent_at_utc");
+
+        builder.Property(reservation => reservation.NoShowWarningSentAtUtc)
+            .HasColumnName("no_show_warning_sent_at_utc");
+
         builder.Property(reservation => reservation.RowVersion)
             .HasColumnName("row_version")
             .HasDefaultValue(0)

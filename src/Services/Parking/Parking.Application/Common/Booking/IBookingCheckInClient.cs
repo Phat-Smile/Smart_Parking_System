@@ -14,7 +14,8 @@ public interface IBookingCheckInClient
 public sealed record CheckedInReservation(
     Guid ReservationId,
     Guid? UserId,
-    Guid? VehicleId);
+    Guid? VehicleId,
+    DateTime? ScheduledArrivalTimeUtc = null);
 
 /// <summary>
 /// BR-02.f, context point 35 (option a, Thịnh 2026-11-17): a car arrived and the lot had no Available car slot, so Parking

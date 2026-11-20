@@ -379,7 +379,8 @@ public sealed class OpenParkingSessionTests
         var reservationId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
-        var bookingClient = new FakeBookingCheckInClient(new CheckedInReservation(reservationId, userId, vehicleId));
+        var scheduledArrival = new DateTime(2026, 11, 20, 10, 30, 0, DateTimeKind.Utc);
+        var bookingClient = new FakeBookingCheckInClient(new CheckedInReservation(reservationId, userId, vehicleId, scheduledArrival));
 
         var repository = new FakeParkingSessionRepository();
         var handler = NewHandler(repository, new FakeMotorbikeZones(), new FakeUnitOfWork(), bookingClient: bookingClient);
@@ -393,6 +394,7 @@ public sealed class OpenParkingSessionTests
         Assert.Equal(reservationId, result.Value.ReservationId);
         Assert.True(result.Value.IsAccountLinked);
         Assert.Equal("A-01", result.Value.SlotCode);
+        Assert.Equal(scheduledArrival, result.Value.ScheduledArrivalTimeUtc);
 
         var session = Assert.Single(repository.Saved);
         Assert.Equal(reservationId, session.ReservationId);

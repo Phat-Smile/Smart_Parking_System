@@ -52,7 +52,7 @@ public sealed class BookingCheckInHttpClient(
         if (result is null || !result.HasReservation || !result.ReservationId.HasValue)
             return null;
 
-        return new CheckedInReservation(result.ReservationId.Value, result.UserId, result.VehicleId);
+        return new CheckedInReservation(result.ReservationId.Value, result.UserId, result.VehicleId, result.ScheduledArrivalTimeUtc);
     }
 
     public async Task<Guid?> ReportNoSuitableSlotAsync(
@@ -136,7 +136,8 @@ public sealed class BookingCheckInHttpClient(
         Guid? ReservationId,
         Guid? UserId,
         Guid? VehicleId,
-        string? Message);
+        string? Message,
+        DateTime? ScheduledArrivalTimeUtc = null);
 
     private sealed record NoSuitableSlotApiResponse(bool Cancelled, Guid? ReservationId);
 }

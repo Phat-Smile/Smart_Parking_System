@@ -4,7 +4,6 @@ using Microsoft.Extensions.Options;
 using ParkingSystem.Booking.Application.Common.Messaging.Outbox;
 using ParkingSystem.Booking.Application.Reservations;
 using ParkingSystem.Booking.Domain.Reservations;
-using ParkingSystem.Booking.Infrastructure.BackgroundJobs;
 using ParkingSystem.Booking.Infrastructure.Workers;
 using ParkingSystem.BuildingBlocks.Time;
 using ParkingSystem.Contracts.Events.Booking;
@@ -18,7 +17,6 @@ public sealed class ReservationArrivalReminderWorkerTests
 
     private readonly RecordingOutbox _outbox = new();
     private readonly FakeReservationRepository _repository;
-    private readonly FakeReminderTracker _tracker = new();
     private readonly FakeClock _clock = new(Now);
 
     public ReservationArrivalReminderWorkerTests()
@@ -32,7 +30,6 @@ public sealed class ReservationArrivalReminderWorkerTests
         services.AddSingleton<IReservationRepository>(_repository);
         services.AddSingleton<IClock>(_clock);
         services.AddSingleton<IOutboxWriter>(_outbox);
-        services.AddSingleton<IReservationArrivalReminderTracker>(_tracker);
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
@@ -72,7 +69,7 @@ public sealed class ReservationArrivalReminderWorkerTests
     }
 
     [Fact]
-    public async Task ProcessRemindersAsync_When30MinutesBeforeArrival_DispatchesThirtyMinutesBeforeArrivalEvent()
+    public async Task ProcessRemindersAsync_When30MinutesBeforeArrival_DispatchesThirtyMinutesBeforeArrivalEvent_AndPersistsToEntity()
     {
         // Appointment is at 10:25. Current time is 10:00 (25m before arrival, so >= 30m mark).
         // Created at 08:25 (> 30m before arrival).
@@ -95,6 +92,10 @@ public sealed class ReservationArrivalReminderWorkerTests
         Assert.Equal(Reservation.GetNoShowCutoff(res.AppointmentTime).UtcDateTime, reminderEvent.CutoffTimeUtc);
         Assert.Equal("51A***45", reminderEvent.MaskedPlateNumber);
         Assert.DoesNotContain("123", reminderEvent.MaskedPlateNumber);
+
+        // Verify entity database column is marked
+        Assert.NotNull(res.ArrivalReminderSentAtUtc);
+        Assert.Null(res.NoShowWarningSentAtUtc);
     }
 
     [Fact]
@@ -111,10 +112,11 @@ public sealed class ReservationArrivalReminderWorkerTests
 
         Assert.Equal(0, processedCount);
         Assert.Empty(_outbox.Events);
+        Assert.Null(res.ArrivalReminderSentAtUtc);
     }
 
     [Fact]
-    public async Task ProcessRemindersAsync_When5MinutesBeforeNoShowCutoff_DispatchesFiveMinutesBeforeNoShowEvent()
+    public async Task ProcessRemindersAsync_When5MinutesBeforeNoShowCutoff_DispatchesFiveMinutesBeforeNoShowEvent_AndPersistsToEntity()
     {
         // Appointment was at 09:47. Cutoff is 09:47 + 16m = 10:03.
         // 5 minutes before cutoff is 09:58. Current time is 10:00 (within [09:58, 10:03)).
@@ -136,6 +138,9 @@ public sealed class ReservationArrivalReminderWorkerTests
         Assert.Equal(res.AppointmentTime.UtcDateTime, reminderEvent.ScheduledArrivalTimeUtc);
         Assert.Equal(Reservation.GetNoShowCutoff(res.AppointmentTime).UtcDateTime, reminderEvent.CutoffTimeUtc);
         Assert.Equal("29A***65", reminderEvent.MaskedPlateNumber);
+
+        // Verify entity database column is marked
+        Assert.NotNull(res.NoShowWarningSentAtUtc);
     }
 
     [Fact]
@@ -147,12 +152,13 @@ public sealed class ReservationArrivalReminderWorkerTests
 
         var worker = CreateWorker();
 
-        // Run 1
+        // Run 1 - dispatches and sets timestamp on entity
         var processed1 = await worker.ProcessRemindersAsync(CancellationToken.None);
         Assert.Equal(1, processed1);
         Assert.Single(_outbox.Events);
+        Assert.NotNull(res.ArrivalReminderSentAtUtc);
 
-        // Run 2
+        // Run 2 - entity already marked, candidate list skips it, 0 processed
         var processed2 = await worker.ProcessRemindersAsync(CancellationToken.None);
         Assert.Equal(0, processed2);
         Assert.Single(_outbox.Events);
@@ -224,6 +230,34 @@ public sealed class ReservationArrivalReminderWorkerTests
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void Reservation_MarkArrivalReminderSent_ReturnsFalseWhenAlreadyMarked()
+    {
+        var res = CreateConfirmedReservation(Guid.NewGuid(), Now.AddMinutes(25));
+        Assert.Null(res.ArrivalReminderSentAtUtc);
+
+        var first = res.MarkArrivalReminderSent(Now.UtcDateTime);
+        Assert.True(first);
+        Assert.NotNull(res.ArrivalReminderSentAtUtc);
+
+        var second = res.MarkArrivalReminderSent(Now.AddMinutes(1).UtcDateTime);
+        Assert.False(second);
+    }
+
+    [Fact]
+    public void Reservation_MarkNoShowWarningSent_ReturnsFalseWhenAlreadyMarked()
+    {
+        var res = CreateConfirmedReservation(Guid.NewGuid(), Now.AddMinutes(25));
+        Assert.Null(res.NoShowWarningSentAtUtc);
+
+        var first = res.MarkNoShowWarningSent(Now.UtcDateTime);
+        Assert.True(first);
+        Assert.NotNull(res.NoShowWarningSentAtUtc);
+
+        var second = res.MarkNoShowWarningSent(Now.AddMinutes(1).UtcDateTime);
+        Assert.False(second);
+    }
+
     // -------------------------------------------------------------------------
     // Test Doubles
     // -------------------------------------------------------------------------
@@ -280,7 +314,11 @@ public sealed class ReservationArrivalReminderWorkerTests
             return Task.FromResult<IReadOnlyList<Reservation>>(
                 _list.Where(r => r.Status == ReservationStatus.Confirmed &&
                                  r.AppointmentTime >= minTime &&
-                                 r.AppointmentTime <= maxTime)
+                                 r.AppointmentTime <= maxTime &&
+                                 (
+                                     (r.ArrivalReminderSentAtUtc == null && r.AppointmentTime <= now.AddMinutes(30)) ||
+                                     (r.NoShowWarningSentAtUtc == null && r.AppointmentTime <= now.AddMinutes(-10))
+                                 ))
                      .OrderBy(r => r.AppointmentTime)
                      .Take(batchSize)
                      .ToList());
@@ -289,22 +327,6 @@ public sealed class ReservationArrivalReminderWorkerTests
         public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             _outbox?.Commit();
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class FakeReminderTracker : IReservationArrivalReminderTracker
-    {
-        private readonly HashSet<string> _dispatched = [];
-
-        public Task<bool> HasBeenDispatchedAsync(Guid reservationId, string reminderType, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(_dispatched.Contains($"{reservationId}:{reminderType}"));
-        }
-
-        public Task MarkDispatchedAsync(Guid reservationId, string reminderType, CancellationToken cancellationToken)
-        {
-            _dispatched.Add($"{reservationId}:{reminderType}");
             return Task.CompletedTask;
         }
     }

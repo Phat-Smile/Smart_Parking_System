@@ -54,7 +54,7 @@ public static class DependencyInjection
         services.AddHostedService<Workers.ReservationNoShowWorker>();
         services.AddOptions<Workers.ReservationArrivalReminderOptions>()
             .Bind(configuration.GetSection(Workers.ReservationArrivalReminderOptions.SectionName));
-        services.AddHostedService<BackgroundJobs.ReservationArrivalReminderWorker>();
+        services.AddHostedService<Workers.ReservationArrivalReminderWorker>();
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>

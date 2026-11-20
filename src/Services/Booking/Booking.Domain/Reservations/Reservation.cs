@@ -43,6 +43,8 @@ public sealed class Reservation
     public CancelReason? CancelReason { get; private set; }
     public PrepaidOutcome? PrepaidOutcome { get; private set; }
     public bool IsNoShow { get; private set; }
+    public DateTime? ArrivalReminderSentAtUtc { get; private set; }
+    public DateTime? NoShowWarningSentAtUtc { get; private set; }
     public int RowVersion { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -309,4 +311,26 @@ public sealed class Reservation
         IsActive(now) &&
         HasSamePlate(plate) &&
         OverlapsWith(windowStart, windowEnd);
+
+    public bool MarkArrivalReminderSent(DateTime sentAtUtc)
+    {
+        if (ArrivalReminderSentAtUtc.HasValue)
+        {
+            return false;
+        }
+
+        ArrivalReminderSentAtUtc = DateTime.SpecifyKind(sentAtUtc, DateTimeKind.Utc);
+        return true;
+    }
+
+    public bool MarkNoShowWarningSent(DateTime sentAtUtc)
+    {
+        if (NoShowWarningSentAtUtc.HasValue)
+        {
+            return false;
+        }
+
+        NoShowWarningSentAtUtc = DateTime.SpecifyKind(sentAtUtc, DateTimeKind.Utc);
+        return true;
+    }
 }

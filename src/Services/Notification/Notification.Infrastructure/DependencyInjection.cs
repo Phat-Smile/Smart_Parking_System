@@ -60,7 +60,6 @@ public static class DependencyInjection
         {
             services.AddScoped<IEmailSender, SmtpEmailSender>();
         }
-        services.AddScoped<ParkingSystem.Notification.Application.Common.Identity.IIdentityAccountClient, Identity.IdentityAccountGrpcClient>();
         services.AddIdempotentConsumer<UserVerificationOtpIssuedConsumer>("notification.user-verification-otp-issued.v1");
         services.AddIdempotentConsumer<PasswordResetOtpIssuedConsumer>("notification.password-reset-otp-issued.v1");
         services.AddIdempotentConsumer<OwnerApplicationApprovedConsumer>("notification.owner-application-approved.v1");

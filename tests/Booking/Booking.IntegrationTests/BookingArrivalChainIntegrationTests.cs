@@ -114,6 +114,7 @@ public sealed class BookingArrivalChainIntegrationTests(PostgreSqlContainerFixtu
             Assert.True(result.IsSuccess);
             Assert.True(result.Value!.HasReservation);
             Assert.Equal(reservationId, result.Value.ReservationId);
+            Assert.Equal(AppointmentTime.UtcDateTime, result.Value.ScheduledArrivalTimeUtc);
         }
 
         // 4. Verify reservation is now in Used status with linked session ID in database
