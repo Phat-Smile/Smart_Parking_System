@@ -175,6 +175,50 @@ public sealed class SmtpEmailSender(
         return SendMailCoreAsync(email, subject, body, "ReservationConfirmed", cancellationToken);
     }
 
+    public Task SendReservationArrivalReminderEmailAsync(
+        string email,
+        string reminderType,
+        DateTime scheduledArrivalTimeUtc,
+        DateTime cutoffTimeUtc,
+        string? maskedPlateNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var isNoShowWarning = reminderType == "FiveMinutesBeforeNoShow";
+        var subject = isNoShowWarning
+            ? "[Smart Parking] Cảnh báo: Sắp hết hạn nhận chỗ đỗ xe"
+            : "[Smart Parking] Nhắc nhở: Sắp đến giờ nhận chỗ đỗ xe";
+
+        var heading = isNoShowWarning
+            ? "Đơn đặt chỗ của bạn sắp hết thời gian giữ chỗ!"
+            : "Sắp đến thời gian nhận chỗ đỗ xe của bạn";
+
+        var bodyText = isNoShowWarning
+            ? $"Đơn đặt chỗ xe <strong>{WebUtility.HtmlEncode(maskedPlateNumber ?? "")}</strong> sẽ hết hạn vào lúc <strong>{cutoffTimeUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong>. Vui lòng có mặt tại bãi trước thời điểm này để tránh bị hủy đơn và mất phí cọc."
+            : $"Đơn đặt chỗ xe <strong>{WebUtility.HtmlEncode(maskedPlateNumber ?? "")}</strong> của bạn dự kiến bắt đầu lúc <strong>{scheduledArrivalTimeUtc.ToLocalTime():HH:mm dd/MM/yyyy}</strong>. Vui lòng chuẩn bị di chuyển đến bãi đúng giờ.";
+
+        var body = $"""
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 24px; background-color: #0c0d0e; color: #f4f4f5; border-radius: 16px; border: 1px solid #27272a;">
+            <div style="text-align: center; margin-bottom: 32px;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 2px;">PARKWISE</h1>
+                <p style="color: #a1a1aa; font-size: 12px; margin-top: 6px; text-transform: uppercase; letter-spacing: 1.5px;">Hệ thống bãi đỗ xe thông minh</p>
+            </div>
+            <div style="padding: 28px 24px; background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);">
+                <p style="color: #fafafa; font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">Xin chào,</p>
+                <p style="color: #d4d4d8; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
+                    {bodyText}
+                </p>
+            </div>
+            <hr style="border: none; border-top: 1px solid #27272a; margin: 24px 0;" />
+            <p style="font-size: 11px; color: #52525b; text-align: center; margin: 0; line-height: 1.5;">
+                Email được gửi tự động từ <strong>ParkWise Smart Parking System</strong>.<br/>
+                Vui lòng không trả lời trực tiếp email này.
+            </p>
+        </div>
+        """;
+
+        return SendMailCoreAsync(email, subject, body, "ReservationArrivalReminder", cancellationToken);
+    }
+
     public Task SendElectronicReceiptEmailAsync(
         string email,
         Guid sessionId,

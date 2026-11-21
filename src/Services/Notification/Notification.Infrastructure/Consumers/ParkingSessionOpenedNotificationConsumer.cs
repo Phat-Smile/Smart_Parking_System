@@ -11,7 +11,7 @@ public sealed class ParkingSessionOpenedNotificationConsumer(ICustomerNotificati
     {
         var message = context.Message;
         return notifications.AddIfAbsentAsync(message.UserId, $"parking-session-opened:{message.SessionId}",
-            "parking", "Parking session active", "Use your session QR code when leaving.",
+            "parking", "Phiên đỗ xe đang hoạt động", "Sử dụng mã QR phiên đỗ của bạn khi rời bãi.",
             "/customer/sessions", message.EntryTimeUtc, context.CancellationToken);
     }
 }

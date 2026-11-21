@@ -71,6 +71,40 @@ public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEm
         return Task.CompletedTask;
     }
 
+    public Task SendReservationArrivalReminderEmailAsync(
+        string email,
+        string reminderType,
+        DateTime scheduledArrivalTimeUtc,
+        DateTime cutoffTimeUtc,
+        string? maskedPlateNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = reminderType == "FiveMinutesBeforeNoShow"
+            ? "[Smart Parking] Cảnh báo: Sắp hết hạn nhận chỗ đỗ xe"
+            : "[Smart Parking] Nhắc nhở: Sắp đến giờ nhận chỗ đỗ xe";
+
+        logger.LogInformation(
+            """
+
+            ======================= [DEV EMAIL DISPATCH] =======================
+            To: {Email}
+            Subject: {Subject}
+            Reminder Type: {ReminderType}
+            Plate: {MaskedPlate}
+            Scheduled Arrival: {ArrivalTimeUtc:HH:mm:ss dd/MM/yyyy} UTC
+            Cutoff Time: {CutoffTimeUtc:HH:mm:ss dd/MM/yyyy} UTC
+            ====================================================================
+            """,
+            email,
+            subject,
+            reminderType,
+            maskedPlateNumber ?? "N/A",
+            scheduledArrivalTimeUtc,
+            cutoffTimeUtc);
+
+        return Task.CompletedTask;
+    }
+
     private Task Log(string email, string otpCode, DateTimeOffset expiresAtUtc, string subject)
     {
         logger.LogInformation(
