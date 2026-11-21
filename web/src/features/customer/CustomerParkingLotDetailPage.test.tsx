@@ -197,4 +197,72 @@ describe("CustomerParkingLotDetailPage", () => {
         ).not.toBeInTheDocument();
         expect(screen.getByText("60.000 đ")).toBeInTheDocument();
     });
+
+    it("displays walk-in capacity when walkInPlaces is provided", async () => {
+        mockGetApprovedParkingLot.mockResolvedValueOnce({
+            id: LOT_ID,
+            name: "Bãi Bitexco",
+            address: "2 Hải Triều, Quận 1",
+            latitude: 10.77,
+            longitude: 106.7,
+            type: "MultiStorey",
+            prebookable: true,
+            bookableVehicleTypes: ["car"],
+            openingHours: null,
+            pricing: [],
+            availability: {
+                car: { available: 7 },
+                motorbike: { capacity: 40, available: 30 },
+                walkInPlaces: 8,
+                walkInStatus: "Available",
+            },
+        });
+
+        renderPage(
+            <CustomerParkingLotDetailPage
+                id={LOT_ID}
+                fontClassName="test-font"
+            />,
+        );
+
+        await waitFor(() => {
+            expect(
+                screen.getByText("Còn 8 chỗ cho xe không đặt trước"),
+            ).toBeInTheDocument();
+        });
+    });
+
+    it("displays out-of-places walk-in status when walkInPlaces is zero", async () => {
+        mockGetApprovedParkingLot.mockResolvedValueOnce({
+            id: LOT_ID,
+            name: "Bãi Bitexco",
+            address: "2 Hải Triều, Quận 1",
+            latitude: 10.77,
+            longitude: 106.7,
+            type: "MultiStorey",
+            prebookable: true,
+            bookableVehicleTypes: ["car"],
+            openingHours: null,
+            pricing: [],
+            availability: {
+                car: { available: 7 },
+                motorbike: { capacity: 40, available: 30 },
+                walkInPlaces: 0,
+                walkInStatus: "Full",
+            },
+        });
+
+        renderPage(
+            <CustomerParkingLotDetailPage
+                id={LOT_ID}
+                fontClassName="test-font"
+            />,
+        );
+
+        await waitFor(() => {
+            expect(
+                screen.getByText("Hết chỗ cho xe không đặt trước"),
+            ).toBeInTheDocument();
+        });
+    });
 });

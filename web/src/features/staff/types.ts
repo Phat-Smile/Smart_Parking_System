@@ -21,6 +21,8 @@ export interface AssignedLotResponse {
     availableCarSlots: number | null;
     totalCapacity?: number | null;
     occupiedSlots?: number;
+    walkInPlaces?: number | null;
+    walkInStatus?: string | null;
 }
 
 export interface OpenedSessionResponse {
