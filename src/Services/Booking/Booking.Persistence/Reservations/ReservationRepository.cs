@@ -127,6 +127,27 @@ internal sealed class ReservationRepository(BookingDbContext dbContext) : IReser
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Reservation>> ListArrivalReminderCandidatesAsync(
+        DateTimeOffset now,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var minTime = now.AddMinutes(-20);
+        var maxTime = now.AddMinutes(35);
+
+        return await dbContext.Reservations
+            .Where(r => r.Status == ReservationStatus.Confirmed &&
+                        r.AppointmentTime >= minTime &&
+                        r.AppointmentTime <= maxTime &&
+                        (
+                            (r.ArrivalReminderSentAtUtc == null && r.AppointmentTime <= now.AddMinutes(30)) ||
+                            (r.NoShowWarningSentAtUtc == null && r.AppointmentTime <= now.AddMinutes(-10))
+                        ))
+            .OrderBy(r => r.AppointmentTime)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }

@@ -430,4 +430,19 @@ describe("StaffEntryPage", () => {
             "success",
         );
     });
+
+    it("does not render manual delay input when switched to Booking mode", () => {
+        render(<StaffEntryPage />);
+
+        const categorySelect = document.getElementById(
+            "staff-cust-category",
+        ) as HTMLSelectElement;
+        fireEvent.change(categorySelect, { target: { value: "Booking" } });
+
+        expect(
+            document.getElementById("staff-booking-delay"),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText(/Độ trễ giờ hẹn/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/Khách đặt chỗ trước/i)).toBeInTheDocument();
+    });
 });

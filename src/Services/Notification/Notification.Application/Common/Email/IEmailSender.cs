@@ -27,5 +27,12 @@ public interface IEmailSender
         DateTimeOffset paymentTimeUtc,
         DateTimeOffset exitWindowExpiresUtc,
         CancellationToken cancellationToken = default) => Task.CompletedTask;
-}
 
+    Task SendReservationArrivalReminderEmailAsync(
+        string email,
+        string reminderType,
+        DateTime scheduledArrivalTimeUtc,
+        DateTime cutoffTimeUtc,
+        string? maskedPlateNumber,
+        CancellationToken cancellationToken = default);
+}

@@ -38,7 +38,8 @@ public sealed record OpenedParkingSession(
     int? AvailableMotorbikeSpaces,
     string? SlotCode,
     // US-PARK-005: the staff screen confirms this slot as parked, so it needs the id, not only the code.
-    Guid? SlotId = null);
+    Guid? SlotId = null,
+    DateTime? ScheduledArrivalTimeUtc = null);
 
 public static class OpenParkingSessionErrors
 {
@@ -314,7 +315,8 @@ public sealed class OpenParkingSessionCommandHandler(
             space?.FloorName ?? slotZone?.FloorName,
             space?.AvailableSpaces,
             slot?.SlotCode,
-            slot?.SlotId));
+            slot?.SlotId,
+            checkedInBooking?.ScheduledArrivalTimeUtc));
     }
 
     // A short-lived arrival-evidence window; not the Booking no-show cutoff. A fresh scan is required after expiry.

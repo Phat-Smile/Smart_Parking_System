@@ -638,6 +638,9 @@ public sealed class ReservationNoShowWorkerTests
                      .ToList());
         }
 
+        public Task<IReadOnlyList<Reservation>> ListArrivalReminderCandidatesAsync(DateTimeOffset now, int batchSize, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Reservation>>([]);
+
         public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             if (OnSaveChangesAsync != null)

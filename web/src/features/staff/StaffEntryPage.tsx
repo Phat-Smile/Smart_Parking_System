@@ -447,10 +447,7 @@ export function StaffEntryPage() {
                 {/* Left column: Real Camera ANPR & OCR Verification */}
                 <div className="staff-col">
                     <RealCameraFeed
-                        title={
-                            t("entryCameraTitle") ||
-                            "Camera Cổng Vào 01 (Gate In 01)"
-                        }
+                        title={t("entryCameraTitle") || "Camera Cổng Vào 01"}
                         mode="entry"
                         detectedPlate={currentPlateDisplay}
                         confidence={ocrConfidence}
@@ -679,9 +676,7 @@ export function StaffEntryPage() {
                                     <option value="Registered">
                                         {t("entryRegOption")}
                                     </option>
-                                    <option value="Booking">
-                                        Xe đặt chỗ (Booking)
-                                    </option>
+                                    <option value="Booking">Xe đặt chỗ</option>
                                 </select>
                             </div>
                         </div>
@@ -1034,7 +1029,7 @@ export function StaffEntryPage() {
                             <div className="staff-session-token-box">
                                 <div className="staff-token-box-row">
                                     <span className="staff-token-box-label">
-                                        Mã vé QR từ Server (100% Real API)
+                                        Mã vé QR từ máy chủ
                                     </span>
                                     <code className="staff-token-box-code">
                                         {lastOpened.qrToken}
@@ -1042,15 +1037,21 @@ export function StaffEntryPage() {
                                 </div>
                                 {lastOpened.reservationId && (
                                     <div className="staff-token-booking-banner">
-                                        <span>
-                                            <BookmarkCheck
-                                                size={13}
-                                                strokeWidth={2.2}
-                                            />
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                            }}
+                                        >
                                             <span>
-                                                Khách đặt trước (Booking)
+                                                <BookmarkCheck
+                                                    size={13}
+                                                    strokeWidth={2.2}
+                                                />
+                                                <span>Khách đặt trước</span>
                                             </span>
-                                        </span>
+                                        </div>
                                         <code>
                                             #
                                             {lastOpened.reservationId.slice(
@@ -1128,7 +1129,7 @@ export function StaffEntryPage() {
                             <div className="staff-barrier-sim-wrap">
                                 <IoTBarrierGateSimulator
                                     gateId="GATE-IN-01"
-                                    gateName="Cổng Vào Xe (Gate In 01)"
+                                    gateName="Cổng Vào Xe"
                                     gateType="ENTRY"
                                     isOpen={true}
                                     physicalState="OPEN"

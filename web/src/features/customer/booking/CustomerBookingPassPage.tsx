@@ -8,6 +8,7 @@ import {
     Car,
     MapPin,
     ArrowLeft,
+    ArrowRight,
     CheckCircle,
     Navigation,
     Printer,
@@ -33,6 +34,7 @@ export function CustomerBookingPassPage({
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [copied, setCopied] = useState(false);
+    const [timeLeftMs, setTimeLeftMs] = useState<number | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -84,6 +86,21 @@ export function CustomerBookingPassPage({
         };
     }, [bookingId, copy]);
 
+    useEffect(() => {
+        if (!reservation) return;
+        const arrivalMs = new Date(reservation.appointmentTime).getTime();
+        const cutoffMs = arrivalMs + 15 * 60 * 1000;
+
+        const updateTimer = () => {
+            const diff = cutoffMs - Date.now();
+            setTimeLeftMs(diff);
+        };
+
+        updateTimer();
+        const timer = setInterval(updateTimer, 1000);
+        return () => clearInterval(timer);
+    }, [reservation]);
+
     const handleCopyShare = async () => {
         if (typeof window !== "undefined") {
             try {
@@ -128,7 +145,19 @@ export function CustomerBookingPassPage({
     }
 
     const shortId = `BK-${reservation.reservationId.slice(0, 8).toUpperCase()}`;
+    const statusKey = mapStatusToBadge(reservation.status);
+    const isUsed =
+        statusKey === "used" || reservation.status.toLowerCase() === "used";
+    const isCancelled =
+        statusKey === "cancelled" ||
+        reservation.status.toLowerCase() === "cancelled";
+    const isExpired =
+        statusKey === "expired" ||
+        reservation.status.toLowerCase() === "expired";
+
     const arrivalDate = new Date(reservation.appointmentTime);
+    const cutoffDate = new Date(arrivalDate.getTime() + 15 * 60 * 1000);
+
     const dateFormatted = arrivalDate.toLocaleDateString(
         language === "vi" ? "vi-VN" : "en-GB",
         {
@@ -142,6 +171,27 @@ export function CustomerBookingPassPage({
         hour: "2-digit",
         minute: "2-digit",
     });
+    const cutoffTimeFormatted = cutoffDate.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+
+    const formatCountdown = (diffMs: number | null): string => {
+        if (diffMs === null) return "--:--";
+        if (diffMs <= 0) {
+            return copy("00:00 (Past cutoff)", "00:00 (Đã quá hạn)");
+        }
+        const totalSeconds = Math.floor(diffMs / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const pad = (n: number) => n.toString().padStart(2, "0");
+
+        if (hours > 0) {
+            return `${hours}h ${pad(minutes)}m ${pad(seconds)}s`;
+        }
+        return `${pad(minutes)}:${pad(seconds)}`;
+    };
 
     const formatVnd = (val: number) =>
         `${new Intl.NumberFormat("vi-VN").format(val)} ₫`;
@@ -205,7 +255,9 @@ export function CustomerBookingPassPage({
                                 className="text-emerald-300"
                             />
                             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-200 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-                                {copy("Official Pass", "Vé Hợp Lệ")}
+                                {isUsed
+                                    ? copy("Checked In", "Đã Sử Dụng")
+                                    : copy("Official Pass", "Vé Hợp Lệ")}
                             </span>
                         </div>
                         <BookingBadge
@@ -223,27 +275,57 @@ export function CustomerBookingPassPage({
                     </p>
                 </div>
 
-                {/* QR Code Section */}
-                <div className="p-6 flex flex-col items-center bg-white/[0.02] border-b border-white/10">
-                    <div className="bg-white p-4 rounded-2xl shadow-inner mb-3">
-                        <QRCode
-                            value={qrValue}
-                            size={200}
-                            style={{
-                                height: "auto",
-                                maxWidth: "100%",
-                                width: "100%",
-                            }}
-                            viewBox={`0 0 256 256`}
-                        />
+                {/* QR Code or Used State Section */}
+                {isUsed ? (
+                    <div className="p-8 flex flex-col items-center bg-white/[0.02] border-b border-white/10 text-center">
+                        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 mb-4 shadow-lg shadow-emerald-500/10">
+                            <CheckCircle size={32} />
+                        </div>
+                        <h3 className="text-lg font-bold text-white mb-2">
+                            {copy(
+                                "Vehicle checked in successfully",
+                                "Xe đã vào bãi thành công",
+                            )}
+                        </h3>
+                        <p className="text-xs text-[#8790a3] max-w-sm mb-6 leading-relaxed">
+                            {copy(
+                                "This booking pass has been checked in at the entry gate. You can view your real parking session details, entry time, and parking spot.",
+                                "Mã vé đặt chỗ này đã được check-in tại cổng vào bãi. Bạn có thể xem vị trí đỗ và thời gian gửi trong phiên đỗ xe thực tế.",
+                            )}
+                        </p>
+                        <Link
+                            href="/customer/sessions"
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#6246ea] to-[#7c5cff] hover:from-[#5235d9] hover:to-[#6c4cef] text-white text-sm font-bold shadow-lg shadow-[#6246ea]/25 transition"
+                        >
+                            <ArrowRight size={16} />
+                            {copy(
+                                "View Active Parking Session",
+                                "Xem phiên đỗ xe thực tế",
+                            )}
+                        </Link>
                     </div>
-                    <p className="text-xs text-[#8790a3] text-center max-w-xs">
-                        {copy(
-                            "Scan this QR code at the entrance barrier or present to staff",
-                            "Quét mã QR này trước camera barrier cổng vào hoặc xuất trình cho nhân viên",
-                        )}
-                    </p>
-                </div>
+                ) : (
+                    <div className="p-6 flex flex-col items-center bg-white/[0.02] border-b border-white/10">
+                        <div className="bg-white p-4 rounded-2xl shadow-inner mb-3">
+                            <QRCode
+                                value={qrValue}
+                                size={200}
+                                style={{
+                                    height: "auto",
+                                    maxWidth: "100%",
+                                    width: "100%",
+                                }}
+                                viewBox={`0 0 256 256`}
+                            />
+                        </div>
+                        <p className="text-xs text-[#8790a3] text-center max-w-xs">
+                            {copy(
+                                "Scan this QR code at the entrance barrier or present to staff",
+                                "Quét mã QR này trước camera barrier cổng vào hoặc xuất trình cho nhân viên",
+                            )}
+                        </p>
+                    </div>
+                )}
 
                 {/* Details Section */}
                 <div className="p-6 space-y-4 text-white text-sm">
@@ -291,52 +373,113 @@ export function CustomerBookingPassPage({
                             <div className="text-xs text-[#8790a3]">
                                 {reservation.vehicleGroup === "Car"
                                     ? copy(
-                                          "Automobile (Standard Slot)",
-                                          "Ô tô (Ô đỗ tiêu chuẩn)",
+                                          "Ô tô (Chỗ tiêu chuẩn)",
+                                          "Ô tô (Chỗ tiêu chuẩn)",
                                       )
-                                    : copy("Motorbike", "Xe máy")}
+                                    : copy("Xe máy", "Xe máy")}
                             </div>
                         </div>
                     </div>
 
-                    {/* Khung giờ hẹn */}
-                    <div className="grid grid-cols-2 gap-3 bg-white/[0.03] border border-white/5 rounded-xl p-3">
-                        <div className="flex items-start gap-2">
-                            <Calendar
-                                size={16}
-                                className="text-[#a28aff] shrink-0 mt-0.5"
-                            />
-                            <div>
-                                <div className="text-[11px] text-[#8790a3]">
-                                    {copy("Appointment Date", "Ngày hẹn")}
+                    {/* Khung giờ hẹn & Thời hạn tới bãi */}
+                    <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex items-start gap-2">
+                                <Calendar
+                                    size={16}
+                                    className="text-[#a28aff] shrink-0 mt-0.5"
+                                />
+                                <div>
+                                    <div className="text-[11px] text-[#8790a3]">
+                                        {copy("Appointment Date", "Ngày hẹn")}
+                                    </div>
+                                    <div className="font-semibold text-xs text-white">
+                                        {dateFormatted}
+                                    </div>
                                 </div>
-                                <div className="font-semibold text-xs text-white">
-                                    {dateFormatted}
+                            </div>
+
+                            <div className="flex items-start gap-2">
+                                <Clock
+                                    size={16}
+                                    className="text-emerald-400 shrink-0 mt-0.5"
+                                />
+                                <div>
+                                    <div className="text-[11px] text-[#8790a3]">
+                                        {copy("Arrival Time", "Giờ đến")}
+                                    </div>
+                                    <div className="font-semibold text-xs text-white">
+                                        {timeFormatted}
+                                        {reservation.durationMinutes && (
+                                            <span className="text-[#8790a3] block text-[10px]">
+                                                ({reservation.durationMinutes}{" "}
+                                                {copy("minutes", "phút")})
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex items-start gap-2">
-                            <Clock
-                                size={16}
-                                className="text-emerald-400 shrink-0 mt-0.5"
-                            />
-                            <div>
-                                <div className="text-[11px] text-[#8790a3]">
-                                    {copy("Arrival Time", "Giờ đến")}
-                                </div>
-                                <div className="font-semibold text-xs text-white">
-                                    {timeFormatted}
-                                    {reservation.durationMinutes && (
-                                        <span className="text-[#8790a3] block text-[10px]">
-                                            ({reservation.durationMinutes}{" "}
-                                            {copy("minutes", "phút")})
-                                        </span>
+                        {/* Thời hạn tới bãi (Cutoff time = giờ hẹn + 15 phút ân hạn) */}
+                        <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5 text-[#8790a3]">
+                                <Clock
+                                    size={14}
+                                    className="text-amber-400 shrink-0"
+                                />
+                                <span>
+                                    {copy(
+                                        "Arrival Deadline (Cutoff)",
+                                        "Thời hạn tới bãi (Hạn chót)",
                                     )}
-                                </div>
+                                    :
+                                </span>
                             </div>
+                            <span className="font-mono font-bold text-amber-300">
+                                {cutoffTimeFormatted}
+                                <span className="text-[11px] font-normal text-[#8790a3] ml-1">
+                                    (+15 {copy("mins grace", "phút ân hạn")})
+                                </span>
+                            </span>
                         </div>
                     </div>
+
+                    {/* Đồng hồ đếm ngược & Thông báo quy tắc hủy quá hạn (chỉ khi chưa Used / Cancelled / Expired) */}
+                    {!isUsed && !isCancelled && !isExpired && (
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                    </span>
+                                    <span className="text-xs font-bold text-amber-200">
+                                        {copy(
+                                            "Remaining Arrival Time",
+                                            "Thời gian còn lại để tới bãi",
+                                        )}
+                                    </span>
+                                </div>
+                                <span
+                                    className={`font-mono font-bold text-xs px-2.5 py-1 rounded-lg border ${
+                                        timeLeftMs !== null && timeLeftMs <= 0
+                                            ? "text-rose-400 bg-rose-500/15 border-rose-500/30"
+                                            : "text-amber-300 bg-amber-500/20 border-amber-400/30"
+                                    }`}
+                                >
+                                    {formatCountdown(timeLeftMs)}
+                                </span>
+                            </div>
+
+                            <p className="text-xs text-amber-200/90 leading-relaxed pt-1">
+                                {copy(
+                                    "If the vehicle does not arrive within 15 minutes of the appointment time, the booking will be automatically cancelled and the deposit will be forfeited.",
+                                    "Quá hạn 15 phút xe chưa tới bãi sẽ tự động hủy đơn và mất tiền cọc theo quy định.",
+                                )}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Tiền cọc */}
                     <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-xs">

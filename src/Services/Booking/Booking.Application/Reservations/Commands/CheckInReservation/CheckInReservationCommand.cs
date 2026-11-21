@@ -16,7 +16,8 @@ public sealed record CheckInReservationResult(
     Guid? ReservationId,
     Guid? UserId,
     Guid? VehicleId,
-    string? Message);
+    string? Message,
+    DateTime? ScheduledArrivalTimeUtc = null);
 
 public sealed class CheckInReservationCommandValidator : AbstractValidator<CheckInReservationCommand>
 {
@@ -58,6 +59,7 @@ public sealed class CheckInReservationCommandHandler(
             reservation.Id,
             reservation.UserId,
             reservation.VehicleId,
-            "Check-in thành công. Trạng thái đặt chỗ đã chuyển sang Used."));
+            "Check-in thành công. Trạng thái đặt chỗ đã chuyển sang Used.",
+            reservation.AppointmentTime.UtcDateTime));
     }
 }

@@ -93,6 +93,28 @@ describe("CustomerSessionsList", () => {
         ).toBeInTheDocument();
     });
 
+    it("shows assigned slot code alongside floor and zone when available", async () => {
+        const sessionWithSlot: api.MyParkingSession = {
+            ...SESSION,
+            slotCode: "A-01",
+            zoneCode: "A",
+            floorName: "Tầng 1",
+        };
+        vi.spyOn(api, "getMyParkingSessions").mockResolvedValue([
+            sessionWithSlot,
+        ]);
+        vi.spyOn(api, "getSessionLot").mockResolvedValue({
+            name: "Bãi Lê Lợi",
+            address: "1 Lê Lợi",
+        });
+
+        render(<CustomerSessionsList />);
+
+        expect(
+            await screen.findByText(/Tầng 1 · Khu A · Ô A-01/),
+        ).toBeInTheDocument();
+    });
+
     it("says so when there is no open session", async () => {
         vi.spyOn(api, "getMyParkingSessions").mockResolvedValue([]);
 

@@ -38,5 +38,11 @@ public interface IReservationRepository
         int batchSize,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Reservation>> ListArrivalReminderCandidatesAsync(
+        DateTimeOffset now,
+        int batchSize,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Reservation>>([]);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
