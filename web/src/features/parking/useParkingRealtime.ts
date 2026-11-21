@@ -100,12 +100,40 @@ export function useParkingRealtime({
             },
         );
 
+        connection.onreconnecting(() => {
+            if (!isMounted) return;
+            setIsConnected(false);
+        });
+
+        connection.onreconnected(async () => {
+            if (!isMounted) return;
+            setIsConnected(true);
+            try {
+                await connection.invoke("JoinLotGroup", lotId);
+                if (!isMounted) return;
+                if (operations) {
+                    await connection.invoke("JoinLotOperationsGroup", lotId);
+                }
+            } catch (err) {
+                console.warn(
+                    "Failed to rejoin SignalR parking groups after reconnect",
+                    err,
+                );
+            }
+        });
+
+        connection.onclose(() => {
+            if (!isMounted) return;
+            setIsConnected(false);
+        });
+
         async function start() {
             try {
                 await connection.start();
                 if (!isMounted) return;
                 setIsConnected(true);
                 await connection.invoke("JoinLotGroup", lotId);
+                if (!isMounted) return;
                 if (operations) {
                     await connection.invoke("JoinLotOperationsGroup", lotId);
                 }
@@ -122,6 +150,8 @@ export function useParkingRealtime({
             setIsConnected(false);
             setLastSlotChange(null);
             setLastOccupancyChange(null);
+            connection.off("SlotStatusChanged");
+            connection.off("LotOccupancyChanged");
             connection.invoke("LeaveLotGroup", lotId).catch(() => {});
             if (operations) {
                 connection

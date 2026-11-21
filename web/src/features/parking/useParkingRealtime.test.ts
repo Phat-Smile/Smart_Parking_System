@@ -5,15 +5,24 @@ import * as realtimeConn from "@/shared/realtime/connection";
 
 describe("useParkingRealtime", () => {
     let mockOn: Record<string, (data: unknown) => void>;
+    let mockOff: ReturnType<typeof vi.fn>;
     let mockStart: ReturnType<typeof vi.fn>;
     let mockStop: ReturnType<typeof vi.fn>;
     let mockInvoke: ReturnType<typeof vi.fn>;
+    let reconnectingHandler: ((error?: Error) => void) | undefined;
+    let reconnectedHandler:
+        ((connectionId?: string) => Promise<void> | void) | undefined;
+    let closeHandler: ((error?: Error) => void) | undefined;
 
     beforeEach(() => {
         mockOn = {};
+        mockOff = vi.fn();
         mockStart = vi.fn().mockResolvedValue(undefined);
         mockStop = vi.fn().mockResolvedValue(undefined);
         mockInvoke = vi.fn().mockResolvedValue(undefined);
+        reconnectingHandler = undefined;
+        reconnectedHandler = undefined;
+        closeHandler = undefined;
 
         vi.spyOn(realtimeConn, "createRealtimeConnection").mockReturnValue({
             start: mockStart,
@@ -21,6 +30,18 @@ describe("useParkingRealtime", () => {
             invoke: mockInvoke,
             on: vi.fn((event: string, cb: (data: unknown) => void) => {
                 mockOn[event] = cb;
+            }),
+            off: mockOff,
+            onreconnecting: vi.fn((cb: (error?: Error) => void) => {
+                reconnectingHandler = cb;
+            }),
+            onreconnected: vi.fn(
+                (cb: (connectionId?: string) => Promise<void> | void) => {
+                    reconnectedHandler = cb;
+                },
+            ),
+            onclose: vi.fn((cb: (error?: Error) => void) => {
+                closeHandler = cb;
             }),
         } as unknown as ReturnType<
             typeof realtimeConn.createRealtimeConnection
@@ -193,7 +214,7 @@ describe("useParkingRealtime", () => {
         );
     });
 
-    it("leaves group and stops connection on unmount", async () => {
+    it("leaves group, removes event handlers and stops connection on unmount", async () => {
         const lotId = "11111111-1111-1111-1111-111111111111";
         const { unmount } = renderHook(() => useParkingRealtime({ lotId }));
 
@@ -203,7 +224,137 @@ describe("useParkingRealtime", () => {
 
         unmount();
 
+        expect(mockOff).toHaveBeenCalledWith("SlotStatusChanged");
+        expect(mockOff).toHaveBeenCalledWith("LotOccupancyChanged");
         expect(mockInvoke).toHaveBeenCalledWith("LeaveLotGroup", lotId);
         expect(mockStop).toHaveBeenCalled();
+    });
+
+    it("sets isConnected to false when connection is reconnecting", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        const { result } = renderHook(() => useParkingRealtime({ lotId }));
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(result.current.isConnected).toBe(true);
+
+        act(() => {
+            reconnectingHandler?.();
+        });
+        expect(result.current.isConnected).toBe(false);
+    });
+
+    it("rejoins lot group and restores isConnected to true onreconnected", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        const { result } = renderHook(() => useParkingRealtime({ lotId }));
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(mockInvoke).toHaveBeenCalledTimes(1);
+        expect(mockInvoke).toHaveBeenCalledWith("JoinLotGroup", lotId);
+
+        act(() => {
+            reconnectingHandler?.();
+        });
+        expect(result.current.isConnected).toBe(false);
+
+        await act(async () => {
+            await reconnectedHandler?.("reconnected-conn-id");
+        });
+
+        expect(result.current.isConnected).toBe(true);
+        expect(mockInvoke).toHaveBeenCalledTimes(2);
+        expect(mockInvoke).toHaveBeenLastCalledWith("JoinLotGroup", lotId);
+    });
+
+    it("rejoins both lot group and operations group onreconnected when operations is true", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        const { result } = renderHook(() =>
+            useParkingRealtime({ lotId, operations: true }),
+        );
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(mockInvoke).toHaveBeenCalledWith("JoinLotGroup", lotId);
+        expect(mockInvoke).toHaveBeenCalledWith(
+            "JoinLotOperationsGroup",
+            lotId,
+        );
+        mockInvoke.mockClear();
+
+        act(() => {
+            reconnectingHandler?.();
+        });
+        expect(result.current.isConnected).toBe(false);
+
+        await act(async () => {
+            await reconnectedHandler?.("reconnected-conn-id");
+        });
+
+        expect(result.current.isConnected).toBe(true);
+        expect(mockInvoke).toHaveBeenCalledWith("JoinLotGroup", lotId);
+        expect(mockInvoke).toHaveBeenCalledWith(
+            "JoinLotOperationsGroup",
+            lotId,
+        );
+    });
+
+    it("sets isConnected to false when connection closes", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        const { result } = renderHook(() => useParkingRealtime({ lotId }));
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(result.current.isConnected).toBe(true);
+
+        act(() => {
+            closeHandler?.();
+        });
+        expect(result.current.isConnected).toBe(false);
+    });
+
+    it("does not update state or rejoin groups if unmounted before reconnect", async () => {
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        const { unmount } = renderHook(() => useParkingRealtime({ lotId }));
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        mockInvoke.mockClear();
+
+        unmount();
+
+        await act(async () => {
+            await reconnectedHandler?.("reconnected-conn-id");
+        });
+
+        expect(mockInvoke).not.toHaveBeenCalledWith("JoinLotGroup", lotId);
+    });
+
+    it("handles failure gracefully when rejoining group throws on reconnect", async () => {
+        const consoleWarnSpy = vi
+            .spyOn(console, "warn")
+            .mockImplementation(() => {});
+        const lotId = "11111111-1111-1111-1111-111111111111";
+        renderHook(() => useParkingRealtime({ lotId }));
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        mockInvoke.mockRejectedValueOnce(new Error("Network timeout"));
+
+        await act(async () => {
+            await reconnectedHandler?.("reconnected-conn-id");
+        });
+
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+            "Failed to rejoin SignalR parking groups after reconnect",
+            expect.any(Error),
+        );
+        consoleWarnSpy.mockRestore();
     });
 });
