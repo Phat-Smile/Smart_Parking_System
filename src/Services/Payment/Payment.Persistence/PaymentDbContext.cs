@@ -19,6 +19,7 @@ public sealed class PaymentDbContext(DbContextOptions<PaymentDbContext> options)
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<RefundRequest> RefundRequests => Set<RefundRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

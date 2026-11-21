@@ -93,4 +93,5 @@ app.MapGrpcService<ReservationWalletGrpcService>();
 if (enableGrpcReflection)
     app.MapGrpcReflectionService();
 app.MapAuditLogEndpoints();
+app.MapRefundRequestEndpoints();
 app.Run();

@@ -49,6 +49,7 @@ public sealed class OutboxPersistenceIntegrationTests(PostgreSqlContainerFixture
             "audit_logs",
             "parking_fee_payments",
             "payment_idempotency_records",
+            "refund_requests",
             "vnpay_transactions",
             "wallet_ledger_entries",
             "wallets");

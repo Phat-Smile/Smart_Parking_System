@@ -369,6 +369,7 @@ public sealed class PaymentProblemDetailsHttpTests
         app.MapWalletEndpoints();
         app.MapParkingFeeEndpoints();
         app.MapAuditLogEndpoints();
+        app.MapRefundRequestEndpoints();
         await app.StartAsync(TestContext.Current.CancellationToken);
         return app;
     }

@@ -8,6 +8,7 @@ internal static class PaymentAuthorization
     public const string PayVnPayPolicy = "payment-pay-vnpay";
     public const string ViewFeePaymentPolicy = "payment-view-fee-payment";
     public const string CustomerPolicy = "payment-customer-only";
+    public const string OwnerPolicy = "payment-owner-only";
     public const string ConfirmCashPaymentPolicy = "payment-confirm-cash";
     public const string OwnerRevenueReportPolicy = "payment-owner-revenue-report";
     public const string RoleClaimType = "role";
@@ -37,6 +38,9 @@ internal static class PaymentAuthorization
             .AddPolicy(CustomerPolicy, policy => policy
                 .RequireAuthenticatedUser()
                 .RequireClaim(RoleClaimType, "Customer"))
+            .AddPolicy(OwnerPolicy, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireClaim(RoleClaimType, "ParkingLotOwner", "LotOwner"))
             .AddPolicy(ConfirmCashPaymentPolicy, policy => policy
                 .RequireAuthenticatedUser()
                 .RequireClaim(RoleClaimType, "Staff", "ParkingLotOwner", "LotOwner"))

@@ -9,6 +9,7 @@ public static class AuditActionCatalog
     public const string CashPaymentConfirmed = "CashPaymentConfirmed";
     public const string WalletEntryReversed = "WalletEntryReversed";
     public const string RefundRequestCreated = "RefundRequestCreated";
+    public const string RefundRequestOwnerConfirmed = "RefundRequestOwnerConfirmed";
     public const string RefundRequestApproved = "RefundRequestApproved";
     public const string RefundRequestRejected = "RefundRequestRejected";
 
@@ -31,6 +32,7 @@ public static class AuditActionCatalog
         CashPaymentConfirmed,
         WalletEntryReversed,
         RefundRequestCreated,
+        RefundRequestOwnerConfirmed,
         RefundRequestApproved,
         RefundRequestRejected,
         PricingPolicyChanged,
