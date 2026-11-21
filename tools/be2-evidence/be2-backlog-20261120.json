@@ -273,9 +273,7 @@
       "source_excel_row": 76,
       "context_excerpt": "Độ ưu tiên: P0   Trạng thái: Proposed   Yêu cầu: FR-AI-002 Main Flow liên quan: MF-05 Câu chuyện người dùng Là người đang đi tới bãi\nTôi muốn xem khả năng bãi còn chỗ tại thời điểm dự kiến đến\nĐể tôi có thể cân nhắc lựa chọn bãi phù hợp hơn. Tiêu chí chấp nhận Giả sử hệ thống có dữ liệu dự báo\nKhi người dùng xem thông tin bãi\nThì hệ thống hiển thị khả năng còn chỗ tại thời điểm dự kiến đến.",
       "current_owner_boundary": "REVIEW",
-      "candidate_paths": [
-        "ai/ai-service/app/api/arrival_availability.py"
-      ]
+      "candidate_paths": ["ai/ai-service/app/api/arrival_availability.py"]
     },
     {
       "id": "US-AI-001",
@@ -291,9 +289,7 @@
       "source_excel_row": 86,
       "context_excerpt": "Độ ưu tiên: P0   Trạng thái: Proposed   Yêu cầu: FR-AI-001 Main Flow liên quan: MF-05 Câu chuyện người dùng Là người đang tìm bãi\nTôi muốn hệ thống đề xuất các bãi phù hợp nhất\nĐể tôi không phải tự so sánh toàn bộ kết quả. Tiêu chí chấp nhận Giả sử có nhiều bãi phù hợp\nKhi người dùng yêu cầu tìm bãi\nThì hệ thống trả tối đa 3 bãi có điểm cao nhất, mỗi bãi kèm lý do (mục 6.3). Giả sử một bãi có xác suất còn chỗ lúc tới dưới 30%\nKhi hệ thống xếp hạng các bãi\nThì bãi đó bị gắn cảnh báo, bị trừ điểm và không được xếp hạng nhất khi còn bãi khác từ 30% trở lên (BR-08.a). Giả sử hệ thống trả kết quả gợi ý\nKhi người dùng xem danh sách\nThì mỗi bãi kèm lý do; giao diện chỉ hiển thị thứ hạng và lý do, không hiển thị điểm như giá trị tuyệt đối (BR-08.c). Tiêu chí gợi ý · Thời gian di chuyển · Khả năng còn chỗ khi tới · Giá",
       "current_owner_boundary": "LOC-329",
-      "candidate_paths": [
-        "ai/ai-service/app/api/recommendations.py"
-      ]
+      "candidate_paths": ["ai/ai-service/app/api/recommendations.py"]
     },
     {
       "id": "US-PRIV-001",
@@ -309,9 +305,7 @@
       "source_excel_row": 92,
       "context_excerpt": "Độ ưu tiên: P1   Trạng thái: Proposed   Yêu cầu: FR-PRIV-001 Main Flow liên quan: MF-05 Câu chuyện người dùng Là người dùng\nTôi muốn quyết định có chia sẻ vị trí hay không\nĐể GPS của tôi không được sử dụng khi chưa có sự đồng ý. Tiêu chí chấp nhận Giả sử người dùng chưa đồng ý chia sẻ vị trí\nKhi chức năng tìm bãi cần vị trí GPS\nThì hệ thống hỏi đồng ý trước khi lấy GPS (NFR-14). Giả sử người dùng từ chối chia sẻ vị trí\nKhi tìm bãi\nThì người dùng vẫn tìm được bằng địa chỉ hoặc bằng điểm chọn trên bản đồ (mục 6.3). Giả sử vị trí được dùng cho một lần tìm kiếm\nKhi lần tìm kiếm kết thúc\nThì vị trí không được lưu thành lịch sử theo mặc định, không ghi vào log, và người dùng xóa được lịch sử đã cho phép lưu (NFR-14).",
       "current_owner_boundary": "LOC-329",
-      "candidate_paths": [
-        "web/src/features/customer/CustomerDashboardPage.tsx"
-      ]
+      "candidate_paths": ["web/src/features/customer/CustomerDashboardPage.tsx"]
     },
     {
       "id": "US-AI-004",
@@ -345,9 +339,7 @@
       "source_pr": "58",
       "source_excel_row": 110,
       "current_owner_boundary": "COORDINATE",
-      "candidate_paths": [
-        "tests/performance/be2-qa-perf.mjs"
-      ]
+      "candidate_paths": ["tests/performance/be2-qa-perf.mjs"]
     },
     {
       "id": "TECH-15",
@@ -362,9 +354,7 @@
       "source_pr": "58",
       "source_excel_row": 111,
       "current_owner_boundary": "LOC-E2E",
-      "candidate_paths": [
-        "tests/e2e/be2-business-qa.mjs"
-      ]
+      "candidate_paths": ["tests/e2e/be2-business-qa.mjs"]
     },
     {
       "id": "US-AI-003",
@@ -380,9 +370,7 @@
       "source_excel_row": 114,
       "context_excerpt": "Độ ưu tiên: P2   Trạng thái: Proposed   Yêu cầu: FR-AI-006 Main Flow liên quan: Xuyên suốt Câu chuyện người dùng Là thành viên nhóm AI\nTôi muốn so sánh mô hình LightGBM với baseline thống kê\nĐể chỉ dùng mô hình mới khi nó dự báo tốt hơn. Tiêu chí chấp nhận Giả sử hai mô hình được đánh giá trên cùng tập kiểm tra tách theo thời gian\nKhi MAE của LightGBM thấp hơn baseline\nThì LightGBM mới được dùng thay baseline (NFR-06). Giả sử MAE của LightGBM không thấp hơn baseline\nKhi nhóm chốt mô hình dự báo\nThì hệ thống tiếp tục dùng baseline thống kê.",
       "current_owner_boundary": "POST_OJT",
-      "candidate_paths": [
-        "ai/ai-service/"
-      ]
+      "candidate_paths": ["ai/ai-service/"]
     }
   ]
 }

@@ -16,10 +16,19 @@ node tools/be2-evidence/anpr-evaluate.mjs --input tools/be2-evidence/sample.synt
 To evaluate real camera results, produce **local-only JSONL** (not committed) with one line per labeled case:
 
 ```json
-{"id":"case-001","ground_truth":{"plate":"TEST001","vehicle_type":"car"},"prediction":{"plate":"TEST001","vehicle_type":"car","confidence":0.95},"group":"day"}
+{
+  "id": "case-001",
+  "ground_truth": { "plate": "TEST001", "vehicle_type": "car" },
+  "prediction": {
+    "plate": "TEST001",
+    "vehicle_type": "car",
+    "confidence": 0.95
+  },
+  "group": "day"
+}
 ```
 
-Example identifiers are fake. Do not commit plate labels or images. Vehicle types are compared as exact case-insensitive labels; no automatic vehicle-type guesses or license plate substitutions. Empty predictions are abstentions, reducing coverage. Groups with <5 samples are withheld to avoid small-group disclosures. Output contains *only aggregates*, not raw plates/IDs.
+Example identifiers are fake. Do not commit plate labels or images. Vehicle types are compared as exact case-insensitive labels; no automatic vehicle-type guesses or license plate substitutions. Empty predictions are abstentions, reducing coverage. Groups with <5 samples are withheld to avoid small-group disclosures. Output contains _only aggregates_, not raw plates/IDs.
 
 If the lead gives real thresholds, supply all three at once:
 
