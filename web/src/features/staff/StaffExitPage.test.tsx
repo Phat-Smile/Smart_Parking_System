@@ -307,14 +307,26 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         await scanQr();
         enterGatePlate("51B-999.88");
 
-        // Tìm nút xác minh thủ công
+        // Tìm nút xác minh thủ công và mở modal
         const manualBtn = screen.getByRole("button", {
             name: /Xác minh thủ công/i,
         });
         fireEvent.click(manualBtn);
 
+        const reasonInput = screen.getByLabelText(/Lý do xác minh thủ công/i);
+        fireEvent.change(reasonInput, {
+            target: { value: "Đối soát giấy tờ xe tại cổng" },
+        });
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận xác minh/i,
+        });
+        fireEvent.click(confirmBtn);
+
         await waitFor(() =>
-            expect(apiMocks.manualVerifyExit).toHaveBeenCalled(),
+            expect(apiMocks.manualVerifyExit).toHaveBeenCalledWith(
+                SESSION_ID,
+                "Đối soát giấy tờ xe tại cổng",
+            ),
         );
         expect(
             screen.queryByText(/Đã mở barrier cho xe xuất bãi/i),
@@ -712,21 +724,32 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         });
         fireEvent.click(manualBtn);
 
+        const reasonInput = screen.getByLabelText(/Lý do xác minh thủ công/i);
+        fireEvent.change(reasonInput, {
+            target: { value: "Khách xuất trình giấy tờ xe hợp lệ" },
+        });
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận xác minh/i,
+        });
+        fireEvent.click(confirmBtn);
+
         await waitFor(() => {
             expect(apiMocks.manualVerifyExit).toHaveBeenCalledWith(
                 SESSION_ID,
-                "Nhân viên đối soát giấy tờ xe thủ công tại quầy",
+                "Khách xuất trình giấy tờ xe hợp lệ",
             );
         });
 
         // Bất biến: completeParkingSession BẮT BUỘC nhận biển số đọc ở cổng (51A-123.4S),
-        // tuyệt đối KHÔNG được gửi biển số của phiên (51A-123.45)
+        // kèm manualVerificationReason và tuyệt đối KHÔNG được gửi biển số của phiên (51A-123.45)
         await waitFor(() => {
             expect(apiMocks.completeParkingSession).toHaveBeenCalledWith(
                 SESSION_ID,
                 {
                     plateNumber: "51A-123.4S",
                     qrToken: "qr-abc",
+                    manualVerificationReason:
+                        "Khách xuất trình giấy tờ xe hợp lệ",
                 },
             );
         });
@@ -780,6 +803,15 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
         });
         fireEvent.click(manualBtn);
 
+        const reasonInput = screen.getByLabelText(/Lý do xác minh thủ công/i);
+        fireEvent.change(reasonInput, {
+            target: { value: "Đối soát thủ công giấy tờ xe" },
+        });
+        const confirmBtn = screen.getByRole("button", {
+            name: /Xác nhận xác minh/i,
+        });
+        fireEvent.click(confirmBtn);
+
         await waitFor(() => {
             expect(apiMocks.completeParkingSession).toHaveBeenCalledTimes(1);
         });
@@ -788,6 +820,7 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
             {
                 plateNumber: "51A-123.4S",
                 qrToken: "qr-abc",
+                manualVerificationReason: "Đối soát thủ công giấy tờ xe",
             },
         );
         expect(
@@ -845,5 +878,158 @@ describe("StaffExitPage payment and exit (WP-GATE-1)", () => {
 
         // Nút mở barrier được mở khóa (enabled)
         expect(exitBtn).not.toBeDisabled();
+    });
+
+    describe("Manual verification reason validation (US-STAFF-004 / BR-11.d)", () => {
+        it("requires manual verification reason: confirms button is disabled when reason is empty or whitespace only", async () => {
+            apiMocks.findSessionByQr.mockResolvedValue({
+                ...unpaidSession(),
+                plateNumber: "51A-123.45",
+                paymentStatus: "Paid",
+                amountDueVnd: 0,
+            });
+
+            render(<StaffExitPage />);
+            await scanQr();
+            enterGatePlate("51A-123.4S");
+
+            const manualBtn = screen.getByRole("button", {
+                name: /Xác minh thủ công/i,
+            });
+            fireEvent.click(manualBtn);
+
+            // Modal được mở
+            expect(
+                await screen.findByRole("heading", {
+                    name: /Xác minh thủ công tại cổng ra/i,
+                }),
+            ).toBeInTheDocument();
+
+            const reasonInput = screen.getByLabelText(
+                /Lý do xác minh thủ công/i,
+            ) as HTMLTextAreaElement;
+            const confirmBtn = screen.getByRole("button", {
+                name: /Xác nhận xác minh/i,
+            });
+
+            // Mặc định ô lý do rỗng -> nút xác nhận bị disable
+            expect(reasonInput.value).toBe("");
+            expect(confirmBtn).toBeDisabled();
+
+            // Nhập chỉ toàn khoảng trắng -> nút xác nhận vẫn bị disable
+            fireEvent.change(reasonInput, { target: { value: "     " } });
+            expect(confirmBtn).toBeDisabled();
+
+            // Nhập vượt quá 500 ký tự -> nút xác nhận bị disable
+            fireEvent.change(reasonInput, {
+                target: { value: "a".repeat(501) },
+            });
+            expect(confirmBtn).toBeDisabled();
+
+            // Click vào nút disable không gọi API
+            fireEvent.click(confirmBtn);
+            expect(apiMocks.manualVerifyExit).not.toHaveBeenCalled();
+            expect(apiMocks.completeParkingSession).not.toHaveBeenCalled();
+        });
+
+        it("sends manualVerificationReason in payload when staff overrides with valid reason on plate mismatch", async () => {
+            apiMocks.findSessionByQr.mockResolvedValue({
+                ...unpaidSession(),
+                plateNumber: "51A-123.45",
+                paymentStatus: "Paid",
+                amountDueVnd: 0,
+            });
+            apiMocks.manualVerifyExit.mockResolvedValue({
+                sessionId: SESSION_ID,
+                verifiedAt: "2026-11-21T10:00:00Z",
+            });
+            apiMocks.completeParkingSession.mockResolvedValue({
+                sessionId: SESSION_ID,
+                status: "Completed",
+                completedAt: "2026-11-21T10:00:05Z",
+            });
+
+            render(<StaffExitPage />);
+            await scanQr();
+            enterGatePlate("51A-123.4S");
+
+            const manualBtn = screen.getByRole("button", {
+                name: /Xác minh thủ công/i,
+            });
+            fireEvent.click(manualBtn);
+
+            const reasonInput = screen.getByLabelText(
+                /Lý do xác minh thủ công/i,
+            );
+            const validReason =
+                "Khách xuất trình giấy đăng ký xe và CMND trùng khớp";
+            fireEvent.change(reasonInput, {
+                target: { value: `  ${validReason}  ` },
+            });
+
+            const confirmBtn = screen.getByRole("button", {
+                name: /Xác nhận xác minh/i,
+            });
+            expect(confirmBtn).not.toBeDisabled();
+            fireEvent.click(confirmBtn);
+
+            // Kiểm tra manualVerifyExit được gọi với reason đã trim()
+            await waitFor(() => {
+                expect(apiMocks.manualVerifyExit).toHaveBeenCalledWith(
+                    SESSION_ID,
+                    validReason,
+                );
+            });
+
+            // Kiểm tra completeParkingSession được gọi với manualVerificationReason đã trim()
+            await waitFor(() => {
+                expect(apiMocks.completeParkingSession).toHaveBeenCalledWith(
+                    SESSION_ID,
+                    {
+                        plateNumber: "51A-123.4S",
+                        qrToken: "qr-abc",
+                        manualVerificationReason: validReason,
+                    },
+                );
+            });
+        });
+
+        it("cancels manual verify modal without invoking verification APIs", async () => {
+            apiMocks.findSessionByQr.mockResolvedValue({
+                ...unpaidSession(),
+                plateNumber: "51A-123.45",
+                paymentStatus: "Paid",
+                amountDueVnd: 0,
+            });
+
+            render(<StaffExitPage />);
+            await scanQr();
+            enterGatePlate("51A-123.4S");
+
+            const manualBtn = screen.getByRole("button", {
+                name: /Xác minh thủ công/i,
+            });
+            fireEvent.click(manualBtn);
+
+            expect(
+                await screen.findByRole("heading", {
+                    name: /Xác minh thủ công tại cổng ra/i,
+                }),
+            ).toBeInTheDocument();
+
+            const cancelBtn = screen.getByRole("button", { name: /Hủy bỏ/i });
+            fireEvent.click(cancelBtn);
+
+            await waitFor(() => {
+                expect(
+                    screen.queryByRole("heading", {
+                        name: /Xác minh thủ công tại cổng ra/i,
+                    }),
+                ).not.toBeInTheDocument();
+            });
+
+            expect(apiMocks.manualVerifyExit).not.toHaveBeenCalled();
+            expect(apiMocks.completeParkingSession).not.toHaveBeenCalled();
+        });
     });
 });
