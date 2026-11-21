@@ -102,12 +102,22 @@ describe("useParkingRealtime", () => {
         const onSlotStatusChanged = vi.fn();
         const onLotOccupancyChanged = vi.fn();
         const { result } = renderHook(() =>
-            useParkingRealtime({ lotId, onSlotStatusChanged, onLotOccupancyChanged }),
+            useParkingRealtime({
+                lotId,
+                onSlotStatusChanged,
+                onLotOccupancyChanged,
+            }),
         );
-        await act(async () => { await Promise.resolve(); });
+        await act(async () => {
+            await Promise.resolve();
+        });
         act(() => {
-            mockOn["SlotStatusChanged"]?.({ lotId: "22222222-2222-2222-2222-222222222222" });
-            mockOn["LotOccupancyChanged"]?.({ lotId: "22222222-2222-2222-2222-222222222222" });
+            mockOn["SlotStatusChanged"]?.({
+                lotId: "22222222-2222-2222-2222-222222222222",
+            });
+            mockOn["LotOccupancyChanged"]?.({
+                lotId: "22222222-2222-2222-2222-222222222222",
+            });
         });
         expect(onSlotStatusChanged).not.toHaveBeenCalled();
         expect(onLotOccupancyChanged).not.toHaveBeenCalled();
@@ -122,9 +132,16 @@ describe("useParkingRealtime", () => {
             ({ lotId }: { lotId: string }) => useParkingRealtime({ lotId }),
             { initialProps: { lotId: firstLotId } },
         );
-        await act(async () => { await Promise.resolve(); });
+        await act(async () => {
+            await Promise.resolve();
+        });
         act(() => {
-            mockOn["LotOccupancyChanged"]?.({ lotId: firstLotId, availableCarSlots: 3, availableMotorbikeSlots: 4, timestamp: "2026-11-20T03:00:00Z" });
+            mockOn["LotOccupancyChanged"]?.({
+                lotId: firstLotId,
+                availableCarSlots: 3,
+                availableMotorbikeSlots: 4,
+                timestamp: "2026-11-20T03:00:00Z",
+            });
         });
         expect(result.current.lastOccupancyChange).not.toBeNull();
         rerender({ lotId: secondLotId });

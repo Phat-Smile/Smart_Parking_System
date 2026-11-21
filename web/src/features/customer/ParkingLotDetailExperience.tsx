@@ -554,7 +554,8 @@ export function ParkingLotDetailExperience({
                                                 marginTop: "4px",
                                                 color:
                                                     walkInCount === 0 ||
-                                                    walkInStatus?.toLowerCase() === "full"
+                                                    walkInStatus?.toLowerCase() ===
+                                                        "full"
                                                         ? "var(--color-danger, #ef4444)"
                                                         : "var(--color-success, #10b981)",
                                                 fontSize: "0.85rem",
