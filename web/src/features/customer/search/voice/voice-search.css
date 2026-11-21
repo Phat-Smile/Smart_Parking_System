@@ -1,0 +1,178 @@
+/**
+ * ParkWise Voice Parking Search Component Styles
+ * Strictly adhering to tokens.css design system:
+ * - WCAG AAA 44px tap targets (--pw-tap-target-min: 44px)
+ * - Semantic colors (--pw-brand-primary, --pw-status-*, --pw-surface-*)
+ * - Pulse ring animations for active listening feedback
+ * - No emoji, clean Lucide iconography
+ */
+
+.pw-voice-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--pw-font-sans, sans-serif);
+}
+
+.pw-voice-btn {
+    min-width: var(--pw-tap-target-min, 44px);
+    min-height: var(--pw-tap-target-min, 44px);
+    width: var(--pw-tap-target-min, 44px);
+    height: var(--pw-tap-target-min, 44px);
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--pw-radius-full, 9999px);
+    border: 1px solid var(--pw-border-subtle, #e2e8f0);
+    background-color: var(--pw-surface-card, #ffffff);
+    color: var(--pw-text-secondary, #334155);
+    cursor: pointer;
+    box-sizing: border-box;
+    position: relative;
+    transition:
+        background-color var(--pw-transition-fast, 150ms),
+        border-color var(--pw-transition-fast, 150ms),
+        color var(--pw-transition-fast, 150ms),
+        box-shadow var(--pw-transition-fast, 150ms);
+}
+
+.pw-voice-btn:hover:not(:disabled) {
+    background-color: var(--pw-surface-subtle, #f1f5f9);
+    color: var(--pw-brand-primary, #1e19d8);
+    border-color: var(--pw-border-strong, #cbd5e1);
+}
+
+.pw-voice-btn:focus-visible {
+    outline: 2px solid var(--pw-brand-primary, #1e19d8);
+    outline-offset: 2px;
+}
+
+.pw-voice-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--pw-surface-subtle, #f1f5f9);
+}
+
+/* Listening State: Active Pulse */
+@keyframes pw-mic-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(30, 25, 216, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(30, 25, 216, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(30, 25, 216, 0);
+    }
+}
+
+.pw-voice-btn.is-listening {
+    background-color: #e0e7ff;
+    color: var(--pw-brand-primary, #1e19d8);
+    border-color: var(--pw-brand-primary, #1e19d8);
+    animation: pw-mic-pulse 1.6s infinite ease-out;
+}
+
+/* Processing State */
+.pw-voice-btn.is-processing {
+    background-color: var(--pw-surface-subtle, #f1f5f9);
+    color: var(--pw-brand-primary, #1e19d8);
+    border-color: var(--pw-brand-primary, #1e19d8);
+}
+
+/* Error State */
+.pw-voice-btn.is-error {
+    background-color: var(--pw-status-error-bg, #fef2f2);
+    color: var(--pw-status-error, #dc2626);
+    border-color: var(--pw-status-error-border, #fecaca);
+}
+
+@keyframes pw-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.pw-spin-icon {
+    animation: pw-spin 1s linear infinite;
+}
+
+/* Inline Microphone Permission Instruction Guide */
+.pw-voice-permission-guide {
+    position: absolute;
+    top: calc(100% + var(--pw-space-xs, 8px));
+    right: 0;
+    width: 320px;
+    max-width: 90vw;
+    background-color: var(--pw-surface-card, #ffffff);
+    border: 1px solid var(--pw-status-warning-border, #fde68a);
+    border-radius: var(--pw-radius-md, 8px);
+    box-shadow: var(--pw-shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1));
+    padding: var(--pw-space-md, 16px);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: var(--pw-space-xs, 8px);
+    box-sizing: border-box;
+}
+
+.pw-voice-guide-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--pw-space-xs, 8px);
+}
+
+.pw-voice-guide-title {
+    margin: 0;
+    font-size: var(--pw-text-body, 0.875rem);
+    font-weight: 700;
+    color: var(--pw-status-warning, #d97706);
+    display: flex;
+    align-items: center;
+    gap: var(--pw-space-2xs, 4px);
+}
+
+.pw-voice-guide-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--pw-text-muted, #64748b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--pw-space-2xs, 4px);
+    border-radius: var(--pw-radius-sm, 4px);
+}
+
+.pw-voice-guide-close:hover {
+    background-color: var(--pw-surface-subtle, #f1f5f9);
+    color: var(--pw-text-primary, #0f172a);
+}
+
+.pw-voice-guide-desc {
+    margin: 0;
+    font-size: var(--pw-text-caption, 0.75rem);
+    color: var(--pw-text-secondary, #334155);
+    line-height: 1.45;
+}
+
+.pw-voice-guide-steps {
+    margin: 0;
+    padding-left: 18px;
+    font-size: var(--pw-text-caption, 0.75rem);
+    color: var(--pw-text-secondary, #334155);
+    line-height: 1.45;
+}
+
+/* Privacy Note */
+.pw-voice-privacy-note {
+    font-size: 0.65rem;
+    color: var(--pw-text-muted, #64748b);
+    margin-top: 4px;
+    line-height: 1.3;
+}

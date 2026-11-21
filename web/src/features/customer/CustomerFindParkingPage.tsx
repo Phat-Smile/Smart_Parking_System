@@ -143,6 +143,21 @@ export function CustomerFindParkingPage({
                             activeId={search.activeSelectedId}
                             onSelect={search.setSelectedId}
                             copy={search.copy}
+                            hasDestination={Boolean(
+                                (search.destination.trim() &&
+                                    search.destination.trim() !==
+                                        "Current location") ||
+                                search.searchOrigin,
+                            )}
+                            isLoading={
+                                search.searchBusy ||
+                                search.resultsState === "loading"
+                            }
+                            isError={search.resultsState === "error"}
+                            errorMessage={search.searchMessage || undefined}
+                            onRetry={() => {
+                                search.destinationInputRef.current?.form?.requestSubmit();
+                            }}
                         />
                     </CustomerSearchResultsList>
 

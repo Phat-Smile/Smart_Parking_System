@@ -1,29 +1,74 @@
 "use client";
 
-import { AiRecommendationPanel } from "../components/AiRecommendationPanel";
+import { AiRecommendationPanel, type RecommendationState } from "./ai";
 import { type RecommendedParkingLot } from "../parkingLotApi";
 
 export type CustomerAiRecommendationsProps = {
-    recommendations: RecommendedParkingLot[] | null;
-    activeId: string;
-    onSelect: (lotId: string) => void;
-    copy: (en: string, vi: string) => string;
+    recommendations?: RecommendedParkingLot[] | null;
+    activeId?: string;
+    onSelect?: (lotId: string) => void;
+    copy?: (en: string, vi: string) => string;
+    state?: RecommendationState;
+    hasDestination?: boolean;
+    isLoading?: boolean;
+    isError?: boolean;
+    errorMessage?: string;
+    fallbackUsed?: boolean;
+    fallbackReason?: string | null;
+    onSelectOnMap?: (lot: RecommendedParkingLot) => void;
+    onBook?: (lot: RecommendedParkingLot) => void;
+    onRetry?: () => void;
+    className?: string;
 };
 
 export function CustomerAiRecommendations({
     recommendations,
-    activeId,
+    activeId = "",
     onSelect,
     copy,
+    state,
+    hasDestination = false,
+    isLoading = false,
+    isError = false,
+    errorMessage,
+    fallbackUsed = false,
+    fallbackReason,
+    onSelectOnMap,
+    onBook,
+    onRetry,
+    className = "",
 }: CustomerAiRecommendationsProps) {
-    if (!recommendations || recommendations.length === 0) return null;
+    const handleSelectOnMap = (lot: RecommendedParkingLot) => {
+        if (onSelectOnMap) {
+            onSelectOnMap(lot);
+        } else if (onSelect) {
+            onSelect(lot.lotId);
+        }
+    };
+
+    const handleBook = (lot: RecommendedParkingLot) => {
+        if (onBook) {
+            onBook(lot);
+        } else if (typeof window !== "undefined") {
+            window.location.assign(`/parking-lots/${lot.lotId}`);
+        }
+    };
 
     return (
         <AiRecommendationPanel
-            recommendations={recommendations}
-            activeId={activeId}
-            onSelect={onSelect}
-            copy={copy}
+            state={state}
+            hasDestination={hasDestination}
+            isLoading={isLoading}
+            isError={isError}
+            errorMessage={errorMessage}
+            fallbackUsed={fallbackUsed}
+            fallbackReason={fallbackReason}
+            recommendations={recommendations ?? []}
+            selectedLotId={activeId}
+            onSelectOnMap={handleSelectOnMap}
+            onBook={handleBook}
+            onRetry={onRetry}
+            className={className}
         />
     );
 }

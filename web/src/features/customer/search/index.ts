@@ -5,3 +5,5 @@ export * from "./CustomerFilterPanel";
 export * from "./CustomerAiRecommendations";
 export * from "./CustomerSearchResultsList";
 export * from "./CustomerSearchMapColumn";
+export * from "./ai";
+export * from "./voice";
