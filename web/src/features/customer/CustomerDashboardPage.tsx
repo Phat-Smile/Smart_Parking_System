@@ -21,11 +21,18 @@ import { CustomerSearchDropdown } from "./CustomerSearchDropdown";
 import { useCustomerLanguage } from "./i18n/customerLanguage";
 import { useCustomerMobile } from "./mobile/useCustomerMobile";
 import { CustomerMobileHome } from "./mobile/CustomerMobileHome";
-import { getMyReservations, type ReservationSummaryDto } from "./booking/bookingApi";
+import {
+    getMyReservations,
+    type ReservationSummaryDto,
+} from "./booking/bookingApi";
 
 type SearchTab = "find" | "quick" | "saved";
 const recentPlaces: string[] = [];
-const savedPlaces: { name: string; detail: string; icon: "car" | "location" | "bookmark" }[] = [];
+const savedPlaces: {
+    name: string;
+    detail: string;
+    icon: "car" | "location" | "bookmark";
+}[] = [];
 const vehicleOptions = [
     { value: "any", label: "Any vehicle", icon: "car" as const },
     { value: "car", label: "Car", icon: "car" as const },
@@ -63,7 +70,9 @@ function UpcomingBookingCard() {
             .then((reservations) => {
                 if (!active) return;
                 const upcoming = (reservations || []).find(
-                    (r) => r.status === "Confirmed" || r.status === "PendingPayment",
+                    (r) =>
+                        r.status === "Confirmed" ||
+                        r.status === "PendingPayment",
                 );
                 setBooking(upcoming || null);
             })
@@ -82,7 +91,10 @@ function UpcomingBookingCard() {
         return (
             <div className="dashboard-booking-body">
                 <p className="dashboard-empty-note py-4 text-center">
-                    {copy("Loading booking information...", "Đang tải thông tin đặt chỗ...")}
+                    {copy(
+                        "Loading booking information...",
+                        "Đang tải thông tin đặt chỗ...",
+                    )}
                 </p>
             </div>
         );
@@ -98,11 +110,16 @@ function UpcomingBookingCard() {
         );
     }
 
-    const bookingDate = new Date(booking.appointmentTime).toLocaleDateString("vi-VN");
-    const bookingTime = new Date(booking.appointmentTime).toLocaleTimeString("vi-VN", {
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+    const bookingDate = new Date(booking.appointmentTime).toLocaleDateString(
+        "vi-VN",
+    );
+    const bookingTime = new Date(booking.appointmentTime).toLocaleTimeString(
+        "vi-VN",
+        {
+            hour: "2-digit",
+            minute: "2-digit",
+        },
+    );
 
     return (
         <>
@@ -444,7 +461,10 @@ export function CustomerDashboardPage({
                                             <span>
                                                 <strong>
                                                     {place.name === "Work"
-                                                        ? copy("Work", "Cơ quan")
+                                                        ? copy(
+                                                              "Work",
+                                                              "Cơ quan",
+                                                          )
                                                         : place.name === "Home"
                                                           ? copy("Home", "Nhà")
                                                           : copy(
@@ -454,12 +474,18 @@ export function CustomerDashboardPage({
                                                 </strong>
                                                 <small>{place.detail}</small>
                                             </span>
-                                            <CustomerIcon name="arrow" size={18} />
+                                            <CustomerIcon
+                                                name="arrow"
+                                                size={18}
+                                            />
                                         </button>
                                     ))
                                 ) : (
                                     <p className="dashboard-empty-note py-4 text-center">
-                                        {copy("No saved places", "Chưa có địa điểm đã lưu")}
+                                        {copy(
+                                            "No saved places",
+                                            "Chưa có địa điểm đã lưu",
+                                        )}
                                     </p>
                                 )}
                             </div>
@@ -488,7 +514,9 @@ export function CustomerDashboardPage({
                                             <button
                                                 type="button"
                                                 key={place}
-                                                onClick={() => quickSearch(place)}
+                                                onClick={() =>
+                                                    quickSearch(place)
+                                                }
                                             >
                                                 <span className="dashboard-quick-place-icon">
                                                     <CustomerIcon
@@ -505,7 +533,10 @@ export function CustomerDashboardPage({
                                         ))
                                     ) : (
                                         <p className="dashboard-empty-note py-3 text-center">
-                                            {copy("No recent search history", "Chưa có lịch sử tìm kiếm")}
+                                            {copy(
+                                                "No recent search history",
+                                                "Chưa có lịch sử tìm kiếm",
+                                            )}
                                         </p>
                                     )}
                                 </div>
@@ -703,7 +734,10 @@ export function CustomerDashboardPage({
                                             ))
                                         ) : (
                                             <span className="dashboard-empty-note">
-                                                {copy("No search history", "Chưa có lịch sử")}
+                                                {copy(
+                                                    "No search history",
+                                                    "Chưa có lịch sử",
+                                                )}
                                             </span>
                                         )}
                                     </div>
@@ -856,7 +890,10 @@ export function CustomerDashboardPage({
                                 ))
                             ) : (
                                 <p className="dashboard-empty-note py-3 text-center">
-                                    {copy("No saved places", "Chưa có địa điểm đã lưu")}
+                                    {copy(
+                                        "No saved places",
+                                        "Chưa có địa điểm đã lưu",
+                                    )}
                                 </p>
                             )}
                         </div>

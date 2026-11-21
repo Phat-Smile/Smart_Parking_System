@@ -2,6 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+    Save,
+    Building2,
+    Briefcase,
+    Moon,
+    Ban,
+    CheckCircle2,
+    AlertTriangle,
+} from "lucide-react";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
@@ -330,7 +339,7 @@ export default function OwnerOpeningHoursPage() {
             <OwnerPageHeader
                 breadcrumb="/owner/opening-hours"
                 title="Giờ hoạt động bãi xe"
-                subtitle="Thiết lập lịch mở cửa và đóng cửa chi tiết 7 ngày trong tuần theo chuẩn US-OWNER-002"
+                subtitle="Thiết lập lịch mở cửa và đóng cửa chi tiết 7 ngày trong tuần"
                 actions={
                     <div
                         style={{
@@ -375,6 +384,7 @@ export default function OwnerOpeningHoursPage() {
                                 boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                             }}
                         >
+                            <Save className="w-4 h-4" />
                             {isSubmitting ? "Đang lưu..." : "Lưu giờ hoạt động"}
                         </button>
                     </div>
@@ -397,7 +407,8 @@ export default function OwnerOpeningHoursPage() {
                         gap: 8,
                     }}
                 >
-                    <span>✓</span> {successMessage}
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{successMessage}</span>
                 </div>
             )}
 
@@ -417,7 +428,8 @@ export default function OwnerOpeningHoursPage() {
                         gap: 8,
                     }}
                 >
-                    <span>⚠️</span> {errorMessage}
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{errorMessage}</span>
                 </div>
             )}
 
@@ -438,6 +450,9 @@ export default function OwnerOpeningHoursPage() {
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
+                        <Building2 className="w-5 h-5" />
+                    </div>
                     <div>
                         <div
                             style={{
@@ -662,6 +677,7 @@ export default function OwnerOpeningHoursPage() {
                                 gap: 6,
                             }}
                         >
+                            <Briefcase className="w-3.5 h-3.5" />
                             Áp dụng Cả tuần (7 ngày)
                         </button>
                         <button
@@ -676,8 +692,12 @@ export default function OwnerOpeningHoursPage() {
                                 fontSize: 12.5,
                                 fontWeight: 700,
                                 cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
                             }}
                         >
+                            <Moon className="w-3.5 h-3.5" />
                             Mở 24/7 cả tuần
                         </button>
                         <button
@@ -692,8 +712,12 @@ export default function OwnerOpeningHoursPage() {
                                 fontSize: 12.5,
                                 fontWeight: 700,
                                 cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
                             }}
                         >
+                            <Ban className="w-3.5 h-3.5" />
                             Nghỉ Cuối tuần
                         </button>
                     </div>

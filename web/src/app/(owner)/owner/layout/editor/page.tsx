@@ -2,6 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+    Eye,
+    Save,
+    CheckCircle2,
+    AlertCircle,
+    Car,
+    Bike,
+    Trash2,
+    Lightbulb,
+    Wand2,
+    X,
+} from "lucide-react";
 import { OwnerPageHeader } from "@/components/layout/OwnerPageHeader";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
@@ -253,13 +265,14 @@ export default function OwnerLayoutEditorPage() {
             <OwnerPageHeader
                 breadcrumb="/owner/layout/editor"
                 title="Chỉnh sửa sơ đồ mặt bằng"
-                subtitle={`${currentLot?.name || "Bãi đỗ xe"} · Phiên bản layout v${layoutVersion}`}
+                subtitle={`${currentLot?.name || "Bãi đỗ xe"} · Sơ đồ phiên bản ${layoutVersion}`}
                 actions={
                     <div
                         style={{
                             display: "flex",
                             gap: 10,
                             alignItems: "center",
+                            flexWrap: "wrap",
                         }}
                     >
                         <Link
@@ -278,6 +291,7 @@ export default function OwnerLayoutEditorPage() {
                                 gap: 6,
                             }}
                         >
+                            <Eye className="w-4 h-4 text-slate-600" />
                             Xem sơ đồ 2D
                         </Link>
                         <button
@@ -286,7 +300,9 @@ export default function OwnerLayoutEditorPage() {
                             disabled={isSaving || isLoading}
                             id="save-layout-btn"
                             style={{
-                                background: isSaving ? "#64748b" : "#2563eb",
+                                background: isSaving
+                                    ? "#64748b"
+                                    : "var(--pw-brand-primary, #1e19d8)",
                                 color: "#fff",
                                 border: "none",
                                 borderRadius: 8,
@@ -297,9 +313,10 @@ export default function OwnerLayoutEditorPage() {
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 8,
-                                boxShadow: "0 2px 6px rgba(37,99,235,0.25)",
+                                boxShadow: "0 2px 6px rgba(30, 25, 216, 0.25)",
                             }}
                         >
+                            <Save className="w-4 h-4" />
                             {isSaving ? "Đang lưu…" : "Lưu sơ đồ"}
                         </button>
                     </div>
@@ -308,9 +325,12 @@ export default function OwnerLayoutEditorPage() {
 
             <div
                 style={{
-                    padding: "16px 24px",
+                    padding: "16px 12px",
                     maxWidth: 1200,
                     margin: "0 auto",
+                    width: "100%",
+                    boxSizing: "border-box",
+                    overflowX: "hidden",
                 }}
             >
                 {/* Lot selector card */}
@@ -319,13 +339,15 @@ export default function OwnerLayoutEditorPage() {
                         background: "#fff",
                         border: "1px solid #e2e8f0",
                         borderRadius: 12,
-                        padding: "14px 20px",
+                        padding: "14px 16px",
                         marginBottom: 16,
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
                         flexWrap: "wrap",
                         gap: 12,
+                        width: "100%",
+                        boxSizing: "border-box",
                     }}
                 >
                     <div
@@ -333,6 +355,9 @@ export default function OwnerLayoutEditorPage() {
                             display: "flex",
                             alignItems: "center",
                             gap: 12,
+                            flexWrap: "wrap",
+                            width: "100%",
+                            maxWidth: "100%",
                         }}
                     >
                         <label
@@ -341,6 +366,7 @@ export default function OwnerLayoutEditorPage() {
                                 fontSize: 14,
                                 fontWeight: 600,
                                 color: "#1e293b",
+                                whiteSpace: "nowrap",
                             }}
                         >
                             Chọn bãi đỗ:
@@ -358,7 +384,9 @@ export default function OwnerLayoutEditorPage() {
                                 fontSize: 14,
                                 color: "#0f172a",
                                 background: "#fff",
-                                minWidth: 260,
+                                width: "100%",
+                                maxWidth: 320,
+                                minWidth: 0,
                             }}
                         >
                             {lots.map((lot) => (
@@ -373,8 +401,8 @@ export default function OwnerLayoutEditorPage() {
                     </div>
 
                     <div style={{ fontSize: 13, color: "#64748b" }}>
-                        Mã bãi: <code>{lotKey || "Chưa có backend GUID"}</code>{" "}
-                        · Phiên bản: <b>v{layoutVersion}</b>
+                        Mã bãi: <code>{lotKey || "Chưa có mã hệ thống"}</code> ·
+                        Phiên bản: <b>v{layoutVersion}</b>
                     </div>
                 </div>
 
@@ -392,9 +420,13 @@ export default function OwnerLayoutEditorPage() {
                             marginBottom: 16,
                             fontSize: 14,
                             fontWeight: 500,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
                         }}
                     >
-                        ✅ {saveSuccess}
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{saveSuccess}</span>
                     </div>
                 )}
 
@@ -411,9 +443,13 @@ export default function OwnerLayoutEditorPage() {
                             marginBottom: 16,
                             fontSize: 14,
                             fontWeight: 500,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
                         }}
                     >
-                        ❌ {saveError}
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{saveError}</span>
                     </div>
                 )}
 
@@ -450,6 +486,8 @@ export default function OwnerLayoutEditorPage() {
                         paddingBottom: 8,
                         marginBottom: 20,
                         overflowX: "auto",
+                        maxWidth: "100%",
+                        flexWrap: "nowrap",
                     }}
                 >
                     {floors.map((floor, idx) => (
@@ -463,7 +501,7 @@ export default function OwnerLayoutEditorPage() {
                                 border: "none",
                                 background:
                                     idx === activeFloorIndex
-                                        ? "#2563eb"
+                                        ? "var(--pw-brand-primary, #1e19d8)"
                                         : "#f1f5f9",
                                 color:
                                     idx === activeFloorIndex
@@ -474,6 +512,8 @@ export default function OwnerLayoutEditorPage() {
                                 fontSize: 13,
                                 cursor: "pointer",
                                 transition: "all 0.15s ease",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                             }}
                         >
                             {floor.name} ({floor.zones?.length || 0} khu)
@@ -488,10 +528,12 @@ export default function OwnerLayoutEditorPage() {
                             borderRadius: 8,
                             border: "1px dashed #94a3b8",
                             background: "#fff",
-                            color: "#2563eb",
+                            color: "var(--pw-brand-primary, #1e19d8)",
                             fontWeight: 600,
                             fontSize: 13,
                             cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
                         }}
                     >
                         + Thêm tầng
@@ -513,10 +555,13 @@ export default function OwnerLayoutEditorPage() {
                                 background: "#fff",
                                 border: "1px solid #e2e8f0",
                                 borderRadius: 12,
-                                padding: "16px 20px",
+                                padding: "16px 16px",
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 16,
+                                flexWrap: "wrap",
+                                gap: 12,
+                                width: "100%",
+                                boxSizing: "border-box",
                             }}
                         >
                             <label
@@ -524,6 +569,7 @@ export default function OwnerLayoutEditorPage() {
                                     fontSize: 14,
                                     fontWeight: 600,
                                     color: "#334155",
+                                    whiteSpace: "nowrap",
                                 }}
                             >
                                 Tên tầng:
@@ -540,13 +586,16 @@ export default function OwnerLayoutEditorPage() {
                                     borderRadius: 6,
                                     border: "1px solid #cbd5e1",
                                     fontSize: 14,
-                                    width: 240,
+                                    width: "100%",
+                                    maxWidth: 240,
+                                    minWidth: 0,
                                 }}
                             />
                             <div
                                 style={{
                                     marginLeft: "auto",
                                     display: "flex",
+                                    flexWrap: "wrap",
                                     gap: 8,
                                 }}
                             >
@@ -555,7 +604,7 @@ export default function OwnerLayoutEditorPage() {
                                     onClick={() => handleAddZone("Car")}
                                     style={{
                                         background: "#eff6ff",
-                                        color: "#1d4ed8",
+                                        color: "var(--pw-brand-primary, #1e19d8)",
                                         border: "1px solid #bfdbfe",
                                         borderRadius: 6,
                                         padding: "6px 12px",
@@ -564,7 +613,7 @@ export default function OwnerLayoutEditorPage() {
                                         cursor: "pointer",
                                     }}
                                 >
-                                    + Thêm khu Ô tô (Car)
+                                    + Thêm khu ô tô
                                 </button>
                                 <button
                                     type="button"
@@ -580,7 +629,7 @@ export default function OwnerLayoutEditorPage() {
                                         cursor: "pointer",
                                     }}
                                 >
-                                    + Thêm khu Xe máy (Motorbike)
+                                    + Thêm khu xe máy
                                 </button>
                             </div>
                         </div>
@@ -647,7 +696,17 @@ export default function OwnerLayoutEditorPage() {
                                                             : "#065f46",
                                                     }}
                                                 >
-                                                    {isCar ? "Ô TÔ" : "XE MÁY"}
+                                                    {isCar ? (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <Car className="w-3.5 h-3.5" />
+                                                            Ô TÔ
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <Bike className="w-3.5 h-3.5" />
+                                                            XE MÁY
+                                                        </span>
+                                                    )}
                                                 </span>
                                                 <strong
                                                     style={{
@@ -675,14 +734,22 @@ export default function OwnerLayoutEditorPage() {
                                                 }
                                                 style={{
                                                     background: "none",
-                                                    border: "none",
+                                                    border: "1px solid #fee2e2",
+                                                    borderRadius: 8,
                                                     color: "#ef4444",
                                                     fontSize: 12,
+                                                    fontWeight: 600,
                                                     cursor: "pointer",
-                                                    padding: "4px 8px",
+                                                    minHeight: 44,
+                                                    padding: "0 14px",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
                                                 }}
+                                                aria-label="Xóa khu"
                                             >
-                                                ✕ Xóa khu
+                                                <Trash2 className="w-4 h-4" />
+                                                <span>Xóa khu</span>
                                             </button>
                                         </div>
 
@@ -773,35 +840,51 @@ export default function OwnerLayoutEditorPage() {
                                                     style={{
                                                         display: "flex",
                                                         alignItems: "center",
-                                                        gap: 8,
-                                                        marginTop: 20,
+                                                        marginTop: 10,
                                                     }}
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        id={`sensor-${zone.id}`}
-                                                        checked={
-                                                            zone.hasSlotSensor
-                                                        }
-                                                        onChange={(e) =>
-                                                            handleUpdateZone(
-                                                                zone.id,
-                                                                {
-                                                                    hasSlotSensor:
-                                                                        e.target
-                                                                            .checked,
-                                                                },
-                                                            )
-                                                        }
-                                                    />
                                                     <label
                                                         htmlFor={`sensor-${zone.id}`}
                                                         style={{
                                                             fontSize: 13,
                                                             color: "#334155",
+                                                            minHeight: 44,
+                                                            display:
+                                                                "inline-flex",
+                                                            alignItems:
+                                                                "center",
+                                                            gap: 8,
+                                                            cursor: "pointer",
+                                                            userSelect: "none",
+                                                            padding: "0 8px",
                                                         }}
                                                     >
-                                                        Có cảm biến từng ô
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`sensor-${zone.id}`}
+                                                            checked={
+                                                                zone.hasSlotSensor
+                                                            }
+                                                            onChange={(e) =>
+                                                                handleUpdateZone(
+                                                                    zone.id,
+                                                                    {
+                                                                        hasSlotSensor:
+                                                                            e
+                                                                                .target
+                                                                                .checked,
+                                                                    },
+                                                                )
+                                                            }
+                                                            style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                cursor: "pointer",
+                                                            }}
+                                                        />
+                                                        <span>
+                                                            Có cảm biến từng ô
+                                                        </span>
                                                     </label>
                                                 </div>
                                             ) : (
@@ -938,12 +1021,18 @@ export default function OwnerLayoutEditorPage() {
                                                     padding: "8px 12px",
                                                     borderRadius: 6,
                                                     border: "1px solid #bbf7d0",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 8,
                                                 }}
                                             >
-                                                Khu xe máy quản lý theo dung
-                                                lượng chung ({zone.capacity}{" "}
-                                                xe), không phân chia từng ô
-                                                riêng biệt.
+                                                <Lightbulb className="w-4 h-4 text-emerald-700 shrink-0" />
+                                                <span>
+                                                    Khu xe máy quản lý theo dung
+                                                    lượng chung ({zone.capacity}{" "}
+                                                    xe), không phân chia từng ô
+                                                    riêng biệt.
+                                                </span>
                                             </div>
                                         )}
 
@@ -1022,15 +1111,21 @@ export default function OwnerLayoutEditorPage() {
                                                                 background:
                                                                     "#eff6ff",
                                                                 border: "1px solid #bfdbfe",
-                                                                color: "#2563eb",
+                                                                color: "var(--pw-brand-primary, #1e19d8)",
                                                                 borderRadius: 6,
                                                                 padding:
                                                                     "4px 10px",
                                                                 fontSize: 12,
                                                                 fontWeight: 600,
                                                                 cursor: "pointer",
+                                                                display:
+                                                                    "inline-flex",
+                                                                alignItems:
+                                                                    "center",
+                                                                gap: 4,
                                                             }}
                                                         >
+                                                            <Wand2 className="w-3.5 h-3.5" />
                                                             Tự động tạo{" "}
                                                             {zone.capacity} ô
                                                         </button>
@@ -1058,8 +1153,11 @@ export default function OwnerLayoutEditorPage() {
                                                         style={{
                                                             maxHeight: 260,
                                                             overflowY: "auto",
+                                                            overflowX: "auto",
                                                             border: "1px solid #e2e8f0",
                                                             borderRadius: 8,
+                                                            width: "100%",
+                                                            maxWidth: "100%",
                                                         }}
                                                     >
                                                         <table
@@ -1241,12 +1339,13 @@ export default function OwnerLayoutEditorPage() {
                                                                                     <option value="Maintenance">
                                                                                         Bảo
                                                                                         trì
-                                                                                        (Maintenance)
                                                                                     </option>
                                                                                     <option value="Unavailable">
                                                                                         Tạm
                                                                                         dừng
-                                                                                        (Unavailable)
+                                                                                        (Không
+                                                                                        khả
+                                                                                        dụng)
                                                                                     </option>
                                                                                 </select>
                                                                             </td>
@@ -1273,9 +1372,16 @@ export default function OwnerLayoutEditorPage() {
                                                                                         color: "#94a3b8",
                                                                                         cursor: "pointer",
                                                                                         fontSize: 12,
+                                                                                        display:
+                                                                                            "inline-flex",
+                                                                                        alignItems:
+                                                                                            "center",
+                                                                                        justifyContent:
+                                                                                            "center",
                                                                                     }}
+                                                                                    aria-label="Xóa ô"
                                                                                 >
-                                                                                    ✕
+                                                                                    <X className="w-3.5 h-3.5 hover:text-rose-600 transition-colors" />
                                                                                 </button>
                                                                             </td>
                                                                         </tr>

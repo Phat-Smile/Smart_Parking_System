@@ -102,7 +102,7 @@ export function OwnerPageHeader({
             <div className="ov2-header-left">
                 <h1
                     style={{
-                        fontSize: 26,
+                        fontSize: "clamp(20px, 4.5vw, 26px)",
                         fontWeight: 800,
                         margin: 0,
                         color: "#0f1b3d",
@@ -136,7 +136,10 @@ export function OwnerPageHeader({
                 {actions && <div className="ov2-header-actions">{actions}</div>}
 
                 {/* Global Search */}
-                <div ref={searchRef} style={{ position: "relative" }}>
+                <div
+                    ref={searchRef}
+                    style={{ position: "relative", maxWidth: "100%" }}
+                >
                     <div
                         style={{
                             display: "flex",
@@ -144,7 +147,8 @@ export function OwnerPageHeader({
                             background: "#f3f6fb",
                             borderRadius: 999,
                             padding: "8px 16px",
-                            width: 280,
+                            width: "100%",
+                            maxWidth: 280,
                             border: "1px solid #e3e8f2",
                         }}
                     >
@@ -190,7 +194,7 @@ export function OwnerPageHeader({
                                 position: "absolute",
                                 top: "calc(100% + 8px)",
                                 right: 0,
-                                width: 360,
+                                width: "min(360px, calc(100vw - 32px))",
                                 background: "#fff",
                                 borderRadius: 14,
                                 boxShadow: "0 10px 25px rgba(15,27,61,0.12)",

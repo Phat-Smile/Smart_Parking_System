@@ -303,7 +303,13 @@ export default function LotPricingConfigPage() {
                 title={`Cấu hình bảng giá · ${lot?.name || "Bãi xe"}`}
                 subtitle="Thiết lập biểu phí theo lượt, theo block, qua đêm và kiểm tra xem trước giá tính toán"
                 actions={
-                    <div style={{ display: "flex", gap: "8px" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: "8px",
+                            flexWrap: "wrap",
+                        }}
+                    >
                         <Link
                             href={`/owner/parking-lots/${lot?.id ?? rawId}`}
                             className="btn"
@@ -329,9 +335,9 @@ export default function LotPricingConfigPage() {
                 }
             />
 
-            <div className="grid">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 {/* Form cấu hình */}
-                <div className="card c7">
+                <div className="card c7 col-span-1 md:col-span-7">
                     <div className="wh">
                         <h3>Phương thức tính phí & Biểu giá</h3>
                     </div>
@@ -472,7 +478,7 @@ export default function LotPricingConfigPage() {
                 </div>
 
                 {/* Xem trước giá */}
-                <div className="card c5">
+                <div className="card c5 col-span-1 md:col-span-5">
                     <div className="wh">
                         <h3>Xem trước giá tính toán</h3>
                     </div>

@@ -1028,7 +1028,8 @@ export function AdminOwnerApplicationsPage() {
                                                             className="admin-vneid-badge"
                                                             title="Hồ sơ cá nhân đối chiếu CCCD"
                                                         >
-                                                            Hồ sơ cá nhân đối chiếu CCCD
+                                                            Hồ sơ cá nhân đối
+                                                            chiếu CCCD
                                                         </span>
                                                     )}
                                                 </dd>

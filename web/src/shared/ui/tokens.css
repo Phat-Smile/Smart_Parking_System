@@ -1,0 +1,179 @@
+/**
+ * ParkWise Unified Design System Tokens
+ * Standard: WCAG AAA Contrast, 60-30-10 Color Rule, 44px Touch Targets, Vietnamese Typography
+ */
+
+:root {
+    /* ==========================================================================
+     1. Semantic Color Palette (Light Mode - Default)
+     ========================================================================== */
+    /* 60% Canvas & Backgrounds */
+    --pw-surface-canvas: #f8fafc;
+    --pw-surface-card: #ffffff;
+    --pw-surface-subtle: #f1f5f9;
+
+    /* Text & Typography */
+    --pw-text-primary: #0f172a;
+    --pw-text-secondary: #334155;
+    --pw-text-muted: #64748b;
+    --pw-text-inverse: #ffffff;
+
+    /* Borders & Dividers */
+    --pw-border-subtle: #e2e8f0;
+    --pw-border-strong: #cbd5e1;
+
+    /* 10% Brand Accent & Primary CTA */
+    --pw-brand-primary: #1e19d8;
+    --pw-brand-primary-hover: #1914b8;
+    --pw-brand-accent: #aaec38;
+    --pw-brand-accent-hover: #98d826;
+
+    /* Feedback & Status States */
+    --pw-status-success: #16a34a;
+    --pw-status-success-bg: #f0fdf4;
+    --pw-status-success-border: #bbf7d0;
+
+    --pw-status-warning: #d97706;
+    --pw-status-warning-bg: #fffbeb;
+    --pw-status-warning-border: #fde68a;
+
+    --pw-status-error: #dc2626;
+    --pw-status-error-bg: #fef2f2;
+    --pw-status-error-border: #fecaca;
+
+    --pw-status-info: #0284c7;
+    --pw-status-info-bg: #f0f9ff;
+    --pw-status-info-border: #bae6fd;
+
+    /* ==========================================================================
+     2. Typography Scales (Plus Jakarta Sans & JetBrains Mono)
+     ========================================================================== */
+    --pw-font-sans:
+        var(--font-sans), "Plus Jakarta Sans", -apple-system,
+        BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --pw-font-heading: var(--font-sans), "Plus Jakarta Sans", sans-serif;
+    --pw-font-mono: var(--font-mono), "JetBrains Mono", monospace;
+
+    --pw-text-display: 2rem; /* 32px */
+    --pw-text-h1: 1.5rem; /* 24px */
+    --pw-text-h2: 1.25rem; /* 20px */
+    --pw-text-h3: 1.125rem; /* 18px */
+    --pw-text-body: 0.875rem; /* 14px */
+    --pw-text-caption: 0.75rem; /* 12px */
+
+    /* ==========================================================================
+     3. Spacing Scale
+     ========================================================================== */
+    --pw-space-2xs: 4px;
+    --pw-space-xs: 8px;
+    --pw-space-sm: 12px;
+    --pw-space-md: 16px;
+    --pw-space-lg: 24px;
+    --pw-space-xl: 32px;
+    --pw-space-2xl: 48px;
+
+    /* ==========================================================================
+     4. Border Radii & Touch Targets
+     ========================================================================== */
+    --pw-radius-sm: 4px;
+    --pw-radius-md: 8px;
+    --pw-radius-lg: 12px;
+    --pw-radius-xl: 16px;
+    --pw-radius-full: 9999px;
+
+    /* Minimum Accessible Tap Target (WCAG 2.5.5 AAA) */
+    --pw-tap-target-min: 44px;
+
+    /* ==========================================================================
+     5. Transitions & Shadows
+     ========================================================================== */
+    --pw-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --pw-transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    --pw-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --pw-shadow-md:
+        0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --pw-shadow-lg:
+        0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+    /* ==========================================================================
+     6. Legacy Aliases & Stitch Brand Tokens
+     ========================================================================== */
+    color-scheme: light;
+    --background: #f7f9fc;
+    --foreground: #162235;
+    --surface: #ffffff;
+    --muted: #56657a;
+    --border: #d8e1ec;
+    --primary: var(--pw-brand-primary);
+    --danger: #b42318;
+    --success: #067647;
+    --space-unit: 0.25rem;
+    --radius-control: 0.5rem;
+    --shadow-surface: 0 8px 24px rgb(22 34 53 / 8%);
+
+    /* Stitch Brand Tokens - unified with --pw-brand-primary */
+    --brand-300: #80bded;
+    --brand-400: #4299e1;
+    --brand-500: var(--pw-brand-primary);
+    --brand-600: var(--pw-brand-primary-hover);
+    --brand-700: #130f90;
+    --brand-dark: #0d0a60;
+}
+
+/* ==========================================================================
+   Dark Mode Overrides
+   ========================================================================== */
+:root[data-theme="dark"],
+[data-theme="dark"],
+.dark,
+html.dark {
+    color-scheme: dark;
+    --background: #101722;
+    --foreground: #f1f5fa;
+    --surface: #1b2634;
+    --muted: #adbacb;
+    --border: #37475a;
+    --primary: #80bded;
+    --danger: #ff9388;
+    --success: #6bd7a1;
+
+    --pw-surface-canvas: #0b1120;
+    --pw-surface-card: #1e293b;
+    --pw-surface-subtle: #334155;
+
+    --pw-text-primary: #f8fafc;
+    --pw-text-secondary: #cbd5e1;
+    --pw-text-muted: #94a3b8;
+    --pw-text-inverse: #0f172a;
+
+    --pw-border-subtle: #334155;
+    --pw-border-strong: #475569;
+
+    --pw-brand-primary: #80bded;
+    --pw-brand-primary-hover: #9ecdf3;
+    --pw-brand-accent: #eafe89;
+    --pw-brand-accent-hover: #f3fead;
+
+    --pw-status-success: #4ade80;
+    --pw-status-success-bg: rgba(74, 222, 128, 0.1);
+    --pw-status-success-border: rgba(74, 222, 128, 0.3);
+
+    --pw-status-warning: #fbbf24;
+    --pw-status-warning-bg: rgba(251, 191, 36, 0.1);
+    --pw-status-warning-border: rgba(251, 191, 36, 0.3);
+
+    --pw-status-error: #f87171;
+    --pw-status-error-bg: rgba(248, 113, 113, 0.1);
+    --pw-status-error-border: rgba(248, 113, 113, 0.3);
+
+    --pw-status-info: #38bdf8;
+    --pw-status-info-bg: rgba(56, 189, 248, 0.1);
+    --pw-status-info-border: rgba(56, 189, 248, 0.3);
+
+    --pw-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --pw-shadow-md:
+        0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --pw-shadow-lg:
+        0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+}

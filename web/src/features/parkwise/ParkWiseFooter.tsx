@@ -1,9 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ParkWiseLogo } from "./ParkWiseLogo";
 
 export function ParkWiseFooter({
-    language = "en",
+    language = "vi",
 }: {
     language?: "en" | "vi";
 }) {
@@ -17,8 +16,8 @@ export function ParkWiseFooter({
                         <ParkWiseLogo />
                         <p>
                             {copy(
-                                "Find Convenient and Affordable Parking.",
-                                "Tìm chỗ đỗ xe thuận tiện với giá hợp lý.",
+                                "Tìm kiếm chỗ đỗ xe thuận tiện và tiết kiệm.",
+                                "Tìm kiếm chỗ đỗ xe thuận tiện và tiết kiệm.",
                             )}
                         </p>
                     </div>

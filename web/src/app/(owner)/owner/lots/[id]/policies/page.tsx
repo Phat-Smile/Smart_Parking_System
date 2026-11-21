@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { CheckCircle2, AlertTriangle, Pin } from "lucide-react";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useOwnerStore } from "@/store/useOwnerStore";
@@ -183,9 +184,15 @@ export default function LotPoliciesPage() {
                 <div
                     data-testid="policies-success-banner"
                     className="ok"
-                    style={{ marginBottom: "16px" }}
+                    style={{
+                        marginBottom: "16px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                    }}
                 >
-                    <b>✓ Thành công:</b> {successMessage}
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <b>Thành công:</b> {successMessage}
                 </div>
             )}
 
@@ -193,16 +200,22 @@ export default function LotPoliciesPage() {
                 <div
                     data-testid="policies-error-banner"
                     className="err"
-                    style={{ marginBottom: "16px" }}
+                    style={{
+                        marginBottom: "16px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                    }}
                 >
-                    <b>⚠️ Lỗi:</b> {errorMessage}
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <b>Lỗi:</b> {errorMessage}
                 </div>
             )}
 
             <PageHeader
                 breadcrumb={`/owner/lots/${lotId}/policies`}
                 title={`Chính sách đặt chỗ & cọc · ${lot?.name || "Bãi xe"}`}
-                subtitle="Cấu hình nhận giữ chỗ trực tuyến, phân bổ tỷ lệ chỗ đặt trước và thiết lập mức cọc chống no-show"
+                subtitle="Cấu hình nhận giữ chỗ trực tuyến, phân bổ tỷ lệ chỗ đặt trước và thiết lập mức cọc chống bỏ chỗ"
                 actions={
                     <div style={{ display: "flex", gap: "8px" }}>
                         <Link
@@ -532,8 +545,8 @@ export default function LotPoliciesPage() {
                         >
                             Khoản tiền tạm trừ từ Ví ParkWise của khách khi xác
                             nhận giữ chỗ. Khoản này sẽ được khấu trừ vào phí đỗ
-                            xe khi check-in, hoặc hoàn lại nếu khách tự hủy
-                            trước 5 phút.
+                            xe khi vào bãi, hoặc hoàn lại nếu khách tự hủy trước
+                            5 phút.
                         </p>
 
                         <div
@@ -629,10 +642,13 @@ export default function LotPoliciesPage() {
                                 lineHeight: "1.6",
                             }}
                         >
-                            <b>Quy định vận hành Smart Parking:</b>
+                            <div className="flex items-center gap-1.5 font-bold mb-1">
+                                <Pin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                <span>Quy định vận hành Smart Parking:</span>
+                            </div>
                             <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
                                 <li>
-                                    Nếu khách check-in đúng giờ: Tiền cọc được
+                                    Nếu khách vào bãi đúng giờ: Tiền cọc được
                                     trừ trực tiếp vào hóa đơn cuối cùng.
                                 </li>
                                 <li>
@@ -640,10 +656,10 @@ export default function LotPoliciesPage() {
                                     hoàn 100% tiền cọc về ví của khách.
                                 </li>
                                 <li>
-                                    Nếu quá 15 phút không đến (No-show): Ô đỗ tự
-                                    động giải phóng cho tài xế khác, tiền cọc
-                                    được ghi nhận bồi hoàn doanh thu cho chủ
-                                    bãi.
+                                    Nếu quá 15 phút không đến (không nhận chỗ):
+                                    Ô đỗ tự động giải phóng cho tài xế khác,
+                                    tiền cọc được ghi nhận bồi hoàn doanh thu
+                                    cho chủ bãi.
                                 </li>
                             </ul>
                         </div>

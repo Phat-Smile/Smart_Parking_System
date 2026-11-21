@@ -37,7 +37,7 @@ export function SessionsTableV2() {
     const [cancellingSession, setCancellingSession] =
         useState<ParkingSession | null>(null);
     const [cancelReason, setCancelReason] = useState(
-        "Xe không vào sau khi mở barie",
+        "Xe không vào sau khi mở rào chắn",
     );
     const [isCancelling, setIsCancelling] = useState(false);
     const [cancelledSessionIds, setCancelledSessionIds] = useState<Set<string>>(
@@ -698,7 +698,7 @@ export function SessionsTableV2() {
                                     marginBottom: 4,
                                 }}
                             >
-                                Lý do hủy phiên (Bắt buộc theo chuẩn BE)
+                                Lý do hủy phiên (Bắt buộc)
                             </label>
                             <input
                                 type="text"

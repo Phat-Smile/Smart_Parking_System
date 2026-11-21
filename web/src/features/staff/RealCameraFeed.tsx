@@ -607,7 +607,7 @@ export function RealCameraFeed({
                                             setErrorMsg("");
                                             setIsActive(true);
                                         }}
-                                        className="staff-btn staff-btn-primary staff-btn-sm"
+                                        className="staff-btn staff-btn-primary staff-btn-sm min-h-[44px]"
                                         title="Thử kết nối lại và yêu cầu quyền truy cập Camera trên trình duyệt"
                                     >
                                         <RefreshCw
@@ -633,7 +633,7 @@ export function RealCameraFeed({
                                     <button
                                         type="button"
                                         onClick={() => setIsActive(true)}
-                                        className="staff-btn staff-btn-primary staff-btn-sm"
+                                        className="staff-btn staff-btn-primary staff-btn-sm min-h-[44px]"
                                         title="Kích hoạt luồng video từ Camera thiết bị"
                                     >
                                         <Camera size={13} strokeWidth={2.2} />

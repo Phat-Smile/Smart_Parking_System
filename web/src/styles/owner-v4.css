@@ -76,11 +76,18 @@ body {
     display: inline-flex;
     align-items: center;
     text-decoration: none;
-    transition: opacity 0.15s ease;
+    transition:
+        opacity 0.15s ease,
+        background 0.15s ease;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 4px 10px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .brand-logo-link:hover {
-    opacity: 0.88;
+    opacity: 0.92;
+    background: #ffffff;
 }
 
 .brand {
@@ -251,8 +258,16 @@ h2 {
     grid-column: span 4;
 }
 
+.c5 {
+    grid-column: span 5;
+}
+
 .c6 {
     grid-column: span 6;
+}
+
+.c7 {
+    grid-column: span 7;
 }
 
 .c8 {
@@ -336,6 +351,7 @@ h2 {
 } /* teal – sessions (logo teal) */
 
 .btn {
+    min-height: 44px;
     border: 1px solid var(--line);
     background: var(--card);
     color: var(--ink);
@@ -354,15 +370,16 @@ h2 {
 }
 
 .btn.p {
-    background: var(--pw-lime);
-    color: #111;
-    border-color: var(--pw-lime);
+    background: var(--pw-brand-primary, #1e19d8);
+    color: #fff;
+    border-color: var(--pw-brand-primary, #1e19d8);
     font-weight: 700;
 }
 
 .btn.p:hover {
-    background: var(--pw-lime-dark);
-    border-color: var(--pw-lime-dark);
+    background: var(--pw-brand-primary-hover, #1914b8);
+    border-color: var(--pw-brand-primary-hover, #1914b8);
+    color: #fff;
 }
 
 .btn[disabled] {
@@ -371,8 +388,9 @@ h2 {
 }
 
 .btn.sm {
-    padding: 4px 12px;
-    font-size: 12px;
+    min-height: 44px;
+    padding: 6px 14px;
+    font-size: 12.5px;
 }
 
 button:focus-visible,
@@ -830,13 +848,16 @@ th {
 }
 
 .chip {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     border: 1px solid var(--line);
     background: var(--card);
     color: var(--ink);
     border-radius: 99px;
-    padding: 5px 12px;
+    padding: 8px 16px;
     font: inherit;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
 }
 
@@ -886,8 +907,10 @@ th {
 
 @media (max-width: 1200px) {
     .c4,
-    .c6 {
-        grid-column: span 6;
+    .c5,
+    .c6,
+    .c7 {
+        grid-column: span 12;
     }
     .c8 {
         grid-column: span 12;
@@ -917,9 +940,16 @@ th {
 }
 
 @media (max-width: 700px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
     .c4,
-    .c6 {
-        grid-column: span 12;
+    .c5,
+    .c6,
+    .c7,
+    .c8,
+    .c12 {
+        grid-column: span 1 / -1;
     }
     #v3 {
         height: 380px;

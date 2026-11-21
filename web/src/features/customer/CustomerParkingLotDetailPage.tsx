@@ -128,7 +128,7 @@ export function CustomerParkingLotDetailPage({
             <main className="parkwise-container lot-detail-main">
                 <Link href="/search" className="lot-detail-bottom-back">
                     <ArrowLeft size={18} />{" "}
-                    {copy("Back to Find Parking", "Quay lại tìm bãi đỗ")}
+                    {copy("Quay lại tìm bãi đỗ", "Quay lại tìm bãi đỗ")}
                 </Link>
                 <div
                     className="lot-detail-state"
@@ -137,7 +137,7 @@ export function CustomerParkingLotDetailPage({
                     {visibleState === "loading" ? (
                         <p>
                             {copy(
-                                "Loading parking details…",
+                                "Đang tải thông tin bãi đỗ…",
                                 "Đang tải thông tin bãi đỗ…",
                             )}
                         </p>
@@ -145,13 +145,13 @@ export function CustomerParkingLotDetailPage({
                         <>
                             <h1>
                                 {copy(
-                                    "Parking lot not found",
+                                    "Không tìm thấy bãi đỗ",
                                     "Không tìm thấy bãi đỗ",
                                 )}
                             </h1>
                             <p>
                                 {copy(
-                                    "This lot may be unavailable or is not approved for public viewing.",
+                                    "Bãi đỗ có thể không còn hoạt động hoặc chưa được duyệt để hiển thị.",
                                     "Bãi đỗ có thể không còn hoạt động hoặc chưa được duyệt để hiển thị.",
                                 )}
                             </p>
@@ -160,13 +160,13 @@ export function CustomerParkingLotDetailPage({
                         <>
                             <h1>
                                 {copy(
-                                    "Parking details are unavailable",
+                                    "Chưa thể xem thông tin bãi đỗ",
                                     "Chưa thể xem thông tin bãi đỗ",
                                 )}
                             </h1>
                             <p>
                                 {copy(
-                                    "Please try again later.",
+                                    "Vui lòng thử lại sau.",
                                     "Vui lòng thử lại sau.",
                                 )}
                             </p>
@@ -174,7 +174,7 @@ export function CustomerParkingLotDetailPage({
                     )}
                     {visibleState !== "loading" && (
                         <Link href="/search">
-                            {copy("Browse parking lots", "Xem các bãi đỗ")}
+                            {copy("Xem các bãi đỗ", "Xem các bãi đỗ")}
                         </Link>
                     )}
                 </div>

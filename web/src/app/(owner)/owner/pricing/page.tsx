@@ -2,6 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+    AlertTriangle,
+    CheckCircle,
+    Ticket,
+    Car,
+    Bike,
+    Flame,
+} from "lucide-react";
 import { useAllLots } from "@/features/owner/lots/useOwnerMapStore";
 import { backendLotId } from "@/features/owner/lots/ownerLotsSync";
 import {
@@ -245,8 +253,7 @@ export default function OwnerPricingManagementPage() {
         enablePeakSurge && simSurgePeak ? Math.round(basePrice * 0.2) : 0;
 
     // Tổng thanh toán
-    const totalPayment =
-        (isOvernight ? overnightFee : basePrice) + peakFee;
+    const totalPayment = (isOvernight ? overnightFee : basePrice) + peakFee;
 
     const handleSave = async () => {
         setErrorMessage("");
@@ -277,7 +284,7 @@ export default function OwnerPricingManagementPage() {
                 } catch {}
                 setIsSubmitting(false);
                 setSuccessMessage(
-                    "✓ Đã lưu bảng giá vào phiên thử nghiệm Sandbox (Không ảnh hưởng dữ liệu thật)!",
+                    "Đã lưu bảng giá vào phiên thử nghiệm Sandbox (Không ảnh hưởng dữ liệu thật)!",
                 );
                 setTimeout(() => setSuccessMessage(""), 5000);
             }, 300);
@@ -356,7 +363,7 @@ export default function OwnerPricingManagementPage() {
                             gap: 10,
                         }}
                     >
-                        <span style={{ fontSize: 20 }}>🟡</span>
+                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                         <div>
                             <div
                                 style={{
@@ -478,7 +485,7 @@ export default function OwnerPricingManagementPage() {
                         disabled={isSubmitting}
                         style={{
                             padding: "8px 20px",
-                            background: "#19301D",
+                            background: "var(--pw-brand-primary, #1e19d8)",
                             color: "#ffffff",
                             border: "none",
                             borderRadius: 10,
@@ -490,7 +497,7 @@ export default function OwnerPricingManagementPage() {
                             cursor: isSubmitting ? "not-allowed" : "pointer",
                             opacity: isSubmitting ? 0.7 : 1,
                             transition: "all 0.15s ease",
-                            boxShadow: "0 2px 6px rgba(25, 48, 29, 0.2)",
+                            boxShadow: "0 2px 6px rgba(30, 25, 216, 0.25)",
                         }}
                     >
                         <svg
@@ -578,6 +585,9 @@ export default function OwnerPricingManagementPage() {
                 <div
                     role="status"
                     style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
                         padding: "12px 18px",
                         borderRadius: 12,
                         background: "#EAF7EE",
@@ -588,7 +598,8 @@ export default function OwnerPricingManagementPage() {
                         marginBottom: 20,
                     }}
                 >
-                    ✓ {successMessage}
+                    <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>{successMessage}</span>
                 </div>
             )}
 
@@ -596,6 +607,9 @@ export default function OwnerPricingManagementPage() {
                 <div
                     role="alert"
                     style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
                         padding: "12px 18px",
                         borderRadius: 12,
                         background: "#FDEEEE",
@@ -606,7 +620,8 @@ export default function OwnerPricingManagementPage() {
                         marginBottom: 20,
                     }}
                 >
-                    ⚠️ {errorMessage}
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>{errorMessage}</span>
                 </div>
             )}
 
@@ -724,9 +739,13 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 750,
                                     color: "#172018",
                                     marginBottom: 3,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
                                 }}
                             >
-                                Theo lượt vào / ra
+                                <Ticket className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>Theo lượt vào / ra</span>
                             </div>
                             <div
                                 style={{
@@ -855,9 +874,13 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 750,
                                     color: "#172018",
                                     marginBottom: 10,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
                                 }}
                             >
-                                Ô tô
+                                <Car className="w-4 h-4 text-blue-600 shrink-0" />
+                                <span>Ô tô</span>
                             </div>
 
                             <label
@@ -915,9 +938,13 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 750,
                                     color: "#172018",
                                     marginBottom: 10,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
                                 }}
                             >
-                                Xe máy
+                                <Bike className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>Xe máy</span>
                             </div>
 
                             <label
@@ -1073,7 +1100,7 @@ export default function OwnerPricingManagementPage() {
                                 fontWeight: 550,
                             }}
                         >
-                            Khi khách check-in thành công, tiền cọc được trừ vào
+                            Khi khách vào bãi thành công, tiền cọc được trừ vào
                             tổng phí đỗ. Nếu khách không đến sau thời gian giữ
                             chỗ, cọc xử lý theo điều khoản hủy.
                         </span>
@@ -1150,8 +1177,12 @@ export default function OwnerPricingManagementPage() {
                                         fontSize: 13.5,
                                         fontWeight: 750,
                                         color: "#172018",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 4,
                                     }}
                                 >
+                                    <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
                                     Giờ cao điểm
                                 </span>
                                 <span
@@ -1557,8 +1588,6 @@ export default function OwnerPricingManagementPage() {
                                 </span>
                             </div>
 
-
-
                             <div
                                 style={{
                                     display: "flex",
@@ -1569,7 +1598,7 @@ export default function OwnerPricingManagementPage() {
                                     fontWeight: 650,
                                 }}
                             >
-                                <span>Tiền cọc (trừ khi check-out)</span>
+                                <span>Tiền cọc (trừ khi ra bãi)</span>
                                 <span
                                     style={{
                                         fontWeight: 800,

@@ -14,9 +14,15 @@ export function TopBar() {
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
-        getMyVehicles().then(res => setVehicles(res.vehicles || [])).catch(() => {});
-        getMyWallet().then(w => setBalance(w.balance)).catch(() => {});
-        getMyNotifications(true, 1, 1).then(p => setUnreadCount(p.unreadCount)).catch(() => {});
+        getMyVehicles()
+            .then((res) => setVehicles(res.vehicles || []))
+            .catch(() => {});
+        getMyWallet()
+            .then((w) => setBalance(w.balance))
+            .catch(() => {});
+        getMyNotifications(true, 1, 1)
+            .then((p) => setUnreadCount(p.unreadCount))
+            .catch(() => {});
     }, []);
 
     return (
@@ -28,12 +34,18 @@ export function TopBar() {
                     </span>
                     <select className="bg-transparent text-white font-medium outline-none cursor-pointer">
                         {vehicles.length === 0 ? (
-                            <option value="none" className="bg-[#0b0c17] text-white">
+                            <option
+                                value="none"
+                                className="bg-[#0b0c17] text-white"
+                            >
                                 Chưa có xe
                             </option>
                         ) : (
                             <>
-                                <option value="all" className="bg-[#0b0c17] text-white">
+                                <option
+                                    value="all"
+                                    className="bg-[#0b0c17] text-white"
+                                >
                                     Tất cả xe
                                 </option>
                                 {vehicles.map((v) => (
@@ -42,7 +54,13 @@ export function TopBar() {
                                         value={v.licensePlate}
                                         className="bg-[#0b0c17] text-white"
                                     >
-                                        {v.licensePlate} ({v.vehicleType === "Car" ? "Ô tô" : v.vehicleType === "Motorbike" ? "Xe máy" : "Xe đạp"})
+                                        {v.licensePlate} (
+                                        {v.vehicleType === "Car"
+                                            ? "Ô tô"
+                                            : v.vehicleType === "Motorbike"
+                                              ? "Xe máy"
+                                              : "Xe đạp"}
+                                        )
                                     </option>
                                 ))}
                             </>

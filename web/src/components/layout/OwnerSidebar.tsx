@@ -299,7 +299,7 @@ export function OwnerSidebar() {
                                     fontWeight: 800,
                                 }}
                             >
-                                Sandbox
+                                Mô phỏng
                             </span>
                         </div>
                         <button
@@ -356,7 +356,7 @@ export function OwnerSidebar() {
                                 fontWeight: 800,
                             }}
                         >
-                            Sandbox
+                            Mô phỏng
                         </span>
                     </Link>
                 )}

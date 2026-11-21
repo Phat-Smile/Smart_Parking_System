@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { X, Pencil, CheckCircle2, AlertTriangle } from "lucide-react";
 import { OwnerPageHeader as PageHeader } from "../../../../../components/layout/OwnerPageHeader";
 import { Plan2DGrid } from "../../../../../components/viz/Plan2DGrid";
 import { useOwnerStore } from "../../../../../store/useOwnerStore";
@@ -50,7 +51,7 @@ function SlotModal({
                         onClick={onClose}
                         aria-label="Đóng"
                     >
-                        ✕
+                        <X className="w-4 h-4 inline-block" />
                     </button>
                 </div>
 
@@ -270,6 +271,7 @@ export default function Layout2DPage() {
                                 gap: 6,
                             }}
                         >
+                            <Pencil className="w-3.5 h-3.5 inline-block text-slate-600" />
                             Chỉnh sửa sơ đồ
                         </Link>
                         <button
@@ -328,7 +330,8 @@ export default function Layout2DPage() {
                         gap: 8,
                     }}
                 >
-                    ✓ {saveSuccess}
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{saveSuccess}</span>
                 </div>
             )}
             {saveError && (
@@ -348,7 +351,8 @@ export default function Layout2DPage() {
                         gap: 8,
                     }}
                 >
-                    ⚠️ {saveError}
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{saveError}</span>
                 </div>
             )}
 

@@ -481,7 +481,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsVerifyAndApprove: "Kiểm tra & Duyệt",
         ownerAppsReject: "Từ chối",
         ownerAppsChecklistTitle:
-            "📋 Checklist kiểm tra điều kiện pháp lý (Yêu cầu đủ 4 mục):",
+            "Checklist kiểm tra điều kiện pháp lý (Yêu cầu đủ 4 mục):",
         ownerAppsChecklistRule1:
             "1. Giấy phép ĐKKD & Mã số thuế hợp lệ trên cổng quốc gia",
         ownerAppsChecklistRule2:
@@ -491,8 +491,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsChecklistRule4:
             "4. Hợp đồng thuê mặt bằng hoặc quyền sử dụng bãi xe hợp pháp",
         ownerAppsChecklistWarning:
-            "⚠️ Chỉ có thể duyệt khi kiểm tra và đánh dấu đủ cả 4 mục giấy tờ trên.",
-        ownerAppsConfirmApprove: "✓ Xác nhận đủ giấy tờ & Duyệt",
+            "Chỉ có thể duyệt khi kiểm tra và đánh dấu đủ cả 4 mục giấy tờ trên.",
+        ownerAppsConfirmApprove: "Xác nhận đủ giấy tờ & Duyệt",
         ownerAppsRejectReasonLabel: "Lý do từ chối (bắt buộc):",
         ownerAppsRejectReasonPlaceholder:
             "Ví dụ: Hồ sơ chưa đủ điều kiện: Thiếu giấy phép PCCC và Hợp đồng bãi đỗ.",
@@ -510,7 +510,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsIdCardNumber: "Số CCCD:",
         ownerAppsRegisteredAddress: "Địa chỉ ĐKKD:",
         ownerAppsAttachedDocs: "Tài liệu đính kèm",
-        ownerAppsNoDocsWarning: "⚠️ Đối tác chưa tải lên tài liệu pháp lý nào.",
+        ownerAppsNoDocsWarning: "Đối tác chưa tải lên tài liệu pháp lý nào.",
         ownerAppsSelectAllChecklist: "Chọn tất cả",
         ownerAppsDeselectAllChecklist: "Bỏ chọn tất cả",
         ownerAppsRejectMissingDocsBtn: "Hồ sơ thiếu giấy tờ ➔ Từ chối",
@@ -650,8 +650,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         dashTitle: "Tổng quan ca trực",
         dashSubtitle:
             "Theo dõi lưu lượng xe tại cổng, công suất chỗ đỗ thời gian thực và các cảnh báo.",
-        dashProcessEntry: "➕ Tiếp nhận xe vào cổng",
-        dashProcessExit: "⚡ Xử lý xe ra cổng",
+        dashProcessEntry: "Tiếp nhận xe vào cổng",
+        dashProcessExit: "Xử lý xe ra cổng",
         dashOccupancy: "Công suất bãi đỗ hiện tại",
         dashFull: "ĐẦY",
         dashSlots: "chỗ",
@@ -720,7 +720,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entrySummaryType: "Loại xe:",
         entrySummaryCap: "Chỗ trống bãi xe:",
         entrySummaryAccount: "Trạng thái tài khoản:",
-        entryAccountLinked: "✓ Đã liên kết tài khoản (ví khả dụng)",
+        entryAccountLinked: "Đã liên kết tài khoản (ví khả dụng)",
         entryAccountGuest: "Khách vãng lai (Cấp vé mã QR)",
         entryQrTokenLabel: "Mã QR phiên gửi xe:",
         entryMotorbikeSlotsLeft: "Số chỗ xe máy còn trống:",
@@ -899,7 +899,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsVerifyAndApprove: "Inspect & Approve",
         ownerAppsReject: "Reject",
         ownerAppsChecklistTitle:
-            "📋 Legal Verification Checklist (All 4 required):",
+            "Legal Verification Checklist (All 4 required):",
         ownerAppsChecklistRule1:
             "1. Valid Business Registration & Tax Code on national registry",
         ownerAppsChecklistRule2:
@@ -908,8 +908,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsChecklistRule4:
             "4. Valid premises lease agreement or land ownership title",
         ownerAppsChecklistWarning:
-            "⚠️ Approval is only allowed after verifying all 4 legal criteria above.",
-        ownerAppsConfirmApprove: "✓ Verified All Docs & Approve",
+            "Approval is only allowed after verifying all 4 legal criteria above.",
+        ownerAppsConfirmApprove: "Verified All Docs & Approve",
         ownerAppsRejectReasonLabel: "Rejection Reason (required):",
         ownerAppsRejectReasonPlaceholder:
             "Example: Missing fire safety documentation or invalid premises lease.",
@@ -927,7 +927,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         ownerAppsRegisteredAddress: "Registered Address:",
         ownerAppsAttachedDocs: "Attached Documents",
         ownerAppsNoDocsWarning:
-            "⚠️ Applicant has not uploaded any legal documents.",
+            "Applicant has not uploaded any legal documents.",
         ownerAppsSelectAllChecklist: "Select All",
         ownerAppsDeselectAllChecklist: "Deselect All",
         ownerAppsRejectMissingDocsBtn: "Missing Documents ➔ Reject",
@@ -1070,8 +1070,8 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         dashTitle: "Staff Dashboard",
         dashSubtitle:
             "Real-time gate traffic, slot capacity, and pending verifications.",
-        dashProcessEntry: "➕ Process Vehicle Entry",
-        dashProcessExit: "⚡ Process Vehicle Exit",
+        dashProcessEntry: "Process Vehicle Entry",
+        dashProcessExit: "Process Vehicle Exit",
         dashOccupancy: "Current Occupancy",
         dashFull: "FULL",
         dashSlots: "Slots",
@@ -1140,7 +1140,7 @@ export const translations: Record<SupportedLanguage, TranslationDictionary> = {
         entrySummaryType: "Vehicle Type:",
         entrySummaryCap: "Lot Capacity Available:",
         entrySummaryAccount: "Account Status:",
-        entryAccountLinked: "✓ Linked account (wallet active)",
+        entryAccountLinked: "Linked account (wallet active)",
         entryAccountGuest: "Guest (No account needed · QR Issued)",
         entryQrTokenLabel: "Parking Session QR Token:",
         entryMotorbikeSlotsLeft: "Motorbike slots available:",

@@ -10,10 +10,17 @@ import {
     Info,
     QrCode,
     AlertTriangle,
+    X,
 } from "lucide-react";
 import QRCode from "react-qr-code";
-import { getMyParkingSessions, type MyParkingSession } from "../../mySessionsApi";
-import { getMyReservations, type ReservationSummaryDto } from "../../booking/bookingApi";
+import {
+    getMyParkingSessions,
+    type MyParkingSession,
+} from "../../mySessionsApi";
+import {
+    getMyReservations,
+    type ReservationSummaryDto,
+} from "../../booking/bookingApi";
 
 function formatTime(seconds: number) {
     const m = Math.floor(seconds / 60);
@@ -25,8 +32,11 @@ export function DashboardHero() {
     const { heroState, vehicleType, countdown, setCountdown } =
         useDashboardStore();
     const [qrModalOpen, setQrModalOpen] = useState(false);
-    const [activeSession, setActiveSession] = useState<MyParkingSession | null>(null);
-    const [activeBooking, setActiveBooking] = useState<ReservationSummaryDto | null>(null);
+    const [activeSession, setActiveSession] = useState<MyParkingSession | null>(
+        null,
+    );
+    const [activeBooking, setActiveBooking] =
+        useState<ReservationSummaryDto | null>(null);
 
     useEffect(() => {
         getMyParkingSessions()
@@ -39,7 +49,9 @@ export function DashboardHero() {
         getMyReservations()
             .then((reservations) => {
                 const upcoming = (reservations || []).find(
-                    (r) => r.status === "Confirmed" || r.status === "PendingPayment",
+                    (r) =>
+                        r.status === "Confirmed" ||
+                        r.status === "PendingPayment",
                 );
                 if (upcoming) setActiveBooking(upcoming);
             })
@@ -118,7 +130,8 @@ export function DashboardHero() {
                         <Badge type="success">Đã xác nhận</Badge>
                     </h3>
                     <p className="text-[var(--dash-text-muted)] flex items-center gap-2 mt-2">
-                        <MapPin size={16} /> {activeBooking ? "Vị trí bãi đỗ xe" : "Chưa có địa chỉ"}
+                        <MapPin size={16} />{" "}
+                        {activeBooking ? "Vị trí bãi đỗ xe" : "Chưa có địa chỉ"}
                     </p>
                     <p className="text-[var(--dash-text)] mt-3 font-medium">
                         {activeBooking?.appointmentTime
@@ -162,7 +175,9 @@ export function DashboardHero() {
                             {vi.hero.active.spot}
                         </span>
                         <span className="font-mono font-bold text-lg text-[var(--dash-text)]">
-                            {activeSession?.zoneCode || activeSession?.floorName || "Đỗ tự do"}
+                            {activeSession?.zoneCode ||
+                                activeSession?.floorName ||
+                                "Đỗ tự do"}
                         </span>
                     </div>
                 </div>
@@ -173,7 +188,12 @@ export function DashboardHero() {
                         </span>
                         <p className="font-bold text-[var(--dash-text)]">
                             {activeSession?.entryTime
-                                ? new Date(activeSession.entryTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+                                ? new Date(
+                                      activeSession.entryTime,
+                                  ).toLocaleTimeString("vi-VN", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                  })
                                 : "—"}
                         </p>
                     </div>
@@ -189,9 +209,7 @@ export function DashboardHero() {
                         <span className="text-[var(--dash-text-muted)]">
                             {vi.hero.active.prepaid}
                         </span>
-                        <p className="font-bold text-[var(--dash-text)]">
-                            0đ
-                        </p>
+                        <p className="font-bold text-[var(--dash-text)]">0đ</p>
                     </div>
                     <div>
                         <span className="text-[var(--dash-text-muted)]">
@@ -295,9 +313,10 @@ export function DashboardHero() {
                     <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full relative flex flex-col items-center">
                         <button
                             onClick={() => setQrModalOpen(false)}
-                            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-black/5 text-black hover:bg-black/10 transition-colors"
+                            className="absolute top-4 right-4 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/5 text-black hover:bg-black/10 transition-colors"
+                            aria-label="Đóng"
                         >
-                            ✕
+                            <X className="w-5 h-5" />
                         </button>
                         <h4 className="text-xl font-bold text-black mb-1">
                             QR Phiên Đỗ
@@ -313,7 +332,14 @@ export function DashboardHero() {
                             className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 w-full flex justify-center mb-6"
                             style={{ filter: "brightness(1.1) contrast(1.2)" }}
                         >
-                            <QRCode value={activeSession?.qrToken || activeSession?.sessionId || "no-session"} size={200} />
+                            <QRCode
+                                value={
+                                    activeSession?.qrToken ||
+                                    activeSession?.sessionId ||
+                                    "no-session"
+                                }
+                                size={200}
+                            />
                         </div>
 
                         <div className="w-full bg-gray-50 rounded-xl p-4 text-center border border-gray-100">

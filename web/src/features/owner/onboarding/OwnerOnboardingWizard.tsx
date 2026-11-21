@@ -2652,7 +2652,6 @@ export function OwnerOnboardingWizard({
                             }}
                         >
                             <span>✓</span> Trạng thái: Đã phê duyệt chính thức
-                            (Approved)
                         </div>
 
                         <h2 className="pw-status-title">
@@ -2759,7 +2758,7 @@ export function OwnerOnboardingWizard({
                             }}
                         >
                             <span>✕</span> Trạng thái: Hồ sơ cần chỉnh sửa bổ
-                            sung (Rejected)
+                            sung
                         </div>
 
                         <h2 className="pw-status-title">
@@ -3048,7 +3047,7 @@ export function OwnerOnboardingWizard({
                           ? "001199123456"
                           : "038085123456"
                 }
-                title="Xác thực Căn cước công dân qua VNeID (Level 2 eID)"
+                title="Xác thực Căn cước công dân qua VNeID (Định danh điện tử mức 2)"
                 subtitle="Chia sẻ thông tin định danh công dân mức độ 2 để tự động điền hồ sơ chủ bãi"
             />
         </div>
