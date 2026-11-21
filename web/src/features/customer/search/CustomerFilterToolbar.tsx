@@ -9,7 +9,8 @@ export type CustomerFilterToolbarProps = {
     setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
     clearDistanceFilter: () => void;
     visibleParkingsCount: number;
-    searchOrigin: MapCoordinates | { longitude: number; latitude: number } | null;
+    searchOrigin:
+        MapCoordinates | { longitude: number; latitude: number } | null;
     distanceLabels: Record<string, string>;
     copy: (en: string, vi: string) => string;
 };
@@ -84,17 +85,13 @@ export function CustomerFilterToolbar({
                         options={filterOptions.sort
                             .filter(
                                 (option) =>
-                                    searchOrigin ||
-                                    option.value !== "distance",
+                                    searchOrigin || option.value !== "distance",
                             )
                             .map((option) => ({
                                 ...option,
                                 label:
                                     option.value === "recommended"
-                                        ? copy(
-                                              "Best match",
-                                              "Phù hợp nhất",
-                                          )
+                                        ? copy("Best match", "Phù hợp nhất")
                                         : option.value === "name"
                                           ? copy("Name A–Z", "Tên A–Z")
                                           : option.value === "price"
@@ -102,10 +99,7 @@ export function CustomerFilterToolbar({
                                                   "Lowest price",
                                                   "Giá thấp nhất",
                                               )
-                                            : copy(
-                                                  "Nearest",
-                                                  "Gần nhất",
-                                              ),
+                                            : copy("Nearest", "Gần nhất"),
                             }))}
                         onChange={(sort) =>
                             setFilters((current) => ({

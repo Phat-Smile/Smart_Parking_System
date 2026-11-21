@@ -35,7 +35,8 @@ export function CustomerAiRecommendationsSkeleton() {
             style={{
                 minHeight: "120px",
                 borderRadius: "16px",
-                background: "var(--color-bg-secondary, rgba(255, 255, 255, 0.04))",
+                background:
+                    "var(--color-bg-secondary, rgba(255, 255, 255, 0.04))",
                 border: "1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08))",
                 marginBottom: "1rem",
                 animation: "pulse 1.5s infinite ease-in-out",

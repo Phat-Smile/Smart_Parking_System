@@ -1,13 +1,12 @@
 "use client";
 
-import {
-    type FormEvent,
-    type KeyboardEvent,
-    type RefObject,
-} from "react";
+import { type FormEvent, type KeyboardEvent, type RefObject } from "react";
 import { CustomerIcon } from "../CustomerShell";
 import { CustomerSearchDropdown } from "../CustomerSearchDropdown";
-import { type DestinationSuggestion, type MapCoordinates } from "../geocodeDestination";
+import {
+    type DestinationSuggestion,
+    type MapCoordinates,
+} from "../geocodeDestination";
 import { filterOptions, type FilterState } from "./useCustomerFindParking";
 
 export type CustomerSearchFormProps = {
@@ -19,7 +18,9 @@ export type CustomerSearchFormProps = {
     suggestionsBusy: boolean;
     suggestionsError: boolean;
     activeSuggestionIndex: number;
-    setActiveSuggestionIndex: (index: number | ((prev: number) => number)) => void;
+    setActiveSuggestionIndex: (
+        index: number | ((prev: number) => number),
+    ) => void;
     onDestinationInputChange: (value: string) => void;
     onDestinationKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
     selectSuggestion: (suggestion: DestinationSuggestion) => Promise<void>;
@@ -29,7 +30,8 @@ export type CustomerSearchFormProps = {
     onDistanceChoiceChange: (value: string) => void;
     distanceNeedsOrigin: boolean;
     distanceLabels: Record<string, string>;
-    searchOrigin: MapCoordinates | { longitude: number; latitude: number } | null;
+    searchOrigin:
+        MapCoordinates | { longitude: number; latitude: number } | null;
     filters: FilterState;
     setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
     vehicleType: string;
@@ -202,28 +204,18 @@ export function CustomerSearchForm({
                                         void selectSuggestion(suggestion)
                                     }
                                 >
-                                    <CustomerIcon
-                                        name="location"
-                                        size={17}
-                                    />
+                                    <CustomerIcon name="location" size={17} />
                                     <span>
-                                        <strong>
-                                            {suggestion.name}
-                                        </strong>
+                                        <strong>{suggestion.name}</strong>
                                         {suggestion.place && (
-                                            <small>
-                                                {suggestion.place}
-                                            </small>
+                                            <small>{suggestion.place}</small>
                                         )}
                                     </span>
                                 </button>
                             ))
                         )}
                         <span className="customer-search-suggestions-credit">
-                            {copy(
-                                "Search by Mapbox",
-                                "Tìm kiếm bằng Mapbox",
-                            )}
+                            {copy("Search by Mapbox", "Tìm kiếm bằng Mapbox")}
                         </span>
                     </div>
                 )}
@@ -237,10 +229,7 @@ export function CustomerSearchForm({
                     options={[
                         {
                             value: "any",
-                            label: copy(
-                                "Any distance",
-                                "Mọi khoảng cách",
-                            ),
+                            label: copy("Any distance", "Mọi khoảng cách"),
                         },
                         ...["1", "2", "5", "10", "20"].map((value) => ({
                             value,
@@ -255,10 +244,7 @@ export function CustomerSearchForm({
                     variant="field"
                 />
                 {distanceNeedsOrigin && !searchOrigin && (
-                    <p
-                        className="customer-search-distance-hint"
-                        role="status"
-                    >
+                    <p className="customer-search-distance-hint" role="status">
                         {copy(
                             "Choose a destination or use your location first.",
                             "Chọn điểm đến hoặc dùng vị trí hiện tại trước.",
@@ -270,12 +256,8 @@ export function CustomerSearchForm({
             <label className="customer-search-field customer-search-ev-field">
                 <CustomerIcon name="zap" size={21} />
                 <span>
-                    <strong>
-                        {copy("EV charging", "Trạm sạc EV")}
-                    </strong>
-                    <span>
-                        {copy("Charging station", "Có trạm sạc")}
-                    </span>
+                    <strong>{copy("EV charging", "Trạm sạc EV")}</strong>
+                    <span>{copy("Charging station", "Có trạm sạc")}</span>
                 </span>
                 <input
                     type="checkbox"
@@ -319,10 +301,7 @@ export function CustomerSearchForm({
                 <CustomerIcon name="search" size={21} />
                 <span>
                     {searchBusy
-                        ? copy(
-                              "Searching map…",
-                              "Đang tìm trên bản đồ…",
-                          )
+                        ? copy("Searching map…", "Đang tìm trên bản đồ…")
                         : copy("Find Parking", "Tìm bãi đỗ")}
                 </span>
                 <CustomerIcon name="arrow" size={19} />

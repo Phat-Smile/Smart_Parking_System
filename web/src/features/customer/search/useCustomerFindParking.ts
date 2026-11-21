@@ -587,9 +587,7 @@ export function useCustomerFindParking(
         }
     }
 
-    function handleDestinationKeyDown(
-        event: KeyboardEvent<HTMLInputElement>,
-    ) {
+    function handleDestinationKeyDown(event: KeyboardEvent<HTMLInputElement>) {
         if (event.key === "Escape") {
             setSuggestionsOpen(false);
             return;

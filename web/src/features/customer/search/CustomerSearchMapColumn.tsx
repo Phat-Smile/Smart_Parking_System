@@ -20,7 +20,8 @@ export type CustomerSearchMapColumnProps = {
     destinationLocation: MapCoordinates | null;
     visibleParkings: SearchResult[];
     slotPercentByLot: Record<string, number> | null;
-    searchOrigin: MapCoordinates | { longitude: number; latitude: number } | null;
+    searchOrigin:
+        MapCoordinates | { longitude: number; latitude: number } | null;
     forecastSlots: ForecastSlot[];
     forecastLoading: boolean;
     arrivalHour: number;
@@ -46,15 +47,8 @@ export function CustomerSearchMapColumn({
     return (
         <div className="customer-search-map-column">
             <div className="customer-search-map-header">
-                <strong>
-                    {copy("Parking map", "Bản đồ bãi đỗ")}
-                </strong>
-                <span>
-                    {copy(
-                        "Ho Chi Minh City",
-                        "Thành phố Hồ Chí Minh",
-                    )}
-                </span>
+                <strong>{copy("Parking map", "Bản đồ bãi đỗ")}</strong>
+                <span>{copy("Ho Chi Minh City", "Thành phố Hồ Chí Minh")}</span>
             </div>
             <CustomerMap
                 loadEnabled={loadEnabled}
@@ -75,10 +69,8 @@ export function CustomerSearchMapColumn({
                             slot.percentByLot?.[activeSelectedId];
                         const average = values.length
                             ? Math.round(
-                                  values.reduce(
-                                      (a, b) => a + b,
-                                      0,
-                                  ) / values.length,
+                                  values.reduce((a, b) => a + b, 0) /
+                                      values.length,
                               )
                             : null;
                         return {
@@ -95,10 +87,7 @@ export function CustomerSearchMapColumn({
             <div className="customer-search-map-footer">
                 <span>
                     <i className="customer-search-map-dot" />{" "}
-                    {copy(
-                        "Approved parking lot",
-                        "Bãi đỗ đã duyệt",
-                    )}
+                    {copy("Approved parking lot", "Bãi đỗ đã duyệt")}
                 </span>
                 <Link href="/customer/vehicles">
                     {copy("Manage vehicles", "Quản lý xe")}{" "}
@@ -118,7 +107,8 @@ export function CustomerSearchMapSkeleton() {
                 display: "flex",
                 flexDirection: "column",
                 borderRadius: "16px",
-                background: "var(--color-bg-secondary, rgba(255, 255, 255, 0.03))",
+                background:
+                    "var(--color-bg-secondary, rgba(255, 255, 255, 0.03))",
                 border: "1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08))",
                 padding: "1rem",
                 animation: "pulse 1.5s infinite ease-in-out",

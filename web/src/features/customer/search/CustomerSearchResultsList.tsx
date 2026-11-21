@@ -14,7 +14,8 @@ export type CustomerSearchResultsListProps = {
     activeSelectedId: string;
     onSelectId: (id: string) => void;
     allRecommendations: RecommendedParkingLot[] | null;
-    searchOrigin: MapCoordinates | { longitude: number; latitude: number } | null;
+    searchOrigin:
+        MapCoordinates | { longitude: number; latitude: number } | null;
     originKey: string;
     radiusKm: number;
     copy: (en: string, vi: string) => string;
