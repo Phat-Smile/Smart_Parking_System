@@ -11,7 +11,16 @@ Run read-only Git audit: `node tools/be2-closeout/audit.mjs --repo 'D:/OJT26/Sma
 For real camera data split audit, prepare an **external private** JSONL manifest (not in Git) with one row per labeled cropped image:
 
 ```json
-{"id":"anon-001","image":"car/001.jpg","vehicle_type":"car","split":"train","vehicle_identity_hash":"1234567890abcdef","capture_session_hash":"abcdef1234567890","image_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","perceptual_hash":"0123456789abcdef"}
+{
+  "id": "anon-001",
+  "image": "car/001.jpg",
+  "vehicle_type": "car",
+  "split": "train",
+  "vehicle_identity_hash": "1234567890abcdef",
+  "capture_session_hash": "abcdef1234567890",
+  "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "perceptual_hash": "0123456789abcdef"
+}
 ```
 
 Hashes above are syntax-only examples, NOT real fingerprints. `vehicle_identity_hash` and `capture_session_hash` must come from privacy-safe stable group pseudonyms produced **locally** by the data custodian, and each must stay in only one split. `image_sha256` should be the raw file hash; `perceptual_hash` must be a true 64-bit perceptual hash computed by a trusted local image tool, not a random number. The dataset audit validates provided hashes **but cannot establish their authenticity**. It never reads images; the previous Python baseline `vehicle_type.py audit` remains responsible for decoded-pixel duplicate checks.
