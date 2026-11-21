@@ -33,6 +33,19 @@ vi.mock("@/features/auth/authSession", () => ({
 describe("AdminDashboardPage & AdminShell UI/UX", () => {
     beforeEach(() => {
         window.localStorage.clear();
+        vi.spyOn(api, "getAdminParkingAnalyticsTrends").mockResolvedValue({
+            labels: [
+                "15/11",
+                "16/11",
+                "17/11",
+                "18/11",
+                "19/11",
+                "20/11",
+                "21/11",
+            ],
+            newSubmissions: [0, 1, 0, 2, 0, 1, 0],
+            approvedCount: [0, 0, 0, 1, 0, 0, 2],
+        });
     });
 
     afterEach(() => {
@@ -124,7 +137,7 @@ describe("AdminDashboardPage & AdminShell UI/UX", () => {
         // Verify Main Analytics: Activity Trends (Bar Chart) & Status Distribution (Doughnut Chart)
         expect(screen.getByText("Xu hướng hoạt động")).toBeInTheDocument();
         expect(
-            screen.getByRole("img", {
+            await screen.findByRole("img", {
                 name: /Biểu đồ cột xu hướng hoạt động/i,
             }),
         ).toBeInTheDocument();
@@ -228,7 +241,7 @@ describe("AdminDashboardPage & AdminShell UI/UX", () => {
         expect(page2Btn).toHaveClass("is-active");
     });
 
-    it("renders honest empty state for Activity Trends when backend items do not contain historical timestamps", async () => {
+    it("renders the backend Activity Trends even when the currently loaded lot list has no timestamps", async () => {
         vi.spyOn(api, "getAdminParkingLots").mockResolvedValue([
             {
                 id: "10000000-0000-0000-0000-000000000010",
@@ -252,7 +265,9 @@ describe("AdminDashboardPage & AdminShell UI/UX", () => {
         );
 
         expect(
-            screen.getByText("Chưa có dữ liệu lịch sử từ hệ thống"),
+            await screen.findByRole("img", {
+                name: /Biểu đồ cột xu hướng hoạt động/i,
+            }),
         ).toBeInTheDocument();
         expect(
             screen.getByRole("img", {

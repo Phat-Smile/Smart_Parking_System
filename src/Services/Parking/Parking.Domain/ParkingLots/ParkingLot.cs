@@ -18,6 +18,7 @@ public sealed class ParkingLot
     public decimal Longitude { get; private set; }
     public ParkingLotType Type { get; private set; }
     public ParkingLotApprovalStatus ApprovalStatus { get; private set; }
+    public DateTime CreatedAt { get; private set; }
     public bool SupportsElectricVehicles { get; private set; }
     public bool SupportsLargeVehicles { get; private set; }
     public bool HasEvCharging { get; private set; }
@@ -31,7 +32,8 @@ public sealed class ParkingLot
         string address,
         decimal latitude,
         decimal longitude,
-        ParkingLotType type)
+        ParkingLotType type,
+        DateTime? createdAtUtc = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Parking lot ID is required.", nameof(id));
@@ -48,6 +50,10 @@ public sealed class ParkingLot
         if (!Enum.IsDefined(type))
             throw new ArgumentOutOfRangeException(nameof(type));
 
+        var submittedAt = createdAtUtc ?? DateTime.UtcNow;
+        if (submittedAt.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("CreatedAt must be UTC.", nameof(createdAtUtc));
+
         return new ParkingLot
         {
             Id = id,
@@ -57,7 +63,8 @@ public sealed class ParkingLot
             Latitude = latitude,
             Longitude = longitude,
             Type = type,
-            ApprovalStatus = ParkingLotApprovalStatus.Pending
+            ApprovalStatus = ParkingLotApprovalStatus.Pending,
+            CreatedAt = submittedAt
         };
     }
 

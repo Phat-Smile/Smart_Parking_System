@@ -33,6 +33,28 @@ type FilterFieldKey =
 
 const PAGE_SIZE = 10;
 
+function submittedDateRange(
+    filter: SubmittedFilter,
+): { fromDate: string; toDate: string } | undefined {
+    if (filter === "all") return undefined;
+
+    const dateParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(new Date());
+    const part = (type: string) =>
+        dateParts.find((item) => item.type === type)?.value ?? "00";
+    const today = `${part("year")}-${part("month")}-${part("day")}`;
+    const start = new Date(`${today}T00:00:00Z`);
+    start.setUTCDate(
+        start.getUTCDate() -
+            (filter === "today" ? 0 : filter === "7days" ? 6 : 29),
+    );
+    return { fromDate: start.toISOString().slice(0, 10), toDate: today };
+}
+
 /**
  * Used for both /admin/parking-lots (management, all statuses) and
  * /admin/parking-lots/pending (queue, Pending locked).
@@ -121,10 +143,6 @@ export function ParkingLotsListPage({
     }, [filterMenuOpen, columnsMenuOpen]);
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [referenceNowMs, setReferenceNowMs] = useState<number>(() =>
-        new Date().getTime(),
-    );
-
     // UUID Lookup Card state
     const [lookupId, setLookupId] = useState("");
     const [lookupError, setLookupError] = useState("");
@@ -147,29 +165,39 @@ export function ParkingLotsListPage({
     const [actionBusy, setActionBusy] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
 
+    function handleSubmittedFilterChange(next: SubmittedFilter) {
+        if (next === submittedFilter) return;
+        setLoading(true);
+        setRawError(null);
+        setSubmittedFilter(next);
+        setCurrentPage(1);
+    }
+
     const loadLots = useCallback(async () => {
         setLoading(true);
         setRawError(null);
         try {
             const data = await getAdminParkingLots(
                 mode === "pending" ? "Pending" : status,
+                submittedDateRange(submittedFilter),
             );
             setLots(data);
-            setReferenceNowMs(new Date().getTime());
         } catch (err) {
             setRawError(err);
         } finally {
             setLoading(false);
         }
-    }, [mode, status]);
+    }, [mode, status, submittedFilter]);
 
     useEffect(() => {
         let active = true;
-        getAdminParkingLots(mode === "pending" ? "Pending" : status)
+        getAdminParkingLots(
+            mode === "pending" ? "Pending" : status,
+            submittedDateRange(submittedFilter),
+        )
             .then((data) => {
                 if (active) {
                     setLots(data);
-                    setReferenceNowMs(new Date().getTime());
                     setLoading(false);
                 }
             })
@@ -182,7 +210,7 @@ export function ParkingLotsListPage({
         return () => {
             active = false;
         };
-    }, [mode, status]);
+    }, [mode, status, submittedFilter]);
 
     useEffect(() => {
         if (!toast) return;
@@ -271,7 +299,7 @@ export function ParkingLotsListPage({
         setAddressFilter("");
         setMinCapacity("");
         setTypeFilter("All");
-        setSubmittedFilter("all");
+        handleSubmittedFilterChange("all");
         setSortOrder("oldest");
         setActiveBuilderField(null);
         setFilterMenuOpen(false);
@@ -336,19 +364,6 @@ export function ParkingLotsListPage({
                 if (lot.totalCapacity == null) return false;
                 return lot.totalCapacity >= minCapValue;
             })
-            .filter((lot) => {
-                if (submittedFilter === "all" || !lot.submittedAtUtc) {
-                    return submittedFilter === "all";
-                }
-                const ts = new Date(lot.submittedAtUtc).getTime();
-                if (Number.isNaN(ts)) return false;
-                const diffDays =
-                    Math.max(0, referenceNowMs - ts) / (1000 * 60 * 60 * 24);
-                if (submittedFilter === "today") return diffDays <= 1;
-                if (submittedFilter === "7days") return diffDays <= 7;
-                if (submittedFilter === "30days") return diffDays <= 30;
-                return true;
-            })
             .filter(
                 (lot) =>
                     !term ||
@@ -385,10 +400,8 @@ export function ParkingLotsListPage({
         minCapacity,
         status,
         typeFilter,
-        submittedFilter,
         sortOrder,
         isVi,
-        referenceNowMs,
     ]);
 
     const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -1026,7 +1039,7 @@ export function ParkingLotsListPage({
                                                                                     type="button"
                                                                                     className={`admin-builder-opt ${submittedFilter === opt.val ? "is-selected" : ""}`}
                                                                                     onClick={() => {
-                                                                                        setSubmittedFilter(
+                                                                                        handleSubmittedFilterChange(
                                                                                             opt.val,
                                                                                         );
                                                                                         setCurrentPage(
@@ -1368,7 +1381,7 @@ export function ParkingLotsListPage({
                                         type="button"
                                         className="admin-filter-chip-remove"
                                         onClick={() => {
-                                            setSubmittedFilter("all");
+                                            handleSubmittedFilterChange("all");
                                             setCurrentPage(1);
                                         }}
                                         aria-label={

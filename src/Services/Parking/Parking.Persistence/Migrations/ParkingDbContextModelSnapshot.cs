@@ -413,6 +413,12 @@ namespace ParkingSystem.Parking.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("approval_status");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("NOW()");
+
                     b.Property<bool>("HasCctv")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -483,6 +489,9 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_parking_lots");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_parking_lots_created_at");
 
                     b.HasIndex("OwnerUserId")
                         .HasDatabaseName("ix_parking_lots_owner_user_id");
@@ -691,6 +700,9 @@ namespace ParkingSystem.Parking.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_audit_logs");
+
+                    b.HasIndex("Action", "OccurredAt")
+                        .HasDatabaseName("ix_audit_logs_action_occurred_at");
 
                     b.HasIndex("LotId", "OccurredAt")
                         .HasDatabaseName("ix_audit_logs_lot_occurred_at");

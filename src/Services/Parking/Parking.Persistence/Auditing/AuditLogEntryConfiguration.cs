@@ -27,6 +27,8 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
         // Admins and owners read the log per lot, newest first (NFR-16).
         builder.HasIndex(entry => new { entry.LotId, entry.OccurredAt })
             .HasDatabaseName("ix_audit_logs_lot_occurred_at");
+        builder.HasIndex(entry => new { entry.Action, entry.OccurredAt })
+            .HasDatabaseName("ix_audit_logs_action_occurred_at");
         builder.HasIndex(entry => new { entry.TargetType, entry.TargetId })
             .HasDatabaseName("ix_audit_logs_target");
     }

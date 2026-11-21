@@ -36,6 +36,8 @@ public sealed class RegisterParkingLotTests
         Assert.NotNull(repository.Saved);
         Assert.Equal(result.Id, repository.Saved.Id);
         Assert.Equal(ParkingLotApprovalStatus.Pending, repository.Saved.ApprovalStatus);
+        Assert.Equal(Now.UtcDateTime, repository.Saved.CreatedAt);
+        Assert.Equal(DateTimeKind.Utc, repository.Saved.CreatedAt.Kind);
     }
 
     [Theory]

@@ -15,6 +15,11 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
         builder.Property(parkingLot => parkingLot.Id)
             .HasColumnName("id")
             .ValueGeneratedNever();
+        builder.Property(parkingLot => parkingLot.CreatedAt)
+            .HasColumnName("created_at")
+            .HasColumnType("timestamp with time zone")
+            .IsRequired()
+            .HasDefaultValueSql("NOW()");
         // Optional only for legacy catalog rows and S1 seeded lots.
         builder.Property(parkingLot => parkingLot.OwnerUserId)
             .HasColumnName("owner_user_id");
@@ -70,5 +75,8 @@ internal sealed class ParkingLotConfiguration : IEntityTypeConfiguration<Parking
 
         builder.HasIndex(parkingLot => new { parkingLot.ApprovalStatus, parkingLot.Name })
             .HasDatabaseName("ix_parking_lots_approval_status_name");
+
+        builder.HasIndex(parkingLot => parkingLot.CreatedAt)
+            .HasDatabaseName("ix_parking_lots_created_at");
     }
 }

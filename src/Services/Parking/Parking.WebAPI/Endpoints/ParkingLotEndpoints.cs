@@ -315,29 +315,6 @@ internal static class ParkingLotEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // D2-BE-2: Admin gets parking lots, optionally filtered by status (Pending, Approved, Rejected)
-        app.MapGet("/api/parking/admin/lots", async (
-                string? status,
-                int? page,
-                int? pageSize,
-                ISender sender,
-                CancellationToken cancellationToken) =>
-            {
-                var invalidStatus = ParseStatusFilter(status, out var approvalStatus);
-                if (invalidStatus is not null)
-                    return invalidStatus;
-
-                var lots = await sender.Send(new GetAdminParkingLotsQuery(approvalStatus, page, pageSize), cancellationToken);
-                return Results.Ok(lots);
-            })
-            .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
-            .WithName("GetAdminParkingLots")
-            .WithSummary("Get a page of parking lots for administrator review")
-            .Produces<PagedResult<AdminParkingLotItem>>(StatusCodes.Status200OK)
-            .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden);
-
         // US-ADMIN-002: authorized administrators can decide only Pending lots.
         app.MapPost("/api/parking/admin/lots/{parkingLotId:guid}/approve", async (
                 Guid parkingLotId,
