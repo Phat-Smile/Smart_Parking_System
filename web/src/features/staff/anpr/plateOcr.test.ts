@@ -43,53 +43,38 @@ describe("plateOcr ANPR Engine (Method 1)", () => {
             expect(res?.vehicleType).toBe("Car");
         });
 
-        it("tự động sửa lỗi OCR dính nét sê-ri J thành V1 và 73 thành 59 (VD: 73J 793.79 -> 59V1-793.79)", () => {
-            const res = parseVietnamesePlate("73J 793.79");
-            expect(res).not.toBeNull();
-            expect(res?.plateNumber).toBe("59V1-793.79");
-            expect(res?.vehicleType).toBe("Motorbike");
+        it("does not invent a fixed plate from unsupported or incomplete OCR", () => {
+            expect(parseVietnamesePlate("73J 793.79")).toBeNull();
+            expect(parseVietnamesePlate("73J-793.79")).toBeNull();
+            expect(parseVietnamesePlate("| 9-\\1 |\n1/93./ J")).toBeNull();
+            expect(parseVietnamesePlate("9-V1 793.79")).toBeNull();
+            expect(parseVietnamesePlate("9-1 193.1J")).toBeNull();
+            expect(parseVietnamesePlate("S9-V1 793.79")).toBeNull();
+            expect(parseVietnamesePlate("59-VI 793.79")).toBeNull();
         });
 
-        it("tự động sửa lỗi 73J-793.79 thành 59V1-793.79", () => {
-            const res = parseVietnamesePlate("73J-793.79");
-            expect(res).not.toBeNull();
-            expect(res?.plateNumber).toBe("59V1-793.79");
-            expect(res?.vehicleType).toBe("Motorbike");
+        it("preserves actually observed vehicle numbers and series", () => {
+            expect(parseVietnamesePlate("99-E1\n222.68")?.plateNumber).toBe(
+                "99E1-222.68",
+            );
+            expect(parseVietnamesePlate("99-F1\n222.68")?.plateNumber).toBe(
+                "99F1-222.68",
+            );
+            expect(parseVietnamesePlate("99-E1\n477.26")?.plateNumber).toBe(
+                "99E1-477.26",
+            );
+            expect(parseVietnamesePlate("99-E1\n277 RA")).toBeNull();
         });
 
-        it("khắc phục lỗi viền màn hình điện thoại cắt mất số 5: '| 9-\\1 |\\n1/93./ J' -> 59V1-793.79", () => {
-            const res = parseVietnamesePlate("| 9-\\1 |\n1/93./ J");
-            expect(res).not.toBeNull();
-            expect(res?.plateNumber).toBe("59V1-793.79");
-            expect(res?.vehicleType).toBe("Motorbike");
+        it("refuses a frame containing different recognizable plates", () => {
+            expect(
+                parseVietnamesePlate("59-V1 793.79 / 51A-123.45"),
+            ).toBeNull();
+            expect(parseVietnamesePlate("51A-123.45 51B-234.56")).toBeNull();
         });
 
-        it("khắc phục lỗi '9-V1 793.79' và '9-1 193.1J' thành 59V1-793.79", () => {
-            const res1 = parseVietnamesePlate("9-V1 793.79");
-            expect(res1?.plateNumber).toBe("59V1-793.79");
-            expect(res1?.vehicleType).toBe("Motorbike");
-
-            const res2 = parseVietnamesePlate("9-1 193.1J");
-            expect(res2?.plateNumber).toBe("59V1-793.79");
-            expect(res2?.vehicleType).toBe("Motorbike");
-        });
-
-        it("nhận diện chuẩn xác biển số xe máy 99-E1 222.68 và sửa lỗi chói màn hình (VD: 99-F1, 277 RA)", () => {
-            const res1 = parseVietnamesePlate("99-E1\n222.68");
-            expect(res1?.plateNumber).toBe("99E1-222.68");
-            expect(res1?.vehicleType).toBe("Motorbike");
-
-            const res2 = parseVietnamesePlate("99-F1\n222.68");
-            expect(res2?.plateNumber).toBe("99E1-222.68");
-            expect(res2?.vehicleType).toBe("Motorbike");
-
-            const res3 = parseVietnamesePlate("99-E1\n277 RA");
-            expect(res3?.plateNumber).toBe("99E1-222.68");
-            expect(res3?.vehicleType).toBe("Motorbike");
-
-            const res4 = parseVietnamesePlate("99-E1\n477.26");
-            expect(res4?.plateNumber).toBe("99E1-222.68");
-            expect(res4?.vehicleType).toBe("Motorbike");
+        it("does not infer a vehicle type from unrecognizable text", () => {
+            expect(formatVietnamesePlate("FE0E-ERN")).toBeNull();
         });
 
         it("từ chối chuỗi rác ngẫu nhiên không thuộc định dạng biển số xe VN (VD: FE0E-ERN)", () => {
@@ -111,14 +96,16 @@ describe("plateOcr ANPR Engine (Method 1)", () => {
     describe("formatVietnamesePlate fallback alias", () => {
         it("chuẩn hóa biển số ô tô 5 số chính xác (VD: 51F78291 -> 51F-782.91)", () => {
             const res = formatVietnamesePlate("51F78291");
-            expect(res.plate).toBe("51F-782.91");
-            expect(res.vehicleType).toBe("Car");
+            expect(res).not.toBeNull();
+            expect(res?.plate).toBe("51F-782.91");
+            expect(res?.vehicleType).toBe("Car");
         });
 
         it("chuẩn hóa biển số xe máy (VD: 59X123456 -> 59X1-234.56)", () => {
             const res = formatVietnamesePlate("59X123456");
-            expect(res.plate).toBe("59X1-234.56");
-            expect(res.vehicleType).toBe("Motorbike");
+            expect(res).not.toBeNull();
+            expect(res?.plate).toBe("59X1-234.56");
+            expect(res?.vehicleType).toBe("Motorbike");
         });
     });
 

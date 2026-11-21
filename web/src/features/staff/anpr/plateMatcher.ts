@@ -144,15 +144,16 @@ export function comparePlates(
     const normB = normalizePlate(plateB);
 
     if (!normA && !normB) {
+        // Empty scans are missing evidence, never an exact plate match.
         return {
             plateA,
             plateB,
             normalizedA: "",
             normalizedB: "",
             distance: 0,
-            score: 1.0,
-            isExactMatch: true,
-            isHighConfidence: true,
+            score: 0,
+            isExactMatch: false,
+            isHighConfidence: false,
         };
     }
 
@@ -215,6 +216,7 @@ export function findBestPlateMatch(
     let bestCandidate: string | null = null;
     let minDistance = Infinity;
     let maxScore = -1;
+    let isAmbiguous = false;
 
     for (const candidate of candidatePlates) {
         const normCand = normalizePlate(candidate);
@@ -225,20 +227,28 @@ export function findBestPlateMatch(
         const rawScore = maxLen > 0 ? Math.max(0, 1.0 - dist / maxLen) : 0;
         const score = Math.round(rawScore * 10000) / 10000;
 
-        if (score > maxScore) {
+        if (score > maxScore || (score === maxScore && dist < minDistance)) {
             maxScore = score;
             minDistance = dist;
             bestCandidate = candidate;
-        } else if (score === maxScore && dist < minDistance) {
-            minDistance = dist;
-            bestCandidate = candidate;
+            isAmbiguous = false;
+        } else if (
+            score === maxScore &&
+            dist === minDistance &&
+            bestCandidate !== null &&
+            normCand !== normalizePlate(bestCandidate)
+        ) {
+            // Two distinct plates have identical evidence. Never select the
+            // first one based on database ordering: require staff review.
+            isAmbiguous = true;
         }
     }
 
-    const isHighConfidence = maxScore >= 0.95 || minDistance <= 0.2;
+    const isHighConfidence =
+        !isAmbiguous && (maxScore >= 0.95 || minDistance <= 0.2);
 
     return {
-        bestMatch: bestCandidate,
+        bestMatch: isAmbiguous ? null : bestCandidate,
         score: maxScore >= 0 ? maxScore : 0,
         distance: minDistance < Infinity ? minDistance : Infinity,
         isHighConfidence,

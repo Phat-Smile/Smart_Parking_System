@@ -18,150 +18,82 @@ export interface PlateOcrResult {
 }
 
 /**
- * Trích xuất và chuẩn hóa biển số xe cơ giới Việt Nam từ văn bản OCR:
- * - Xe máy 2 dòng (VD: Dòng 1: "59-V1", Dòng 2: "793.79" -> "59V1-793.79")
- * - Xe máy 1 dòng (VD: "59X1-234.56", "29B1-123.45")
- * - Xe ô tô 1 dòng hoặc 2 dòng (VD: "51F-782.91", "51A-123.45", "30E-888.88")
- * - Tự động sửa lỗi nhầm ký tự phổ biến (73J -> 59-V1, S9 -> 59, VI -> V1, T -> 7)
- * - Loại bỏ hoàn toàn nhiễu ngẫu nhiên từ phòng/quần áo/bóng đổ (VD: "FE0E-ERN")
+ * Only canonicalizes *observed* plate characters. Never translates one observed
+ * province/series/number into a different concrete plate: uncertain OCR must
+ * be reviewed by staff rather than credited as a confident gate reading.
+ *
+ * A frame containing two different recognizable plates is ambiguous and is
+ * deliberately rejected rather than selecting whichever regex matches first.
  */
 export function parseVietnamesePlate(
     rawText: string,
 ): { plateNumber: string; vehicleType: "Car" | "Motorbike" } | null {
     if (!rawText || !rawText.trim()) return null;
-    let text = rawText.toUpperCase().replace(/[\r\n]+/g, " ");
 
-    // 1. Sửa lỗi nhầm lẫn OCR phổ biến trên màn hình điện thoại / camera:
-    // Biển số xe VN KHÔNG BAO GIỜ có chữ cái J làm sê-ri (theo thông tư 24/2023/TT-BCA cấm chữ J, I, O, Q, W, R)
-    // Ký tự '73J' hoặc '73-J' khi đọc từ điện thoại thực chất là '59-V1' (chữ 5 bị mất móc thành 7, 9 thành 3, V1 dính nét thành J)
-    text = text.replace(/\b73\s*[-.]?\s*J\b/g, "59-V1");
-    text = text.replace(/\b73J\b/g, "59-V1");
-
-    // Khi viền điện thoại hoặc crop cắt mất số 5: '| 9-\1 |' hoặc '9-\1' hoặc '9-V1' hoặc '9-1' -> '59-V1'
-    text = text.replace(
-        /[|/]?\s*(?:5|S)?9\s*[-.\\]+\s*(?:V|\\|\||I|L)?\s*1\b/g,
-        "59-V1",
-    );
-    text = text.replace(/\b9\s*[-.]\s*V1\b/g, "59-V1");
-    text = text.replace(/\b9\s*[-.]\s*1\s+([0-9\/\.J]{4,8})\b/g, "59-V1 $1");
-
-    // Sê-ri xe máy dính chữ J: VD: '59-J' hoặc '59J' -> '59-V1'
-    text = text.replace(/([0-9]{2})\s*[-.]?\s*J\b/g, "$1-V1");
-
-    // S ở đầu mã tỉnh (S9 -> 59, S1 -> 51)
-    text = text.replace(/(^|[^A-Z0-9])S([0-9])/g, "$15$2");
-
-    // Sê-ri kết thúc bằng I, L, |, \ thay vì số 1 (VI, VL, V|, V\ -> V1)
-    text = text.replace(/([A-Z])[IL|\\/](\s*[-.\s]*\d{3,5})/g, "$11$2");
-
-    // Dòng số xe bị nhầm ký tự trên màn hình điện thoại:
-    // '1/93./ J' hoặc '193.1J' hoặc '193.79' -> '793.79' (số 7 bị đọc thành 1 hoặc /, đuôi 79 bị đọc thành 1J hoặc / J)
-    text = text.replace(/[1/]\/?93[./\s]*1?J\b/g, "793.79");
-    text = text.replace(/[1/]\/?93[./\s]*[17]?9\b/g, "793.79");
-    text = text.replace(/193\.?79/g, "793.79");
-    text = text.replace(/793[./\s]*1J\b/g, "793.79");
-    text = text.replace(/793[./\s]*[17]J\b/g, "793.79");
-    text = text.replace(/793[./\s]*J\b/g, "793.79");
-
-    // Biển 99 (Bắc Ninh) dòng 1 thường là E1, nếu đọc thành F1 do mất nét ngang đáy thì chuyển về E1
-    text = text.replace(/\b99\s*[-.]?\s*F1\b/g, "99-E1");
-
-    // Ký tự số bị nhầm trên màn hình điện thoại (VD: '477.26', '277 RA', '777 RA', '222 RA', '222.6B' -> '222.68')
-    text = text.replace(/\b477[.\s]*26\b/g, "222.68");
-    text = text.replace(/\b[247]{3}[.\s]*[2R6][68AB]\b/g, "222.68");
-    text = text.replace(/[27]{3}\s*[R6][A8B]\b/g, "222.68");
-    text = text.replace(/222[.\s]*[R6][A8B]\b/g, "222.68");
-
-    // Xóa các ký tự viền/khung rác
-    text = text
-        .replace(/[|\\_~`!@#$%^&*()+=<>{}[\]?]/g, " ")
-        .replace(/\s+/g, " ")
+    // Only presentation separators may be discarded. No character substitution
+    // (e.g., 73J -> 59V1, 99F1 -> 99E1, 47726 -> 22268) is trustworthy.
+    const text = rawText
+        .toUpperCase()
+        .replace(/[\r\n]+/g, " ")
         .trim();
+    if (text.length > 512) return null;
 
-    // 2. Thử nhận diện Xe máy:
-    // Dòng 1: 2 số tỉnh + '-' hoặc khoảng trắng + 1 chữ cái + 1 số sê-ri (VD: 59-V1, 29-B1, 59X1)
-    // Dòng 2: 4 hoặc 5 số xe (VD: 793.79, 79379, 234.56)
-    const motoRegex =
-        /\b([0-9]{2})\s*[-.]?\s*([A-Z][0-9])\s*[-.\s]+([0-9]{3,5}(?:\.[0-9]{2})?)\b/;
-    const motoMatch = text.match(motoRegex);
-    if (motoMatch) {
-        const prov = motoMatch[1];
-        const series = motoMatch[2].replace(/[^A-Z0-9]/g, "");
-        const numDigits = motoMatch[3].replace(/[^0-9]/g, "");
-        if (numDigits.length >= 4 && numDigits.length <= 5) {
-            const formattedNum =
-                numDigits.length === 5
-                    ? `${numDigits.slice(0, 3)}.${numDigits.slice(3)}`
-                    : numDigits;
-            return {
-                plateNumber: `${prov}${series}-${formattedNum}`,
-                vehicleType: "Motorbike",
-            };
-        }
+    // Respect the series-letter constraint that the existing client documented.
+    // A letter that cannot be validated is *not* inferred from its shape.
+    const validSeries = /^[A-HK-NPS-VX-Z]$/;
+    const candidates = new Map<string, "Car" | "Motorbike">();
+    const add = (
+        province: string,
+        series: string,
+        digits: string,
+        vehicleType: "Car" | "Motorbike",
+    ) => {
+        if (!validSeries.test(series[0])) return;
+        if (vehicleType === "Car" && digits.length !== 5) return;
+        if (vehicleType === "Motorbike" && ![4, 5].includes(digits.length))
+            return;
+        const number =
+            digits.length === 5
+                ? `${digits.slice(0, 3)}.${digits.slice(3)}`
+                : digits;
+        candidates.set(`${province}${series}-${number}`, vehicleType);
+    };
+
+    // Explicitly separated or two-line plates, including an OCR frame where
+    // multiple vehicles are visible. Capture all candidates, not only the first.
+    const motorbike =
+        /\b([0-9]{2})\s*[-.]?\s*([A-Z][0-9])\s*[-.\s]+([0-9]{3}\.[0-9]{2}|[0-9]{4,5})\b/g;
+    for (const match of text.matchAll(motorbike)) {
+        add(match[1], match[2], match[3].replace(/\D/g, ""), "Motorbike");
+    }
+    const car =
+        /\b([0-9]{2})\s*[-.]?\s*([A-Z])\s*[-.\s]+([0-9]{3}\.[0-9]{2}|[0-9]{5})\b/g;
+    for (const match of text.matchAll(car)) {
+        add(match[1], match[2], match[3].replace(/\D/g, ""), "Car");
     }
 
-    // 3. Thử nhận diện Ô tô (Biển số ô tô hiện hành Việt Nam 5 chữ số: VD: 51F-782.91, 51A-123.45):
-    const carRegex =
-        /\b([0-9]{2})\s*[-.]?\s*([A-Z])\s*[-.\s]+([0-9]{3,5}(?:\.[0-9]{2})?)\b/;
-    const carMatch = text.match(carRegex);
-    if (carMatch) {
-        const prov = carMatch[1];
-        const letter = carMatch[2];
-        const numDigits = carMatch[3].replace(/[^0-9]/g, "");
-        // Chỉ chấp nhận ô tô 5 số hợp lệ (loại trừ các chuỗi 4 số ngẫu nhiên do nhiễu môi trường)
-        if (numDigits.length === 5) {
-            return {
-                plateNumber: `${prov}${letter}-${numDigits.slice(0, 3)}.${numDigits.slice(3)}`,
-                vehicleType: "Car",
-            };
-        }
-    }
+    // No-separator OCR output: only accept an entire token, not a substring of
+    // an unrelated label or a concatenation of several ambiguous text pieces.
+    const compact = text.replace(/[.\-\s]/g, "");
+    let match = compact.match(/^([0-9]{2})([A-Z][0-9])([0-9]{5})$/);
+    if (match) add(match[1], match[2], match[3], "Motorbike");
+    match = compact.match(/^([0-9]{2})([A-Z])([0-9]{5})$/);
+    if (match) add(match[1], match[2], match[3], "Car");
 
-    // 4. Phân tích chuỗi số & chữ liền (VD: 59V179379 hoặc 51F78291)
-    const cleaned = text.replace(/[^A-Z0-9]/g, "");
-
-    // 4.1. Xe máy 5 số: 9 ký tự (2 số + 1 chữ + 1 số + 5 số, VD: 59V179379)
-    const cleanMoto5 = cleaned.match(/([0-9]{2})([A-Z][0-9])([0-9]{5})/);
-    if (cleanMoto5) {
-        const num = `${cleanMoto5[3].slice(0, 3)}.${cleanMoto5[3].slice(3)}`;
-        return {
-            plateNumber: `${cleanMoto5[1]}${cleanMoto5[2]}-${num}`,
-            vehicleType: "Motorbike",
-        };
-    }
-
-    // 4.2. Ô tô 5 số: 8 ký tự (2 số + 1 chữ + 5 số, VD: 51F78291)
-    const cleanCar5 = cleaned.match(/([0-9]{2})([A-Z])([0-9]{5})/);
-    if (cleanCar5) {
-        const num = `${cleanCar5[3].slice(0, 3)}.${cleanCar5[3].slice(3)}`;
-        return {
-            plateNumber: `${cleanCar5[1]}${cleanCar5[2]}-${num}`,
-            vehicleType: "Car",
-        };
-    }
-
-    // Không thỏa mãn bất kỳ cấu trúc biển số xe Việt Nam nào -> Từ chối chuỗi rác
-    return null;
+    if (candidates.size !== 1) return null;
+    const [plateNumber, vehicleType] = candidates.entries().next().value!;
+    return { plateNumber, vehicleType };
 }
 
-/**
- * Hàm alias để tương thích các unit test hiện hữu
- */
+/** Safe alias: invalid OCR is not silently classified as a Car. */
 export function formatVietnamesePlate(raw: string): {
     plate: string;
     vehicleType: "Car" | "Motorbike";
-} {
+} | null {
     const parsed = parseVietnamesePlate(raw);
-    if (parsed) {
-        return {
-            plate: parsed.plateNumber,
-            vehicleType: parsed.vehicleType,
-        };
-    }
-    return {
-        plate: raw.trim().toUpperCase(),
-        vehicleType: "Car",
-    };
+    return parsed
+        ? { plate: parsed.plateNumber, vehicleType: parsed.vehicleType }
+        : null;
 }
 
 /**
