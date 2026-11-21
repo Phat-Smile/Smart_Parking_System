@@ -41,6 +41,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IWalletRepository, WalletRepository>();
         services.AddScoped<IVnpayTransactionRepository, VnpayTransactionRepository>();
         services.AddScoped<IParkingFeePaymentRepository, ParkingFeePaymentRepository>();
+        services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
         services.AddScoped<IIdempotencyStore, PaymentIdempotencyStore>();
         return services;
     }

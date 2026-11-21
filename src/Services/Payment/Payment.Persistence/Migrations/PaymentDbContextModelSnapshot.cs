@@ -277,6 +277,90 @@ namespace ParkingSystem.Payment.Persistence.Migrations
                     b.ToTable("payment_idempotency_records", "payment");
                 });
 
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.RefundRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(12,0)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("LedgerEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ledger_entry_id");
+
+                    b.Property<Guid>("LotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lot_id");
+
+                    b.Property<Guid?>("OwnerConfirmedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_confirmed_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ReferenceId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("reference_id");
+
+                    b.Property<string>("ReferenceType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("reference_type");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("WalletId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("wallet_id");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerEntryId")
+                        .IsUnique();
+
+                    b.HasIndex("LotId");
+
+                    b.HasIndex("WalletId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("refund_requests", "payment");
+                });
+
             modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.VnpayTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -550,6 +634,15 @@ namespace ParkingSystem.Payment.Persistence.Migrations
                         .HasFilter("processed_at_utc IS NULL");
 
                     b.ToTable("outbox_messages", "payment");
+                });
+
+            modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.RefundRequest", b =>
+                {
+                    b.HasOne("ParkingSystem.Payment.Domain.Entities.Wallet", null)
+                        .WithMany()
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ParkingSystem.Payment.Domain.Entities.VnpayTransaction", b =>
