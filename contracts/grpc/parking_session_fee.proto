@@ -9,12 +9,20 @@ option csharp_namespace = "SmartParking.Contracts.Parking.SessionFee.V1";
 service ParkingSessionFeeContract {
   rpc GetSessionFeeContext(GetSessionFeeContextRequest)
       returns (GetSessionFeeContextResponse);
+  rpc GetSessionFeeContextByQr(GetSessionFeeContextByQrRequest)
+      returns (GetSessionFeeContextResponse);
 }
 
 message GetSessionFeeContextRequest {
   // Canonical UUID "D" format (36 chars). Malformed -> INVALID_ARGUMENT.
   // Unknown session -> NOT_FOUND. No price list in force at entry -> FAILED_PRECONDITION.
   string session_id = 1;
+}
+
+message GetSessionFeeContextByQrRequest {
+  // Non-empty QR token string from the gate / session. Empty or malformed -> INVALID_ARGUMENT.
+  // Unknown session or closed session -> NOT_FOUND.
+  string qr_token = 1;
 }
 
 message GetSessionFeeContextResponse {

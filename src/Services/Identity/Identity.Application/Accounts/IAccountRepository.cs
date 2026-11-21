@@ -21,6 +21,8 @@ public interface IAccountRepository
 
     Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Account>> FindByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<Account>>([]);
+
     Task<bool> OwnerTaxCodeExistsAsync(string taxCode, Guid? excludeAccountId, CancellationToken cancellationToken) => Task.FromResult(false);
 
     /// <summary>

@@ -48,6 +48,8 @@ public static class DependencyInjection
             "payment.direct-payment-completed.v1", 1);
         services.AddIntegrationEvent<ParkingSessionPaidIntegrationEvent>(
             "payment.session-paid.v1", 1);
+        services.AddIntegrationEvent<ElectronicInvoiceIssuedIntegrationEvent>(
+            "payment.electronic-invoice-issued.v1", 1);
         services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
         services.AddHostedService<OutboxDispatcher>();
         services.AddHealthChecks()

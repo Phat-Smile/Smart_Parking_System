@@ -1,9 +1,12 @@
 using MassTransit;
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ParkingSystem.Contracts.Events.Parking;
 using ParkingSystem.Contracts.Events.Booking;
 using ParkingSystem.Contracts.Events.Payment;
+using ParkingSystem.Notification.Application.Common.Email;
+using ParkingSystem.Notification.Application.Common.Identity;
 using ParkingSystem.Notification.Application.CustomerNotifications;
 using ParkingSystem.Notification.Infrastructure.Consumers;
 using Xunit;
@@ -76,8 +79,29 @@ public sealed class CustomerNotificationConsumerTests
     }
 
     private static ServiceProvider Build<T>(RecordingStore store) where T : class, IConsumer =>
-        new ServiceCollection().AddSingleton<ICustomerNotificationStore>(store)
-            .AddMassTransitTestHarness(x => x.AddConsumer<T>()).BuildServiceProvider(true);
+        new ServiceCollection()
+            .AddSingleton(typeof(ILogger<>), typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>))
+            .AddSingleton<ICustomerNotificationStore>(store)
+            .AddSingleton<IEmailSender>(new DummyEmailSender())
+            .AddSingleton<IUserAccountEmailLookup>(new DummyEmailLookup())
+            .AddMassTransitTestHarness(x => x.AddConsumer<T>())
+            .BuildServiceProvider(true);
+
+    private sealed class DummyEmailSender : IEmailSender
+    {
+        public Task SendReservationConfirmedEmailAsync(string email, Guid reservationId, DateTimeOffset appointmentTime, decimal prepaidAmount, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SendElectronicReceiptEmailAsync(string email, Guid sessionId, string maskedPlateNumber, long totalFee, long paidAmount, long amountDue, DateTimeOffset entryTimeUtc, DateTimeOffset exitTimeUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SendVerificationOtpEmailAsync(string email, string otpCode, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SendPasswordResetOtpEmailAsync(string email, string otpCode, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SendOwnerApplicationApprovedEmailAsync(string email, DateTimeOffset approvedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SendOwnerApplicationRejectedEmailAsync(string email, string reason, DateTimeOffset rejectedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class DummyEmailLookup : IUserAccountEmailLookup
+    {
+        public Task<UserAccountEmailInfo?> LookupAccountEmailAsync(Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult<UserAccountEmailInfo?>(null);
+    }
 
     private sealed class RecordingStore : ICustomerNotificationStore
     {

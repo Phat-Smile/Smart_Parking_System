@@ -267,6 +267,8 @@ services:
       Vnpay__HashSecret: ${VNPAY_HASH_SECRET:-}
       Vnpay__BaseUrl: ${VNPAY_BASE_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
       Vnpay__ReturnUrl: ${VNPAY_RETURN_URL:-http://localhost:3000/payment/vnpay-return}
+      ForwardedHeaders__KnownNetworks__0: ${PAYMENT_KNOWN_NETWORKS_0:-172.16.0.0/12}
+      ForwardedHeaders__KnownNetworks__1: ${PAYMENT_KNOWN_NETWORKS_1:-10.0.0.0/8}
 
   mailpit:
     image: axllent/mailpit:v1.22.3

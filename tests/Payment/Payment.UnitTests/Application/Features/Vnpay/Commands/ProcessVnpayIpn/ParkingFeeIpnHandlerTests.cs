@@ -316,7 +316,7 @@ public class ParkingFeeIpnHandlerTests
         Assert.Equal(_clock.UtcNow.AddMinutes(15), payment.ExitWindowExpiresUtc);
         Assert.True(_paymentRepository.SaveChangesCalled);
 
-        Assert.Single(_outboxWriter.Enqueued);
+        Assert.Equal(2, _outboxWriter.Enqueued.Count);
         var (ev, eventType, version, correlationId) = _outboxWriter.Enqueued[0];
         Assert.Equal("payment.session-paid.v1", eventType);
         Assert.Equal(1, version);
@@ -327,6 +327,18 @@ public class ParkingFeeIpnHandlerTests
         Assert.Equal(payment.AmountPaid, paidEvent.AmountPaid);
         Assert.Equal(_clock.UtcNow, paidEvent.PaidAtUtc);
         Assert.Equal(_clock.UtcNow.AddMinutes(15), paidEvent.ExitWindowExpiresUtc);
+
+        var (invEvt, invType, invVersion, invCorrelationId) = _outboxWriter.Enqueued[1];
+        Assert.Equal("payment.electronic-invoice-issued.v1", invType);
+        Assert.Equal(1, invVersion);
+        Assert.Equal(payment.Id, invCorrelationId);
+
+        var invoiceEvent = Assert.IsType<ElectronicInvoiceIssuedIntegrationEvent>(invEvt);
+        Assert.Equal(payment.SessionId, invoiceEvent.SessionId);
+        Assert.Equal(payment.Id, invoiceEvent.PaymentId);
+        Assert.Equal(payment.AmountPaid, invoiceEvent.PaidAmount);
+        Assert.Equal(payment.TotalFee, invoiceEvent.TotalFee);
+        Assert.Equal(0, invoiceEvent.AmountDue);
     }
 
     // Kiểm tra khi thu tiền thừa hoàn vào ví thành viên
@@ -490,7 +502,7 @@ public class ParkingFeeIpnHandlerTests
         Assert.True(_paymentRepository.SaveChangesCalled);
 
         // Đảm bảo phát sự kiện mở cổng barie theo ID hóa đơn mới
-        Assert.Single(_outboxWriter.Enqueued);
+        Assert.Equal(2, _outboxWriter.Enqueued.Count);
         var (ev, eventType, version, correlationId) = _outboxWriter.Enqueued[0];
         Assert.Equal("payment.session-paid.v1", eventType);
         Assert.Equal(1, version);
@@ -502,6 +514,18 @@ public class ParkingFeeIpnHandlerTests
         Assert.Equal(15000, paidEvent.AmountPaid);
         Assert.Equal(_clock.UtcNow, paidEvent.PaidAtUtc);
         Assert.Equal(_clock.UtcNow.AddMinutes(15), paidEvent.ExitWindowExpiresUtc);
+
+        var (invEv, invEventType, invVer, invCorrId) = _outboxWriter.Enqueued[1];
+        Assert.Equal("payment.electronic-invoice-issued.v1", invEventType);
+        Assert.Equal(1, invVer);
+        Assert.Equal(overstayPayment.Id, invCorrId);
+
+        var invoiceEvent = Assert.IsType<ElectronicInvoiceIssuedIntegrationEvent>(invEv);
+        Assert.Equal(sessionId, invoiceEvent.SessionId);
+        Assert.Equal(overstayPayment.Id, invoiceEvent.PaymentId);
+        Assert.Equal(15000, invoiceEvent.PaidAmount);
+        Assert.Equal(15000, invoiceEvent.TotalFee);
+        Assert.Equal(0, invoiceEvent.AmountDue);
     }
 
     // Chặn lỗ hổng VNPay gửi lặp IPN overstay trong 15 phút để hoàn tiền khống vào ví
@@ -540,7 +564,7 @@ public class ParkingFeeIpnHandlerTests
         Assert.Equal(PaymentStatus.Succeeded, overstayPayment.Status);
         Assert.Equal(0m, wallet.Balance);
         Assert.Empty(wallet.LedgerEntries);
-        Assert.Single(_outboxWriter.Enqueued);
+        Assert.Equal(2, _outboxWriter.Enqueued.Count);
     }
 
     // Đợt overstay đã được trả trước (VD: tiền mặt) -> IPN VNPay trễ của cùng đợt bị tính là thu thừa

@@ -42,6 +42,14 @@ internal sealed class AccountRepository(IdentityDbContext dbContext) : IAccountR
     public Task<Account?> FindByIdAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Accounts.SingleOrDefaultAsync(account => account.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Account>> FindByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0) return [];
+        return await dbContext.Accounts.AsNoTracking()
+            .Where(a => ids.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Account?> FindByIdForUpdateAsync(Guid id, CancellationToken cancellationToken)
     {
         return await dbContext.Accounts

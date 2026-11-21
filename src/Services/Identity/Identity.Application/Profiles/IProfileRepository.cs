@@ -8,5 +8,8 @@ public interface IProfileRepository
 
     Task<Profile?> FindByAccountIdAsync(Guid accountId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyDictionary<Guid, string>> FindFullNamesByAccountIdsAsync(IReadOnlyList<Guid> accountIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

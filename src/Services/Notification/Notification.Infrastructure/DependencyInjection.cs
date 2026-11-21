@@ -69,6 +69,7 @@ public static class DependencyInjection
         services.AddIdempotentConsumer<ParkingSessionOpenedNotificationConsumer>("notification.parking-session-opened.v1");
         services.AddIdempotentConsumer<ReservationConfirmedNotificationConsumer>("notification.reservation-confirmed.v1");
         services.AddIdempotentConsumer<ReservationCancelledNotificationConsumer>("notification.reservation-cancelled.v1");
+        services.AddIdempotentConsumer<ParkingSessionReceiptNotificationConsumer>("notification.parking-session-receipt.v1");
         services.AddHealthChecks()
             .AddCheck<RabbitMqAvailabilityHealthCheck>("rabbitmq-amqp", tags: ["ready", "rabbitmq"]);
         services.AddMassTransit(bus =>
@@ -82,6 +83,7 @@ public static class DependencyInjection
             bus.AddConsumer<ParkingSessionOpenedNotificationConsumer>();
             bus.AddConsumer<ReservationConfirmedNotificationConsumer>();
             bus.AddConsumer<ReservationCancelledNotificationConsumer>();
+            bus.AddConsumer<ParkingSessionReceiptNotificationConsumer>();
             configureConsumers?.Invoke(bus);
             bus.UsingRabbitMq((context, rabbit) =>
             {

@@ -310,7 +310,7 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         Assert.Equal(lotId, audit.ParkingLotId);
 
         // Kiểm tra sự kiện Outbox
-        Assert.Single(_outboxWriter.EnqueuedEvents);
+        Assert.Equal(2, _outboxWriter.EnqueuedEvents.Count);
         var (evt, type, version, correlationId) = _outboxWriter.EnqueuedEvents[0];
         Assert.Equal("payment.session-paid.v1", type);
         Assert.Equal(1, version);
@@ -321,6 +321,18 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         Assert.Equal(20000, paidEvt.AmountPaid);
         Assert.Equal(_fixedNow, paidEvt.PaidAtUtc);
         Assert.Equal(_fixedNow.AddMinutes(15), paidEvt.ExitWindowExpiresUtc);
+
+        var (invEvt, invType, invVersion, invCorrelationId) = _outboxWriter.EnqueuedEvents[1];
+        Assert.Equal("payment.electronic-invoice-issued.v1", invType);
+        Assert.Equal(1, invVersion);
+        Assert.Equal(payment.Id, invCorrelationId);
+        var invoiceEvt = Assert.IsType<ElectronicInvoiceIssuedIntegrationEvent>(invEvt);
+        Assert.Equal(sessionId, invoiceEvt.SessionId);
+        Assert.Equal(payment.Id, invoiceEvt.PaymentId);
+        Assert.Equal(20000, invoiceEvt.PaidAmount);
+        Assert.Equal(20000, invoiceEvt.TotalFee);
+        Assert.Equal(0, invoiceEvt.AmountDue);
+        Assert.Equal("51A-***.45", invoiceEvt.MaskedPlateNumber);
     }
 
     [Fact]
@@ -594,11 +606,16 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal(0, result.Value.AmountPaid);
         Assert.Equal("Cash", result.Value.PaymentMethod);
-        Assert.Single(_outboxWriter.EnqueuedEvents);
+        Assert.Equal(2, _outboxWriter.EnqueuedEvents.Count);
         var paidEvent = _outboxWriter.EnqueuedEvents[0].Event as ParkingSessionPaidIntegrationEvent;
         Assert.NotNull(paidEvent);
         Assert.Equal(0, paidEvent.AmountPaid);
         Assert.Equal(sessionId, paidEvent.SessionId);
+        var invoiceEvent = _outboxWriter.EnqueuedEvents[1].Event as ElectronicInvoiceIssuedIntegrationEvent;
+        Assert.NotNull(invoiceEvent);
+        Assert.Equal(0, invoiceEvent.PaidAmount);
+        Assert.Equal(20000, invoiceEvent.TotalFee);
+        Assert.Equal(0, invoiceEvent.AmountDue);
     }
 
     [Fact]
@@ -891,8 +908,14 @@ public class ConfirmCashParkingFeePaymentCommandHandlerTests
         Assert.Equal(overstayCash.Id, _auditWriter.Entries[0].Details!["paymentId"]);
         Assert.Equal(2, _auditWriter.Entries[0].Details!["paymentSequence"]);
 
-        Assert.Single(_outboxWriter.EnqueuedEvents);
+        Assert.Equal(2, _outboxWriter.EnqueuedEvents.Count);
         Assert.Equal(overstayCash.Id, _outboxWriter.EnqueuedEvents[0].CorrelationId);
+        Assert.Equal("payment.session-paid.v1", _outboxWriter.EnqueuedEvents[0].Type);
+        Assert.Equal(overstayCash.Id, _outboxWriter.EnqueuedEvents[1].CorrelationId);
+        Assert.Equal("payment.electronic-invoice-issued.v1", _outboxWriter.EnqueuedEvents[1].Type);
+        var invoiceEvent = Assert.IsType<ElectronicInvoiceIssuedIntegrationEvent>(_outboxWriter.EnqueuedEvents[1].Event);
+        Assert.Equal(10000, invoiceEvent.PaidAmount);
+        Assert.Equal(10000, invoiceEvent.TotalFee);
     }
 
     [Fact]

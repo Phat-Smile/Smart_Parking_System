@@ -42,6 +42,7 @@ public static class IdentityClientRegistration
 
         services.AddScoped<IPlateOwnerLookup, IdentityVehicleGrpcClient>();
         services.AddScoped<IStaffAccountLookup, IdentityStaffGrpcClient>();
+        services.AddScoped<IStaffAccountEnricher, IdentityStaffGrpcClient>();
 
         return services;
     }

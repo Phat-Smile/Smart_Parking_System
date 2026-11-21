@@ -14,6 +14,7 @@ RUN dotnet restore src/Services/Notification/Notification.WebAPI/Notification.We
 
 COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY contracts/events/ contracts/events/
+COPY contracts/grpc/ contracts/grpc/
 COPY src/Services/Notification/ src/Services/Notification/
 RUN dotnet publish src/Services/Notification/Notification.WebAPI/Notification.WebAPI.csproj \
     --configuration Release \

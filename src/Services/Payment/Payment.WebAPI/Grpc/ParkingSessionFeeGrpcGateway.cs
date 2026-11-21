@@ -64,6 +64,54 @@ public sealed class ParkingSessionFeeGrpcGateway(
         }
     }
 
+    public async Task<Result<ParkingSessionFeeContext>> GetFeeContextByQrAsync(
+        string qrToken,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(qrToken))
+        {
+            return Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.SessionNotFound);
+        }
+
+        var timeout = options.Value.TimeoutSeconds > 0 ? options.Value.TimeoutSeconds : 5;
+        var headers = new Metadata();
+        var serviceKey = serviceKeyOptions.Value.ServiceKey;
+        if (!string.IsNullOrWhiteSpace(serviceKey))
+        {
+            headers.Add(ServiceKeyValidationMiddleware.HeaderName, serviceKey);
+        }
+
+        try
+        {
+            var response = await client.GetSessionFeeContextByQrAsync(
+                new GetSessionFeeContextByQrRequest { QrToken = qrToken },
+                headers: headers,
+                deadline: DateTime.UtcNow.AddSeconds(timeout),
+                cancellationToken: cancellationToken);
+
+            if (!Guid.TryParse(response.SessionId, out var parsedSessionId))
+            {
+                return Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.SessionNotFound);
+            }
+
+            return Map(response, parsedSessionId);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound || ex.StatusCode == StatusCode.InvalidArgument)
+        {
+            return Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.SessionNotFound);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition)
+        {
+            logger.LogWarning("Parking has no price list for session QR: {Detail}", ex.Status.Detail);
+            return Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.ParkingServiceUnavailable);
+        }
+        catch (RpcException ex)
+        {
+            logger.LogError(ex, "Parking fee context by QR call failed with {StatusCode}.", ex.StatusCode);
+            return Result<ParkingSessionFeeContext>.Failure(ParkingFeeErrors.ParkingServiceUnavailable);
+        }
+    }
+
     private Result<ParkingSessionFeeContext> Map(GetSessionFeeContextResponse r, Guid requestedSessionId)
     {
         var pricing = r.Pricing;
