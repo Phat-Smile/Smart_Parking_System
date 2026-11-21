@@ -1,0 +1,8 @@
+# The tools directory must contain source and synthetic tests only.
+*.npz
+*.jsonl
+private-data/
+private-*/
+reports/
+__pycache__/
+*.pyc
