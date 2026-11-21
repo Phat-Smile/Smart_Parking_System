@@ -287,7 +287,7 @@ public sealed class OpenParkingSessionCommandHandler(
             {
                 await realtimeNotifier.NotifyLotOccupancyChangedAsync(
                     request.LotId,
-                    0,
+                    await availableCarSlots.CountAvailableCarSlotsAsync(request.LotId, cancellationToken),
                     space.AvailableSpaces,
                     entryTime,
                     cancellationToken);
