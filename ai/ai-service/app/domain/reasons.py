@@ -24,7 +24,7 @@ def generate_recommendation_reasons(
     reasons: list[str] = []
 
     # 1. Rank 1 badge (safe lots only)
-    if rank == 1 and not is_risky:
+    if rank == 1 and not is_risky and not candidate.insufficient_data:
         reasons.append("Lựa chọn tối ưu tổng thể")
 
     # 2. Risk warning (BR-08.a: high risk of full capacity if probability < 30%)
@@ -55,7 +55,7 @@ def generate_recommendation_reasons(
         reasons.append("Mức giá hợp lý")
 
     # 5. Availability probability explanation (cautious probabilistic wording)
-    if not is_risky:
+    if not is_risky and not candidate.insufficient_data:
         if candidate.probability_percent >= 80.0:
             reasons.append("Tỷ lệ còn chỗ rất cao")
         elif candidate.probability_percent >= 60.0:

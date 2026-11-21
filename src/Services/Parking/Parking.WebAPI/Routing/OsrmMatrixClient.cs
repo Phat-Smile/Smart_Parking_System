@@ -1,7 +1,10 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
+using ParkingSystem.Parking.Application.ParkingLots.Recommendations;
 
 namespace ParkingSystem.Parking.WebAPI.Routing;
 
@@ -11,23 +14,52 @@ namespace ParkingSystem.Parking.WebAPI.Routing;
 /// No customer coordinates are written to logs or persistent storage.
 /// </summary>
 public sealed class OsrmMatrixClient(HttpClient client, IMemoryCache cache, IConfiguration configuration)
+    : IRecommendationDrivingEtaReader
 {
     public async Task<IReadOnlyDictionary<Guid, double?>> GetMinutesAsync(
         decimal originLatitude, decimal originLongitude,
         IReadOnlyList<CustomerLotSearchItem> candidates,
         string vehicleGroup,
         CancellationToken cancellationToken)
+        => await GetDrivingMinutesAsync(originLatitude, originLongitude,
+            candidates.Select(x => new RecommendationRouteDestination(x.Id, x.Latitude, x.Longitude)).ToArray(),
+            vehicleGroup, cancellationToken);
+
+    internal static string BuildCacheKey(decimal originLatitude, decimal originLongitude,
+        IReadOnlyList<RecommendationRouteDestination> candidates, string vehicleGroup)
+    {
+        // Use the identical numeric representation as the outbound OSRM URL. No raw GPS values
+        // or destination coordinates are exposed in the resulting cache key.
+        static string Canonical(decimal value) => value.ToString("F6", CultureInfo.InvariantCulture);
+        var parts = new StringBuilder("osrm-table-v2|")
+            .Append(Canonical(originLatitude)).Append('|')
+            .Append(Canonical(originLongitude)).Append('|')
+            .Append(vehicleGroup);
+        foreach (var candidate in candidates.OrderBy(x => x.LotId))
+        {
+            parts.Append('|').Append(candidate.LotId.ToString("N"))
+                .Append(',').Append(Canonical(candidate.Latitude))
+                .Append(',').Append(Canonical(candidate.Longitude));
+        }
+
+        return "osrm-table-v2:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(parts.ToString())));
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, double?>> GetDrivingMinutesAsync(
+        decimal originLatitude, decimal originLongitude,
+        IReadOnlyList<RecommendationRouteDestination> candidates,
+        string vehicleGroup,
+        CancellationToken cancellationToken)
     {
         if (candidates.Count == 0) return new Dictionary<Guid, double?>();
         if (candidates.Count > 10) throw new ArgumentOutOfRangeException(nameof(candidates), "Maximum ten routing destinations.");
 
-        // Canonical ordering allows a 60-second cache hit even when result ordering changes.
-        var ordered = candidates.OrderBy(x => x.Id).ToArray();
-        static string Rounded(decimal value) => Math.Round(value, 3, MidpointRounding.AwayFromZero)
-            .ToString("F3", CultureInfo.InvariantCulture);
-        var cacheKey = "osrm-table-v1:" + Rounded(originLatitude) + ":" + Rounded(originLongitude)
-            + ":" + vehicleGroup + ":" + string.Join(";", ordered.Select(x =>
-                x.Id.ToString("N") + "," + Rounded(x.Latitude) + "," + Rounded(x.Longitude)));
+        // Canonical order permits reuse by Search and Recommendation even when candidate order differs.
+        // The cache key must reflect exactly the six-decimal coordinates sent to OSRM. Rounding to
+        // three decimals can alias different origins (~100 m) and return someone else's ETA.
+        // Hashing also avoids storing GPS values in an in-process cache key.
+        var ordered = candidates.OrderBy(x => x.LotId).ToArray();
+        var cacheKey = BuildCacheKey(originLatitude, originLongitude, ordered, vehicleGroup);
         if (cache.TryGetValue<IReadOnlyDictionary<Guid, double?>>(cacheKey, out var cached) && cached is not null)
             return cached;
 
@@ -63,7 +95,7 @@ public sealed class OsrmMatrixClient(HttpClient client, IMemoryCache cache, ICon
                 var seconds = durations[0][i];
                 var duration = seconds.ValueKind == JsonValueKind.Number && seconds.TryGetDouble(out var value)
                     && double.IsFinite(value) && value >= 0 ? Math.Round(value / 60.0, 1) : (double?)null;
-                result[ordered[i].Id] = duration;
+                result[ordered[i].LotId] = duration;
             }
             cache.Set(cacheKey, result, TimeSpan.FromSeconds(60));
             return result;

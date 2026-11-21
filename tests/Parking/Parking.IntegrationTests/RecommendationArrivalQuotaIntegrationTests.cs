@@ -52,7 +52,7 @@ public sealed class RecommendationArrivalQuotaIntegrationTests
             Assert.NotNull(request);
             aiCalls.Enqueue(request);
             return Results.Ok(new RecommendationClientResponse(request.CandidateLots.Select((lot, index) =>
-                new RecommendedLotItemDto(lot.LotId, lot.Name, index + 1, 5,
+                new RecommendedLotItemDto(lot.LotId, lot.Name, index + 1, lot.DriveTimeMinutes,
                     lot.HeldQuotaKnown ? 70d : null, lot.PriceForDuration, false,
                     ["Test result"], lot.HeldQuotaKnown ? 10 : 0, !lot.HeldQuotaKnown)).ToList(), false, null));
         });
@@ -71,7 +71,7 @@ public sealed class RecommendationArrivalQuotaIntegrationTests
         var aiClient = new ParkingRecommendationClient(aiHttp, config, NullLogger<ParkingRecommendationClient>.Instance);
         var lots = new NearbyReader(firstId, secondId);
         var handler = new GetParkingLotRecommendationsQueryHandler(lots, new MetricsReader(vehicleType),
-            new SnapshotReader(), quotaClient, aiClient, NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
+            new SnapshotReader(), quotaClient, aiClient, new EmptyRouteReader(), NullLogger<GetParkingLotRecommendationsQueryHandler>.Instance);
 
         foreach (var at in new[] { arrival, arrival.AddHours(1) })
         {
@@ -105,6 +105,15 @@ public sealed class RecommendationArrivalQuotaIntegrationTests
                 Assert.Contains(bookingCalls, x => x.LotId == secondId && x.ArrivalAt == at);
             }
         }
+    }
+
+    private sealed class EmptyRouteReader : IRecommendationDrivingEtaReader
+    {
+        public Task<IReadOnlyDictionary<Guid, double?>> GetDrivingMinutesAsync(
+            decimal originLatitude, decimal originLongitude,
+            IReadOnlyList<RecommendationRouteDestination> destinations,
+            string vehicleGroup, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, double?>>(new Dictionary<Guid, double?>());
     }
 
     private sealed class NearbyReader(Guid firstId, Guid secondId) : INearbyParkingLotReader

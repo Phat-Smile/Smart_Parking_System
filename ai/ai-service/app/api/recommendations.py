@@ -47,6 +47,8 @@ class CandidateLotRequest(BaseModel):
     heldQuota: int = Field(default=0, ge=0)
     heldQuotaKnown: bool = Field(default=True)
     snapshots: list[CandidateSnapshotInput] = Field(default_factory=list, max_length=5000)
+    # This field is supplied by Parking's trusted OSRM adapter, never by an LLM.
+    driveTimeMinutes: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class RecommendationRequest(BaseModel):
@@ -105,6 +107,7 @@ def get_recommendations(request: RecommendationRequest) -> RecommendationRespons
             price_for_duration=c.priceForDuration,
             held_quota=c.heldQuota,
             held_quota_known=c.heldQuotaKnown,
+            drive_time_minutes=c.driveTimeMinutes,
             snapshots=[
                 AvailabilitySnapshot(
                     lot_id=s.lotId,
@@ -152,7 +155,7 @@ def get_recommendations(request: RecommendationRequest) -> RecommendationRespons
                 name=item.name,
                 rank=item.rank,
                 driveTimeMinutes=item.drive_time_minutes,
-                probabilityPercent=item.probability_percent,
+                probabilityPercent=None if item.insufficient_data else item.probability_percent,
                 price=item.price,
                 warningHighFullRisk=item.warning_high_full_risk,
                 reasons=item.reasons,

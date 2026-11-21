@@ -1,6 +1,7 @@
 """Offline tests: the model selects ranks; application only validates identities and facts."""
 
 import json
+from dataclasses import replace
 import os
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -72,6 +73,36 @@ class PromptingRecommendationTests(unittest.TestCase):
         self.assertNotIn("customerLatitude", json.dumps(provider.calls[0][1]))
         self.assertNotIn("heldQuota", json.dumps(provider.calls[0][1]))
         self.assertEqual(4, len(provider.calls[0][1]["candidates"]))
+        self.assertTrue(all(candidate["travelMinutes"] is None
+                            and candidate["travelSource"] == "unavailable_no_route"
+                            for candidate in provider.calls[0][1]["candidates"]))
+        self.assertTrue(all(item.drive_time_minutes is None for item in outcome.recommended_lots))
+
+    def test_prompt_can_use_verified_osrm_when_every_candidate_has_eta(self):
+        candidates = [replace(c, drive_time_minutes=float(4 + idx * 6))
+                      for idx, c in enumerate(lots(3))]
+        provider = StubProvider(selection([IDS[0], IDS[1], IDS[2]], code="short_travel"))
+        result = run(provider, candidates)
+        self.assertFalse(result.fallback_used)
+        self.assertEqual([4.0, 10.0, 16.0],
+                         [x.drive_time_minutes for x in result.recommended_lots])
+        self.assertTrue(all("OSRM" in reason for x in result.recommended_lots
+                            for reason in x.reasons))
+        self.assertTrue(all(x["travelSource"] == "osrm" for x in provider.calls[0][1]["candidates"]))
+
+    def test_prompt_must_not_compare_travel_times_if_any_candidate_is_unroutable(self):
+        candidates = [replace(c, drive_time_minutes=5.5 if idx == 0 else None)
+                      for idx, c in enumerate(lots(2))]
+        provider = StubProvider(selection([IDS[0], IDS[1]], code="short_travel"))
+        result = run(provider, candidates)
+        self.assertTrue(result.fallback_used)
+        self.assertEqual([], result.recommended_lots)
+
+    def test_model_cannot_claim_short_travel_without_route(self):
+        provider = StubProvider(selection([IDS[0], IDS[1]], code="short_travel"))
+        outcome = run(provider, lots(2))
+        self.assertTrue(outcome.fallback_used)
+        self.assertEqual([], outcome.recommended_lots)
 
     def test_preserves_develop_availability_quality_fields_and_unknown_held_quota(self):
         candidates = lots(2, with_reliable_history=True)

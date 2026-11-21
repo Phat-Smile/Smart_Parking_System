@@ -11,6 +11,7 @@ Validates:
 """
 
 import time
+from dataclasses import replace
 import unittest
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
@@ -154,6 +155,19 @@ class RecommendationEngineTests(unittest.TestCase):
         self.assertTrue(results[1].warning_high_full_risk)
         self.assertTrue(any("cảnh báo" in r.lower() for r in results[0].reasons))
 
+    def test_application_passes_only_caller_provided_verified_drive_times(self):
+        from app.application.recommend_lots import recommend_parking_lots
+        at = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+        ids = [uuid4(), uuid4()]
+        inputs = [CandidateLotDto(id_, f"Lot {i}", 10.77, 106.70, 20000,
+                                  0, [], drive_time_minutes=mins)
+                  for i, (id_, mins) in enumerate(zip(ids, [5.5, 22.0]))]
+        with_routes = recommend_parking_lots(10.77, 106.70, "Car", at, 120, inputs)
+        self.assertEqual({5.5, 22.0}, {x.drive_time_minutes for x in with_routes.recommended_lots})
+        without_routes = recommend_parking_lots(10.77, 106.70, "Car", at, 120,
+            [replace(c, drive_time_minutes=None) for c in inputs])
+        self.assertTrue(all(x.drive_time_minutes is None for x in without_routes.recommended_lots))
+
     def test_missing_drive_time_redistributes_weights(self):
         """BR-08.d: When drive time is None, weights adapt to 0.67 prob and 0.33 price."""
         id_high_prob = uuid4()
@@ -265,6 +279,10 @@ class RecommendationEngineTests(unittest.TestCase):
         # Lot 1 has available slots > held quota, so high prob -> Rank 1
         self.assertEqual(lot1_id, result.recommended_lots[0].lot_id)
         self.assertFalse(result.recommended_lots[0].warning_high_full_risk)
+        # No routed duration was supplied; the legacy scorer must not forge drive time.
+        self.assertTrue(all(item.drive_time_minutes is None for item in result.recommended_lots))
+        self.assertTrue(any("chưa có thời gian lái xe" in reason.lower()
+                            for reason in result.recommended_lots[0].reasons))
 
 
 if __name__ == "__main__":

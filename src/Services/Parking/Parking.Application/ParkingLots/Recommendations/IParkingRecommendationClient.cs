@@ -16,7 +16,8 @@ public sealed record CandidateLotInputDto(
     [property: JsonPropertyName("priceForDuration")] double PriceForDuration,
     [property: JsonPropertyName("heldQuota")] int HeldQuota,
     [property: JsonPropertyName("heldQuotaKnown")] bool HeldQuotaKnown,
-    [property: JsonPropertyName("snapshots")] IReadOnlyList<CandidateSnapshotInputDto> Snapshots);
+    [property: JsonPropertyName("snapshots")] IReadOnlyList<CandidateSnapshotInputDto> Snapshots,
+    [property: JsonPropertyName("driveTimeMinutes")] double? DriveTimeMinutes = null);
 
 public sealed record RecommendationClientRequest(
     [property: JsonPropertyName("customerLatitude")] double CustomerLatitude,

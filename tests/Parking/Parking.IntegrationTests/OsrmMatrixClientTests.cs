@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using ParkingSystem.Parking.Application.ParkingLots.SearchCustomerLots;
+using ParkingSystem.Parking.Application.ParkingLots.Recommendations;
 using ParkingSystem.Parking.WebAPI.Routing;
 using Xunit;
 
@@ -45,6 +46,27 @@ public sealed class OsrmMatrixClientTests
     }
 
     [Fact]
+    public async Task Search_And_Recommendation_Reuse_The_Same_Cached_Osrm_Table_Response()
+    {
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"code":"Ok","durations":[[660,1020]]}""",
+                Encoding.UTF8, "application/json")
+        });
+        var routing = Client(handler);
+        var search = await routing.GetMinutesAsync(10.75m, 106.69m,
+            [Lot(FirstId, 10.76m, 106.70m), Lot(SecondId, 10.77m, 106.71m)],
+            "Car", TestContext.Current.CancellationToken);
+        var recommendation = await routing.GetDrivingMinutesAsync(10.75m, 106.69m,
+            [new RecommendationRouteDestination(SecondId, 10.77m, 106.71m),
+             new RecommendationRouteDestination(FirstId, 10.76m, 106.70m)],
+            "Car", TestContext.Current.CancellationToken);
+        Assert.Equal(11d, search[FirstId]);
+        Assert.Equal(17d, recommendation[SecondId]);
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
     public async Task No_route_is_null_and_never_fake_eta()
     {
         var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -76,6 +98,51 @@ public sealed class OsrmMatrixClientTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Client(handler).GetMinutesAsync(
             10.75m, 106.69m, lots, "Car", TestContext.Current.CancellationToken));
         Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Nearby_but_distinct_GPS_origins_must_not_share_cached_drive_time()
+    {
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"code":"Ok","durations":[[600]]}""", Encoding.UTF8, "application/json")
+        });
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        // The same provider result is sufficient: a wrong cache reuse is observable as one call.
+        var routing = new OsrmMatrixClient(new HttpClient(handler), cache,
+            new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+                { ["Osrm:BaseUrl"] = "http://osrm.test" }).Build());
+        var lots = new[] { Lot(FirstId, 10.76m, 106.70m) };
+        await routing.GetMinutesAsync(10.75011m, 106.69011m, lots, "Car", TestContext.Current.CancellationToken);
+        await routing.GetMinutesAsync(10.75019m, 106.69019m, lots, "Car", TestContext.Current.CancellationToken);
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Identical_six_decimal_coordinates_still_reuse_cache()
+    {
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"code":"Ok","durations":[[420]]}""", Encoding.UTF8, "application/json")
+        });
+        var routing = Client(handler);
+        var lots = new[] { Lot(FirstId, 10.76m, 106.70m) };
+        await routing.GetMinutesAsync(10.7501111m, 106.6901111m, lots, "Car", TestContext.Current.CancellationToken);
+        await routing.GetMinutesAsync(10.7501112m, 106.6901112m, lots, "Car", TestContext.Current.CancellationToken);
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
+    public void Cache_key_is_stable_per_route_and_does_not_contain_raw_GPS()
+    {
+        var route = new RecommendationRouteDestination(FirstId, 10.761234m, 106.701234m);
+        var key = OsrmMatrixClient.BuildCacheKey(10.751234m, 106.691234m, [route], "Car");
+        Assert.StartsWith("osrm-table-v2:", key);
+        Assert.DoesNotContain("10.751234", key);
+        Assert.DoesNotContain("106.691234", key);
+        Assert.DoesNotContain("10.761234", key);
+        Assert.Equal(key, OsrmMatrixClient.BuildCacheKey(10.751234m, 106.691234m, [route], "Car"));
+        Assert.NotEqual(key, OsrmMatrixClient.BuildCacheKey(10.751235m, 106.691234m, [route], "Car"));
     }
 
     private sealed class FakeHandler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler
