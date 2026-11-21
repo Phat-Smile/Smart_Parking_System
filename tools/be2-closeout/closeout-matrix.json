@@ -1,0 +1,557 @@
+{
+  "metadata": {
+    "date": "2026-11-21",
+    "original_backlog": "BE_V4 (1).xlsx Backlog 23 items 80 SP (22 OJT 72 SP, 8 SP after OJT)",
+    "original_owner_doc": "phan-cong-tranh-trung.md 2026-11-20",
+    "weekly_source": "tong-ket-tuan-16-20-11.html 2026-11-20",
+    "warning": "Snapshot from supplied sources, not live CI or current PR approval. No task is marked accepted without external evidence."
+  },
+  "tasks": [
+    {
+      "id": "TECH-02",
+      "title": "Script seed dữ liệu dùng chung (bãi theo lượt / block, khu có / không cảm biến, khu xe máy, bảng giá)",
+      "priority": "P0",
+      "fr": "—",
+      "story_points": 3,
+      "sprint": "S1",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #71",
+      "source_excel_row": 10,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Verify seeded parking catalog and prices on current develop; do not rerun seed on shared DB",
+      "acceptance_evidence": "Catalog fixture version, seed docs, test evidence",
+      "claim_done": false
+    },
+    {
+      "id": "TECH-03",
+      "title": "Mapbox geocoding+directions adapter: chinh sach su dung, gioi han tan suat, adapter mock cho test",
+      "priority": "P0",
+      "fr": "—",
+      "story_points": 2,
+      "sprint": "S1",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #72",
+      "source_excel_row": 11,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Check existing routing/geocoding adapter, throttling and mock tests; coordinate shared OSRM",
+      "acceptance_evidence": "Adapter file + rate-limit/fallback tests + PR",
+      "claim_done": false
+    },
+    {
+      "id": "US-SEARCH-001",
+      "title": "Xem danh sách bãi",
+      "priority": "P0",
+      "fr": "FR-PARK-001",
+      "story_points": 2,
+      "sprint": "S1",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #5",
+      "source_excel_row": 12,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Review public parking list + pagination/filter; no duplicate implementation",
+      "acceptance_evidence": "HTTP guest test + current develop SHA",
+      "claim_done": false
+    },
+    {
+      "id": "US-SEARCH-005",
+      "title": "Xem thông tin bãi",
+      "priority": "P0",
+      "fr": "FR-PARK-001",
+      "story_points": 2,
+      "sprint": "S1",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #16",
+      "source_excel_row": 13,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Review lot details and permissions without changing Lộc owned layout",
+      "acceptance_evidence": "HTTP guest lot-detail test + current develop SHA",
+      "claim_done": false
+    },
+    {
+      "id": "US-ADMIN-002",
+      "title": "Duyệt bãi",
+      "priority": "P0",
+      "fr": "FR-ADMIN-003",
+      "story_points": 2,
+      "sprint": "S2",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #82",
+      "source_excel_row": 36,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Check admin approval/rejection authz + audit + state transitions",
+      "acceptance_evidence": "Admin API tests and role checks",
+      "claim_done": false
+    },
+    {
+      "id": "US-OWNER-001",
+      "title": "Đăng ký bãi đỗ",
+      "priority": "P0",
+      "fr": "FR-OWNER-001",
+      "story_points": 3,
+      "sprint": "S2",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #73",
+      "source_excel_row": 37,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Check parking registration owner validation + duplicate behavior",
+      "acceptance_evidence": "Owner API tests and current file evidence",
+      "claim_done": false
+    },
+    {
+      "id": "US-OWNER-002",
+      "title": "Cấu hình giờ hoạt động",
+      "priority": "P0",
+      "fr": "FR-OWNER-001",
+      "story_points": 2,
+      "sprint": "S2",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #103",
+      "source_excel_row": 38,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Check opening hours and timezone boundaries",
+      "acceptance_evidence": "Opening hours API and date boundary tests",
+      "claim_done": false
+    },
+    {
+      "id": "US-SEARCH-002",
+      "title": "Tìm bãi bằng vị trí hiện tại",
+      "priority": "P0",
+      "fr": "FR-PARK-004",
+      "story_points": 3,
+      "sprint": "S2",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #93",
+      "source_excel_row": 39,
+      "assigned_owner": "BE-2 / Lộc UI",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Check location search and explicit GPS consent; no dashboard code changes",
+      "acceptance_evidence": "Guest search behavior + consent evidence",
+      "claim_done": false
+    },
+    {
+      "id": "US-SEARCH-003",
+      "title": "Tìm bãi bằng địa chỉ hoặc điểm đến",
+      "priority": "P0",
+      "fr": "FR-MAP-001",
+      "story_points": 3,
+      "sprint": "S2",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #94",
+      "source_excel_row": 40,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Verify destination geocode and no-provider fallback",
+      "acceptance_evidence": "Geocoding/mock tests and API evidence",
+      "claim_done": false
+    },
+    {
+      "id": "US-SEARCH-004",
+      "title": "Lọc theo loại xe",
+      "priority": "P0",
+      "fr": "FR-PARK-007",
+      "story_points": 1,
+      "sprint": "S2",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #95",
+      "source_excel_row": 41,
+      "assigned_owner": "BE-2 / review",
+      "decision": "VERIFY_ONLY",
+      "immediate_action": "Check vehicle type filter and missing capacity state",
+      "acceptance_evidence": "Filter contract and search API tests",
+      "claim_done": false
+    },
+    {
+      "id": "US-OWNER-007",
+      "title": "Thiết kế layout bãi",
+      "priority": "P0",
+      "fr": "FR-OWNER-002",
+      "story_points": 5,
+      "sprint": "S2",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #102",
+      "source_excel_row": 42,
+      "assigned_owner": "BE-2 / Đình Anh UI",
+      "decision": "DELEGATED_VERIFY",
+      "immediate_action": "Verify persisted lot layout API; do not edit owner zone editor",
+      "acceptance_evidence": "Owner API test and UI owner confirmation",
+      "claim_done": false
+    },
+    {
+      "id": "US-MAP-001",
+      "title": "Xem sơ đồ bãi 3D",
+      "priority": "P0",
+      "fr": "FR-PARK-002",
+      "story_points": 3,
+      "sprint": "S3",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #175",
+      "source_excel_row": 61,
+      "assigned_owner": "BE-2 / Đình Anh UI",
+      "decision": "DELEGATED_VERIFY",
+      "immediate_action": "Verify 3D layout rendering exists; no duplicate owner frontend work",
+      "acceptance_evidence": "Frontend render evidence",
+      "claim_done": false
+    },
+    {
+      "id": "US-MAP-002",
+      "title": "Xem sơ đồ 2D",
+      "priority": "P0",
+      "fr": "FR-PARK-002",
+      "story_points": 2,
+      "sprint": "S3",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #175",
+      "source_excel_row": 62,
+      "assigned_owner": "BE-2 / Đình Anh UI",
+      "decision": "DELEGATED_VERIFY",
+      "immediate_action": "Verify 2D layout rendering exists; no duplicate owner frontend work",
+      "acceptance_evidence": "Frontend render evidence",
+      "claim_done": false
+    },
+    {
+      "id": "US-MAP-004",
+      "title": "Xem mức sử dụng theo từng khu đỗ",
+      "priority": "P0",
+      "fr": "FR-PARK-007",
+      "story_points": 3,
+      "sprint": "S3",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #175",
+      "source_excel_row": 63,
+      "assigned_owner": "BE-2 / Lộc slot PR",
+      "decision": "DELEGATED_VERIFY",
+      "immediate_action": "Review zone usage against sensor event snapshots",
+      "acceptance_evidence": "Sensor-to-usage tests",
+      "claim_done": false
+    },
+    {
+      "id": "US-MAP-006",
+      "title": "Giả lập thiết bị bãi bằng IoT Simulator",
+      "priority": "P0",
+      "fr": "FR-AI-005",
+      "story_points": 3,
+      "sprint": "S3",
+      "source_status_202610": "Xong",
+      "source_pr": "PR #176",
+      "source_excel_row": 64,
+      "assigned_owner": "BE-2 / Lộc slot PR",
+      "decision": "DELEGATED_VERIFY",
+      "immediate_action": "Review IoT simulator event-id/idempotency correctness",
+      "acceptance_evidence": "Simulator tests and event replay evidence",
+      "claim_done": false
+    },
+    {
+      "id": "US-SEARCH-006",
+      "title": "Xem thời gian lái xe tới bãi",
+      "priority": "P0",
+      "fr": "FR-MAP-002",
+      "story_points": 5,
+      "sprint": "S4",
+      "source_status_202610": "Chưa làm",
+      "source_pr": "58",
+      "source_excel_row": 66,
+      "assigned_owner": "BE-2 / Lộc #329",
+      "decision": "DIFF_REVIEW",
+      "immediate_action": "Review OSRM ETA cache and routing fallback vs split branch; no overwrite",
+      "acceptance_evidence": "Split-ref blob+behavior diff and owner signoff",
+      "claim_done": false
+    },
+    {
+      "id": "US-AI-002",
+      "title": "Xem khả năng còn chỗ khi tới",
+      "priority": "P0",
+      "fr": "FR-AI-002",
+      "story_points": 5,
+      "sprint": "S3",
+      "source_status_202610": "Chờ review",
+      "source_pr": "PR #187",
+      "source_excel_row": 76,
+      "assigned_owner": "BE-2 / Lộc #329",
+      "decision": "DIFF_REVIEW",
+      "immediate_action": "Review arrival probability contract/held quota and data-quality fallback",
+      "acceptance_evidence": "Integration test + quota evidence + owner signoff",
+      "claim_done": false
+    },
+    {
+      "id": "US-AI-001",
+      "title": "Nhận gợi ý bãi phù hợp",
+      "priority": "P0",
+      "fr": "FR-AI-001",
+      "story_points": 8,
+      "sprint": "S4",
+      "source_status_202610": "Chưa làm",
+      "source_pr": "58",
+      "source_excel_row": 86,
+      "assigned_owner": "Lộc #329",
+      "decision": "OWNED_ELSEWHERE",
+      "immediate_action": "No new AI recommendation edits; compare four split PR refs",
+      "acceptance_evidence": "Split PR accepted + AI QA",
+      "claim_done": false
+    },
+    {
+      "id": "US-PRIV-001",
+      "title": "Cho phép sử dụng GPS",
+      "priority": "P1",
+      "fr": "FR-PRIV-001",
+      "story_points": 1,
+      "sprint": "S5",
+      "source_status_202610": "Chưa làm",
+      "source_pr": "58",
+      "source_excel_row": 92,
+      "assigned_owner": "Lộc #329",
+      "decision": "OWNED_ELSEWHERE",
+      "immediate_action": "No GPS dashboard/privacy edits; review consent/no-store after split PR",
+      "acceptance_evidence": "Browser consent/manual check and PR review",
+      "claim_done": false
+    },
+    {
+      "id": "US-AI-004",
+      "title": "Nhận diện biển số và loại xe bằng model",
+      "priority": "P1",
+      "fr": "FR-AI-007",
+      "story_points": 8,
+      "sprint": "S5",
+      "source_status_202610": "Chưa làm",
+      "source_pr": "58",
+      "source_excel_row": 108,
+      "assigned_owner": "BE-2 independent baseline; Lộc owns OCR UI",
+      "decision": "ACTIVE_DATA_BLOCKED",
+      "immediate_action": "Baseline model already pushed; implement independent subject/session/near-duplicate leakage audit; evaluate real labeled camera data when supplied",
+      "acceptance_evidence": "Labeled holdout split + class/site/night breakdown + agreed accuracy/coverage + manual review",
+      "claim_done": false
+    },
+    {
+      "id": "TECH-14",
+      "title": "Test hiệu năng NFR-02 (realtime <2s) + NFR-04 (AI <1s)",
+      "priority": "P1",
+      "fr": "—",
+      "story_points": 3,
+      "sprint": "S6",
+      "source_status_202610": "Chưa làm",
+      "source_pr": "58",
+      "source_excel_row": 110,
+      "assigned_owner": "BE-2 evidence / Lộc QA",
+      "decision": "COORDINATE_NFR",
+      "immediate_action": "Do not run load test on ACER; prepare NFR workload/samples and request isolated QA metrics",
+      "acceptance_evidence": "NFR-02 realtime p95 <2s and NFR-04 AI p95 <1s measured under approved load",
+      "claim_done": false
+    },
+    {
+      "id": "TECH-15",
+      "title": "Hồi quy E2E toàn luồng MF-01 → MF-13",
+      "priority": "P1",
+      "fr": "—",
+      "story_points": 3,
+      "sprint": "S6",
+      "source_status_202610": "Chưa làm",
+      "source_pr": "58",
+      "source_excel_row": 111,
+      "assigned_owner": "Lộc demo/E2E",
+      "decision": "OWNED_ELSEWHERE",
+      "immediate_action": "Do not duplicate Lộc business E2E; collect signed results once run",
+      "acceptance_evidence": "MF-01..13 real journey trace, settlement and gates, no fake data",
+      "claim_done": false
+    },
+    {
+      "id": "US-AI-003",
+      "title": "So sánh LightGBM với baseline",
+      "priority": "P2",
+      "fr": "FR-AI-006",
+      "story_points": 8,
+      "sprint": "Sau OJT",
+      "source_status_202610": "Chưa làm",
+      "source_pr": "58",
+      "source_excel_row": 114,
+      "assigned_owner": "BE-2 after OJT",
+      "decision": "POST_OJT",
+      "immediate_action": "LightGBM comparison only after baseline real data/model acceptance",
+      "acceptance_evidence": "Held-out dataset and reproducible comparison",
+      "claim_done": false
+    }
+  ],
+  "split_refs": [
+    "features/Implementation_AiInsufficientDataRanking",
+    "features/Implementation_GateArrivalConfirmation",
+    "features/Implementation_SlotSensorPricingPrivacy",
+    "features/Implementation_CustomerDashboardGps"
+  ],
+  "feature_ref": "features/BE2_integrated_20261120",
+  "review_paths": [
+    {
+      "path": "src/Services/Parking/Parking.WebAPI/Program.cs",
+      "prior_classification": "SAME_PATH_DIFFERENT_CONTENT",
+      "owner": "Lộc / shared",
+      "action": "Manual semantic review with Lộc; no automatic cherry-pick."
+    },
+    {
+      "path": "tests/Parking/Parking.IntegrationTests/LotDetailPricingAvailabilityHttpTests.cs",
+      "prior_classification": "SAME_PATH_DIFFERENT_CONTENT",
+      "owner": "Lộc / shared",
+      "action": "Manual semantic review with Lộc; no automatic cherry-pick."
+    },
+    {
+      "path": "web/src/features/customer/CustomerDashboardPage.gps.test.tsx",
+      "prior_classification": "SAME_PATH_DIFFERENT_CONTENT",
+      "owner": "Lộc / shared",
+      "action": "Manual semantic review with Lộc; no automatic cherry-pick."
+    },
+    {
+      "path": "web/src/features/customer/CustomerDashboardPage.tsx",
+      "prior_classification": "SAME_PATH_DIFFERENT_CONTENT",
+      "owner": "Lộc / shared",
+      "action": "Manual semantic review with Lộc; no automatic cherry-pick."
+    },
+    {
+      "path": "web/src/features/staff/anpr/plateMatcher.ts",
+      "prior_classification": "SAME_PATH_DIFFERENT_CONTENT",
+      "owner": "Lộc / shared",
+      "action": "Manual semantic review with Lộc; no automatic cherry-pick."
+    },
+    {
+      "path": "web/src/features/staff/anpr/plateOcr.ts",
+      "prior_classification": "SAME_PATH_DIFFERENT_CONTENT",
+      "owner": "Lộc / shared",
+      "action": "Manual semantic review with Lộc; no automatic cherry-pick."
+    },
+    {
+      "path": ".env.example",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "docker-compose.yml",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "docs/api/AI-Parking-Recommendations.md",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "tests/audits/be2-gate-branch-audit.sh",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "tests/e2e/be2-business-qa.mjs",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "tests/e2e/be2-business-qa.test.mjs",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "tests/live/be2-r7-smoke.mjs",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "tests/live/be2-r7-smoke.test.mjs",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "tests/performance/be2-qa-perf.mjs",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    },
+    {
+      "path": "tests/performance/be2-qa-perf.test.mjs",
+      "prior_classification": "NO_EXACT_SPLIT_BLOB",
+      "owner": "Shared / Lộc E2E",
+      "action": "Review ownership and develop state; not automatically free for BE-2."
+    }
+  ],
+  "cross_service_gaps": [
+    {
+      "name": "Staff shows minutes late and canceled no-show",
+      "owner": "UNASSIGNED; overlaps Lộc #334 and BE-3",
+      "action": "Ask owners for API/UI boundary before implementing",
+      "acceptance": "Booking no-show truth and staff late/canceled view agree on fixed event clock"
+    },
+    {
+      "name": "Exit barrier command bound to actual camera reading",
+      "owner": "UNASSIGNED; overlaps BE-4 Gate and Lộc StaffExit",
+      "action": "Ask BE-4/Lộc for payload contract and ownership",
+      "acceptance": "Barrier event correlated to reading; mismatched reading cannot authorize exit"
+    },
+    {
+      "name": "Full Context FR matrix beyond BE-2",
+      "owner": "Team lead / cross-team",
+      "action": "Do read-only matrix; route domain gaps to BE-1..5",
+      "acceptance": "Every FR traced to approved code, test and accountable owner"
+    }
+  ],
+  "evidence_snapshot": [
+    {
+      "name": "Old integrated feature",
+      "commit": "16bb7bcc51419a1c85c8ecf26381a65a154b224f",
+      "type": "user_log",
+      "result": "PUSHED_NOT_MERGED",
+      "note": "52 changed paths; do not merge whole branch due duplicated ownership"
+    },
+    {
+      "name": "FR/ANPR evidence branch",
+      "commit": "127af506ecd68b04c2ca6f56193c0f53f811f76a",
+      "type": "user_log",
+      "result": "PUSHED_NOT_MERGED",
+      "note": "31/31 Node tests at prior run"
+    },
+    {
+      "name": "Vehicle type baseline",
+      "commit": "d4632b477a6e294b05839da07edb12c309387cd3",
+      "type": "user_log",
+      "result": "PUSHED_NOT_MERGED",
+      "note": "11 Node pass / 1 Windows symlink skip, synthetic image pipeline 12 Python pass earlier"
+    },
+    {
+      "name": "Parking Unit",
+      "type": "prior_user_log",
+      "result": "705/705 PASS",
+      "note": "Previous branch/commit, not current develop acceptance"
+    },
+    {
+      "name": "Targeted Parking Integration",
+      "type": "prior_user_log",
+      "result": "42/42 PASS",
+      "note": "Previous branch/commit, not Business E2E"
+    },
+    {
+      "name": "Real camera model evaluation",
+      "type": "missing",
+      "result": "BLOCKED_DATA",
+      "note": "No labeled camera capture and model predictions supplied"
+    },
+    {
+      "name": "Live NFR approval",
+      "type": "missing",
+      "result": "BLOCKED_ENV",
+      "note": "Read-only tiny sample is not a performance load test"
+    },
+    {
+      "name": "Live Business E2E",
+      "type": "delegated",
+      "result": "PENDING_LOC",
+      "note": "Demo and MF-01..13 E2E owned by Lộc"
+    }
+  ]
+}
