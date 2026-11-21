@@ -1,4 +1,10 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+    act,
+    cleanup,
+    fireEvent,
+    render,
+    screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CustomerDashboardPage } from "./CustomerDashboardPage";
 
@@ -10,9 +16,13 @@ vi.mock("next/image", () => ({
     default: ({ alt }: { alt: string }) => <span aria-label={alt} />,
 }));
 vi.mock("next/link", () => ({
-    default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-        <a href={href}>{children}</a>
-    ),
+    default: ({
+        href,
+        children,
+    }: {
+        href: string;
+        children: React.ReactNode;
+    }) => <a href={href}>{children}</a>,
 }));
 vi.mock("@/features/auth/authSession", () => ({
     getAuthSessionSnapshot: () => null,
@@ -27,8 +37,12 @@ vi.mock("./CustomerSessions", () => ({ ActiveSessionCard: () => null }));
 vi.mock("./CustomerSearchDropdown", () => ({
     CustomerSearchDropdown: () => null,
 }));
-vi.mock("./mobile/useCustomerMobile", () => ({ useCustomerMobile: () => false }));
-vi.mock("./mobile/CustomerMobileHome", () => ({ CustomerMobileHome: () => null }));
+vi.mock("./mobile/useCustomerMobile", () => ({
+    useCustomerMobile: () => false,
+}));
+vi.mock("./mobile/CustomerMobileHome", () => ({
+    CustomerMobileHome: () => null,
+}));
 vi.mock("./booking/bookingApi", () => ({
     getMyReservations: vi.fn().mockResolvedValue([]),
 }));
@@ -39,7 +53,10 @@ vi.mock("./i18n/customerLanguage", () => ({
     }),
 }));
 
-const originalGeolocation = Object.getOwnPropertyDescriptor(navigator, "geolocation");
+const originalGeolocation = Object.getOwnPropertyDescriptor(
+    navigator,
+    "geolocation",
+);
 
 function setGeolocation(value: unknown) {
     Object.defineProperty(navigator, "geolocation", {
@@ -69,7 +86,9 @@ describe("US-PRIV-001 dashboard GPS consent", () => {
         vi.stubGlobal("fetch", weatherFetch);
 
         render(<CustomerDashboardPage fontClassName="" />);
-        expect(screen.getByRole("button", { name: /Get local weather and time/i })).toBeVisible();
+        expect(
+            screen.getByRole("button", { name: /Get local weather and time/i }),
+        ).toBeVisible();
         await act(async () => Promise.resolve());
 
         expect(getCurrentPosition).not.toHaveBeenCalled();
@@ -81,28 +100,44 @@ describe("US-PRIV-001 dashboard GPS consent", () => {
         setGeolocation({ getCurrentPosition });
         render(<CustomerDashboardPage fontClassName="" />);
 
-        fireEvent.click(screen.getByRole("button", { name: /Get local weather and time/i }));
+        fireEvent.click(
+            screen.getByRole("button", { name: /Get local weather and time/i }),
+        );
         expect(getCurrentPosition).toHaveBeenCalledTimes(1);
     });
 
     it("keeps manual address search available when the browser denies GPS", () => {
-        const getCurrentPosition = vi.fn((_success: unknown, error: (err: { code: number }) => void) => {
-            error({ code: 1 });
-        });
+        const getCurrentPosition = vi.fn(
+            (_success: unknown, error: (err: { code: number }) => void) => {
+                error({ code: 1 });
+            },
+        );
         setGeolocation({ getCurrentPosition });
         render(<CustomerDashboardPage fontClassName="" />);
 
-        fireEvent.click(screen.getByRole("button", { name: /Use my current location/i }));
+        fireEvent.click(
+            screen.getByRole("button", { name: /Use my current location/i }),
+        );
         expect(getCurrentPosition).toHaveBeenCalledTimes(1);
-        expect(screen.getByRole("status")).toHaveTextContent(/enter an address instead/i);
-        expect(screen.getByPlaceholderText("Enter an address or landmark")).toBeEnabled();
+        expect(screen.getByRole("status")).toHaveTextContent(
+            /enter an address instead/i,
+        );
+        expect(
+            screen.getByPlaceholderText("Enter an address or landmark"),
+        ).toBeEnabled();
     });
 
     it("preserves address search if geolocation is unsupported", () => {
         setGeolocation(undefined);
         render(<CustomerDashboardPage fontClassName="" />);
-        fireEvent.click(screen.getByRole("button", { name: /Use my current location/i }));
-        expect(screen.getByRole("status")).toHaveTextContent(/enter an address instead/i);
-        expect(screen.getByPlaceholderText("Enter an address or landmark")).toBeEnabled();
+        fireEvent.click(
+            screen.getByRole("button", { name: /Use my current location/i }),
+        );
+        expect(screen.getByRole("status")).toHaveTextContent(
+            /enter an address instead/i,
+        );
+        expect(
+            screen.getByPlaceholderText("Enter an address or landmark"),
+        ).toBeEnabled();
     });
 });

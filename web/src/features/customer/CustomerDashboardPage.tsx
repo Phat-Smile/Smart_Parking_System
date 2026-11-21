@@ -279,7 +279,6 @@ export function CustomerDashboardPage({
         setWeatherState,
     ]);
 
-
     function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (!destination.trim()) {
