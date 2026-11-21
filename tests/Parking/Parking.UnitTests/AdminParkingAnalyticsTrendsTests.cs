@@ -7,7 +7,7 @@ namespace ParkingSystem.Tests.Parking.UnitTests;
 public sealed class AdminParkingAnalyticsTrendsTests
 {
     [Fact]
-    public async Task Seven_day_trends_use_utc_days_fill_gaps_and_keep_arrays_aligned()
+    public async Task Seven_day_trends_use_vietnam_days_fill_gaps_and_keep_arrays_aligned()
     {
         var reader = new FakeReader(new AdminParkingAnalyticsCounts(
             [new(new DateOnly(2026, 11, 16), 2), new(new DateOnly(2026, 11, 21), 3)],
@@ -22,8 +22,8 @@ public sealed class AdminParkingAnalyticsTrendsTests
         Assert.Equal(result.Labels.Length, result.NewSubmissions.Length);
         Assert.Equal(result.Labels.Length, result.ApprovedCount.Length);
         Assert.Equal(DateTimeKind.Utc, reader.StartUtc!.Value.Kind);
-        Assert.Equal(new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc), reader.StartUtc);
-        Assert.Equal(new DateTime(2026, 11, 22, 0, 0, 0, DateTimeKind.Utc), reader.EndUtcExclusive);
+        Assert.Equal(new DateTime(2026, 11, 14, 17, 0, 0, DateTimeKind.Utc), reader.StartUtc);
+        Assert.Equal(new DateTime(2026, 11, 21, 17, 0, 0, DateTimeKind.Utc), reader.EndUtcExclusive);
     }
 
     [Fact]

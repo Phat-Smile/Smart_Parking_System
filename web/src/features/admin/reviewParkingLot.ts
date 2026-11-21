@@ -11,6 +11,12 @@ import type {
 
 export const MAX_REJECTION_REASON = 500;
 
+export interface AdminParkingAnalyticsTrends {
+    labels: string[];
+    newSubmissions: number[];
+    approvedCount: number[];
+}
+
 const guidPattern =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -32,6 +38,7 @@ interface AdminLotListResponse {
         type: string;
         approvalStatus: ApprovalStatus;
         rejectionReason: string | null;
+        submittedAtUtc?: string | null;
     }>;
 }
 
@@ -41,9 +48,12 @@ interface AdminLotListResponse {
  */
 export async function getAdminParkingLots(
     status?: ApprovalStatus | "All",
+    dateRange?: { fromDate?: string; toDate?: string },
 ): Promise<AdminParkingLot[]> {
     const query = new URLSearchParams({ page: "1", pageSize: "100" });
     if (status && status !== "All") query.set("status", status);
+    if (dateRange?.fromDate) query.set("fromDate", dateRange.fromDate);
+    if (dateRange?.toDate) query.set("toDate", dateRange.toDate);
     const response = await gatewayFetch<AdminLotListResponse>(
         `/api/parking/admin/lots?${query.toString()}`,
         { method: "GET" },
@@ -56,9 +66,19 @@ export async function getAdminParkingLots(
         ownerUserId: item.ownerUserId,
         status: item.approvalStatus,
         rejectionReason: item.rejectionReason,
+        submittedAtUtc: item.submittedAtUtc ?? undefined,
         latitude: item.latitude,
         longitude: item.longitude,
     }));
+}
+
+export async function getAdminParkingAnalyticsTrends(
+    period: "7days" | "30days" = "7days",
+): Promise<AdminParkingAnalyticsTrends> {
+    return gatewayFetch<AdminParkingAnalyticsTrends>(
+        `/api/parking/admin/analytics/trends?${new URLSearchParams({ period })}`,
+        { method: "GET" },
+    );
 }
 
 /** Chi tiết bãi ở mọi trạng thái duyệt (#128). Endpoint: GET /api/parking/admin/lots/{id} */

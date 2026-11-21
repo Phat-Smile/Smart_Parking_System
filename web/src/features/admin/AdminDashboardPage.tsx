@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     AdminEmptyState,
@@ -11,89 +11,21 @@ import {
     formatWaitingDuration,
 } from "./AdminUi";
 import {
+    getAdminParkingAnalyticsTrends,
+    describeReviewError,
+} from "./reviewParkingLot";
+import {
     countByStatus,
     refreshAdminLots,
     useAdminLots,
     useAdminLotsMeta,
 } from "./adminLotsData";
-import { describeReviewError } from "./reviewParkingLot";
-import type { AdminParkingLot } from "./types";
 import { useLanguage } from "@/shared/i18n/LanguageContext";
 
 interface ActivityTrendBucket {
-    dateKey: string;
     label: string;
     submittedCount: number;
     approvedCount: number;
-    rejectedCount: number;
-}
-
-function toUtcDateKey(iso: string | null | undefined): string | null {
-    if (!iso) return null;
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return null;
-    const yyyy = date.getUTCFullYear();
-    const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(date.getUTCDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-}
-
-function formatShortDateLabel(dateKey: string): string {
-    const parts = dateKey.split("-");
-    if (parts.length !== 3) return dateKey;
-    return `${parts[2]}/${parts[1]}`;
-}
-
-/**
- * Hanya tổng hợp xu hướng từ dữ liệu thật có mốc thời gian (submittedAtUtc / reviewedAtUtc) từ API.
- * Tuyệt đối không tự sinh ngày giả hoặc số liệu mẫu nếu Backend chưa trả về timestamp.
- */
-function buildRealActivityTrends(
-    lots: AdminParkingLot[],
-): ActivityTrendBucket[] {
-    const map = new Map<
-        string,
-        { submittedCount: number; approvedCount: number; rejectedCount: number }
-    >();
-
-    for (const lot of lots) {
-        const subKey = toUtcDateKey(lot.submittedAtUtc);
-        if (subKey) {
-            const current = map.get(subKey) ?? {
-                submittedCount: 0,
-                approvedCount: 0,
-                rejectedCount: 0,
-            };
-            current.submittedCount += 1;
-            map.set(subKey, current);
-        }
-
-        const revKey = toUtcDateKey(lot.reviewedAtUtc);
-        if (revKey) {
-            const current = map.get(revKey) ?? {
-                submittedCount: 0,
-                approvedCount: 0,
-                rejectedCount: 0,
-            };
-            if (lot.status === "Approved") {
-                current.approvedCount += 1;
-            } else if (lot.status === "Rejected") {
-                current.rejectedCount += 1;
-            }
-            map.set(revKey, current);
-        }
-    }
-
-    return Array.from(map.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .slice(-7)
-        .map(([dateKey, counts]) => ({
-            dateKey,
-            label: formatShortDateLabel(dateKey),
-            submittedCount: counts.submittedCount,
-            approvedCount: counts.approvedCount,
-            rejectedCount: counts.rejectedCount,
-        }));
 }
 
 export function AdminDashboardPage() {
@@ -108,6 +40,34 @@ export function AdminDashboardPage() {
         null,
     );
     const [decisionPage, setDecisionPage] = useState(1);
+    const [trendBuckets, setTrendBuckets] = useState<ActivityTrendBucket[]>([]);
+    const [trendsLoading, setTrendsLoading] = useState(true);
+    const [trendsError, setTrendsError] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        getAdminParkingAnalyticsTrends("7days")
+            .then((result) => {
+                if (!active) return;
+                setTrendBuckets(
+                    result.labels.map((label, index) => ({
+                        label,
+                        submittedCount: result.newSubmissions[index] ?? 0,
+                        approvedCount: result.approvedCount[index] ?? 0,
+                    })),
+                );
+                setTrendsError(false);
+            })
+            .catch(() => {
+                if (active) setTrendsError(true);
+            })
+            .finally(() => {
+                if (active) setTrendsLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const counts = countByStatus(lots);
     const totalCount = lots.length;
@@ -154,8 +114,6 @@ export function AdminDashboardPage() {
         (validDecisionPage - 1) * DECISIONS_PER_PAGE,
         validDecisionPage * DECISIONS_PER_PAGE,
     );
-
-    const trendBuckets = useMemo(() => buildRealActivityTrends(lots), [lots]);
 
     const approvedPct =
         totalCount > 0
@@ -477,11 +435,26 @@ export function AdminDashboardPage() {
                         </div>
                     </div>
 
-                    {showInitialSkeleton ? (
+                    {showInitialSkeleton || trendsLoading ? (
                         <div
                             className="admin-chart-skeleton"
                             aria-busy="true"
                         />
+                    ) : trendsError ? (
+                        <div className="admin-chart-empty-wrap">
+                            <AdminErrorState
+                                title={
+                                    isVi
+                                        ? "Không tải được xu hướng hoạt động"
+                                        : "Unable to load activity trends"
+                                }
+                                message={
+                                    isVi
+                                        ? "Vui lòng thử tải lại trang."
+                                        : "Please reload the page and try again."
+                                }
+                            />
+                        </div>
                     ) : trendBuckets.length === 0 ? (
                         <div className="admin-chart-empty-wrap">
                             <AdminEmptyState
@@ -612,7 +585,7 @@ export function AdminDashboardPage() {
 
                                     return (
                                         <g
-                                            key={bucket.dateKey}
+                                            key={`${bucket.label}-${idx}`}
                                             className="admin-bar-group"
                                             onMouseEnter={() =>
                                                 setHoveredBarIndex(idx)

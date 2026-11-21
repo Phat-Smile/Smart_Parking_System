@@ -8,7 +8,7 @@ public interface IAdminParkingLotReader
     Task<PagedResult<AdminParkingLotItem>> ListForAdminAsync(
         ParkingLotApprovalStatus? status,
         DateTimeOffset? fromDate,
-        DateTimeOffset? toDate,
+        DateTimeOffset? toDateExclusive,
         int page,
         int pageSize,
         CancellationToken cancellationToken);
@@ -24,4 +24,4 @@ public sealed record AdminParkingLotItem(
     string Type,
     string ApprovalStatus,
     string? RejectionReason,
-    DateTime SubmittedAtUtc);
+    DateTime? SubmittedAtUtc);

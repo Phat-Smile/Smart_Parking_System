@@ -26,7 +26,7 @@ public sealed class AdminParkingEndpointsTests
 {
     [Theory]
     [InlineData("?fromDate=not-a-date")]
-    [InlineData("?fromDate=2026-11-21T00:00:00Z&toDate=2026-11-20T00:00:00Z")]
+    [InlineData("?fromDate=2026-11-21&toDate=2026-11-20")]
     public async Task Invalid_admin_date_filters_return_validation_problem(string query)
     {
         await using var app = await CreateAppAsync();
@@ -37,6 +37,25 @@ public sealed class AdminParkingEndpointsTests
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Admin_date_filters_convert_full_vietnam_days_to_utc_boundaries()
+    {
+        await using var app = await CreateAppAsync();
+        using var client = app.GetTestClient();
+        client.DefaultRequestHeaders.Add(HeaderRoleAuthenticationHandler.RoleHeader, ParkingAuthorization.SystemAdminRole);
+
+        using var response = await client.GetAsync(
+            "/api/parking/admin/lots?fromDate=2026-11-01&toDate=2026-11-20",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var reader = (EmptyAdminParkingLotReader)app.Services.GetRequiredService<IAdminParkingLotReader>();
+        Assert.Equal(new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.FromHours(7)).ToUniversalTime(),
+            reader.LastFromDate);
+        Assert.Equal(new DateTimeOffset(2026, 11, 21, 0, 0, 0, TimeSpan.FromHours(7)).ToUniversalTime(),
+            reader.LastToDateExclusive);
     }
 
     [Fact]
@@ -110,14 +129,21 @@ public sealed class AdminParkingEndpointsTests
 
     private sealed class EmptyAdminParkingLotReader : IAdminParkingLotReader
     {
+        public DateTimeOffset? LastFromDate { get; private set; }
+        public DateTimeOffset? LastToDateExclusive { get; private set; }
+
         public Task<PagedResult<AdminParkingLotItem>> ListForAdminAsync(
             ParkingLotApprovalStatus? status,
             DateTimeOffset? fromDate,
-            DateTimeOffset? toDate,
+            DateTimeOffset? toDateExclusive,
             int page,
             int pageSize,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new PagedResult<AdminParkingLotItem>([], 0, page, pageSize));
+            CancellationToken cancellationToken)
+        {
+            LastFromDate = fromDate;
+            LastToDateExclusive = toDateExclusive;
+            return Task.FromResult(new PagedResult<AdminParkingLotItem>([], 0, page, pageSize));
+        }
     }
 
     private sealed class EmptyAdminParkingAnalyticsReader : IAdminParkingAnalyticsReader

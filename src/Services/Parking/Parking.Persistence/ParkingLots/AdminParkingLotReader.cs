@@ -10,7 +10,7 @@ internal sealed class AdminParkingLotReader(ParkingDbContext dbContext) : IAdmin
     public async Task<PagedResult<AdminParkingLotItem>> ListForAdminAsync(
         ParkingLotApprovalStatus? status,
         DateTimeOffset? fromDate,
-        DateTimeOffset? toDate,
+        DateTimeOffset? toDateExclusive,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
@@ -22,8 +22,8 @@ internal sealed class AdminParkingLotReader(ParkingDbContext dbContext) : IAdmin
         if (fromDate.HasValue)
             lots = lots.Where(lot => lot.CreatedAt >= fromDate.Value.UtcDateTime);
 
-        if (toDate.HasValue)
-            lots = lots.Where(lot => lot.CreatedAt <= toDate.Value.UtcDateTime);
+        if (toDateExclusive.HasValue)
+            lots = lots.Where(lot => lot.CreatedAt < toDateExclusive.Value.UtcDateTime);
 
         var totalCount = await lots.CountAsync(cancellationToken);
 
@@ -44,7 +44,7 @@ internal sealed class AdminParkingLotReader(ParkingDbContext dbContext) : IAdmin
                 lot.Type.ToString(),
                 lot.ApprovalStatus.ToString(),
                 lot.RejectionReason,
-                lot.CreatedAt))
+                lot.CreatedAt == DateTime.MinValue ? null : lot.CreatedAt))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<AdminParkingLotItem>(items, totalCount, page, pageSize);

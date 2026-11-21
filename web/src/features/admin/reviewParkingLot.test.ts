@@ -3,6 +3,7 @@ import { ApiError } from "@/shared/errors/api-error";
 import {
     approveParkingLot,
     describeReviewError,
+    getAdminParkingAnalyticsTrends,
     getAdminParkingLotLayout,
     getAdminParkingLots,
     isParkingLotId,
@@ -74,6 +75,7 @@ describe("reviewParkingLot API integration", () => {
                     type: "Underground",
                     approvalStatus: "Pending",
                     rejectionReason: null,
+                    submittedAtUtc: "2026-11-20T16:30:00Z",
                 },
             ];
 
@@ -103,8 +105,52 @@ describe("reviewParkingLot API integration", () => {
                 "http://localhost:5000/api/parking/admin/lots?page=1&pageSize=100&status=Pending",
             );
             expect(result[0].status).toBe("Pending");
+            expect(result[0].submittedAtUtc).toBe("2026-11-20T16:30:00Z");
             expect(init?.method).toBe("GET");
         });
+
+        it("sends Vietnam calendar dates as date-only query parameters", async () => {
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify({ items: [] }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            await getAdminParkingLots("All", {
+                fromDate: "2026-11-01",
+                toDate: "2026-11-20",
+            });
+
+            expect(String(fetchMock.mock.calls[0][0])).toBe(
+                "http://localhost:5000/api/parking/admin/lots?page=1&pageSize=100&fromDate=2026-11-01&toDate=2026-11-20",
+            );
+        });
+    });
+
+    it("requests the selected daily trend period from the admin analytics endpoint", async () => {
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(
+                JSON.stringify({
+                    labels: ["15/11"],
+                    newSubmissions: [2],
+                    approvedCount: [1],
+                }),
+                {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                },
+            ),
+        );
+        vi.stubGlobal("fetch", fetchMock);
+
+        const result = await getAdminParkingAnalyticsTrends("30days");
+
+        expect(result.newSubmissions).toEqual([2]);
+        expect(String(fetchMock.mock.calls[0][0])).toBe(
+            "http://localhost:5000/api/parking/admin/analytics/trends?period=30days",
+        );
     });
 
     describe("approveParkingLot", () => {

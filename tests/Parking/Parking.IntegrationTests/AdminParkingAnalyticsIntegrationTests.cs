@@ -25,17 +25,17 @@ public sealed class AdminParkingAnalyticsIntegrationTests(PostgreSqlContainerFix
         var second = Guid.NewGuid();
         var approved = Guid.NewGuid();
         var outside = Guid.NewGuid();
-        await InsertLotAsync(provider, first, "A boundary", "Pending", Utc(2026, 11, 1, 0, 0, 0), ct);
-        await InsertLotAsync(provider, second, "B boundary", "Pending", Utc(2026, 11, 20, 23, 59, 59), ct);
-        await InsertLotAsync(provider, approved, "C approved", "Approved", Utc(2026, 11, 10, 12, 0, 0), ct);
-        await InsertLotAsync(provider, outside, "D outside", "Pending", Utc(2026, 10, 31, 23, 59, 59), ct);
+        await InsertLotAsync(provider, first, "A boundary", "Pending", Utc(2026, 10, 31, 17, 0, 0), ct);
+        await InsertLotAsync(provider, second, "B boundary", "Pending", Utc(2026, 11, 20, 16, 59, 59), ct);
+        await InsertLotAsync(provider, approved, "C approved", "Approved", Utc(2026, 11, 10, 5, 0, 0), ct);
+        await InsertLotAsync(provider, outside, "D outside", "Pending", Utc(2026, 10, 31, 16, 59, 59), ct);
 
         await using var scope = provider.CreateAsyncScope();
         var reader = scope.ServiceProvider.GetRequiredService<IAdminParkingLotReader>();
         var result = await reader.ListForAdminAsync(
             ParkingLotApprovalStatus.Pending,
-            Utc(2026, 11, 1, 0, 0, 0),
-            Utc(2026, 11, 20, 23, 59, 59),
+            Utc(2026, 10, 31, 17, 0, 0),
+            Utc(2026, 11, 20, 17, 0, 0),
             page: 2,
             pageSize: 1,
             ct);
@@ -43,32 +43,32 @@ public sealed class AdminParkingAnalyticsIntegrationTests(PostgreSqlContainerFix
         Assert.Equal(2, result.TotalCount);
         Assert.Single(result.Items);
         Assert.Equal(second, result.Items[0].Id);
-        Assert.Equal(Utc(2026, 11, 20, 23, 59, 59).UtcDateTime, result.Items[0].SubmittedAtUtc);
+        Assert.Equal(Utc(2026, 11, 20, 16, 59, 59).UtcDateTime, result.Items[0].SubmittedAtUtc);
         var json = System.Text.Json.JsonSerializer.Serialize(result.Items[0],
             new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
-        Assert.Contains("\"submittedAtUtc\":\"2026-11-20T23:59:59Z\"", json);
+        Assert.Contains("\"submittedAtUtc\":\"2026-11-20T16:59:59Z\"", json);
     }
 
     [Fact]
-    public async Task Trends_group_submissions_and_approval_audit_events_by_utc_day()
+    public async Task Trends_group_submissions_and_approval_audit_events_by_vietnam_day()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var provider = await MigratedServicesAsync(ct);
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
         var rejected = Guid.NewGuid();
-        await InsertLotAsync(provider, first, "Submitted 20", "Pending", Utc(2026, 11, 20, 23, 30, 0), ct);
-        await InsertLotAsync(provider, second, "Submitted 21", "Pending", Utc(2026, 11, 21, 0, 10, 0), ct);
-        await InsertLotAsync(provider, rejected, "Rejected", "Rejected", Utc(2026, 11, 20, 16, 0, 0), ct);
-        await InsertAuditAsync(provider, first, AuditActions.ParkingLotApproved, Utc(2026, 11, 21, 0, 5, 0), ct);
-        await InsertAuditAsync(provider, second, AuditActions.ParkingLotApproved, Utc(2026, 11, 21, 8, 0, 0), ct);
-        await InsertAuditAsync(provider, rejected, AuditActions.ParkingLotRejected, Utc(2026, 11, 21, 9, 0, 0), ct);
+        await InsertLotAsync(provider, first, "Submitted 20", "Pending", Utc(2026, 11, 20, 16, 30, 0), ct);
+        await InsertLotAsync(provider, second, "Submitted 21", "Pending", Utc(2026, 11, 20, 17, 10, 0), ct);
+        await InsertLotAsync(provider, rejected, "Rejected", "Rejected", Utc(2026, 11, 20, 9, 0, 0), ct);
+        await InsertAuditAsync(provider, first, AuditActions.ParkingLotApproved, Utc(2026, 11, 20, 17, 5, 0), ct);
+        await InsertAuditAsync(provider, second, AuditActions.ParkingLotApproved, Utc(2026, 11, 21, 1, 0, 0), ct);
+        await InsertAuditAsync(provider, rejected, AuditActions.ParkingLotRejected, Utc(2026, 11, 21, 2, 0, 0), ct);
 
         await using var scope = provider.CreateAsyncScope();
         var reader = scope.ServiceProvider.GetRequiredService<IAdminParkingAnalyticsReader>();
         var counts = await reader.GetCountsAsync(
-            Utc(2026, 11, 20, 0, 0, 0).UtcDateTime,
-            Utc(2026, 11, 22, 0, 0, 0).UtcDateTime,
+            Utc(2026, 11, 19, 17, 0, 0).UtcDateTime,
+            Utc(2026, 11, 21, 17, 0, 0).UtcDateTime,
             ct);
 
         Assert.Equal(new[] { new DailyParkingLotCount(new DateOnly(2026, 11, 20), 2), new DailyParkingLotCount(new DateOnly(2026, 11, 21), 1) }, counts.NewSubmissions);
@@ -93,7 +93,7 @@ public sealed class AdminParkingAnalyticsIntegrationTests(PostgreSqlContainerFix
         var fromOnly = await reader.ListForAdminAsync(ParkingLotApprovalStatus.Approved,
             Utc(2001, 1, 2, 12, 0, 0), null, 1, 100, ct);
         var toOnly = await reader.ListForAdminAsync(ParkingLotApprovalStatus.Approved,
-            null, Utc(2001, 1, 2, 12, 0, 0), 1, 100, ct);
+            null, Utc(2001, 1, 3, 17, 0, 0), 1, 100, ct);
 
         Assert.True(noDates.TotalCount >= 3);
         Assert.Contains(noDates.Items, item => item.Id == before);
@@ -102,7 +102,7 @@ public sealed class AdminParkingAnalyticsIntegrationTests(PostgreSqlContainerFix
         Assert.Equal(2, fromOnly.TotalCount);
         Assert.Contains(fromOnly.Items, item => item.Id == middle);
         Assert.Contains(fromOnly.Items, item => item.Id == after);
-        Assert.Equal(2, toOnly.TotalCount);
+        Assert.Equal(3, toOnly.TotalCount);
         Assert.Contains(toOnly.Items, item => item.Id == before);
         Assert.Contains(toOnly.Items, item => item.Id == middle);
     }

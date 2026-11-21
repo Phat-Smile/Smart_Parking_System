@@ -34,15 +34,15 @@ internal static class AdminParkingLotEndpoints
                     approvalStatus = parsedStatus;
                 }
 
-                var invalidFromDate = ParseUtcDateFilter(fromDate, "fromDate", out var fromInstant);
+                var invalidFromDate = ParseVietnamDateFilter(fromDate, "fromDate", isEndDate: false, out var fromInstant);
                 if (invalidFromDate is not null)
                     return invalidFromDate;
 
-                var invalidToDate = ParseUtcDateFilter(toDate, "toDate", out var toInstant);
+                var invalidToDate = ParseVietnamDateFilter(toDate, "toDate", isEndDate: true, out var toExclusive);
                 if (invalidToDate is not null)
                     return invalidToDate;
 
-                if (fromInstant.HasValue && toInstant.HasValue && fromInstant > toInstant)
+                if (fromInstant.HasValue && toExclusive.HasValue && fromInstant >= toExclusive)
                 {
                     return Results.ValidationProblem(new Dictionary<string, string[]>
                     {
@@ -51,14 +51,14 @@ internal static class AdminParkingLotEndpoints
                 }
 
                 var lots = await sender.Send(
-                    new GetAdminParkingLotsQuery(approvalStatus, page, pageSize, fromInstant, toInstant),
+                    new GetAdminParkingLotsQuery(approvalStatus, page, pageSize, fromInstant, toExclusive),
                     cancellationToken);
                 return Results.Ok(lots);
             })
             .RequireAuthorization(ParkingAuthorization.SystemAdminPolicy)
             .WithName("GetAdminParkingLots")
             .WithSummary("Get a page of parking lots for administrator review")
-            .WithDescription("Optionally filters by status and inclusive UTC submission instants (fromDate and toDate).")
+            .WithDescription("Optionally filters by status and inclusive Vietnam calendar dates (yyyy-MM-dd). The end date includes the full day.")
             .Produces<PagedResult<AdminParkingLotItem>>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -67,22 +67,28 @@ internal static class AdminParkingLotEndpoints
         return app;
     }
 
-    private static IResult? ParseUtcDateFilter(string? value, string parameterName, out DateTimeOffset? instant)
+    private static IResult? ParseVietnamDateFilter(
+        string? value,
+        string parameterName,
+        bool isEndDate,
+        out DateTimeOffset? utcBoundary)
     {
-        instant = null;
+        utcBoundary = null;
         if (value is null)
             return null;
 
-        if (!DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+        if (!DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var date))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
-                [parameterName] = ["Must be a valid ISO 8601 date/time."]
+                [parameterName] = ["Must be a valid Vietnam calendar date in yyyy-MM-dd format."]
             });
         }
 
-        instant = parsed;
+        var boundaryDate = isEndDate ? date.AddDays(1) : date;
+        utcBoundary = new DateTimeOffset(
+            boundaryDate.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(7)).ToUniversalTime();
         return null;
     }
 }
