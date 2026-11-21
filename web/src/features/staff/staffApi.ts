@@ -30,7 +30,10 @@ export interface CompleteSessionPayload {
     qrToken?: string;
     paymentMethod?: "Cash" | "VNPay" | "Wallet";
     amountPaidVnd?: number;
+    manualVerificationReason?: string;
 }
+
+export const StaffActionReasonMaxLength = 500;
 
 /** @deprecated Giữ lại để tương thích test cũ; không dùng làm mặc định chọn bãi. */
 export const DEFAULT_STAFF_LOT_ID = "10000000-0000-0000-0000-000000000002";
@@ -577,6 +580,12 @@ export async function completeParkingSession(
             body: JSON.stringify({
                 plateNumber: payload.plateNumber,
                 qrToken: payload.qrToken,
+                ...(payload.manualVerificationReason !== undefined
+                    ? {
+                          manualVerificationReason:
+                              payload.manualVerificationReason,
+                      }
+                    : {}),
             }),
         },
     );

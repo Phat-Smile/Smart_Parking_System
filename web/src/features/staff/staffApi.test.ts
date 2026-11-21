@@ -520,6 +520,41 @@ describe("staffApi integration", () => {
                 qrToken: "qr-token-123",
             });
         });
+
+        it("sends manualVerificationReason when provided in CompleteSessionPayload", async () => {
+            const sessionId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+            const mockRes = {
+                sessionId,
+                status: "Completed",
+                completedAt: "2026-10-19T09:30:00Z",
+                amountPaidVnd: 60000,
+                paymentMethod: "Cash",
+            };
+
+            const fetchMock = vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(mockRes), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }),
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await completeParkingSession(sessionId, {
+                plateNumber: "51B-999.89",
+                qrToken: "qr-token-123",
+                manualVerificationReason:
+                    "Nhân viên kiểm tra cà vẹt xe trùng khớp",
+            });
+
+            expect(result).toEqual(mockRes);
+            const [, init] = fetchMock.mock.calls[0];
+            expect(JSON.parse(init?.body as string)).toEqual({
+                plateNumber: "51B-999.89",
+                qrToken: "qr-token-123",
+                manualVerificationReason:
+                    "Nhân viên kiểm tra cà vẹt xe trùng khớp",
+            });
+        });
     });
 
     describe("payParkingSessionCash", () => {
