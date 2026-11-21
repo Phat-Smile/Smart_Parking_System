@@ -8,6 +8,7 @@ import {
     type MapCoordinates,
 } from "../geocodeDestination";
 import { filterOptions, type FilterState } from "./useCustomerFindParking";
+import { VoiceSearchButton } from "./voice";
 
 export type CustomerSearchFormProps = {
     destination: string;
@@ -127,6 +128,13 @@ export function CustomerSearchForm({
                         autoComplete="off"
                     />
                 </span>
+                <VoiceSearchButton
+                    onResult={(text) => {
+                        onDestinationInputChange(text);
+                        destinationInputRef.current?.focus();
+                    }}
+                    disabled={searchBusy}
+                />
                 <button
                     type="button"
                     className="customer-search-locate"
