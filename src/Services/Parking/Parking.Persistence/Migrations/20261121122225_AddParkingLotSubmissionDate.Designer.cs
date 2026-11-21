@@ -12,8 +12,8 @@ using ParkingSystem.Parking.Persistence;
 namespace ParkingSystem.Parking.Persistence.Migrations
 {
     [DbContext(typeof(ParkingDbContext))]
-    [Migration("20261121084834_FinalizeParkingLotSubmissionDate")]
-    partial class FinalizeParkingLotSubmissionDate
+    [Migration("20261121122225_AddParkingLotSubmissionDate")]
+    partial class AddParkingLotSubmissionDate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
