@@ -147,3 +147,55 @@ describe("search results loading", () => {
         ).not.toBeInTheDocument();
     });
 });
+
+describe("GPS privacy (US-PRIV-001)", () => {
+    it("does not request GPS merely because the incoming search says Current location", async () => {
+        const originalGeolocation = Object.getOwnPropertyDescriptor(
+            navigator,
+            "geolocation",
+        );
+        const requestLocation = vi.fn();
+        Object.defineProperty(navigator, "geolocation", {
+            configurable: true,
+            value: { getCurrentPosition: requestLocation },
+        });
+        try {
+            vi.mocked(searchCustomerParkingLots).mockResolvedValue([metrics]);
+            render(
+                <CustomerFindParkingPage
+                    fontClassName=""
+                    initialSearch={{
+                        ...initialSearch,
+                        destination: "Current location",
+                    }}
+                />,
+            );
+            expect(
+                await screen.findByRole("heading", { name: lot.name }),
+            ).toBeVisible();
+            expect(requestLocation).not.toHaveBeenCalled();
+            expect(
+                screen.getByText(
+                    /^Choose Use my current location to share your location, or enter an address instead\.$/,
+                ),
+            ).toBeVisible();
+
+            fireEvent.click(
+                screen.getByRole("button", {
+                    name: /use my current location/i,
+                }),
+            );
+            expect(requestLocation).toHaveBeenCalledTimes(1);
+        } finally {
+            if (originalGeolocation) {
+                Object.defineProperty(
+                    navigator,
+                    "geolocation",
+                    originalGeolocation,
+                );
+            } else {
+                Reflect.deleteProperty(navigator, "geolocation");
+            }
+        }
+    });
+});
