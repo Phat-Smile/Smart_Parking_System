@@ -63,6 +63,42 @@ test.describe("Phân đoạn 4: Xe ra bãi, so khớp biển số ANPR, quét m�
             await expect(checklist.first()).toBeVisible();
             const checklistText = await checklist.textContent();
             expect(checklistText).toMatch(/✕|Từ chối|Denied|Không khớp/i);
+
+            // Kiểm tra quy trình xác minh thủ công tại cổng ra: bắt buộc nhập lý do (US-STAFF-004 / BR-11.d)
+            const manualBtn = page
+                .locator(
+                    "button:has-text('Xác minh thủ công'), button:has-text('Manual verify')",
+                )
+                .first();
+            await expect(manualBtn).toBeVisible();
+            await manualBtn.click();
+
+            const modal = page
+                .locator(".staff-modal-card, [role='dialog']")
+                .first();
+            await expect(modal).toBeVisible();
+
+            const confirmBtn = modal
+                .locator("button:has-text('Xác nhận xác minh')")
+                .first();
+            // Validation: Chưa nhập lý do thì nút Xác nhận bị vô hiệu hóa
+            await expect(confirmBtn).toBeDisabled();
+
+            // Gõ lý do xác minh thủ công (manualVerificationReason)
+            const reasonInput = modal
+                .locator("#manual-verify-reason-input, textarea")
+                .first();
+            await reasonInput.fill(
+                "Kiểm tra thực tế: Camera đọc lệch biển số đối với xe khách",
+            );
+            await expect(confirmBtn).toBeEnabled();
+
+            // Đóng hộp thoại để tiếp tục luồng nhập biển số hợp lệ ở bước 5.4
+            const cancelBtn = modal
+                .locator("button:has-text('Hủy bỏ'), button:has-text('Cancel')")
+                .first();
+            await cancelBtn.click();
+            await expect(modal).not.toBeVisible();
         });
 
         // ---------------------------------------------------------------------
@@ -190,5 +226,74 @@ test.describe("Phân đoạn 4: Xe ra bãi, so khớp biển số ANPR, quét m�
             await expect(submitReissue).toBeVisible();
             await submitReissue.click();
         });
+    });
+
+    test("Xác minh thủ công tại cổng ra (Staff exit override): Bắt buộc nhập lý do manualVerificationReason khi camera đọc lệch biển số và hoàn tất xuất bãi", async ({
+        page,
+    }) => {
+        await page.goto(`${BASE_URL}/staff/exit`);
+        const qrInput = page.locator("#staff-qr-input");
+        await qrInput.fill("QR-PARKING-SESSION-999888");
+        await page
+            .locator(
+                "button:has-text('Xác thực QR'), button:has-text('Verify')",
+            )
+            .first()
+            .click();
+
+        // Giả lập camera OCR đọc lệch biển số (ví dụ 51A-123.4S thay vì 51A-123.45)
+        const exitPlateInput = page.locator("#staff-exit-plate");
+        await exitPlateInput.fill("51A-123.4S");
+
+        // Rào chắn giữ khóa do biển không khớp
+        const authorizeBtn = page
+            .locator(
+                "button.staff-btn-primary.staff-btn-lg, button:has-text('Cho xe qua barrier'), button:has-text('Authorize')",
+            )
+            .first();
+        await expect(authorizeBtn).toBeDisabled();
+
+        // Nhân viên bấm nút "Xác minh thủ công"
+        const manualBtn = page
+            .locator(
+                "button:has-text('Xác minh thủ công'), button:has-text('Manual verify')",
+            )
+            .first();
+        await expect(manualBtn).toBeVisible();
+        await manualBtn.click();
+
+        // Hộp thoại xác minh thủ công hiển thị
+        const modal = page
+            .locator(".staff-modal-card, [role='dialog']")
+            .first();
+        await expect(modal).toBeVisible();
+
+        const confirmBtn = modal
+            .locator("button:has-text('Xác nhận xác minh')")
+            .first();
+        // Kiểm tra validation: Chưa gõ lý do thì nút Xác nhận bị vô hiệu hóa
+        await expect(confirmBtn).toBeDisabled();
+
+        // Gõ lý do xác minh thủ công (manualVerificationReason)
+        const reasonInput = modal
+            .locator("#manual-verify-reason-input, textarea")
+            .first();
+        await reasonInput.fill(
+            "Nhân viên đối soát giấy tờ xe: lỗi OCR ký tự 5 thành S",
+        );
+
+        // Nút xác nhận được kích hoạt sau khi đã nhập lý do hợp lệ
+        await expect(confirmBtn).toBeEnabled();
+        await confirmBtn.click();
+
+        // Modal đóng và hoàn tất xuất bãi hợp lệ kèm lý do xác minh
+        await expect(modal).not.toBeVisible();
+        await expect(
+            page
+                .locator(
+                    "button:has-text('Đã duyệt thủ công'), .staff-barrier-open-alert, .barrier-icon",
+                )
+                .first(),
+        ).toBeVisible();
     });
 });

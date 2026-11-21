@@ -533,16 +533,39 @@ export async function setupDemoMockRoutes(
         },
     );
 
+    // Manual Verify Exit (Staff override)
+    await page.route(
+        "**/api/parking/sessions/*/manual-verify",
+        async (route: Route) => {
+            const body = route.request().postDataJSON() || {};
+            await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                    sessionId: "sess-8888-0001",
+                    isVerified: true,
+                    reason: body.reason || "Staff manual override",
+                    verifiedAt: new Date().toISOString(),
+                }),
+            });
+        },
+    );
+
     // Complete Session
     await page.route(
         "**/api/parking/sessions/*/complete",
         async (route: Route) => {
             const body = route.request().postDataJSON() || {};
-            if (
+            const plateMatches =
                 body.plateNumber &&
-                !body.plateNumber.includes("51A-123.45") &&
-                !body.plateNumber.includes("51A12345")
-            ) {
+                (body.plateNumber.includes("51A-123.45") ||
+                    body.plateNumber.includes("51A12345"));
+            const hasManualReason = Boolean(
+                body.manualVerificationReason &&
+                body.manualVerificationReason.trim().length > 0,
+            );
+
+            if (!plateMatches && !hasManualReason) {
                 await route.fulfill({
                     status: 409,
                     contentType: "application/problem+json",
