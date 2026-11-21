@@ -126,6 +126,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapParkingSessionEndpoints();
 app.MapParkingLotEndpoints();
+app.MapAdminParkingLotEndpoints();
+app.MapAdminParkingAnalyticsEndpoints();
 app.MapParkingLotRecommendationEndpoints();
 app.MapArrivalAvailabilityEndpoints();
 app.MapAdminParkingLotReviewEndpoints();

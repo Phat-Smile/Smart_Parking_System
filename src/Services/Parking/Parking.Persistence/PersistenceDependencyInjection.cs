@@ -85,6 +85,7 @@ public static class PersistenceDependencyInjection
         services.AddScoped<IManageParkingLayoutRepository, ManageParkingLayoutRepository>();
         services.AddScoped<IOwnerParkingLotReader, OwnerParkingLotReader>();
         services.AddScoped<IAdminParkingLotReader, AdminParkingLotReader>();
+        services.AddScoped<IAdminParkingAnalyticsReader, AdminParkingAnalyticsReader>();
         services.AddScoped<IAdminParkingLotDetailReader, AdminParkingLotDetailReader>();
         services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.ProcessSlotSensorEvent.ISlotSensorRepository, SlotSensorRepository>();
         services.AddScoped<ParkingSystem.Parking.Application.ParkingLayout.SlotConfirmation.ISlotConfirmationRepository, SlotConfirmationRepository>();

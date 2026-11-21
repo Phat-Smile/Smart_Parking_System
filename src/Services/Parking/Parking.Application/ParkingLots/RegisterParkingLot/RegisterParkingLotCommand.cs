@@ -69,7 +69,8 @@ public sealed class RegisterParkingLotCommandHandler(IRegisterParkingLotReposito
             request.Address,
             request.Latitude!.Value,
             request.Longitude!.Value,
-            Enum.Parse<ParkingLotType>(request.Type, ignoreCase: true));
+            Enum.Parse<ParkingLotType>(request.Type, ignoreCase: true),
+            clock.UtcNow.UtcDateTime);
         parkingLot.SetFeatures(request.Features ?? new ParkingLotFeatures());
 
         // MOD-PK-04: the owner of a lot is whoever holds its Owner assignment, so the registrant gets that row now.

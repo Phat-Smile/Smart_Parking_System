@@ -2,6 +2,7 @@ using ParkingSystem.Parking.Application.Common.Paging;
 using ParkingSystem.Parking.Application.ParkingLots.AdminLots;
 using ParkingSystem.Parking.Application.ParkingLots.OwnerLots;
 using ParkingSystem.Parking.Domain.ParkingLots;
+using ParkingSystem.BuildingBlocks.Time;
 using Xunit;
 
 namespace ParkingSystem.Tests.Parking.UnitTests;
@@ -60,7 +61,7 @@ public sealed class OwnerAndAdminParkingLotQueryTests
     {
         var expected = new PagedResult<AdminParkingLotItem>(
             [
-                new(Guid.NewGuid(), Guid.NewGuid(), "Pending Lot", "789 Pasteur", 10.79m, 106.69m, "Commercial", "Pending", null)
+                new(Guid.NewGuid(), Guid.NewGuid(), "Pending Lot", "789 Pasteur", 10.79m, 106.69m, "Commercial", "Pending", null, DateTime.SpecifyKind(new DateTime(2026, 11, 15, 8, 30, 0), DateTimeKind.Utc))
             ],
             TotalCount: 1,
             Page: 1,
@@ -86,6 +87,23 @@ public sealed class OwnerAndAdminParkingLotQueryTests
         Assert.Same(expected, resultAll);
         Assert.Null(fakeReader.LastStatus);
         Assert.Equal(2, fakeReader.CallCount);
+    }
+
+    [Fact]
+    public async Task GetAdminParkingLotsQueryHandler_forwards_inclusive_date_filters()
+    {
+        var from = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.FromHours(7));
+        var to = new DateTimeOffset(2026, 11, 20, 23, 59, 59, TimeSpan.Zero);
+        var fakeReader = new FakeAdminParkingLotReader(new PagedResult<AdminParkingLotItem>([], 0, 1, 20));
+
+        await new GetAdminParkingLotsQueryHandler(fakeReader).Handle(
+            new GetAdminParkingLotsQuery(ParkingLotApprovalStatus.Pending, 2, 10, from, to),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(from, fakeReader.LastFromDate);
+        Assert.Equal(to, fakeReader.LastToDate);
+        Assert.Equal(2, fakeReader.LastPage);
+        Assert.Equal(10, fakeReader.LastPageSize);
     }
 
     [Theory]
@@ -134,17 +152,23 @@ public sealed class OwnerAndAdminParkingLotQueryTests
     {
         public int CallCount { get; private set; }
         public ParkingLotApprovalStatus? LastStatus { get; private set; }
+        public DateTimeOffset? LastFromDate { get; private set; }
+        public DateTimeOffset? LastToDate { get; private set; }
         public int LastPage { get; private set; }
         public int LastPageSize { get; private set; }
 
         public Task<PagedResult<AdminParkingLotItem>> ListForAdminAsync(
             ParkingLotApprovalStatus? status,
+            DateTimeOffset? fromDate,
+            DateTimeOffset? toDate,
             int page,
             int pageSize,
             CancellationToken cancellationToken)
         {
             CallCount++;
             LastStatus = status;
+            LastFromDate = fromDate;
+            LastToDate = toDate;
             LastPage = page;
             LastPageSize = pageSize;
             return Task.FromResult(result);

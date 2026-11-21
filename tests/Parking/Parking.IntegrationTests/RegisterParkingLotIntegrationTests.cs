@@ -13,12 +13,15 @@ namespace ParkingSystem.Tests.Parking.IntegrationTests;
 public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixture postgres)
     : IClassFixture<PostgreSqlContainerFixture>
 {
+    private static readonly DateTimeOffset Now = new(2026, 11, 18, 9, 15, 0, TimeSpan.Zero);
+
     [Fact]
     public async Task Register_persists_owner_and_pending_status_without_exposing_lot_publicly()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var services = new ServiceCollection();
         services.AddPersistence(PostgreSqlTestConfiguration.Create(postgres.ConnectionString));
+        services.AddSingleton<IClock>(new FixedClock(Now));
         await using var provider = services.BuildServiceProvider(validateScopes: true);
 
         var ownerId = Guid.NewGuid();
@@ -51,6 +54,8 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
 
             Assert.Equal(ownerId, persisted.OwnerUserId);
             Assert.Equal(ParkingLotApprovalStatus.Pending, persisted.ApprovalStatus);
+            Assert.Equal(Now.UtcDateTime, persisted.CreatedAt);
+            Assert.Equal(DateTimeKind.Utc, persisted.CreatedAt.Kind);
             Assert.True(persisted.SupportsElectricVehicles);
             Assert.True(persisted.SupportsLargeVehicles);
             Assert.True(persisted.HasEvCharging);
@@ -124,4 +129,9 @@ public sealed class RegisterParkingLotIntegrationTests(PostgreSqlContainerFixtur
             lot,
             ParkingLotAssignment.Create(lot.Id, lot.OwnerUserId!.Value, ParkingLotMemberRole.Owner, lot.OwnerUserId.Value, DateTimeOffset.UtcNow),
             cancellationToken);
+
+    private sealed class FixedClock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset UtcNow => now;
+    }
 }
