@@ -28,5 +28,9 @@ public sealed class ProcessSlotSensorEventCommandValidator : AbstractValidator<P
         RuleFor(x => x.State)
             .IsInEnum()
             .WithMessage("SensorState must be a valid enum value (Empty or Occupied).");
+
+        RuleFor(x => x.EventTime)
+            .NotEqual(default(DateTimeOffset))
+            .WithMessage("EventTime must be provided by the device.");
     }
 }

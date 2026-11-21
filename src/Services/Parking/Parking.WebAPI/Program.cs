@@ -106,6 +106,8 @@ builder.Services.AddOwnerStaffAssignmentRateLimiting();
 
 var app = builder.Build();
 app.UseParkingSystemWebFoundation();
+// Location-derived responses are never stored by browsers or intermediary caches.
+app.UseMiddleware<LocationResponsePrivacyMiddleware>();
 app.UseParkingSystemServiceSecurity();
 app.UseRateLimiter();
 if (app.Environment.IsDevelopment())

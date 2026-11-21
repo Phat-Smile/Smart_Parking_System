@@ -68,7 +68,7 @@ public sealed class ProcessSlotSensorEventCommandHandler(
         var lastEventInfo = await dedupStore.GetLastEventInfoAsync(request.LotId, slot.SlotCode, cancellationToken);
         if (lastEventInfo is not null)
         {
-            var (lastEventTime, lastReceivedAt) = lastEventInfo.Value;
+            var (lastEventTime, _) = lastEventInfo.Value;
 
             if (effectiveEventTime < lastEventTime)
             {
@@ -87,7 +87,9 @@ public sealed class ProcessSlotSensorEventCommandHandler(
                     receivedAt));
             }
 
-            if (effectiveEventTime == lastEventTime && receivedAt <= lastReceivedAt)
+            // Device timestamps can be equal even when packets arrive in the reverse order.
+            // Arrival order is not proof of occupancy order: never flip a slot on an ambiguous tie.
+            if (effectiveEventTime == lastEventTime)
             {
                 logger.LogInformation(
                     "Concurrent/older sensor event tie-breaker discarded for Slot={SlotCode}",
@@ -135,24 +137,32 @@ public sealed class ProcessSlotSensorEventCommandHandler(
                 "parking.slot-status-changed.v1",
                 1);
 
-            // US-MAP-003: Phát sự kiện thời gian thực tới SignalR Hub cho khách hàng & chủ bãi
-            if (realtimeNotifier is not null)
-            {
-                await realtimeNotifier.NotifySlotStatusChangedAsync(
-                    slot.LotId,
-                    slot.Id,
-                    slot.SlotCode,
-                    slot.EffectiveStatus.ToString(),
-                    previousStatus.ToString(),
-                    effectiveEventTime,
-                    cancellationToken);
-            }
         }
 
         // 7. Lưu thay đổi và cập nhật mốc thời gian khử trùng
         await repository.SaveChangesAsync(cancellationToken);
         await dedupStore.MarkProcessedAsync(request.EventId, receivedAt, cancellationToken);
         await dedupStore.RecordLastEventInfoAsync(request.LotId, slot.SlotCode, effectiveEventTime, receivedAt, cancellationToken);
+
+        // Broadcast only after persistence succeeds, never expose an uncommitted slot state.
+        if (slot.EffectiveStatus != previousStatus && realtimeNotifier is not null)
+        {
+            try
+            {
+                await realtimeNotifier.NotifySlotStatusChangedAsync(
+                    slot.LotId, slot.Id, slot.SlotCode, slot.EffectiveStatus.ToString(),
+                    previousStatus.ToString(), effectiveEventTime, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                // The DB and outbox are already saved. Returning a failure causes device retries
+                // that hit dedup but cannot replay this SignalR notification. The persisted
+                // slot-status-changed outbox event remains the reliable integration record.
+                logger.LogWarning(exception,
+                    "Realtime slot notification failed after persistence. EventId={EventId}, LotId={LotId}, SlotCode={SlotCode}",
+                    request.EventId, slot.LotId, slot.SlotCode);
+            }
+        }
 
         return Result<ProcessedSensorEventResponse>.Success(new ProcessedSensorEventResponse(
             request.EventId,

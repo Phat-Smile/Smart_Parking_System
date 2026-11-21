@@ -27,3 +27,14 @@ public class ConfigurePricingRequest
         };
     }
 }
+
+// Sprint 5 BE-PK03 route contract: one lot and an explicit vehicle type in the body.
+// This is an alias over the existing per-vehicle pricing handler; it does not
+// introduce progressive block calculations without an approved Payment contract.
+public sealed class ConfigureLotPricingRequest : ConfigurePricingRequest
+{
+    public string VehicleType { get; set; } = string.Empty;
+
+    public ConfigurePricingCommand ToCommand(Guid lotId, Guid callerId) =>
+        base.ToCommand(lotId, VehicleType, callerId);
+}
