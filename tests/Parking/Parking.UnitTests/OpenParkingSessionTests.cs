@@ -12,6 +12,7 @@ using ParkingSystem.Parking.Application.ParkingSessions;
 using ParkingSystem.Parking.Application.ParkingSessions.OpenParkingSession;
 using ParkingSystem.Parking.Domain.ParkingSessions;
 using ParkingSystem.Parking.Application.Common.Messaging.Outbox;
+using ParkingSystem.Parking.Application.Common.Realtime;
 using ParkingSystem.Contracts.Events.Parking;
 using Xunit;
 
@@ -214,6 +215,28 @@ public sealed class OpenParkingSessionTests
         Assert.Equal("Tầng 2", result.Value.FloorName);
         Assert.Equal(1, zones.Taken);
         Assert.True(unitOfWork.Committed);
+    }
+
+    [Fact]
+    public async Task Motorbike_entry_notifies_lot_occupancy_changed_with_actual_available_car_slots()
+    {
+        var repository = new FakeParkingSessionRepository();
+        var zones = new FakeMotorbikeZones();
+        var unitOfWork = new FakeUnitOfWork();
+        var notifier = new FakeParkingRealtimeNotifier();
+        const int expectedAvailableCarSlots = 7;
+        var handler = NewHandler(repository, zones, unitOfWork, availableAtCount: expectedAvailableCarSlots, realtimeNotifier: notifier);
+
+        var result = await handler.Handle(
+            new OpenParkingSessionCommand(LotId, "59X1-234.56", "Motorbike", StaffId),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        var change = Assert.Single(notifier.OccupancyChanges);
+        Assert.Equal(LotId, change.LotId);
+        Assert.Equal(expectedAvailableCarSlots, change.AvailableCarSlots);
+        Assert.Equal(79, change.AvailableMotorbikeSlots);
+        Assert.Equal(Now, change.Timestamp);
     }
 
     [Fact]
@@ -698,12 +721,14 @@ public sealed class OpenParkingSessionTests
         IBookingCheckInClient? bookingClient = null,
         FakeNoSlotReporter? noSlotReporter = null,
         FakeIncidents? incidents = null,
-        int? availableAtCount = null)
+        int? availableAtCount = null,
+        IParkingRealtimeNotifier? realtimeNotifier = null)
     {
         slots ??= new FakeSlotDesignator();
         return new(repository, new FakeParkingLotReader(approved: true), new FakeLotAccess(allowed: true), new FakePlateOwnerLookup(null), new FixedClock(), zones, unitOfWork,
             slots, heldQuota ?? new FakeHeldQuota(0), new FakeZoneLabels(), bookingClient ?? new FakeBookingCheckInClient(),
-            noSlotReporter ?? new FakeNoSlotReporter(), new FakeAvailableSlots(availableAtCount ?? slots.Available), incidents ?? new FakeIncidents());
+            noSlotReporter ?? new FakeNoSlotReporter(), new FakeAvailableSlots(availableAtCount ?? slots.Available), incidents ?? new FakeIncidents(),
+            realtimeNotifier: realtimeNotifier);
     }
 
     private sealed class FakeParkingSessionRepository : IParkingSessionRepository
@@ -922,6 +947,44 @@ public sealed class OpenParkingSessionTests
             Calls++;
             ArrivedAt = entryTime;
             return Task.FromResult(reservation);
+        }
+    }
+
+    private sealed class FakeParkingRealtimeNotifier : IParkingRealtimeNotifier
+    {
+        public List<(Guid LotId, int AvailableCarSlots, int AvailableMotorbikeSlots, DateTimeOffset Timestamp)> OccupancyChanges { get; } = [];
+        public List<(Guid LotId, Guid SlotId, string SlotCode, string EffectiveStatus, string PreviousStatus, DateTimeOffset Timestamp)> SlotChanges { get; } = [];
+
+        public Task NotifySlotStatusChangedAsync(
+            Guid lotId,
+            Guid slotId,
+            string slotCode,
+            string effectiveStatus,
+            string previousStatus,
+            DateTimeOffset timestamp,
+            CancellationToken cancellationToken = default)
+        {
+            SlotChanges.Add((lotId, slotId, slotCode, effectiveStatus, previousStatus, timestamp));
+            return Task.CompletedTask;
+        }
+
+        public Task NotifySlotNeedsVerificationAsync(
+            Guid lotId,
+            Guid slotId,
+            string slotCode,
+            string stage,
+            DateTimeOffset timestamp,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task NotifyLotOccupancyChangedAsync(
+            Guid lotId,
+            int availableCarSlots,
+            int availableMotorbikeSlots,
+            DateTimeOffset timestamp,
+            CancellationToken cancellationToken = default)
+        {
+            OccupancyChanges.Add((lotId, availableCarSlots, availableMotorbikeSlots, timestamp));
+            return Task.CompletedTask;
         }
     }
 }
