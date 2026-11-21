@@ -32,7 +32,10 @@ export function parseVietnamesePlate(
 
     // Only presentation separators may be discarded. No character substitution
     // (e.g., 73J -> 59V1, 99F1 -> 99E1, 47726 -> 22268) is trustworthy.
-    const text = rawText.toUpperCase().replace(/[\r\n]+/g, " ").trim();
+    const text = rawText
+        .toUpperCase()
+        .replace(/[\r\n]+/g, " ")
+        .trim();
     if (text.length > 512) return null;
 
     // Respect the series-letter constraint that the existing client documented.
@@ -47,20 +50,24 @@ export function parseVietnamesePlate(
     ) => {
         if (!validSeries.test(series[0])) return;
         if (vehicleType === "Car" && digits.length !== 5) return;
-        if (vehicleType === "Motorbike" && ![4, 5].includes(digits.length)) return;
-        const number = digits.length === 5
-            ? `${digits.slice(0, 3)}.${digits.slice(3)}`
-            : digits;
+        if (vehicleType === "Motorbike" && ![4, 5].includes(digits.length))
+            return;
+        const number =
+            digits.length === 5
+                ? `${digits.slice(0, 3)}.${digits.slice(3)}`
+                : digits;
         candidates.set(`${province}${series}-${number}`, vehicleType);
     };
 
     // Explicitly separated or two-line plates, including an OCR frame where
     // multiple vehicles are visible. Capture all candidates, not only the first.
-    const motorbike = /\b([0-9]{2})\s*[-.]?\s*([A-Z][0-9])\s*[-.\s]+([0-9]{3}\.[0-9]{2}|[0-9]{4,5})\b/g;
+    const motorbike =
+        /\b([0-9]{2})\s*[-.]?\s*([A-Z][0-9])\s*[-.\s]+([0-9]{3}\.[0-9]{2}|[0-9]{4,5})\b/g;
     for (const match of text.matchAll(motorbike)) {
         add(match[1], match[2], match[3].replace(/\D/g, ""), "Motorbike");
     }
-    const car = /\b([0-9]{2})\s*[-.]?\s*([A-Z])\s*[-.\s]+([0-9]{3}\.[0-9]{2}|[0-9]{5})\b/g;
+    const car =
+        /\b([0-9]{2})\s*[-.]?\s*([A-Z])\s*[-.\s]+([0-9]{3}\.[0-9]{2}|[0-9]{5})\b/g;
     for (const match of text.matchAll(car)) {
         add(match[1], match[2], match[3].replace(/\D/g, ""), "Car");
     }
@@ -198,7 +205,9 @@ async function getCachedOcrWorker() {
         // ALPR is processed by C# Backend (<300ms). Client-side tesseract is kept as dynamic fallback only.
         const tesseractPkg = "tesseract.js";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tesseract: any = await import(/* webpackIgnore: true */ tesseractPkg).catch(() => null);
+        const tesseract: any = await import(
+            /* webpackIgnore: true */ tesseractPkg
+        ).catch(() => null);
         if (!tesseract || !tesseract.createWorker) {
             cachedWorker = null;
             return null;

@@ -54,14 +54,22 @@ describe("plateOcr ANPR Engine (Method 1)", () => {
         });
 
         it("preserves actually observed vehicle numbers and series", () => {
-            expect(parseVietnamesePlate("99-E1\n222.68")?.plateNumber).toBe("99E1-222.68");
-            expect(parseVietnamesePlate("99-F1\n222.68")?.plateNumber).toBe("99F1-222.68");
-            expect(parseVietnamesePlate("99-E1\n477.26")?.plateNumber).toBe("99E1-477.26");
+            expect(parseVietnamesePlate("99-E1\n222.68")?.plateNumber).toBe(
+                "99E1-222.68",
+            );
+            expect(parseVietnamesePlate("99-F1\n222.68")?.plateNumber).toBe(
+                "99F1-222.68",
+            );
+            expect(parseVietnamesePlate("99-E1\n477.26")?.plateNumber).toBe(
+                "99E1-477.26",
+            );
             expect(parseVietnamesePlate("99-E1\n277 RA")).toBeNull();
         });
 
         it("refuses a frame containing different recognizable plates", () => {
-            expect(parseVietnamesePlate("59-V1 793.79 / 51A-123.45")).toBeNull();
+            expect(
+                parseVietnamesePlate("59-V1 793.79 / 51A-123.45"),
+            ).toBeNull();
             expect(parseVietnamesePlate("51A-123.45 51B-234.56")).toBeNull();
         });
 

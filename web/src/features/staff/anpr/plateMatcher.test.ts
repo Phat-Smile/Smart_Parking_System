@@ -161,7 +161,10 @@ describe("Plate Comparison & findBestPlateMatch", () => {
     });
 
     it("deduplicates alternate formatting of the same plate", () => {
-        const result = findBestPlateMatch("29A-12845", ["29A-128.45", "29A12845"]);
+        const result = findBestPlateMatch("29A-12845", [
+            "29A-128.45",
+            "29A12845",
+        ]);
         expect(result.bestMatch).toBe("29A-128.45");
         expect(result.isHighConfidence).toBe(true);
     });
