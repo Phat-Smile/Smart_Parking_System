@@ -45,6 +45,7 @@ import {
     payParkingSessionCash,
     recordExitArrival,
     reissueParkingSessionQr,
+    StaffActionReasonMaxLength,
 } from "./staffApi";
 import { useStaffData } from "./staffData";
 import type { SessionByQrResponse, StaffSession } from "./types";
@@ -119,6 +120,11 @@ export function StaffExitPage() {
     );
     const [extendLoading, setExtendLoading] = useState(false);
     const [extendSuccessMsg, setExtendSuccessMsg] = useState("");
+
+    // Modal states for manual verification override reason (US-STAFF-004)
+    const [manualVerifyModalOpen, setManualVerifyModalOpen] = useState(false);
+    const [manualVerifyReason, setManualVerifyReason] = useState("");
+    const [manualVerifyLoading, setManualVerifyLoading] = useState(false);
 
     // Precise 5-state calculation for Checklist items
     type CheckStatus =
@@ -380,8 +386,8 @@ export function StaffExitPage() {
         }
     }
 
-    // Xác minh đối soát thủ công tại cổng ra
-    async function handleManualVerify() {
+    // Mở modal xác minh đối soát thủ công tại cổng ra
+    function handleOpenManualVerifyModal() {
         if (!scannedSession) return;
         const gatePlate = detectedExitPlate.trim();
         if (!gatePlate) {
@@ -397,22 +403,49 @@ export function StaffExitPage() {
             announceWarning("Chưa có QR phiên đỗ từ khách.");
             return;
         }
+        setManualVerifyReason("");
+        setManualVerifyModalOpen(true);
+    }
 
+    // Xác nhận đối soát thủ công kèm lý do bắt buộc (1..500 ký tự)
+    async function handleConfirmManualVerify() {
+        if (!scannedSession) return;
+        const reason = manualVerifyReason.trim();
+        if (!reason || reason.length > StaffActionReasonMaxLength) {
+            return;
+        }
+        const gatePlate = detectedExitPlate.trim();
+        if (!gatePlate) {
+            setErrorMsg("Nhập biển số đọc ở cổng");
+            announceWarning("Nhập biển số đọc ở cổng");
+            setManualVerifyModalOpen(false);
+            return;
+        }
+        const qrToSend = qrInput.trim();
+        if (!qrToSend) {
+            setErrorMsg(
+                "Chưa có QR phiên đỗ từ khách. Vui lòng quét hoặc nhập mã QR từ vé của khách.",
+            );
+            announceWarning("Chưa có QR phiên đỗ từ khách.");
+            setManualVerifyModalOpen(false);
+            return;
+        }
+
+        setManualVerifyLoading(true);
         setLoading(true);
         setErrorMsg("");
         try {
             // Bước 1: Ghi nhận kiểm toán sự cố / xác minh thủ công
-            await manualVerifyExit(
-                scannedSession.id,
-                "Nhân viên đối soát giấy tờ xe thủ công tại quầy",
-            );
+            await manualVerifyExit(scannedSession.id, reason);
 
             // Bước 2: Bắt buộc hoàn tất đóng phiên hợp lệ qua /complete
             // Bất biến: /complete nhận biển số đọc ở cổng (gatePlate), tuyệt đối không gửi biển của phiên vào
             await completeParkingSession(scannedSession.id, {
                 plateNumber: gatePlate,
                 qrToken: qrToSend,
+                manualVerificationReason: reason,
             });
+            setManualVerifyModalOpen(false);
             completeExit(
                 scannedSession.id,
                 scannedSession.paymentMethod || "Cash",
@@ -428,6 +461,7 @@ export function StaffExitPage() {
             setErrorMsg(describeStaffError(err));
             announceWarning(describeStaffError(err));
         } finally {
+            setManualVerifyLoading(false);
             setLoading(false);
         }
     }
@@ -1137,8 +1171,8 @@ export function StaffExitPage() {
                                             ? "staff-btn-success"
                                             : "staff-btn-secondary"
                                     }`}
-                                    disabled={loading}
-                                    onClick={handleManualVerify}
+                                    disabled={loading || manualVerifyLoading}
+                                    onClick={handleOpenManualVerifyModal}
                                     title="Nhân viên đối soát thủ công giấy tờ xe tại quầy"
                                 >
                                     <ShieldCheck size={13} strokeWidth={2.2} />
@@ -2540,6 +2574,150 @@ export function StaffExitPage() {
                                 {extendLoading
                                     ? "Đang xử lý..."
                                     : "Xác nhận gia hạn"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal nhập lý do xác minh thủ công tại cổng ra */}
+            {manualVerifyModalOpen && (
+                <div
+                    className="staff-modal-backdrop"
+                    onClick={() =>
+                        !manualVerifyLoading && setManualVerifyModalOpen(false)
+                    }
+                >
+                    <div
+                        className="staff-modal-card staff-reissue-modal"
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="manual-verify-modal-title"
+                        style={{ maxWidth: 440 }}
+                    >
+                        <div
+                            className="staff-modal-head"
+                            style={{ padding: "16px 20px" }}
+                        >
+                            <div className="staff-ticket-head-titles">
+                                <h3
+                                    id="manual-verify-modal-title"
+                                    style={{ fontSize: 16, fontWeight: 700 }}
+                                >
+                                    Xác minh thủ công tại cổng ra
+                                </h3>
+                                <span
+                                    className="staff-ticket-head-sub"
+                                    style={{
+                                        fontSize: 12,
+                                        color: "var(--pw-admin-muted)",
+                                    }}
+                                >
+                                    Bắt buộc ghi nhận lý do kiểm toán khi đối
+                                    soát thực tế
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                className="staff-modal-close"
+                                disabled={manualVerifyLoading}
+                                onClick={() => setManualVerifyModalOpen(false)}
+                                aria-label="Đóng hộp thoại"
+                            >
+                                <X size={16} strokeWidth={2.2} />
+                            </button>
+                        </div>
+                        <div
+                            className="staff-modal-body"
+                            style={{ padding: "16px 20px" }}
+                        >
+                            <p
+                                style={{
+                                    fontSize: 13,
+                                    color: "var(--pw-admin-muted)",
+                                    marginBottom: 14,
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Lưu ý: Xác minh thủ công cho phép đối soát thực
+                                tế khi biển số đọc ở cổng không khớp hoặc xảy ra
+                                lỗi quang học. Bắt buộc nhập lý do chi tiết từ 1
+                                đến 500 ký tự.
+                            </p>
+                            <div className="staff-form-group">
+                                <label
+                                    htmlFor="manual-verify-reason-input"
+                                    style={{
+                                        fontWeight: 600,
+                                        fontSize: 13,
+                                        display: "block",
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    Lý do xác minh thủ công (tối đa 500 ký tự) *
+                                </label>
+                                <textarea
+                                    id="manual-verify-reason-input"
+                                    aria-label="Lý do xác minh thủ công (tối đa 500 ký tự) *"
+                                    className="staff-input font-sans"
+                                    rows={3}
+                                    maxLength={StaffActionReasonMaxLength}
+                                    style={{
+                                        width: "100%",
+                                        resize: "vertical",
+                                    }}
+                                    value={manualVerifyReason}
+                                    onChange={(e) =>
+                                        setManualVerifyReason(e.target.value)
+                                    }
+                                    placeholder="Nhập lý do xác minh thủ công..."
+                                />
+                                <div
+                                    style={{
+                                        fontSize: 11,
+                                        color: "var(--pw-admin-muted)",
+                                        textAlign: "right",
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    {manualVerifyReason.length}/
+                                    {StaffActionReasonMaxLength} ký tự
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            className="staff-modal-actions"
+                            style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: 10,
+                                padding: "12px 20px 16px",
+                            }}
+                        >
+                            <button
+                                type="button"
+                                className="staff-btn staff-btn-secondary"
+                                disabled={manualVerifyLoading}
+                                onClick={() => setManualVerifyModalOpen(false)}
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                type="button"
+                                className="staff-btn staff-btn-primary"
+                                disabled={
+                                    manualVerifyLoading ||
+                                    loading ||
+                                    !manualVerifyReason.trim() ||
+                                    manualVerifyReason.length >
+                                        StaffActionReasonMaxLength
+                                }
+                                onClick={handleConfirmManualVerify}
+                            >
+                                {manualVerifyLoading
+                                    ? "Đang xử lý..."
+                                    : "Xác nhận xác minh"}
                             </button>
                         </div>
                     </div>
